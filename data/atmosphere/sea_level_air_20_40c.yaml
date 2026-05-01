@@ -1,0 +1,97 @@
+schema_version: sea_level_air_properties_v1
+unit_system: SI
+description: Dry air properties at 1 atm sea-level pressure for 20-40 C.
+pressure_pa: 101325.0
+relative_humidity_percent: 0.0
+density_model: ideal_gas_dry_air
+viscosity_model: sutherland_law
+viscosity_reference:
+  reference_temperature_k: 273.15
+  reference_dynamic_viscosity_pa_s: 1.716e-5
+  sutherland_constant_k: 111.0
+interpolation_policy: linear_between_integer_celsius_rows
+rows:
+  - temperature_c: 20
+    density_kg_per_m3: 1.204085
+    dynamic_viscosity_pa_s: 1.813462496e-05
+    kinematic_viscosity_m2_per_s: 1.506092061e-05
+  - temperature_c: 21
+    density_kg_per_m3: 1.199991
+    dynamic_viscosity_pa_s: 1.818250642e-05
+    kinematic_viscosity_m2_per_s: 1.515219827e-05
+  - temperature_c: 22
+    density_kg_per_m3: 1.195926
+    dynamic_viscosity_pa_s: 1.823030932e-05
+    kinematic_viscosity_m2_per_s: 1.524368154e-05
+  - temperature_c: 23
+    density_kg_per_m3: 1.191887
+    dynamic_viscosity_pa_s: 1.827803397e-05
+    kinematic_viscosity_m2_per_s: 1.533537002e-05
+  - temperature_c: 24
+    density_kg_per_m3: 1.187876
+    dynamic_viscosity_pa_s: 1.832568068e-05
+    kinematic_viscosity_m2_per_s: 1.542726330e-05
+  - temperature_c: 25
+    density_kg_per_m3: 1.183892
+    dynamic_viscosity_pa_s: 1.837324976e-05
+    kinematic_viscosity_m2_per_s: 1.551936097e-05
+  - temperature_c: 26
+    density_kg_per_m3: 1.179935
+    dynamic_viscosity_pa_s: 1.842074152e-05
+    kinematic_viscosity_m2_per_s: 1.561166265e-05
+  - temperature_c: 27
+    density_kg_per_m3: 1.176003
+    dynamic_viscosity_pa_s: 1.846815627e-05
+    kinematic_viscosity_m2_per_s: 1.570416793e-05
+  - temperature_c: 28
+    density_kg_per_m3: 1.172098
+    dynamic_viscosity_pa_s: 1.851549431e-05
+    kinematic_viscosity_m2_per_s: 1.579687642e-05
+  - temperature_c: 29
+    density_kg_per_m3: 1.168219
+    dynamic_viscosity_pa_s: 1.856275593e-05
+    kinematic_viscosity_m2_per_s: 1.588978772e-05
+  - temperature_c: 30
+    density_kg_per_m3: 1.164366
+    dynamic_viscosity_pa_s: 1.860994146e-05
+    kinematic_viscosity_m2_per_s: 1.598290146e-05
+  - temperature_c: 31
+    density_kg_per_m3: 1.160537
+    dynamic_viscosity_pa_s: 1.865705117e-05
+    kinematic_viscosity_m2_per_s: 1.607621722e-05
+  - temperature_c: 32
+    density_kg_per_m3: 1.156734
+    dynamic_viscosity_pa_s: 1.870408538e-05
+    kinematic_viscosity_m2_per_s: 1.616973464e-05
+  - temperature_c: 33
+    density_kg_per_m3: 1.152956
+    dynamic_viscosity_pa_s: 1.875104437e-05
+    kinematic_viscosity_m2_per_s: 1.626345332e-05
+  - temperature_c: 34
+    density_kg_per_m3: 1.149202
+    dynamic_viscosity_pa_s: 1.879792845e-05
+    kinematic_viscosity_m2_per_s: 1.635737289e-05
+  - temperature_c: 35
+    density_kg_per_m3: 1.145473
+    dynamic_viscosity_pa_s: 1.884473789e-05
+    kinematic_viscosity_m2_per_s: 1.645149295e-05
+  - temperature_c: 36
+    density_kg_per_m3: 1.141768
+    dynamic_viscosity_pa_s: 1.889147301e-05
+    kinematic_viscosity_m2_per_s: 1.654581314e-05
+  - temperature_c: 37
+    density_kg_per_m3: 1.138086
+    dynamic_viscosity_pa_s: 1.893813408e-05
+    kinematic_viscosity_m2_per_s: 1.664033307e-05
+  - temperature_c: 38
+    density_kg_per_m3: 1.134429
+    dynamic_viscosity_pa_s: 1.898472139e-05
+    kinematic_viscosity_m2_per_s: 1.673505237e-05
+  - temperature_c: 39
+    density_kg_per_m3: 1.130794
+    dynamic_viscosity_pa_s: 1.903123524e-05
+    kinematic_viscosity_m2_per_s: 1.682997067e-05
+  - temperature_c: 40
+    density_kg_per_m3: 1.127183
+    dynamic_viscosity_pa_s: 1.907767590e-05
+    kinematic_viscosity_m2_per_s: 1.692508759e-05

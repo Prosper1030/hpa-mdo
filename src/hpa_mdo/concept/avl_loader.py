@@ -16,6 +16,9 @@ from hpa_mdo.aero.avl_exporter import stage_avl_airfoil_files
 from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.concept.aero_proxies import misc_cd_proxy, oswald_efficiency_proxy
+from hpa_mdo.concept.atmosphere import AirProperties
+from hpa_mdo.concept.atmosphere import LEGACY_DEFAULT_DYNAMIC_VISCOSITY_PA_S
+from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.config import BirdmanConceptConfig
 from hpa_mdo.concept.geometry import GeometryConcept, WingStation, build_linear_wing_stations
 from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
@@ -35,16 +38,15 @@ _TIP_SEED_AIRFOIL = "clarkysm"
 
 
 def _air_density_from_environment(cfg: BirdmanConceptConfig) -> float:
-    temp_c = float(cfg.environment.temperature_c)
-    temp_k = temp_c + 273.15
-    altitude_m = float(cfg.environment.altitude_m)
-    relative_humidity = max(0.0, min(1.0, float(cfg.environment.relative_humidity) / 100.0))
+    return _air_properties_from_environment(cfg).density_kg_per_m3
 
-    pressure_pa = 101325.0 * (1.0 - 2.25577e-5 * altitude_m) ** 5.25588
-    saturation_vapor_pa = 610.94 * math.exp((17.625 * temp_c) / (temp_c + 243.04))
-    vapor_pa = relative_humidity * saturation_vapor_pa
-    dry_pa = max(0.0, pressure_pa - vapor_pa)
-    return dry_pa / (287.058 * temp_k) + vapor_pa / (461.495 * temp_k)
+
+def _air_properties_from_environment(cfg: BirdmanConceptConfig) -> AirProperties:
+    return air_properties_from_environment(
+        temperature_c=float(cfg.environment.temperature_c),
+        relative_humidity_percent=float(cfg.environment.relative_humidity),
+        altitude_m=float(cfg.environment.altitude_m),
+    )
 
 
 def _speed_sweep_mps(cfg: BirdmanConceptConfig) -> tuple[float, ...]:
@@ -1036,6 +1038,7 @@ def avl_zone_payload_from_spanwise_load(
     *,
     spanwise_load: SpanwiseLoad,
     stations: tuple[WingStation, ...],
+    dynamic_viscosity_pa_s: float | None = None,
     case_label: str = "reference_avl_case",
     case_weight: float = 1.0,
     evaluation_speed_mps: float | None = None,
@@ -1047,6 +1050,11 @@ def avl_zone_payload_from_spanwise_load(
         spanwise_load=spanwise_load,
         stations=stations,
         zone_definitions=default_zone_definitions(),
+        dynamic_viscosity_pa_s=(
+            LEGACY_DEFAULT_DYNAMIC_VISCOSITY_PA_S
+            if dynamic_viscosity_pa_s is None
+            else float(dynamic_viscosity_pa_s)
+        ),
     )
     zone_positions = _zone_station_positions(
         stations=stations,
@@ -1145,7 +1153,8 @@ def load_zone_requirements_from_avl(
         zone_airfoil_paths=zone_airfoil_paths,
     )
 
-    air_density_kgpm3 = _air_density_from_environment(cfg)
+    air_properties = _air_properties_from_environment(cfg)
+    air_density_kgpm3 = air_properties.density_kg_per_m3
     reference_condition = select_avl_design_cases(
         cfg=cfg,
         concept=concept,
@@ -1204,6 +1213,7 @@ def load_zone_requirements_from_avl(
         case_payload = avl_zone_payload_from_spanwise_load(
             spanwise_load=station_load,
             stations=stations,
+            dynamic_viscosity_pa_s=air_properties.dynamic_viscosity_pa_s,
             case_label=case_label,
             case_weight=float(case_spec.get("case_weight", 1.0)),
             evaluation_speed_mps=evaluation_speed_mps,
@@ -1253,6 +1263,7 @@ def load_zone_requirements_from_avl(
         zone_payload["reference_speed_filter_model"] = str(
             selected_mass_case.get("reference_speed_filter_model", "not_available")
         )
+        zone_payload["air_properties"] = air_properties.to_dict()
         zone_payload["pre_avl_best_range_m"] = _numeric_value(selected_mass_case.get("best_range_m"))
         zone_payload["pre_avl_best_range_feasible_m"] = _numeric_value(
             selected_mass_case.get("best_range_feasible_m")

@@ -16,6 +16,7 @@ from hpa_mdo.concept.airfoil_worker import (
     PolarQuery,
     geometry_hash_from_coordinates,
 )
+from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.geometry import GeometryConcept, build_segment_plan
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
 
@@ -206,6 +207,17 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert summary["worker_backend"] == "test_stub"
     assert summary["worker_statuses"]
     assert all(status == "ok" for status in summary["worker_statuses"])
+    expected_air = air_properties_from_environment(
+        temperature_c=33.0,
+        relative_humidity_percent=80.0,
+        altitude_m=0.0,
+    )
+    assert summary["environment_air_properties"]["density_kg_per_m3"] == pytest.approx(
+        expected_air.density_kg_per_m3
+    )
+    assert summary["environment_air_properties"]["dynamic_viscosity_pa_s"] == pytest.approx(
+        expected_air.dynamic_viscosity_pa_s
+    )
     assert summary["artifact_trust"]["decision_grade"] is False
     assert summary["artifact_trust"]["decision_grade_status"] == "diagnostic_only"
     assert "stub_worker_detected" in summary["artifact_trust"]["not_decision_grade_reasons"]

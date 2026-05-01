@@ -20,6 +20,8 @@ from hpa_mdo.concept.airfoil_selection import (
     build_base_cst_template,
     select_zone_airfoil_templates_for_concepts,
 )
+from hpa_mdo.concept.atmosphere import AirProperties
+from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.avl_loader import load_zone_requirements_from_avl
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
@@ -336,22 +338,17 @@ def _default_spanwise_loader(
 
 
 def _air_density_from_environment(cfg: BirdmanConceptConfig) -> float:
-    """Approximate humid-air density from the configured environment."""
+    """Resolve air density from the configured environment and table."""
 
-    temp_c = float(cfg.environment.temperature_c)
-    temp_k = temp_c + 273.15
-    altitude_m = float(cfg.environment.altitude_m)
-    relative_humidity = max(0.0, min(1.0, float(cfg.environment.relative_humidity) / 100.0))
-    if altitude_m < -100.0 or altitude_m > 11000.0:
-        raise ValueError(
-            "environment.altitude_m must be within -100 m to 11000 m for the tropospheric density approximation."
-        )
+    return _air_properties_from_environment(cfg).density_kg_per_m3
 
-    pressure_pa = 101325.0 * (1.0 - 2.25577e-5 * altitude_m) ** 5.25588
-    saturation_vapor_pa = 610.94 * math.exp((17.625 * temp_c) / (temp_c + 243.04))
-    vapor_pa = relative_humidity * saturation_vapor_pa
-    dry_pa = max(0.0, pressure_pa - vapor_pa)
-    return dry_pa / (287.058 * temp_k) + vapor_pa / (461.495 * temp_k)
+
+def _air_properties_from_environment(cfg: BirdmanConceptConfig) -> AirProperties:
+    return air_properties_from_environment(
+        temperature_c=float(cfg.environment.temperature_c),
+        relative_humidity_percent=float(cfg.environment.relative_humidity),
+        altitude_m=float(cfg.environment.altitude_m),
+    )
 
 
 def _zone_midpoint_fraction(zone_name: str, zone_index: int, zone_count: int) -> float:
@@ -3480,7 +3477,8 @@ def run_birdman_concept_pipeline(
         xfoil_panel_count=cfg.polar_worker.xfoil_panel_count,
     )
     worker_backend = _worker_backend(worker)
-    air_density_kg_per_m3 = _air_density_from_environment(cfg)
+    air_properties = _air_properties_from_environment(cfg)
+    air_density_kg_per_m3 = air_properties.density_kg_per_m3
 
     evaluated_concepts: list[_EvaluatedConcept] = []
     selected_concept_dirs: list[Path] = []
@@ -4081,6 +4079,7 @@ def run_birdman_concept_pipeline(
                 },
                 "worker_backend": worker_backend,
                 "worker_statuses": summary_worker_statuses,
+                "environment_air_properties": air_properties.to_dict(),
                 "artifact_trust": artifact_trust,
                 "polar_worker": {
                     "persistent_worker_count": int(cfg.polar_worker.persistent_worker_count),

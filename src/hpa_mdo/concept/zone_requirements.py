@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from math import isclose
 from typing import Sequence
 
+from hpa_mdo.concept.atmosphere import LEGACY_DEFAULT_DYNAMIC_VISCOSITY_PA_S
 
-_AIR_VISCOSITY_PA_S = 1.8e-5
+_AIR_VISCOSITY_PA_S = LEGACY_DEFAULT_DYNAMIC_VISCOSITY_PA_S
 
 
 @dataclass(frozen=True)
@@ -110,6 +111,8 @@ def build_zone_requirements(
     spanwise_load,
     stations,
     zone_definitions: Sequence[ZoneDefinition],
+    *,
+    dynamic_viscosity_pa_s: float = _AIR_VISCOSITY_PA_S,
 ) -> dict[str, ZoneRequirement]:
     validated_zone_definitions = _validate_zone_definitions(zone_definitions)
     span_fractions = _station_span_fractions(stations)
@@ -128,6 +131,9 @@ def build_zone_requirements(
     velocity_mps = float(spanwise_load.velocity)
     if velocity_mps <= 0.0:
         raise ValueError("spanwise_load.velocity must be positive.")
+    dynamic_viscosity = float(dynamic_viscosity_pa_s)
+    if dynamic_viscosity <= 0.0:
+        raise ValueError("dynamic_viscosity_pa_s must be positive.")
 
     density_kg_per_m3 = 2.0 * float(spanwise_load.dynamic_pressure) / (velocity_mps**2)
     zone_requirements: dict[str, ZoneRequirement] = {}
@@ -151,7 +157,7 @@ def build_zone_requirements(
             if not in_zone:
                 continue
 
-            reynolds = density_kg_per_m3 * velocity_mps * float(chord_m) / _AIR_VISCOSITY_PA_S
+            reynolds = density_kg_per_m3 * velocity_mps * float(chord_m) / dynamic_viscosity
             zone_points.append(
                 ZoneOperatingPoint(
                     reynolds=reynolds,

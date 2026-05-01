@@ -7,6 +7,7 @@ import pytest
 
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.concept.airfoil_cst import CSTAirfoilTemplate, build_lofting_guides
+from hpa_mdo.concept.atmosphere import interpolate_sea_level_air_properties
 from hpa_mdo.concept.geometry import GeometryConcept, build_linear_wing_stations
 from hpa_mdo.concept.zone_requirements import ZoneDefinition
 from hpa_mdo.concept.zone_requirements import build_zone_requirements, default_zone_definitions
@@ -77,6 +78,38 @@ def test_build_zone_requirements_uses_station_geometry_for_zone_assignment() -> 
     weights = [point.weight for requirement in zone_requirements.values() for point in requirement.points]
     assert all(weight > 0.0 for weight in weights)
     assert len({round(weight, 12) for weight in weights}) > 1
+
+
+def test_build_zone_requirements_accepts_temperature_table_viscosity_for_reynolds() -> None:
+    concept = GeometryConcept(
+        span_m=16.0,
+        wing_area_m2=14.4,
+        root_chord_m=1.30,
+        tip_chord_m=0.50,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(1.0, 1.0, 4.0, 2.0),
+    )
+    stations = build_linear_wing_stations(concept, stations_per_half=5)
+    air_props = interpolate_sea_level_air_properties(33.5)
+
+    zone_requirements = build_zone_requirements(
+        _sample_load(),
+        stations,
+        default_zone_definitions(),
+        dynamic_viscosity_pa_s=air_props.dynamic_viscosity_pa_s,
+    )
+
+    expected_density = 2.0 * _sample_load().dynamic_pressure / (_sample_load().velocity**2)
+    expected_reynolds = (
+        expected_density
+        * _sample_load().velocity
+        * 1.30
+        / air_props.dynamic_viscosity_pa_s
+    )
+    assert zone_requirements["root"].points[0].reynolds == pytest.approx(expected_reynolds)
 
 
 @pytest.mark.parametrize(

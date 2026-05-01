@@ -200,6 +200,8 @@ Birdman rules / environment / rider power / mass
 
 歷史參考資料：`data/reference_aircraft/hpa_benchmarks.yaml` 保存 Daedalus 88 與 Light Eagle 的可解析 SI 基準值與來源 URL；目前用途是 mission-context reference，避免搜尋範圍排除歷史 HPA 量級，不是硬性標準，也不是要求 optimizer 複製歷史外型。
 
+空氣性質表：`data/atmosphere/sea_level_air_20_40c.yaml` 保存 20-40 C、海平面乾空氣的 density / dynamic viscosity / kinematic viscosity；`hpa_mdo.concept.atmosphere` 會對非整數溫度做線性插值，並在 `relative_humidity` 非零時修正 density。Birdman concept pipeline 與 AVL spanwise Reynolds 現在都會引用這組 resolved air properties。
+
 常用指令：
 
 ```bash

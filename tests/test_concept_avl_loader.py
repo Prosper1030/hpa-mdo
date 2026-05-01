@@ -8,6 +8,7 @@ import pytest
 
 from hpa_mdo.aero.base import SpanwiseLoad
 from hpa_mdo.concept import avl_loader as concept_avl_loader
+from hpa_mdo.concept.atmosphere import interpolate_sea_level_air_properties
 from hpa_mdo.concept.avl_loader import (
     avl_zone_payload_from_spanwise_load,
     build_avl_backed_spanwise_loader,
@@ -103,6 +104,31 @@ def test_avl_zone_payload_from_spanwise_load_preserves_station_y() -> None:
     assert payload["tip"]["points"][-1]["station_y_m"] == stations[-1].y_m
     assert payload["tip"]["points"][-1]["chord_m"] == pytest.approx(resampled.chord[-1])
     assert all(point["weight"] > 0.0 for zone in payload.values() for point in zone["points"])
+
+
+def test_avl_zone_payload_from_spanwise_load_uses_temperature_table_viscosity() -> None:
+    concept = _sample_concept()
+    stations = build_linear_wing_stations(concept, stations_per_half=7)
+    air_props = interpolate_sea_level_air_properties(33.5)
+    resampled = resample_spanwise_load_to_stations(
+        spanwise_load=_sample_spanwise_load(),
+        stations=stations,
+    )
+
+    payload = avl_zone_payload_from_spanwise_load(
+        spanwise_load=resampled,
+        stations=stations,
+        dynamic_viscosity_pa_s=air_props.dynamic_viscosity_pa_s,
+    )
+
+    expected_density = 2.0 * resampled.dynamic_pressure / (resampled.velocity**2)
+    expected_reynolds = (
+        expected_density
+        * resampled.velocity
+        * resampled.chord[0]
+        / air_props.dynamic_viscosity_pa_s
+    )
+    assert payload["root"]["points"][0]["reynolds"] == pytest.approx(expected_reynolds)
 
 
 def test_select_avl_reference_condition_uses_range_speed_for_max_range() -> None:
