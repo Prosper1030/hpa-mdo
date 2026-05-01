@@ -1,0 +1,71 @@
+{
+  "schema_version": "mesh_native_blackcat_vsp_su2_smoke.v1",
+  "route": "openvsp_mesh_native_blackcat_main_wing_to_gmsh_to_su2",
+  "source_files": {
+    "reference_vsp": "data/blackcat_004_origin.vsp3",
+    "reference_avl": "data/blackcat_004_full.avl"
+  },
+  "case_dir": "/tmp/hpa_mdo_blackcat_vsp_native_mesh_h0025_feature3",
+  "mesh": {
+    "node_count": 258378,
+    "volume_element_count": 717901,
+    "surface_marker_elements": {
+      "wing_wall": 469776,
+      "farfield": 518
+    },
+    "quality": {
+      "min_gamma": 3.809854493175232e-05,
+      "p01_gamma": 0.017847507380773585,
+      "min_sicn": 0.0004904571455051184,
+      "min_sige": 0.006789390162124962,
+      "non_positive_volume_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0
+    },
+    "quality_assessment": {
+      "status": "usable_for_solver_smoke_not_final_cfd",
+      "warnings": [
+        "very_low_min_gamma",
+        "low_p01_gamma"
+      ]
+    }
+  },
+  "su2_smoke": {
+    "solver": "INC_NAVIER_STOKES",
+    "wall_profile": "adiabatic_no_slip",
+    "iterations_requested": 150,
+    "final_iteration": 149,
+    "returncode": 0,
+    "marker_audit_status": "pass",
+    "final_coefficients": {
+      "cl": 0.2589146327,
+      "cd": 0.1531623408,
+      "cmx": -0.2706854298,
+      "cmy": -0.09049866671,
+      "cmz": 0.0460605816
+    },
+    "solver_exit": "maximum_iterations_reached_before_convergence"
+  },
+  "engineering_assessment": {
+    "pipeline_status": "vsp_native_geometry_mesh_and_su2_smoke_passed",
+    "cd_sign": "positive",
+    "aero_coefficients_interpretable_as_converged_cfd": false,
+    "why_not_final": [
+      "only_150_iterations",
+      "no_boundary_layer_prism_mesh",
+      "mesh_quality_has_low_gamma_warnings",
+      "no_mesh_refinement_stability_pair_yet"
+    ],
+    "next_step": "run a 1000+ iteration continuation or rerun on the same VSP-native mesh, then compare against a second mesh density."
+  },
+  "aborted_attempts": [
+    {
+      "case": "/tmp/hpa_mdo_blackcat_vsp_native_high_density_mesh",
+      "reason": "points_per_side_64_spanwise_4_h0018_did_not_write_mesh_after_long_cpu_run"
+    },
+    {
+      "case": "/tmp/hpa_mdo_blackcat_vsp_native_mesh_h0025",
+      "reason": "feature_refinement_boxes_were_accidentally_set_to_h0025_and_over_refined_large_feature_boxes"
+    }
+  ]
+}
