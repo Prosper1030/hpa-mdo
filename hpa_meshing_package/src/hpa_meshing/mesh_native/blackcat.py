@@ -1,11 +1,19 @@
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
-from .wing_surface import Reference, Station, WingSpec
+from .wing_surface import (
+    Reference,
+    Station,
+    SurfaceMesh,
+    WingSpec,
+    build_farfield_box_surface,
+    build_wing_surface,
+)
 
 
 @dataclass(frozen=True)
@@ -65,6 +73,101 @@ def load_blackcat_main_wing_spec_from_avl(
         reference=Reference(sref_full=sref, cref=cref, bref_full=bref),
         twist_axis_x=0.25,
     )
+
+
+def build_blackcat_main_wing_surfaces_from_avl(
+    avl_path: Path | str,
+    *,
+    points_per_side: int = 16,
+    farfield_upstream_factor: float = 1.5,
+    farfield_downstream_factor: float = 2.0,
+    farfield_lateral_factor: float = 1.2,
+    farfield_vertical_factor: float = 1.2,
+) -> tuple[WingSpec, SurfaceMesh, SurfaceMesh]:
+    spec = load_blackcat_main_wing_spec_from_avl(
+        avl_path,
+        points_per_side=points_per_side,
+    )
+    wing = build_wing_surface(spec)
+    farfield = build_farfield_box_surface(
+        wing,
+        upstream_factor=farfield_upstream_factor,
+        downstream_factor=farfield_downstream_factor,
+        lateral_factor=farfield_lateral_factor,
+        vertical_factor=farfield_vertical_factor,
+    )
+    return spec, wing, farfield
+
+
+def run_blackcat_main_wing_faceted_su2_smoke(
+    avl_path: Path | str,
+    case_dir: Path | str,
+    *,
+    points_per_side: int = 8,
+    mesh_size: float = 8.0,
+    velocity_mps: float = 6.5,
+    alpha_deg: float = 0.0,
+    max_iterations: int = 3,
+    solver: str = "INC_EULER",
+    solver_command: str = "SU2_CFD",
+    threads: int = 1,
+    farfield_upstream_factor: float = 1.5,
+    farfield_downstream_factor: float = 2.0,
+    farfield_lateral_factor: float = 1.2,
+    farfield_vertical_factor: float = 1.2,
+) -> dict:
+    from .gmsh_polyhedral import run_faceted_volume_su2_smoke
+
+    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+        avl_path,
+        points_per_side=points_per_side,
+        farfield_upstream_factor=farfield_upstream_factor,
+        farfield_downstream_factor=farfield_downstream_factor,
+        farfield_lateral_factor=farfield_lateral_factor,
+        farfield_vertical_factor=farfield_vertical_factor,
+    )
+    report = run_faceted_volume_su2_smoke(
+        wing,
+        farfield,
+        case_dir,
+        ref_area=spec.reference.sref_full,
+        ref_length=spec.reference.cref,
+        mesh_size=mesh_size,
+        velocity_mps=velocity_mps,
+        alpha_deg=alpha_deg,
+        max_iterations=max_iterations,
+        solver=solver,
+        solver_command=solver_command,
+        threads=threads,
+    )
+    enriched_report = {
+        **report,
+        "route": "blackcat_main_wing_mesh_native_faceted_su2_smoke",
+        "blackcat_source": {
+            "avl_path": str(avl_path),
+            "points_per_side": points_per_side,
+            "station_count": len(spec.stations),
+            "points_per_station": len(spec.stations[0].airfoil_xz),
+            "reference": {
+                "sref_full": spec.reference.sref_full,
+                "cref": spec.reference.cref,
+                "bref_full": spec.reference.bref_full,
+            },
+            "surface_metadata": wing.metadata,
+            "farfield_metadata": farfield.metadata,
+            "farfield_factors": {
+                "upstream": farfield_upstream_factor,
+                "downstream": farfield_downstream_factor,
+                "lateral": farfield_lateral_factor,
+                "vertical": farfield_vertical_factor,
+            },
+        },
+    }
+    Path(report["report_path"]).write_text(
+        json.dumps(enriched_report, indent=2),
+        encoding="utf-8",
+    )
+    return enriched_report
 
 
 def _clean_avl_lines(text: str) -> list[str]:

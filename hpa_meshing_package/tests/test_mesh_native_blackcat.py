@@ -1,8 +1,13 @@
 from pathlib import Path
+import shutil
 
 import pytest
 
-from hpa_meshing.mesh_native.blackcat import load_blackcat_main_wing_spec_from_avl
+from hpa_meshing.mesh_native.blackcat import (
+    build_blackcat_main_wing_surfaces_from_avl,
+    load_blackcat_main_wing_spec_from_avl,
+    run_blackcat_main_wing_faceted_su2_smoke,
+)
 from hpa_meshing.mesh_native.wing_surface import build_wing_surface
 
 
@@ -41,3 +46,48 @@ def test_blackcat_main_wing_spec_builds_watertight_mesh_native_surface():
     bounds = surface.bounds()
     assert bounds["y_min"] == pytest.approx(-16.5)
     assert bounds["y_max"] == pytest.approx(16.5)
+
+
+def test_build_blackcat_main_wing_surfaces_from_avl_materializes_farfield():
+    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+        AVL_PATH,
+        points_per_side=8,
+        farfield_upstream_factor=1.5,
+        farfield_downstream_factor=2.0,
+        farfield_lateral_factor=1.2,
+        farfield_vertical_factor=1.2,
+    )
+
+    assert spec.reference.sref_full == pytest.approx(35.175)
+    assert wing.marker_counts() == {"wing_wall": 168}
+    assert farfield.marker_counts() == {"farfield": 6}
+    assert farfield.bounds()["y_min"] < wing.bounds()["y_min"]
+    assert farfield.bounds()["y_max"] > wing.bounds()["y_max"]
+
+
+def test_run_blackcat_main_wing_faceted_su2_smoke_runs_when_su2_is_available(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    solver = shutil.which("SU2_CFD")
+    if solver is None:
+        pytest.skip("SU2_CFD not available")
+
+    report = run_blackcat_main_wing_faceted_su2_smoke(
+        AVL_PATH,
+        tmp_path / "blackcat_faceted_solver_case",
+        points_per_side=6,
+        mesh_size=10.0,
+        max_iterations=3,
+        solver_command=solver,
+        threads=1,
+    )
+
+    assert report["route"] == "blackcat_main_wing_mesh_native_faceted_su2_smoke"
+    assert report["run_status"] == "completed"
+    assert report["returncode"] == 0
+    assert report["marker_audit"]["status"] == "pass"
+    assert report["blackcat_source"]["station_count"] == 11
+    assert report["mesh_report"]["volume_element_count"] > 0
+    assert report["history"]["final_iteration"] == 2
+    assert report["history"]["final_coefficients"]["cl"] is not None
