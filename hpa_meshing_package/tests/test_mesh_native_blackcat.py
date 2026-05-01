@@ -6,6 +6,7 @@ import pytest
 from hpa_meshing.mesh_native.blackcat import (
     build_blackcat_main_wing_surfaces_from_avl,
     load_blackcat_main_wing_spec_from_avl,
+    run_blackcat_main_wing_faceted_refinement_ladder,
     run_blackcat_main_wing_faceted_su2_smoke,
 )
 from hpa_meshing.mesh_native.wing_surface import build_wing_surface
@@ -91,3 +92,29 @@ def test_run_blackcat_main_wing_faceted_su2_smoke_runs_when_su2_is_available(
     assert report["mesh_report"]["volume_element_count"] > 0
     assert report["history"]["final_iteration"] == 2
     assert report["history"]["final_coefficients"]["cl"] is not None
+
+
+def test_run_blackcat_main_wing_faceted_refinement_ladder_reports_scale_gap(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+
+    report = run_blackcat_main_wing_faceted_refinement_ladder(
+        AVL_PATH,
+        tmp_path / "blackcat_refinement_ladder",
+        points_per_side=6,
+        mesh_sizes=(14.0, 10.0),
+        target_volume_elements=1_000,
+        max_volume_elements=20_000,
+        write_su2=False,
+    )
+
+    assert report["route"] == "blackcat_main_wing_mesh_native_faceted_refinement_ladder"
+    assert report["status"] == "target_reached"
+    assert report["blackcat_source"]["station_count"] == 11
+    assert [case["volume_element_count"] for case in report["cases"]] == sorted(
+        case["volume_element_count"] for case in report["cases"]
+    )
+    assert report["selected_case"]["mesh_size"] == 10.0
+    assert report["selected_case"]["mesh_quality_gate"]["status"] == "pass"
+    assert report["engineering_assessment"]["aero_coefficients_interpretable"] is False

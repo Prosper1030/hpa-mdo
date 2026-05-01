@@ -170,6 +170,69 @@ def run_blackcat_main_wing_faceted_su2_smoke(
     return enriched_report
 
 
+def run_blackcat_main_wing_faceted_refinement_ladder(
+    avl_path: Path | str,
+    case_dir: Path | str,
+    *,
+    points_per_side: int = 8,
+    mesh_sizes: Sequence[float] = (14.0, 10.0, 8.0),
+    target_volume_elements: int = 1_000_000,
+    max_volume_elements: int = 250_000,
+    write_su2: bool = True,
+    farfield_upstream_factor: float = 1.5,
+    farfield_downstream_factor: float = 2.0,
+    farfield_lateral_factor: float = 1.2,
+    farfield_vertical_factor: float = 1.2,
+) -> dict:
+    from .gmsh_polyhedral import run_faceted_volume_refinement_ladder
+
+    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+        avl_path,
+        points_per_side=points_per_side,
+        farfield_upstream_factor=farfield_upstream_factor,
+        farfield_downstream_factor=farfield_downstream_factor,
+        farfield_lateral_factor=farfield_lateral_factor,
+        farfield_vertical_factor=farfield_vertical_factor,
+    )
+    report = run_faceted_volume_refinement_ladder(
+        wing,
+        farfield,
+        case_dir,
+        mesh_sizes=mesh_sizes,
+        target_volume_elements=target_volume_elements,
+        max_volume_elements=max_volume_elements,
+        write_su2=write_su2,
+    )
+    enriched_report = {
+        **report,
+        "route": "blackcat_main_wing_mesh_native_faceted_refinement_ladder",
+        "blackcat_source": {
+            "avl_path": str(avl_path),
+            "points_per_side": points_per_side,
+            "station_count": len(spec.stations),
+            "points_per_station": len(spec.stations[0].airfoil_xz),
+            "reference": {
+                "sref_full": spec.reference.sref_full,
+                "cref": spec.reference.cref,
+                "bref_full": spec.reference.bref_full,
+            },
+            "surface_metadata": wing.metadata,
+            "farfield_metadata": farfield.metadata,
+            "farfield_factors": {
+                "upstream": farfield_upstream_factor,
+                "downstream": farfield_downstream_factor,
+                "lateral": farfield_lateral_factor,
+                "vertical": farfield_vertical_factor,
+            },
+        },
+    }
+    Path(report["report_path"]).write_text(
+        json.dumps(enriched_report, indent=2),
+        encoding="utf-8",
+    )
+    return enriched_report
+
+
 def _clean_avl_lines(text: str) -> list[str]:
     lines: list[str] = []
     for raw in text.splitlines():
