@@ -179,8 +179,8 @@ def build_wing_boundary_layer_block(
             cells.append(
                 HexCell(
                     nodes=(
-                        *(node(station_index, local) for local in left_cell.nodes),
                         *(node(station_index + 1, local) for local in right_cell.nodes),
+                        *(node(station_index, local) for local in left_cell.nodes),
                     ),
                     marker=left_cell.marker,
                 )
