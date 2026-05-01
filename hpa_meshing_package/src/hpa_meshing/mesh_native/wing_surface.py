@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
-from typing import Literal
+from typing import Literal, Sequence
 
 
 TERule = Literal["sharp", "finite_thickness", "blunt"]
@@ -10,6 +10,16 @@ TipRule = Literal["planar_cap", "rounded_cap", "pinched"]
 RootRule = Literal["full", "symmetry", "wall_cap"]
 SideRule = Literal["full", "half"]
 Vertex = tuple[float, float, float]
+DEFAULT_ALLOWED_MARKERS = frozenset(
+    {
+        "wing_wall",
+        "farfield",
+        "symmetry",
+        "root_wall",
+        "wake_refinement_region",
+        "tip_refinement_region",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -104,7 +114,7 @@ def build_wing_surface(spec: WingSpec) -> SurfaceMesh:
         reverse=False,
     )
 
-    return SurfaceMesh(
+    mesh = SurfaceMesh(
         vertices=vertices,
         faces=faces,
         metadata={
@@ -118,6 +128,8 @@ def build_wing_surface(spec: WingSpec) -> SurfaceMesh:
             "root_rule": spec.root_rule,
         },
     )
+    validate_surface_mesh(mesh)
+    return mesh
 
 
 def _ordered_stations(spec: WingSpec) -> list[Station]:
@@ -127,7 +139,55 @@ def _ordered_stations(spec: WingSpec) -> list[Station]:
         raise ValueError("Station chord must be positive")
     if not spec.stations[0].airfoil_xz:
         raise ValueError("Station airfoil loop must not be empty")
+    for left, right in zip(spec.stations[:-1], spec.stations[1:]):
+        if right.y <= left.y:
+            raise ValueError("Station y values must be strictly increasing")
     return list(spec.stations)
+
+
+def validate_surface_mesh(
+    mesh: SurfaceMesh,
+    *,
+    allowed_markers: frozenset[str] = DEFAULT_ALLOWED_MARKERS,
+    required_markers: Sequence[str] = ("wing_wall",),
+    area_tolerance: float = 1.0e-14,
+) -> None:
+    if not mesh.vertices:
+        raise ValueError("Surface mesh has no vertices")
+    if not mesh.faces:
+        raise ValueError("Surface mesh has no faces")
+    for vertex in mesh.vertices:
+        if len(vertex) != 3 or not all(math.isfinite(value) for value in vertex):
+            raise ValueError(f"Invalid vertex coordinates: {vertex}")
+
+    edge_counts: dict[tuple[int, int], int] = {}
+    marker_counts: dict[str, int] = {}
+    max_node = len(mesh.vertices) - 1
+
+    for face in mesh.faces:
+        if face.marker not in allowed_markers:
+            raise ValueError(f"Unknown marker: {face.marker}")
+        if len(face.nodes) not in (3, 4):
+            raise ValueError("Only triangle and quad faces are supported")
+        if any(node < 0 or node > max_node for node in face.nodes):
+            raise ValueError(f"Face references node outside vertex array: {face.nodes}")
+
+        marker_counts[face.marker] = marker_counts.get(face.marker, 0) + 1
+        area = _face_area([mesh.vertices[node] for node in face.nodes])
+        if area <= area_tolerance:
+            raise ValueError(f"Zero or tiny face area: {area}")
+
+        for left, right in zip(face.nodes, face.nodes[1:] + face.nodes[:1]):
+            edge = tuple(sorted((left, right)))
+            edge_counts[edge] = edge_counts.get(edge, 0) + 1
+
+    for marker in required_markers:
+        if marker_counts.get(marker, 0) == 0:
+            raise ValueError(f"Required marker missing: {marker}")
+
+    bad_edges = {edge: count for edge, count in edge_counts.items() if count != 2}
+    if bad_edges:
+        raise ValueError(f"Non-watertight surface: {len(bad_edges)} bad edges")
 
 
 def _transform_station(station: Station, twist_axis_x: float) -> list[Vertex]:
@@ -171,6 +231,31 @@ def _centroid(points: list[Vertex]) -> Vertex:
         sum(point[0] for point in points) * scale,
         sum(point[1] for point in points) * scale,
         sum(point[2] for point in points) * scale,
+    )
+
+
+def _face_area(points: list[Vertex]) -> float:
+    if len(points) == 3:
+        return _triangle_area(points[0], points[1], points[2])
+    if len(points) == 4:
+        return _triangle_area(points[0], points[1], points[2]) + _triangle_area(
+            points[0],
+            points[2],
+            points[3],
+        )
+    raise ValueError("Only triangle and quad faces are supported")
+
+
+def _triangle_area(a: Vertex, b: Vertex, c: Vertex) -> float:
+    ab = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    ac = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    cross = (
+        ab[1] * ac[2] - ab[2] * ac[1],
+        ab[2] * ac[0] - ab[0] * ac[2],
+        ab[0] * ac[1] - ab[1] * ac[0],
+    )
+    return 0.5 * math.sqrt(
+        cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]
     )
 
 

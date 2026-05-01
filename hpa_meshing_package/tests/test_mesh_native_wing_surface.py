@@ -3,10 +3,13 @@ import math
 import pytest
 
 from hpa_meshing.mesh_native.wing_surface import (
+    Face,
     Reference,
     Station,
+    SurfaceMesh,
     WingSpec,
     build_wing_surface,
+    validate_surface_mesh,
 )
 
 
@@ -84,3 +87,71 @@ def test_build_wing_surface_applies_chord_and_twist_about_quarter_chord():
     assert rotated_te[1] == pytest.approx(1.0)
     assert rotated_te[2] == pytest.approx(-1.5)
     assert math.isfinite(mesh.metadata["planform_area_m2"])
+
+
+def test_build_wing_surface_rejects_non_increasing_station_y():
+    spec = WingSpec(
+        stations=[
+            Station(y=0.0, airfoil_xz=_rect_loop(), chord=1.0, twist_deg=0.0),
+            Station(y=0.0, airfoil_xz=_rect_loop(), chord=1.0, twist_deg=0.0),
+        ],
+        side="full",
+        te_rule="finite_thickness",
+        tip_rule="planar_cap",
+        root_rule="wall_cap",
+        reference=Reference(sref_full=1.0, cref=1.0, bref_full=1.0),
+    )
+
+    with pytest.raises(ValueError, match="strictly increasing"):
+        build_wing_surface(spec)
+
+
+def _closed_tetra_mesh(marker: str = "wing_wall") -> SurfaceMesh:
+    return SurfaceMesh(
+        vertices=[
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0),
+        ],
+        faces=[
+            Face(nodes=(0, 2, 1), marker=marker),
+            Face(nodes=(0, 1, 3), marker=marker),
+            Face(nodes=(1, 2, 3), marker=marker),
+            Face(nodes=(2, 0, 3), marker=marker),
+        ],
+    )
+
+
+def test_validate_surface_mesh_rejects_missing_required_marker():
+    mesh = _closed_tetra_mesh(marker="farfield")
+
+    with pytest.raises(ValueError, match="Required marker missing: wing_wall"):
+        validate_surface_mesh(mesh, required_markers=("wing_wall",))
+
+
+def test_validate_surface_mesh_rejects_unknown_marker():
+    mesh = _closed_tetra_mesh(marker="not_owned")
+
+    with pytest.raises(ValueError, match="Unknown marker: not_owned"):
+        validate_surface_mesh(mesh)
+
+
+def test_validate_surface_mesh_rejects_open_edges():
+    mesh = SurfaceMesh(
+        vertices=[(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)],
+        faces=[Face(nodes=(0, 1, 2), marker="wing_wall")],
+    )
+
+    with pytest.raises(ValueError, match="Non-watertight surface"):
+        validate_surface_mesh(mesh)
+
+
+def test_validate_surface_mesh_rejects_zero_area_face():
+    mesh = SurfaceMesh(
+        vertices=[(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (2.0, 0.0, 0.0)],
+        faces=[Face(nodes=(0, 1, 2), marker="wing_wall")],
+    )
+
+    with pytest.raises(ValueError, match="Zero or tiny face area"):
+        validate_surface_mesh(mesh)
