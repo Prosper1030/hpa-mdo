@@ -16,6 +16,7 @@
 | 想快速找到所有重要文件 | [docs/README.md](docs/README.md) | 文件索引，會告訴你哪些是正式 contract、哪些是研究/歷史文件 |
 | 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
 | 想看更細的近期進度與分軌方向 | [docs/EXECUTION_ROADMAP.md](docs/EXECUTION_ROADMAP.md) | 細化版執行路線圖；會告訴你不同卡點應該先推哪條線 |
+| 想接續「從頭設計人力飛機外型」這條線 | [docs/superpowers/plans/2026-04-22-birdman-upstream-concept-master-roadmap.md](docs/superpowers/plans/2026-04-22-birdman-upstream-concept-master-roadmap.md) + [docs/superpowers/reports/2026-04-24-birdman-mass-closure-rerun.md](docs/superpowers/reports/2026-04-24-birdman-mass-closure-rerun.md) | 這條線稱為 **Birdman Upstream Concept Line**，短名 `birdman-upstream-concept` |
 | 想把任務平行派給其他 AI | [project_state.yaml](project_state.yaml) + [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md) | 一份給機器讀的真相檔，加上一包可直接派工的 task pack |
 | 想接續主翼 mesh-native CFD / SU2 這條暫停線 | [mesh_native_cfd_line_freeze.v1.md](hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 這條線已暫停；先讀這份，裡面列出所有 mesh/SU2 方法、失敗原因、物理疑點與下一步 |
 | 想理解長期願景與五階段藍圖 | [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md) | 長期 blueprint，不是日常入口 |
@@ -39,6 +40,22 @@
   - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
   - [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
   - [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
+
+### 從頭設計 Birdman 概念外型
+
+這條線的溝通名稱是 **Birdman Upstream Concept Line**（短名 `birdman-upstream-concept`），目標是從規則、環境、騎手功率、質量與概念幾何開始，走到 AVL spanwise / zone requirements、bounded CST / airfoil selection、Julia/XFoil.jl polar evaluation，再回到 launch / turn / trim / local-stall / mission ranking。它不是 Black Cat 004 downstream `inverse design -> jig shape -> CFRP` 主線的替代品，而是把新的概念外型篩選好，再交給 downstream mainline 的上游入口。
+
+先讀：
+
+- [docs/superpowers/plans/2026-04-22-birdman-upstream-concept-master-roadmap.md](docs/superpowers/plans/2026-04-22-birdman-upstream-concept-master-roadmap.md)
+- [docs/superpowers/reports/2026-04-24-birdman-mass-closure-rerun.md](docs/superpowers/reports/2026-04-24-birdman-mass-closure-rerun.md)
+
+主要入口：
+
+- `configs/birdman_upstream_concept_baseline.yaml`
+- `scripts/birdman_upstream_concept_design.py`
+- `src/hpa_mdo/concept/`
+- `tools/julia/xfoil_worker/`
 
 ### AI / automation
 
@@ -149,6 +166,46 @@ graph LR
 - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
 - [docs/dual_beam_consumer_integration_guide.md](docs/dual_beam_consumer_integration_guide.md)
 - [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
+
+---
+
+## Birdman Upstream Concept Line（上游概念外型線）
+
+**溝通名稱**：`Birdman Upstream Concept Line`，中文可叫「Birdman 上游概念外型線」，短名 `birdman-upstream-concept`。
+
+這條線負責「從頭設計人力飛機概念外型」，也就是你提到的從 `wing span / wing loading / wing area / taper / twist` 開始，一路接到 AVL、airfoil/CST、Julia/XFoil.jl 與概念排名。它目前的流程是：
+
+```text
+Birdman rules / environment / rider power / mass
+  -> span_m + wing_loading_target_Npm2 + taper/twist concept sampling
+  -> derived wing_area_m2 + mass closure / gross-mass cap
+  -> AVL-backed spanwise / zone requirements
+  -> bounded CST / airfoil candidate selection
+  -> Julia/XFoil.jl polar screening + finalist full-alpha sweep
+  -> launch / turn / trim / local-stall / mission checks
+  -> concept_summary.json / concept_ranked_pool.json / frontier_summary.json
+  -> OpenVSP / downstream mainline handoff
+```
+
+目前進度：這條線已經不是假骨架。`scripts/birdman_upstream_concept_design.py` 可以用 `--worker-mode julia` 跑 real `julia_xfoil` worker，config 也已經把主要幾何變數改成 `span_m` + `wing_loading_target_Npm2`，`wing_area_m2` 則由翼載與 mass-closure 邏輯導出。`output/birdman_mass_closure_rerun_20260424/` 的最近一次 real Julia/XFoil run 評估了 40 個概念，沒有完全可行解；最佳診斷點約為 `span = 35.99 m`、`S = 38.09 m2`、`AR = 34.01`、`W/S = 27.35 N/m2`，主要失敗是 `local_stall + mission`，最佳航程約 `16.1 km`，距離 `42.195 km` 仍差很多。
+
+工程判讀：mass closure 已經修掉最危險的假訊號，現在不能再單純用「加大翼面積」買 stall margin，因為需要的 repair area 會超過目前 gross-mass cap。下一步比較合理的是在約 `S = 34..40 m2`、`W/S = 27..31 N/m2` 內改善 `CLmax`、twist、planform distribution，並同時審核 rider-power / endurance model，而不是繼續把低翼載、大面積 box 往外推。
+
+常用指令：
+
+```bash
+# real airfoil-worker route; may take minutes depending on cache and Julia state
+PYTHONPATH=src ./.venv/bin/python scripts/birdman_upstream_concept_design.py \
+  --config configs/birdman_upstream_concept_baseline.yaml \
+  --output-dir output/birdman_upstream_concept_run \
+  --worker-mode julia
+
+# fast plumbing smoke only; do not use stubbed output as engineering evidence
+PYTHONPATH=src ./.venv/bin/python scripts/birdman_upstream_concept_design.py \
+  --config configs/birdman_upstream_concept_baseline.yaml \
+  --output-dir .tmp/birdman_upstream_concept_stubbed \
+  --worker-mode stubbed
+```
 
 ---
 
