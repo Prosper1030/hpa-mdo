@@ -1,8 +1,13 @@
 from pathlib import Path
+import shutil
 
 import pytest
 
-from hpa_meshing.mesh_native.gmsh_polyhedral import write_faceted_volume_mesh
+from hpa_meshing.mesh_native.gmsh_polyhedral import (
+    run_faceted_volume_su2_smoke,
+    write_faceted_volume_mesh,
+    write_faceted_volume_su2_case,
+)
 from hpa_meshing.mesh_native.su2_structured import parse_su2_marker_summary
 from hpa_meshing.mesh_native.wing_surface import (
     Reference,
@@ -81,3 +86,62 @@ def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path
     assert set(su2_summary["markers"]) == {"wing_wall", "farfield"}
     assert su2_summary["markers"]["wing_wall"]["element_count"] > 0
     assert su2_summary["markers"]["farfield"]["element_count"] > 0
+
+
+def test_write_faceted_volume_su2_case_materializes_marker_audit(tmp_path: Path):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    report = write_faceted_volume_su2_case(
+        wing,
+        farfield,
+        tmp_path / "faceted_case",
+        ref_area=2.0,
+        ref_length=1.0,
+        mesh_size=2.0,
+        max_iterations=3,
+    )
+
+    assert report["route"] == "mesh_native_faceted_gmsh_volume_su2_smoke_case"
+    assert report["mesh_report"]["status"] == "meshed"
+    assert report["mesh_report"]["volume_element_count"] > 0
+    assert report["marker_audit"]["status"] == "pass"
+    assert Path(report["mesh_path"]).exists()
+    assert Path(report["runtime_cfg_path"]).exists()
+    assert Path(report["report_path"]).exists()
+
+
+def test_run_faceted_volume_su2_smoke_runs_when_su2_is_available(tmp_path: Path):
+    pytest.importorskip("gmsh")
+    solver = shutil.which("SU2_CFD")
+    if solver is None:
+        pytest.skip("SU2_CFD not available")
+
+    wing, farfield = _wing_and_close_farfield()
+    report = run_faceted_volume_su2_smoke(
+        wing,
+        farfield,
+        tmp_path / "faceted_solver_case",
+        ref_area=2.0,
+        ref_length=1.0,
+        mesh_size=2.0,
+        max_iterations=3,
+        solver_command=solver,
+        threads=1,
+    )
+
+    assert report["run_status"] == "completed"
+    assert report["returncode"] == 0
+    assert report["marker_audit"]["status"] == "pass"
+    assert report["mesh_report"]["volume_element_count"] > 0
+    assert Path(report["history_path"]).exists()
+    assert Path(report["solver_log_path"]).exists()
+    assert report["history"]["final_iteration"] == 2
+    assert report["history"]["final_coefficients"]["cl"] is not None
+    assert report["history"]["final_coefficients"]["cd"] is not None
+    assert report["engineering_assessment"] == {
+        "solver_readability": "pass",
+        "marker_ownership": "pass",
+        "aero_coefficients_interpretable": False,
+        "reason": "faceted_wing_tet_smoke_not_converged",
+    }
