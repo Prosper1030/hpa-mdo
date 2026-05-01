@@ -53,6 +53,7 @@
 | `station_seam_side_aware_projected_pcurve_builder_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_projected_pcurve_builder_probe/main_wing_station_seam_side_aware_projected_pcurve_builder_probe.v1.json` |
 | `station_seam_side_aware_export_opcode_variant_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_export_opcode_variant_probe/main_wing_station_seam_side_aware_export_opcode_variant_probe.v1.json` |
 | `station_seam_export_metadata_source_audit` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_metadata_source_audit/main_wing_station_seam_export_metadata_source_audit.v1.json` |
+| `station_seam_export_format_boundary_probe` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_format_boundary_probe/main_wing_station_seam_export_format_boundary_probe.v1.json` |
 | `convergence_gate` | `blocked` | `real` | `/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.json` |
 
 ## Blocking Reasons
@@ -101,10 +102,12 @@
 - `side_aware_station_projected_pcurve_builder_not_recovered`
 - `side_aware_export_opcode_variants_not_recovered`
 - `export_pcurve_metadata_generation_not_owned_by_hpa_mdo`
+- `step_export_station_metadata_gate_suspect`
+- `non_step_format_station_gate_reader_unavailable`
 
 ## Next Actions
 
-- `inspect_opencsm_egads_step_export_metadata_controls_or_add_owned_occ_export_path`
+- `add_brep_capable_station_hotspot_reader_or_occ_import_gate`
 - `run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean`
 - `preserve_synthetic_su2_as_wiring_evidence_only`
 

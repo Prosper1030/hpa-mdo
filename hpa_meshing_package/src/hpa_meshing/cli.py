@@ -190,6 +190,10 @@ from .main_wing_station_seam_export_metadata_source_audit import (
     build_main_wing_station_seam_export_metadata_source_audit_report,
     write_main_wing_station_seam_export_metadata_source_audit_report,
 )
+from .main_wing_station_seam_export_format_boundary_probe import (
+    build_main_wing_station_seam_export_format_boundary_probe_report,
+    write_main_wing_station_seam_export_format_boundary_probe_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -1339,6 +1343,54 @@ def cmd_main_wing_station_seam_export_metadata_source_audit(
     return 0 if report.audit_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_export_format_boundary_probe(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    profile_parametrization_audit_path = (
+        None
+        if args.profile_parametrization_audit is None
+        else Path(args.profile_parametrization_audit)
+    )
+    export_metadata_source_audit_path = (
+        None
+        if args.export_metadata_source_audit is None
+        else Path(args.export_metadata_source_audit)
+    )
+    materialization_root = (
+        None if args.materialization_root is None else Path(args.materialization_root)
+    )
+    external_src_root = (
+        None if args.external_src_root is None else Path(args.external_src_root)
+    )
+    report = build_main_wing_station_seam_export_format_boundary_probe_report(
+        profile_parametrization_audit_path=profile_parametrization_audit_path,
+        export_metadata_source_audit_path=export_metadata_source_audit_path,
+        formats=args.formats,
+        materialize_formats=args.materialize_formats,
+        materialization_root=materialization_root,
+        timeout_seconds=args.timeout_seconds,
+        target_upper_side_point_count=args.target_upper_side_point_count,
+        target_lower_side_point_count=args.target_lower_side_point_count,
+        external_src_root=external_src_root,
+    )
+    write_main_wing_station_seam_export_format_boundary_probe_report(
+        out_dir,
+        report=report,
+        profile_parametrization_audit_path=profile_parametrization_audit_path,
+        export_metadata_source_audit_path=export_metadata_source_audit_path,
+        formats=args.formats,
+        materialize_formats=args.materialize_formats,
+        materialization_root=materialization_root,
+        timeout_seconds=args.timeout_seconds,
+        target_upper_side_point_count=args.target_upper_side_point_count,
+        target_lower_side_point_count=args.target_lower_side_point_count,
+        external_src_root=external_src_root,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.probe_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -2466,6 +2518,58 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_export_metadata_source_audit.set_defaults(
         func=cmd_main_wing_station_seam_export_metadata_source_audit
+    )
+
+    main_wing_station_seam_export_format_boundary_probe = sub.add_parser(
+        "main-wing-station-seam-export-format-boundary-probe"
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--profile-parametrization-audit",
+        type=str,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--export-metadata-source-audit",
+        type=str,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--formats",
+        nargs="+",
+        default=None,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--materialize-formats",
+        action="store_true",
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--materialization-root",
+        type=str,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=120.0,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--target-upper-side-point-count",
+        type=int,
+        default=30,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--target-lower-side-point-count",
+        type=int,
+        default=30,
+    )
+    main_wing_station_seam_export_format_boundary_probe.add_argument(
+        "--external-src-root",
+        type=str,
+    )
+    main_wing_station_seam_export_format_boundary_probe.set_defaults(
+        func=cmd_main_wing_station_seam_export_format_boundary_probe
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

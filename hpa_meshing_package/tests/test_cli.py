@@ -856,6 +856,48 @@ def test_parser_supports_main_wing_station_seam_export_metadata_source_audit_com
     assert args.external_src_root == "artifacts/external-src"
 
 
+def test_parser_supports_main_wing_station_seam_export_format_boundary_probe_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-export-format-boundary-probe",
+            "--out",
+            "artifacts/main_wing_export_format_boundary",
+            "--profile-parametrization-audit",
+            "artifacts/main_wing/profile_audit.json",
+            "--export-metadata-source-audit",
+            "artifacts/main_wing/source_audit.json",
+            "--formats",
+            "step",
+            "brep",
+            "egads",
+            "--materialize-formats",
+            "--materialization-root",
+            "artifacts/main_wing/formats",
+            "--timeout-seconds",
+            "45",
+            "--target-upper-side-point-count",
+            "28",
+            "--target-lower-side-point-count",
+            "29",
+            "--external-src-root",
+            "artifacts/external-src",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-export-format-boundary-probe"
+    assert args.out == "artifacts/main_wing_export_format_boundary"
+    assert args.profile_parametrization_audit == "artifacts/main_wing/profile_audit.json"
+    assert args.export_metadata_source_audit == "artifacts/main_wing/source_audit.json"
+    assert args.formats == ["step", "brep", "egads"]
+    assert args.materialize_formats is True
+    assert args.materialization_root == "artifacts/main_wing/formats"
+    assert args.timeout_seconds == 45.0
+    assert args.target_upper_side_point_count == 28
+    assert args.target_lower_side_point_count == 29
+    assert args.external_src_root == "artifacts/external-src"
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(

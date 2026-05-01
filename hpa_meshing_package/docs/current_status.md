@@ -147,8 +147,12 @@ negative-control evidence, not a product repair. The export metadata source
 audit then records that hpa-mdo owns CSM section coordinates, opcode policy,
 rule grouping, and the `DUMP` invocation, but rule-loft PCurve metadata, EGADS
 STEP export metadata, and OCCT ShapeAnalysis truth are external to the current
-CSM-writer layer. The next gate is a STEP / BREP / EGADS format-boundary probe
-or an owned OCC export path. The export-source audit
+CSM-writer layer. The format-boundary probe now materializes the same side-aware
+CSM through STEP, BREP, and EGADS; STEP remains station-metadata suspect, BREP is
+Gmsh-importable for station-curve selection but not yet comparable because the
+hotspot gate still uses a STEP reader, and EGADS is unavailable to the current
+Gmsh/OCC importer. The next gate is a BREP-capable station hotspot reader or
+owned OCC import gate. The export-source audit
 then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
@@ -158,7 +162,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`inspect_opencsm_egads_step_export_metadata_controls_or_add_owned_occ_export_path`.
+`add_brep_capable_station_hotspot_reader_or_occ_import_gate`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -558,9 +562,26 @@ This writes `main_wing_station_seam_export_metadata_source_audit.v1.json` and
 construction only (`section_coordinates`, `sketch_opcode_policy`,
 `rule_grouping`, `dump_invocation`), while rule-loft PCurve metadata, EGADS STEP
 export metadata, and OCCT ShapeAnalysis semantics are external to the current
-CSM writers. Because the opcode variants are negative controls, the next
-minimum probe should compare the same side-aware candidate through STEP, BREP,
+CSM writers. Because the opcode variants are negative controls, the follow-up
+format-boundary probe compares the same side-aware candidate through STEP, BREP,
 and EGADS exports before any mesh handoff or solver-budget work.
+
+The main-wing station-seam export format-boundary probe is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-export-format-boundary-probe --out .tmp/runs/main_wing_station_seam_export_format_boundary_probe --formats step brep egads --materialize-formats --external-src-root /Users/linyuan/.local/esp/current/EngSketchPad
+```
+
+This writes `main_wing_station_seam_export_format_boundary_probe.v1.json` and
+`.md`. The committed result is
+`export_format_boundary_step_suspect_non_step_validation_unavailable`: STEP,
+BREP, and EGADS all materialize from the same side-aware CSM; STEP remains
+station-metadata suspect, BREP can be imported by Gmsh for station-curve
+selection, and EGADS is not importable by the current Gmsh/OCC path. The current
+BREP validation is not comparable because the existing hotspot reader still uses
+a STEP reader internally. Do not treat BREP as failed or recovered until a
+BREP-capable station hotspot reader or owned OCC import gate exists.
 
 The first real fairing geometry smoke is emitted by:
 

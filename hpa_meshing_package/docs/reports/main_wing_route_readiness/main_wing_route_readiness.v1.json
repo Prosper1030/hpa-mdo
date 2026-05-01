@@ -3845,6 +3845,71 @@
       ]
     },
     {
+      "stage": "station_seam_export_format_boundary_probe",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_format_boundary_probe/main_wing_station_seam_export_format_boundary_probe.v1.json",
+      "observed": {
+        "probe_status": "export_format_boundary_step_suspect_non_step_validation_unavailable",
+        "source_csm_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/artifacts/provider_geometry/artifacts/geometry_validation/artifacts/providers/esp_rebuilt/esp_runtime/rebuild.csm",
+        "formats": [
+          "step",
+          "brep",
+          "egads"
+        ],
+        "materialize_formats": true,
+        "format_summary": {
+          "format_count": 3,
+          "materialized_format_count": 3,
+          "validated_format_count": 3,
+          "passed_format_count": 0,
+          "suspect_format_count": 1,
+          "validation_unavailable_format_count": 2,
+          "passed_formats": [],
+          "suspect_formats": [
+            "step"
+          ],
+          "validation_unavailable_formats": [
+            "brep",
+            "egads"
+          ]
+        },
+        "source_evidence": {
+          "external_src_root": "/Users/linyuan/.local/esp/current/EngSketchPad",
+          "opencsm_dump_supported_extensions": [
+            ".stp",
+            ".step",
+            ".brep",
+            ".egads"
+          ],
+          "egads_save_model_branches": [
+            "STEPControl_Writer",
+            ".brep",
+            ".egads"
+          ],
+          "opencsm_header_path": "/Users/linyuan/.local/esp/current/EngSketchPad/include/OpenCSM.h",
+          "egads_io_source_path": "/Users/linyuan/.local/esp/current/EngSketchPad/src/EGADS/src/egadsIO.cpp"
+        },
+        "engineering_findings": [
+          "export_format_boundary_probe_captured",
+          "opencsm_dump_supports_step_brep_egads_extensions",
+          "step_export_station_metadata_gate_suspect",
+          "non_step_format_station_gate_reader_unavailable",
+          "some_export_format_validations_unavailable"
+        ],
+        "next_actions": [
+          "add_brep_capable_station_hotspot_reader_or_occ_import_gate",
+          "rerun_format_boundary_probe_with_comparable_non_step_gate",
+          "keep_mesh_handoff_blocked_until_non_step_gate_is_comparable"
+        ]
+      },
+      "blockers": [
+        "step_export_station_metadata_gate_suspect",
+        "non_step_format_station_gate_reader_unavailable",
+        "side_aware_candidate_mesh_handoff_not_run"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -3907,10 +3972,12 @@
     "side_aware_station_pcurve_metadata_builder_not_recovered",
     "side_aware_station_projected_pcurve_builder_not_recovered",
     "side_aware_export_opcode_variants_not_recovered",
-    "export_pcurve_metadata_generation_not_owned_by_hpa_mdo"
+    "export_pcurve_metadata_generation_not_owned_by_hpa_mdo",
+    "step_export_station_metadata_gate_suspect",
+    "non_step_format_station_gate_reader_unavailable"
   ],
   "next_actions": [
-    "inspect_opencsm_egads_step_export_metadata_controls_or_add_owned_occ_export_path",
+    "add_brep_capable_station_hotspot_reader_or_occ_import_gate",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

@@ -563,6 +563,57 @@ def test_main_wing_route_readiness_includes_export_metadata_source_audit(
     )
 
 
+def test_main_wing_route_readiness_includes_export_format_boundary_probe(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_export_format_boundary_probe"
+        / "main_wing_station_seam_export_format_boundary_probe.v1.json",
+        {
+            "schema_version": "main_wing_station_seam_export_format_boundary_probe.v1",
+            "probe_status": "export_format_boundary_step_loss_suspected",
+            "source_csm_path": "artifacts/rebuild.csm",
+            "formats": ["step", "brep", "egads"],
+            "materialize_formats": True,
+            "format_summary": {
+                "materialized_format_count": 3,
+                "validated_format_count": 3,
+                "passed_formats": ["brep"],
+                "suspect_formats": ["step"],
+            },
+            "source_evidence": {
+                "opencsm_dump_supported_extensions": [
+                    ".stp",
+                    ".brep",
+                    ".egads",
+                ],
+            },
+            "engineering_findings": [
+                "step_serialization_or_step_import_metadata_loss_suspected"
+            ],
+            "blocking_reasons": [
+                "step_serialization_or_step_import_metadata_loss_suspected",
+                "recovered_non_step_format_mesh_handoff_not_run",
+            ],
+            "next_actions": [
+                "run_gmsh_handoff_on_recovered_brep_without_promoting_default"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+    stages = {stage.stage: stage for stage in report.stages}
+
+    stage = stages["station_seam_export_format_boundary_probe"]
+    assert stage.status == "blocked"
+    assert stage.evidence_kind == "real"
+    assert stage.observed["probe_status"] == "export_format_boundary_step_loss_suspected"
+    assert stage.observed["format_summary"]["passed_formats"] == ["brep"]
+    assert "recovered_non_step_format_mesh_handoff_not_run" in stage.blockers
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

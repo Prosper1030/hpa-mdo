@@ -48,7 +48,7 @@
 ## Experimental / Placeholder Areas
 
 - `esp_rebuilt` 目前已經能在本機 materialize provider-normalized geometry，但仍停留在 experimental：它不是 formal `v1` route；main-wing 已經能用 coarse bounded sizing 寫出 real `mesh_handoff.v1`，但這仍不是 production default mesh。
-- `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在；`main_wing` 已有 real ESP/VSP geometry、real Gmsh mesh handoff、real SU2 handoff、solver executed but not converged artifact、reference-geometry warn gate，以及 station-seam BRep / same-parameter / ShapeFix / export-source / export-strategy / internal-cap / profile-resample strategy / profile-resample BRep validation / profile-resample repair feasibility / profile parametrization audit / side-aware parametrization candidate / side-aware BRep validation / side-aware PCurve residual diagnostic / side-aware metadata repair probe / side-aware PCurve metadata builder probe / side-aware projected PCurve builder probe / side-aware export opcode variant probe / export metadata source audit / mesh-quality hotspot evidence；目前主翼產品化 blocker 是 export PCurve metadata generation 本身，不是 simple opcode variant、mesh handoff、production CFD pass；`tail_wing` 已有 real geometry / surface / blocker probes，`fairing_solid` 已有 real VSP geometry smoke、bounded real mesh handoff probe、real SU2 handoff materialization probe 與 external reference override handoff，但都還不是正式可交付 CFD 路徑。
+- `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在；`main_wing` 已有 real ESP/VSP geometry、real Gmsh mesh handoff、real SU2 handoff、solver executed but not converged artifact、reference-geometry warn gate，以及 station-seam BRep / same-parameter / ShapeFix / export-source / export-strategy / internal-cap / profile-resample strategy / profile-resample BRep validation / profile-resample repair feasibility / profile parametrization audit / side-aware parametrization candidate / side-aware BRep validation / side-aware PCurve residual diagnostic / side-aware metadata repair probe / side-aware PCurve metadata builder probe / side-aware projected PCurve builder probe / side-aware export opcode variant probe / export metadata source audit / export format-boundary probe / mesh-quality hotspot evidence；目前主翼產品化 blocker 是 STEP station metadata gate suspect 且 non-STEP station gate 仍不可比，不是 simple opcode variant、mesh handoff、production CFD pass；`tail_wing` 已有 real geometry / surface / blocker probes，`fairing_solid` 已有 real VSP geometry smoke、bounded real mesh handoff probe、real SU2 handoff materialization probe 與 external reference override handoff，但都還不是正式可交付 CFD 路徑。
 - 目前只有 `gmsh_thin_sheet_aircraft_assembly` 會走真實 Gmsh meshing；其他 route 會回 `route_stage=placeholder`。
 - `shell_v4` 是 BL / solver-entry diagnostic branch，不是任意主翼 product route；BL route 只有在 hpa-mdo owns transition sleeve / receiver faces / interface loops / layer-drop events 之後才可 promotion。
 
@@ -58,6 +58,7 @@
 - 這台 Mac mini M4（macOS 26.4.1 / arm64）目前可用的 runtime truth 是：`serveESP` / `serveCSM` 在 `PATH` 上、`ocsm` 仍缺席，但 batch 路徑可以直接用 `serveCSM`。所以 `detect_esp_runtime()` 會回 `available=true`、`batch_binary=serveCSM`，provider 已可執行。
 - 2026-04-30 的 `main_wing_esp_rebuilt_geometry_smoke.v1` 已經把主翼單體 real geometry evidence 收進 committed report：它從 `blackcat_004_origin.vsp3` 選到 `Main Wing`，產生 normalized STEP，topology 為 `1 body / 32 surfaces / 1 volume`。
 - 目前真正的 blocker 已經往後移：coarse bounded real mesh handoff 和 real SU2 handoff 都已經 materialize，`SU2_CFD` 也能執行並寫出 `history.csv`；但 12-iteration smoke 和 OpenVSP-reference 80-iteration follow-up 都是 `fail/not_comparable`，80-iteration run 已保留 `surface.csv` 與 `forces_breakdown.dat`，main-wing reference chord 已可用 OpenVSP/VSPAERO `cref` cross-check，reference area / moment origin 仍是比較性 blocker。後續 station-seam evidence 又把更早的幾何 blocker 定位到曲線 36 / 50：PCurves 存在，但 curve-3D-with-PCurve / same-parameter / vertex-tolerance checks 不一致，`BRepLib.SameParameter` tolerance sweep 不能修復，25 次 `ShapeFix_Edge` operation/tolerance 組合也不能修復；export-source audit 進一步確認 `rebuild.csm` 是單一 OpenCSM `rule` loft over 11 sketch sections，兩個 defect station 都落在 internal rule sections。split-bay export-strategy probe 能把 target stations 變成 rule boundaries，但 no-union candidate 是 3 volumes，union candidate 雖是 1 volume 卻沒有保住 full-span `y=-16.5..16.5 m` bounds；internal-cap probe 又確認 no-union 在兩個 target stations 都有 duplicate cap faces，而 union 在 `y=13.5 m` 留下 6 個 cap fragments 並截斷右半翼。profile-resample strategy probe 則把來源 section profile counts 從 `57/59` 統一到 `59`、保持單一 `rule`，materialize 成 `1 volume / 32 surfaces` 且 target stations 無 cap faces；profile-resample BRep validation 再用 candidate station-y geometry 選出 6 條 station edges，確認 PCurves 存在但 curve-3D-with-PCurve / same-parameter-by-face / vertex-tolerance-by-face 仍 suspect；profile-resample repair feasibility 對 6 條 station edges 跑 25 個 ShapeFix / SameParameter operation-tolerance 組合，`recovered_attempt_count = 0`；profile parametrization audit 進一步把 4 條短 station curves 對回 terminal `linseg` fragments、2 條長 station curves 對回 spline rest arcs，且 6 條 station-edge PCurve consistency 全失敗；side-aware parametrization candidate 已保留 TE/LE anchors、用 30/30 上下表面點數 materialize 成 `1 volume / 32 surfaces` 且無 target station cap faces；side-aware BRep validation 也用 candidate station-y geometry 選出 6 條 station edges，確認沒有 replay 舊 fixture tags，但 6 / 6 station-edge PCurve consistency 仍 fail；side-aware PCurve residual diagnostic 進一步 sample 12 個 edge-face pairs，3D-vs-PCurve residual max 是 `0.0 m`，但 12 / 12 ShapeAnalysis / same-parameter / vertex-tolerance flags 仍 fail，且 PCurve domain 是 unbounded `Geom2d_Line`；side-aware metadata repair probe 再對這 6 條 station edges 跑 5 個 `BRepLib.SameParameter` tolerances 與 25 個 `ShapeFix_Edge` operation/tolerance attempts，兩者 `recovered_attempt_count = 0`；side-aware PCurve metadata builder probe 接著測 4 個 bounded-existing-PCurve strategies，能把 12 / 12 PCurve domains 變 bounded，但完整 metadata gate 仍是 0 / 12 通過；side-aware projected PCurve builder probe 再測 `GeomProjLib.Curve2d`、sampled interpolate、sampled approximate 三條路，36 / 36 operations 都能建 bounded PCurve 且 endpoint orientation 全通過，sampled projection residual max 是 `1.8343894894033213e-15 m`，但完整 metadata gate 仍是 0 / 12 通過；side-aware export opcode variant probe 再測 `upper_lower_spline_split` 與 `all_linseg` report-local OpenCSM 候選，前者 materialize 成 `1 volume / 52 surfaces` 但 BRep gate 仍 suspect，後者 materialize 成 `1 volume / 582 surfaces` 並被 surface-count guard 擋下，確認 simple opcode variant 不是產品化修復；export metadata source audit 進一步確認 hpa-mdo 目前 owns section coordinates / opcode policy / rule grouping / `DUMP` invocation，但不 owns OpenCSM / EGADS / OCCT 的 rule-loft PCurve metadata 或 STEP export metadata。mesh-quality hotspot audit 另確認 real mesh 有 `78` 個 ill-shaped tets、`min_gamma=8.131677887160085e-07`，worst-tet sample 多數在 farfield，但仍有 5 / 20 在主翼 surfaces 19 / 29 / 32，其中 surface 19 與 station-seam entity trace 重疊。
+- export format-boundary probe 已把同一個 side-aware CSM materialize 成 STEP、BREP、EGADS，三者都生成檔案；目前 STEP station metadata gate suspect，BREP 能被 Gmsh import/選 station curves 但現有 hotspot gate 仍用 STEP reader 而不可比，EGADS 對目前 Gmsh/OCC importer 是 unavailable。這代表下一步應該先補 BREP-capable station hotspot reader 或 OCC import gate，而不是再做 simple opcode sweep。
 - 結論：`esp_rebuilt` 現在是「provider runnable + route artifact exists, but not production CFD」。下一步不是再補 runtime 安裝，也不是宣稱 solver converged；優先把修復移到 section parametrization 或 export PCurve metadata generation，再考慮 bounded mesh handoff、panel-vs-SU2 force-breakdown、reference provenance 與有根據的 numerics campaign。
 - 實作規劃請看 [ESP Rebuilt Provider Enablement Implementation Plan](../docs/superpowers/plans/2026-04-21-esp-rebuilt-provider-enablement.md)。
 
@@ -733,11 +734,31 @@ fail. Current evidence is
 `export_metadata_generation_source_boundary_captured`: hpa-mdo owns the CSM
 section coordinates, opcode policy, rule grouping, and `DUMP` invocation, while
 rule-loft PCurve metadata, EGADS STEP export metadata, and OCCT
-ShapeAnalysis truth are external. The next gate should compare STEP / BREP /
-EGADS exports of the same side-aware candidate before any mesh or solver-budget
-work.
+ShapeAnalysis truth are external. The follow-up format-boundary probe compares
+STEP / BREP / EGADS exports of the same side-aware candidate before any mesh or
+solver-budget work.
 
-### 38. Write the main wing mesh-handoff smoke
+### 38. Probe station-seam export format boundary
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src /Volumes/Samsung\ SSD/hpa-mdo/.venv/bin/python -m hpa_meshing.cli main-wing-station-seam-export-format-boundary-probe \
+  --out .tmp/runs/main_wing_station_seam_export_format_boundary_probe \
+  --formats step brep egads \
+  --materialize-formats \
+  --external-src-root /Users/linyuan/.local/esp/current/EngSketchPad
+```
+
+This report-only probe materializes the same side-aware CSM through STEP, BREP,
+and EGADS. Current evidence is
+`export_format_boundary_step_suspect_non_step_validation_unavailable`: STEP is
+station-metadata suspect, BREP is materialized and importable enough for Gmsh
+station-curve selection but not yet comparable because the hotspot checker still
+uses a STEP reader, and EGADS is unavailable to the current Gmsh/OCC importer.
+Do not claim BREP recovered until a BREP-capable station hotspot reader or owned
+OCC import gate exists.
+
+### 39. Write the main wing mesh-handoff smoke
 
 ```bash
 cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
@@ -935,6 +956,8 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 - [`main_wing_station_seam_profile_parametrization_audit.v1`](docs/contracts/main_wing_station_seam_profile_parametrization_audit.v1.md)
 - [`main_wing_station_seam_side_aware_parametrization_probe.v1`](docs/contracts/main_wing_station_seam_side_aware_parametrization_probe.v1.md)
 - [`main_wing_station_seam_side_aware_brep_validation_probe.v1`](docs/contracts/main_wing_station_seam_side_aware_brep_validation_probe.v1.md)
+- [`main_wing_station_seam_export_metadata_source_audit.v1`](docs/contracts/main_wing_station_seam_export_metadata_source_audit.v1.md)
+- [`main_wing_station_seam_export_format_boundary_probe.v1`](docs/contracts/main_wing_station_seam_export_format_boundary_probe.v1.md)
 - [`main_wing_mesh_handoff_smoke.v1`](docs/contracts/main_wing_mesh_handoff_smoke.v1.md)
 - [`main_wing_su2_handoff_smoke.v1`](docs/contracts/main_wing_su2_handoff_smoke.v1.md)
 - [`tail_wing_esp_rebuilt_geometry_smoke.v1`](docs/contracts/tail_wing_esp_rebuilt_geometry_smoke.v1.md)
@@ -967,6 +990,12 @@ PLC intersection. It remains report-only and does not emit `mesh_handoff.v1`.
 | Component-family route smoke matrix | report-only `v1` | pre-mesh dispatch smoke for main-wing / tail / fairing route skeletons; no Gmsh, no SU2, no BL runtime |
 | Mesh study | formal minimal `v1` | three-tier baseline study that emits `mesh_study.v1` and decides whether the baseline stays `run_only` or can move to `preliminary_compare` |
 | Alpha sweep | roadmap | after the chosen mesh/runtime clears the mesh-study verdict |
+
+Current main-wing non-BL update: the STEP / BREP / EGADS format-boundary probe
+has now run. It materializes all three formats, but only STEP is currently
+comparable through the full station metadata gate; BREP is importable enough for
+Gmsh station-curve selection, while the existing hotspot checker still uses a
+STEP reader and must be replaced or generalized before BREP can be judged.
 | Component-level force mapping | roadmap | not implemented yet |
 
 ## Recommended Next Gates
