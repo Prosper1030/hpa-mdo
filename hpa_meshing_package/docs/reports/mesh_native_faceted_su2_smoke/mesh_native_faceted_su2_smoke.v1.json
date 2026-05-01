@@ -1,0 +1,72 @@
+{
+  "contract": "mesh_native_faceted_su2_smoke_report.v1",
+  "date": "2026-05-01",
+  "route": "mesh_native_faceted_gmsh_volume_su2_smoke_case",
+  "objective": "Prove faceted mesh-native wing boundary volume meshing and SU2 readability without STEP/BREP repair.",
+  "artifacts": {
+    "gmsh_mesh": "artifacts/faceted_rect_wing/mesh.msh",
+    "su2_mesh": "artifacts/faceted_rect_wing/mesh.su2",
+    "runtime_cfg": "artifacts/faceted_rect_wing/su2_runtime.cfg",
+    "solver_log": "artifacts/faceted_rect_wing/solver.log",
+    "history": "artifacts/faceted_rect_wing/history.csv",
+    "case_report": "artifacts/faceted_rect_wing/mesh_native_faceted_su2_smoke_report.json"
+  },
+  "mesh_gate": {
+    "gmsh_volume_count": 1,
+    "node_count": 135,
+    "volume_element_count": 407,
+    "volume_element_type_counts": {
+      "4": 407
+    },
+    "source_surface_triangle_count": 36,
+    "su2_nmark": 2,
+    "markers": {
+      "wing_wall": {
+        "element_count": 24,
+        "element_type_counts": {
+          "5": 24
+        }
+      },
+      "farfield": {
+        "element_count": 220,
+        "element_type_counts": {
+          "5": 220
+        }
+      }
+    },
+    "marker_audit_status": "pass",
+    "missing_config_markers": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "su2_orientation_status": "volume_oriented_surface_reoriented_by_su2",
+    "su2_surface_reoriented_count": 228
+  },
+  "su2_smoke": {
+    "command": "SU2_CFD -t 1 su2_runtime.cfg",
+    "exit_status": "success",
+    "solver": "INC_EULER",
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 3,
+    "history_rows": 3,
+    "final_iteration": 2,
+    "final_coefficients": {
+      "cl": 0.0104840086,
+      "cd": -0.006009687423
+    }
+  },
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "marker_ownership": "pass",
+    "aero_coefficients_interpretable": false,
+    "reason": "faceted_wing_tet_smoke_not_converged",
+    "caveats": [
+      "The fixture is a rectangular toy wing with 3 stations and 4 points per station.",
+      "The mesh has only 407 tetrahedral volume elements.",
+      "There is no boundary-layer prism strategy.",
+      "The 3-iteration run is not converged.",
+      "SU2 reports dynamic pressure as 0 in the properties table while RefForce is consistent with q*Sref; audit before coefficient validation."
+    ]
+  },
+  "verdict": "pass_for_faceted_mesh_native_su2_readability_and_marker_regression"
+}

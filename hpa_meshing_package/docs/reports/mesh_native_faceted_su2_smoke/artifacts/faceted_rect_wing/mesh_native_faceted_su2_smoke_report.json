@@ -1,0 +1,121 @@
+{
+  "route": "mesh_native_faceted_gmsh_volume_su2_smoke_case",
+  "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/mesh.su2",
+  "gmsh_mesh_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/mesh.msh",
+  "runtime_cfg_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/su2_runtime.cfg",
+  "report_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/mesh_native_faceted_su2_smoke_report.json",
+  "mesh_report": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/mesh.msh",
+    "su2_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/mesh.su2",
+    "volume_count": 1,
+    "node_count": 135,
+    "volume_element_count": 407,
+    "volume_element_type_counts": {
+      "4": 407
+    },
+    "surface_triangle_count": 36,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 24
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ]
+  },
+  "marker_audit": {
+    "status": "pass",
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "missing_from_mesh": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 407,
+      "npoin": 135,
+      "nmark": 2,
+      "markers": {
+        "wing_wall": {
+          "element_count": 24,
+          "element_type_counts": {
+            "5": 24
+          }
+        },
+        "farfield": {
+          "element_count": 220,
+          "element_type_counts": {
+            "5": 220
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "solver": "INC_EULER",
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 3,
+    "ref_area": 2.0,
+    "ref_length": 1.0,
+    "mesh_size": 2.0
+  },
+  "caveats": [
+    "wing boundary is faceted from mesh-native panels",
+    "tet volume mesh only; no boundary-layer prism strategy",
+    "smoke case is not a convergence or aerodynamic validation case"
+  ],
+  "run_status": "completed",
+  "failure_code": null,
+  "returncode": 0,
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "1",
+    "su2_runtime.cfg"
+  ],
+  "solver_log_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/solver.log",
+  "history_path": "hpa_meshing_package/docs/reports/mesh_native_faceted_su2_smoke/artifacts/faceted_rect_wing/history.csv",
+  "history": {
+    "row_count": 3,
+    "final_iteration": 2,
+    "final_coefficients": {
+      "cl": 0.0104840086,
+      "cd": -0.006009687423,
+      "cmx": 0.01838874908,
+      "cmy": -0.002963857485,
+      "cmz": -1.346326209e-05
+    }
+  },
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "marker_ownership": "pass",
+    "aero_coefficients_interpretable": false,
+    "reason": "faceted_wing_tet_smoke_not_converged"
+  }
+}
