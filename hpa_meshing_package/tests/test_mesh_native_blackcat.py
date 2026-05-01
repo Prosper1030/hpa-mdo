@@ -236,3 +236,31 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_summarizes_quality_war
     assert warning_case["min_gamma"] == pytest.approx(
         report["cases"][0]["quality_metrics"]["min_gamma"]
     )
+
+
+def test_run_blackcat_main_wing_coupled_refinement_ladder_can_add_feature_boxes(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+
+    report = run_blackcat_main_wing_coupled_refinement_ladder(
+        AVL_PATH,
+        tmp_path / "blackcat_coupled_feature_box_ladder",
+        points_per_side_values=(4,),
+        spanwise_subdivision_values=(1,),
+        mesh_sizes=(6.0,),
+        target_volume_elements=10_000,
+        max_volume_elements=50_000,
+        farfield_mesh_size=18.0,
+        wing_refinement_radius=12.0,
+        feature_refinement_size=3.0,
+        write_su2=False,
+    )
+
+    case = report["cases"][0]
+    assert report["feature_refinement_size"] == 3.0
+    assert case["feature_refinement_box_count"] == 4
+    assert case["mesh_sizing"]["refinement_boxes"][0]["name"] == (
+        "trailing_edge_refinement_region"
+    )
+    assert case["mesh_sizing"]["background_field"]["type"] == "Min"

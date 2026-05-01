@@ -26,6 +26,7 @@ def write_faceted_volume_mesh(
     wing_mesh_size: float | None = None,
     farfield_mesh_size: float | None = None,
     wing_refinement_radius: float | None = None,
+    refinement_boxes: Sequence[dict[str, Any]] | None = None,
     wall_marker: str = "wing_wall",
     farfield_marker: str = "farfield",
     fluid_marker: str = "fluid",
@@ -62,6 +63,10 @@ def write_faceted_volume_mesh(
     )
     if resolved_wing_refinement_radius <= 0.0:
         raise ValueError("wing_refinement_radius must be positive")
+    resolved_refinement_boxes = _validate_refinement_boxes(
+        refinement_boxes or (),
+        farfield_mesh_size=resolved_farfield_mesh_size,
+    )
 
     gmsh.initialize()
     try:
@@ -99,12 +104,13 @@ def write_faceted_volume_mesh(
         inner_loop = gmsh.model.geo.addSurfaceLoop(wing_surfaces)
         fluid_volume = gmsh.model.geo.addVolume([outer_loop, inner_loop])
         gmsh.model.geo.synchronize()
-        mesh_size_field = _install_wing_refinement_field(
+        mesh_size_field = _install_background_mesh_size_field(
             gmsh,
             wing_point_tags=wing_point_tags,
             wing_mesh_size=resolved_wing_mesh_size,
             farfield_mesh_size=resolved_farfield_mesh_size,
             wing_refinement_radius=resolved_wing_refinement_radius,
+            refinement_boxes=resolved_refinement_boxes,
         )
 
         wing_group = gmsh.model.addPhysicalGroup(2, wing_surfaces)
@@ -116,7 +122,13 @@ def write_faceted_volume_mesh(
 
         gmsh.option.setNumber(
             "Mesh.MeshSizeMin",
-            min(resolved_wing_mesh_size, resolved_farfield_mesh_size),
+            min(
+                [
+                    resolved_wing_mesh_size,
+                    resolved_farfield_mesh_size,
+                    *(box["size"] for box in resolved_refinement_boxes),
+                ]
+            ),
         )
         gmsh.option.setNumber(
             "Mesh.MeshSizeMax",
@@ -153,6 +165,7 @@ def write_faceted_volume_mesh(
                 "wing_mesh_size": float(resolved_wing_mesh_size),
                 "farfield_mesh_size": float(resolved_farfield_mesh_size),
                 "wing_refinement_radius": float(resolved_wing_refinement_radius),
+                "refinement_boxes": resolved_refinement_boxes,
                 "background_field": mesh_size_field,
             },
             "quality_metrics": quality_metrics,
@@ -199,6 +212,7 @@ def run_faceted_volume_refinement_ladder(
     farfield_mesh_size: float | None = None,
     wing_refinement_radius: float | None = None,
     write_su2: bool = True,
+    refinement_boxes: Sequence[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Run a coarse-to-fine mesh-size ladder with explicit cell-count guardrails."""
     if target_volume_elements <= 0:
@@ -231,6 +245,7 @@ def run_faceted_volume_refinement_ladder(
             wing_mesh_size=mesh_size,
             farfield_mesh_size=farfield_mesh_size,
             wing_refinement_radius=wing_refinement_radius,
+            refinement_boxes=refinement_boxes,
             production_target_volume_elements=target_volume_elements,
         )
         case_report = {
@@ -266,7 +281,7 @@ def run_faceted_volume_refinement_ladder(
         },
         "caveats": [
             "mesh-size ladder changes global tet sizing only",
-            "no local curvature/wake/boundary-layer refinement policy yet",
+            "no boundary-layer prism strategy yet",
             "million-scale target is an engineering credibility gate, not a convergence proof",
         ],
     }
@@ -477,6 +492,174 @@ def _line_between(
     return line_tag if (start, end) == (stored_start, stored_end) else -line_tag
 
 
+def build_wing_feature_refinement_boxes(
+    wing: SurfaceMesh,
+    *,
+    mesh_size: float,
+    trailing_edge_box_chords: float = 0.20,
+    tip_box_chords: float = 1.0,
+    wake_length_chords: float = 4.0,
+    wake_half_height_chords: float = 0.75,
+    wake_span_padding_chords: float = 0.50,
+    transition_chords: float = 0.50,
+) -> list[dict[str, Any]]:
+    """Build simple TE/tip/wake box fields from mesh-native wing bounds."""
+    if mesh_size <= 0.0:
+        raise ValueError("mesh_size must be positive")
+    for name, value in {
+        "trailing_edge_box_chords": trailing_edge_box_chords,
+        "tip_box_chords": tip_box_chords,
+        "wake_length_chords": wake_length_chords,
+        "wake_half_height_chords": wake_half_height_chords,
+        "wake_span_padding_chords": wake_span_padding_chords,
+        "transition_chords": transition_chords,
+    }.items():
+        if value <= 0.0:
+            raise ValueError(f"{name} must be positive")
+
+    bounds = wing.bounds()
+    x_min = float(bounds["x_min"])
+    x_max = float(bounds["x_max"])
+    y_min = float(bounds["y_min"])
+    y_max = float(bounds["y_max"])
+    z_min = float(bounds["z_min"])
+    z_max = float(bounds["z_max"])
+    chord_scale = max(x_max - x_min, 1.0e-9)
+    vertical_padding = wake_half_height_chords * chord_scale
+    transition = transition_chords * chord_scale
+
+    te_dx = trailing_edge_box_chords * chord_scale
+    tip_dy = tip_box_chords * chord_scale
+    wake_length = wake_length_chords * chord_scale
+    wake_span_padding = wake_span_padding_chords * chord_scale
+
+    return [
+        {
+            "name": "trailing_edge_refinement_region",
+            "size": float(mesh_size),
+            "x_min": x_max - te_dx,
+            "x_max": x_max + te_dx,
+            "y_min": y_min,
+            "y_max": y_max,
+            "z_min": z_min - vertical_padding,
+            "z_max": z_max + vertical_padding,
+            "transition_thickness": transition,
+        },
+        {
+            "name": "tip_left_refinement_region",
+            "size": float(mesh_size),
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_min,
+            "y_max": y_min + tip_dy,
+            "z_min": z_min - vertical_padding,
+            "z_max": z_max + vertical_padding,
+            "transition_thickness": transition,
+        },
+        {
+            "name": "tip_right_refinement_region",
+            "size": float(mesh_size),
+            "x_min": x_min,
+            "x_max": x_max,
+            "y_min": y_max - tip_dy,
+            "y_max": y_max,
+            "z_min": z_min - vertical_padding,
+            "z_max": z_max + vertical_padding,
+            "transition_thickness": transition,
+        },
+        {
+            "name": "wake_refinement_region",
+            "size": float(mesh_size),
+            "x_min": x_max,
+            "x_max": x_max + wake_length,
+            "y_min": y_min - wake_span_padding,
+            "y_max": y_max + wake_span_padding,
+            "z_min": z_min - vertical_padding,
+            "z_max": z_max + vertical_padding,
+            "transition_thickness": transition,
+        },
+    ]
+
+
+def _validate_refinement_boxes(
+    boxes: Sequence[dict[str, Any]],
+    *,
+    farfield_mesh_size: float,
+) -> list[dict[str, Any]]:
+    validated: list[dict[str, Any]] = []
+    for index, box in enumerate(boxes):
+        name = str(box.get("name") or f"refinement_box_{index}")
+        size = float(box["size"])
+        transition = float(box.get("transition_thickness", 0.0))
+        if size <= 0.0:
+            raise ValueError(f"{name}.size must be positive")
+        if transition < 0.0:
+            raise ValueError(f"{name}.transition_thickness must be non-negative")
+        bounds = {
+            key: float(box[key])
+            for key in ("x_min", "x_max", "y_min", "y_max", "z_min", "z_max")
+        }
+        if bounds["x_min"] >= bounds["x_max"]:
+            raise ValueError(f"{name}.x_min must be smaller than x_max")
+        if bounds["y_min"] >= bounds["y_max"]:
+            raise ValueError(f"{name}.y_min must be smaller than y_max")
+        if bounds["z_min"] >= bounds["z_max"]:
+            raise ValueError(f"{name}.z_min must be smaller than z_max")
+        validated.append(
+            {
+                "name": name,
+                "size": size,
+                "outside_size": float(box.get("outside_size", farfield_mesh_size)),
+                "transition_thickness": transition,
+                **bounds,
+            }
+        )
+    return validated
+
+
+def _install_background_mesh_size_field(
+    gmsh,
+    *,
+    wing_point_tags: list[int],
+    wing_mesh_size: float,
+    farfield_mesh_size: float,
+    wing_refinement_radius: float,
+    refinement_boxes: Sequence[dict[str, Any]],
+) -> dict[str, Any] | None:
+    fields: list[dict[str, Any]] = []
+    wing_field = _install_wing_refinement_field(
+        gmsh,
+        wing_point_tags=wing_point_tags,
+        wing_mesh_size=wing_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+        wing_refinement_radius=wing_refinement_radius,
+    )
+    if wing_field is not None:
+        fields.append(wing_field)
+
+    for box in refinement_boxes:
+        fields.append(_install_box_refinement_field(gmsh, box))
+
+    if not fields:
+        return None
+    if len(fields) == 1:
+        gmsh.model.mesh.field.setAsBackgroundMesh(fields[0]["field_tag"])
+        return fields[0]
+
+    min_field = gmsh.model.mesh.field.add("Min")
+    gmsh.model.mesh.field.setNumbers(
+        min_field,
+        "FieldsList",
+        [field["field_tag"] for field in fields],
+    )
+    gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
+    return {
+        "type": "Min",
+        "field_tag": int(min_field),
+        "fields": fields,
+    }
+
+
 def _install_wing_refinement_field(
     gmsh,
     *,
@@ -499,12 +682,34 @@ def _install_wing_refinement_field(
     gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", float(farfield_mesh_size))
     gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0.0)
     gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", float(wing_refinement_radius))
-    gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
     return {
         "type": "DistanceThreshold",
+        "field_tag": int(threshold_field),
         "distance_field_tag": int(distance_field),
         "threshold_field_tag": int(threshold_field),
         "node_count": len(wing_point_tags),
+    }
+
+
+def _install_box_refinement_field(gmsh, box: dict[str, Any]) -> dict[str, Any]:
+    box_field = gmsh.model.mesh.field.add("Box")
+    gmsh.model.mesh.field.setNumber(box_field, "VIn", float(box["size"]))
+    gmsh.model.mesh.field.setNumber(box_field, "VOut", float(box["outside_size"]))
+    gmsh.model.mesh.field.setNumber(box_field, "XMin", float(box["x_min"]))
+    gmsh.model.mesh.field.setNumber(box_field, "XMax", float(box["x_max"]))
+    gmsh.model.mesh.field.setNumber(box_field, "YMin", float(box["y_min"]))
+    gmsh.model.mesh.field.setNumber(box_field, "YMax", float(box["y_max"]))
+    gmsh.model.mesh.field.setNumber(box_field, "ZMin", float(box["z_min"]))
+    gmsh.model.mesh.field.setNumber(box_field, "ZMax", float(box["z_max"]))
+    gmsh.model.mesh.field.setNumber(
+        box_field,
+        "Thickness",
+        float(box["transition_thickness"]),
+    )
+    return {
+        "type": "Box",
+        "field_tag": int(box_field),
+        **box,
     }
 
 

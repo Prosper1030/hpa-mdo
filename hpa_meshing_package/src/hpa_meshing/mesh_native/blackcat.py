@@ -186,13 +186,17 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
     max_volume_elements: int = 250_000,
     farfield_mesh_size: float | None = None,
     wing_refinement_radius: float | None = None,
+    feature_refinement_size: float | None = None,
     write_su2: bool = True,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
     farfield_vertical_factor: float = 1.2,
 ) -> dict:
-    from .gmsh_polyhedral import run_faceted_volume_refinement_ladder
+    from .gmsh_polyhedral import (
+        build_wing_feature_refinement_boxes,
+        run_faceted_volume_refinement_ladder,
+    )
 
     spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
         avl_path,
@@ -201,6 +205,11 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
         farfield_downstream_factor=farfield_downstream_factor,
         farfield_lateral_factor=farfield_lateral_factor,
         farfield_vertical_factor=farfield_vertical_factor,
+    )
+    refinement_boxes = (
+        build_wing_feature_refinement_boxes(wing, mesh_size=feature_refinement_size)
+        if feature_refinement_size is not None
+        else None
     )
     report = run_faceted_volume_refinement_ladder(
         wing,
@@ -211,6 +220,7 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
         max_volume_elements=max_volume_elements,
         farfield_mesh_size=farfield_mesh_size,
         wing_refinement_radius=wing_refinement_radius,
+        refinement_boxes=refinement_boxes,
         write_su2=write_su2,
     )
     enriched_report = {
@@ -234,6 +244,10 @@ def run_blackcat_main_wing_faceted_refinement_ladder(
                 "lateral": farfield_lateral_factor,
                 "vertical": farfield_vertical_factor,
             },
+            "feature_refinement_size": feature_refinement_size,
+            "feature_refinement_box_count": (
+                0 if refinement_boxes is None else len(refinement_boxes)
+            ),
         },
     }
     Path(report["report_path"]).write_text(
@@ -254,13 +268,17 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
     max_volume_elements: int = 250_000,
     farfield_mesh_size: float | None = None,
     wing_refinement_radius: float | None = None,
+    feature_refinement_size: float | None = None,
     write_su2: bool = True,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
     farfield_vertical_factor: float = 1.2,
 ) -> dict[str, Any]:
-    from .gmsh_polyhedral import write_faceted_volume_mesh
+    from .gmsh_polyhedral import (
+        build_wing_feature_refinement_boxes,
+        write_faceted_volume_mesh,
+    )
 
     if target_volume_elements <= 0:
         raise ValueError("target_volume_elements must be positive")
@@ -308,6 +326,11 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
                     "cref": spec.reference.cref,
                     "bref_full": spec.reference.bref_full,
                 }
+            refinement_boxes = (
+                build_wing_feature_refinement_boxes(wing, mesh_size=feature_refinement_size)
+                if feature_refinement_size is not None
+                else None
+            )
 
             for mesh_size in ordered_mesh_sizes:
                 case_index = len(cases)
@@ -329,6 +352,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
                     wing_mesh_size=mesh_size,
                     farfield_mesh_size=farfield_mesh_size,
                     wing_refinement_radius=wing_refinement_radius,
+                    refinement_boxes=refinement_boxes,
                     production_target_volume_elements=target_volume_elements,
                 )
                 case_report = {
@@ -340,6 +364,10 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
                     "mesh_size": mesh_size,
                     "surface_metadata": wing.metadata,
                     "farfield_metadata": farfield.metadata,
+                    "feature_refinement_size": feature_refinement_size,
+                    "feature_refinement_box_count": (
+                        0 if refinement_boxes is None else len(refinement_boxes)
+                    ),
                 }
                 cases.append(case_report)
 
@@ -366,6 +394,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         "points_per_side_values": ordered_points,
         "spanwise_subdivision_values": ordered_spanwise,
         "mesh_sizes": ordered_mesh_sizes,
+        "feature_refinement_size": feature_refinement_size,
         "selected_case": selected_case,
         "quality_warning_cases": _quality_warning_cases(cases),
         "cases": cases,

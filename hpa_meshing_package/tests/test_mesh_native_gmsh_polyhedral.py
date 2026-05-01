@@ -5,6 +5,7 @@ import pytest
 
 from hpa_meshing.mesh_native.gmsh_polyhedral import (
     _mesh_quality_gate,
+    build_wing_feature_refinement_boxes,
     run_faceted_volume_refinement_ladder,
     run_faceted_volume_su2_smoke,
     write_faceted_volume_mesh,
@@ -122,6 +123,64 @@ def test_write_faceted_volume_mesh_supports_wing_local_sizing(tmp_path: Path):
     assert locally_refined["mesh_sizing"]["background_field"]["type"] == "DistanceThreshold"
     assert locally_refined["volume_element_count"] > coarse["volume_element_count"]
     assert locally_refined["mesh_quality_gate"]["status"] == "pass"
+
+
+def test_build_wing_feature_refinement_boxes_materializes_te_tip_wake_regions():
+    wing, _farfield = _wing_and_close_farfield()
+
+    boxes = build_wing_feature_refinement_boxes(wing, mesh_size=0.5)
+
+    assert [box["name"] for box in boxes] == [
+        "trailing_edge_refinement_region",
+        "tip_left_refinement_region",
+        "tip_right_refinement_region",
+        "wake_refinement_region",
+    ]
+    assert all(box["size"] == 0.5 for box in boxes)
+    assert boxes[0]["x_min"] < wing.bounds()["x_max"] < boxes[0]["x_max"]
+    assert boxes[1]["y_min"] == pytest.approx(wing.bounds()["y_min"])
+    assert boxes[2]["y_max"] == pytest.approx(wing.bounds()["y_max"])
+    assert boxes[3]["x_min"] == pytest.approx(wing.bounds()["x_max"])
+    assert boxes[3]["x_max"] > boxes[3]["x_min"]
+
+
+def test_write_faceted_volume_mesh_supports_box_refinement_fields(tmp_path: Path):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+    boxes = build_wing_feature_refinement_boxes(wing, mesh_size=0.75)
+
+    coarse = write_faceted_volume_mesh(
+        wing,
+        farfield,
+        tmp_path / "coarse_feature_baseline.msh",
+        mesh_size=3.0,
+        wing_mesh_size=2.0,
+        farfield_mesh_size=3.0,
+    )
+    report = write_faceted_volume_mesh(
+        wing,
+        farfield,
+        tmp_path / "feature_boxes.msh",
+        mesh_size=3.0,
+        wing_mesh_size=2.0,
+        farfield_mesh_size=3.0,
+        refinement_boxes=boxes,
+    )
+
+    background = report["mesh_sizing"]["background_field"]
+    assert background["type"] == "Min"
+    assert [field["type"] for field in background["fields"]] == [
+        "DistanceThreshold",
+        "Box",
+        "Box",
+        "Box",
+        "Box",
+    ]
+    assert report["mesh_sizing"]["refinement_boxes"][0]["name"] == (
+        "trailing_edge_refinement_region"
+    )
+    assert report["volume_element_count"] > coarse["volume_element_count"]
+    assert report["mesh_quality_gate"]["status"] == "pass"
 
 
 def test_mesh_quality_gate_warns_on_near_zero_positive_tets():
