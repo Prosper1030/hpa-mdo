@@ -374,6 +374,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
         mesh_quality_gate = _boundary_layer_mesh_quality_gate(
             core_quality_metrics=quality_metrics,
             boundary_layer_quality_metrics=boundary_layer_quality,
+            core_element_count=sum(core_type_counts.values()),
         )
         gmsh.write(str(msh_path))
         if su2_output_path is not None:
@@ -1345,10 +1346,15 @@ def _boundary_layer_mesh_quality_gate(
     *,
     core_quality_metrics: dict[str, Any],
     boundary_layer_quality_metrics: dict[str, Any],
+    core_element_count: int | None = None,
 ) -> dict[str, Any]:
     core_gate = _mesh_quality_gate(core_quality_metrics)
     blockers = list(core_gate["blockers"])
     warnings = list(core_gate["warnings"])
+    if core_element_count is not None and int(core_element_count) > 0:
+        blockers = [blocker for blocker in blockers if blocker != "tetra_elements_missing"]
+        if int(core_quality_metrics.get("tetra_element_count") or 0) <= 0:
+            warnings.append("core_has_no_tetra_quality_sample")
     if int(boundary_layer_quality_metrics.get("element_count") or 0) <= 0:
         blockers.append("boundary_layer_elements_missing")
     if int(boundary_layer_quality_metrics.get("non_positive_min_sicn_count") or 0) > 0:
