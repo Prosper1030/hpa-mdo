@@ -222,6 +222,12 @@ def test_write_boundary_layer_block_core_tet_mesh_can_preserve_input_interface(
 
     assert report["status"] == "meshed"
     assert report["volume_element_type_counts"].get("7", 0) > 0
+    assert report["quality_metrics"]["pyramid_element_count"] == report[
+        "volume_element_type_counts"
+    ]["7"]
+    assert report["quality_metrics"]["volume_element_count"] == report[
+        "volume_element_count"
+    ]
     assert report["interface_conformality"]["status"] == "preserved"
     assert report["interface_conformality"]["can_merge_with_owned_bl_block"] is True
     assert report["interface_conformality"]["expected_boundary_representation"] == "native"

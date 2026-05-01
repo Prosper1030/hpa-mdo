@@ -1638,16 +1638,38 @@ def _install_box_refinement_field(gmsh, box: dict[str, Any]) -> dict[str, Any]:
 
 def _collect_volume_quality_metrics(gmsh) -> dict[str, Any]:
     volume_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
+    volume_type_counts = {
+        str(int(element_type)): len(tags)
+        for element_type, tags in zip(volume_types, volume_element_tags)
+    }
+    all_volume_tags: list[int] = []
     tetra_tags: list[int] = []
+    pyramid_tags: list[int] = []
+    prism_tags: list[int] = []
+    hexahedron_tags: list[int] = []
     for element_type, tags in zip(volume_types, volume_element_tags):
+        typed_tags = [int(tag) for tag in tags]
+        all_volume_tags.extend(typed_tags)
         if int(element_type) == 4:
-            tetra_tags.extend(int(tag) for tag in tags)
+            tetra_tags.extend(typed_tags)
+        elif int(element_type) == 5:
+            hexahedron_tags.extend(typed_tags)
+        elif int(element_type) == 6:
+            prism_tags.extend(typed_tags)
+        elif int(element_type) == 7:
+            pyramid_tags.extend(typed_tags)
 
-    if not tetra_tags:
+    if not all_volume_tags:
         return {
+            "volume_element_count": 0,
+            "volume_element_type_counts": {},
             "tetra_element_count": 0,
             "tetrahedron_count": 0,
+            "pyramid_element_count": 0,
+            "prism_element_count": 0,
+            "hexahedron_element_count": 0,
             "ill_shaped_tet_count": 0,
+            "ill_shaped_volume_element_count": 0,
             "non_positive_min_sicn_count": 0,
             "non_positive_min_sige_count": 0,
             "non_positive_volume_count": 0,
@@ -1661,27 +1683,35 @@ def _collect_volume_quality_metrics(gmsh) -> dict[str, Any]:
             "volume_percentiles": {"p01": None, "p05": None, "p50": None},
         }
 
-    min_sicn = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "minSICN")]
-    min_sige = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "minSIGE")]
-    gamma = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "gamma")]
-    volume = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "volume")]
-    ill_shaped_tet_count = sum(
+    min_sicn = _element_quality_values(gmsh, all_volume_tags, "minSICN")
+    min_sige = _element_quality_values(gmsh, all_volume_tags, "minSIGE")
+    gamma = _element_quality_values(gmsh, all_volume_tags, "gamma")
+    volume = _element_quality_values(gmsh, all_volume_tags, "volume")
+    ill_shaped_volume_count = sum(
         1
         for sicn_value, sige_value, volume_value in zip(min_sicn, min_sige, volume)
         if sicn_value <= 0.0 or sige_value <= 0.0 or volume_value <= 0.0
     )
 
     return {
+        "volume_element_count": len(all_volume_tags),
+        "volume_element_type_counts": dict(sorted(volume_type_counts.items())),
         "tetra_element_count": len(tetra_tags),
         "tetrahedron_count": len(tetra_tags),
-        "ill_shaped_tet_count": int(ill_shaped_tet_count),
+        "pyramid_element_count": len(pyramid_tags),
+        "prism_element_count": len(prism_tags),
+        "hexahedron_element_count": len(hexahedron_tags),
+        "ill_shaped_tet_count": int(ill_shaped_volume_count)
+        if len(tetra_tags) == len(all_volume_tags)
+        else None,
+        "ill_shaped_volume_element_count": int(ill_shaped_volume_count),
         "non_positive_min_sicn_count": sum(1 for value in min_sicn if value <= 0.0),
         "non_positive_min_sige_count": sum(1 for value in min_sige if value <= 0.0),
         "non_positive_volume_count": sum(1 for value in volume if value <= 0.0),
-        "min_gamma": min(gamma),
-        "min_sicn": min(min_sicn),
-        "min_sige": min(min_sige),
-        "min_volume": min(volume),
+        "min_gamma": min(gamma) if gamma else None,
+        "min_sicn": min(min_sicn) if min_sicn else None,
+        "min_sige": min(min_sige) if min_sige else None,
+        "min_volume": min(volume) if volume else None,
         "gamma_percentiles": {
             "p01": _percentile(gamma, 0.01),
             "p05": _percentile(gamma, 0.05),
@@ -1708,8 +1738,12 @@ def _collect_volume_quality_metrics(gmsh) -> dict[str, Any]:
 def _mesh_quality_gate(quality_metrics: dict[str, Any]) -> dict[str, Any]:
     blockers: list[str] = []
     warnings: list[str] = []
-    if int(quality_metrics.get("tetra_element_count") or 0) <= 0:
-        blockers.append("tetra_elements_missing")
+    volume_element_count = quality_metrics.get(
+        "volume_element_count",
+        quality_metrics.get("tetra_element_count"),
+    )
+    if int(volume_element_count or 0) <= 0:
+        blockers.append("volume_elements_missing")
     if int(quality_metrics.get("non_positive_min_sicn_count") or 0) > 0:
         blockers.append("non_positive_min_sicn")
     if int(quality_metrics.get("non_positive_min_sige_count") or 0) > 0:
