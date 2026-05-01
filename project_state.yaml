@@ -187,6 +187,28 @@ high_fidelity_status:
     - "final composite hotspot truth"
     - "external validation truth unless an apples-to-apples benchmark exists"
 
+paused_side_lines:
+  mesh_native_main_wing_cfd:
+    status: "paused"
+    handoff: "hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md"
+    summary: "OpenVSP sections -> mesh-native indexed wing -> Gmsh HXT / BL mesh -> SU2 smoke is connected but not physically valid for HPA CL/CD/Cm."
+    valid_evidence:
+      - "VSP-native geometry extraction is preferred over old AVL-driven mesh-native geometry."
+      - "wing_h=0.20 m HXT BL mesh reached 1,125,409 cells with SU2 marker audit pass."
+      - "SU2 4-thread short smoke runs on the HXT BL mesh."
+      - "force marker audit shows only wing_wall contributes to force output."
+    blockers:
+      - "wing_h=0.15 m BL mesh has 2 non-positive BL prism quality metrics."
+      - "No current grid-independent CL/CD/Cm."
+      - "No credible HPA drag result; no-BL tetra run is not drag-valid."
+      - "Low-Re boundary-layer / transition assumptions remain unresolved."
+      - "Half-wing symmetry route is not implemented."
+    next_if_resumed:
+      - "Localize the bad BL prisms by station/chord/source face before increasing global density."
+      - "Build half-wing symmetry with explicit REF_AREA convention."
+      - "Run wall-resolved INC_RANS + SA only after BL quality is stable."
+      - "Then run coarse/medium/fine BL grid study under the 12 GB RAM budget."
+
 multi_agent_rules:
   default_prompting:
     - "Always read canonical_read_order before touching code."

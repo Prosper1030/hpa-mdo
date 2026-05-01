@@ -19,6 +19,34 @@ aircraft_assembly (.vsp3)
 
 This is the only route that should currently be treated as a real productized workflow in `hpa_meshing_package`.
 
+## Paused Mesh-Native Main-Wing CFD Line
+
+The experimental main-wing mesh-native CFD line is paused and documented here:
+
+```text
+docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md
+```
+
+Its current evidence is useful but not a productized CFD claim:
+
+```text
+OpenVSP sections -> mesh-native indexed wing -> Gmsh HXT BL mesh -> SU2 smoke
+```
+
+Current best mesh evidence:
+
+- `wing_h=0.20 m` HXT BL mesh: `1,125,409` cells, marker-owned, SU2-readable, quality gate pass.
+- `wing_h=0.15 m` HXT BL mesh: `1,515,251` cells, quality gate fail due 2 bad BL prisms.
+
+Current physics status:
+
+- no accepted grid-independent CL/CD/Cm;
+- no credible HPA drag yet;
+- low-Re / BL / transition concerns remain open;
+- half-wing symmetry route is not implemented.
+
+Do not continue this line by small mesh-size tweaks until the freeze report is read and the local BL defect is deliberately targeted.
+
 ## 2026-04-30 Route Architecture Decision
 
 The high-fidelity line is now explicitly route-matrix first. The long-term goal is arbitrary

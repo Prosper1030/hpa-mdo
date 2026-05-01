@@ -1,0 +1,62 @@
+{
+  "date": "2026-05-01",
+  "status": "paused",
+  "line": "mesh_native_blackcat_main_wing_cfd",
+  "short_verdict": "Mesh-native VSP geometry to Gmsh HXT BL mesh to SU2 smoke is connected, but the CFD is not physically valid yet.",
+  "start_here": [
+    "hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md",
+    "hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/hpa_main_wing_cfd_method_review.v1.md",
+    "hpa_meshing_package/docs/reports/mesh_native_blackcat_vsp_geometry_consistency/mesh_native_blackcat_vsp_geometry_consistency.v1.md",
+    "hpa_meshing_package/docs/reports/mesh_native_blackcat_vsp_su2_iter1000/mesh_native_blackcat_vsp_su2_iter1000.v1.md",
+    "hpa_meshing_package/docs/reports/mesh_native_blackcat_bl_force_marker_audit/mesh_native_blackcat_bl_force_marker_audit.v1.md",
+    "hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/mesh_native_hxt_thread_profile.v1.md"
+  ],
+  "valid_evidence": {
+    "geometry_source": "data/blackcat_004_origin.vsp3",
+    "reference_source": "data/blackcat_004_full.avl",
+    "best_current_bl_mesh": {
+      "wing_h_m": 0.2,
+      "volume_elements": 1125409,
+      "nodes": 531054,
+      "bl_prisms": 992352,
+      "quality_gate": "pass",
+      "su2_smoke": "pass_10_iter_only"
+    },
+    "force_marker_audit": "pass_for_marker_ownership",
+    "reference_values": {
+      "sref_m2": 35.175,
+      "cref_m": 1.130190,
+      "bref_m": 33.0,
+      "velocity_mps": 6.5
+    }
+  },
+  "failed_or_not_valid": {
+    "wing_h_0p15_bl_mesh": {
+      "volume_elements": 1515251,
+      "quality_gate": "fail",
+      "reason": "2 BL prisms with non-positive minSICN/minSIGE"
+    },
+    "no_bl_tet_su2": {
+      "status": "numerically_runnable_but_not_drag_credible",
+      "reason": "no prism boundary layer and no y+ evidence"
+    },
+    "current_physics": {
+      "status": "not_valid_for_aircraft_performance",
+      "reason": "CL/CD far from VSPAERO, drag not grid-independent, low-Re physics unresolved"
+    }
+  },
+  "do_next": [
+    "localize wing_h=0.15 BL bad prisms by source face/station/chord",
+    "build half-wing symmetry route with explicit REF_AREA convention",
+    "run wall-resolved INC_RANS + SA baseline after BL quality is stable",
+    "run coarse/medium/fine half-wing BL grid study only after the local BL defect is fixed",
+    "consider transition modeling after baseline wall-resolved RANS is numerically healthy"
+  ],
+  "do_not": [
+    "revive STEP/BREP repair as primary CFD geometry path",
+    "run SU2 on the failed 0.15 m BL mesh",
+    "claim validation from 10/60/100-iteration smoke runs",
+    "trust no-BL tetra drag for HPA performance",
+    "push to 5M cells before fixing local BL quality"
+  ]
+}

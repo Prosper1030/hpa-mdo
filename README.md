@@ -17,6 +17,7 @@
 | 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
 | 想看更細的近期進度與分軌方向 | [docs/EXECUTION_ROADMAP.md](docs/EXECUTION_ROADMAP.md) | 細化版執行路線圖；會告訴你不同卡點應該先推哪條線 |
 | 想把任務平行派給其他 AI | [project_state.yaml](project_state.yaml) + [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md) | 一份給機器讀的真相檔，加上一包可直接派工的 task pack |
+| 想接續主翼 mesh-native CFD / SU2 這條暫停線 | [mesh_native_cfd_line_freeze.v1.md](hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 這條線已暫停；先讀這份，裡面列出所有 mesh/SU2 方法、失敗原因、物理疑點與下一步 |
 | 想理解長期願景與五階段藍圖 | [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md) | 長期 blueprint，不是日常入口 |
 
 ## 三條閱讀路徑
@@ -574,6 +575,8 @@ repo 內已經有一條本機 structural high-fidelity 路線：
 | 後處理 | **ParaView** | 結構 (`.frd`) 視覺化 | 已有 `pvpython` script generator |
 | 非線性氣動彈 | **ASWING** | trim / nonlinear aeroelastic | glue 已有，是否可跑取決於本機 binary |
 | 氣動 CFD | **SU2** | RANS / Euler CFD | 長期藍圖，不是近期 blocker |
+
+另外有一條 **暫停中的主翼 mesh-native CFD / SU2 支線**，不要把它當成目前正式驗證主線。它已證明 `OpenVSP section extraction -> mesh-native wing -> Gmsh HXT BL mesh -> SU2 marker-owned smoke` 可以接通，但尚未得到可信的人力飛機 CFD 結果；接續前先讀 [`hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md`](hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md)。
 
 呼叫時機：**主最佳化迴圈不觸發高保真層**，只在使用者手動驗證時透過
 獨立 script 啟動，且所有 binary 路徑從 `configs/local_paths.yaml` 覆

@@ -178,4 +178,37 @@
 5. 如果是多人或多 agent 並行，優先看 [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md)
 6. 只有在需要長期脈絡時，才讀 [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
 
+## 10. 暫停中的主翼 mesh-native CFD / SU2 支線
+
+這不是目前正式主線，也不是可用來背書人力飛機性能的 CFD 結果。它是 2026-05-01 凍結下來的高保真氣動支線：
+
+```text
+OpenVSP main-wing sections
+  -> mesh-native indexed wing
+  -> Gmsh HXT / boundary-layer mesh
+  -> SU2 marker-owned smoke
+```
+
+目前已證明：
+
+- VSP-native section extraction 比舊 AVL-driven source 更接近設計者在 VSP 看到的主翼；
+- 1.1M 級 wall-resolved BL mesh 可以生成並通過目前 mesh quality gate；
+- SU2 可讀 mesh，`wing_wall` / `farfield` marker audit pass，4-thread smoke 可執行。
+
+目前尚未證明：
+
+- 可信 CL/CD/Cm；
+- grid independence；
+- 人力飛機低雷諾數 / boundary-layer / transition 物理合理；
+- 5M+ cell 等級網格可穩定生成；
+- half-wing symmetry route。
+
+如果未來 agent 要接這條線，先讀：
+
+```text
+hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md
+```
+
+不要從舊 STEP/BREP repair 報告或單次 SU2 smoke 直接開始改。
+
 若上述文件與舊報告/舊 prompt 衝突，以這份文件為準。

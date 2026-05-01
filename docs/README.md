@@ -18,6 +18,7 @@
 | [dual_beam_workflow_architecture_overview.md](dual_beam_workflow_architecture_overview.md) | 正式 dual-beam workflow 與資料流概觀 | 協作開發者 |
 | [dual_beam_consumer_integration_guide.md](dual_beam_consumer_integration_guide.md) | consumer 如何接正式 decision output | 外部整合 / AI agent |
 | [dual_beam_autoresearch_quickstart.md](dual_beam_autoresearch_quickstart.md) | built-in autoresearch 的最小可用入口 | AI / automation |
+| [mesh_native_cfd_line_freeze.v1.md](../hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 暫停中的主翼 mesh-native CFD / SU2 支線交接 | 需要接續 Gmsh/SU2/BL 網格與低雷諾數 CFD 的人 |
 
 ## Current Mainline
 
@@ -34,6 +35,12 @@
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
 | [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |
+
+暫停中的高保真氣動支線：
+
+| 文件 | 性質 | 說明 |
+|---|---|---|
+| [mesh_native_cfd_line_freeze.v1.md](../hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 支線交接 / freeze record | 整理 mesh-native VSP geometry、Gmsh HXT / BL mesh、SU2 設定、失敗原因、物理疑點與下一步試法；不是 validated CFD |
 
 目前不應該拿來當主線 sign-off 的內容：
 

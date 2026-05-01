@@ -25,6 +25,7 @@
 3. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
 4. Contract docs in [`docs/contracts/`](docs/contracts)
 5. High-fidelity route decision: [`../docs/research/high_fidelity_route_decision_2026-04-30.md`](../docs/research/high_fidelity_route_decision_2026-04-30.md)
+6. Paused mesh-native CFD handoff: [`docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md`](docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md)
 
 ## Official v1 Scope
 
@@ -51,6 +52,25 @@
 - `main_wing` / `tail_wing` / `fairing_solid` / `fairing_vented` 的 schema、family dispatch、route registry 已經存在；`main_wing` 已有 real ESP/VSP geometry、real Gmsh mesh handoff、real SU2 handoff、solver executed but not converged artifact、reference-geometry warn gate，以及 station-seam BRep / same-parameter / ShapeFix / export-source / export-strategy / internal-cap / profile-resample strategy / profile-resample BRep validation / profile-resample repair feasibility / profile parametrization audit / side-aware parametrization candidate / side-aware BRep validation / side-aware PCurve residual diagnostic / side-aware metadata repair probe / side-aware PCurve metadata builder probe / side-aware projected PCurve builder probe / side-aware export opcode variant probe / export metadata source audit / export format-boundary probe / mesh-quality hotspot evidence；目前主翼產品化 blocker 是 STEP station metadata gate suspect 且 non-STEP station gate 仍不可比，不是 simple opcode variant、mesh handoff、production CFD pass；`tail_wing` 已有 real geometry / surface / blocker probes，`fairing_solid` 已有 real VSP geometry smoke、bounded real mesh handoff probe、real SU2 handoff materialization probe 與 external reference override handoff，但都還不是正式可交付 CFD 路徑。
 - 目前只有 `gmsh_thin_sheet_aircraft_assembly` 會走真實 Gmsh meshing；其他 route 會回 `route_stage=placeholder`。
 - `shell_v4` 是 BL / solver-entry diagnostic branch，不是任意主翼 product route；BL route 只有在 hpa-mdo owns transition sleeve / receiver faces / interface loops / layer-drop events 之後才可 promotion。
+
+## Paused Mesh-Native CFD Line
+
+2026-05-01 已把主翼 mesh-native CFD / SU2 支線凍結成交接文件：
+
+```text
+docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md
+```
+
+這條線和上面的 package-native `openvsp_surface_intersection -> normalized STEP -> thin_sheet_aircraft_assembly` v1 product line 不同。它的目的，是繞開 STEP/BREP repair，把 `data/blackcat_004_origin.vsp3` 的主翼 section 直接轉成 mesh-native indexed wing，再做 Gmsh HXT / BL mesh / SU2 smoke。
+
+目前狀態：
+
+- `wing_h=0.20 m` HXT BL mesh：`1,125,409` cells，marker audit pass，SU2 10-iteration smoke pass。
+- `wing_h=0.15 m` HXT BL mesh：`1,515,251` cells，但有 2 個 BL prism non-positive quality，不能跑 SU2。
+- no-BL 1000-iteration SU2 run：數值上可跑，但沒有 boundary-layer prism / y+ 證據，不能拿來判斷 HPA drag。
+- force marker audit：只算 `wing_wall`，沒有發現 farfield 或奇怪 marker 被算進 force。
+
+下一位 agent 若要接續，先讀 freeze report，不要從單一 mesh gate 或單次 SU2 smoke 開始加網格。
 
 ## ESP Reality Check
 
