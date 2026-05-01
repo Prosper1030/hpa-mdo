@@ -264,3 +264,37 @@ def test_run_blackcat_main_wing_coupled_refinement_ladder_can_add_feature_boxes(
         "trailing_edge_refinement_region"
     )
     assert case["mesh_sizing"]["background_field"]["type"] == "Min"
+
+
+def test_run_blackcat_main_wing_coupled_refinement_ladder_sweeps_feature_box_size(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+
+    report = run_blackcat_main_wing_coupled_refinement_ladder(
+        AVL_PATH,
+        tmp_path / "blackcat_coupled_feature_box_size_ladder",
+        points_per_side_values=(4,),
+        spanwise_subdivision_values=(1,),
+        mesh_sizes=(6.0,),
+        feature_refinement_size_values=(None, 3.0, 1.0),
+        target_volume_elements=10_000,
+        max_volume_elements=50_000,
+        farfield_mesh_size=18.0,
+        wing_refinement_radius=12.0,
+        write_su2=False,
+    )
+
+    assert report["feature_refinement_size"] is None
+    assert report["feature_refinement_size_values"] == [None, 3.0, 1.0]
+    assert [case["feature_refinement_size"] for case in report["cases"]] == [
+        None,
+        3.0,
+        1.0,
+    ]
+    assert report["cases"][1]["volume_element_count"] > report["cases"][0][
+        "volume_element_count"
+    ]
+    assert report["cases"][2]["volume_element_count"] > report["cases"][1][
+        "volume_element_count"
+    ]

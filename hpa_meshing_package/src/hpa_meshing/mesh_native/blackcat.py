@@ -269,6 +269,7 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
     farfield_mesh_size: float | None = None,
     wing_refinement_radius: float | None = None,
     feature_refinement_size: float | None = None,
+    feature_refinement_size_values: Sequence[float | None] | None = None,
     write_su2: bool = True,
     farfield_upstream_factor: float = 1.5,
     farfield_downstream_factor: float = 2.0,
@@ -300,6 +301,10 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         raise ValueError("spanwise_subdivision_values must all be at least 1")
     if any(value <= 0.0 for value in ordered_mesh_sizes):
         raise ValueError("mesh_sizes must all be positive")
+    ordered_feature_sizes = _feature_refinement_size_ladder(
+        feature_refinement_size=feature_refinement_size,
+        feature_refinement_size_values=feature_refinement_size_values,
+    )
 
     ladder_path = Path(case_dir)
     ladder_path.mkdir(parents=True, exist_ok=True)
@@ -326,59 +331,64 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
                     "cref": spec.reference.cref,
                     "bref_full": spec.reference.bref_full,
                 }
-            refinement_boxes = (
-                build_wing_feature_refinement_boxes(wing, mesh_size=feature_refinement_size)
-                if feature_refinement_size is not None
-                else None
-            )
+            for feature_size in ordered_feature_sizes:
+                refinement_boxes = (
+                    build_wing_feature_refinement_boxes(wing, mesh_size=feature_size)
+                    if feature_size is not None
+                    else None
+                )
 
-            for mesh_size in ordered_mesh_sizes:
-                case_index = len(cases)
-                mesh_case_path = (
-                    ladder_path
-                    / (
-                        f"{case_index:02d}_span_{spanwise_subdivisions}"
-                        f"_pps_{points_per_side}_h_{_value_slug(mesh_size)}"
+                for mesh_size in ordered_mesh_sizes:
+                    case_index = len(cases)
+                    mesh_case_path = (
+                        ladder_path
+                        / (
+                            f"{case_index:02d}_span_{spanwise_subdivisions}"
+                            f"_pps_{points_per_side}"
+                            f"_feat_{_feature_size_slug(feature_size)}"
+                            f"_h_{_value_slug(mesh_size)}"
+                        )
                     )
-                )
-                mesh_case_path.mkdir(parents=True, exist_ok=True)
-                su2_path = mesh_case_path / "mesh.su2" if write_su2 else None
-                mesh_report = write_faceted_volume_mesh(
-                    wing,
-                    farfield,
-                    mesh_case_path / "mesh.msh",
-                    su2_path=su2_path,
-                    mesh_size=mesh_size,
-                    wing_mesh_size=mesh_size,
-                    farfield_mesh_size=farfield_mesh_size,
-                    wing_refinement_radius=wing_refinement_radius,
-                    refinement_boxes=refinement_boxes,
-                    production_target_volume_elements=target_volume_elements,
-                )
-                case_report = {
-                    **mesh_report,
-                    "case_dir": str(mesh_case_path),
-                    "spanwise_subdivisions": spanwise_subdivisions,
-                    "points_per_side": points_per_side,
-                    "points_per_station": len(spec.stations[0].airfoil_xz),
-                    "mesh_size": mesh_size,
-                    "surface_metadata": wing.metadata,
-                    "farfield_metadata": farfield.metadata,
-                    "feature_refinement_size": feature_refinement_size,
-                    "feature_refinement_box_count": (
-                        0 if refinement_boxes is None else len(refinement_boxes)
-                    ),
-                }
-                cases.append(case_report)
+                    mesh_case_path.mkdir(parents=True, exist_ok=True)
+                    su2_path = mesh_case_path / "mesh.su2" if write_su2 else None
+                    mesh_report = write_faceted_volume_mesh(
+                        wing,
+                        farfield,
+                        mesh_case_path / "mesh.msh",
+                        su2_path=su2_path,
+                        mesh_size=mesh_size,
+                        wing_mesh_size=mesh_size,
+                        farfield_mesh_size=farfield_mesh_size,
+                        wing_refinement_radius=wing_refinement_radius,
+                        refinement_boxes=refinement_boxes,
+                        production_target_volume_elements=target_volume_elements,
+                    )
+                    case_report = {
+                        **mesh_report,
+                        "case_dir": str(mesh_case_path),
+                        "spanwise_subdivisions": spanwise_subdivisions,
+                        "points_per_side": points_per_side,
+                        "points_per_station": len(spec.stations[0].airfoil_xz),
+                        "mesh_size": mesh_size,
+                        "surface_metadata": wing.metadata,
+                        "farfield_metadata": farfield.metadata,
+                        "feature_refinement_size": feature_size,
+                        "feature_refinement_box_count": (
+                            0 if refinement_boxes is None else len(refinement_boxes)
+                        ),
+                    }
+                    cases.append(case_report)
 
-                if int(case_report["volume_element_count"]) > max_volume_elements:
-                    status = "blocked_by_volume_element_guard"
-                    stop = True
-                    break
-                if int(case_report["volume_element_count"]) >= target_volume_elements:
-                    selected_case = case_report
-                    status = "target_reached"
-                    stop = True
+                    if int(case_report["volume_element_count"]) > max_volume_elements:
+                        status = "blocked_by_volume_element_guard"
+                        stop = True
+                        break
+                    if int(case_report["volume_element_count"]) >= target_volume_elements:
+                        selected_case = case_report
+                        status = "target_reached"
+                        stop = True
+                        break
+                if stop:
                     break
             if stop:
                 break
@@ -394,7 +404,10 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
         "points_per_side_values": ordered_points,
         "spanwise_subdivision_values": ordered_spanwise,
         "mesh_sizes": ordered_mesh_sizes,
-        "feature_refinement_size": feature_refinement_size,
+        "feature_refinement_size": ordered_feature_sizes[0]
+        if len(ordered_feature_sizes) == 1
+        else None,
+        "feature_refinement_size_values": ordered_feature_sizes,
         "selected_case": selected_case,
         "quality_warning_cases": _quality_warning_cases(cases),
         "cases": cases,
@@ -420,8 +433,9 @@ def run_blackcat_main_wing_coupled_refinement_ladder(
             },
         },
         "caveats": [
-            "surface refinement is airfoil chordwise resampling only",
-            "no station interpolation, wake zone, tip zone, or boundary-layer prism strategy yet",
+            "spanwise station interpolation is linear between AVL sections",
+            "feature boxes are axis-aligned first-pass TE/tip/wake sizing regions",
+            "no boundary-layer prism strategy yet",
             "million-scale target is an engineering credibility gate, not a convergence proof",
         ],
     }
@@ -453,6 +467,40 @@ def _quality_warning_cases(cases: Sequence[dict[str, Any]]) -> list[dict[str, An
             }
         )
     return warning_cases
+
+
+def _feature_refinement_size_ladder(
+    *,
+    feature_refinement_size: float | None,
+    feature_refinement_size_values: Sequence[float | None] | None,
+) -> list[float | None]:
+    if feature_refinement_size_values is None:
+        if feature_refinement_size is None:
+            return [None]
+        if feature_refinement_size <= 0.0:
+            raise ValueError("feature_refinement_size must be positive")
+        return [float(feature_refinement_size)]
+    if feature_refinement_size is not None:
+        raise ValueError(
+            "Use either feature_refinement_size or feature_refinement_size_values, not both"
+        )
+    ordered: list[float | None] = []
+    numeric_values: list[float] = []
+    include_none = False
+    for value in feature_refinement_size_values:
+        if value is None:
+            include_none = True
+            continue
+        numeric = float(value)
+        if numeric <= 0.0:
+            raise ValueError("feature_refinement_size_values must be positive or None")
+        numeric_values.append(numeric)
+    if include_none:
+        ordered.append(None)
+    ordered.extend(sorted(set(numeric_values), reverse=True))
+    if not ordered:
+        raise ValueError("feature_refinement_size_values must not be empty")
+    return ordered
 
 
 def _clean_avl_lines(text: str) -> list[str]:
@@ -667,3 +715,7 @@ def _distance_2d(
 
 def _value_slug(value: float) -> str:
     return f"{float(value):.6g}".replace("-", "m").replace(".", "p")
+
+
+def _feature_size_slug(value: float | None) -> str:
+    return "none" if value is None else _value_slug(float(value))
