@@ -1,0 +1,155 @@
+{
+  "schema": "mesh_native_blackcat_vsp_high_density_su2_smoke.v1",
+  "generated_at": "2026-05-01",
+  "objective": "Record a VSP-native Black Cat main-wing high-density mesh and SU2 readability smoke after adding VSP-native geometry support to the mesh-native refinement ladders.",
+  "geometry_source": {
+    "type": "openvsp_mesh_native",
+    "vsp_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_origin.vsp3",
+    "reference_avl_path": "/Volumes/Samsung SSD/hpa-mdo/data/blackcat_004_full.avl",
+    "airfoil_note": "The route uses OpenVSP-extracted main-wing sections, including the embedded FX 76-MP-140 / CLARK-Y high-lift airfoils. This is not a NACA surrogate."
+  },
+  "mesh_ladder": {
+    "case_dir": "/tmp/hpa_mdo_blackcat_vsp_native_high_density_ladder",
+    "status": "target_reached",
+    "elapsed_s": 631.69,
+    "points_per_side": 32,
+    "spanwise_subdivisions": 2,
+    "feature_refinement_size": 3.0,
+    "farfield_mesh_size": 18.0,
+    "wing_refinement_radius": 12.0,
+    "target_volume_elements": 1000000,
+    "max_volume_elements": 1800000,
+    "write_su2_during_ladder": false,
+    "cases": [
+      {
+        "mesh_size": 0.025,
+        "node_count": 258378,
+        "volume_element_count": 717901,
+        "quality_gate": {
+          "status": "pass",
+          "warnings": [
+            "very_low_min_gamma",
+            "low_p01_gamma"
+          ]
+        }
+      },
+      {
+        "mesh_size": 0.022,
+        "node_count": 345491,
+        "volume_element_count": 950904,
+        "quality_gate": {
+          "status": "pass",
+          "warnings": [
+            "very_low_min_gamma"
+          ]
+        }
+      },
+      {
+        "mesh_size": 0.02,
+        "node_count": 372577,
+        "volume_element_count": 1032855,
+        "quality_gate": {
+          "status": "pass",
+          "warnings": [
+            "very_low_min_gamma"
+          ]
+        }
+      }
+    ],
+    "selected_case": {
+      "mesh_size": 0.02,
+      "node_count": 372577,
+      "volume_element_count": 1032855,
+      "mesh_path": "/tmp/hpa_mdo_blackcat_vsp_native_high_density_ladder/02_span_2_pps_32_feat_3_h_0p02/mesh.msh",
+      "su2_path": "/tmp/hpa_mdo_blackcat_vsp_native_high_density_ladder/02_span_2_pps_32_feat_3_h_0p02/mesh.su2",
+      "mesh_file_size_mb": {
+        "msh": 77,
+        "su2": 74
+      },
+      "quality_gate": {
+        "status": "pass",
+        "blockers": [],
+        "warnings": [
+          "very_low_min_gamma"
+        ]
+      },
+      "quality_metrics": {
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 5.471247123509385e-06,
+        "min_sicn": 0.00046437824735884493,
+        "min_sige": 0.002469108438127244,
+        "min_volume": 7.528999066884825e-11,
+        "gamma_p01": 0.02153231567880659,
+        "gamma_p05": 0.06376095873594471,
+        "gamma_p50": 0.3427128058734325,
+        "min_sicn_p01": 0.019699902159362875,
+        "min_sige_p01": 0.3411428690113503
+      }
+    }
+  },
+  "su2_smoke": {
+    "case_dir": "/tmp/hpa_mdo_blackcat_vsp_native_high_density_ladder/02_span_2_pps_32_feat_3_h_0p02",
+    "mesh_conversion": {
+      "command": "gmsh mesh.msh -0 -format su2 -o mesh.su2 -save -v 2",
+      "status": "success"
+    },
+    "marker_audit": {
+      "status": "pass",
+      "ndime": 3,
+      "nelem": 1032855,
+      "npoin": 372577,
+      "nmark": 2,
+      "markers": {
+        "wing_wall": {
+          "element_count": 677260,
+          "element_type_counts": {
+            "5": 677260
+          }
+        },
+        "farfield": {
+          "element_count": 520,
+          "element_type_counts": {
+            "5": 520
+          }
+        }
+      }
+    },
+    "solver": {
+      "command": "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD -t 4 su2_runtime.cfg",
+      "solver": "INC_NAVIER_STOKES",
+      "wall_profile": "adiabatic_no_slip",
+      "velocity_mps": 6.5,
+      "alpha_deg": 0.0,
+      "max_iterations": 5,
+      "return_status": "success",
+      "solver_exit": "Maximum number of iterations reached before convergence",
+      "history_rows": 5,
+      "final_iteration": 4,
+      "final_coefficients": {
+        "cl": 0.5348469092,
+        "cd": 0.2248723315,
+        "cmx": -0.1658713322,
+        "cmy": -0.1333902841,
+        "cmz": 0.07852792079,
+        "lift_to_drag": 2.378446942
+      }
+    }
+  },
+  "engineering_assessment": {
+    "what_this_proves": [
+      "The VSP-native mesh-native route can generate a million-class tetrahedral volume mesh for the real Black Cat main-wing geometry.",
+      "The selected million-class mesh has no invalid/negative-volume elements and can be converted to SU2 format.",
+      "SU2 can read the million-class mesh, apply wing_wall/farfield markers, and run a short incompressible no-slip smoke with finite positive drag."
+    ],
+    "what_this_does_not_prove": [
+      "It is not a converged CFD solution.",
+      "It is not grid independence.",
+      "It is not final drag-quality HPA CFD because this mesh is tetrahedral only and has no wall-resolved prism boundary layer.",
+      "The very_low_min_gamma warning means there are still isolated slivers that should be investigated before long production runs."
+    ],
+    "next_engineering_step": "Use this as the high-density no-BL baseline while moving the viscous route to mesh-native/owned near-wall topology. Do not spend a 2000-iteration production run on this no-BL tet mesh unless the goal is only solver stability diagnostics."
+  }
+}
