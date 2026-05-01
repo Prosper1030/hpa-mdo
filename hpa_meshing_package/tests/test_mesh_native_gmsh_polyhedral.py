@@ -4,6 +4,7 @@ import shutil
 import pytest
 
 from hpa_meshing.mesh_native.gmsh_polyhedral import (
+    run_faceted_volume_refinement_ladder,
     run_faceted_volume_su2_smoke,
     write_faceted_volume_mesh,
     write_faceted_volume_su2_case,
@@ -71,6 +72,12 @@ def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path
     assert report["volume_element_count"] > 0
     assert report["node_count"] > 0
     assert report["surface_triangle_count"] == 36
+    assert report["quality_metrics"]["tetra_element_count"] == report["volume_element_count"]
+    assert report["quality_metrics"]["non_positive_min_sicn_count"] == 0
+    assert report["quality_metrics"]["non_positive_volume_count"] == 0
+    assert report["quality_metrics"]["min_gamma"] > 0.0
+    assert report["production_scale_gate"]["target_volume_elements"] == 1_000_000
+    assert report["production_scale_gate"]["status"] == "underresolved"
     assert report["physical_groups"]["wing_wall"]["dimension"] == 2
     assert report["physical_groups"]["farfield"]["dimension"] == 2
     assert report["physical_groups"]["fluid"]["dimension"] == 3
@@ -86,6 +93,45 @@ def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path
     assert set(su2_summary["markers"]) == {"wing_wall", "farfield"}
     assert su2_summary["markers"]["wing_wall"]["element_count"] > 0
     assert su2_summary["markers"]["farfield"]["element_count"] > 0
+
+
+def test_run_faceted_volume_refinement_ladder_increases_mesh_density(tmp_path: Path):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    report = run_faceted_volume_refinement_ladder(
+        wing,
+        farfield,
+        tmp_path / "ladder",
+        mesh_sizes=(3.0, 2.0, 1.0),
+        target_volume_elements=1_000,
+        max_volume_elements=5_000,
+    )
+
+    counts = [case["volume_element_count"] for case in report["cases"]]
+    assert counts == sorted(counts)
+    assert counts[-1] >= 1_000
+    assert report["status"] == "target_reached"
+    assert report["selected_case"]["mesh_size"] == 1.0
+    assert report["selected_case"]["production_scale_gate"]["status"] == "meets_target"
+
+
+def test_run_faceted_volume_refinement_ladder_respects_cell_budget(tmp_path: Path):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    report = run_faceted_volume_refinement_ladder(
+        wing,
+        farfield,
+        tmp_path / "budget_ladder",
+        mesh_sizes=(3.0, 2.0, 1.0),
+        target_volume_elements=1_000_000,
+        max_volume_elements=500,
+    )
+
+    assert report["status"] == "blocked_by_volume_element_guard"
+    assert report["selected_case"] is None
+    assert report["cases"][-1]["volume_element_count"] > 500
 
 
 def test_write_faceted_volume_su2_case_materializes_marker_audit(tmp_path: Path):

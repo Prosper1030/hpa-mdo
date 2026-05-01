@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
-from typing import Any
+from typing import Any, Iterable, Sequence
 
 from .su2_structured import (
     _parse_smoke_history,
@@ -25,6 +26,7 @@ def write_faceted_volume_mesh(
     wall_marker: str = "wing_wall",
     farfield_marker: str = "farfield",
     fluid_marker: str = "fluid",
+    production_target_volume_elements: int = 1_000_000,
 ) -> dict[str, Any]:
     """Generate a Gmsh volume from mesh-native faceted boundary surfaces.
 
@@ -95,6 +97,7 @@ def write_faceted_volume_mesh(
             for element_type, tags in zip(volume_element_types, volume_element_tags)
         }
         volume_element_count = sum(volume_type_counts.values())
+        quality_metrics = _collect_volume_quality_metrics(gmsh)
         gmsh.write(str(msh_path))
         if su2_output_path is not None:
             gmsh.write(str(su2_output_path))
@@ -108,6 +111,12 @@ def write_faceted_volume_mesh(
             "node_count": len(node_tags),
             "volume_element_count": volume_element_count,
             "volume_element_type_counts": volume_type_counts,
+            "quality_metrics": quality_metrics,
+            "mesh_quality_gate": _mesh_quality_gate(quality_metrics),
+            "production_scale_gate": _production_scale_gate(
+                volume_element_count,
+                target_volume_elements=production_target_volume_elements,
+            ),
             "surface_triangle_count": len(wing_surfaces) + len(farfield_surfaces),
             "physical_groups": {
                 wall_marker: {
@@ -133,6 +142,87 @@ def write_faceted_volume_mesh(
         }
     finally:
         gmsh.finalize()
+
+
+def run_faceted_volume_refinement_ladder(
+    wing: SurfaceMesh,
+    farfield: SurfaceMesh,
+    case_dir: Path | str,
+    *,
+    mesh_sizes: Sequence[float],
+    target_volume_elements: int = 1_000_000,
+    max_volume_elements: int = 250_000,
+    write_su2: bool = True,
+) -> dict[str, Any]:
+    """Run a coarse-to-fine mesh-size ladder with explicit cell-count guardrails."""
+    if target_volume_elements <= 0:
+        raise ValueError("target_volume_elements must be positive")
+    if max_volume_elements <= 0:
+        raise ValueError("max_volume_elements must be positive")
+
+    ordered_mesh_sizes = sorted((float(value) for value in mesh_sizes), reverse=True)
+    if not ordered_mesh_sizes:
+        raise ValueError("mesh_sizes must not be empty")
+    if any(value <= 0.0 for value in ordered_mesh_sizes):
+        raise ValueError("mesh_sizes must all be positive")
+
+    ladder_path = Path(case_dir)
+    ladder_path.mkdir(parents=True, exist_ok=True)
+    cases: list[dict[str, Any]] = []
+    selected_case: dict[str, Any] | None = None
+    status = "target_not_reached"
+
+    for index, mesh_size in enumerate(ordered_mesh_sizes):
+        mesh_case_path = ladder_path / f"{index:02d}_h_{_mesh_size_slug(mesh_size)}"
+        mesh_case_path.mkdir(parents=True, exist_ok=True)
+        su2_path = mesh_case_path / "mesh.su2" if write_su2 else None
+        mesh_report = write_faceted_volume_mesh(
+            wing,
+            farfield,
+            mesh_case_path / "mesh.msh",
+            su2_path=su2_path,
+            mesh_size=mesh_size,
+            production_target_volume_elements=target_volume_elements,
+        )
+        case_report = {
+            **mesh_report,
+            "case_dir": str(mesh_case_path),
+            "mesh_size": mesh_size,
+        }
+        cases.append(case_report)
+
+        if int(case_report["volume_element_count"]) > max_volume_elements:
+            status = "blocked_by_volume_element_guard"
+            break
+        if int(case_report["volume_element_count"]) >= target_volume_elements:
+            selected_case = case_report
+            status = "target_reached"
+            break
+
+    report = {
+        "route": "mesh_native_faceted_gmsh_volume_refinement_ladder",
+        "status": status,
+        "report_path": str(ladder_path / "refinement_ladder_report.json"),
+        "target_volume_elements": int(target_volume_elements),
+        "max_volume_elements": int(max_volume_elements),
+        "mesh_sizes": ordered_mesh_sizes,
+        "selected_case": selected_case,
+        "cases": cases,
+        "engineering_assessment": {
+            "production_scale_target_volume_elements": int(target_volume_elements),
+            "budget_guard_volume_elements": int(max_volume_elements),
+            "selected_for_cfd_interpretation": status == "target_reached",
+            "aero_coefficients_interpretable": False,
+            "reason": "mesh_density_ladder_only_no_converged_su2_solution",
+        },
+        "caveats": [
+            "mesh-size ladder changes global tet sizing only",
+            "no local curvature/wake/boundary-layer refinement policy yet",
+            "million-scale target is an engineering credibility gate, not a convergence proof",
+        ],
+    }
+    Path(report["report_path"]).write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return report
 
 
 def write_faceted_volume_su2_case(
@@ -336,3 +426,131 @@ def _line_between(
         )
     line_tag, stored_start, stored_end = line_cache[key]
     return line_tag if (start, end) == (stored_start, stored_end) else -line_tag
+
+
+def _collect_volume_quality_metrics(gmsh) -> dict[str, Any]:
+    volume_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
+    tetra_tags: list[int] = []
+    for element_type, tags in zip(volume_types, volume_element_tags):
+        if int(element_type) == 4:
+            tetra_tags.extend(int(tag) for tag in tags)
+
+    if not tetra_tags:
+        return {
+            "tetra_element_count": 0,
+            "tetrahedron_count": 0,
+            "ill_shaped_tet_count": 0,
+            "non_positive_min_sicn_count": 0,
+            "non_positive_min_sige_count": 0,
+            "non_positive_volume_count": 0,
+            "min_gamma": None,
+            "min_sicn": None,
+            "min_sige": None,
+            "min_volume": None,
+            "gamma_percentiles": {"p01": None, "p05": None, "p50": None},
+            "min_sicn_percentiles": {"p01": None, "p05": None, "p50": None},
+            "min_sige_percentiles": {"p01": None, "p05": None, "p50": None},
+            "volume_percentiles": {"p01": None, "p05": None, "p50": None},
+        }
+
+    min_sicn = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "minSICN")]
+    min_sige = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "minSIGE")]
+    gamma = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "gamma")]
+    volume = [float(value) for value in gmsh.model.mesh.getElementQualities(tetra_tags, "volume")]
+    ill_shaped_tet_count = sum(
+        1
+        for sicn_value, sige_value, volume_value in zip(min_sicn, min_sige, volume)
+        if sicn_value <= 0.0 or sige_value <= 0.0 or volume_value <= 0.0
+    )
+
+    return {
+        "tetra_element_count": len(tetra_tags),
+        "tetrahedron_count": len(tetra_tags),
+        "ill_shaped_tet_count": int(ill_shaped_tet_count),
+        "non_positive_min_sicn_count": sum(1 for value in min_sicn if value <= 0.0),
+        "non_positive_min_sige_count": sum(1 for value in min_sige if value <= 0.0),
+        "non_positive_volume_count": sum(1 for value in volume if value <= 0.0),
+        "min_gamma": min(gamma),
+        "min_sicn": min(min_sicn),
+        "min_sige": min(min_sige),
+        "min_volume": min(volume),
+        "gamma_percentiles": {
+            "p01": _percentile(gamma, 0.01),
+            "p05": _percentile(gamma, 0.05),
+            "p50": _percentile(gamma, 0.50),
+        },
+        "min_sicn_percentiles": {
+            "p01": _percentile(min_sicn, 0.01),
+            "p05": _percentile(min_sicn, 0.05),
+            "p50": _percentile(min_sicn, 0.50),
+        },
+        "min_sige_percentiles": {
+            "p01": _percentile(min_sige, 0.01),
+            "p05": _percentile(min_sige, 0.05),
+            "p50": _percentile(min_sige, 0.50),
+        },
+        "volume_percentiles": {
+            "p01": _percentile(volume, 0.01),
+            "p05": _percentile(volume, 0.05),
+            "p50": _percentile(volume, 0.50),
+        },
+    }
+
+
+def _mesh_quality_gate(quality_metrics: dict[str, Any]) -> dict[str, Any]:
+    blockers: list[str] = []
+    if int(quality_metrics.get("tetra_element_count") or 0) <= 0:
+        blockers.append("tetra_elements_missing")
+    if int(quality_metrics.get("non_positive_min_sicn_count") or 0) > 0:
+        blockers.append("non_positive_min_sicn")
+    if int(quality_metrics.get("non_positive_min_sige_count") or 0) > 0:
+        blockers.append("non_positive_min_sige")
+    if int(quality_metrics.get("non_positive_volume_count") or 0) > 0:
+        blockers.append("non_positive_volume")
+    min_gamma = quality_metrics.get("min_gamma")
+    if min_gamma is not None and float(min_gamma) <= 0.0:
+        blockers.append("non_positive_gamma")
+    return {
+        "status": "pass" if not blockers else "fail",
+        "blockers": blockers,
+    }
+
+
+def _production_scale_gate(
+    volume_element_count: int,
+    *,
+    target_volume_elements: int,
+) -> dict[str, Any]:
+    target = int(target_volume_elements)
+    if target <= 0:
+        raise ValueError("target_volume_elements must be positive")
+    observed = int(volume_element_count)
+    shortfall = max(0, target - observed)
+    return {
+        "status": "meets_target" if observed >= target else "underresolved",
+        "target_volume_elements": target,
+        "observed_volume_elements": observed,
+        "shortfall_volume_elements": shortfall,
+        "observed_to_target_ratio": observed / target,
+    }
+
+
+def _percentile(values: Iterable[float], fraction: float) -> float | None:
+    ordered = sorted(float(value) for value in values)
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return ordered[0]
+    clamped_fraction = min(max(float(fraction), 0.0), 1.0)
+    position = clamped_fraction * float(len(ordered) - 1)
+    lower_index = int(math.floor(position))
+    upper_index = int(math.ceil(position))
+    if lower_index == upper_index:
+        return ordered[lower_index]
+    lower_weight = float(upper_index) - position
+    upper_weight = position - float(lower_index)
+    return ordered[lower_index] * lower_weight + ordered[upper_index] * upper_weight
+
+
+def _mesh_size_slug(mesh_size: float) -> str:
+    return f"{float(mesh_size):.6g}".replace("-", "m").replace(".", "p")
