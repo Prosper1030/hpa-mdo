@@ -5,7 +5,9 @@ import pytest
 
 from hpa_meshing.mesh_native.blackcat import (
     build_blackcat_main_wing_surfaces_from_avl,
+    build_blackcat_main_wing_surfaces_from_vsp,
     load_blackcat_main_wing_spec_from_avl,
+    load_blackcat_main_wing_spec_from_vsp,
     run_blackcat_main_wing_coupled_refinement_ladder,
     run_blackcat_main_wing_faceted_refinement_ladder,
     run_blackcat_main_wing_faceted_su2_smoke,
@@ -16,6 +18,7 @@ from hpa_meshing.mesh_native.wing_surface import build_wing_surface
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AVL_PATH = REPO_ROOT / "data" / "blackcat_004_full.avl"
+VSP_PATH = REPO_ROOT / "data" / "blackcat_004_origin.vsp3"
 
 
 def test_load_blackcat_main_wing_spec_from_avl_builds_full_span_mesh_native_spec():
@@ -34,6 +37,39 @@ def test_load_blackcat_main_wing_spec_from_avl_builds_full_span_mesh_native_spec
     assert all(station.twist_deg == pytest.approx(3.0) for station in spec.stations)
     assert all(len(station.airfoil_xz) == 14 for station in spec.stations)
     assert spec.stations[0].airfoil_xz[0] == pytest.approx((1.0, 0.0))
+
+
+def test_load_blackcat_main_wing_spec_from_vsp_preserves_openvsp_le_placement():
+    pytest.importorskip("openvsp")
+
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=8,
+    )
+
+    positive = [station for station in spec.stations if station.y >= -1.0e-9]
+    assert spec.twist_axis_x == pytest.approx(0.0)
+    assert spec.reference.sref_full == pytest.approx(35.175)
+    assert [station.chord for station in positive] == pytest.approx(
+        [1.3, 1.3, 1.175, 1.04, 0.83, 0.435]
+    )
+    assert [station.y for station in positive] == pytest.approx(
+        [
+            0.0,
+            4.499314628,
+            7.497487109,
+            10.493375714,
+            13.486067864,
+            16.474651959,
+        ],
+        abs=1.0e-9,
+    )
+    assert positive[3].x_le == pytest.approx(0.057493738, abs=1.0e-9)
+    assert positive[-1].x_le == pytest.approx(0.231214587, abs=1.0e-9)
+    assert positive[-1].z_le == pytest.approx(0.799974338, abs=1.0e-9)
+    assert all(station.twist_deg == pytest.approx(3.0) for station in positive)
+    assert all(len(station.airfoil_xz) == 14 for station in positive)
 
 
 def test_load_blackcat_main_wing_spec_can_subdivide_spanwise_stations():
@@ -92,6 +128,26 @@ def test_build_blackcat_main_wing_surfaces_from_avl_materializes_farfield():
     assert farfield.marker_counts() == {"farfield": 6}
     assert farfield.bounds()["y_min"] < wing.bounds()["y_min"]
     assert farfield.bounds()["y_max"] > wing.bounds()["y_max"]
+
+
+def test_build_blackcat_main_wing_surfaces_from_vsp_uses_vsp_projected_bounds():
+    pytest.importorskip("openvsp")
+
+    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=8,
+        farfield_upstream_factor=1.5,
+        farfield_downstream_factor=2.0,
+        farfield_lateral_factor=1.2,
+        farfield_vertical_factor=1.2,
+    )
+
+    assert spec.reference.bref_full == pytest.approx(33.0)
+    assert wing.marker_counts() == {"wing_wall": 168}
+    assert wing.metadata["span_m"] == pytest.approx(32.949303917)
+    assert wing.bounds()["y_max"] == pytest.approx(16.474651959)
+    assert farfield.marker_counts() == {"farfield": 6}
 
 
 def test_run_blackcat_main_wing_faceted_su2_smoke_runs_when_su2_is_available(

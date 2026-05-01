@@ -29,6 +29,16 @@ class _AvlMainWingSection:
     airfoil_xz: tuple[tuple[float, float], ...]
 
 
+@dataclass(frozen=True)
+class _OpenVspMainWingSection:
+    x_le: float
+    y_le: float
+    z_le: float
+    chord: float
+    incidence_deg: float
+    airfoil_xz: tuple[tuple[float, float], ...]
+
+
 def load_blackcat_main_wing_spec_from_avl(
     avl_path: Path | str,
     *,
@@ -82,6 +92,66 @@ def load_blackcat_main_wing_spec_from_avl(
     )
 
 
+def load_blackcat_main_wing_spec_from_vsp(
+    vsp_path: Path | str,
+    *,
+    reference_avl_path: Path | str | None = None,
+    points_per_side: int = 16,
+    spanwise_subdivisions: int = 1,
+) -> WingSpec:
+    """Build a mesh-native main-wing spec from the reference Black Cat VSP model.
+
+    This route samples OpenVSP's own wing definition instead of relying on the
+    flattened AVL section positions. The distinction matters for the Black Cat
+    main wing: the VSP model carries whole-wing incidence and mild outboard
+    leading-edge sweep, while the historical AVL file keeps ``x_le = 0`` for all
+    main-wing sections.
+    """
+    if points_per_side < 3:
+        raise ValueError("points_per_side must be at least 3")
+    if spanwise_subdivisions < 1:
+        raise ValueError("spanwise_subdivisions must be at least 1")
+
+    half_sections = _extract_openvsp_main_wing_sections(Path(vsp_path))
+    if len(half_sections) < 2:
+        raise ValueError("OpenVSP main wing must contain at least two sections")
+    if abs(half_sections[0].y_le) > 1.0e-9:
+        raise ValueError("Expected OpenVSP main-wing sections to start at y=0")
+
+    resampled = [
+        (
+            section,
+            _resample_airfoil_loop(section.airfoil_xz, points_per_side=points_per_side),
+        )
+        for section in half_sections
+    ]
+
+    stations: list[Station] = []
+    for section, loop in reversed(resampled[1:]):
+        stations.append(_station_from_openvsp_section(section, loop, y=-section.y_le))
+    for section, loop in resampled:
+        stations.append(_station_from_openvsp_section(section, loop, y=section.y_le))
+    stations = _subdivide_spanwise_stations(stations, spanwise_subdivisions)
+
+    if reference_avl_path is not None:
+        sref, cref, bref = _parse_avl_reference(
+            _clean_avl_lines(Path(reference_avl_path).read_text(encoding="utf-8"))
+        )
+        reference = Reference(sref_full=sref, cref=cref, bref_full=bref)
+    else:
+        reference = _reference_from_openvsp_sections(half_sections)
+
+    return WingSpec(
+        stations=stations,
+        side="full",
+        te_rule="sharp",
+        tip_rule="planar_cap",
+        root_rule="full",
+        reference=reference,
+        twist_axis_x=0.0,
+    )
+
+
 def build_blackcat_main_wing_surfaces_from_avl(
     avl_path: Path | str,
     *,
@@ -94,6 +164,34 @@ def build_blackcat_main_wing_surfaces_from_avl(
 ) -> tuple[WingSpec, SurfaceMesh, SurfaceMesh]:
     spec = load_blackcat_main_wing_spec_from_avl(
         avl_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wing = build_wing_surface(spec)
+    farfield = build_farfield_box_surface(
+        wing,
+        upstream_factor=farfield_upstream_factor,
+        downstream_factor=farfield_downstream_factor,
+        lateral_factor=farfield_lateral_factor,
+        vertical_factor=farfield_vertical_factor,
+    )
+    return spec, wing, farfield
+
+
+def build_blackcat_main_wing_surfaces_from_vsp(
+    vsp_path: Path | str,
+    *,
+    reference_avl_path: Path | str | None = None,
+    points_per_side: int = 16,
+    spanwise_subdivisions: int = 1,
+    farfield_upstream_factor: float = 1.5,
+    farfield_downstream_factor: float = 2.0,
+    farfield_lateral_factor: float = 1.2,
+    farfield_vertical_factor: float = 1.2,
+) -> tuple[WingSpec, SurfaceMesh, SurfaceMesh]:
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        vsp_path,
+        reference_avl_path=reference_avl_path,
         points_per_side=points_per_side,
         spanwise_subdivisions=spanwise_subdivisions,
     )
@@ -124,17 +222,35 @@ def run_blackcat_main_wing_faceted_su2_smoke(
     farfield_downstream_factor: float = 2.0,
     farfield_lateral_factor: float = 1.2,
     farfield_vertical_factor: float = 1.2,
+    vsp_path: Path | str | None = None,
 ) -> dict:
     from .gmsh_polyhedral import run_faceted_volume_su2_smoke
 
-    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
-        avl_path,
-        points_per_side=points_per_side,
-        farfield_upstream_factor=farfield_upstream_factor,
-        farfield_downstream_factor=farfield_downstream_factor,
-        farfield_lateral_factor=farfield_lateral_factor,
-        farfield_vertical_factor=farfield_vertical_factor,
-    )
+    if vsp_path is None:
+        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+            avl_path,
+            points_per_side=points_per_side,
+            farfield_upstream_factor=farfield_upstream_factor,
+            farfield_downstream_factor=farfield_downstream_factor,
+            farfield_lateral_factor=farfield_lateral_factor,
+            farfield_vertical_factor=farfield_vertical_factor,
+        )
+        geometry_source = {"type": "avl", "path": str(avl_path)}
+    else:
+        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_vsp(
+            vsp_path,
+            reference_avl_path=avl_path,
+            points_per_side=points_per_side,
+            farfield_upstream_factor=farfield_upstream_factor,
+            farfield_downstream_factor=farfield_downstream_factor,
+            farfield_lateral_factor=farfield_lateral_factor,
+            farfield_vertical_factor=farfield_vertical_factor,
+        )
+        geometry_source = {
+            "type": "openvsp_mesh_native",
+            "path": str(vsp_path),
+            "reference_avl_path": str(avl_path),
+        }
     report = run_faceted_volume_su2_smoke(
         wing,
         farfield,
@@ -154,6 +270,7 @@ def run_blackcat_main_wing_faceted_su2_smoke(
         "route": "blackcat_main_wing_mesh_native_faceted_su2_smoke",
         "blackcat_source": {
             "avl_path": str(avl_path),
+            "geometry_source": geometry_source,
             "points_per_side": points_per_side,
             "station_count": len(spec.stations),
             "points_per_station": len(spec.stations[0].airfoil_xz),
@@ -479,6 +596,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
     conv_cauchy_eps: float | str | None = None,
     output_files: Sequence[str] = ("RESTART_ASCII", "PARAVIEW_ASCII", "SURFACE_CSV"),
     cfd_evidence_min_iterations: int = 1000,
+    vsp_path: Path | str | None = None,
     case_runner: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     from .gmsh_polyhedral import (
@@ -500,11 +618,25 @@ def run_blackcat_main_wing_su2_stability_ladder(
     if any(value <= 0.0 for value in ordered_mesh_sizes):
         raise ValueError("mesh_sizes must all be positive")
 
-    spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
-        avl_path,
-        points_per_side=points_per_side,
-        spanwise_subdivisions=spanwise_subdivisions,
-    )
+    if vsp_path is None:
+        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_avl(
+            avl_path,
+            points_per_side=points_per_side,
+            spanwise_subdivisions=spanwise_subdivisions,
+        )
+        geometry_source = {"type": "avl", "path": str(avl_path)}
+    else:
+        spec, wing, farfield = build_blackcat_main_wing_surfaces_from_vsp(
+            vsp_path,
+            reference_avl_path=avl_path,
+            points_per_side=points_per_side,
+            spanwise_subdivisions=spanwise_subdivisions,
+        )
+        geometry_source = {
+            "type": "openvsp_mesh_native",
+            "path": str(vsp_path),
+            "reference_avl_path": str(avl_path),
+        }
     refinement_boxes = (
         build_wing_feature_refinement_boxes(wing, mesh_size=feature_refinement_size)
         if feature_refinement_size is not None
@@ -589,6 +721,7 @@ def run_blackcat_main_wing_su2_stability_ladder(
         "mesh_sizes": ordered_mesh_sizes,
         "feature_extents": infer_wing_feature_extents(wing),
         "size_field_policy": {
+            "geometry_source": geometry_source,
             "spanwise_subdivisions": spanwise_subdivisions,
             "points_per_side": points_per_side,
             "feature_refinement_size": feature_refinement_size,
@@ -712,6 +845,288 @@ def _feature_refinement_size_ladder(
     if not ordered:
         raise ValueError("feature_refinement_size_values must not be empty")
     return ordered
+
+
+def _extract_openvsp_main_wing_sections(vsp_path: Path) -> list[_OpenVspMainWingSection]:
+    try:
+        import openvsp as vsp  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError(
+            "openvsp python bindings are required for VSP-native mesh geometry extraction"
+        ) from exc
+
+    if not vsp_path.is_file():
+        raise FileNotFoundError(f"OpenVSP file not found: {vsp_path}")
+
+    vsp.ClearVSPModel()
+    try:
+        vsp.ReadVSPFile(str(vsp_path))
+        vsp.Update()
+        wing_id = _find_openvsp_main_wing(vsp)
+        if wing_id is None:
+            raise ValueError(f"No main wing geom found in {vsp_path}")
+        return _extract_openvsp_wing_sections_from_model(vsp, wing_id)
+    finally:
+        try:
+            vsp.ClearVSPModel()
+        except Exception:
+            pass
+
+
+def _find_openvsp_main_wing(vsp: Any) -> str | None:
+    preferred = {"mainwing", "main", "wing"}
+    fallback: str | None = None
+    largest_symmetric: tuple[float, str] | None = None
+
+    for geom_id in vsp.FindGeoms():
+        try:
+            type_name = str(vsp.GetGeomTypeName(geom_id)).upper()
+        except Exception:
+            type_name = ""
+        if type_name and type_name != "WING":
+            continue
+        name = _normalized_openvsp_name(str(vsp.GetGeomName(geom_id)))
+        if name in preferred and _openvsp_sym_xz(vsp, geom_id):
+            return geom_id
+        if fallback is None and "wing" in name and "elevator" not in name and "fin" not in name:
+            fallback = geom_id
+
+        half_span = _openvsp_half_span(vsp, geom_id)
+        if _openvsp_sym_xz(vsp, geom_id) and (
+            largest_symmetric is None or half_span > largest_symmetric[0]
+        ):
+            largest_symmetric = (half_span, geom_id)
+
+    if fallback is not None:
+        return fallback
+    return None if largest_symmetric is None else largest_symmetric[1]
+
+
+def _extract_openvsp_wing_sections_from_model(
+    vsp: Any,
+    wing_id: str,
+) -> list[_OpenVspMainWingSection]:
+    xsec_surf = vsp.GetXSecSurf(wing_id, 0)
+    n_xsecs = int(vsp.GetNumXSec(xsec_surf))
+    if n_xsecs < 2:
+        return []
+
+    origin = (
+        _openvsp_geom_parm(vsp, wing_id, "X_Rel_Location", "X_Location"),
+        _openvsp_geom_parm(vsp, wing_id, "Y_Rel_Location", "Y_Location"),
+        _openvsp_geom_parm(vsp, wing_id, "Z_Rel_Location", "Z_Location"),
+    )
+    rotation = (
+        _openvsp_geom_parm(vsp, wing_id, "X_Rel_Rotation", "X_Rotation"),
+        _openvsp_geom_parm(vsp, wing_id, "Y_Rel_Rotation", "Y_Rotation"),
+        _openvsp_geom_parm(vsp, wing_id, "Z_Rel_Rotation", "Z_Rotation"),
+    )
+    incidence_deg = float(rotation[1])
+
+    root_xs = vsp.GetXSec(xsec_surf, 0)
+    first_segment_xs = vsp.GetXSec(xsec_surf, 1)
+    root_chord = _openvsp_xsec_parm(
+        vsp,
+        first_segment_xs,
+        "Root_Chord",
+        default=_openvsp_xsec_parm(vsp, root_xs, "Tip_Chord", default=0.0),
+    )
+    root_global = _openvsp_global_point((0.0, 0.0, 0.0), origin, rotation)
+    sections = [
+        _OpenVspMainWingSection(
+            x_le=root_global[0],
+            y_le=root_global[1],
+            z_le=root_global[2],
+            chord=root_chord,
+            incidence_deg=incidence_deg
+            + _openvsp_xsec_parm(vsp, root_xs, "Twist", default=0.0),
+            airfoil_xz=tuple(_openvsp_airfoil_loop(vsp, root_xs)),
+        )
+    ]
+
+    local_x = 0.0
+    local_y = 0.0
+    local_z = 0.0
+    for xsec_index in range(1, n_xsecs):
+        xs = vsp.GetXSec(xsec_surf, xsec_index)
+        root_c = _openvsp_xsec_parm(vsp, xs, "Root_Chord", default=sections[-1].chord)
+        tip_c = _openvsp_xsec_parm(vsp, xs, "Tip_Chord", default=root_c)
+        span = _openvsp_xsec_parm(vsp, xs, "Span", default=0.0)
+        sweep_deg = _openvsp_xsec_parm(vsp, xs, "Sweep", default=0.0)
+        sweep_location = _openvsp_xsec_parm(vsp, xs, "Sweep_Location", default=0.0)
+        dihedral_deg = _openvsp_xsec_parm(vsp, xs, "Dihedral", default=0.0)
+        if span <= 1.0e-9:
+            continue
+
+        projected_span = span * math.cos(math.radians(dihedral_deg))
+        local_y += projected_span
+        local_z += span * math.sin(math.radians(dihedral_deg))
+        dx_at_sweep_ref = projected_span * math.tan(math.radians(sweep_deg))
+        local_x += dx_at_sweep_ref - sweep_location * (tip_c - root_c)
+
+        global_xyz = _openvsp_global_point((local_x, local_y, local_z), origin, rotation)
+        sections.append(
+            _OpenVspMainWingSection(
+                x_le=global_xyz[0],
+                y_le=global_xyz[1],
+                z_le=global_xyz[2],
+                chord=tip_c,
+                incidence_deg=incidence_deg
+                + _openvsp_xsec_parm(vsp, xs, "Twist", default=0.0),
+                airfoil_xz=tuple(_openvsp_airfoil_loop(vsp, xs)),
+            )
+        )
+    return sections
+
+
+def _openvsp_airfoil_loop(vsp: Any, xs: Any) -> list[tuple[float, float]]:
+    try:
+        upper = list(vsp.GetAirfoilUpperPnts(xs))
+        lower = list(vsp.GetAirfoilLowerPnts(xs))
+    except Exception as exc:
+        raise ValueError("OpenVSP XSec does not expose file-airfoil coordinates") from exc
+    if not upper or not lower:
+        raise ValueError("OpenVSP XSec airfoil coordinate arrays are empty")
+
+    ordinate_axis = _openvsp_airfoil_ordinate_axis(upper + lower)
+    upper_pairs = sorted(
+        (_openvsp_vec_component(point, "x"), _openvsp_vec_component(point, ordinate_axis))
+        for point in upper
+    )
+    lower_pairs = sorted(
+        (_openvsp_vec_component(point, "x"), _openvsp_vec_component(point, ordinate_axis))
+        for point in lower
+    )
+    upper_te_to_le = list(reversed(upper_pairs))
+    lower_le_to_te = lower_pairs
+    if _distance_2d(upper_te_to_le[-1], lower_le_to_te[0]) <= 1.0e-9:
+        loop = upper_te_to_le + lower_le_to_te[1:]
+    else:
+        loop = upper_te_to_le + lower_le_to_te
+    return [(float(x), float(z)) for x, z in loop]
+
+
+def _openvsp_airfoil_ordinate_axis(points: Sequence[Any]) -> str:
+    spans: dict[str, float] = {}
+    for axis in ("y", "z"):
+        try:
+            values = [_openvsp_vec_component(point, axis) for point in points]
+        except Exception:
+            spans[axis] = float("-inf")
+            continue
+        spans[axis] = max(values) - min(values) if values else float("-inf")
+    return "y" if spans.get("y", float("-inf")) >= spans.get("z", float("-inf")) else "z"
+
+
+def _openvsp_vec_component(point: Any, axis: str) -> float:
+    value = getattr(point, axis, None)
+    if callable(value):
+        return float(value())
+    if value is not None:
+        return float(value)
+    raise AttributeError(f"OpenVSP point {point!r} does not expose {axis}")
+
+
+def _openvsp_global_point(
+    local: tuple[float, float, float],
+    origin: tuple[float, float, float],
+    rotation_deg: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    x, y, z = _rotate_point(local, rotation_deg)
+    return origin[0] + x, origin[1] + y, origin[2] + z
+
+
+def _rotate_point(
+    point: tuple[float, float, float],
+    rotation_deg: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    x, y, z = point
+    rx, ry, rz = (math.radians(float(value)) for value in rotation_deg)
+
+    y, z = (
+        y * math.cos(rx) - z * math.sin(rx),
+        y * math.sin(rx) + z * math.cos(rx),
+    )
+    x, z = (
+        x * math.cos(ry) + z * math.sin(ry),
+        -x * math.sin(ry) + z * math.cos(ry),
+    )
+    x, y = (
+        x * math.cos(rz) - y * math.sin(rz),
+        x * math.sin(rz) + y * math.cos(rz),
+    )
+    return float(x), float(y), float(z)
+
+
+def _openvsp_geom_parm(vsp: Any, geom_id: str, name: str, fallback: str = "") -> float:
+    for parm_name in (name, fallback):
+        if not parm_name:
+            continue
+        try:
+            parm_id = vsp.FindParm(geom_id, parm_name, "XForm")
+            if parm_id:
+                return float(vsp.GetParmVal(parm_id))
+        except Exception:
+            continue
+    return 0.0
+
+
+def _openvsp_xsec_parm(vsp: Any, xs: Any, name: str, *, default: float) -> float:
+    try:
+        parm_id = vsp.GetXSecParm(xs, name)
+        if parm_id:
+            return float(vsp.GetParmVal(parm_id))
+    except Exception:
+        return float(default)
+    return float(default)
+
+
+def _openvsp_sym_xz(vsp: Any, geom_id: str) -> bool:
+    try:
+        parm_id = vsp.FindParm(geom_id, "Sym_Planar_Flag", "Sym")
+        if parm_id:
+            return bool(int(vsp.GetParmVal(parm_id)) & getattr(vsp, "SYM_XZ", 2))
+    except Exception:
+        return False
+    return False
+
+
+def _openvsp_half_span(vsp: Any, geom_id: str) -> float:
+    try:
+        xsec_surf = vsp.GetXSecSurf(geom_id, 0)
+        total = 0.0
+        for xsec_index in range(1, int(vsp.GetNumXSec(xsec_surf))):
+            xs = vsp.GetXSec(xsec_surf, xsec_index)
+            total += max(_openvsp_xsec_parm(vsp, xs, "Span", default=0.0), 0.0)
+        return total
+    except Exception:
+        return 0.0
+
+
+def _normalized_openvsp_name(name: str) -> str:
+    return "".join(char for char in name.lower() if char.isalnum())
+
+
+def _reference_from_openvsp_sections(sections: Sequence[_OpenVspMainWingSection]) -> Reference:
+    ordered = sorted(sections, key=lambda section: section.y_le)
+    if len(ordered) < 2:
+        raise ValueError("At least two OpenVSP sections are required for reference values")
+    half_area = 0.0
+    half_mac_integral = 0.0
+    for left, right in zip(ordered[:-1], ordered[1:]):
+        dy = float(right.y_le) - float(left.y_le)
+        half_area += 0.5 * (float(left.chord) + float(right.chord)) * dy
+        half_mac_integral += (dy / 3.0) * (
+            float(left.chord) ** 2
+            + float(left.chord) * float(right.chord)
+            + float(right.chord) ** 2
+        )
+    cref = half_mac_integral / half_area if half_area > 1.0e-12 else 0.0
+    return Reference(
+        sref_full=2.0 * half_area,
+        cref=cref,
+        bref_full=2.0 * max(abs(section.y_le) for section in ordered),
+    )
 
 
 def _clean_avl_lines(text: str) -> list[str]:
@@ -866,6 +1281,22 @@ def _interp_z(points: Sequence[tuple[float, float]], x_query: float) -> float:
 
 def _station_from_avl_section(
     section: _AvlMainWingSection,
+    airfoil_xz: list[tuple[float, float]],
+    *,
+    y: float,
+) -> Station:
+    return Station(
+        y=y,
+        airfoil_xz=airfoil_xz,
+        chord=section.chord,
+        twist_deg=section.incidence_deg,
+        x_le=section.x_le,
+        z_le=section.z_le,
+    )
+
+
+def _station_from_openvsp_section(
+    section: _OpenVspMainWingSection,
     airfoil_xz: list[tuple[float, float]],
     *,
     y: float,
