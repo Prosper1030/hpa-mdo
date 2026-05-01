@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -2879,6 +2880,190 @@ def _worker_fidelity_summary(worker_results: list[dict[str, object]]) -> dict[st
     }
 
 
+def _count_strings(values: list[str] | tuple[str, ...]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value)
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
+def _config_sha256(config_path: Path) -> str | None:
+    try:
+        return hashlib.sha256(Path(config_path).read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _worker_backend_is_stub(worker_backend: str) -> bool:
+    return worker_backend in {"test_stub", "cli_stubbed", "python_stubbed"}
+
+
+def _feedback_has_fallback_reason(feedback: dict[str, Any], reason: str) -> bool:
+    if str(feedback.get("fallback_reason", "")) == reason:
+        return True
+    return any(
+        isinstance(point, dict) and str(point.get("fallback_reason", "")) == reason
+        for point in feedback.get("points", [])
+    )
+
+
+def _concept_spanwise_fallback_reasons(
+    zone_requirements: dict[str, dict[str, Any]],
+) -> tuple[str, ...]:
+    reasons = sorted(
+        {
+            str(zone_data["fallback_reason"])
+            for zone_data in zone_requirements.values()
+            if zone_data.get("fallback_reason")
+        }
+    )
+    return tuple(reasons)
+
+
+def _concept_spanwise_sources(
+    zone_requirements: dict[str, dict[str, Any]],
+) -> tuple[str, ...]:
+    sources = sorted(
+        {
+            str(zone_data.get("source", "unknown"))
+            for zone_data in zone_requirements.values()
+        }
+    )
+    return tuple(sources)
+
+
+def _concept_artifact_trust(
+    *,
+    cfg: BirdmanConceptConfig,
+    worker_backend: str,
+    worker_results: list[dict[str, object]],
+    screening_worker_results: list[dict[str, object]],
+    zone_requirements: dict[str, dict[str, Any]],
+    airfoil_feedback: dict[str, Any],
+    screening_airfoil_feedback: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    all_worker_results = list(screening_worker_results)
+    if any(stage == "finalist" for stage in _worker_analysis_stages(worker_results)):
+        all_worker_results.extend(worker_results)
+    elif not all_worker_results:
+        all_worker_results.extend(worker_results)
+    statuses = _worker_statuses(all_worker_results)
+    status_set = set(statuses)
+    spanwise_sources = _concept_spanwise_sources(zone_requirements)
+    spanwise_fallback_reasons = _concept_spanwise_fallback_reasons(zone_requirements)
+    feedbacks = [airfoil_feedback]
+    if screening_airfoil_feedback is not None and screening_airfoil_feedback is not airfoil_feedback:
+        feedbacks.append(screening_airfoil_feedback)
+
+    hard_flags = {
+        "route_not_decision_validated": True,
+        "stub_worker_detected": _worker_backend_is_stub(worker_backend)
+        or "stubbed_ok" in status_set,
+        "worker_fallback_detected": any(status != "ok" for status in statuses),
+        "mini_sweep_fallback_detected": "mini_sweep_fallback" in status_set,
+        "worker_result_count_mismatch_detected": any(
+            _feedback_has_fallback_reason(feedback, "worker_result_count_mismatch")
+            for feedback in feedbacks
+        ),
+        "missing_polar_data_detected": any(
+            int(feedback.get("fallback_worker_point_count", 0) or 0) > 0
+            or _feedback_has_fallback_reason(feedback, "missing_usable_polar_points")
+            for feedback in feedbacks
+        ),
+        "spanwise_fallback_detected": any(
+            source.startswith("fallback") for source in spanwise_sources
+        ),
+        "simplified_prop_proxy": not bool(cfg.prop.efficiency_model.use_bemt_proxy),
+        "openvsp_export_disabled": not bool(cfg.output.export_vsp),
+    }
+    reasons = [key for key, detected in hard_flags.items() if detected]
+    return {
+        "schema_version": "artifact_trust_v1",
+        "decision_grade": False,
+        "decision_grade_status": "diagnostic_only",
+        "not_decision_grade_reasons": reasons,
+        "hard_flags": hard_flags,
+        "worker_backend": worker_backend,
+        "worker_status_counts": _count_strings(statuses),
+        "spanwise_sources": list(spanwise_sources),
+        "spanwise_fallback_reasons": list(spanwise_fallback_reasons),
+    }
+
+
+def _run_artifact_trust(
+    *,
+    cfg: BirdmanConceptConfig,
+    config_path: Path,
+    worker_backend: str,
+    summary_worker_statuses: list[str],
+    evaluated_concepts: list[_EvaluatedConcept],
+) -> dict[str, Any]:
+    concept_trust_blocks = [
+        _concept_artifact_trust(
+            cfg=cfg,
+            worker_backend=record.worker_backend,
+            worker_results=record.worker_results,
+            screening_worker_results=record.screening_worker_results,
+            zone_requirements=record.zone_requirements,
+            airfoil_feedback=record.airfoil_feedback,
+            screening_airfoil_feedback=record.screening_airfoil_feedback,
+        )
+        for record in evaluated_concepts
+    ]
+    hard_flags = {
+        "route_not_decision_validated": True,
+        "stub_worker_detected": _worker_backend_is_stub(worker_backend)
+        or any(block["hard_flags"]["stub_worker_detected"] for block in concept_trust_blocks),
+        "worker_fallback_detected": any(status != "ok" for status in summary_worker_statuses)
+        or any(block["hard_flags"]["worker_fallback_detected"] for block in concept_trust_blocks),
+        "mini_sweep_fallback_detected": "mini_sweep_fallback" in set(summary_worker_statuses)
+        or any(block["hard_flags"]["mini_sweep_fallback_detected"] for block in concept_trust_blocks),
+        "worker_result_count_mismatch_detected": any(
+            block["hard_flags"]["worker_result_count_mismatch_detected"]
+            for block in concept_trust_blocks
+        ),
+        "missing_polar_data_detected": any(
+            block["hard_flags"]["missing_polar_data_detected"]
+            for block in concept_trust_blocks
+        ),
+        "spanwise_fallback_detected": any(
+            block["hard_flags"]["spanwise_fallback_detected"]
+            for block in concept_trust_blocks
+        ),
+        "simplified_prop_proxy": not bool(cfg.prop.efficiency_model.use_bemt_proxy),
+        "openvsp_export_disabled": not bool(cfg.output.export_vsp),
+    }
+    reasons = [key for key, detected in hard_flags.items() if detected]
+    spanwise_sources = sorted(
+        {
+            source
+            for block in concept_trust_blocks
+            for source in block["spanwise_sources"]
+        }
+    )
+    spanwise_fallback_reasons = sorted(
+        {
+            reason
+            for block in concept_trust_blocks
+            for reason in block["spanwise_fallback_reasons"]
+        }
+    )
+    return {
+        "schema_version": "artifact_trust_v1",
+        "decision_grade": False,
+        "decision_grade_status": "diagnostic_only",
+        "not_decision_grade_reasons": reasons,
+        "hard_flags": hard_flags,
+        "config_path": str(Path(config_path)),
+        "config_sha256": _config_sha256(config_path),
+        "worker_backend": worker_backend,
+        "worker_status_counts": _count_strings(tuple(summary_worker_statuses)),
+        "spanwise_sources": spanwise_sources,
+        "spanwise_fallback_reasons": spanwise_fallback_reasons,
+    }
+
+
 def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
     return {
         "primary_variables": {
@@ -3050,6 +3235,15 @@ def _build_ranked_concept_record(
                 else None
             ),
         },
+        "artifact_trust": _concept_artifact_trust(
+            cfg=cfg,
+            worker_backend=record.worker_backend,
+            worker_results=record.worker_results,
+            screening_worker_results=record.screening_worker_results,
+            zone_requirements=record.zone_requirements,
+            airfoil_feedback=record.airfoil_feedback,
+            screening_airfoil_feedback=record.screening_airfoil_feedback,
+        ),
         "airfoil_feedback": record.airfoil_feedback,
         "launch": record.launch_summary,
         "turn": record.turn_summary,
@@ -3091,6 +3285,7 @@ def _concept_to_bundle_payload(
     concept_index: int,
     enumeration_index: int,
     airfoil_feedback: dict[str, Any],
+    screening_airfoil_feedback: dict[str, Any],
     launch_summary: dict[str, Any],
     turn_summary: dict[str, Any],
     trim_summary: dict[str, Any],
@@ -3230,6 +3425,15 @@ def _concept_to_bundle_payload(
                 else None
             ),
         },
+        "artifact_trust": _concept_artifact_trust(
+            cfg=cfg,
+            worker_backend=worker_backend,
+            worker_results=worker_results,
+            screening_worker_results=screening_worker_results,
+            zone_requirements=zone_requirements,
+            airfoil_feedback=airfoil_feedback,
+            screening_airfoil_feedback=screening_airfoil_feedback,
+        ),
         "airfoil_feedback": airfoil_feedback,
         "launch": launch_summary,
         "turn": turn_summary,
@@ -3667,6 +3871,7 @@ def run_birdman_concept_pipeline(
             concept_index=concept_index,
             enumeration_index=record.enumeration_index,
             airfoil_feedback=record.airfoil_feedback,
+            screening_airfoil_feedback=record.screening_airfoil_feedback,
             launch_summary=record.launch_summary,
             turn_summary=record.turn_summary,
             trim_summary=record.trim_summary,
@@ -3731,6 +3936,7 @@ def run_birdman_concept_pipeline(
                 concept_index=infeasible_index,
                 enumeration_index=record.enumeration_index,
                 airfoil_feedback=record.airfoil_feedback,
+                screening_airfoil_feedback=record.screening_airfoil_feedback,
                 launch_summary=record.launch_summary,
                 turn_summary=record.turn_summary,
                 trim_summary=record.trim_summary,
@@ -3816,11 +4022,20 @@ def run_birdman_concept_pipeline(
         "wing_area_is_derived": True,
     }
 
+    artifact_trust = _run_artifact_trust(
+        cfg=cfg,
+        config_path=config_path,
+        worker_backend=worker_backend,
+        summary_worker_statuses=summary_worker_statuses,
+        evaluated_concepts=evaluated_concepts,
+    )
+
     ranked_pool_json_path = output_dir / "concept_ranked_pool.json"
     ranked_pool_json_path.write_text(
         json.dumps(
             {
                 "config_path": str(Path(config_path)),
+                "artifact_trust": artifact_trust,
                 "ranked_pool": ranked_pool_records,
             },
             indent=2,
@@ -3830,9 +4045,11 @@ def run_birdman_concept_pipeline(
         encoding="utf-8",
     )
     frontier_summary_json_path = output_dir / "frontier_summary.json"
+    frontier_summary = build_frontier_summary(ranked_pool_records)
+    frontier_summary["artifact_trust"] = artifact_trust
     frontier_summary_json_path.write_text(
         json.dumps(
-            build_frontier_summary(ranked_pool_records),
+            frontier_summary,
             indent=2,
             sort_keys=True,
             ensure_ascii=False,
@@ -3864,6 +4081,7 @@ def run_birdman_concept_pipeline(
                 },
                 "worker_backend": worker_backend,
                 "worker_statuses": summary_worker_statuses,
+                "artifact_trust": artifact_trust,
                 "polar_worker": {
                     "persistent_worker_count": int(cfg.polar_worker.persistent_worker_count),
                     "cache_statistics": cache_statistics,

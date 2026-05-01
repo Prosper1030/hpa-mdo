@@ -196,6 +196,8 @@ Birdman rules / environment / rider power / mass
 - [docs/superpowers/reports/2026-05-02-birdman-upstream-concept-gpt-pro-packet.md](docs/superpowers/reports/2026-05-02-birdman-upstream-concept-gpt-pro-packet.md) - 給 GPT Pro 的自包含偽代碼 / 公式 / 審查 prompt。
 - [docs/superpowers/reports/2026-05-02-birdman-upstream-gpt-pro-review-response.md](docs/superpowers/reports/2026-05-02-birdman-upstream-gpt-pro-review-response.md) - GPT Pro 回覆後整理出的 decision-grade、Daedalus benchmark、rider endurance、prop / `CLmax` / structure 修正建議。
 
+最新防誤判補強：`concept_summary.json`、`concept_ranked_pool.json`、`frontier_summary.json` 與候選 bundle 的 `concept_summary.json` 現在會輸出 `artifact_trust`，明確標示目前仍是 `diagnostic_only`，並列出 stub worker、worker fallback、missing polar、spanwise fallback、簡化 prop、OpenVSP 輸出關閉等非 decision-grade 原因。
+
 常用指令：
 
 ```bash

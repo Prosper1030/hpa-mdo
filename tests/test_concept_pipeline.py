@@ -206,6 +206,11 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert summary["worker_backend"] == "test_stub"
     assert summary["worker_statuses"]
     assert all(status == "ok" for status in summary["worker_statuses"])
+    assert summary["artifact_trust"]["decision_grade"] is False
+    assert summary["artifact_trust"]["decision_grade_status"] == "diagnostic_only"
+    assert "stub_worker_detected" in summary["artifact_trust"]["not_decision_grade_reasons"]
+    assert len(summary["artifact_trust"]["config_sha256"]) == 64
+    assert ranked_pool["artifact_trust"]["decision_grade"] is False
     assert summary["polar_worker"]["persistent_worker_count"] == 4
     assert summary["polar_worker"]["cache_statistics"] is None
     assert len(ranked_pool["ranked_pool"]) == summary["evaluation_scope"]["evaluated_concept_count"]
@@ -225,6 +230,8 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
         == summary["evaluation_scope"]["enumerated_concept_count"]
     )
     assert first["worker_backend"] == "test_stub"
+    assert first["artifact_trust"]["decision_grade"] is False
+    assert "stub_worker_detected" in first["artifact_trust"]["not_decision_grade_reasons"]
     assert first["worker_statuses"] == ["ok", "ok", "ok", "ok"]
     assert first["wing_area_source"] == "derived_from_wing_loading_target_Npm2"
     assert isinstance(first["wing_loading_target_Npm2"], float)
