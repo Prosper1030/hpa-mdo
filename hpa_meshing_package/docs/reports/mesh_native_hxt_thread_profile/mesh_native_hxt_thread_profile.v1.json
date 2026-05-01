@@ -1,0 +1,91 @@
+{
+  "date": "2026-05-01",
+  "route": "mesh_native_blackcat_vsp_hxt_boundary_layer_thread_profile",
+  "commit": "2bc35e1",
+  "artifacts": {
+    "profile_case_dir": "/tmp/hpa_mdo_vsp_faceted_gmsh_bl_probe_20260501/pps32_span2_wing020_hxt_threads4_profile",
+    "failed_dense_case_dir": "/tmp/hpa_mdo_vsp_faceted_gmsh_bl_probe_20260501/pps32_span2_wing015_hxt_threads4_mesh_only"
+  },
+  "inputs": {
+    "vsp_path": "data/blackcat_004_origin.vsp3",
+    "reference_avl_path": "data/blackcat_004_full.avl",
+    "points_per_side": 32,
+    "spanwise_subdivisions": 2,
+    "wing_mesh_size_m": 0.2,
+    "feature_mesh_size_m": 0.32,
+    "farfield_mesh_size_m": 8.0,
+    "boundary_layer_first_height_m": 0.00005,
+    "boundary_layer_growth_ratio": 1.24,
+    "boundary_layer_layers": 24,
+    "gmsh_threads": 4,
+    "mesh_algorithm3d": 10
+  },
+  "cpu_profile": {
+    "sample_count": 86,
+    "max_cpu_percent": 358.7,
+    "avg_cpu_percent": 119.13023255813954,
+    "samples_over_150_percent": 9,
+    "samples_over_250_percent": 9,
+    "max_rss_mb": 945.765625,
+    "interpretation": "HXT uses multiple cores briefly, but the full Gmsh BL mesh pipeline is not effectively parallel end-to-end."
+  },
+  "mesh_profile_case": {
+    "wall_time_s": 172.03041791915894,
+    "node_count": 531054,
+    "volume_element_count": 1125409,
+    "boundary_layer_prism_count": 992352,
+    "mesh_quality_gate_status": "pass",
+    "mesh_quality_warnings": [
+      "boundary_layer_low_p01_min_sicn",
+      "low_p01_gamma",
+      "very_low_min_sicn"
+    ],
+    "boundary_layer_non_positive_min_sicn_count": 0,
+    "boundary_layer_non_positive_min_sige_count": 0,
+    "boundary_layer_non_positive_volume_count": 0,
+    "boundary_layer_min_sicn": 0.000007605171844490868,
+    "boundary_layer_min_sige": 0.0038572346078489723,
+    "boundary_layer_p01_min_sicn": 0.0006783836840786905
+  },
+  "mesh_dense_failed_case": {
+    "wing_mesh_size_m": 0.15,
+    "wall_time_s": 197.86620712280273,
+    "node_count": 695550,
+    "volume_element_count": 1515251,
+    "boundary_layer_prism_count": 1281312,
+    "mesh_quality_gate_status": "fail",
+    "boundary_layer_non_positive_min_sicn_count": 2,
+    "boundary_layer_non_positive_min_sige_count": 2,
+    "engineering_interpretation": "Do not run SU2 on this case until local BL extrusion defects are fixed."
+  },
+  "su2_smoke": {
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 1125409,
+      "npoin": 531054,
+      "nmark": 2,
+      "wing_wall_boundary_elements": 41348,
+      "farfield_boundary_elements": 4076
+    },
+    "marker_audit_status": "pass",
+    "command": "OMP_NUM_THREADS=4 SU2_CFD -t 4 su2_runtime.cfg",
+    "returncode": 0,
+    "history_rows": 10,
+    "final_iteration": 9,
+    "final_coefficients": {
+      "cl": 0.06119741719,
+      "cd": 0.2552401036,
+      "cmx": 0.0003171381912,
+      "cmy": -0.07276834423,
+      "cmz": -0.0001415103326
+    },
+    "interpretation": "SU2 readability and marker ownership pass only; coefficients are not convergence evidence."
+  },
+  "verdict": {
+    "gmsh_thread_setting_fixed": true,
+    "actual_gmsh_parallelism": "partial",
+    "su2_pipeline_status": "short_smoke_pass",
+    "current_valid_high_density_mesh": "wing_h_0.20_m_hxt_bl",
+    "next_step": "localize and fix the 0.15 m BL extrusion defect before increasing global density."
+  }
+}
