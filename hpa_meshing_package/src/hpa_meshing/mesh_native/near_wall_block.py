@@ -663,7 +663,7 @@ def _triangulate_polygon_xz(vertices: Sequence[Vertex], contour: Sequence[int]) 
         if guard > len(contour) * len(contour):
             raise ValueError("Could not triangulate core-interface polygon")
 
-        clipped = False
+        candidates: list[tuple[float, int, tuple[int, int, int]]] = []
         for index, current in enumerate(polygon):
             previous = polygon[index - 1]
             next_node = polygon[(index + 1) % len(polygon)]
@@ -680,12 +680,22 @@ def _triangulate_polygon_xz(vertices: Sequence[Vertex], contour: Sequence[int]) 
                 if candidate not in {previous, current, next_node}
             ):
                 continue
-            triangles.append((previous, current, next_node))
-            del polygon[index]
-            clipped = True
-            break
-        if not clipped:
+            candidates.append(
+                (
+                    _triangle_area_xz(
+                        vertices[previous],
+                        vertices[current],
+                        vertices[next_node],
+                    ),
+                    index,
+                    (previous, current, next_node),
+                )
+            )
+        if not candidates:
             raise ValueError("Could not find an ear in core-interface polygon")
+        _area, best_index, triangle = max(candidates, key=lambda item: (item[0], -item[1]))
+        triangles.append(triangle)
+        del polygon[best_index]
 
     triangles.append((polygon[0], polygon[1], polygon[2]))
     return triangles
@@ -720,6 +730,10 @@ def _point_in_triangle_xz(
 
 def _cross_xz(a: Vertex, b: Vertex, c: Vertex) -> float:
     return (b[0] - a[0]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[0] - a[0])
+
+
+def _triangle_area_xz(a: Vertex, b: Vertex, c: Vertex) -> float:
+    return 0.5 * abs(_cross_xz(a, b, c))
 
 
 def _transform_local_xz_to_station_xyz(

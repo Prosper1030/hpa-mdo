@@ -190,3 +190,42 @@ def test_bl_block_core_interface_surface_is_closed_without_wing_wall():
         allowed_markers=frozenset({"bl_outer_interface", "wake_cut", "span_cap"}),
         required_markers=("bl_outer_interface", "wake_cut", "span_cap"),
     )
+
+
+def test_vsp_core_interface_span_caps_avoid_adjacent_point_sliver_triangulation():
+    pytest.importorskip("openvsp")
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=32,
+        spanwise_subdivisions=2,
+    )
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=5.0e-5,
+            growth_ratio=1.24,
+            layer_count=24,
+        ),
+    )
+
+    surface = build_boundary_layer_core_interface_surface(block)
+    span_cap_areas = [
+        _triangle_area(surface.vertices, face.nodes)
+        for face in surface.faces
+        if face.marker == "span_cap"
+    ]
+
+    assert min(span_cap_areas) > 1.0e-6
+
+
+def _triangle_area(vertices, nodes) -> float:
+    a, b, c = [vertices[node] for node in nodes]
+    ab = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    ac = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    cross = (
+        ab[1] * ac[2] - ab[2] * ac[1],
+        ab[2] * ac[0] - ab[0] * ac[2],
+        ab[0] * ac[1] - ab[1] * ac[0],
+    )
+    return 0.5 * (cross[0] ** 2 + cross[1] ** 2 + cross[2] ** 2) ** 0.5
