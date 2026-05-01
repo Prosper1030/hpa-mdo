@@ -280,6 +280,42 @@ def test_write_faceted_volume_su2_case_materializes_marker_audit(tmp_path: Path)
     assert Path(report["report_path"]).exists()
 
 
+def test_write_faceted_volume_su2_case_accepts_su2_numerics_profile(tmp_path: Path):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    report = write_faceted_volume_su2_case(
+        wing,
+        farfield,
+        tmp_path / "faceted_jst_case",
+        ref_area=2.0,
+        ref_length=1.0,
+        mesh_size=2.0,
+        max_iterations=300,
+        conv_num_method_flow="JST",
+        cfl_number=100.0,
+        linear_solver_error="1e-12",
+        linear_solver_iter=25,
+        jst_sensor_coeff=(0.0, 0.02),
+        conv_cauchy_elems=50,
+        conv_cauchy_eps="1E-6",
+        output_files=("RESTART_ASCII",),
+    )
+
+    cfg_text = Path(report["runtime_cfg_path"]).read_text(encoding="utf-8")
+    assert "CONV_NUM_METHOD_FLOW= JST" in cfg_text
+    assert "JST_SENSOR_COEFF= ( 0, 0.02 )" in cfg_text
+    assert "CFL_NUMBER= 100" in cfg_text
+    assert "LINEAR_SOLVER_ERROR= 1e-12" in cfg_text
+    assert "LINEAR_SOLVER_ITER= 25" in cfg_text
+    assert "CONV_CAUCHY_ELEMS= 50" in cfg_text
+    assert "CONV_CAUCHY_EPS= 1E-6" in cfg_text
+    assert "OUTPUT_FILES= (RESTART_ASCII)" in cfg_text
+    assert report["runtime"]["conv_num_method_flow"] == "JST"
+    assert report["runtime"]["cfl_number"] == 100.0
+    assert report["runtime"]["output_files"] == ["RESTART_ASCII"]
+
+
 def test_run_faceted_volume_su2_smoke_runs_when_su2_is_available(tmp_path: Path):
     pytest.importorskip("gmsh")
     solver = shutil.which("SU2_CFD")

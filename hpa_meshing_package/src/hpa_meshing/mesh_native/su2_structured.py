@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-from typing import Any, Iterable, Literal
+from typing import Any, Iterable, Literal, Sequence
 
 from .wing_surface import SurfaceMesh, Vertex
 
@@ -335,11 +335,31 @@ def _smoke_cfg_text(
     max_iterations: int,
     wall_marker: str,
     farfield_marker: str,
+    conv_num_method_flow: str = "FDS",
+    cfl_number: float = 1.0,
+    linear_solver_error: float | str = "1e-6",
+    linear_solver_iter: int = 10,
+    jst_sensor_coeff: Sequence[float] | None = None,
+    conv_cauchy_elems: int | None = None,
+    conv_cauchy_eps: float | str | None = None,
+    output_files: Sequence[str] = ("RESTART_ASCII", "PARAVIEW_ASCII", "SURFACE_CSV"),
 ) -> str:
+    if cfl_number <= 0.0:
+        raise ValueError("cfl_number must be positive")
+    if linear_solver_iter <= 0:
+        raise ValueError("linear_solver_iter must be positive")
+    if conv_cauchy_elems is not None and conv_cauchy_elems <= 0:
+        raise ValueError("conv_cauchy_elems must be positive")
+    if not output_files:
+        raise ValueError("output_files must not be empty")
+    if jst_sensor_coeff is not None and len(jst_sensor_coeff) != 2:
+        raise ValueError("jst_sensor_coeff must contain exactly two values")
+
     alpha_rad = math.radians(alpha_deg)
     vx = velocity_mps * math.cos(alpha_rad)
     vz = velocity_mps * math.sin(alpha_rad)
     origin = _bounds_center(wing.bounds())
+    flow_method = conv_num_method_flow.strip().upper()
     lines = [
         "% Auto-generated mesh-native SU2 smoke case.",
         "% This smoke case proves mesh readability and marker ownership only.",
@@ -371,14 +391,14 @@ def _smoke_cfg_text(
         f"MARKER_PLOTTING= ( {wall_marker} )",
         f"MARKER_FAR= ( {farfield_marker} )",
         "NUM_METHOD_GRAD= WEIGHTED_LEAST_SQUARES",
-        "CONV_NUM_METHOD_FLOW= FDS",
+        f"CONV_NUM_METHOD_FLOW= {flow_method}",
         "TIME_DISCRE_FLOW= EULER_IMPLICIT",
         "LINEAR_SOLVER= FGMRES",
         "LINEAR_SOLVER_PREC= ILU",
-        "LINEAR_SOLVER_ERROR= 1e-6",
-        "LINEAR_SOLVER_ITER= 10",
+        f"LINEAR_SOLVER_ERROR= {_format_su2_value(linear_solver_error)}",
+        f"LINEAR_SOLVER_ITER= {int(linear_solver_iter)}",
         f"ITER= {max_iterations}",
-        "CFL_NUMBER= 1.0",
+        f"CFL_NUMBER= {_format_su2_value(cfl_number)}",
         "CONV_FIELD= DRAG",
         "CONV_RESIDUAL_MINVAL= -9",
         "CONV_STARTITER= 1",
@@ -386,9 +406,20 @@ def _smoke_cfg_text(
         "TABULAR_FORMAT= CSV",
         "SCREEN_OUTPUT= (INNER_ITER, RMS_RES, AERO_COEFF)",
         "HISTORY_OUTPUT= (ITER, RMS_RES, AERO_COEFF)",
-        "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW_ASCII, SURFACE_CSV)",
+        f"OUTPUT_FILES= ({', '.join(output_files)})",
         "",
     ]
+    if jst_sensor_coeff is not None:
+        lines.insert(
+            lines.index("TIME_DISCRE_FLOW= EULER_IMPLICIT"),
+            "JST_SENSOR_COEFF= ( "
+            f"{_format_su2_value(jst_sensor_coeff[0])}, "
+            f"{_format_su2_value(jst_sensor_coeff[1])} )",
+        )
+    if conv_cauchy_elems is not None:
+        lines.insert(-1, f"CONV_CAUCHY_ELEMS= {int(conv_cauchy_elems)}")
+    if conv_cauchy_eps is not None:
+        lines.insert(-1, f"CONV_CAUCHY_EPS= {_format_su2_value(conv_cauchy_eps)}")
     return "\n".join(lines)
 
 
@@ -398,6 +429,12 @@ def _bounds_center(bounds: dict[str, float]) -> Vertex:
         0.5 * (bounds["y_min"] + bounds["y_max"]),
         0.5 * (bounds["z_min"] + bounds["z_max"]),
     )
+
+
+def _format_su2_value(value: float | str) -> str:
+    if isinstance(value, str):
+        return value
+    return f"{float(value):.12g}"
 
 
 def _boundary_condition_markers(cfg_text: str) -> dict[str, list[str]]:

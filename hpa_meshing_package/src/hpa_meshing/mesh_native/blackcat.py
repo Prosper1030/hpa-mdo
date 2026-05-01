@@ -469,6 +469,14 @@ def run_blackcat_main_wing_su2_stability_ladder(
     solver: str = "INC_EULER",
     solver_command: str = "SU2_CFD",
     threads: int = 1,
+    conv_num_method_flow: str = "FDS",
+    cfl_number: float = 1.0,
+    linear_solver_error: float | str = "1e-6",
+    linear_solver_iter: int = 10,
+    jst_sensor_coeff: Sequence[float] | None = None,
+    conv_cauchy_elems: int | None = None,
+    conv_cauchy_eps: float | str | None = None,
+    output_files: Sequence[str] = ("RESTART_ASCII", "PARAVIEW_ASCII", "SURFACE_CSV"),
     case_runner: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     from .gmsh_polyhedral import (
@@ -527,6 +535,14 @@ def run_blackcat_main_wing_su2_stability_ladder(
             solver=solver,
             solver_command=solver_command,
             threads=threads,
+            conv_num_method_flow=conv_num_method_flow,
+            cfl_number=cfl_number,
+            linear_solver_error=linear_solver_error,
+            linear_solver_iter=linear_solver_iter,
+            jst_sensor_coeff=jst_sensor_coeff,
+            conv_cauchy_elems=conv_cauchy_elems,
+            conv_cauchy_eps=conv_cauchy_eps,
+            output_files=output_files,
         )
         mesh_report = run_report.get("mesh_report", {})
         case_report = {
@@ -581,6 +597,16 @@ def run_blackcat_main_wing_su2_stability_ladder(
             "alpha_deg": alpha_deg,
             "max_iterations": max_iterations,
             "threads": threads,
+            "conv_num_method_flow": conv_num_method_flow.strip().upper(),
+            "cfl_number": float(cfl_number),
+            "linear_solver_error": str(linear_solver_error),
+            "linear_solver_iter": int(linear_solver_iter),
+            "jst_sensor_coeff": (
+                None if jst_sensor_coeff is None else [float(value) for value in jst_sensor_coeff]
+            ),
+            "conv_cauchy_elems": conv_cauchy_elems,
+            "conv_cauchy_eps": None if conv_cauchy_eps is None else str(conv_cauchy_eps),
+            "output_files": list(output_files),
         },
         "stability_selection": stability_selection,
         "cases": cases,

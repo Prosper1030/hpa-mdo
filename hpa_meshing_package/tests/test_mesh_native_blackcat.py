@@ -367,13 +367,32 @@ def test_run_blackcat_main_wing_su2_stability_ladder_selects_cheapest_stable_mes
         mesh_sizes=(0.14, 0.09, 0.06),
         feature_refinement_size=3.0,
         max_iterations=20,
+        conv_num_method_flow="JST",
+        cfl_number=100.0,
+        linear_solver_error="1e-12",
+        linear_solver_iter=25,
+        jst_sensor_coeff=(0.0, 0.02),
+        conv_cauchy_elems=50,
+        conv_cauchy_eps="1E-6",
+        output_files=("RESTART_ASCII",),
         coefficient_tolerances={"cl": 0.01, "cd": 0.002, "cmy": 0.005},
         case_runner=fake_case_runner,
     )
 
     assert len(calls) == 3
+    assert calls[0]["kwargs"]["conv_num_method_flow"] == "JST"
+    assert calls[0]["kwargs"]["cfl_number"] == 100.0
+    assert calls[0]["kwargs"]["linear_solver_error"] == "1e-12"
+    assert calls[0]["kwargs"]["linear_solver_iter"] == 25
+    assert calls[0]["kwargs"]["jst_sensor_coeff"] == (0.0, 0.02)
+    assert calls[0]["kwargs"]["conv_cauchy_elems"] == 50
+    assert calls[0]["kwargs"]["conv_cauchy_eps"] == "1E-6"
+    assert calls[0]["kwargs"]["output_files"] == ("RESTART_ASCII",)
     assert report["route"] == "blackcat_main_wing_mesh_native_su2_stability_ladder"
     assert report["status"] == "stable_mesh_selected"
+    assert report["runtime"]["conv_num_method_flow"] == "JST"
+    assert report["runtime"]["cfl_number"] == 100.0
+    assert report["runtime"]["output_files"] == ["RESTART_ASCII"]
     assert report["feature_extents"]["span_m"] == pytest.approx(33.0)
     assert report["stability_selection"]["selected_case"]["mesh_size"] == 0.09
     assert report["stability_selection"]["ineligible_cases"] == []
