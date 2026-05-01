@@ -6,6 +6,7 @@ import pytest
 from hpa_meshing.mesh_native.gmsh_polyhedral import (
     _mesh_quality_gate,
     build_wing_feature_refinement_boxes,
+    infer_wing_feature_extents,
     run_faceted_volume_refinement_ladder,
     run_faceted_volume_su2_smoke,
     write_faceted_volume_mesh,
@@ -142,6 +143,21 @@ def test_build_wing_feature_refinement_boxes_materializes_te_tip_wake_regions():
     assert boxes[2]["y_max"] == pytest.approx(wing.bounds()["y_max"])
     assert boxes[3]["x_min"] == pytest.approx(wing.bounds()["x_max"])
     assert boxes[3]["x_max"] > boxes[3]["x_min"]
+
+
+def test_infer_wing_feature_extents_reports_chord_span_tips_and_edges():
+    wing, _farfield = _wing_and_close_farfield()
+
+    extents = infer_wing_feature_extents(wing)
+
+    assert extents["leading_edge_x"] == pytest.approx(0.0)
+    assert extents["trailing_edge_x"] == pytest.approx(1.0)
+    assert extents["tip_left_y"] == pytest.approx(0.0)
+    assert extents["tip_right_y"] == pytest.approx(2.0)
+    assert extents["chord_extent_m"] == pytest.approx(1.0)
+    assert extents["span_m"] == pytest.approx(2.0)
+    assert extents["z_min"] == pytest.approx(-0.05)
+    assert extents["z_max"] == pytest.approx(0.05)
 
 
 def test_write_faceted_volume_mesh_supports_box_refinement_fields(tmp_path: Path):

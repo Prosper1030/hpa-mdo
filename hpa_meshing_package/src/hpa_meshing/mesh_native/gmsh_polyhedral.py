@@ -517,14 +517,14 @@ def build_wing_feature_refinement_boxes(
         if value <= 0.0:
             raise ValueError(f"{name} must be positive")
 
-    bounds = wing.bounds()
-    x_min = float(bounds["x_min"])
-    x_max = float(bounds["x_max"])
-    y_min = float(bounds["y_min"])
-    y_max = float(bounds["y_max"])
-    z_min = float(bounds["z_min"])
-    z_max = float(bounds["z_max"])
-    chord_scale = max(x_max - x_min, 1.0e-9)
+    extents = infer_wing_feature_extents(wing)
+    x_min = extents["leading_edge_x"]
+    x_max = extents["trailing_edge_x"]
+    y_min = extents["tip_left_y"]
+    y_max = extents["tip_right_y"]
+    z_min = extents["z_min"]
+    z_max = extents["z_max"]
+    chord_scale = max(extents["chord_extent_m"], 1.0e-9)
     vertical_padding = wake_half_height_chords * chord_scale
     transition = transition_chords * chord_scale
 
@@ -579,6 +579,27 @@ def build_wing_feature_refinement_boxes(
             "transition_thickness": transition,
         },
     ]
+
+
+def infer_wing_feature_extents(wing: SurfaceMesh) -> dict[str, float]:
+    """Infer coarse feature extents used by automatic size-field policies."""
+    bounds = wing.bounds()
+    x_min = float(bounds["x_min"])
+    x_max = float(bounds["x_max"])
+    y_min = float(bounds["y_min"])
+    y_max = float(bounds["y_max"])
+    z_min = float(bounds["z_min"])
+    z_max = float(bounds["z_max"])
+    return {
+        "leading_edge_x": x_min,
+        "trailing_edge_x": x_max,
+        "tip_left_y": y_min,
+        "tip_right_y": y_max,
+        "z_min": z_min,
+        "z_max": z_max,
+        "chord_extent_m": x_max - x_min,
+        "span_m": y_max - y_min,
+    }
 
 
 def _validate_refinement_boxes(
