@@ -10,6 +10,12 @@ DEFAULT_COEFFICIENT_TOLERANCES = {
 }
 
 
+COEFFICIENT_ALIASES = {
+    "cm": ("cm", "cmy"),
+    "cmy": ("cmy", "cm"),
+}
+
+
 def select_cheapest_stable_mesh(
     cases: Sequence[Mapping[str, Any]],
     *,
@@ -64,13 +70,21 @@ def _coefficient_deltas(
     fine_coefficients = _final_coefficients(fine)
     deltas: dict[str, float | None] = {}
     for key in coefficient_keys:
-        left = coarse_coefficients.get(key)
-        right = fine_coefficients.get(key)
+        left = _coefficient_value(coarse_coefficients, key)
+        right = _coefficient_value(fine_coefficients, key)
         if left is None or right is None:
             deltas[key] = None
         else:
             deltas[key] = abs(float(right) - float(left))
     return deltas
+
+
+def _coefficient_value(coefficients: Mapping[str, Any], key: str) -> Any:
+    for candidate_key in COEFFICIENT_ALIASES.get(key, (key,)):
+        value = coefficients.get(candidate_key)
+        if value is not None:
+            return value
+    return None
 
 
 def _final_coefficients(case: Mapping[str, Any]) -> Mapping[str, Any]:
