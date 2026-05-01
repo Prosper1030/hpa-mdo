@@ -110,6 +110,8 @@ def test_build_shell_v4_baseline_spec_defaults_to_four_rank_mpi():
     assert spec["solver"]["cpu_threads"] == 4
     assert spec["solver"]["omp_threads_per_rank"] == 1
     assert spec["solver"]["mpi_launcher"] == "mpirun"
+    assert spec["solver"]["freestream_turbulence_intensity"] == pytest.approx(0.01)
+    assert spec["solver"]["freestream_turb2lam_visc_ratio"] == pytest.approx(3.0)
 
 
 def test_shell_v4_solver_command_uses_four_rank_mpi_with_one_thread_per_rank():
@@ -128,6 +130,23 @@ def test_build_su2_cfg_includes_surface_paraview_ascii_for_wall_diagnostics():
     cfg = _build_su2_cfg(spec=spec, mesh_filename="mesh.su2")
 
     assert "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW_ASCII, SURFACE_CSV, SURFACE_PARAVIEW_ASCII)" in cfg
+
+
+def test_build_su2_cfg_uses_external_flow_turbulence_overrides():
+    spec = build_shell_v4_half_wing_bl_macsafe_spec(
+        "BL_macsafe_baseline",
+        overrides={
+            "solver": {
+                "freestream_turbulence_intensity": 0.02,
+                "freestream_turb2lam_visc_ratio": 4.0,
+            }
+        },
+    )
+
+    cfg = _build_su2_cfg(spec=spec, mesh_filename="mesh.su2")
+
+    assert "FREESTREAM_TURBULENCEINTENSITY= 0.02" in cfg
+    assert "FREESTREAM_TURB2LAMVISCRATIO= 4" in cfg
 
 
 def test_derive_wall_diagnostics_from_surface_vtk_computes_yplus_summary(tmp_path: Path):
