@@ -501,6 +501,68 @@ def test_main_wing_route_readiness_includes_side_aware_export_opcode_variant_pro
     assert "side_aware_export_opcode_variants_not_recovered" in stage.blockers
 
 
+def test_main_wing_route_readiness_includes_export_metadata_source_audit(
+    tmp_path: Path,
+):
+    root = _fixture_report_root(tmp_path)
+    _write_json(
+        root
+        / "main_wing_station_seam_export_metadata_source_audit"
+        / "main_wing_station_seam_export_metadata_source_audit.v1.json",
+        {
+            "schema_version": "main_wing_station_seam_export_metadata_source_audit.v1",
+            "audit_status": "export_metadata_generation_source_boundary_captured",
+            "source_boundary": {
+                "hpa_mdo_controls": [
+                    "section_coordinates",
+                    "sketch_opcode_policy",
+                    "rule_grouping",
+                    "dump_invocation",
+                ],
+                "external_controls": [
+                    "opencsm_rule_loft_pcurve_metadata",
+                    "egads_step_export_metadata",
+                ],
+            },
+            "current_negative_controls": {
+                "recovered_variant_count": 0,
+                "surface_count_guard_skipped_count": 1,
+            },
+            "external_source_inventory": {
+                "opencsm_or_egads_source_available": True,
+            },
+            "engineering_findings": [
+                "hpa_mdo_csm_generation_has_no_explicit_pcurve_metadata_api"
+            ],
+            "blocking_reasons": [
+                "export_pcurve_metadata_generation_not_owned_by_hpa_mdo",
+                "side_aware_candidate_mesh_handoff_not_run",
+            ],
+            "next_actions": [
+                "inspect_opencsm_egads_step_export_metadata_controls_or_add_owned_occ_export_path"
+            ],
+        },
+    )
+
+    report = build_main_wing_route_readiness_report(report_root=root)
+    stages = {stage.stage: stage for stage in report.stages}
+
+    stage = stages["station_seam_export_metadata_source_audit"]
+    assert stage.status == "blocked"
+    assert stage.evidence_kind == "real"
+    assert (
+        stage.observed["audit_status"]
+        == "export_metadata_generation_source_boundary_captured"
+    )
+    assert (
+        "opencsm_rule_loft_pcurve_metadata"
+        in stage.observed["source_boundary"]["external_controls"]
+    )
+    assert "export_pcurve_metadata_generation_not_owned_by_hpa_mdo" in (
+        stage.blockers
+    )
+
+
 def test_main_wing_route_readiness_moves_to_real_su2_after_real_mesh_pass(
     tmp_path: Path,
 ):

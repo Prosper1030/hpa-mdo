@@ -186,6 +186,10 @@ from .main_wing_station_seam_side_aware_export_opcode_variant_probe import (
     build_main_wing_station_seam_side_aware_export_opcode_variant_probe_report,
     write_main_wing_station_seam_side_aware_export_opcode_variant_probe_report,
 )
+from .main_wing_station_seam_export_metadata_source_audit import (
+    build_main_wing_station_seam_export_metadata_source_audit_report,
+    write_main_wing_station_seam_export_metadata_source_audit_report,
+)
 from .main_wing_su2_force_marker_audit import (
     build_main_wing_su2_force_marker_audit_report,
     write_main_wing_su2_force_marker_audit_report,
@@ -1311,6 +1315,30 @@ def cmd_main_wing_station_seam_side_aware_export_opcode_variant_probe(
     return 0 if report.opcode_variant_status != "blocked" else 2
 
 
+def cmd_main_wing_station_seam_export_metadata_source_audit(
+    args: argparse.Namespace,
+) -> int:
+    out_dir = Path(args.out)
+    opcode_variant_probe_path = (
+        None if args.opcode_variant_probe is None else Path(args.opcode_variant_probe)
+    )
+    external_src_root = (
+        None if args.external_src_root is None else Path(args.external_src_root)
+    )
+    report = build_main_wing_station_seam_export_metadata_source_audit_report(
+        opcode_variant_probe_path=opcode_variant_probe_path,
+        external_src_root=external_src_root,
+    )
+    write_main_wing_station_seam_export_metadata_source_audit_report(
+        out_dir,
+        report=report,
+        opcode_variant_probe_path=opcode_variant_probe_path,
+        external_src_root=external_src_root,
+    )
+    print(json.dumps(report.model_dump(mode="json"), ensure_ascii=False, indent=2))
+    return 0 if report.audit_status != "blocked" else 2
+
+
 def cmd_main_wing_su2_force_marker_audit(args: argparse.Namespace) -> int:
     out_dir = Path(args.out)
     report_root = None if args.report_root is None else Path(args.report_root)
@@ -2418,6 +2446,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     main_wing_station_seam_side_aware_export_opcode_variant_probe.set_defaults(
         func=cmd_main_wing_station_seam_side_aware_export_opcode_variant_probe
+    )
+
+    main_wing_station_seam_export_metadata_source_audit = sub.add_parser(
+        "main-wing-station-seam-export-metadata-source-audit"
+    )
+    main_wing_station_seam_export_metadata_source_audit.add_argument(
+        "--out",
+        type=str,
+        required=True,
+    )
+    main_wing_station_seam_export_metadata_source_audit.add_argument(
+        "--opcode-variant-probe",
+        type=str,
+    )
+    main_wing_station_seam_export_metadata_source_audit.add_argument(
+        "--external-src-root",
+        type=str,
+    )
+    main_wing_station_seam_export_metadata_source_audit.set_defaults(
+        func=cmd_main_wing_station_seam_export_metadata_source_audit
     )
 
     main_wing_su2_force_marker_audit = sub.add_parser(

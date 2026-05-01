@@ -143,7 +143,12 @@ probe then tests report-local OpenCSM opcode changes: `upper_lower_spline_split`
 materializes as `1 volume / 52 surfaces` but still does not recover the station
 BRep / PCurve gate, while `all_linseg` materializes as `1 volume / 582 surfaces`
 and is stopped by the surface-count guard. Simple opcode variants are therefore
-negative-control evidence, not a product repair. The export-source audit
+negative-control evidence, not a product repair. The export metadata source
+audit then records that hpa-mdo owns CSM section coordinates, opcode policy,
+rule grouping, and the `DUMP` invocation, but rule-loft PCurve metadata, EGADS
+STEP export metadata, and OCCT ShapeAnalysis truth are external to the current
+CSM-writer layer. The next gate is a STEP / BREP / EGADS format-boundary probe
+or an owned OCC export path. The export-source audit
 then traces those target
 stations back to `rebuild.csm`: the provider export uses one OpenCSM `rule`
 over 11 sketch sections, and curves 36 / 50 map to internal rule sections at
@@ -153,7 +158,7 @@ real-mesh worst-tet sample: 15 / 20 sampled worst tets are nearest to
 surface-19 hotspot overlaps the station-seam entity trace surface set
 `12 / 13 / 19 / 20` with candidate curves 36 / 50. This is mesh-risk evidence,
 not convergence evidence, and it reinforces that the current readiness next action is
-`inspect_export_pcurve_metadata_generation_instead_of_simple_opcode_variants`.
+`inspect_opencsm_egads_step_export_metadata_controls_or_add_owned_occ_export_path`.
 
 The main-wing VSPAERO panel reference probe is emitted by:
 
@@ -539,6 +544,23 @@ This writes
 by the surface-count guard before expensive validation. This is evidence that
 simple OpenCSM opcode switching is not the product repair; the next gate is
 inspection of the export PCurve metadata generation path itself.
+
+The main-wing station-seam export metadata source audit is emitted by:
+
+```bash
+cd /Volumes/Samsung\ SSD/hpa-mdo/hpa_meshing_package
+PYTHONPATH=src python -m hpa_meshing.cli main-wing-station-seam-export-metadata-source-audit --out .tmp/runs/main_wing_station_seam_export_metadata_source_audit --external-src-root /Users/linyuan/.local/esp/current/EngSketchPad
+```
+
+This writes `main_wing_station_seam_export_metadata_source_audit.v1.json` and
+`.md`. The committed result is
+`export_metadata_generation_source_boundary_captured`: hpa-mdo owns CSM source
+construction only (`section_coordinates`, `sketch_opcode_policy`,
+`rule_grouping`, `dump_invocation`), while rule-loft PCurve metadata, EGADS STEP
+export metadata, and OCCT ShapeAnalysis semantics are external to the current
+CSM writers. Because the opcode variants are negative controls, the next
+minimum probe should compare the same side-aware candidate through STEP, BREP,
+and EGADS exports before any mesh handoff or solver-budget work.
 
 The first real fairing geometry smoke is emitted by:
 
@@ -1021,7 +1043,7 @@ If a route returns `route_stage=placeholder`, it is not a formal meshing result.
 ## Planned Next Gates
 
 1. Alpha sweep only after `mesh_study.v1` promotes the chosen baseline mesh/runtime to at least `preliminary_compare`
-2. Inspect side-aware export PCurve metadata generation directly; simple opcode variants are now negative-control evidence, not a product repair
+2. Run a side-aware STEP / BREP / EGADS format-boundary probe, or add an owned OCC export path, before any mesh handoff or solver-budget work
 3. Use retained main-wing `forces_breakdown.dat` / `surface.csv` to debug the panel-vs-SU2 lift gap, then fix reference-area / moment-origin provenance before any larger residual/numerics campaign; do not call either smoke converged
 4. Run real fairing solver smoke now that drag/reference normalization is explicit; keep moment coefficients blocked until moment-origin policy is owned
 5. Tail-wing `su2_handoff.v1` materialization smoke before tail solver claims

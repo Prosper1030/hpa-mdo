@@ -3727,6 +3727,124 @@
       ]
     },
     {
+      "stage": "station_seam_export_metadata_source_audit",
+      "status": "blocked",
+      "evidence_kind": "real",
+      "artifact_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_metadata_source_audit/main_wing_station_seam_export_metadata_source_audit.v1.json",
+      "observed": {
+        "audit_status": "export_metadata_generation_source_boundary_captured",
+        "source_boundary": {
+          "hpa_mdo_controls": [
+            "section_coordinates",
+            "sketch_opcode_policy",
+            "rule_grouping",
+            "dump_invocation"
+          ],
+          "external_controls": [
+            "opencsm_rule_loft_surface_construction",
+            "opencsm_rule_loft_pcurve_metadata",
+            "egads_step_export_metadata",
+            "occt_shape_analysis_semantics_after_step_import"
+          ],
+          "post_export_hpa_mdo_diagnostics": [
+            "same_parameter_shape_fix_sweeps",
+            "bounded_existing_pcurve_rewrite_attempts",
+            "projected_or_sampled_pcurve_negative_controls"
+          ]
+        },
+        "current_negative_controls": {
+          "opcode_variant_status": "side_aware_export_opcode_variant_not_recovered",
+          "variant_count": 2,
+          "materialized_variant_count": 2,
+          "validated_variant_count": 1,
+          "recovered_variant_count": 0,
+          "surface_count_guard_skipped_count": 1,
+          "best_station_edge_check_count": 10,
+          "engineering_findings": [
+            "side_aware_export_opcode_variant_probe_evaluated",
+            "upper_lower_spline_split_still_pcurve_suspect",
+            "upper_lower_spline_split_surface_count_52",
+            "all_linseg_surface_count_explosion_observed",
+            "all_linseg_surface_count_582",
+            "simple_opcode_variants_do_not_recover_station_pcurve_gate"
+          ]
+        },
+        "external_source_inventory": {
+          "root": "/Users/linyuan/.local/esp/current/EngSketchPad",
+          "exists": true,
+          "opencsm_or_egads_source_available": true,
+          "matched_paths": [
+            "/Users/linyuan/.local/esp/current/EngSketchPad/ESP/examples/warp_udf_1.egads",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/bin/egads2cgt",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/bin/egads2cart",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/contributions/jlEGADS",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/contributions/jlEGADS/egads",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/contributions/jlEGADS/egadslite",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/contributions/jlEGADS/egadscommon",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/contributions/jlEGADS/egads/src/egads.jl",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/contributions/jlEGADS/egadslite/src/egadslite.jl",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/contributions/jlEGADS/egadscommon/egadscommon.jl",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egadsSplineVels.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egadsTypes.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egadsf90.inc",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egads.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egadsTris.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egads_dot.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/OpenCSM.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egadsSplineFit.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egadsErrors.h",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/include/egads.inc",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/CAPSexamples/pyCAPS/egadsTess_Nose_Quad_PyTest.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/CAPSexamples/pyCAPS/egadsTess_Spheres_Quad_PyTest.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/CAPSexamples/pyCAPS/egadsTess_Box_Quad_Pytest.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/CAPSexamples/pyCAPS/egadsTess_Crochet_PyTest.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/CAPSexamples/pyCAPS/egadsTess_PyTest.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/externApps/Pagoda/EGADSserver",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/externApps/Pagoda/OCSMserver",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/externApps/Pagoda/EGADSserver/stream.egads",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/testOCSM",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/testEGADS",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/pyOCSM",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/pyEGADS",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/testOCSM/test_pyOCSM.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/testEGADS/test_egadslite.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/testEGADS/test_egads.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/pyOCSM/ocsm.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/pyEGADS/egads_common.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/pyEGADS/egads.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/pyESP/pyEGADS/egadslite.py",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/lib/libegadslite.dylib",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/lib/libegadslitestatic.a",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/lib/libegads.dylib",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/lib/libocsm.dylib",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/lib/libegadstatic.a",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/lib/egadsTessAIM.so",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/doc/EGADS",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/doc/CAPS/pdf/CAPS_AIM_egadsTess.pdf",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/doc/CAPS/html/aim/egadsTess",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/doc/CAPS/html/aim/egadsTess/aimOutputsEgadsTess.html",
+            "/Users/linyuan/.local/esp/current/EngSketchPad/doc/CAPS/html/aim/egadsTess/aimInputsEgadsTess.html"
+          ]
+        },
+        "engineering_findings": [
+          "export_metadata_source_boundary_audit_captured",
+          "provider_export_uses_opencsm_rule_then_dump",
+          "side_aware_candidate_export_is_csm_script_level_control",
+          "hpa_mdo_csm_generation_has_no_explicit_pcurve_metadata_api",
+          "report_local_opcode_variants_do_not_recover_metadata_gate"
+        ],
+        "next_actions": [
+          "inspect_opencsm_egads_step_export_metadata_controls_or_add_owned_occ_export_path",
+          "avoid_more_simple_csm_opcode_sweeps",
+          "keep_mesh_handoff_blocked_until_station_metadata_gate_passes"
+        ]
+      },
+      "blockers": [
+        "export_pcurve_metadata_generation_not_owned_by_hpa_mdo",
+        "side_aware_candidate_mesh_handoff_not_run"
+      ]
+    },
+    {
       "stage": "convergence_gate",
       "status": "blocked",
       "evidence_kind": "real",
@@ -3788,10 +3906,11 @@
     "side_aware_station_metadata_repair_not_recovered",
     "side_aware_station_pcurve_metadata_builder_not_recovered",
     "side_aware_station_projected_pcurve_builder_not_recovered",
-    "side_aware_export_opcode_variants_not_recovered"
+    "side_aware_export_opcode_variants_not_recovered",
+    "export_pcurve_metadata_generation_not_owned_by_hpa_mdo"
   ],
   "next_actions": [
-    "inspect_export_pcurve_metadata_generation_instead_of_simple_opcode_variants",
+    "inspect_opencsm_egads_step_export_metadata_controls_or_add_owned_occ_export_path",
     "run_bounded_main_wing_iteration_sweep_after_reference_gate_is_clean",
     "preserve_synthetic_su2_as_wiring_evidence_only"
   ],

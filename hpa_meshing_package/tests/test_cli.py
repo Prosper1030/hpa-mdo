@@ -836,6 +836,26 @@ def test_parser_supports_main_wing_station_seam_side_aware_export_opcode_variant
     assert args.max_surface_count_for_validation == 96
 
 
+def test_parser_supports_main_wing_station_seam_export_metadata_source_audit_command():
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "main-wing-station-seam-export-metadata-source-audit",
+            "--out",
+            "artifacts/main_wing_export_metadata_source_audit",
+            "--opcode-variant-probe",
+            "artifacts/main_wing/opcode_variant.json",
+            "--external-src-root",
+            "artifacts/external-src",
+        ]
+    )
+
+    assert args.command == "main-wing-station-seam-export-metadata-source-audit"
+    assert args.out == "artifacts/main_wing_export_metadata_source_audit"
+    assert args.opcode_variant_probe == "artifacts/main_wing/opcode_variant.json"
+    assert args.external_src_root == "artifacts/external-src"
+
+
 def test_parser_supports_main_wing_station_seam_same_parameter_feasibility_command():
     parser = build_parser()
     args = parser.parse_args(
