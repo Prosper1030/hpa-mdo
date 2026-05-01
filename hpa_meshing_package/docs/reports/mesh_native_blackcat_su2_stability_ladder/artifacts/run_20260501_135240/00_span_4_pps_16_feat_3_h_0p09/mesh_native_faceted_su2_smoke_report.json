@@ -1,0 +1,456 @@
+{
+  "route": "mesh_native_faceted_gmsh_volume_su2_smoke_case",
+  "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/mesh.su2",
+  "gmsh_mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/mesh.msh",
+  "runtime_cfg_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/su2_runtime.cfg",
+  "report_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/mesh_native_faceted_su2_smoke_report.json",
+  "mesh_report": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/mesh.msh",
+    "su2_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/mesh.su2",
+    "volume_count": 1,
+    "node_count": 35993,
+    "volume_element_count": 107415,
+    "volume_element_type_counts": {
+      "4": 107415
+    },
+    "mesh_sizing": {
+      "default_mesh_size": 0.09,
+      "wing_mesh_size": 0.09,
+      "farfield_mesh_size": 18.0,
+      "wing_refinement_radius": 12.0,
+      "refinement_boxes": [
+        {
+          "name": "trailing_edge_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.0389629847449064,
+          "x_max": 1.5583646080265126,
+          "y_min": -16.5,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_left_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": -16.5,
+          "y_max": -15.201495941795985,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_right_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": 15.201495941795985,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "wake_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.2986637963857095,
+          "x_max": 6.492680029201772,
+          "y_min": -17.14925202910201,
+          "y_max": 17.14925202910201,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        }
+      ],
+      "background_field": {
+        "type": "Min",
+        "field_tag": 7,
+        "fields": [
+          {
+            "type": "DistanceThreshold",
+            "field_tag": 2,
+            "distance_field_tag": 1,
+            "threshold_field_tag": 2,
+            "node_count": 1232
+          },
+          {
+            "type": "Box",
+            "field_tag": 3,
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 4,
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 5,
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 6,
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ]
+      }
+    },
+    "quality_metrics": {
+      "tetra_element_count": 107415,
+      "tetrahedron_count": 107415,
+      "ill_shaped_tet_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_gamma": 0.0003083643704851507,
+      "min_sicn": 0.0017954641910020886,
+      "min_sige": 0.01382986060719213,
+      "min_volume": 1.014072894013786e-07,
+      "gamma_percentiles": {
+        "p01": 0.029752264071573165,
+        "p05": 0.07656067634297986,
+        "p50": 0.35665104001458237
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.02656614891755514,
+        "p05": 0.0689446530098403,
+        "p50": 0.3858564416575768
+      },
+      "min_sige_percentiles": {
+        "p01": 0.3709944776491678,
+        "p05": 0.4593758978496707,
+        "p50": 0.6436673503658809
+      },
+      "volume_percentiles": {
+        "p01": 5.483371170410289e-06,
+        "p05": 1.670773883545459e-05,
+        "p50": 0.00010132580652895444
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "production_scale_gate": {
+      "status": "underresolved",
+      "target_volume_elements": 1000000,
+      "observed_volume_elements": 107415,
+      "shortfall_volume_elements": 892585,
+      "observed_to_target_ratio": 0.107415
+    },
+    "surface_triangle_count": 2472,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 2460
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ]
+  },
+  "marker_audit": {
+    "status": "pass",
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "missing_from_mesh": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 107415,
+      "npoin": 35993,
+      "nmark": 2,
+      "markers": {
+        "wing_wall": {
+          "element_count": 62736,
+          "element_type_counts": {
+            "5": 62736
+          }
+        },
+        "farfield": {
+          "element_count": 516,
+          "element_type_counts": {
+            "5": 516
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "solver": "INC_EULER",
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 20,
+    "ref_area": 35.175,
+    "ref_length": 1.130189765,
+    "mesh_size": 0.09
+  },
+  "caveats": [
+    "wing boundary is faceted from mesh-native panels",
+    "tet volume mesh only; no boundary-layer prism strategy",
+    "smoke case is not a convergence or aerodynamic validation case"
+  ],
+  "run_status": "completed",
+  "failure_code": null,
+  "returncode": 0,
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "4",
+    "su2_runtime.cfg"
+  ],
+  "solver_log_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/solver.log",
+  "history_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/history.csv",
+  "history": {
+    "row_count": 20,
+    "final_iteration": 19,
+    "final_coefficients": {
+      "cl": 0.4506080354,
+      "cd": 0.09152593528,
+      "cmx": -0.02214317395,
+      "cmy": -0.1680980431,
+      "cmz": 0.02969341514
+    }
+  },
+  "iterative_gate": {
+    "status": "fail",
+    "confidence": "low",
+    "checks": {
+      "history_rows": {
+        "status": "pass",
+        "observed": {
+          "history_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/00_span_4_pps_16_feat_3_h_0p09/history.csv",
+          "row_count": 20,
+          "columns": [
+            "Time_Iter",
+            "Outer_Iter",
+            "Inner_Iter",
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]",
+            "RefForce",
+            "CD",
+            "CL",
+            "CSF",
+            "CMx",
+            "CMy",
+            "CMz",
+            "CFx",
+            "CFy",
+            "CFz",
+            "CEff"
+          ]
+        },
+        "expected": {
+          "history_file_exists": true,
+          "parseable_rows": true
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "iteration_budget": {
+        "status": "pass",
+        "observed": {
+          "row_count": 20,
+          "final_iteration": 19
+        },
+        "expected": {
+          "minimum_iterations": 20,
+          "tail_window": 10
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "residual_trend": {
+        "status": "warn",
+        "observed": {
+          "columns": [
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]"
+          ],
+          "improvement_by_column": {
+            "rms[P]": -0.09911907999999992,
+            "rms[U]": -0.1459736747,
+            "rms[V]": -0.1621136565000001,
+            "rms[W]": -0.24152613379999988
+          },
+          "improved_columns": [],
+          "startup_skip": 5,
+          "baseline_median_by_column": {
+            "rms[P]": -1.9009597,
+            "rms[U]": -0.7606966001,
+            "rms[V]": -1.466419586,
+            "rms[W]": -0.8446062816
+          },
+          "tail_median_by_column": {
+            "rms[P]": -1.8018406200000001,
+            "rms[U]": -0.6147229254,
+            "rms[V]": -1.3043059295,
+            "rms[W]": -0.6030801478000001
+          },
+          "median_log_drop": -0.15404366560000005
+        },
+        "expected": {
+          "minimum_median_log_drop": 0.5
+        },
+        "warnings": [
+          "residual_drop_below_threshold"
+        ],
+        "notes": [
+          "Residual columns are treated as log10 RMS values, so lower is better.",
+          "Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+        ]
+      },
+      "coefficient_stability": {
+        "status": "fail",
+        "observed": {
+          "tail_window": 10,
+          "cl": {
+            "status": "fail",
+            "tail_mean": 0.36265917021,
+            "tail_range": 0.1738451935,
+            "tail_delta": 0.1738451935,
+            "tail_relative_range": 0.38580136136649107,
+            "scale": 0.4506080354,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.009012160708,
+            "warn_delta_limit": 0.02253040177
+          },
+          "cd": {
+            "status": "fail",
+            "tail_mean": 0.09581280305,
+            "tail_range": 0.006484591730000003,
+            "tail_delta": -0.0024740025200000043,
+            "tail_relative_range": 0.0676798039883669,
+            "scale": 0.09581280305,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.0019162560610000003,
+            "warn_delta_limit": 0.004790640152500001
+          },
+          "cm": {
+            "status": "fail",
+            "tail_mean": -0.16223992933,
+            "tail_range": 0.022505316999999997,
+            "tail_delta": -0.021590312400000006,
+            "tail_relative_range": 0.13388208800629398,
+            "scale": 0.1680980431,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.0033619608620000002,
+            "warn_delta_limit": 0.008404902155000001
+          }
+        },
+        "expected": {
+          "tail_window": 10,
+          "pass_relative_range_limit": 0.02,
+          "warn_relative_range_limit": 0.05,
+          "absolute_tolerance": 0.0005
+        },
+        "warnings": [
+          "cl_tail_still_drifting",
+          "cd_tail_still_drifting",
+          "cm_tail_still_drifting"
+        ],
+        "notes": []
+      }
+    },
+    "warnings": [
+      "residual_trend:residual_drop_below_threshold",
+      "coefficient_stability:cl_tail_still_drifting",
+      "coefficient_stability:cd_tail_still_drifting",
+      "coefficient_stability:cm_tail_still_drifting"
+    ],
+    "notes": [
+      "Iterative gate reads history.csv directly and does not infer extra solver state.",
+      "residual_trend:Residual columns are treated as log10 RMS values, so lower is better.",
+      "residual_trend:Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+    ]
+  },
+  "iterative_gate_status": "fail",
+  "engineering_assessment": {
+    "solver_readability": "pass",
+    "marker_ownership": "pass",
+    "iterative_convergence": "fail",
+    "aero_coefficients_interpretable": false,
+    "reason": "iterative_gate_not_passed"
+  }
+}

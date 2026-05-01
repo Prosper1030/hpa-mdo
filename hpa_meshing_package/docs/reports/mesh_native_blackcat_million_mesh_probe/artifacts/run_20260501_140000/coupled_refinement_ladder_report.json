@@ -1,0 +1,1255 @@
+{
+  "route": "blackcat_main_wing_mesh_native_coupled_refinement_ladder",
+  "status": "target_reached",
+  "report_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/coupled_refinement_ladder_report.json",
+  "target_volume_elements": 1000000,
+  "max_volume_elements": 1500000,
+  "points_per_side_values": [
+    16
+  ],
+  "spanwise_subdivision_values": [
+    4
+  ],
+  "mesh_sizes": [
+    0.025,
+    0.02,
+    0.018
+  ],
+  "feature_refinement_size": 3.0,
+  "feature_refinement_size_values": [
+    3.0
+  ],
+  "selected_case": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/02_span_4_pps_16_feat_3_h_0p018/mesh.msh",
+    "su2_path": null,
+    "volume_count": 1,
+    "node_count": 367629,
+    "volume_element_count": 1063040,
+    "volume_element_type_counts": {
+      "4": 1063040
+    },
+    "mesh_sizing": {
+      "default_mesh_size": 0.018,
+      "wing_mesh_size": 0.018,
+      "farfield_mesh_size": 18.0,
+      "wing_refinement_radius": 12.0,
+      "refinement_boxes": [
+        {
+          "name": "trailing_edge_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.0389629847449064,
+          "x_max": 1.5583646080265126,
+          "y_min": -16.5,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_left_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": -16.5,
+          "y_max": -15.201495941795985,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_right_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": 15.201495941795985,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "wake_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.2986637963857095,
+          "x_max": 6.492680029201772,
+          "y_min": -17.14925202910201,
+          "y_max": 17.14925202910201,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        }
+      ],
+      "background_field": {
+        "type": "Min",
+        "field_tag": 7,
+        "fields": [
+          {
+            "type": "DistanceThreshold",
+            "field_tag": 2,
+            "distance_field_tag": 1,
+            "threshold_field_tag": 2,
+            "node_count": 1232
+          },
+          {
+            "type": "Box",
+            "field_tag": 3,
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 4,
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 5,
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 6,
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ]
+      }
+    },
+    "quality_metrics": {
+      "tetra_element_count": 1063040,
+      "tetrahedron_count": 1063040,
+      "ill_shaped_tet_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_gamma": 0.00019723572528718128,
+      "min_sicn": 0.0020391239156050227,
+      "min_sige": 0.016399750526834827,
+      "min_volume": 2.349863178237946e-09,
+      "gamma_percentiles": {
+        "p01": 0.08779993283696505,
+        "p05": 0.16703229337027678,
+        "p50": 0.40705815302468573
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.08525444681750403,
+        "p05": 0.17876956720471882,
+        "p50": 0.44595240836645256
+      },
+      "min_sige_percentiles": {
+        "p01": 0.406281196608734,
+        "p05": 0.5063954131796449,
+        "p50": 0.6923207535171664
+      },
+      "volume_percentiles": {
+        "p01": 3.0683486468856713e-07,
+        "p05": 8.322882630623155e-07,
+        "p50": 2.8351113242259217e-06
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "production_scale_gate": {
+      "status": "meets_target",
+      "target_volume_elements": 1000000,
+      "observed_volume_elements": 1063040,
+      "shortfall_volume_elements": 0,
+      "observed_to_target_ratio": 1.06304
+    },
+    "surface_triangle_count": 2472,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 2460
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ],
+    "case_dir": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/02_span_4_pps_16_feat_3_h_0p018",
+    "spanwise_subdivisions": 4,
+    "points_per_side": 16,
+    "points_per_station": 30,
+    "mesh_size": 0.018,
+    "surface_metadata": {
+      "station_count": 41,
+      "points_per_station": 30,
+      "span_m": 33.0,
+      "planform_area_m2": 35.17499999999999,
+      "side": "full",
+      "te_rule": "sharp",
+      "tip_rule": "planar_cap",
+      "root_rule": "full",
+      "orientation": "outward_consistent"
+    },
+    "farfield_metadata": {
+      "surface_role": "farfield_box",
+      "x_min": -1.9475963491243293,
+      "x_max": 3.8956719127937403,
+      "y_min": -56.1,
+      "y_max": 56.1,
+      "z_min": -39.651027557336874,
+      "z_max": 40.45005780756614,
+      "orientation": "outward_consistent"
+    },
+    "feature_refinement_size": 3.0,
+    "feature_refinement_box_count": 4
+  },
+  "recommended_quality_candidate": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/02_span_4_pps_16_feat_3_h_0p018/mesh.msh",
+    "su2_path": null,
+    "volume_count": 1,
+    "node_count": 367629,
+    "volume_element_count": 1063040,
+    "volume_element_type_counts": {
+      "4": 1063040
+    },
+    "mesh_sizing": {
+      "default_mesh_size": 0.018,
+      "wing_mesh_size": 0.018,
+      "farfield_mesh_size": 18.0,
+      "wing_refinement_radius": 12.0,
+      "refinement_boxes": [
+        {
+          "name": "trailing_edge_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.0389629847449064,
+          "x_max": 1.5583646080265126,
+          "y_min": -16.5,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_left_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": -16.5,
+          "y_max": -15.201495941795985,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "tip_right_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 0.00015973818169396037,
+          "x_max": 1.2986637963857095,
+          "y_min": 15.201495941795985,
+          "y_max": 16.5,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        },
+        {
+          "name": "wake_refinement_region",
+          "size": 3.0,
+          "outside_size": 18.0,
+          "transition_thickness": 0.6492520291020077,
+          "x_min": 1.2986637963857095,
+          "x_max": 6.492680029201772,
+          "y_min": -17.14925202910201,
+          "y_max": 17.14925202910201,
+          "z_min": -1.0249056009898818,
+          "z_max": 1.8239358512191524
+        }
+      ],
+      "background_field": {
+        "type": "Min",
+        "field_tag": 7,
+        "fields": [
+          {
+            "type": "DistanceThreshold",
+            "field_tag": 2,
+            "distance_field_tag": 1,
+            "threshold_field_tag": 2,
+            "node_count": 1232
+          },
+          {
+            "type": "Box",
+            "field_tag": 3,
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 4,
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 5,
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "type": "Box",
+            "field_tag": 6,
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ]
+      }
+    },
+    "quality_metrics": {
+      "tetra_element_count": 1063040,
+      "tetrahedron_count": 1063040,
+      "ill_shaped_tet_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_gamma": 0.00019723572528718128,
+      "min_sicn": 0.0020391239156050227,
+      "min_sige": 0.016399750526834827,
+      "min_volume": 2.349863178237946e-09,
+      "gamma_percentiles": {
+        "p01": 0.08779993283696505,
+        "p05": 0.16703229337027678,
+        "p50": 0.40705815302468573
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.08525444681750403,
+        "p05": 0.17876956720471882,
+        "p50": 0.44595240836645256
+      },
+      "min_sige_percentiles": {
+        "p01": 0.406281196608734,
+        "p05": 0.5063954131796449,
+        "p50": 0.6923207535171664
+      },
+      "volume_percentiles": {
+        "p01": 3.0683486468856713e-07,
+        "p05": 8.322882630623155e-07,
+        "p50": 2.8351113242259217e-06
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "production_scale_gate": {
+      "status": "meets_target",
+      "target_volume_elements": 1000000,
+      "observed_volume_elements": 1063040,
+      "shortfall_volume_elements": 0,
+      "observed_to_target_ratio": 1.06304
+    },
+    "surface_triangle_count": 2472,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 2460
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ],
+    "case_dir": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/02_span_4_pps_16_feat_3_h_0p018",
+    "spanwise_subdivisions": 4,
+    "points_per_side": 16,
+    "points_per_station": 30,
+    "mesh_size": 0.018,
+    "surface_metadata": {
+      "station_count": 41,
+      "points_per_station": 30,
+      "span_m": 33.0,
+      "planform_area_m2": 35.17499999999999,
+      "side": "full",
+      "te_rule": "sharp",
+      "tip_rule": "planar_cap",
+      "root_rule": "full",
+      "orientation": "outward_consistent"
+    },
+    "farfield_metadata": {
+      "surface_role": "farfield_box",
+      "x_min": -1.9475963491243293,
+      "x_max": 3.8956719127937403,
+      "y_min": -56.1,
+      "y_max": 56.1,
+      "z_min": -39.651027557336874,
+      "z_max": 40.45005780756614,
+      "orientation": "outward_consistent"
+    },
+    "feature_refinement_size": 3.0,
+    "feature_refinement_box_count": 4,
+    "case_index": 2,
+    "selection_policy": "densest_case_without_blockers_or_severe_warnings",
+    "excluded_warnings": [
+      "very_low_min_gamma",
+      "very_low_min_sicn"
+    ]
+  },
+  "quality_warning_cases": [
+    {
+      "case_index": 1,
+      "spanwise_subdivisions": 4,
+      "points_per_side": 16,
+      "mesh_size": 0.02,
+      "volume_element_count": 883182,
+      "warnings": [
+        "very_low_min_gamma"
+      ],
+      "min_gamma": 5.11631802050111e-05,
+      "p01_gamma": 0.0825391681916909
+    }
+  ],
+  "cases": [
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/00_span_4_pps_16_feat_3_h_0p025/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 210476,
+      "volume_element_count": 615453,
+      "volume_element_type_counts": {
+        "4": 615453
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 0.025,
+        "wing_mesh_size": 0.025,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "refinement_boxes": [
+          {
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ],
+        "background_field": {
+          "type": "Min",
+          "field_tag": 7,
+          "fields": [
+            {
+              "type": "DistanceThreshold",
+              "field_tag": 2,
+              "distance_field_tag": 1,
+              "threshold_field_tag": 2,
+              "node_count": 1232
+            },
+            {
+              "type": "Box",
+              "field_tag": 3,
+              "name": "trailing_edge_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.0389629847449064,
+              "x_max": 1.5583646080265126,
+              "y_min": -16.5,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 4,
+              "name": "tip_left_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": -16.5,
+              "y_max": -15.201495941795985,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 5,
+              "name": "tip_right_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": 15.201495941795985,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 6,
+              "name": "wake_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.2986637963857095,
+              "x_max": 6.492680029201772,
+              "y_min": -17.14925202910201,
+              "y_max": 17.14925202910201,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            }
+          ]
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 615453,
+        "tetrahedron_count": 615453,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.0003013148541921388,
+        "min_sicn": 0.0022243490874645786,
+        "min_sige": 0.009620651823942715,
+        "min_volume": 1.1103353144799363e-09,
+        "gamma_percentiles": {
+          "p01": 0.07114886891290162,
+          "p05": 0.15709268126977335,
+          "p50": 0.4090476588340281
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.06538110715790202,
+          "p05": 0.16436278101180535,
+          "p50": 0.44860647225417677
+        },
+        "min_sige_percentiles": {
+          "p01": 0.3925832361219481,
+          "p05": 0.49384082207842617,
+          "p50": 0.6898687464451113
+        },
+        "volume_percentiles": {
+          "p01": 5.128062368983658e-07,
+          "p05": 1.6244429182130221e-06,
+          "p50": 6.693585138462405e-06
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": [],
+        "warnings": [],
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        }
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 615453,
+        "shortfall_volume_elements": 384547,
+        "observed_to_target_ratio": 0.615453
+      },
+      "surface_triangle_count": 2472,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 2460
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/00_span_4_pps_16_feat_3_h_0p025",
+      "spanwise_subdivisions": 4,
+      "points_per_side": 16,
+      "points_per_station": 30,
+      "mesh_size": 0.025,
+      "surface_metadata": {
+        "station_count": 41,
+        "points_per_station": 30,
+        "span_m": 33.0,
+        "planform_area_m2": 35.17499999999999,
+        "side": "full",
+        "te_rule": "sharp",
+        "tip_rule": "planar_cap",
+        "root_rule": "full",
+        "orientation": "outward_consistent"
+      },
+      "farfield_metadata": {
+        "surface_role": "farfield_box",
+        "x_min": -1.9475963491243293,
+        "x_max": 3.8956719127937403,
+        "y_min": -56.1,
+        "y_max": 56.1,
+        "z_min": -39.651027557336874,
+        "z_max": 40.45005780756614,
+        "orientation": "outward_consistent"
+      },
+      "feature_refinement_size": 3.0,
+      "feature_refinement_box_count": 4
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/01_span_4_pps_16_feat_3_h_0p02/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 305868,
+      "volume_element_count": 883182,
+      "volume_element_type_counts": {
+        "4": 883182
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 0.02,
+        "wing_mesh_size": 0.02,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "refinement_boxes": [
+          {
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ],
+        "background_field": {
+          "type": "Min",
+          "field_tag": 7,
+          "fields": [
+            {
+              "type": "DistanceThreshold",
+              "field_tag": 2,
+              "distance_field_tag": 1,
+              "threshold_field_tag": 2,
+              "node_count": 1232
+            },
+            {
+              "type": "Box",
+              "field_tag": 3,
+              "name": "trailing_edge_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.0389629847449064,
+              "x_max": 1.5583646080265126,
+              "y_min": -16.5,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 4,
+              "name": "tip_left_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": -16.5,
+              "y_max": -15.201495941795985,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 5,
+              "name": "tip_right_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": 15.201495941795985,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 6,
+              "name": "wake_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.2986637963857095,
+              "x_max": 6.492680029201772,
+              "y_min": -17.14925202910201,
+              "y_max": 17.14925202910201,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            }
+          ]
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 883182,
+        "tetrahedron_count": 883182,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 5.11631802050111e-05,
+        "min_sicn": 0.0006834907041695869,
+        "min_sige": 0.007574849031099613,
+        "min_volume": 3.673450981388354e-10,
+        "gamma_percentiles": {
+          "p01": 0.0825391681916909,
+          "p05": 0.16356630730062588,
+          "p50": 0.40131750630136165
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.0775996735954811,
+          "p05": 0.17420896455966953,
+          "p50": 0.43974699914741827
+        },
+        "min_sige_percentiles": {
+          "p01": 0.40236546093859327,
+          "p05": 0.5014091596099406,
+          "p50": 0.6895459746312396
+        },
+        "volume_percentiles": {
+          "p01": 3.68155807242175e-07,
+          "p05": 1.0184443554302173e-06,
+          "p50": 3.7829654208803615e-06
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": [],
+        "warnings": [
+          "very_low_min_gamma"
+        ],
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        }
+      },
+      "production_scale_gate": {
+        "status": "underresolved",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 883182,
+        "shortfall_volume_elements": 116818,
+        "observed_to_target_ratio": 0.883182
+      },
+      "surface_triangle_count": 2472,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 2460
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/01_span_4_pps_16_feat_3_h_0p02",
+      "spanwise_subdivisions": 4,
+      "points_per_side": 16,
+      "points_per_station": 30,
+      "mesh_size": 0.02,
+      "surface_metadata": {
+        "station_count": 41,
+        "points_per_station": 30,
+        "span_m": 33.0,
+        "planform_area_m2": 35.17499999999999,
+        "side": "full",
+        "te_rule": "sharp",
+        "tip_rule": "planar_cap",
+        "root_rule": "full",
+        "orientation": "outward_consistent"
+      },
+      "farfield_metadata": {
+        "surface_role": "farfield_box",
+        "x_min": -1.9475963491243293,
+        "x_max": 3.8956719127937403,
+        "y_min": -56.1,
+        "y_max": 56.1,
+        "z_min": -39.651027557336874,
+        "z_max": 40.45005780756614,
+        "orientation": "outward_consistent"
+      },
+      "feature_refinement_size": 3.0,
+      "feature_refinement_box_count": 4
+    },
+    {
+      "status": "meshed",
+      "route": "mesh_native_faceted_gmsh_volume",
+      "mesh_path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/02_span_4_pps_16_feat_3_h_0p018/mesh.msh",
+      "su2_path": null,
+      "volume_count": 1,
+      "node_count": 367629,
+      "volume_element_count": 1063040,
+      "volume_element_type_counts": {
+        "4": 1063040
+      },
+      "mesh_sizing": {
+        "default_mesh_size": 0.018,
+        "wing_mesh_size": 0.018,
+        "farfield_mesh_size": 18.0,
+        "wing_refinement_radius": 12.0,
+        "refinement_boxes": [
+          {
+            "name": "trailing_edge_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.0389629847449064,
+            "x_max": 1.5583646080265126,
+            "y_min": -16.5,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_left_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": -16.5,
+            "y_max": -15.201495941795985,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "tip_right_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 0.00015973818169396037,
+            "x_max": 1.2986637963857095,
+            "y_min": 15.201495941795985,
+            "y_max": 16.5,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          },
+          {
+            "name": "wake_refinement_region",
+            "size": 3.0,
+            "outside_size": 18.0,
+            "transition_thickness": 0.6492520291020077,
+            "x_min": 1.2986637963857095,
+            "x_max": 6.492680029201772,
+            "y_min": -17.14925202910201,
+            "y_max": 17.14925202910201,
+            "z_min": -1.0249056009898818,
+            "z_max": 1.8239358512191524
+          }
+        ],
+        "background_field": {
+          "type": "Min",
+          "field_tag": 7,
+          "fields": [
+            {
+              "type": "DistanceThreshold",
+              "field_tag": 2,
+              "distance_field_tag": 1,
+              "threshold_field_tag": 2,
+              "node_count": 1232
+            },
+            {
+              "type": "Box",
+              "field_tag": 3,
+              "name": "trailing_edge_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.0389629847449064,
+              "x_max": 1.5583646080265126,
+              "y_min": -16.5,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 4,
+              "name": "tip_left_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": -16.5,
+              "y_max": -15.201495941795985,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 5,
+              "name": "tip_right_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 0.00015973818169396037,
+              "x_max": 1.2986637963857095,
+              "y_min": 15.201495941795985,
+              "y_max": 16.5,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            },
+            {
+              "type": "Box",
+              "field_tag": 6,
+              "name": "wake_refinement_region",
+              "size": 3.0,
+              "outside_size": 18.0,
+              "transition_thickness": 0.6492520291020077,
+              "x_min": 1.2986637963857095,
+              "x_max": 6.492680029201772,
+              "y_min": -17.14925202910201,
+              "y_max": 17.14925202910201,
+              "z_min": -1.0249056009898818,
+              "z_max": 1.8239358512191524
+            }
+          ]
+        }
+      },
+      "quality_metrics": {
+        "tetra_element_count": 1063040,
+        "tetrahedron_count": 1063040,
+        "ill_shaped_tet_count": 0,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "min_gamma": 0.00019723572528718128,
+        "min_sicn": 0.0020391239156050227,
+        "min_sige": 0.016399750526834827,
+        "min_volume": 2.349863178237946e-09,
+        "gamma_percentiles": {
+          "p01": 0.08779993283696505,
+          "p05": 0.16703229337027678,
+          "p50": 0.40705815302468573
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.08525444681750403,
+          "p05": 0.17876956720471882,
+          "p50": 0.44595240836645256
+        },
+        "min_sige_percentiles": {
+          "p01": 0.406281196608734,
+          "p05": 0.5063954131796449,
+          "p50": 0.6923207535171664
+        },
+        "volume_percentiles": {
+          "p01": 3.0683486468856713e-07,
+          "p05": 8.322882630623155e-07,
+          "p50": 2.8351113242259217e-06
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "pass",
+        "blockers": [],
+        "warnings": [],
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        }
+      },
+      "production_scale_gate": {
+        "status": "meets_target",
+        "target_volume_elements": 1000000,
+        "observed_volume_elements": 1063040,
+        "shortfall_volume_elements": 0,
+        "observed_to_target_ratio": 1.06304
+      },
+      "surface_triangle_count": 2472,
+      "physical_groups": {
+        "wing_wall": {
+          "dimension": 2,
+          "physical_tag": 1,
+          "entity_count": 2460
+        },
+        "farfield": {
+          "dimension": 2,
+          "physical_tag": 2,
+          "entity_count": 12
+        },
+        "fluid": {
+          "dimension": 3,
+          "physical_tag": 3,
+          "entity_count": 1
+        }
+      },
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "case_dir": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/02_span_4_pps_16_feat_3_h_0p018",
+      "spanwise_subdivisions": 4,
+      "points_per_side": 16,
+      "points_per_station": 30,
+      "mesh_size": 0.018,
+      "surface_metadata": {
+        "station_count": 41,
+        "points_per_station": 30,
+        "span_m": 33.0,
+        "planform_area_m2": 35.17499999999999,
+        "side": "full",
+        "te_rule": "sharp",
+        "tip_rule": "planar_cap",
+        "root_rule": "full",
+        "orientation": "outward_consistent"
+      },
+      "farfield_metadata": {
+        "surface_role": "farfield_box",
+        "x_min": -1.9475963491243293,
+        "x_max": 3.8956719127937403,
+        "y_min": -56.1,
+        "y_max": 56.1,
+        "z_min": -39.651027557336874,
+        "z_max": 40.45005780756614,
+        "orientation": "outward_consistent"
+      },
+      "feature_refinement_size": 3.0,
+      "feature_refinement_box_count": 4
+    }
+  ],
+  "engineering_assessment": {
+    "surface_and_volume_refinement_coupled": true,
+    "production_scale_target_volume_elements": 1000000,
+    "budget_guard_volume_elements": 1500000,
+    "selected_for_cfd_interpretation": true,
+    "quality_warnings_present": true,
+    "aero_coefficients_interpretable": false,
+    "reason": "coupled_refinement_ladder_only_no_converged_su2_solution"
+  },
+  "blackcat_source": {
+    "avl_path": "data/blackcat_004_full.avl",
+    "reference": {
+      "sref_full": 35.175,
+      "cref": 1.130189765,
+      "bref_full": 33.0
+    },
+    "farfield_factors": {
+      "upstream": 1.5,
+      "downstream": 2.0,
+      "lateral": 1.2,
+      "vertical": 1.2
+    }
+  },
+  "caveats": [
+    "spanwise station interpolation is linear between AVL sections",
+    "feature boxes are axis-aligned first-pass TE/tip/wake sizing regions",
+    "no boundary-layer prism strategy yet",
+    "million-scale target is an engineering credibility gate, not a convergence proof"
+  ]
+}

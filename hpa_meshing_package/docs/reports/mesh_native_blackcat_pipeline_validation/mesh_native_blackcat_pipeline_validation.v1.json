@@ -1,0 +1,151 @@
+{
+  "report": "mesh_native_blackcat_pipeline_validation.v1",
+  "date": "2026-05-01",
+  "route": "mesh_native_blackcat_main_wing",
+  "source_geometry": "data/blackcat_004_full.avl",
+  "status": "mesh_pipeline_valid_solver_aero_not_validated",
+  "summary": {
+    "mesh_native_geometry_to_gmsh_to_su2_is_executable": true,
+    "million_cell_mesh_generated": true,
+    "su2_stability_ladder_executed": true,
+    "cheapest_stable_cfd_mesh_selected": false,
+    "reason": "SU2 cases run, but iterative convergence and coefficient sanity gates do not support aerodynamic use yet."
+  },
+  "artifacts": {
+    "su2_stability_ladder": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_stability_ladder/artifacts/run_20260501_135240/su2_stability_ladder_report.json",
+    "su2_iteration_probe": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_iteration_probe/artifacts/run_20260501_135400_h009_100iter/su2_stability_ladder_report.json",
+    "million_mesh_probe": "hpa_meshing_package/docs/reports/mesh_native_blackcat_million_mesh_probe/artifacts/run_20260501_140000/coupled_refinement_ladder_report.json",
+    "jst_solver_setup_probe_config": "hpa_meshing_package/docs/reports/mesh_native_blackcat_su2_solver_setup_probe/artifacts/jst_cfl100_h009_300iter/su2_runtime.cfg"
+  },
+  "su2_stability_ladder_20_iter": {
+    "settings": {
+      "points_per_side": 16,
+      "spanwise_subdivisions": 4,
+      "mesh_sizes": [0.09, 0.075, 0.06],
+      "feature_refinement_size": 3.0,
+      "farfield_mesh_size": 18.0,
+      "wing_refinement_radius": 12.0,
+      "solver": "INC_EULER",
+      "iterations": 20,
+      "threads": 4
+    },
+    "status": "no_stable_mesh",
+    "case_results": [
+      {
+        "mesh_size": 0.09,
+        "volume_elements": 107415,
+        "nodes": 35993,
+        "mesh_quality_status": "pass",
+        "mesh_quality_warnings": [],
+        "su2_returncode": 0,
+        "iterative_gate_status": "fail",
+        "final_coefficients": {"cl": 0.4506080354, "cd": 0.09152593528, "cmy": -0.1680980431}
+      },
+      {
+        "mesh_size": 0.075,
+        "volume_elements": 125288,
+        "nodes": 41727,
+        "mesh_quality_status": "pass",
+        "mesh_quality_warnings": ["very_low_min_gamma"],
+        "su2_returncode": 0,
+        "iterative_gate_status": "fail",
+        "final_coefficients": {"cl": 0.4601581701, "cd": 0.1160977237, "cmy": -0.1804285968}
+      },
+      {
+        "mesh_size": 0.06,
+        "volume_elements": 175019,
+        "nodes": 58829,
+        "mesh_quality_status": "pass",
+        "mesh_quality_warnings": ["very_low_min_gamma"],
+        "su2_returncode": 0,
+        "iterative_gate_status": "fail",
+        "final_coefficients": {"cl": 0.4408720786, "cd": 0.1389698709, "cmy": -0.1937971752}
+      }
+    ],
+    "selection": {
+      "status": "no_stable_pair",
+      "ineligible_reason": "all_cases_iterative_gate_not_pass"
+    }
+  },
+  "su2_iteration_probe_h009_100_iter": {
+    "mesh_size": 0.09,
+    "volume_elements": 107415,
+    "nodes": 35993,
+    "solver": "INC_EULER",
+    "scheme": "FDS",
+    "cfl": 1.0,
+    "iterations": 100,
+    "returncode": 0,
+    "iterative_gate_status": "fail",
+    "final_coefficients": {
+      "cl": 0.6918334417,
+      "cd": -0.04359490597,
+      "cmy": 0.0346402898
+    },
+    "warnings": [
+      "cd_tail_still_drifting",
+      "cm_tail_still_drifting",
+      "negative_cd_not_aerodynamically_credible"
+    ]
+  },
+  "jst_solver_setup_probe_h009": {
+    "mesh_size": 0.09,
+    "volume_elements": 107415,
+    "nodes": 35993,
+    "solver": "INC_EULER",
+    "scheme": "JST",
+    "jst_sensor_coeff": [0.0, 0.02],
+    "cfl": 100.0,
+    "linear_solver_error": 1e-12,
+    "linear_solver_iter": 25,
+    "configured_iterations": 300,
+    "observed_final_iteration": 70,
+    "su2_cauchy_cd": 7.45569e-7,
+    "su2_cauchy_eps": 1e-6,
+    "final_coefficients": {
+      "cl": 0.6962247412,
+      "cd": -0.1480305402,
+      "cmy": 0.1374332346
+    },
+    "engineering_assessment": "solver_converges_but_negative_cd_is_not_accepted_as_valid_aero"
+  },
+  "million_mesh_probe": {
+    "settings": {
+      "points_per_side": 16,
+      "spanwise_subdivisions": 4,
+      "mesh_sizes": [0.025, 0.02, 0.018],
+      "feature_refinement_size": 3.0,
+      "target_volume_elements": 1000000,
+      "max_volume_elements": 1500000
+    },
+    "status": "target_reached",
+    "selected_mesh_size": 0.018,
+    "selected_volume_elements": 1063040,
+    "selected_nodes": 367629,
+    "selected_quality_status": "pass",
+    "selected_quality_warnings": [],
+    "selected_quality_metrics": {
+      "min_gamma": 0.00019723572528718128,
+      "p01_gamma": 0.08779993283696505,
+      "min_sicn": 0.0020391239156050227,
+      "p01_sicn": 0.08525444681750403
+    },
+    "runtime_seconds": 297.71,
+    "peak_memory_bytes": 1917586192
+  },
+  "engineering_verdict": {
+    "mesh_route": "pass_for_mesh_generation_and_su2_handoff",
+    "cfd_route": "not_yet_valid_for_aero_decisions",
+    "do_not_do_next": [
+      "Do not treat the 20-iteration ladder as convergence evidence.",
+      "Do not run the million-cell mesh in SU2 until the negative-CD and convergence behavior is diagnosed.",
+      "Do not return to STEP/BREP repair as the primary path."
+    ],
+    "recommended_next_actions": [
+      "Add a source-controlled SU2 numerics profile instead of hardcoded smoke settings.",
+      "Audit wing boundary orientation and force-sign convention against SU2 surface force output.",
+      "Investigate dual-control-volume quality hotspots before spending longer high-density SU2 runs.",
+      "Only run medium/fine SU2 stability after a single clean mesh produces nonnegative, converged coefficients."
+    ]
+  }
+}
