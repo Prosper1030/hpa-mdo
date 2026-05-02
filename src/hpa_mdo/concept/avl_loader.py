@@ -407,6 +407,7 @@ def _mission_mass_cases_for_avl(
     rider_power_thermal_adjustment = dict(
         getattr(rider_curve, "thermal_adjustment", None) or {"enabled": False}
     )
+    drivetrain_efficiency = float(cfg.drivetrain.efficiency)
     reference_station_points, reference_speed_filter_summary = _coarse_pre_avl_reference_station_points(
         cfg=cfg,
         concept=concept,
@@ -417,20 +418,24 @@ def _mission_mass_cases_for_avl(
     mass_cases: list[dict[str, Any]] = []
     for gross_mass_kg in _concept_gross_mass_cases(cfg, concept):
         weight_n = float(gross_mass_kg) * 9.80665
-        power_required_w: list[float] = []
+        shaft_power_required_w: list[float] = []
         for speed_mps in speed_sweep_mps:
             dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
             cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
             induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
             total_cd = float(profile_cd_proxy) + induced_cd + misc_cd + rigging_cd
             drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
-            power_required_w.append(
+            shaft_power_required_w.append(
                 _shaft_power_required_w(
                     drag_n=drag_n,
                     speed_mps=speed_mps,
                     prop_model=prop_model,
                 )
             )
+        power_required_w = [
+            shaft_w / max(drivetrain_efficiency, 1.0e-9)
+            for shaft_w in shaft_power_required_w
+        ]
 
         mission_result = evaluate_mission_objective(
             MissionEvaluationInputs(
@@ -534,6 +539,10 @@ def _mission_mass_cases_for_avl(
                 "mission_feasible": bool(mission_result.mission_feasible),
                 "target_range_passed": bool(mission_result.target_range_passed),
                 "mission_score": float(mission_result.mission_score),
+                "power_required_w": tuple(power_required_w),
+                "shaft_power_required_w_by_speed": tuple(shaft_power_required_w),
+                "pedal_power_required_w_by_speed": tuple(power_required_w),
+                "drivetrain_efficiency": drivetrain_efficiency,
                 "feasible_speed_set_mps": tuple(feasible_speed_set_mps),
                 "first_feasible_speed_mps": first_feasible_speed_mps,
                 "estimated_first_feasible_speed_mps": estimated_first_feasible_speed_mps,

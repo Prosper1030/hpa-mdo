@@ -2016,6 +2016,34 @@ def _rider_power_thermal_adjustment_summary(
     return {"enabled": False}
 
 
+def _propulsion_efficiency_assumptions(cfg: BirdmanConceptConfig) -> dict[str, Any]:
+    eta_prop_design = float(cfg.prop.efficiency_model.design_efficiency)
+    eta_transmission = float(cfg.drivetrain.efficiency)
+    return {
+        "profile": "hpa_initial_sizing_suggested_cruise_v1",
+        "eta_prop_design": eta_prop_design,
+        "eta_transmission": eta_transmission,
+        "eta_total_design": eta_prop_design * eta_transmission,
+        "prop_efficiency_model": (
+            "bemt_proxy_v1"
+            if bool(cfg.prop.efficiency_model.use_bemt_proxy)
+            else "operating_point_proxy_v1"
+        ),
+        "prop_design_space": {
+            "blade_count": int(cfg.prop.blade_count),
+            "diameter_m": float(cfg.prop.diameter_m),
+            "rpm_min": float(cfg.prop.rpm_min),
+            "rpm_max": float(cfg.prop.rpm_max),
+            "use_bemt_proxy": bool(cfg.prop.efficiency_model.use_bemt_proxy),
+            "bemt_design_rpm": float(cfg.prop.efficiency_model.bemt_design_rpm),
+        },
+        "static_propulsive_efficiency_note": (
+            "eta_prop = T*V/P_shaft is a forward-flight design-point value; "
+            "it is zero by definition at V=0."
+        ),
+    }
+
+
 def _build_concept_mission_summary(
     *,
     cfg: BirdmanConceptConfig,
@@ -2085,6 +2113,7 @@ def _build_concept_mission_summary(
 
     target_range_m = float(cfg.mission.target_distance_km) * 1000.0
     drivetrain_efficiency = float(cfg.drivetrain.efficiency)
+    propulsion_efficiency_assumptions = _propulsion_efficiency_assumptions(cfg)
     mission_results: list[dict[str, Any]] = []
     for gross_mass_kg in _concept_gross_mass_cases(cfg, concept):
         weight_n = float(gross_mass_kg) * 9.80665
@@ -2350,6 +2379,7 @@ def _build_concept_mission_summary(
         "rigging_cda_m2": float(rigging_cda_m2),
         "rigging_cd_proxy": float(rigging_cd),
         "drivetrain_efficiency": drivetrain_efficiency,
+        "propulsion_efficiency_assumptions": dict(propulsion_efficiency_assumptions),
         "drivetrain_loss_w_at_best_range": drivetrain_loss_w_at_best_range,
         "slow_speed_report": slow_speed_report,
         "tail_cl_required_for_trim": tail_cl_required,

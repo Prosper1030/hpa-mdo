@@ -204,6 +204,8 @@ Birdman rules / environment / rider power / mass
 
 飛行員功率曲線：原始 CSV `data/pilot_power_curves/current_pilot_power_curve.csv` 不做 in-place 修改；旁邊的 `current_pilot_power_curve.metadata.yaml` 標記這份資料是在 `26 C / 70% RH` 量測。mission config 目前開啟 simplified heat-stress 修正，會用 `k = 0.008` 把曲線自動平移到比賽環境 `33 C / 80% RH`，summary artifact 會輸出 `pilot_power_thermal_adjustment` 供檢查。
 
+推進 / 傳動初估：Birdman concept configs 目前採用 `eta_prop = 0.86`、`eta_trans = 0.96`，所以踏板到有效推進設計點效率 `eta_total = 0.8256`。這是巡航/爬升有前進速度的 sizing 值；螺旋槳直徑、轉速範圍、葉片數與 BEMT proxy 仍保留在 config surface，之後可替換成真實 prop design / map。
+
 常用指令：
 
 ```bash

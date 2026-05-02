@@ -59,6 +59,11 @@ prop:
   rpm_min: 100.0
   rpm_max: 160.0
   position_mode: between_wing_and_tail
+  efficiency_model:
+    design_efficiency: 0.86
+
+drivetrain:
+  efficiency: 0.96
 
 turn:
   required_bank_angle_deg: 15.0

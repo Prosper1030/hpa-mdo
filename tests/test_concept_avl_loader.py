@@ -171,6 +171,26 @@ def test_select_avl_reference_condition_uses_range_speed_for_max_range() -> None
     )
 
 
+def test_avl_mass_cases_convert_shaft_power_to_pedal_power_with_drivetrain() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    assert cfg.drivetrain.efficiency == pytest.approx(0.96)
+
+    mass_cases = concept_avl_loader._mission_mass_cases_for_avl(
+        cfg=cfg,
+        concept=_sample_concept(),
+        air_density_kg_per_m3=1.10,
+    )
+
+    first_case = mass_cases[0]
+    shaft_power = tuple(first_case["shaft_power_required_w_by_speed"])
+    pedal_power = tuple(first_case["pedal_power_required_w_by_speed"])
+    assert len(shaft_power) == len(pedal_power)
+    assert all(pedal_w > shaft_w > 0.0 for shaft_w, pedal_w in zip(shaft_power, pedal_power))
+    for shaft_w, pedal_w in zip(shaft_power, pedal_power):
+        assert pedal_w == pytest.approx(shaft_w / cfg.drivetrain.efficiency)
+    assert tuple(first_case["power_required_w"]) == pytest.approx(pedal_power)
+
+
 def test_select_avl_reference_condition_prefers_feasible_range_speed_for_max_range(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

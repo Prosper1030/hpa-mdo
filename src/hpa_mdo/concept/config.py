@@ -224,12 +224,13 @@ class PropEfficiencyConfig(ConceptBaseModel):
       via ``bemt_design_rpm`` (used to compute n and J at the operating
       point — fixed-pitch HPA props don't tightly couple RPM to power).
 
-    Defaults are tuned so the BEMT proxy yields ≈0.83 at the reference
-    operating point (V=8.5 m/s, P=280 W, D=3 m, B=2, RPM=140), matching
-    the operating-point proxy at that anchor.
+    The default operating-point proxy uses eta_prop=0.86 as the current
+    initial-sizing cruise assumption. Diameter / RPM / blade count stay on
+    the config surface so this can later be replaced by a prop design or map.
+    BEMT parameters are retained as the next-fidelity design space.
     """
 
-    design_efficiency: float = Field(0.83, gt=0.0, le=1.0)
+    design_efficiency: float = Field(0.86, gt=0.0, le=1.0)
     peak_speed_mps: float = Field(8.5, gt=0.0)
     peak_shaft_power_w: float = Field(280.0, gt=0.0)
     speed_falloff_per_mps: float = Field(0.015, ge=0.0)
@@ -285,11 +286,12 @@ class DrivetrainConfig(ConceptBaseModel):
     refers to power at the pedal, so shaft power must be divided by this
     factor to compute the actual rider effort at the pedal.
 
-    Default 0.97 reflects a typical HPA chain drive (e.g., Daedalus used
-    a single-stage chain drive with measured 0.95-0.98 efficiency).
+    Default 0.96 is the current initial-sizing assumption for a well-aligned
+    HPA chain / shaft / gearbox path. It sits in the 0.95-0.97 suggested band
+    without claiming a measured transmission design.
     """
 
-    efficiency: float = Field(0.97, gt=0.0, le=1.0)
+    efficiency: float = Field(0.96, gt=0.0, le=1.0)
 
 
 class TurnConfig(ConceptBaseModel):

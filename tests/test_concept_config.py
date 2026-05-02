@@ -62,7 +62,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.prop.rpm_min == pytest.approx(100.0)
     assert cfg.prop.rpm_max == pytest.approx(160.0)
     assert cfg.prop.position_mode == "between_wing_and_tail"
-    assert cfg.prop.efficiency_model.design_efficiency == pytest.approx(0.83)
+    assert cfg.prop.efficiency_model.design_efficiency == pytest.approx(0.86)
     assert cfg.prop.efficiency_model.peak_speed_mps == pytest.approx(8.5)
     assert cfg.prop.efficiency_model.peak_shaft_power_w == pytest.approx(280.0)
     assert cfg.prop.efficiency_model.speed_falloff_per_mps == pytest.approx(0.015)
@@ -96,7 +96,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.lift_wire_gate.allowable_tension_n == pytest.approx(5000.0)
     assert cfg.lift_wire_gate.limit_load_factor == pytest.approx(1.75)
     assert cfg.lift_wire_gate.wing_lift_fraction_carried == pytest.approx(0.75)
-    assert cfg.drivetrain.efficiency == pytest.approx(0.97)
+    assert cfg.drivetrain.efficiency == pytest.approx(0.96)
     assert cfg.aero_proxies.parasite_drag.fuselage_misc_cd == pytest.approx(0.0035)
     assert cfg.aero_proxies.parasite_drag.tail_profile_coupling_factor == pytest.approx(0.20)
     assert cfg.aero_proxies.oswald_efficiency.base_efficiency == pytest.approx(0.88)

@@ -1711,6 +1711,19 @@ def test_mission_summary_pedal_power_exceeds_shaft_power_by_drivetrain_factor() 
         air_density_kg_per_m3=1.15,
     )
     assert summary["drivetrain_efficiency"] == pytest.approx(cfg.drivetrain.efficiency)
+    propulsion_assumptions = summary["propulsion_efficiency_assumptions"]
+    assert propulsion_assumptions["eta_prop_design"] == pytest.approx(0.86)
+    assert propulsion_assumptions["eta_transmission"] == pytest.approx(0.96)
+    assert propulsion_assumptions["eta_total_design"] == pytest.approx(0.86 * 0.96)
+    assert propulsion_assumptions["prop_design_space"]["diameter_m"] == pytest.approx(
+        cfg.prop.diameter_m
+    )
+    assert propulsion_assumptions["prop_design_space"]["rpm_min"] == pytest.approx(
+        cfg.prop.rpm_min
+    )
+    assert propulsion_assumptions["prop_design_space"]["rpm_max"] == pytest.approx(
+        cfg.prop.rpm_max
+    )
     mass_case = summary["mass_cases"][0]
     shaft_list = list(mass_case["shaft_power_required_w_by_speed"])
     pedal_list = list(mass_case["pedal_power_required_w_by_speed"])
