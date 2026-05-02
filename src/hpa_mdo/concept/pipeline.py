@@ -3169,6 +3169,7 @@ def _evaluate_selected_airfoils_for_concept(
         mission_margin_m=float(mission_summary["target_range_margin_m"]),
         span_efficiency=float(mission_summary["oswald_efficiency"]),
         spanload_deviation=_numeric_value(mission_summary.get("spanload_fourier_deviation")),
+        best_power_margin_w=_numeric_value(mission_summary.get("best_power_margin_w")),
     )
     return (
         updated_selected_by_zone,
@@ -3769,8 +3770,9 @@ def _build_ranked_concept_record(
             "fully_feasible": ranked.fully_feasible,
             "span_efficiency": record.ranking_input.span_efficiency,
             "spanload_deviation": record.ranking_input.spanload_deviation,
+            "best_power_margin_w": record.ranking_input.best_power_margin_w,
             "assembly_penalty": record.ranking_input.assembly_penalty,
-            "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
+            "ranking_basis": "route_review_v4_complete_time_power_spanload",
             "selection_scope": "ranked_sampled_pool",
         },
         **_concept_geometry_summary(record.concept),
@@ -4459,8 +4461,9 @@ def run_birdman_concept_pipeline(
             "fully_feasible": ranked.fully_feasible,
             "span_efficiency": record.ranking_input.span_efficiency,
             "spanload_deviation": record.ranking_input.spanload_deviation,
+            "best_power_margin_w": record.ranking_input.best_power_margin_w,
             "assembly_penalty": record.ranking_input.assembly_penalty,
-            "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
+            "ranking_basis": "route_review_v4_complete_time_power_spanload",
             "selection_scope": "ranked_sampled_pool",
         }
         spanwise_requirement_summary = _summarize_spanwise_requirements(
@@ -4569,8 +4572,9 @@ def run_birdman_concept_pipeline(
                     "fully_feasible": ranked.fully_feasible,
                     "span_efficiency": record.ranking_input.span_efficiency,
                     "spanload_deviation": record.ranking_input.spanload_deviation,
+                    "best_power_margin_w": record.ranking_input.best_power_margin_w,
                     "assembly_penalty": record.ranking_input.assembly_penalty,
-                    "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
+                    "ranking_basis": "route_review_v4_complete_time_power_spanload",
                     "selection_scope": "ranked_sampled_pool",
                 },
                 spanwise_requirement_summary=spanwise_requirement_summary,
@@ -4707,7 +4711,7 @@ def run_birdman_concept_pipeline(
                 },
                 "evaluation_scope": {
                     "selection_scope": "ranked_sampled_pool",
-                    "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
+                    "ranking_basis": "route_review_v4_complete_time_power_spanload",
                     "objective_mode": str(cfg.mission.objective_mode),
                     "pilot_mass_cases_kg": [
                         float(value) for value in cfg.mass.pilot_mass_cases_kg

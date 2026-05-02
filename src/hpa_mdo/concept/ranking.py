@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+_MIN_SOLVED_WING_E = 0.90
+
 
 @dataclass(frozen=True)
 class CandidateConceptResult:
@@ -19,6 +21,13 @@ class CandidateConceptResult:
     mission_margin_m: float | None = None
     span_efficiency: float | None = None
     spanload_deviation: float | None = None
+    best_power_margin_w: float | None = None
+
+    @property
+    def span_efficiency_feasible(self) -> bool:
+        if self.span_efficiency is None:
+            return True
+        return float(self.span_efficiency) >= _MIN_SOLVED_WING_E
 
     @property
     def safety_feasible(self) -> bool:
@@ -27,6 +36,7 @@ class CandidateConceptResult:
             and self.turn_feasible
             and self.trim_feasible
             and self.local_stall_feasible
+            and self.span_efficiency_feasible
         )
 
     @property
@@ -42,6 +52,7 @@ class CandidateConceptResult:
                 self.turn_feasible,
                 self.trim_feasible,
                 self.local_stall_feasible,
+                self.span_efficiency_feasible,
                 self.mission_feasible,
             )
         )
@@ -90,6 +101,39 @@ def _spanload_deviation_component(result: CandidateConceptResult) -> float:
     return float(result.spanload_deviation)
 
 
+def _power_margin_component(result: CandidateConceptResult) -> float:
+    if result.best_power_margin_w is None:
+        return float("-inf")
+    return float(result.best_power_margin_w)
+
+
+def _ranking_sort_key(
+    item: tuple[CandidateConceptResult, float, float, list[str]],
+) -> tuple[object, ...]:
+    result, _, combined_feasibility_margin, _ = item
+    if result.fully_feasible:
+        return (
+            0,
+            _mission_component(result),
+            -_power_margin_component(result),
+            -_span_efficiency_component(result),
+            _spanload_deviation_component(result),
+            result.assembly_penalty,
+            result.concept_id,
+        )
+    return (
+        1,
+        float(result.failed_gate_count),
+        -combined_feasibility_margin,
+        _mission_component(result),
+        -_power_margin_component(result),
+        -_span_efficiency_component(result),
+        _spanload_deviation_component(result),
+        result.assembly_penalty,
+        result.concept_id,
+    )
+
+
 def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
     scored: list[tuple[CandidateConceptResult, float, float, list[str]]] = []
     for result in results:
@@ -102,6 +146,8 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             reasons.append("trim_not_feasible")
         if not result.local_stall_feasible:
             reasons.append("local_stall_not_feasible")
+        if not result.span_efficiency_feasible:
+            reasons.append("wing_e_below_minimum")
         if not result.mission_feasible:
             reasons.append("target_range_not_met")
         combined_feasibility_margin = _combined_feasibility_margin(result)
@@ -123,18 +169,7 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
         )
         scored.append((result, score, combined_feasibility_margin, reasons))
 
-    scored.sort(
-        key=lambda item: (
-            0 if item[0].fully_feasible else 1,
-            item[0].failed_gate_count,
-            -item[2],
-            _mission_component(item[0]),
-            -_span_efficiency_component(item[0]),
-            _spanload_deviation_component(item[0]),
-            item[0].assembly_penalty,
-            item[0].concept_id,
-        )
-    )
+    scored.sort(key=_ranking_sort_key)
     best_result = None if not scored else scored[0][0]
     best_margin = float("-inf") if not scored else scored[0][2]
     first_infeasible_emitted = False
@@ -159,6 +194,8 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
                 and result.mission_score > best_result.mission_score
             ):
                 augmented_reasons.append("slower_time_than_best")
+            elif _power_margin_component(result) < _power_margin_component(best_result):
+                augmented_reasons.append("lower_power_margin_than_best")
             elif _span_efficiency_component(result) < _span_efficiency_component(
                 best_result
             ):
