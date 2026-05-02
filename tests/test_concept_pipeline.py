@@ -260,6 +260,14 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert "spanwise_requirements" in first
     assert first["mission"]["pilot_power_model"] == "csv_power_curve"
     assert ".csv" in first["mission"]["pilot_power_anchor"]
+    assert first["mission"]["pilot_power_thermal_adjustment"]["enabled"] is True
+    assert first["mission"]["pilot_power_thermal_adjustment"]["test_environment"][
+        "temperature_c"
+    ] == pytest.approx(26.0)
+    assert first["mission"]["pilot_power_thermal_adjustment"]["target_environment"][
+        "relative_humidity_percent"
+    ] == pytest.approx(80.0)
+    assert first["mission"]["pilot_power_thermal_adjustment"]["power_factor"] < 1.0
     assert isinstance(first["launch"]["cl_required"], float)
     assert isinstance(first["turn"]["required_cl"], float)
     assert isinstance(first["trim"]["margin_deg"], float)

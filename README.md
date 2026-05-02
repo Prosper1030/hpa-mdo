@@ -202,6 +202,8 @@ Birdman rules / environment / rider power / mass
 
 空氣性質表：`data/atmosphere/sea_level_air_20_40c.yaml` 保存 20-40 C、海平面乾空氣的 density / dynamic viscosity / kinematic viscosity；`hpa_mdo.concept.atmosphere` 會對非整數溫度做線性插值，並在 `relative_humidity` 非零時修正 density。Birdman concept pipeline 與 AVL spanwise Reynolds 現在都會引用這組 resolved air properties。
 
+飛行員功率曲線：原始 CSV `data/pilot_power_curves/current_pilot_power_curve.csv` 不做 in-place 修改；旁邊的 `current_pilot_power_curve.metadata.yaml` 標記這份資料是在 `26 C / 70% RH` 量測。mission config 目前開啟 simplified heat-stress 修正，會用 `k = 0.008` 把曲線自動平移到比賽環境 `33 C / 80% RH`，summary artifact 會輸出 `pilot_power_thermal_adjustment` 供檢查。
+
 常用指令：
 
 ```bash

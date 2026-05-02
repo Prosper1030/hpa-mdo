@@ -7,7 +7,27 @@ import csv
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
+
+import yaml
+
+
+@dataclass(frozen=True)
+class RiderPowerEnvironment:
+    temperature_c: float
+    relative_humidity_percent: float
+
+    def __post_init__(self) -> None:
+        _require_finite(self.temperature_c, "temperature_c")
+        _require_finite(self.relative_humidity_percent, "relative_humidity_percent")
+        if not (0.0 <= float(self.relative_humidity_percent) <= 100.0):
+            raise ValueError("relative_humidity_percent must be within 0..100.")
+
+    def to_dict(self) -> dict[str, float]:
+        return {
+            "temperature_c": float(self.temperature_c),
+            "relative_humidity_percent": float(self.relative_humidity_percent),
+        }
 
 
 @dataclass(frozen=True)
@@ -51,6 +71,7 @@ class CsvPowerCurve:
     powers_w: tuple[float, ...]
     source_path: Path
     reference_duration_min: float = 30.0
+    thermal_adjustment: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source_path", Path(self.source_path).expanduser().resolve())
@@ -220,21 +241,165 @@ def load_csv_power_curve(
     )
 
 
+def simplified_heat_stress_h(environment: RiderPowerEnvironment) -> float:
+    """Simplified WBGT-like heat stress index using air temperature and RH."""
+
+    temp_c = float(environment.temperature_c)
+    relative_humidity_percent = float(environment.relative_humidity_percent)
+    vapor_pressure_hpa = (
+        relative_humidity_percent
+        / 100.0
+        * 6.105
+        * math.exp(17.27 * temp_c / (237.7 + temp_c))
+    )
+    return 0.567 * temp_c + 0.393 * vapor_pressure_hpa + 3.94
+
+
+def thermal_power_derate_factor(
+    *,
+    test_environment: RiderPowerEnvironment,
+    target_environment: RiderPowerEnvironment,
+    heat_loss_coefficient_per_h_c: float,
+) -> float:
+    _require_finite_non_negative(
+        heat_loss_coefficient_per_h_c,
+        "heat_loss_coefficient_per_h_c",
+    )
+    delta_h = simplified_heat_stress_h(target_environment) - simplified_heat_stress_h(
+        test_environment
+    )
+    factor = 1.0 - float(heat_loss_coefficient_per_h_c) * delta_h
+    if factor <= 0.0:
+        raise ValueError(
+            "thermal power derate factor must remain positive; reduce the heat loss coefficient "
+            "or check the source/target environments."
+        )
+    return factor
+
+
+def adjust_power_curve_for_environment(
+    curve: CsvPowerCurve,
+    *,
+    test_environment: RiderPowerEnvironment,
+    target_environment: RiderPowerEnvironment,
+    heat_loss_coefficient_per_h_c: float,
+    metadata_path: str | Path | None = None,
+) -> CsvPowerCurve:
+    factor = thermal_power_derate_factor(
+        test_environment=test_environment,
+        target_environment=target_environment,
+        heat_loss_coefficient_per_h_c=heat_loss_coefficient_per_h_c,
+    )
+    delta_h = simplified_heat_stress_h(target_environment) - simplified_heat_stress_h(
+        test_environment
+    )
+    return CsvPowerCurve(
+        durations_min=curve.durations_min,
+        powers_w=tuple(float(power_w) * factor for power_w in curve.powers_w),
+        source_path=curve.source_path,
+        reference_duration_min=curve.reference_duration_min,
+        thermal_adjustment={
+            "enabled": True,
+            "model": "simplified_heat_stress_h_linear_power_derate_v1",
+            "test_environment": test_environment.to_dict(),
+            "target_environment": target_environment.to_dict(),
+            "heat_stress_h_test": simplified_heat_stress_h(test_environment),
+            "heat_stress_h_target": simplified_heat_stress_h(target_environment),
+            "delta_h": delta_h,
+            "heat_loss_coefficient_per_h_c": float(heat_loss_coefficient_per_h_c),
+            "power_factor": factor,
+            "metadata_path": None if metadata_path is None else str(Path(metadata_path)),
+        },
+    )
+
+
+def load_rider_power_curve_metadata(
+    metadata_path: str | Path,
+) -> dict[str, Any]:
+    path = Path(metadata_path).expanduser().resolve()
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"rider power curve metadata must be a mapping: {path}")
+    if payload.get("schema_version") != "rider_power_curve_metadata_v1":
+        raise ValueError(
+            "rider power curve metadata schema_version must be rider_power_curve_metadata_v1."
+        )
+    environment = payload.get("measurement_environment")
+    if not isinstance(environment, dict):
+        raise ValueError("rider power curve metadata must define measurement_environment.")
+    RiderPowerEnvironment(
+        temperature_c=float(environment["temperature_c"]),
+        relative_humidity_percent=float(environment["relative_humidity_percent"]),
+    )
+    payload["metadata_path"] = str(path)
+    return payload
+
+
+def _metadata_measurement_environment(metadata: dict[str, Any]) -> RiderPowerEnvironment:
+    environment = metadata["measurement_environment"]
+    return RiderPowerEnvironment(
+        temperature_c=float(environment["temperature_c"]),
+        relative_humidity_percent=float(environment["relative_humidity_percent"]),
+    )
+
+
+def _validate_metadata_source_csv(metadata: dict[str, Any], curve_source_path: Path) -> None:
+    source_csv = metadata.get("source_csv")
+    if source_csv is None:
+        return
+    metadata_path = Path(str(metadata["metadata_path"]))
+    source_csv_path = Path(str(source_csv)).expanduser()
+    if not source_csv_path.is_absolute():
+        source_csv_path = metadata_path.parent / source_csv_path
+    if source_csv_path.resolve() != Path(curve_source_path).expanduser().resolve():
+        raise ValueError(
+            "rider power curve metadata source_csv does not match the loaded CSV: "
+            f"{source_csv}"
+        )
+
+
 def build_rider_power_curve(
     *,
     anchor_power_w: float,
     anchor_duration_min: float,
     rider_power_curve_csv: str | Path | None = None,
+    rider_power_curve_metadata_yaml: str | Path | None = None,
     rider_model: str = "fake_anchor_curve",
     duration_column: str = "secs",
     power_column: str = "watts",
+    thermal_adjustment_enabled: bool = False,
+    target_temperature_c: float | None = None,
+    target_relative_humidity_percent: float | None = None,
+    heat_loss_coefficient_per_h_c: float = 0.008,
 ) -> FakeAnchorCurve | CsvPowerCurve:
     if rider_power_curve_csv is not None:
-        return load_csv_power_curve(
+        curve = load_csv_power_curve(
             rider_power_curve_csv,
             duration_column=duration_column,
             power_column=power_column,
             reference_duration_min=anchor_duration_min,
+        )
+        if not thermal_adjustment_enabled:
+            return curve
+        if rider_power_curve_metadata_yaml is None:
+            raise ValueError(
+                "rider_power_curve_metadata_yaml is required when thermal adjustment is enabled."
+            )
+        if target_temperature_c is None or target_relative_humidity_percent is None:
+            raise ValueError(
+                "target temperature/RH are required when rider power thermal adjustment is enabled."
+            )
+        metadata = load_rider_power_curve_metadata(rider_power_curve_metadata_yaml)
+        _validate_metadata_source_csv(metadata, curve.source_path)
+        return adjust_power_curve_for_environment(
+            curve,
+            test_environment=_metadata_measurement_environment(metadata),
+            target_environment=RiderPowerEnvironment(
+                temperature_c=float(target_temperature_c),
+                relative_humidity_percent=float(target_relative_humidity_percent),
+            ),
+            heat_loss_coefficient_per_h_c=float(heat_loss_coefficient_per_h_c),
+            metadata_path=metadata.get("metadata_path"),
         )
     if rider_model != "fake_anchor_curve":
         raise ValueError(f"unsupported rider_model without CSV path: {rider_model}")
@@ -369,3 +534,13 @@ def _validate_inputs(inputs: MissionEvaluationInputs) -> None:
 def _require_finite_positive(value: float, field_name: str) -> None:
     if not math.isfinite(value) or value <= 0:
         raise ValueError(f"{field_name} must be finite and > 0")
+
+
+def _require_finite_non_negative(value: float, field_name: str) -> None:
+    if not math.isfinite(float(value)) or float(value) < 0.0:
+        raise ValueError(f"{field_name} must be finite and >= 0")
+
+
+def _require_finite(value: float, field_name: str) -> None:
+    if not math.isfinite(float(value)):
+        raise ValueError(f"{field_name} must be finite")

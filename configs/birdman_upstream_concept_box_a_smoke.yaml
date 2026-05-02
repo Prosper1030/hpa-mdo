@@ -16,6 +16,9 @@ mission:
   anchor_power_w: 300.0
   anchor_duration_min: 30.0
   rider_power_curve_csv: data/pilot_power_curves/current_pilot_power_curve.csv
+  rider_power_curve_metadata_yaml: data/pilot_power_curves/current_pilot_power_curve.metadata.yaml
+  rider_power_curve_thermal_adjustment_enabled: true
+  rider_power_curve_heat_loss_coefficient_per_h_c: 0.008
   rider_power_curve_duration_column: secs
   rider_power_curve_power_column: watts
   speed_sweep_min_mps: 7.0

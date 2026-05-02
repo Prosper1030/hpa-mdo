@@ -392,8 +392,20 @@ def _mission_mass_cases_for_avl(
         anchor_power_w=float(cfg.mission.anchor_power_w),
         anchor_duration_min=float(cfg.mission.anchor_duration_min),
         rider_power_curve_csv=cfg.mission.rider_power_curve_csv,
+        rider_power_curve_metadata_yaml=cfg.mission.rider_power_curve_metadata_yaml,
         duration_column=str(cfg.mission.rider_power_curve_duration_column),
         power_column=str(cfg.mission.rider_power_curve_power_column),
+        thermal_adjustment_enabled=bool(
+            cfg.mission.rider_power_curve_thermal_adjustment_enabled
+        ),
+        target_temperature_c=float(cfg.environment.temperature_c),
+        target_relative_humidity_percent=float(cfg.environment.relative_humidity),
+        heat_loss_coefficient_per_h_c=float(
+            cfg.mission.rider_power_curve_heat_loss_coefficient_per_h_c
+        ),
+    )
+    rider_power_thermal_adjustment = dict(
+        getattr(rider_curve, "thermal_adjustment", None) or {"enabled": False}
     )
     reference_station_points, reference_speed_filter_summary = _coarse_pre_avl_reference_station_points(
         cfg=cfg,
@@ -527,6 +539,9 @@ def _mission_mass_cases_for_avl(
                 "estimated_first_feasible_speed_mps": estimated_first_feasible_speed_mps,
                 "delta_v_to_first_feasible_mps": delta_v_to_first_feasible_mps,
                 "speed_feasibility_records": speed_feasibility_records,
+                "pilot_power_thermal_adjustment": dict(
+                    rider_power_thermal_adjustment
+                ),
                 "reference_speed_filter_model": str(
                     reference_speed_filter_summary["reference_speed_filter_model"]
                 ),

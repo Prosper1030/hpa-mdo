@@ -2008,6 +2008,14 @@ def _build_slow_speed_report(
     }
 
 
+def _rider_power_thermal_adjustment_summary(
+    rider_curve: FakeAnchorCurve | CsvPowerCurve,
+) -> dict[str, Any]:
+    if isinstance(rider_curve, CsvPowerCurve) and rider_curve.thermal_adjustment:
+        return dict(rider_curve.thermal_adjustment)
+    return {"enabled": False}
+
+
 def _build_concept_mission_summary(
     *,
     cfg: BirdmanConceptConfig,
@@ -2061,9 +2069,19 @@ def _build_concept_mission_summary(
         anchor_power_w=float(cfg.mission.anchor_power_w),
         anchor_duration_min=float(cfg.mission.anchor_duration_min),
         rider_power_curve_csv=cfg.mission.rider_power_curve_csv,
+        rider_power_curve_metadata_yaml=cfg.mission.rider_power_curve_metadata_yaml,
         duration_column=str(cfg.mission.rider_power_curve_duration_column),
         power_column=str(cfg.mission.rider_power_curve_power_column),
+        thermal_adjustment_enabled=bool(
+            cfg.mission.rider_power_curve_thermal_adjustment_enabled
+        ),
+        target_temperature_c=float(cfg.environment.temperature_c),
+        target_relative_humidity_percent=float(cfg.environment.relative_humidity),
+        heat_loss_coefficient_per_h_c=float(
+            cfg.mission.rider_power_curve_heat_loss_coefficient_per_h_c
+        ),
     )
+    rider_power_thermal_adjustment = _rider_power_thermal_adjustment_summary(rider_curve)
 
     target_range_m = float(cfg.mission.target_distance_km) * 1000.0
     drivetrain_efficiency = float(cfg.drivetrain.efficiency)
@@ -2213,6 +2231,9 @@ def _build_concept_mission_summary(
                 "mission_score_reason": mission_score_reason,
                 "pilot_power_model": str(unconstrained_result.pilot_power_model),
                 "pilot_power_anchor": str(unconstrained_result.pilot_power_anchor),
+                "pilot_power_thermal_adjustment": dict(
+                    rider_power_thermal_adjustment
+                ),
                 "power_required_w": tuple(power_required_w),
                 "shaft_power_required_w_by_speed": tuple(shaft_power_required_w),
                 "pedal_power_required_w_by_speed": tuple(power_required_w),
@@ -2319,6 +2340,7 @@ def _build_concept_mission_summary(
         "mission_score_reason": str(worst_case_result["mission_score_reason"]),
         "pilot_power_model": str(worst_case_result["pilot_power_model"]),
         "pilot_power_anchor": str(worst_case_result["pilot_power_anchor"]),
+        "pilot_power_thermal_adjustment": dict(rider_power_thermal_adjustment),
         "speed_sweep_window_mps": [float(min(speed_sweep_mps)), float(max(speed_sweep_mps))],
         "aggregation_mode": "worst_case_over_gross_mass_sweep",
         "evaluated_gross_mass_kg": float(worst_case_result["gross_mass_kg"]),
@@ -2384,6 +2406,9 @@ def _build_concept_mission_summary(
                 "mission_score_reason": str(result["mission_score_reason"]),
                 "pilot_power_model": str(result["pilot_power_model"]),
                 "pilot_power_anchor": str(result["pilot_power_anchor"]),
+                "pilot_power_thermal_adjustment": dict(
+                    result["pilot_power_thermal_adjustment"]
+                ),
                 "feasible_speed_set_mps": list(result["feasible_speed_set_mps"]),
                 "first_feasible_speed_mps": result["first_feasible_speed_mps"],
                 "estimated_first_feasible_speed_mps": result[

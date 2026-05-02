@@ -1,0 +1,8 @@
+schema_version: rider_power_curve_metadata_v1
+source_csv: current_pilot_power_curve.csv
+measurement_environment:
+  temperature_c: 26.0
+  relative_humidity_percent: 70.0
+notes:
+  - Raw CSV values are measured data and must not be thermally adjusted in place.
+  - Mission sizing should call the thermal adjustment function to map this curve to the target environment.

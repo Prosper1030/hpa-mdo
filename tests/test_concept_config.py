@@ -33,6 +33,10 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.mission.resolved_rider_model == "csv_power_curve"
     assert cfg.mission.rider_power_curve_csv is not None
     assert Path(cfg.mission.rider_power_curve_csv).is_file()
+    assert cfg.mission.rider_power_curve_metadata_yaml is not None
+    assert Path(cfg.mission.rider_power_curve_metadata_yaml).is_file()
+    assert cfg.mission.rider_power_curve_thermal_adjustment_enabled is True
+    assert cfg.mission.rider_power_curve_heat_loss_coefficient_per_h_c == pytest.approx(0.008)
     assert cfg.mission.speed_sweep_min_mps == pytest.approx(7.0)
     assert cfg.mission.speed_sweep_max_mps == pytest.approx(10.0)
     assert cfg.mission.speed_sweep_points == 7

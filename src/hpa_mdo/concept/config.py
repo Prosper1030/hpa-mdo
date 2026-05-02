@@ -92,6 +92,9 @@ class MissionConfig(ConceptBaseModel):
     anchor_power_w: float = Field(300.0, gt=0.0)
     anchor_duration_min: float = Field(30.0, gt=0.0)
     rider_power_curve_csv: str | None = None
+    rider_power_curve_metadata_yaml: str | None = None
+    rider_power_curve_thermal_adjustment_enabled: bool = False
+    rider_power_curve_heat_loss_coefficient_per_h_c: float = Field(0.008, ge=0.0)
     rider_power_curve_duration_column: str = "secs"
     rider_power_curve_power_column: str = "watts"
     speed_sweep_min_mps: float = Field(6.0, gt=0.0)
@@ -138,6 +141,21 @@ class MissionConfig(ConceptBaseModel):
                 raise ValueError(
                     "mission.rider_power_curve_power_column must not be blank."
                 )
+        if self.rider_power_curve_metadata_yaml is not None:
+            metadata_path = Path(self.rider_power_curve_metadata_yaml).expanduser()
+            if not metadata_path.exists():
+                raise ValueError(
+                    "mission.rider_power_curve_metadata_yaml does not exist: "
+                    f"{metadata_path}"
+                )
+        if (
+            self.rider_power_curve_thermal_adjustment_enabled
+            and self.rider_power_curve_metadata_yaml is None
+        ):
+            raise ValueError(
+                "mission.rider_power_curve_metadata_yaml must be provided when "
+                "mission.rider_power_curve_thermal_adjustment_enabled=true."
+            )
         return self
 
     @property
@@ -716,6 +734,16 @@ def load_concept_config(path: str | Path) -> BirdmanConceptConfig:
             mission_payload["rider_power_curve_csv"] = str(
                 _resolve_optional_artifact_path(
                     raw_path=rider_power_curve_csv,
+                    config_path=path,
+                )
+            )
+        rider_power_curve_metadata_yaml = mission_payload.get(
+            "rider_power_curve_metadata_yaml"
+        )
+        if rider_power_curve_metadata_yaml is not None:
+            mission_payload["rider_power_curve_metadata_yaml"] = str(
+                _resolve_optional_artifact_path(
+                    raw_path=rider_power_curve_metadata_yaml,
                     config_path=path,
                 )
             )
