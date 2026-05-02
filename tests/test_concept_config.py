@@ -202,8 +202,9 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.cst_search.seedless_max_oversample_factor == 16
     assert cfg.cst_search.coarse_robust_evaluation_enabled is False
     assert cfg.cst_search.successive_halving_enabled is True
-    assert cfg.cst_search.successive_halving_rounds == 2
-    assert cfg.cst_search.successive_halving_beam_width == 3
+    assert cfg.cst_search.successive_halving_rounds == 1
+    assert cfg.cst_search.successive_halving_beam_width == 1
+    assert cfg.cst_search.robust_reynolds_factors == pytest.approx((1.0,))
     assert cfg.cst_search.cma_es_enabled is False
     assert cfg.cst_search.cma_es_knee_count == 0
     assert cfg.cst_search.cma_es_iterations == 0

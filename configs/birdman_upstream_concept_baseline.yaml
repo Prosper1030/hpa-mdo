@@ -186,13 +186,13 @@ cst_search:
   coarse_keep_top_k: 3
   refine_neighbor_radius: 1
   successive_halving_enabled: true
-  successive_halving_rounds: 2
-  successive_halving_beam_width: 3
+  successive_halving_rounds: 1
+  successive_halving_beam_width: 1
   seedless_sample_count: 96
   seedless_max_oversample_factor: 16
   robust_evaluation_enabled: true
   coarse_robust_evaluation_enabled: false
-  robust_reynolds_factors: [0.85, 1.0, 1.15]
+  robust_reynolds_factors: [1.0]
   robust_roughness_modes: ["clean", "rough"]
   robust_min_pass_rate: 0.75
   nsga_generation_count: 0
