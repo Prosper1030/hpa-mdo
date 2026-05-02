@@ -10,6 +10,7 @@ from typing import Any
 import numpy as np
 
 from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
+from hpa_mdo.concept.aero_proxies import misc_cd_proxy
 from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.avl_loader import (
     _run_avl_spanwise_case,
@@ -31,11 +32,19 @@ from hpa_mdo.concept.geometry import (
     enumerate_geometry_concepts,
     get_last_geometry_enumeration_diagnostics,
 )
+from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
 from hpa_mdo.concept.pipeline import _sizing_diagnostics
 
 
 G_MPS2 = 9.80665
 CASE_LABEL = "spanload_smoke_reference_cruise"
+FIXED_AIRFOIL_PROFILE_CD_PROXY = 0.018
+INVERSE_TWIST_ZERO_LIFT_ALPHA_DEG = -3.0
+INVERSE_TWIST_LIFT_CURVE_SLOPE_PER_RAD = 2.0 * math.pi
+INVERSE_TWIST_MAX_AERO_ETA = 0.97
+INVERSE_TWIST_MAX_ABS_TWIST_DEG = 14.0
+SPANLOAD_DELTA_SUCCESS_LIMIT = 0.15
+AVL_E_CDI_SUCCESS_FLOOR = 0.85
 
 
 def _round(value: Any, digits: int = 6) -> Any:
@@ -117,8 +126,8 @@ def _fourier_efficiency(a3: float, a5: float) -> dict[str, float]:
     return {
         "a3_over_a1": float(a3),
         "a5_over_a1": float(a5),
-        "fourier_e": float(1.0 / max(1.0 + harmonic_penalty, 1.0e-9)),
-        "fourier_deviation": float(math.sqrt(max(harmonic_penalty, 0.0))),
+        "target_fourier_e": float(1.0 / max(1.0 + harmonic_penalty, 1.0e-9)),
+        "target_fourier_deviation": float(math.sqrt(max(harmonic_penalty, 0.0))),
         "outer_loading_ratio_eta_0p90": _fourier_spanload_ratio_to_ellipse(
             a3_over_a1=float(a3),
             a5_over_a1=float(a5),
@@ -140,13 +149,12 @@ def _linear_chord_at_eta(concept: GeometryConcept, eta: float) -> float:
     )
 
 
-def _target_station_records(
+def _target_spanload_solution(
     *,
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
-    stations: tuple[WingStation, ...],
     design_speed_mps: float,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+) -> dict[str, Any]:
     spanload_cfg = cfg.geometry_family.spanload_design
     air = _air_properties(cfg)
     half_span_m = 0.5 * float(concept.span_m)
@@ -163,12 +171,8 @@ def _target_station_records(
         float(value)
         for value in np.linspace(0.0, 1.0, int(spanload_cfg.target_station_count))
     }
-    target_etas.update(
-        0.0 if half_span_m <= 0.0 else float(station.y_m) / half_span_m
-        for station in stations
-    )
     integration_records: list[dict[str, float]] = []
-    for eta in sorted(min(max(float(value), 0.0), 1.0) for value in target_etas):
+    for eta in sorted(target_etas):
         shape = _fourier_spanload_shape(a3_over_a1=a3, a5_over_a1=a5, eta=eta)
         integration_records.append(
             {
@@ -184,9 +188,79 @@ def _target_station_records(
         dy_m = float(right["y_m"] - left["y_m"])
         shape_integral_m += 0.5 * dy_m * (float(left["shape"]) + float(right["shape"]))
     cl_scale = design_cl * float(concept.wing_area_m2) / max(2.0 * shape_integral_m, 1.0e-9)
-    safe_clmax = float(spanload_cfg.local_clmax_safe_floor)
-
     max_shape = max((record["shape"] for record in integration_records), default=1.0)
+    return {
+        "air_properties": air,
+        "design_speed_mps": float(design_speed_mps),
+        "design_mass_kg": float(cfg.mass.design_gross_mass_kg),
+        "design_cl": float(design_cl),
+        "dynamic_pressure_pa": float(q_pa),
+        "target_circulation_integral_m": float(shape_integral_m),
+        "cl_scale": float(cl_scale),
+        "max_shape": float(max_shape),
+    }
+
+
+def _target_local_record_at_eta(
+    *,
+    concept: GeometryConcept,
+    solution: dict[str, Any],
+    eta: float,
+) -> dict[str, float]:
+    eta_clamped = min(max(float(eta), 0.0), 1.0)
+    shape = _fourier_spanload_shape(
+        a3_over_a1=float(concept.spanload_a3_over_a1),
+        a5_over_a1=float(concept.spanload_a5_over_a1),
+        eta=eta_clamped,
+    )
+    chord_m = _linear_chord_at_eta(concept, eta_clamped)
+    local_cl = float(solution["cl_scale"]) * float(shape) / max(chord_m, 1.0e-9)
+    return {
+        "eta": float(eta_clamped),
+        "chord_m": float(chord_m),
+        "shape": float(shape),
+        "target_circulation_norm": float(shape / max(float(solution["max_shape"]), 1.0e-9)),
+        "target_local_cl": float(local_cl),
+    }
+
+
+def _target_station_records(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    design_speed_mps: float,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    spanload_cfg = cfg.geometry_family.spanload_design
+    half_span_m = 0.5 * float(concept.span_m)
+    solution = _target_spanload_solution(
+        cfg=cfg,
+        concept=concept,
+        design_speed_mps=design_speed_mps,
+    )
+    air = solution["air_properties"]
+
+    target_etas = {
+        float(value)
+        for value in np.linspace(0.0, 1.0, int(spanload_cfg.target_station_count))
+    }
+    target_etas.update(
+        0.0 if half_span_m <= 0.0 else float(station.y_m) / half_span_m
+        for station in stations
+    )
+    integration_records: list[dict[str, float]] = []
+    for eta in sorted(min(max(float(value), 0.0), 1.0) for value in target_etas):
+        local = _target_local_record_at_eta(concept=concept, solution=solution, eta=eta)
+        integration_records.append(
+            {
+                "eta": float(eta),
+                "y_m": float(eta * half_span_m),
+                "shape": float(local["shape"]),
+                "chord_m": float(local["chord_m"]),
+            }
+        )
+
+    safe_clmax = float(spanload_cfg.local_clmax_safe_floor)
     gate_records: list[dict[str, Any]] = []
     worst = {
         "eta": None,
@@ -206,8 +280,9 @@ def _target_station_records(
         eta = float(record["eta"])
         y_m = float(record["y_m"])
         chord_m = float(record["chord_m"])
-        shape = float(record["shape"])
-        local_cl = cl_scale * shape / max(chord_m, 1.0e-9)
+        local = _target_local_record_at_eta(concept=concept, solution=solution, eta=eta)
+        shape = float(local["shape"])
+        local_cl = float(local["target_local_cl"])
         utilization = local_cl / max(safe_clmax, 1.0e-9)
         reynolds = (
             float(air.density_kg_per_m3)
@@ -221,7 +296,7 @@ def _target_station_records(
             "chord_m": float(chord_m),
             "reynolds": float(reynolds),
             "target_circulation_shape": float(shape),
-            "target_circulation_norm": float(shape / max(max_shape, 1.0e-9)),
+            "target_circulation_norm": float(local["target_circulation_norm"]),
             "target_local_cl": float(local_cl),
             "target_clmax_safe_floor": float(safe_clmax),
             "target_clmax_utilization": float(utilization),
@@ -255,8 +330,9 @@ def _target_station_records(
     station_records: list[dict[str, Any]] = []
     for station in stations:
         eta = 0.0 if half_span_m <= 0.0 else min(max(float(station.y_m) / half_span_m, 0.0), 1.0)
-        shape = _fourier_spanload_shape(a3_over_a1=a3, a5_over_a1=a5, eta=eta)
-        local_cl = cl_scale * float(shape) / max(float(station.chord_m), 1.0e-9)
+        local = _target_local_record_at_eta(concept=concept, solution=solution, eta=eta)
+        shape = float(local["shape"])
+        local_cl = float(local["target_local_cl"])
         utilization = local_cl / max(safe_clmax, 1.0e-9)
         reynolds = (
             float(air.density_kg_per_m3)
@@ -272,7 +348,7 @@ def _target_station_records(
                 "twist_deg": float(station.twist_deg),
                 "reynolds": float(reynolds),
                 "target_circulation_shape": float(shape),
-                "target_circulation_norm": float(shape / max(max_shape, 1.0e-9)),
+                "target_circulation_norm": float(local["target_circulation_norm"]),
                 "target_local_cl": float(local_cl),
                 "target_clmax_safe_floor": float(safe_clmax),
                 "target_clmax_utilization": float(utilization),
@@ -282,9 +358,9 @@ def _target_station_records(
     summary = {
         "design_speed_mps": float(design_speed_mps),
         "design_mass_kg": float(cfg.mass.design_gross_mass_kg),
-        "design_cl": float(design_cl),
-        "dynamic_pressure_pa": float(q_pa),
-        "target_circulation_integral_m": float(shape_integral_m),
+        "design_cl": float(solution["design_cl"]),
+        "dynamic_pressure_pa": float(solution["dynamic_pressure_pa"]),
+        "target_circulation_integral_m": float(solution["target_circulation_integral_m"]),
         "safe_clmax": float(safe_clmax),
         "worst_station": worst,
         "gate_station_table": gate_records,
@@ -307,6 +383,159 @@ def _spanload_gate_health(station_summary: dict[str, Any], cfg: BirdmanConceptCo
         "max_outer_clmax_utilization_limit": outer_limit,
         "outer_margin_to_limit": float(outer_limit - outer_util),
     }
+
+
+def _mission_power_proxy(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    design_speed_mps: float,
+) -> dict[str, float | str]:
+    air = _air_properties(cfg)
+    q_pa = 0.5 * float(air.density_kg_per_m3) * float(design_speed_mps) ** 2
+    design_cl = (
+        float(cfg.mass.design_gross_mass_kg)
+        * G_MPS2
+        / max(q_pa * float(concept.wing_area_m2), 1.0e-9)
+    )
+    target_e = float(
+        _fourier_efficiency(
+            float(concept.spanload_a3_over_a1),
+            float(concept.spanload_a5_over_a1),
+        )["target_fourier_e"]
+    )
+    induced_cd = design_cl**2 / max(
+        math.pi * float(concept.aspect_ratio) * target_e,
+        1.0e-9,
+    )
+    profile_cd = FIXED_AIRFOIL_PROFILE_CD_PROXY
+    tail_area_ratio = float(concept.tail_area_m2) / max(float(concept.wing_area_m2), 1.0e-9)
+    misc_cd = misc_cd_proxy(
+        profile_cd=profile_cd,
+        tail_area_ratio=tail_area_ratio,
+        proxy_cfg=cfg.aero_proxies.parasite_drag,
+    )
+    rigging_cd = compute_rigging_drag_cda_m2(cfg.rigging_drag) / max(
+        float(concept.wing_area_m2),
+        1.0e-9,
+    )
+    total_cd = induced_cd + profile_cd + misc_cd + rigging_cd
+    drag_n = q_pa * float(concept.wing_area_m2) * total_cd
+    shaft_power_w = drag_n * float(design_speed_mps) / max(
+        float(cfg.prop.efficiency_model.design_efficiency),
+        1.0e-9,
+    )
+    pedal_power_w = shaft_power_w / max(float(cfg.drivetrain.efficiency), 1.0e-9)
+    return {
+        "model": "fixed_airfoil_target_fourier_drag_proxy_v1",
+        "speed_mps": float(design_speed_mps),
+        "mass_kg": float(cfg.mass.design_gross_mass_kg),
+        "power_required_w": float(pedal_power_w),
+        "shaft_power_required_w": float(shaft_power_w),
+        "drag_n": float(drag_n),
+        "design_cl": float(design_cl),
+        "target_fourier_e": float(target_e),
+        "induced_cd": float(induced_cd),
+        "profile_cd": float(profile_cd),
+        "misc_cd": float(misc_cd),
+        "rigging_cd": float(rigging_cd),
+        "total_cd": float(total_cd),
+    }
+
+
+def _accepted_candidate_metric(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    sample_index: int,
+    design_speed_mps: float,
+) -> dict[str, Any]:
+    stations = build_linear_wing_stations(
+        concept,
+        stations_per_half=int(cfg.pipeline.stations_per_half),
+    )
+    _, target_summary = _target_station_records(
+        cfg=cfg,
+        concept=concept,
+        stations=stations,
+        design_speed_mps=design_speed_mps,
+    )
+    return {
+        "sample_index": int(sample_index),
+        "concept": concept,
+        "geometry": _geometry_summary(concept),
+        "spanload_gate_health": _spanload_gate_health(target_summary, cfg),
+        "mission_power_proxy": _mission_power_proxy(
+            cfg=cfg,
+            concept=concept,
+            design_speed_mps=design_speed_mps,
+        ),
+    }
+
+
+def _utilization_sort_key(record: dict[str, Any]) -> tuple[float, float, int]:
+    health = record["spanload_gate_health"]
+    max_utilization = max(
+        float(health["max_local_clmax_utilization"]),
+        float(health["max_outer_clmax_utilization"]),
+    )
+    return (
+        max_utilization,
+        -float(record["geometry"]["aspect_ratio"]),
+        int(record["sample_index"]),
+    )
+
+
+def _select_accepted_leaderboards(
+    records: list[dict[str, Any]],
+    *,
+    per_board_count: int,
+) -> dict[str, list[dict[str, Any]]]:
+    count = max(0, int(per_board_count))
+    return {
+        "highest_ar_accepted": sorted(
+            records,
+            key=lambda record: (
+                -float(record["geometry"]["aspect_ratio"]),
+                int(record["sample_index"]),
+            ),
+        )[:count],
+        "best_mission_power_proxy_accepted": sorted(
+            records,
+            key=lambda record: (
+                float(record["mission_power_proxy"]["power_required_w"]),
+                -float(record["geometry"]["aspect_ratio"]),
+                int(record["sample_index"]),
+            ),
+        )[:count],
+        "lowest_utilization_accepted": sorted(records, key=_utilization_sort_key)[:count],
+    }
+
+
+def _selected_samples_from_leaderboards(
+    leaderboards: dict[str, list[dict[str, Any]]],
+) -> list[int]:
+    selected: list[int] = []
+    for board_name in (
+        "highest_ar_accepted",
+        "best_mission_power_proxy_accepted",
+        "lowest_utilization_accepted",
+    ):
+        for record in leaderboards.get(board_name, []):
+            sample_index = int(record["sample_index"])
+            if sample_index not in selected:
+                selected.append(sample_index)
+    return selected
+
+
+def _leaderboard_memberships(
+    leaderboards: dict[str, list[dict[str, Any]]],
+) -> dict[int, list[str]]:
+    memberships: dict[int, list[str]] = {}
+    for board_name, records in leaderboards.items():
+        for record in records:
+            memberships.setdefault(int(record["sample_index"]), []).append(board_name)
+    return memberships
 
 
 def _concept_from_rejection(
@@ -428,9 +657,13 @@ def _run_reference_avl_case(
     design_mass_kg: float,
     status_for_ranking: str,
     avl_binary: str | None,
+    case_tag: str | None = None,
 ) -> dict[str, Any]:
     air = _air_properties(cfg)
-    case_dir = output_dir / "avl_cases" / f"{status_for_ranking}_{concept.span_m:.3f}_{concept.taper_ratio:.4f}"
+    case_dir_name = f"{status_for_ranking}_{concept.span_m:.3f}_{concept.taper_ratio:.4f}"
+    if case_tag is not None:
+        case_dir_name = f"{case_dir_name}_{case_tag}"
+    case_dir = output_dir / "avl_cases" / case_dir_name
     avl_path = write_concept_wing_only_avl(
         concept=concept,
         stations=stations,
@@ -566,22 +799,211 @@ def _attach_avl_to_station_table(
     return attached
 
 
+def _sin_harmonic_ratio(*, eta: float, harmonic: int) -> float:
+    eta_clamped = min(max(float(eta), 0.0), INVERSE_TWIST_MAX_AERO_ETA)
+    theta = math.acos(eta_clamped)
+    denominator = math.sin(theta)
+    if abs(denominator) <= 1.0e-9:
+        return 0.0
+    return float(math.sin(float(harmonic) * theta) / denominator)
+
+
+def _target_induced_angle_deg(
+    *,
+    concept: GeometryConcept,
+    design_cl: float,
+    eta: float,
+) -> float:
+    eta_eff = min(max(float(eta), 0.0), INVERSE_TWIST_MAX_AERO_ETA)
+    a1 = float(design_cl) / max(math.pi * float(concept.aspect_ratio), 1.0e-9)
+    a3 = float(concept.spanload_a3_over_a1)
+    a5 = float(concept.spanload_a5_over_a1)
+    induced_rad = a1 * (
+        1.0
+        + 3.0 * a3 * _sin_harmonic_ratio(eta=eta_eff, harmonic=3)
+        + 5.0 * a5 * _sin_harmonic_ratio(eta=eta_eff, harmonic=5)
+    )
+    return math.degrees(float(induced_rad))
+
+
+def _alpha_2d_from_cl_deg(
+    local_cl: float,
+    *,
+    zero_lift_alpha_deg: float = INVERSE_TWIST_ZERO_LIFT_ALPHA_DEG,
+    lift_curve_slope_per_rad: float = INVERSE_TWIST_LIFT_CURVE_SLOPE_PER_RAD,
+) -> float:
+    return float(zero_lift_alpha_deg) + math.degrees(
+        float(local_cl) / max(float(lift_curve_slope_per_rad), 1.0e-9)
+    )
+
+
+def _build_inverse_twist_stations(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    design_speed_mps: float,
+) -> tuple[tuple[WingStation, ...], dict[str, Any]]:
+    solution = _target_spanload_solution(
+        cfg=cfg,
+        concept=concept,
+        design_speed_mps=design_speed_mps,
+    )
+    half_span_m = 0.5 * float(concept.span_m)
+    target_section_angles: list[float] = []
+    station_records: list[dict[str, float]] = []
+    for station in stations:
+        eta = 0.0 if half_span_m <= 0.0 else min(max(float(station.y_m) / half_span_m, 0.0), 1.0)
+        eta_for_twist = min(eta, INVERSE_TWIST_MAX_AERO_ETA)
+        target = _target_local_record_at_eta(
+            concept=concept,
+            solution=solution,
+            eta=eta_for_twist,
+        )
+        alpha_2d_deg = _alpha_2d_from_cl_deg(float(target["target_local_cl"]))
+        induced_angle_deg = _target_induced_angle_deg(
+            concept=concept,
+            design_cl=float(solution["design_cl"]),
+            eta=eta_for_twist,
+        )
+        target_section_angle_deg = alpha_2d_deg + induced_angle_deg
+        target_section_angles.append(target_section_angle_deg)
+        station_records.append(
+            {
+                "eta": float(eta),
+                "eta_for_twist": float(eta_for_twist),
+                "y_m": float(station.y_m),
+                "chord_m": float(station.chord_m),
+                "target_local_cl": float(target["target_local_cl"]),
+                "alpha_2d_deg": float(alpha_2d_deg),
+                "induced_angle_deg": float(induced_angle_deg),
+                "target_section_angle_deg": float(target_section_angle_deg),
+            }
+        )
+
+    root_section_angle_deg = target_section_angles[0] if target_section_angles else 0.0
+    inverse_stations: list[WingStation] = []
+    inverse_records: list[dict[str, float]] = []
+    root_twist_deg = float(concept.twist_root_deg)
+    for station, record, target_section_angle_deg in zip(
+        stations,
+        station_records,
+        target_section_angles,
+        strict=True,
+    ):
+        twist_deg = root_twist_deg + float(target_section_angle_deg) - root_section_angle_deg
+        inverse_stations.append(
+            WingStation(
+                y_m=float(station.y_m),
+                chord_m=float(station.chord_m),
+                twist_deg=float(twist_deg),
+                dihedral_deg=float(station.dihedral_deg),
+            )
+        )
+        inverse_records.append({**record, "twist_deg": float(twist_deg)})
+    return tuple(inverse_stations), {
+        "model": "inverse_twist_mvp_lift_curve",
+        "zero_lift_alpha_deg": float(INVERSE_TWIST_ZERO_LIFT_ALPHA_DEG),
+        "lift_curve_slope_per_rad": float(INVERSE_TWIST_LIFT_CURVE_SLOPE_PER_RAD),
+        "induced_angle_model": "fourier_lifting_line_local_downwash",
+        "max_aero_eta_for_tip_twist": float(INVERSE_TWIST_MAX_AERO_ETA),
+        "root_twist_anchor_deg": root_twist_deg,
+        "design_cl": float(solution["design_cl"]),
+        "station_records": inverse_records,
+    }
+
+
+def _avl_match_metrics(station_table: list[dict[str, Any]]) -> dict[str, Any]:
+    deltas = [
+        abs(float(row["target_minus_avl_circulation_norm"]))
+        for row in station_table
+        if row.get("target_minus_avl_circulation_norm") is not None
+    ]
+    if not deltas:
+        return {
+            "max_target_avl_circulation_norm_delta": None,
+            "max_delta_station": None,
+            "target_avl_delta_success": False,
+        }
+    max_index = max(
+        range(len(station_table)),
+        key=lambda index: abs(
+            float(station_table[index].get("target_minus_avl_circulation_norm") or 0.0)
+        ),
+    )
+    max_delta = max(deltas)
+    return {
+        "max_target_avl_circulation_norm_delta": float(max_delta),
+        "max_delta_station": {
+            key: station_table[max_index].get(key)
+            for key in (
+                "eta",
+                "y_m",
+                "target_circulation_norm",
+                "avl_circulation_norm",
+                "target_minus_avl_circulation_norm",
+            )
+        },
+        "target_avl_delta_success": bool(max_delta < SPANLOAD_DELTA_SUCCESS_LIMIT),
+    }
+
+
+def _correct_inverse_twist_stations(
+    *,
+    stations: tuple[WingStation, ...],
+    station_table: list[dict[str, Any]],
+    root_twist_deg: float,
+    gain_deg: float,
+    max_abs_twist_deg: float,
+) -> tuple[WingStation, ...]:
+    table_by_y = {
+        round(float(row.get("y_m", 0.0)), 9): row
+        for row in station_table
+        if row.get("target_minus_avl_circulation_norm") is not None
+    }
+    corrected: list[WingStation] = []
+    for station in stations:
+        row = table_by_y.get(round(float(station.y_m), 9))
+        error = 0.0 if row is None else float(row["target_minus_avl_circulation_norm"])
+        eta = 0.0 if stations[-1].y_m <= 0.0 else float(station.y_m) / max(float(stations[-1].y_m), 1.0e-9)
+        # Avoid chasing the physical tip cap; the aerodynamic target is capped just inboard.
+        tip_relief = max(0.0, 1.0 - max(eta - INVERSE_TWIST_MAX_AERO_ETA, 0.0) / 0.03)
+        corrected.append(
+            WingStation(
+                y_m=float(station.y_m),
+                chord_m=float(station.chord_m),
+                twist_deg=float(station.twist_deg) + float(gain_deg) * error * tip_relief,
+                dihedral_deg=float(station.dihedral_deg),
+            )
+        )
+    root_offset = float(corrected[0].twist_deg) - float(root_twist_deg)
+    return tuple(
+        WingStation(
+            y_m=float(station.y_m),
+            chord_m=float(station.chord_m),
+            twist_deg=max(
+                -float(max_abs_twist_deg),
+                min(float(max_abs_twist_deg), float(station.twist_deg) - root_offset),
+            ),
+            dihedral_deg=float(station.dihedral_deg),
+        )
+        for station in corrected
+    )
+
+
 def _spanload_trust_status(candidate: dict[str, Any]) -> str:
-    fourier_e = candidate["spanload_fourier"].get("fourier_e")
+    fourier_e = candidate["spanload_fourier"].get("target_fourier_e")
     avl_e = candidate["avl_reference_case"].get("avl_e_cdi")
     if avl_e is None:
         return "invalid_no_avl_e_cdi"
-    max_delta = max(
-        (
-            abs(float(row.get("target_minus_avl_circulation_norm", 0.0)))
-            for row in candidate.get("station_table", [])
-            if row.get("target_minus_avl_circulation_norm") is not None
-        ),
-        default=0.0,
+    max_delta = candidate.get("avl_match_metrics", {}).get(
+        "max_target_avl_circulation_norm_delta",
     )
-    if fourier_e is not None and float(fourier_e) >= 0.90 and float(avl_e) < 0.80:
+    if max_delta is not None and float(max_delta) < SPANLOAD_DELTA_SUCCESS_LIMIT and float(avl_e) >= AVL_E_CDI_SUCCESS_FLOOR:
+        return "spanload_crosscheck_success"
+    if fourier_e is not None and float(fourier_e) >= 0.90 and float(avl_e) < AVL_E_CDI_SUCCESS_FLOOR:
         return "spanload_not_trusted_avl_e_low_vs_fourier_high"
-    if max_delta > 0.25:
+    if max_delta is not None and float(max_delta) >= SPANLOAD_DELTA_SUCCESS_LIMIT:
         return "spanload_not_trusted_target_avl_strip_mismatch"
     return "spanload_crosscheck_reasonable"
 
@@ -596,11 +1018,22 @@ def _candidate_record(
     output_dir: Path,
     design_speed_mps: float,
     avl_binary: str | None,
+    leaderboard_memberships: list[str] | None = None,
+    inverse_twist_iterations: int = 3,
+    inverse_twist_correction_gain_deg: float = 8.0,
+    inverse_twist_max_abs_twist_deg: float = INVERSE_TWIST_MAX_ABS_TWIST_DEG,
 ) -> dict[str, Any]:
-    stations = build_linear_wing_stations(
+    baseline_stations = build_linear_wing_stations(
         concept,
         stations_per_half=int(cfg.pipeline.stations_per_half),
     )
+    inverse_stations, inverse_twist_summary = _build_inverse_twist_stations(
+        cfg=cfg,
+        concept=concept,
+        stations=baseline_stations,
+        design_speed_mps=design_speed_mps,
+    )
+    stations = inverse_stations
     target_table, target_summary = _target_station_records(
         cfg=cfg,
         concept=concept,
@@ -622,8 +1055,60 @@ def _candidate_record(
         design_mass_kg=float(cfg.mass.design_gross_mass_kg),
         status_for_ranking=ranking_authority_status,
         avl_binary=avl_binary,
+        case_tag="inverse_00",
     )
     station_table = _attach_avl_to_station_table(target_table, avl)
+    iteration_records = [
+        {
+            "iteration": 0,
+            "avl_status": avl.get("status"),
+            "avl_e_cdi": avl.get("avl_e_cdi"),
+            "avl_reported_e": avl.get("avl_reported_e"),
+            **_avl_match_metrics(station_table),
+        }
+    ]
+    for iteration in range(1, max(0, int(inverse_twist_iterations)) + 1):
+        metrics = _avl_match_metrics(station_table)
+        if (
+            metrics["max_target_avl_circulation_norm_delta"] is not None
+            and float(metrics["max_target_avl_circulation_norm_delta"])
+            < SPANLOAD_DELTA_SUCCESS_LIMIT
+        ):
+            break
+        stations = _correct_inverse_twist_stations(
+            stations=stations,
+            station_table=station_table,
+            root_twist_deg=float(concept.twist_root_deg),
+            gain_deg=float(inverse_twist_correction_gain_deg),
+            max_abs_twist_deg=float(inverse_twist_max_abs_twist_deg),
+        )
+        target_table, target_summary = _target_station_records(
+            cfg=cfg,
+            concept=concept,
+            stations=stations,
+            design_speed_mps=design_speed_mps,
+        )
+        avl = _run_reference_avl_case(
+            cfg=cfg,
+            concept=concept,
+            stations=stations,
+            output_dir=output_dir,
+            design_speed_mps=design_speed_mps,
+            design_mass_kg=float(cfg.mass.design_gross_mass_kg),
+            status_for_ranking=ranking_authority_status,
+            avl_binary=avl_binary,
+            case_tag=f"inverse_{iteration:02d}",
+        )
+        station_table = _attach_avl_to_station_table(target_table, avl)
+        iteration_records.append(
+            {
+                "iteration": int(iteration),
+                "avl_status": avl.get("status"),
+                "avl_e_cdi": avl.get("avl_e_cdi"),
+                "avl_reported_e": avl.get("avl_reported_e"),
+                **_avl_match_metrics(station_table),
+            }
+        )
     failing_gate = None
     worst_station = target_summary["worst_station"]
     if rejection is not None:
@@ -637,20 +1122,50 @@ def _candidate_record(
         "status": status,
         "sample_index": sample_index,
         "selection_rule": (
-            "lowest accepted spanload utilization"
+            "accepted leaderboard union"
             if status == "accepted"
             else "closest rejected spanload gate violation"
         ),
+        "leaderboard_memberships": list(leaderboard_memberships or []),
         "mass_authority": _mission_mass_authority(cfg, concept),
         "geometry": _geometry_summary(concept),
+        "mission_power_proxy": _mission_power_proxy(
+            cfg=cfg,
+            concept=concept,
+            design_speed_mps=design_speed_mps,
+        ),
         "spanload_fourier": _fourier_efficiency(
             float(concept.spanload_a3_over_a1),
             float(concept.spanload_a5_over_a1),
         ),
         "spanload_gate_health": health,
+        "inverse_twist": {
+            **inverse_twist_summary,
+            "correction_gain_deg_per_norm_delta": float(inverse_twist_correction_gain_deg),
+            "max_abs_twist_deg": float(inverse_twist_max_abs_twist_deg),
+            "requested_correction_iterations": int(inverse_twist_iterations),
+            "completed_correction_iterations": max(
+                0,
+                len(iteration_records) - 1,
+            ),
+            "iteration_records": iteration_records,
+        },
         "avl_reference_case": avl,
         "station_table": station_table,
+        "avl_match_metrics": _avl_match_metrics(station_table),
         "gate_station_table": target_summary["gate_station_table"],
+        "baseline_twist_distribution": [
+            {
+                "eta": (
+                    0.0
+                    if concept.span_m <= 0.0
+                    else float(station.y_m) / max(0.5 * float(concept.span_m), 1.0e-9)
+                ),
+                "y_m": float(station.y_m),
+                "twist_deg": float(station.twist_deg),
+            }
+            for station in baseline_stations
+        ],
         "twist_distribution": [
             {
                 "eta": float(record["eta"]),
@@ -683,9 +1198,13 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
     fourier = candidate["spanload_fourier"]
     health = candidate["spanload_gate_health"]
     avl = candidate["avl_reference_case"]
+    power = candidate["mission_power_proxy"]
+    match = candidate["avl_match_metrics"]
     title = f"{candidate['status'].title()} candidate"
     if candidate.get("sample_index") is not None:
         title += f" sample {candidate['sample_index']}"
+    if candidate.get("leaderboard_memberships"):
+        title += f" ({', '.join(candidate['leaderboard_memberships'])})"
     lines.append(f"### {title}")
     lines.append("")
     lines.append(
@@ -706,11 +1225,17 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"{_format_float(geom['tip_chord_m'], 3)} m."
     )
     lines.append(
+        "- Mission-power proxy: "
+        f"{_format_float(power['power_required_w'], 1)} W pedal, "
+        f"CDi {_format_float(power['induced_cd'], 5)}, "
+        f"CDtotal {_format_float(power['total_cd'], 5)}."
+    )
+    lines.append(
         "- Fourier: "
         f"a3 {_format_float(fourier['a3_over_a1'], 3)}, "
         f"a5 {_format_float(fourier['a5_over_a1'], 3)}, "
-        f"e {_format_float(fourier['fourier_e'], 4)}, "
-        f"deviation {_format_float(fourier['fourier_deviation'], 4)}."
+        f"target_fourier_e {_format_float(fourier['target_fourier_e'], 4)}, "
+        f"target_fourier_deviation {_format_float(fourier['target_fourier_deviation'], 4)}."
     )
     lines.append(
         "- Gate health: "
@@ -729,6 +1254,12 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"e_CDi {_format_float(avl.get('avl_e_cdi'), 4)}, "
         f"reported e {_format_float(avl.get('avl_reported_e'), 4)}; "
         f"authority {avl.get('ranking_authority_status')}."
+    )
+    lines.append(
+        "- Target vs AVL: "
+        f"max normalized delta {_format_float(match.get('max_target_avl_circulation_norm_delta'), 3)} "
+        f"(goal < {SPANLOAD_DELTA_SUCCESS_LIMIT:.2f}); "
+        f"AVL e_CDi goal >= {AVL_E_CDI_SUCCESS_FLOOR:.2f}."
     )
     lines.append(f"- Spanload trust: {candidate.get('spanload_trust_status')}.")
     if candidate.get("failing_gate"):
@@ -769,6 +1300,22 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _leaderboard_candidate_summary(candidate: dict[str, Any]) -> str:
+    geometry = candidate["geometry"]
+    power = candidate["mission_power_proxy"]
+    avl = candidate["avl_reference_case"]
+    match = candidate["avl_match_metrics"]
+    return (
+        f"sample {candidate['sample_index']}: "
+        f"AR {_format_float(geometry['aspect_ratio'], 2)}, "
+        f"span {_format_float(geometry['span_m'], 2)} m, "
+        f"S {_format_float(geometry['wing_area_m2'], 2)} m2, "
+        f"power proxy {_format_float(power['power_required_w'], 1)} W, "
+        f"AVL e_CDi {_format_float(avl.get('avl_e_cdi'), 4)}, "
+        f"target delta {_format_float(match.get('max_target_avl_circulation_norm_delta'), 3)}"
+    )
+
+
 def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
     lines: list[str] = [
         "# Birdman Spanload Design Smoke",
@@ -789,6 +1336,16 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
     ]
     lines.extend(f"- {item}" for item in report["engineering_read"])
     lines.append("")
+    lines.append("## Accepted Leaderboards")
+    lines.append("")
+    for board_name, candidates in report["accepted_leaderboards"].items():
+        lines.append(f"### {board_name}")
+        lines.append("")
+        if not candidates:
+            lines.append("- n/a")
+        for candidate in candidates:
+            lines.append(f"- {_leaderboard_candidate_summary(candidate)}")
+        lines.append("")
     lines.append("## Candidates")
     lines.append("")
     for candidate in report["candidates"]:
@@ -846,7 +1403,16 @@ def _engineering_read(report: dict[str, Any]) -> list[str]:
         ]
         if low_trust:
             read.append(
-                "Important: AVL e_CDi is much lower than Fourier e, so the inverse-twist/spanload match is not yet trustworthy even for accepted geometry-gate candidates."
+                "Important: AVL e_CDi is much lower than target Fourier e, so the inverse-twist/spanload match is not yet trustworthy even for accepted geometry-gate candidates."
+            )
+        max_abs_twist = max(
+            abs(float(row["twist_deg"]))
+            for item in avl_ok
+            for row in item.get("twist_distribution", [])
+        )
+        if max_abs_twist > 8.0:
+            read.append(
+                "Engineering caution: meeting the strip-loading target in this MVP required more than 8 deg of local flight twist/wash-in on at least one station; treat that as inverse-design evidence, not a buildable twist schedule yet."
             )
     read.append(
         "This smoke validates spanload geometry gates only; fixed seed airfoils and AVL linear trim are not a final low-Re stall or profile-drag authority."
@@ -869,6 +1435,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--accepted-count", type=int, default=3)
     parser.add_argument("--rejected-count", type=int, default=3)
     parser.add_argument("--design-speed-mps", type=float, default=None)
+    parser.add_argument("--inverse-twist-iterations", type=int, default=4)
+    parser.add_argument("--inverse-twist-correction-gain-deg", type=float, default=10.0)
+    parser.add_argument(
+        "--inverse-twist-max-abs-twist-deg",
+        type=float,
+        default=INVERSE_TWIST_MAX_ABS_TWIST_DEG,
+    )
     parser.add_argument("--avl-binary", default=None)
     return parser.parse_args()
 
@@ -885,26 +1458,23 @@ def main() -> None:
     if diagnostics is None:
         raise RuntimeError("Geometry diagnostics were not populated.")
 
-    accepted_candidates: list[tuple[float, int, GeometryConcept, dict[str, Any]]] = []
+    accepted_metrics: list[dict[str, Any]] = []
     for index, concept in enumerate(accepted, start=1):
-        stations = build_linear_wing_stations(
-            concept,
-            stations_per_half=int(cfg.pipeline.stations_per_half),
+        accepted_metrics.append(
+            _accepted_candidate_metric(
+                cfg=cfg,
+                concept=concept,
+                sample_index=index,
+                design_speed_mps=design_speed_mps,
+            )
         )
-        _, target_summary = _target_station_records(
-            cfg=cfg,
-            concept=concept,
-            stations=stations,
-            design_speed_mps=design_speed_mps,
-        )
-        health = _spanload_gate_health(target_summary, cfg)
-        score = max(
-            float(health["max_local_clmax_utilization"]),
-            float(health["max_outer_clmax_utilization"]),
-        )
-        accepted_candidates.append((score, index, concept, health))
-    accepted_candidates.sort(key=lambda item: (item[0], item[2].aspect_ratio))
-    selected_accepted = accepted_candidates[: max(0, int(args.accepted_count))]
+    accepted_leaderboards = _select_accepted_leaderboards(
+        accepted_metrics,
+        per_board_count=int(args.accepted_count),
+    )
+    selected_accepted_samples = _selected_samples_from_leaderboards(accepted_leaderboards)
+    accepted_by_sample = {int(record["sample_index"]): record for record in accepted_metrics}
+    accepted_memberships = _leaderboard_memberships(accepted_leaderboards)
 
     spanload_rejections = [
         rejection
@@ -915,19 +1485,30 @@ def main() -> None:
     selected_rejected = spanload_rejections[: max(0, int(args.rejected_count))]
 
     records: list[dict[str, Any]] = []
-    for _, index, concept, _ in selected_accepted:
+    records_by_sample: dict[int, dict[str, Any]] = {}
+    for index in selected_accepted_samples:
+        metric = accepted_by_sample[index]
         records.append(
             _candidate_record(
                 cfg=cfg,
-                concept=concept,
+                concept=metric["concept"],
                 status="accepted",
                 sample_index=index,
                 rejection=None,
                 output_dir=output_dir,
                 design_speed_mps=design_speed_mps,
                 avl_binary=args.avl_binary,
+                leaderboard_memberships=accepted_memberships.get(index, []),
+                inverse_twist_iterations=int(args.inverse_twist_iterations),
+                inverse_twist_correction_gain_deg=float(
+                    args.inverse_twist_correction_gain_deg
+                ),
+                inverse_twist_max_abs_twist_deg=float(
+                    args.inverse_twist_max_abs_twist_deg
+                ),
             )
         )
+        records_by_sample[index] = records[-1]
     for rejection in selected_rejected:
         concept = _concept_from_rejection(cfg, rejection)
         if concept is None:
@@ -942,19 +1523,40 @@ def main() -> None:
                 output_dir=output_dir,
                 design_speed_mps=design_speed_mps,
                 avl_binary=args.avl_binary,
+                inverse_twist_iterations=int(args.inverse_twist_iterations),
+                inverse_twist_correction_gain_deg=float(
+                    args.inverse_twist_correction_gain_deg
+                ),
+                inverse_twist_max_abs_twist_deg=float(
+                    args.inverse_twist_max_abs_twist_deg
+                ),
             )
         )
+
+    accepted_leaderboard_records = {
+        board_name: [
+            records_by_sample[int(metric["sample_index"])]
+            for metric in metrics
+            if int(metric["sample_index"]) in records_by_sample
+        ]
+        for board_name, metrics in accepted_leaderboards.items()
+    }
 
     report: dict[str, Any] = {
         "schema_version": "birdman_spanload_design_smoke_v1",
         "config_path": str(args.config),
         "output_dir": str(output_dir),
-        "route": "fixed_airfoil_no_cst_no_xfoil",
+        "route": "fixed_airfoil_inverse_twist_no_cst_no_xfoil",
         "fixed_airfoil_note": "AVL wing-only route uses the repo default fixed seed airfoils; no CST/XFOIL worker is invoked.",
         "candidate_selection_rule": (
-            "accepted candidates are sorted by lowest spanload target cl/CLmax utilization; "
+            "accepted candidates are reported in three leaderboards: highest AR, "
+            "best mission-power proxy, and lowest spanload utilization; "
             "rejected candidates are sorted by closest spanload gate violation"
         ),
+        "success_criteria": {
+            "max_target_avl_circulation_norm_delta_lt": SPANLOAD_DELTA_SUCCESS_LIMIT,
+            "avl_e_cdi_ge": AVL_E_CDI_SUCCESS_FLOOR,
+        },
         "design_cruise_case": {
             "case_label": CASE_LABEL,
             "speed_mps": float(design_speed_mps),
@@ -971,6 +1573,7 @@ def main() -> None:
             "rejected": int(diagnostics.rejected_concept_count),
             "rejection_reason_counts": dict(diagnostics.rejection_reason_counts),
         },
+        "accepted_leaderboards": accepted_leaderboard_records,
         "candidates": records,
     }
     report["engineering_read"] = _engineering_read(report)
