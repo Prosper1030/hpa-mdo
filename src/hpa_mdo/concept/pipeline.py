@@ -2006,27 +2006,70 @@ def _avl_oswald_efficiency_records_from_station_points(
     return records
 
 
-def _select_avl_oswald_efficiency_for_cl(
+def _valid_design_cruise_avl_records(
     *,
+    cfg: BirdmanConceptConfig,
     avl_records: list[dict[str, Any]],
+    gross_mass_kg: float,
+) -> list[dict[str, Any]]:
+    speed_min_mps = float(cfg.mission.speed_sweep_min_mps)
+    speed_max_mps = float(cfg.mission.speed_sweep_max_mps)
+    mass_tolerance_kg = 1.0e-3
+    speed_tolerance_mps = 1.0e-6
+    valid_records: list[dict[str, Any]] = []
+    for record in avl_records:
+        if str(record.get("case_label")) != "reference_avl_case":
+            continue
+        evaluation_speed_mps = _numeric_value(record.get("evaluation_speed_mps"))
+        evaluation_gross_mass_kg = _numeric_value(record.get("evaluation_gross_mass_kg"))
+        if evaluation_speed_mps is None or evaluation_gross_mass_kg is None:
+            continue
+        if not (
+            speed_min_mps - speed_tolerance_mps
+            <= float(evaluation_speed_mps)
+            <= speed_max_mps + speed_tolerance_mps
+        ):
+            continue
+        if abs(float(evaluation_gross_mass_kg) - float(gross_mass_kg)) > mass_tolerance_kg:
+            continue
+        if abs(float(record.get("load_factor") or 1.0) - 1.0) > 0.05:
+            continue
+        valid_records.append(dict(record))
+    return valid_records
+
+
+def _select_design_cruise_avl_oswald_efficiency_for_cl(
+    *,
+    cfg: BirdmanConceptConfig,
+    avl_records: list[dict[str, Any]],
+    gross_mass_kg: float,
     cl_required: float,
 ) -> dict[str, Any] | None:
-    if not avl_records:
+    valid_records = _valid_design_cruise_avl_records(
+        cfg=cfg,
+        avl_records=avl_records,
+        gross_mass_kg=float(gross_mass_kg),
+    )
+    if not valid_records:
         return None
-    level_records = [
-        record
-        for record in avl_records
-        if abs(float(record.get("load_factor") or 1.0) - 1.0) <= 0.05
-    ]
-    candidates = level_records or avl_records
     selected = min(
-        candidates,
+        valid_records,
         key=lambda record: abs(float(record["trim_cl"]) - float(cl_required)),
     )
     return {
         **selected,
         "selected_for_cl_required": float(cl_required),
-        "selection_rule": "nearest_avl_trim_cl",
+        "selection_rule": "nearest_valid_design_cruise_avl_trim_cl",
+        "authority_usable": True,
+        "authority_checks": {
+            "case_label": "reference_avl_case",
+            "speed_window_mps": [
+                float(cfg.mission.speed_sweep_min_mps),
+                float(cfg.mission.speed_sweep_max_mps),
+            ],
+            "evaluation_gross_mass_kg": float(gross_mass_kg),
+            "load_factor_near_1": True,
+        },
     }
 
 
@@ -2262,8 +2305,10 @@ def _build_concept_mission_summary(
         for speed_mps in speed_sweep_mps:
             dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
             cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
-            avl_speed_oswald = _select_avl_oswald_efficiency_for_cl(
+            avl_speed_oswald = _select_design_cruise_avl_oswald_efficiency_for_cl(
+                cfg=cfg,
                 avl_records=avl_oswald_efficiency_records,
+                gross_mass_kg=float(gross_mass_kg),
                 cl_required=cl_required,
             )
             if avl_speed_oswald is None:
@@ -2515,22 +2560,66 @@ def _build_concept_mission_summary(
         range(len(speed_sweep_mps)),
         key=lambda index: abs(float(speed_sweep_mps[index]) - float(representative_speed_mps)),
     )
-    representative_oswald_efficiency = float(
+    representative_drag_oswald_efficiency = float(
         primary_case_result["oswald_efficiency_by_speed"][representative_speed_index]
     )
-    representative_oswald_efficiency_source = str(
+    representative_drag_oswald_efficiency_source = str(
         primary_case_result["oswald_efficiency_source_by_speed"][representative_speed_index]
     )
     representative_avl_oswald_selection = primary_case_result[
         "oswald_efficiency_selection_by_speed"
     ][representative_speed_index]
+    representative_span_efficiency = (
+        None
+        if representative_avl_oswald_selection is None
+        else float(representative_avl_oswald_selection["efficiency"])
+    )
+    representative_avl_reported_e = (
+        None
+        if representative_avl_oswald_selection is None
+        else _numeric_value(
+            representative_avl_oswald_selection.get("avl_reported_span_efficiency")
+        )
+    )
+    representative_fourier_efficiency = (
+        None
+        if representative_spanload_fourier_record is None
+        else float(representative_spanload_fourier_record["efficiency"])
+    )
+    representative_fourier_deviation = (
+        None
+        if representative_spanload_fourier_record is None
+        else float(representative_spanload_fourier_record["spanload_fourier_deviation"])
+    )
+    if representative_span_efficiency is None:
+        span_efficiency_authority_status = "invalid_no_valid_design_cruise_avl_case"
+        span_efficiency_authority_source = "invalid_no_valid_design_cruise_avl_case"
+    else:
+        span_efficiency_authority_status = "valid_design_cruise_avl_cdi"
+        span_efficiency_authority_source = "avl_design_cruise_cdi_authority"
+
+    if representative_span_efficiency is None:
+        spanload_trust_status = "ranking_e_invalid_using_fourier_drag_fallback"
+    elif (
+        representative_fourier_efficiency is not None
+        and representative_span_efficiency >= 0.90
+        and representative_fourier_efficiency < 0.90
+    ):
+        spanload_trust_status = "spanload_not_trusted_avl_high_fourier_low"
+    elif (
+        representative_fourier_deviation is not None
+        and representative_fourier_deviation > 0.10
+    ):
+        spanload_trust_status = "spanload_warning_fourier_deviation_high"
+    else:
+        spanload_trust_status = "spanload_crosscheck_consistent"
 
     slow_speed_report = _build_slow_speed_report(
         cfg=cfg,
         concept=concept,
         air_density_kg_per_m3=air_density_kg_per_m3,
         aspect_ratio=aspect_ratio,
-        oswald_efficiency=representative_oswald_efficiency,
+        oswald_efficiency=representative_drag_oswald_efficiency,
         profile_cd=profile_cd,
         misc_cd=misc_cd,
         tail_trim_drag_cd=tail_trim_drag_cd,
@@ -2647,26 +2736,23 @@ def _build_concept_mission_summary(
         "drivetrain_loss_w_at_best_range": drivetrain_loss_w_at_best_range,
         "slow_speed_report": slow_speed_report,
         "tail_cl_required_for_trim": tail_cl_required,
-        "oswald_efficiency": representative_oswald_efficiency,
-        "oswald_efficiency_source": representative_oswald_efficiency_source,
+        "oswald_efficiency": representative_span_efficiency,
+        "oswald_efficiency_source": span_efficiency_authority_source,
+        "span_efficiency_authority_status": span_efficiency_authority_status,
+        "span_efficiency_authority": span_efficiency_authority_source,
+        "drag_oswald_efficiency": representative_drag_oswald_efficiency,
+        "drag_oswald_efficiency_source": representative_drag_oswald_efficiency_source,
         "oswald_efficiency_proxy": oswald_efficiency_proxy_value,
-        "avl_oswald_efficiency": (
-            None
-            if representative_avl_oswald_selection is None
-            else float(representative_avl_oswald_selection["efficiency"])
-        ),
+        "avl_oswald_efficiency": representative_span_efficiency,
+        "avl_e_cdi": representative_span_efficiency,
+        "avl_reported_e": representative_avl_reported_e,
         "avl_oswald_efficiency_summary": representative_avl_oswald_selection,
         "avl_oswald_efficiency_records": list(avl_oswald_efficiency_records),
-        "spanload_fourier_efficiency": (
-            None
-            if representative_spanload_fourier_record is None
-            else float(representative_spanload_fourier_record["efficiency"])
-        ),
-        "spanload_fourier_deviation": (
-            None
-            if representative_spanload_fourier_record is None
-            else float(representative_spanload_fourier_record["spanload_fourier_deviation"])
-        ),
+        "spanload_fourier_efficiency": representative_fourier_efficiency,
+        "spanload_fourier_deviation": representative_fourier_deviation,
+        "fourier_e": representative_fourier_efficiency,
+        "fourier_deviation": representative_fourier_deviation,
+        "spanload_trust_status": spanload_trust_status,
         "spanload_fourier_summary": representative_spanload_fourier_record,
         "spanload_fourier_records": list(spanload_fourier_records),
         "oswald_efficiency_by_speed": list(
@@ -3156,7 +3242,7 @@ def _evaluate_selected_airfoils_for_concept(
         assembly_penalty=_assembly_penalty(concept),
         local_stall_feasible=bool(local_stall_summary["feasible"]),
         mission_margin_m=float(mission_summary["target_range_margin_m"]),
-        span_efficiency=float(mission_summary["oswald_efficiency"]),
+        span_efficiency=_numeric_value(mission_summary.get("oswald_efficiency")),
         spanload_deviation=_numeric_value(mission_summary.get("spanload_fourier_deviation")),
         best_power_margin_w=_numeric_value(mission_summary.get("best_power_margin_w")),
     )
