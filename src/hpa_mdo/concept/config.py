@@ -691,6 +691,21 @@ class PlanformTipProtectionConfig(ConceptBaseModel):
         return self
 
 
+class SpanloadDesignConfig(ConceptBaseModel):
+    enabled: bool = True
+    a3_over_a1: float = Field(-0.05, ge=-0.20, le=0.20)
+    a5_over_a1: float = Field(0.0, ge=-0.10, le=0.10)
+    target_station_count: int = Field(17, ge=5)
+    require_positive_circulation: bool = True
+    outer_loading_eta_0p90_max_ratio_to_ellipse: float = Field(0.95, gt=0.0)
+    outer_loading_eta_0p95_max_ratio_to_ellipse: float = Field(0.95, gt=0.0)
+    outer_eta_start: float = Field(0.75, ge=0.0, lt=1.0)
+    local_clmax_safe_floor: float = Field(1.65, gt=0.0)
+    local_clmax_utilization_max: float = Field(0.90, gt=0.0, lt=1.0)
+    outer_cruise_clmax_utilization_max: float = Field(0.75, gt=0.0, lt=1.0)
+    design_speed_mps: float | None = Field(None, gt=0.0)
+
+
 class GeometryFamilyConfig(ConceptBaseModel):
     planform_parameterization: Literal["wing_loading", "mean_chord"] = "wing_loading"
     sampling: GeometrySamplingConfig = Field(default_factory=GeometrySamplingConfig)
@@ -703,6 +718,7 @@ class GeometryFamilyConfig(ConceptBaseModel):
     planform_tip_protection: PlanformTipProtectionConfig = Field(
         default_factory=PlanformTipProtectionConfig
     )
+    spanload_design: SpanloadDesignConfig = Field(default_factory=SpanloadDesignConfig)
     twist_root_deg: float = Field(
         2.0,
         description=(

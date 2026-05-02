@@ -3546,6 +3546,8 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
             ),
             "tip_twist_deg": float(concept.twist_tip_deg),
             "spanload_bias": float(concept.spanload_bias),
+            "spanload_a3_over_a1": float(concept.spanload_a3_over_a1),
+            "spanload_a5_over_a1": float(concept.spanload_a5_over_a1),
         },
         "derived_geometry": {
             "wing_area_m2": float(concept.wing_area_m2),
@@ -3802,6 +3804,8 @@ def _build_ranked_concept_record(
             else float(record.concept.tail_volume_coefficient)
         ),
         "spanload_bias": float(record.concept.spanload_bias),
+        "spanload_a3_over_a1": float(record.concept.spanload_a3_over_a1),
+        "spanload_a5_over_a1": float(record.concept.spanload_a5_over_a1),
         "sizing_archetype": str(sizing_diagnostics["sizing_archetype"]),
         "sizing_diagnostics": sizing_diagnostics,
         "zone_count": len(record.zone_requirements),
@@ -3944,6 +3948,8 @@ def _concept_to_bundle_payload(
         ],
         "twist_tip_deg": float(concept.twist_tip_deg),
         "spanload_bias": float(concept.spanload_bias),
+        "spanload_a3_over_a1": float(concept.spanload_a3_over_a1),
+        "spanload_a5_over_a1": float(concept.spanload_a5_over_a1),
         "dihedral_root_deg": float(concept.dihedral_root_deg),
         "dihedral_tip_deg": float(concept.dihedral_tip_deg),
         "dihedral_exponent": float(concept.dihedral_exponent),
@@ -4823,6 +4829,8 @@ def run_birdman_concept_pipeline(
                         "twist_outer_deg",
                         "tip_twist_deg",
                         "spanload_bias",
+                        "spanload_a3_over_a1",
+                        "spanload_a5_over_a1",
                     ],
                     "geometry_sampling": geometry_sampling_summary,
                     "speed_sweep_window_mps": [

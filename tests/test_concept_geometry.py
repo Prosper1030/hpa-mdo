@@ -294,6 +294,7 @@ def test_enumerate_geometry_concepts_keeps_configured_design_mass_authority():
     payload = load_concept_config(cfg_path).model_dump(mode="python")
     payload["geometry_family"]["planform_parameterization"] = "wing_loading"
     payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["spanload_design"]["enabled"] = False
     payload["geometry_family"]["primary_ranges"] = {
         "span_m": {"min": 32.0, "max": 32.0},
         "wing_loading_target_Npm2": {"min": 34.0, "max": 34.0},
@@ -317,6 +318,7 @@ def test_enumerate_geometry_concepts_uses_configured_cg_location():
     payload["geometry_family"]["planform_parameterization"] = "wing_loading"
     payload["geometry_family"]["sampling"]["sample_count"] = 1
     payload["geometry_family"]["cg_xc"] = 0.34
+    payload["geometry_family"]["spanload_design"]["enabled"] = False
     payload["geometry_family"]["primary_ranges"] = {
         "span_m": {"min": 32.0, "max": 32.0},
         "wing_loading_target_Npm2": {"min": 34.0, "max": 34.0},
@@ -381,6 +383,7 @@ def test_planform_tip_protection_raises_low_taper_to_dynamic_minimum() -> None:
     payload["mass_closure"]["enabled"] = False
     payload["geometry_family"]["planform_parameterization"] = "mean_chord"
     payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["spanload_design"]["enabled"] = False
     payload["geometry_family"]["primary_ranges"] = {
         "span_m": {"min": 35.0, "max": 35.0},
         "mean_chord_m": {"min": 0.86, "max": 0.86},
@@ -446,6 +449,77 @@ def test_planform_tip_protection_rejects_outer_loading_above_elliptic_limit() ->
     assert concepts == ()
     assert diagnostics is not None
     assert diagnostics.rejection_reason_counts["outer_loading_ratio_above_max"] == 1
+
+
+def test_spanload_design_records_fourier_coefficients_on_concept() -> None:
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["mass_closure"]["enabled"] = False
+    payload["geometry_family"]["planform_parameterization"] = "mean_chord"
+    payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["spanload_design"]["a3_over_a1"] = -0.06
+    payload["geometry_family"]["spanload_design"]["a5_over_a1"] = 0.01
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 35.0, "max": 35.0},
+        "mean_chord_m": {"min": 0.90, "max": 0.90},
+        "wing_loading_target_Npm2": {"min": 31.0, "max": 31.0},
+        "taper_ratio": {"min": 0.38, "max": 0.38},
+        "twist_mid_deg": {"min": 0.75, "max": 0.75},
+        "twist_outer_deg": {"min": -1.25, "max": -1.25},
+        "tip_twist_deg": {"min": -2.75, "max": -2.75},
+        "spanload_bias": {"min": 0.08, "max": 0.08},
+    }
+    payload["geometry_family"]["hard_constraints"]["wing_area_m2_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    payload["geometry_family"]["hard_constraints"]["aspect_ratio_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+
+    assert len(concepts) == 1
+    assert concepts[0].spanload_a3_over_a1 == pytest.approx(-0.06)
+    assert concepts[0].spanload_a5_over_a1 == pytest.approx(0.01)
+
+
+def test_spanload_design_rejects_outer_loaded_fourier_target() -> None:
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["mass_closure"]["enabled"] = False
+    payload["geometry_family"]["planform_parameterization"] = "mean_chord"
+    payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["spanload_design"]["a3_over_a1"] = 0.05
+    payload["geometry_family"]["spanload_design"]["a5_over_a1"] = 0.0
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 35.0, "max": 35.0},
+        "mean_chord_m": {"min": 0.90, "max": 0.90},
+        "wing_loading_target_Npm2": {"min": 31.0, "max": 31.0},
+        "taper_ratio": {"min": 0.38, "max": 0.38},
+        "twist_mid_deg": {"min": 0.75, "max": 0.75},
+        "twist_outer_deg": {"min": -1.25, "max": -1.25},
+        "tip_twist_deg": {"min": -2.75, "max": -2.75},
+        "spanload_bias": {"min": 0.08, "max": 0.08},
+    }
+    payload["geometry_family"]["hard_constraints"]["wing_area_m2_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    payload["geometry_family"]["hard_constraints"]["aspect_ratio_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+    diagnostics = get_last_geometry_enumeration_diagnostics()
+
+    assert concepts == ()
+    assert diagnostics is not None
+    assert diagnostics.rejection_reason_counts["spanload_design_outer_loading_above_max"] == 1
 
 
 def test_enumerate_geometry_concepts_can_size_tail_from_tail_volume():

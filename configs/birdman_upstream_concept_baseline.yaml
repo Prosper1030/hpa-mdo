@@ -186,6 +186,18 @@ geometry_family:
     tip_spar_depth_min_m: 0.040
     tip_structural_tc_ratio: 0.11
     tip_leading_edge_radius_min_m: 0.006
+  spanload_design:
+    enabled: true
+    a3_over_a1: -0.05
+    a5_over_a1: 0.0
+    target_station_count: 17
+    require_positive_circulation: true
+    outer_loading_eta_0p90_max_ratio_to_ellipse: 0.95
+    outer_loading_eta_0p95_max_ratio_to_ellipse: 0.95
+    outer_eta_start: 0.75
+    local_clmax_safe_floor: 1.65
+    local_clmax_utilization_max: 0.90
+    outer_cruise_clmax_utilization_max: 0.75
   twist_root_deg: 2.0
   twist_control_etas: [0.35, 0.70]
   cg_xc: 0.30

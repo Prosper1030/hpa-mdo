@@ -63,6 +63,8 @@ class GeometryConcept:
     tail_volume_coefficient: float | None = None
     twist_control_points: tuple[tuple[float, float], ...] = ()
     spanload_bias: float = 0.0
+    spanload_a3_over_a1: float = -0.05
+    spanload_a5_over_a1: float = 0.0
     wing_loading_target_Npm2: float | None = None
     mean_chord_target_m: float | None = None
     wing_area_is_derived: bool = False
@@ -99,6 +101,10 @@ class GeometryConcept:
             raise ValueError("tail_volume_coefficient must be positive when provided.")
         if self.spanload_bias < 0.0:
             raise ValueError("spanload_bias must be non-negative.")
+        if not -0.5 <= self.spanload_a3_over_a1 <= 0.5:
+            raise ValueError("spanload_a3_over_a1 must stay within [-0.5, 0.5].")
+        if not -0.5 <= self.spanload_a5_over_a1 <= 0.5:
+            raise ValueError("spanload_a5_over_a1 must stay within [-0.5, 0.5].")
         if self.wing_loading_target_Npm2 is not None and self.wing_loading_target_Npm2 <= 0.0:
             raise ValueError("wing_loading_target_Npm2 must be positive when provided.")
         if self.mean_chord_target_m is not None and self.mean_chord_target_m <= 0.0:
@@ -300,6 +306,42 @@ def _outer_loading_ratio_to_ellipse(*, spanload_bias: float, eta: float) -> floa
     return max(0.0, 1.0 - float(spanload_bias) * float(eta) ** 2)
 
 
+def _fourier_spanload_ratio_to_ellipse(
+    *,
+    a3_over_a1: float,
+    a5_over_a1: float,
+    eta: float,
+) -> float:
+    eta_clamped = min(max(float(eta), 0.0), 1.0)
+    eta2 = eta_clamped**2
+    eta4 = eta2**2
+    sin3_over_sin1 = 4.0 * eta2 - 1.0
+    sin5_over_sin1 = 1.0 - 12.0 * eta2 + 16.0 * eta4
+    return float(
+        1.0
+        + float(a3_over_a1) * sin3_over_sin1
+        + float(a5_over_a1) * sin5_over_sin1
+    )
+
+
+def _fourier_spanload_shape(
+    *,
+    a3_over_a1: float,
+    a5_over_a1: float,
+    eta: float,
+) -> float:
+    eta_clamped = min(max(float(eta), 0.0), 1.0)
+    elliptic = math.sqrt(max(1.0 - eta_clamped**2, 0.0))
+    return float(
+        elliptic
+        * _fourier_spanload_ratio_to_ellipse(
+            a3_over_a1=float(a3_over_a1),
+            a5_over_a1=float(a5_over_a1),
+            eta=eta_clamped,
+        )
+    )
+
+
 def _progressive_schedule_value(
     start_value: float,
     end_value: float,
@@ -450,6 +492,201 @@ def _geometry_rejection(
     )
 
 
+def _spanload_design_rejection(
+    *,
+    cfg,
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    sample_index: int,
+    primary_values: dict[str, float],
+    secondary_values: dict[str, float],
+) -> GeometryRejection | None:
+    spanload_cfg = cfg.geometry_family.spanload_design
+    if not bool(spanload_cfg.enabled):
+        return None
+
+    a3 = float(spanload_cfg.a3_over_a1)
+    a5 = float(spanload_cfg.a5_over_a1)
+    for eta, max_ratio in (
+        (0.90, float(spanload_cfg.outer_loading_eta_0p90_max_ratio_to_ellipse)),
+        (0.95, float(spanload_cfg.outer_loading_eta_0p95_max_ratio_to_ellipse)),
+    ):
+        ratio = _fourier_spanload_ratio_to_ellipse(
+            a3_over_a1=a3,
+            a5_over_a1=a5,
+            eta=eta,
+        )
+        if ratio > max_ratio:
+            return _geometry_rejection(
+                sample_index=sample_index,
+                reason="spanload_design_outer_loading_above_max",
+                primary_values=primary_values,
+                secondary_values=secondary_values,
+                spanload_a3_over_a1=a3,
+                spanload_a5_over_a1=a5,
+                outer_loading_eta=float(eta),
+                outer_loading_ratio_to_ellipse=float(ratio),
+                outer_loading_max_ratio_to_ellipse=float(max_ratio),
+            )
+
+    air_properties = air_properties_from_environment(
+        temperature_c=float(cfg.environment.temperature_c),
+        relative_humidity_percent=float(cfg.environment.relative_humidity),
+        altitude_m=float(cfg.environment.altitude_m),
+    )
+    design_speed_mps = (
+        float(spanload_cfg.design_speed_mps)
+        if spanload_cfg.design_speed_mps is not None
+        else _tip_re_design_speed_mps(cfg)
+    )
+    dynamic_pressure_pa = (
+        0.5 * float(air_properties.density_kg_per_m3) * design_speed_mps**2
+    )
+    design_cl = (
+        float(cfg.mass.design_gross_mass_kg)
+        * 9.80665
+        / max(dynamic_pressure_pa * float(concept.wing_area_m2), 1.0e-9)
+    )
+    half_span_m = 0.5 * float(concept.span_m)
+    station_records: list[dict[str, float]] = []
+    target_etas = {
+        float(value)
+        for value in np.linspace(0.0, 1.0, int(spanload_cfg.target_station_count))
+    }
+    target_etas.update(
+        0.0 if half_span_m <= 0.0 else float(station.y_m) / half_span_m
+        for station in stations
+    )
+    for eta in sorted(min(max(float(value), 0.0), 1.0) for value in target_etas):
+        shape = _fourier_spanload_shape(
+            a3_over_a1=a3,
+            a5_over_a1=a5,
+            eta=eta,
+        )
+        if bool(spanload_cfg.require_positive_circulation) and eta < 0.999 and shape <= 0.0:
+            return _geometry_rejection(
+                sample_index=sample_index,
+                reason="spanload_design_nonpositive_circulation",
+                primary_values=primary_values,
+                secondary_values=secondary_values,
+                spanload_a3_over_a1=a3,
+                spanload_a5_over_a1=a5,
+                eta=float(eta),
+                target_circulation_shape=float(shape),
+            )
+        station_records.append(
+            {
+                "eta": float(eta),
+                "y_m": float(eta * half_span_m),
+                "chord_m": _linear_chord_at_eta(concept, eta),
+                "shape": float(shape),
+            }
+        )
+    if len(station_records) < 2:
+        return None
+
+    shape_integral_m = 0.0
+    for left, right in zip(station_records, station_records[1:]):
+        dy_m = float(right["y_m"] - left["y_m"])
+        shape_integral_m += 0.5 * dy_m * (
+            float(left["shape"]) + float(right["shape"])
+        )
+    if shape_integral_m <= 0.0:
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="spanload_design_nonpositive_integrated_circulation",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            spanload_a3_over_a1=a3,
+            spanload_a5_over_a1=a5,
+            target_circulation_integral_m=float(shape_integral_m),
+        )
+
+    cl_scale = design_cl * float(concept.wing_area_m2) / max(
+        2.0 * shape_integral_m,
+        1.0e-9,
+    )
+    safe_clmax = float(spanload_cfg.local_clmax_safe_floor)
+    worst_utilization = -1.0
+    worst_eta = 0.0
+    worst_local_cl = 0.0
+    worst_outer_utilization = -1.0
+    worst_outer_eta = 0.0
+    worst_outer_local_cl = 0.0
+    for record in station_records:
+        local_cl = cl_scale * float(record["shape"]) / max(
+            float(record["chord_m"]),
+            1.0e-9,
+        )
+        utilization = local_cl / max(safe_clmax, 1.0e-9)
+        if utilization > worst_utilization:
+            worst_utilization = float(utilization)
+            worst_eta = float(record["eta"])
+            worst_local_cl = float(local_cl)
+        if float(record["eta"]) >= float(spanload_cfg.outer_eta_start):
+            if utilization > worst_outer_utilization:
+                worst_outer_utilization = float(utilization)
+                worst_outer_eta = float(record["eta"])
+                worst_outer_local_cl = float(local_cl)
+
+    if worst_utilization > float(spanload_cfg.local_clmax_utilization_max):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="spanload_design_local_clmax_utilization_exceeded",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            spanload_a3_over_a1=a3,
+            spanload_a5_over_a1=a5,
+            design_cl=float(design_cl),
+            worst_eta=float(worst_eta),
+            worst_local_cl=float(worst_local_cl),
+            local_clmax_safe_floor=safe_clmax,
+            local_clmax_utilization=float(worst_utilization),
+            local_clmax_utilization_max=float(spanload_cfg.local_clmax_utilization_max),
+        )
+    if worst_outer_utilization > float(spanload_cfg.outer_cruise_clmax_utilization_max):
+        return _geometry_rejection(
+            sample_index=sample_index,
+            reason="spanload_design_outer_clmax_utilization_exceeded",
+            primary_values=primary_values,
+            secondary_values=secondary_values,
+            spanload_a3_over_a1=a3,
+            spanload_a5_over_a1=a5,
+            design_cl=float(design_cl),
+            worst_outer_eta=float(worst_outer_eta),
+            worst_outer_local_cl=float(worst_outer_local_cl),
+            local_clmax_safe_floor=safe_clmax,
+            outer_clmax_utilization=float(worst_outer_utilization),
+            outer_clmax_utilization_max=float(
+                spanload_cfg.outer_cruise_clmax_utilization_max
+            ),
+        )
+
+    tip_protection = cfg.geometry_family.planform_tip_protection
+    if bool(tip_protection.enabled):
+        aerodynamic_tip_eta = float(tip_protection.aerodynamic_tip_station_eta)
+        tip_chord_m = _linear_chord_at_eta(concept, aerodynamic_tip_eta)
+        tip_re = (
+            float(air_properties.density_kg_per_m3)
+            * design_speed_mps
+            * tip_chord_m
+            / max(float(air_properties.dynamic_viscosity_pa_s), 1.0e-12)
+        )
+        if tip_re < float(tip_protection.tip_re_abs_min):
+            return _geometry_rejection(
+                sample_index=sample_index,
+                reason="spanload_design_tip_re_below_min",
+                primary_values=primary_values,
+                secondary_values=secondary_values,
+                aerodynamic_tip_station_eta=aerodynamic_tip_eta,
+                chord_at_aerodynamic_tip_eta_m=float(tip_chord_m),
+                tip_re=float(tip_re),
+                tip_re_abs_min=float(tip_protection.tip_re_abs_min),
+                design_speed_mps=float(design_speed_mps),
+            )
+    return None
+
+
 def _evaluate_hard_constraints(
     *,
     cfg,
@@ -574,6 +811,17 @@ def _evaluate_hard_constraints(
                     outer_loading_ratio_to_ellipse=float(ratio),
                     outer_loading_max_ratio_to_ellipse=float(max_ratio),
                 )
+
+    spanload_rejection = _spanload_design_rejection(
+        cfg=cfg,
+        concept=concept,
+        stations=stations,
+        sample_index=sample_index,
+        primary_values=primary_values,
+        secondary_values=secondary_values,
+    )
+    if spanload_rejection is not None:
+        return spanload_rejection
 
     root_available_spar_depth_m = (
         float(concept.root_chord_m)
@@ -957,6 +1205,8 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             twist_tip_deg=float(twist_control_points[-1][1]),
             twist_control_points=twist_control_points,
             spanload_bias=float(spanload_bias),
+            spanload_a3_over_a1=float(cfg.geometry_family.spanload_design.a3_over_a1),
+            spanload_a5_over_a1=float(cfg.geometry_family.spanload_design.a5_over_a1),
             dihedral_root_deg=float(dihedral_root_deg),
             dihedral_tip_deg=float(dihedral_tip_deg),
             dihedral_exponent=float(dihedral_exponent),

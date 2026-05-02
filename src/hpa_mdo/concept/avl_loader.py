@@ -23,7 +23,12 @@ from hpa_mdo.concept.atmosphere import AirProperties
 from hpa_mdo.concept.atmosphere import LEGACY_DEFAULT_DYNAMIC_VISCOSITY_PA_S
 from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.config import BirdmanConceptConfig
-from hpa_mdo.concept.geometry import GeometryConcept, WingStation, build_linear_wing_stations
+from hpa_mdo.concept.geometry import (
+    GeometryConcept,
+    WingStation,
+    _fourier_spanload_shape,
+    build_linear_wing_stations,
+)
 from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.safety import evaluate_local_stall
@@ -178,12 +183,20 @@ def _coarse_pre_avl_reference_station_points(
             else min(local_washout_deg / total_washout_deg, 1.0)
         )
         inboard_bias_factor = max(0.2, 1.0 - float(concept.spanload_bias) * eta**2)
+        target_circulation = (
+            _fourier_spanload_shape(
+                a3_over_a1=float(concept.spanload_a3_over_a1),
+                a5_over_a1=float(concept.spanload_a5_over_a1),
+                eta=eta,
+            )
+            if bool(cfg.geometry_family.spanload_design.enabled)
+            else elliptic_loading * inboard_bias_factor
+        )
         raw_shape.append(
             max(
                 float(spanload_cfg.elliptic_loading_floor),
-                (elliptic_loading / max(chord_ratio, 1.0e-6))
+                (target_circulation / max(chord_ratio, 1.0e-6))
                 * washout_relief_factor
-                * inboard_bias_factor,
             )
         )
 
@@ -220,6 +233,8 @@ def _coarse_pre_avl_reference_station_points(
                 "taper_ratio": float(concept.taper_ratio),
                 "washout_deg": float(total_washout_deg),
                 "spanload_bias": float(concept.spanload_bias),
+                "spanload_a3_over_a1": float(concept.spanload_a3_over_a1),
+                "spanload_a5_over_a1": float(concept.spanload_a5_over_a1),
                 "reference_speed_mps": float(reference_speed_mps),
                 "reference_gross_mass_kg": float(reference_gross_mass_kg),
                 "cl_max_proxy": float(cl_target + cl_headroom),
