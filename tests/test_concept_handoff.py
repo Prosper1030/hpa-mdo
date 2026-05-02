@@ -400,6 +400,56 @@ def test_write_selected_concept_bundle_writes_openvsp_handoff_artifacts(tmp_path
     }
 
 
+def test_write_selected_concept_bundle_writes_selected_airfoils_to_openvsp(tmp_path):
+    bundle_dir = write_selected_concept_bundle(
+        output_dir=tmp_path,
+        concept_id="concept-custom-airfoil",
+        concept_config={
+            "name": "concept-custom-airfoil",
+            "geometry": {
+                "span_m": 32.0,
+                "root_chord_m": 1.30,
+                "tip_chord_m": 0.45,
+            },
+        },
+        stations_rows=[
+            {"y_m": 0.0, "chord_m": 1.30, "twist_deg": 2.0},
+            {"y_m": 4.0, "chord_m": 1.05, "twist_deg": 0.5},
+            {"y_m": 16.0, "chord_m": 0.45, "twist_deg": -2.0},
+        ],
+        airfoil_templates={
+            "root": {
+                "template_id": "root-custom-cst",
+                "geometry_hash": "rootabc123456",
+                "coordinates": [[1.0, 0.001], [0.5, 0.080], [0.0, 0.0], [0.5, -0.050], [1.0, -0.001]],
+            },
+            "tip": {
+                "template_id": "tip-custom-cst",
+                "geometry_hash": "tipabc123456",
+                "coordinates": [[1.0, 0.001], [0.5, 0.055], [0.0, 0.0], [0.5, -0.040], [1.0, -0.001]],
+            },
+        },
+        lofting_guides={"authority": "cst_coefficients"},
+        prop_assumption={"diameter_m": 3.0},
+        concept_summary={"rank": 1, "selected": True},
+    )
+
+    script = (bundle_dir / "concept_openvsp.vspscript").read_text(encoding="utf-8")
+    metadata = json.loads((bundle_dir / "concept_openvsp_metadata.json").read_text(encoding="utf-8"))
+    root_dat = bundle_dir / "selected_airfoils" / "root-rootabc12345.dat"
+    tip_dat = bundle_dir / "selected_airfoils" / "tip-tipabc123456.dat"
+
+    assert root_dat.exists()
+    assert tip_dat.exists()
+    assert root_dat.read_text(encoding="utf-8").splitlines()[0] == "root-custom-cst"
+    assert "XS_FILE_AIRFOIL" in script
+    assert "ReadFileAirfoil" in script
+    assert "root-rootabc12345.dat" in script
+    assert "tip-tipabc123456.dat" in script
+    assert metadata["openvsp_airfoil_files"]["root"].endswith("root-rootabc12345.dat")
+    assert metadata["openvsp_airfoil_files"]["tip"].endswith("tip-tipabc123456.dat")
+
+
 def test_write_selected_concept_bundle_writes_openvsp_vsp3_when_api_is_available(tmp_path):
     openvsp = pytest.importorskip("openvsp")
 

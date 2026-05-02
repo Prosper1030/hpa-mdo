@@ -68,6 +68,46 @@ def test_openvsp_handoff_summary_reports_generated_vsp_paths(tmp_path: Path) -> 
     }
 
 
+def test_avl_oswald_efficiency_uses_cdi_formula_when_trim_totals_exist() -> None:
+    concept = GeometryConcept(
+        span_m=34.0,
+        wing_area_m2=30.0,
+        root_chord_m=1.3071895424836601,
+        tip_chord_m=0.45751633986928103,
+        twist_root_deg=2.0,
+        twist_tip_deg=-2.0,
+        dihedral_root_deg=1.0,
+        dihedral_tip_deg=6.0,
+        dihedral_exponent=1.5,
+        tail_area_m2=3.0,
+        cg_xc=0.30,
+        segment_lengths_m=build_segment_plan(
+            half_span_m=17.0,
+            min_segment_length_m=1.0,
+            max_segment_length_m=3.0,
+        ),
+    )
+    station_points = [
+        {
+            "case_label": "reference_avl_case",
+            "trim_cl": 0.90,
+            "trim_cd_induced": 0.010,
+            "trim_span_efficiency": 0.70,
+        }
+    ]
+
+    summary = concept_pipeline._avl_oswald_efficiency_from_station_points(
+        concept=concept,
+        station_points=station_points,
+    )
+
+    expected_ar = 34.0**2 / 30.0
+    assert summary is not None
+    assert summary["efficiency"] == pytest.approx(0.90**2 / (3.141592653589793 * expected_ar * 0.010))
+    assert summary["source"] == "avl_trim_force_totals_cdi_formula"
+    assert summary["avl_reported_span_efficiency"] == pytest.approx(0.70)
+
+
 def _load_concept_cli_module():
     script_path = Path(__file__).resolve().parents[1] / "scripts" / "birdman_upstream_concept_design.py"
     spec = importlib.util.spec_from_file_location("birdman_upstream_concept_design", script_path)

@@ -84,6 +84,30 @@ def test_resample_spanwise_load_to_stations_matches_station_layout() -> None:
     assert resampled.dynamic_pressure > 0.0
 
 
+def test_parse_avl_force_totals_extracts_induced_drag_and_span_efficiency(tmp_path: Path) -> None:
+    force_path = tmp_path / "concept_trim.ft"
+    force_path.write_text(
+        "\n".join(
+            [
+                "  Alpha =  -4.02177",
+                "  CLtot =   0.64371",
+                "  CDvis =   0.00000     CDind = 0.0095943",
+                "  CYff  =   0.00000         e =    0.3874    | Plane",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = concept_avl_loader._parse_avl_force_totals(force_path)
+
+    assert payload is not None
+    assert payload["aoa_trim_deg"] == pytest.approx(-4.02177)
+    assert payload["cl_trim"] == pytest.approx(0.64371)
+    assert payload["cd_induced"] == pytest.approx(0.0095943)
+    assert payload["span_efficiency"] == pytest.approx(0.3874)
+
+
 def test_avl_zone_payload_from_spanwise_load_preserves_station_y() -> None:
     concept = _sample_concept()
     stations = build_linear_wing_stations(concept, stations_per_half=7)
@@ -104,6 +128,30 @@ def test_avl_zone_payload_from_spanwise_load_preserves_station_y() -> None:
     assert payload["tip"]["points"][-1]["station_y_m"] == stations[-1].y_m
     assert payload["tip"]["points"][-1]["chord_m"] == pytest.approx(resampled.chord[-1])
     assert all(point["weight"] > 0.0 for zone in payload.values() for point in zone["points"])
+
+
+def test_avl_zone_payload_preserves_trim_force_totals_for_mission_drag() -> None:
+    concept = _sample_concept()
+    stations = build_linear_wing_stations(concept, stations_per_half=7)
+    resampled = resample_spanwise_load_to_stations(
+        spanwise_load=_sample_spanwise_load(),
+        stations=stations,
+    )
+
+    payload = avl_zone_payload_from_spanwise_load(
+        spanwise_load=resampled,
+        stations=stations,
+        case_label="reference_avl_case",
+        trim_totals={
+            "cl_trim": 0.64371,
+            "cd_induced": 0.0095943,
+            "span_efficiency": 0.3874,
+        },
+    )
+
+    assert payload["root"]["design_cases"][0]["trim_cl"] == pytest.approx(0.64371)
+    assert payload["root"]["design_cases"][0]["trim_cd_induced"] == pytest.approx(0.0095943)
+    assert payload["root"]["points"][0]["trim_span_efficiency"] == pytest.approx(0.3874)
 
 
 def test_avl_zone_payload_from_spanwise_load_uses_temperature_table_viscosity() -> None:

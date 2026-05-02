@@ -6,6 +6,8 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
+from hpa_mdo.concept.zone_requirements import default_zone_definitions
+
 
 def _validate_stations_rows(stations_rows: list[dict]) -> None:
     if not stations_rows:
@@ -27,6 +29,88 @@ def _validate_stations_rows(stations_rows: list[dict]) -> None:
 def _safe_identifier(value: str) -> str:
     cleaned = "".join(ch.lower() if ch.isalnum() else "_" for ch in value)
     return cleaned.strip("_") or "concept"
+
+
+def _normalize_airfoil_coordinates(
+    coordinates: object,
+) -> tuple[tuple[float, float], ...]:
+    if not isinstance(coordinates, list | tuple):
+        raise ValueError("Airfoil coordinates must be an array of [x, y] pairs.")
+
+    normalized: list[tuple[float, float]] = []
+    for point in coordinates:
+        if not isinstance(point, list | tuple) or len(point) < 2:
+            raise ValueError("Airfoil coordinate entries must be [x, y] pairs.")
+        normalized.append((float(point[0]), float(point[1])))
+
+    if len(normalized) < 3:
+        raise ValueError("Airfoil coordinates must contain at least three points.")
+    return tuple(normalized)
+
+
+def _write_selected_airfoil_dat_files(
+    *,
+    bundle_dir: Path,
+    airfoil_templates: dict[str, Any],
+) -> dict[str, Path]:
+    airfoil_dir = Path(bundle_dir) / "selected_airfoils"
+    written_paths: dict[str, Path] = {}
+
+    for zone_name, template in airfoil_templates.items():
+        if not isinstance(template, dict) or "coordinates" not in template:
+            continue
+        coordinates = _normalize_airfoil_coordinates(template.get("coordinates"))
+        geometry_hash = str(template.get("geometry_hash", zone_name))[:12]
+        dat_path = airfoil_dir / f"{zone_name}-{geometry_hash}.dat"
+        dat_path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [str(template.get("template_id", f"{zone_name}-selected"))]
+        lines.extend(f"{float(x):.8f} {float(y):.8f}" for x, y in coordinates)
+        dat_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        written_paths[str(zone_name)] = dat_path.resolve()
+    return written_paths
+
+
+def _zone_name_for_span_fraction(
+    span_fraction: float,
+    *,
+    available_zones: set[str],
+) -> str | None:
+    if not available_zones:
+        return None
+    clamped_fraction = min(max(float(span_fraction), 0.0), 1.0)
+    zone_definitions = default_zone_definitions()
+    for zone_index, zone in enumerate(zone_definitions):
+        is_last_zone = zone_index == len(zone_definitions) - 1
+        in_zone = zone.y0_frac <= clamped_fraction < zone.y1_frac
+        if is_last_zone and clamped_fraction <= zone.y1_frac:
+            in_zone = zone.y0_frac <= clamped_fraction <= zone.y1_frac
+        if in_zone and zone.name in available_zones:
+            return str(zone.name)
+
+    zone_midpoints = {
+        str(zone.name): 0.5 * (float(zone.y0_frac) + float(zone.y1_frac))
+        for zone in zone_definitions
+        if zone.name in available_zones
+    }
+    if zone_midpoints:
+        return min(
+            zone_midpoints,
+            key=lambda name: abs(zone_midpoints[name] - clamped_fraction),
+        )
+    return sorted(available_zones)[0]
+
+
+def _airfoil_zone_for_station(
+    *,
+    station_row: dict[str, Any],
+    half_span_m: float,
+    zone_airfoil_paths: dict[str, Path],
+) -> str | None:
+    eta = 0.0 if half_span_m <= 0.0 else float(station_row["y_m"]) / half_span_m
+    return _zone_name_for_span_fraction(
+        eta,
+        available_zones=set(zone_airfoil_paths),
+    )
 
 
 def _naca_4_series_params(name: str) -> tuple[float, float, float]:
@@ -88,6 +172,51 @@ def _airfoil_block(*, xsec_idx: int, xsec_var: str, label: str) -> str:
     )
 
 
+def _file_airfoil_block(
+    *,
+    xsec_idx: int,
+    xsec_var: str,
+    dat_path: Path,
+    label: str,
+    xsec_surf_var: str = "xsec_surf",
+) -> str:
+    safe_path = str(dat_path).replace("\\", "/")
+    return textwrap.dedent(
+        f"""\
+            // Airfoil: {label}
+            ChangeXSecShape( {xsec_surf_var}, {xsec_idx}, XS_FILE_AIRFOIL );
+            ReadFileAirfoil( {xsec_var}, "{safe_path}" );
+        """
+    )
+
+
+def _main_wing_airfoil_block(
+    *,
+    xsec_idx: int,
+    xsec_var: str,
+    station_row: dict[str, Any],
+    half_span_m: float,
+    zone_airfoil_paths: dict[str, Path],
+) -> str:
+    zone_name = _airfoil_zone_for_station(
+        station_row=station_row,
+        half_span_m=half_span_m,
+        zone_airfoil_paths=zone_airfoil_paths,
+    )
+    if zone_name is not None:
+        return _file_airfoil_block(
+            xsec_idx=xsec_idx,
+            xsec_var=xsec_var,
+            dat_path=zone_airfoil_paths[zone_name],
+            label=f"{zone_name} selected CST airfoil",
+        )
+    return _airfoil_block(
+        xsec_idx=xsec_idx,
+        xsec_var=xsec_var,
+        label="NACA 0012",
+    )
+
+
 def _horizontal_tail_proxy_block(spec: dict[str, Any] | None) -> str:
     if spec is None:
         return ""
@@ -134,6 +263,28 @@ def _assign_naca_4_series_api(vsp: Any, xsec_surf: str, xsec_idx: int, label: st
     vsp.SetParmVal(vsp.GetXSecParm(xsec, "ThickChord"), thick_chord)
 
 
+def _assign_main_wing_airfoil_api(
+    vsp: Any,
+    xsec_surf: str,
+    xsec_idx: int,
+    *,
+    station_row: dict[str, Any],
+    half_span_m: float,
+    zone_airfoil_paths: dict[str, Path],
+) -> None:
+    zone_name = _airfoil_zone_for_station(
+        station_row=station_row,
+        half_span_m=half_span_m,
+        zone_airfoil_paths=zone_airfoil_paths,
+    )
+    if zone_name is None:
+        _assign_naca_4_series_api(vsp, xsec_surf, xsec_idx, "NACA 0012")
+        return
+    vsp.ChangeXSecShape(xsec_surf, xsec_idx, vsp.XS_FILE_AIRFOIL)
+    xsec = vsp.GetXSec(xsec_surf, xsec_idx)
+    vsp.ReadFileAirfoil(xsec, str(zone_airfoil_paths[zone_name]))
+
+
 def _add_horizontal_tail_proxy_api(
     vsp: Any,
     *,
@@ -174,6 +325,7 @@ def _write_concept_openvsp_vsp3_api(
     concept_id: str,
     concept_config: dict[str, Any],
     stations_rows: list[dict],
+    zone_airfoil_paths: dict[str, Path],
 ) -> dict[str, Any]:
     target_path = Path(bundle_dir) / "concept_openvsp.vsp3"
     try:
@@ -196,11 +348,19 @@ def _write_concept_openvsp_vsp3_api(
         wing_id = vsp.AddGeom("WING")
         vsp.SetGeomName(wing_id, wing_name)
         xsec_surf = vsp.GetXSecSurf(wing_id, 0)
+        half_span_m = max(float(row["y_m"]) for row in stations_rows)
 
         for _ in range(n_segments - 1):
             vsp.InsertXSec(wing_id, 1, vsp.XS_FOUR_SERIES)
 
-        _assign_naca_4_series_api(vsp, xsec_surf, 0, "NACA 0012")
+        _assign_main_wing_airfoil_api(
+            vsp,
+            xsec_surf,
+            0,
+            station_row=stations_rows[0],
+            half_span_m=half_span_m,
+            zone_airfoil_paths=zone_airfoil_paths,
+        )
         root_xsec = vsp.GetXSec(xsec_surf, 0)
         vsp.SetParmVal(
             vsp.GetXSecParm(root_xsec, "Twist"),
@@ -234,7 +394,14 @@ def _write_concept_openvsp_vsp3_api(
             vsp.SetParmVal(vsp.GetXSecParm(xsec, "Dihedral"), local_dihedral_deg)
             vsp.SetParmVal(vsp.GetXSecParm(xsec, "Twist"), float(outboard["twist_deg"]))
             vsp.Update()
-            _assign_naca_4_series_api(vsp, xsec_surf, outboard_idx, "NACA 0012")
+            _assign_main_wing_airfoil_api(
+                vsp,
+                xsec_surf,
+                outboard_idx,
+                station_row=outboard,
+                half_span_m=half_span_m,
+                zone_airfoil_paths=zone_airfoil_paths,
+            )
 
         vsp.SetParmVal(vsp.FindParm(wing_id, "Sym_Planar_Flag", "Sym"), vsp.SYM_XZ)
         tail_spec = _add_horizontal_tail_proxy_api(vsp, concept_config=concept_config)
@@ -264,6 +431,7 @@ def build_concept_openvsp_metadata(
     concept_config: dict[str, Any],
     stations_rows: list[dict],
     airfoil_templates: dict[str, Any],
+    zone_airfoil_paths: dict[str, Path],
     lofting_guides: dict[str, Any],
     prop_assumption: dict[str, Any],
     concept_summary: dict[str, Any],
@@ -289,6 +457,15 @@ def build_concept_openvsp_metadata(
         },
         "stations": stations_rows,
         "airfoil_templates": airfoil_templates,
+        "openvsp_airfoil_files": {
+            str(zone_name): str(path)
+            for zone_name, path in zone_airfoil_paths.items()
+        },
+        "main_wing_airfoil_policy": (
+            "selected_cst_dat_files"
+            if zone_airfoil_paths
+            else "naca0012_fallback_no_template_coordinates"
+        ),
         "lofting_guides": lofting_guides,
         "prop_assumption": prop_assumption,
         "concept_summary": concept_summary,
@@ -301,6 +478,7 @@ def build_concept_openvsp_vspscript(
     concept_id: str,
     concept_config: dict[str, Any],
     stations_rows: list[dict],
+    zone_airfoil_paths: dict[str, Path] | None = None,
 ) -> str:
     _validate_stations_rows(stations_rows)
 
@@ -309,10 +487,15 @@ def build_concept_openvsp_vspscript(
 
     script_target = (bundle_dir / "concept_openvsp.vsp3").as_posix()
     root_twist = float(stations_rows[0]["twist_deg"])
-    root_xsec_block = _airfoil_block(
+    half_span_m = max(float(row["y_m"]) for row in stations_rows)
+    zone_airfoil_paths = dict(zone_airfoil_paths or {})
+    root_xsec_var = "root_xs"
+    root_xsec_block = _main_wing_airfoil_block(
         xsec_idx=0,
-        xsec_var='GetXSec( xsec_surf, 0 )',
-        label="NACA 0012",
+        xsec_var=root_xsec_var,
+        station_row=stations_rows[0],
+        half_span_m=half_span_m,
+        zone_airfoil_paths=zone_airfoil_paths,
     )
     segment_lines: list[str] = []
 
@@ -320,6 +503,7 @@ def build_concept_openvsp_vspscript(
         segment_lines.append(
             '    // Single-station fallback: preserve a minimal, OpenVSP-readable wing.'
         )
+        segment_lines.append(f"    string {root_xsec_var} = GetXSec( xsec_surf, 0 );")
         segment_lines.append(textwrap.indent(root_xsec_block, "    "))
         segment_lines.append(
             f'    SetParmVal( GetXSecParm( GetXSec( xsec_surf, 0 ), "Twist" ), {root_twist:.6f} );'
@@ -329,6 +513,7 @@ def build_concept_openvsp_vspscript(
         for _ in range(n_segments - 1):
             segment_lines.append('    InsertXSec( wing_id, 1, XS_FOUR_SERIES );')
 
+        segment_lines.append(f"    string {root_xsec_var} = GetXSec( xsec_surf, 0 );")
         segment_lines.append(textwrap.indent(root_xsec_block, "    "))
         segment_lines.append(
             f'    SetParmVal( GetXSecParm( GetXSec( xsec_surf, 0 ), "Twist" ), {root_twist:.6f} );'
@@ -371,10 +556,12 @@ def build_concept_openvsp_vspscript(
                 f'    SetParmVal( GetXSecParm( seg{seg_idx}_xs, "Twist" ), {float(outboard["twist_deg"]):.6f} );'
             )
             segment_lines.append("    Update();")
-            outboard_block = _airfoil_block(
+            outboard_block = _main_wing_airfoil_block(
                 xsec_idx=outboard_idx,
                 xsec_var=f"seg{seg_idx}_xs",
-                label="NACA 0012",
+                station_row=outboard,
+                half_span_m=half_span_m,
+                zone_airfoil_paths=zone_airfoil_paths,
             )
             segment_lines.append(textwrap.indent(outboard_block, "    "))
 
@@ -434,15 +621,24 @@ def write_concept_openvsp_handoff(
         concept_config=concept_config,
         stations_rows=stations_rows,
         airfoil_templates=airfoil_templates,
+        zone_airfoil_paths=_write_selected_airfoil_dat_files(
+            bundle_dir=bundle_dir,
+            airfoil_templates=airfoil_templates,
+        ),
         lofting_guides=lofting_guides,
         prop_assumption=prop_assumption,
         concept_summary=concept_summary,
     )
+    zone_airfoil_paths = {
+        str(zone_name): Path(path)
+        for zone_name, path in metadata["openvsp_airfoil_files"].items()
+    }
     script_text = build_concept_openvsp_vspscript(
         bundle_dir=bundle_dir,
         concept_id=concept_id,
         concept_config=concept_config,
         stations_rows=stations_rows,
+        zone_airfoil_paths=zone_airfoil_paths,
     )
 
     metadata_path = bundle_dir / "concept_openvsp_metadata.json"
@@ -453,6 +649,7 @@ def write_concept_openvsp_handoff(
         concept_id=concept_id,
         concept_config=concept_config,
         stations_rows=stations_rows,
+        zone_airfoil_paths=zone_airfoil_paths,
     )
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return script_path, metadata_path

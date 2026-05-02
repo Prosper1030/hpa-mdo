@@ -432,6 +432,11 @@ def _flatten_zone_points(
                     ),
                     "load_factor": _numeric_value(point.get("load_factor")) or 1.0,
                     "case_reason": point.get("case_reason"),
+                    "trim_cl": _numeric_value(point.get("trim_cl")),
+                    "trim_cd_induced": _numeric_value(point.get("trim_cd_induced")),
+                    "trim_span_efficiency": _numeric_value(
+                        point.get("trim_span_efficiency")
+                    ),
                     "reference_speed_mps": _numeric_value(zone_data.get("reference_speed_mps")),
                     "reference_gross_mass_kg": _numeric_value(zone_data.get("reference_gross_mass_kg")),
                 }
@@ -1929,6 +1934,95 @@ def _shaft_power_required_w(
     return shaft_power_w
 
 
+def _avl_oswald_efficiency_from_station_points(
+    *,
+    concept: GeometryConcept,
+    station_points: list[dict[str, float]],
+) -> dict[str, Any] | None:
+    records = _avl_oswald_efficiency_records_from_station_points(
+        concept=concept,
+        station_points=station_points,
+    )
+    return None if not records else dict(records[0])
+
+
+def _avl_oswald_efficiency_records_from_station_points(
+    *,
+    concept: GeometryConcept,
+    station_points: list[dict[str, float]],
+) -> list[dict[str, Any]]:
+    aspect_ratio = float(concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9))
+    if aspect_ratio <= 0.0:
+        return []
+
+    records: list[dict[str, Any]] = []
+    seen_keys: set[tuple[str, float, float]] = set()
+    for point in station_points:
+        trim_cl = _numeric_value(point.get("trim_cl"))
+        trim_cd_induced = _numeric_value(point.get("trim_cd_induced"))
+        if trim_cl is None or trim_cd_induced is None or trim_cd_induced <= 0.0:
+            continue
+        efficiency = float(trim_cl) ** 2 / max(
+            math.pi * aspect_ratio * float(trim_cd_induced),
+            1.0e-12,
+        )
+        if not math.isfinite(efficiency) or efficiency <= 0.0:
+            continue
+        case_label = str(point.get("case_label", "reference_avl_case"))
+        key = (case_label, round(float(trim_cl), 8), round(float(trim_cd_induced), 10))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        records.append(
+            {
+                "efficiency": float(efficiency),
+                "source": "avl_trim_force_totals_cdi_formula",
+                "case_label": case_label,
+                "trim_cl": float(trim_cl),
+                "trim_cd_induced": float(trim_cd_induced),
+                "avl_reported_span_efficiency": _numeric_value(
+                    point.get("trim_span_efficiency")
+                ),
+                "evaluation_speed_mps": _numeric_value(point.get("evaluation_speed_mps")),
+                "evaluation_gross_mass_kg": _numeric_value(
+                    point.get("evaluation_gross_mass_kg")
+                ),
+                "load_factor": _numeric_value(point.get("load_factor")) or 1.0,
+            }
+        )
+    records.sort(
+        key=lambda record: (
+            abs(float(record.get("load_factor") or 1.0) - 1.0),
+            float(record["trim_cl"]),
+        )
+    )
+    return records
+
+
+def _select_avl_oswald_efficiency_for_cl(
+    *,
+    avl_records: list[dict[str, Any]],
+    cl_required: float,
+) -> dict[str, Any] | None:
+    if not avl_records:
+        return None
+    level_records = [
+        record
+        for record in avl_records
+        if abs(float(record.get("load_factor") or 1.0) - 1.0) <= 0.05
+    ]
+    candidates = level_records or avl_records
+    selected = min(
+        candidates,
+        key=lambda record: abs(float(record["trim_cl"]) - float(cl_required)),
+    )
+    return {
+        **selected,
+        "selected_for_cl_required": float(cl_required),
+        "selection_rule": "nearest_avl_trim_cl",
+    }
+
+
 def _build_slow_speed_report(
     *,
     cfg: BirdmanConceptConfig,
@@ -2078,7 +2172,11 @@ def _build_concept_mission_summary(
         station_points=cruise_station_points or station_points,
         proxy_cfg=cfg.aero_proxies.oswald_efficiency,
     )
-    oswald_efficiency = float(oswald_efficiency_summary["efficiency"])
+    oswald_efficiency_proxy_value = float(oswald_efficiency_summary["efficiency"])
+    avl_oswald_efficiency_records = _avl_oswald_efficiency_records_from_station_points(
+        concept=concept,
+        station_points=station_points,
+    )
     tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
     tail_cl_required = abs(float(trim_summary.get("tail_cl_required", 0.0)))
     tail_trim_drag_cd = (
@@ -2133,10 +2231,29 @@ def _build_concept_mission_summary(
     for gross_mass_kg in _concept_gross_mass_cases(cfg, concept):
         weight_n = float(gross_mass_kg) * 9.80665
         shaft_power_required_w: list[float] = []
+        oswald_efficiency_by_speed: list[float] = []
+        oswald_efficiency_source_by_speed: list[str] = []
+        oswald_efficiency_selection_by_speed: list[dict[str, Any] | None] = []
         for speed_mps in speed_sweep_mps:
             dynamic_pressure_pa = 0.5 * air_density_kg_per_m3 * speed_mps**2
             cl_required = weight_n / max(dynamic_pressure_pa * concept.wing_area_m2, 1.0e-9)
-            induced_cd = cl_required**2 / max(math.pi * aspect_ratio * oswald_efficiency, 1.0e-9)
+            avl_speed_oswald = _select_avl_oswald_efficiency_for_cl(
+                avl_records=avl_oswald_efficiency_records,
+                cl_required=cl_required,
+            )
+            if avl_speed_oswald is None:
+                oswald_efficiency = oswald_efficiency_proxy_value
+                oswald_efficiency_source = str(oswald_efficiency_summary["source"])
+            else:
+                oswald_efficiency = float(avl_speed_oswald["efficiency"])
+                oswald_efficiency_source = str(avl_speed_oswald["source"])
+            oswald_efficiency_by_speed.append(float(oswald_efficiency))
+            oswald_efficiency_source_by_speed.append(oswald_efficiency_source)
+            oswald_efficiency_selection_by_speed.append(avl_speed_oswald)
+            induced_cd = cl_required**2 / max(
+                math.pi * aspect_ratio * oswald_efficiency,
+                1.0e-9,
+            )
             total_cd = profile_cd + induced_cd + misc_cd + tail_trim_drag_cd + rigging_cd
             drag_n = dynamic_pressure_pa * concept.wing_area_m2 * total_cd
             shaft_power_required_w.append(
@@ -2315,6 +2432,13 @@ def _build_concept_mission_summary(
                 "power_required_w": tuple(power_required_w),
                 "shaft_power_required_w_by_speed": tuple(shaft_power_required_w),
                 "pedal_power_required_w_by_speed": tuple(power_required_w),
+                "oswald_efficiency_by_speed": tuple(oswald_efficiency_by_speed),
+                "oswald_efficiency_source_by_speed": tuple(
+                    oswald_efficiency_source_by_speed
+                ),
+                "oswald_efficiency_selection_by_speed": tuple(
+                    oswald_efficiency_selection_by_speed
+                ),
                 "best_range_unconstrained_m": float(unconstrained_result.best_range_m),
                 "best_range_unconstrained_speed_mps": float(
                     unconstrained_result.best_range_speed_mps
@@ -2344,13 +2468,31 @@ def _build_concept_mission_summary(
             float(item["gross_mass_kg"]),
         ),
     )
+    representative_speed_mps = (
+        worst_case_result.get("best_range_speed_mps")
+        or worst_case_result.get("best_range_unconstrained_speed_mps")
+        or min(speed_sweep_mps)
+    )
+    representative_speed_index = min(
+        range(len(speed_sweep_mps)),
+        key=lambda index: abs(float(speed_sweep_mps[index]) - float(representative_speed_mps)),
+    )
+    representative_oswald_efficiency = float(
+        worst_case_result["oswald_efficiency_by_speed"][representative_speed_index]
+    )
+    representative_oswald_efficiency_source = str(
+        worst_case_result["oswald_efficiency_source_by_speed"][representative_speed_index]
+    )
+    representative_avl_oswald_selection = worst_case_result[
+        "oswald_efficiency_selection_by_speed"
+    ][representative_speed_index]
 
     slow_speed_report = _build_slow_speed_report(
         cfg=cfg,
         concept=concept,
         air_density_kg_per_m3=air_density_kg_per_m3,
         aspect_ratio=aspect_ratio,
-        oswald_efficiency=oswald_efficiency,
+        oswald_efficiency=representative_oswald_efficiency,
         profile_cd=profile_cd,
         misc_cd=misc_cd,
         tail_trim_drag_cd=tail_trim_drag_cd,
@@ -2451,8 +2593,22 @@ def _build_concept_mission_summary(
         "drivetrain_loss_w_at_best_range": drivetrain_loss_w_at_best_range,
         "slow_speed_report": slow_speed_report,
         "tail_cl_required_for_trim": tail_cl_required,
-        "oswald_efficiency_proxy": oswald_efficiency,
-        "oswald_efficiency_source": str(oswald_efficiency_summary["source"]),
+        "oswald_efficiency": representative_oswald_efficiency,
+        "oswald_efficiency_source": representative_oswald_efficiency_source,
+        "oswald_efficiency_proxy": oswald_efficiency_proxy_value,
+        "avl_oswald_efficiency": (
+            None
+            if representative_avl_oswald_selection is None
+            else float(representative_avl_oswald_selection["efficiency"])
+        ),
+        "avl_oswald_efficiency_summary": representative_avl_oswald_selection,
+        "avl_oswald_efficiency_records": list(avl_oswald_efficiency_records),
+        "oswald_efficiency_by_speed": list(
+            worst_case_result["oswald_efficiency_by_speed"]
+        ),
+        "oswald_efficiency_source_by_speed": list(
+            worst_case_result["oswald_efficiency_source_by_speed"]
+        ),
         "geometry_oswald_efficiency_proxy": float(
             oswald_efficiency_summary["geometry_efficiency_proxy"]
         ),

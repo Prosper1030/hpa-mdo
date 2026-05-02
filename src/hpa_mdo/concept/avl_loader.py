@@ -920,13 +920,24 @@ def _parse_avl_force_totals(path: Path) -> dict[str, float] | None:
     text = path.read_text(encoding="utf-8", errors="ignore")
     alpha_deg = _parse_avl_scalar(text, "Alpha")
     cl_trim = _parse_avl_scalar(text, "CLtot")
-    if alpha_deg is None and cl_trim is None:
+    cd_induced = _parse_avl_scalar(text, "CDind")
+    span_efficiency = _parse_avl_scalar(text, "e")
+    if (
+        alpha_deg is None
+        and cl_trim is None
+        and cd_induced is None
+        and span_efficiency is None
+    ):
         return None
     payload: dict[str, float] = {}
     if alpha_deg is not None:
         payload["aoa_trim_deg"] = float(alpha_deg)
     if cl_trim is not None:
         payload["cl_trim"] = float(cl_trim)
+    if cd_induced is not None:
+        payload["cd_induced"] = float(cd_induced)
+    if span_efficiency is not None:
+        payload["span_efficiency"] = float(span_efficiency)
     return payload
 
 
@@ -1145,6 +1156,7 @@ def avl_zone_payload_from_spanwise_load(
     evaluation_gross_mass_kg: float | None = None,
     load_factor: float = 1.0,
     case_reason: str | None = None,
+    trim_totals: dict[str, float] | None = None,
 ) -> dict[str, dict[str, Any]]:
     zone_requirements = build_zone_requirements(
         spanwise_load=spanwise_load,
@@ -1162,6 +1174,13 @@ def avl_zone_payload_from_spanwise_load(
     )
 
     payload: dict[str, dict[str, Any]] = {}
+    trim_payload = {
+        "trim_cl": None if trim_totals is None else trim_totals.get("cl_trim"),
+        "trim_cd_induced": None if trim_totals is None else trim_totals.get("cd_induced"),
+        "trim_span_efficiency": None
+        if trim_totals is None
+        else trim_totals.get("span_efficiency"),
+    }
     for zone_name, zone_requirement in zone_requirements.items():
         station_positions = zone_positions[zone_name]
         if len(station_positions) != len(zone_requirement.points):
@@ -1186,6 +1205,7 @@ def avl_zone_payload_from_spanwise_load(
                     "load_factor": float(load_factor),
                     "case_weight": float(case_weight),
                     "case_reason": None if case_reason is None else str(case_reason),
+                    **trim_payload,
                 }
             ],
             "points": [
@@ -1208,6 +1228,7 @@ def avl_zone_payload_from_spanwise_load(
                     ),
                     "load_factor": float(load_factor),
                     "case_reason": None if case_reason is None else str(case_reason),
+                    **trim_payload,
                 }
                 for point, station_y_m in zip(
                     zone_requirement.points,
@@ -1320,6 +1341,7 @@ def load_zone_requirements_from_avl(
             evaluation_gross_mass_kg=evaluation_gross_mass_kg,
             load_factor=load_factor,
             case_reason=str(case_spec.get("case_reason", case_label)),
+            trim_totals=trim_totals,
         )
         design_case_summaries.append(
             {
@@ -1334,6 +1356,16 @@ def load_zone_requirements_from_avl(
                 "trim_aoa_deg": float(trim_totals["aoa_trim_deg"]),
                 "trim_cl": float(trim_totals["cl_trim"]),
                 "cl_required": float(cl_required),
+                "trim_cd_induced": (
+                    None
+                    if trim_totals.get("cd_induced") is None
+                    else float(trim_totals["cd_induced"])
+                ),
+                "trim_span_efficiency": (
+                    None
+                    if trim_totals.get("span_efficiency") is None
+                    else float(trim_totals["span_efficiency"])
+                ),
             }
         )
         for zone_name, zone_payload in case_payload.items():
