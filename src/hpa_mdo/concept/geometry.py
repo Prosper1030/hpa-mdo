@@ -13,8 +13,6 @@ from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.jig_shape import estimate_tip_deflection
 from hpa_mdo.concept.lift_wire import estimate_lift_wire_tension_n
 from hpa_mdo.concept.mass_closure import (
-    close_area_mass,
-    estimate_fixed_planform_mass,
     estimate_tube_system_mass_kg,
 )
 
@@ -799,96 +797,6 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             )
         wing_area_m2 = initial_wing_area_m2
         design_gross_mass_kg = float(cfg.mass.design_gross_mass_kg)
-        if bool(cfg.mass_closure.enabled):
-            tube_mass_kg = _resolve_tube_system_mass_kg(cfg.mass_closure, span_m=span_m)
-            try:
-                if planform_parameterization == "mean_chord":
-                    fixed_planform_mass = estimate_fixed_planform_mass(
-                        wing_area_m2=initial_wing_area_m2,
-                        pilot_mass_kg=float(cfg.mass.design_pilot_mass_kg),
-                        fixed_non_area_aircraft_mass_kg=float(
-                            cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
-                        ),
-                        wing_areal_density_kgpm2=float(
-                            cfg.mass_closure.rib_skin_areal_density_kgpm2
-                        ),
-                        tube_system_mass_kg=tube_mass_kg,
-                        wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
-                        wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
-                        extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
-                    )
-                    wing_area_m2 = float(fixed_planform_mass.wing_area_m2)
-                    design_gross_mass_kg = float(fixed_planform_mass.gross_mass_kg)
-                    wing_loading_target_Npm2 = float(
-                        design_gross_mass_kg * 9.80665 / max(wing_area_m2, 1.0e-9)
-                    )
-                    mass_closure = None
-                else:
-                    mass_closure = close_area_mass(
-                        wing_loading_target_Npm2=wing_loading_target_Npm2,
-                        pilot_mass_kg=float(cfg.mass.design_pilot_mass_kg),
-                        fixed_non_area_aircraft_mass_kg=float(
-                            cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
-                        ),
-                        wing_areal_density_kgpm2=float(
-                            cfg.mass_closure.rib_skin_areal_density_kgpm2
-                        ),
-                        tube_system_mass_kg=tube_mass_kg,
-                        wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
-                        wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
-                        extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
-                        initial_wing_area_m2=initial_wing_area_m2,
-                        tolerance_m2=float(cfg.mass_closure.area_tolerance_m2),
-                        max_iterations=int(cfg.mass_closure.max_iterations),
-                    )
-            except ValueError as exc:
-                rejected_concepts.append(
-                    _geometry_rejection(
-                        sample_index=sample_index,
-                        reason="mass_area_closure_failed",
-                        primary_values=primary_values,
-                        secondary_values=secondary_values,
-                        error=str(exc),
-                    )
-                )
-                continue
-            if mass_closure is not None and not mass_closure.converged:
-                rejected_concepts.append(
-                    _geometry_rejection(
-                        sample_index=sample_index,
-                        reason="mass_area_closure_failed",
-                        primary_values=primary_values,
-                        secondary_values=secondary_values,
-                        area_residual_m2=float(mass_closure.area_residual_m2),
-                    )
-                )
-                continue
-            candidate_gross_mass_kg = (
-                float(mass_closure.closed_gross_mass_kg)
-                if mass_closure is not None
-                else float(design_gross_mass_kg)
-            )
-            candidate_wing_area_m2 = (
-                float(mass_closure.closed_wing_area_m2)
-                if mass_closure is not None
-                else float(wing_area_m2)
-            )
-            if candidate_gross_mass_kg > float(cfg.mass_closure.gross_mass_hard_max_kg):
-                rejected_concepts.append(
-                    _geometry_rejection(
-                        sample_index=sample_index,
-                        reason="mass_hard_max_exceeded",
-                        primary_values=primary_values,
-                        secondary_values=secondary_values,
-                        closed_gross_mass_kg=float(candidate_gross_mass_kg),
-                        gross_mass_hard_max_kg=float(cfg.mass_closure.gross_mass_hard_max_kg),
-                        closed_wing_area_m2=float(candidate_wing_area_m2),
-                    )
-                )
-                continue
-            if mass_closure is not None:
-                wing_area_m2 = float(mass_closure.closed_wing_area_m2)
-                design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
 
         tip_protection = cfg.geometry_family.planform_tip_protection
         if bool(tip_protection.enabled) and bool(

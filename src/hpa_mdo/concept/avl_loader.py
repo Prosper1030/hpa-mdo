@@ -66,8 +66,6 @@ def _concept_design_gross_mass_kg(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
 ) -> float:
-    if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
-        return float(concept.design_gross_mass_kg)
     return float(cfg.mass.design_gross_mass_kg)
 
 
@@ -76,16 +74,7 @@ def _concept_gross_mass_cases(
     concept: GeometryConcept,
 ) -> tuple[float, ...]:
     if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
-        return tuple(
-            sorted(
-                {
-                    *(float(value) for value in cfg.mass.gross_mass_sweep_kg),
-                    float(_concept_design_gross_mass_kg(cfg, concept)),
-                }
-            )
-        )
-    if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
-        return (float(concept.design_gross_mass_kg),)
+        return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
     return (float(cfg.mass.design_gross_mass_kg),)
 
 

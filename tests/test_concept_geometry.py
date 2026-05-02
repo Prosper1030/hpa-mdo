@@ -6,13 +6,11 @@ from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
     GeometryConcept,
     _lambda_min_from_tip_chord,
-    _resolve_tube_system_mass_kg,
     build_linear_wing_stations,
     build_segment_plan,
     enumerate_geometry_concepts,
     get_last_geometry_enumeration_diagnostics,
 )
-from hpa_mdo.concept.mass_closure import close_area_mass
 
 
 def test_build_segment_plan_respects_min_and_max_segment_length():
@@ -291,7 +289,7 @@ def test_enumerate_geometry_concepts_generates_multiple_candidates():
     )
 
 
-def test_enumerate_geometry_concepts_uses_area_coupled_design_mass():
+def test_enumerate_geometry_concepts_keeps_configured_design_mass_authority():
     cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     payload = load_concept_config(cfg_path).model_dump(mode="python")
     payload["geometry_family"]["planform_parameterization"] = "wing_loading"
@@ -303,28 +301,14 @@ def test_enumerate_geometry_concepts_uses_area_coupled_design_mass():
         "tip_twist_deg": {"min": -1.0, "max": -1.0},
     }
     cfg = BirdmanConceptConfig.model_validate(payload)
-    expected_tube_mass_kg = _resolve_tube_system_mass_kg(
-        cfg.mass_closure, span_m=32.0
-    )
-    expected = close_area_mass(
-        wing_loading_target_Npm2=34.0,
-        pilot_mass_kg=cfg.mass.design_pilot_mass_kg,
-        fixed_non_area_aircraft_mass_kg=cfg.mass_closure.fixed_nonwing_aircraft_mass_kg,
-        wing_areal_density_kgpm2=cfg.mass_closure.rib_skin_areal_density_kgpm2,
-        tube_system_mass_kg=expected_tube_mass_kg,
-        wing_fittings_base_kg=cfg.mass_closure.wing_fittings_base_kg,
-        wire_terminal_mass_kg=cfg.mass_closure.wire_terminal_mass_kg,
-        extra_system_margin_kg=cfg.mass_closure.system_margin_kg,
-        initial_wing_area_m2=cfg.design_gross_weight_n / 34.0,
-    )
 
     concepts = enumerate_geometry_concepts(cfg)
 
     assert len(concepts) == 1
     concept = concepts[0]
-    assert concept.design_gross_mass_kg == pytest.approx(expected.closed_gross_mass_kg)
-    assert concept.wing_area_m2 == pytest.approx(expected.closed_wing_area_m2)
-    assert concept.wing_area_m2 != pytest.approx(cfg.design_gross_weight_n / 34.0)
+    assert concept.design_gross_mass_kg == pytest.approx(cfg.mass.design_gross_mass_kg)
+    assert concept.wing_area_m2 == pytest.approx(cfg.design_gross_weight_n / 34.0)
+    assert concept.wing_loading_target_Npm2 == pytest.approx(34.0)
 
 
 def test_enumerate_geometry_concepts_uses_configured_cg_location():
@@ -581,7 +565,7 @@ def test_spanload_bias_applies_physical_washout_to_twist_controls():
     assert concept.twist_tip_deg == pytest.approx(-2.75 - 8.0 * 0.08)
 
 
-def test_enumerate_geometry_concepts_rejects_mass_closure_above_hard_max():
+def test_enumerate_geometry_concepts_treats_mass_closure_hard_max_as_budget_warning():
     cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     payload = load_concept_config(cfg_path).model_dump(mode="python")
     payload["geometry_family"]["planform_parameterization"] = "wing_loading"
@@ -606,9 +590,10 @@ def test_enumerate_geometry_concepts_rejects_mass_closure_above_hard_max():
     concepts = enumerate_geometry_concepts(cfg)
     diagnostics = get_last_geometry_enumeration_diagnostics()
 
-    assert concepts == ()
+    assert len(concepts) == 1
+    assert concepts[0].design_gross_mass_kg == pytest.approx(cfg.mass.design_gross_mass_kg)
     assert diagnostics is not None
-    assert diagnostics.rejection_reason_counts["mass_hard_max_exceeded"] == 1
+    assert "mass_hard_max_exceeded" not in diagnostics.rejection_reason_counts
 
 
 def test_enumerate_geometry_concepts_tracks_clear_rejection_reasons():

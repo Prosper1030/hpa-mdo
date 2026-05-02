@@ -2044,15 +2044,23 @@ def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() 
 
     assert diagnostics["sizing_archetype"] == "low_speed_large_area_artifact_risk"
     assert closure["model"] == "area_mass_closure_v1_report_only"
-    assert closure["model_authority"] == "unvalidated_first_order_accounting_proxy"
+    assert closure["model_authority"] == "diagnostic_budget_warning_only"
+    assert closure["mass_authority"] == "mass.design_gross_mass_kg"
     assert "not_a_structural_sizing_authority" in closure["limitations"]
     assert closure["closed_wing_area_m2"] > concept.wing_area_m2
     assert closure["closed_gross_mass_kg"] > cfg.mass.design_gross_mass_kg
+    assert closure["estimated_gross_mass_kg"] == pytest.approx(
+        closure["closed_gross_mass_kg"]
+    )
     assert closure["closed_aircraft_empty_mass_kg"] == pytest.approx(
         closure["closed_gross_mass_kg"] - cfg.mass.design_pilot_mass_kg
     )
+    assert closure["estimated_aircraft_empty_mass_kg"] == pytest.approx(
+        closure["closed_aircraft_empty_mass_kg"]
+    )
     assert closure["aircraft_empty_mass_target_range_kg"] == pytest.approx([30.0, 42.0])
     assert closure["aircraft_empty_mass_within_target_range"] is False
+    assert closure["budget_warning"] is True
     assert concept.wing_area_m2 == pytest.approx(48.6)
 
 
@@ -2097,10 +2105,11 @@ def test_mission_summary_uses_configured_mass_sweep_as_primary_cases() -> None:
     )
 
     assert [case["gross_mass_kg"] for case in mission["mass_cases"]] == pytest.approx(
-        [91.0, 98.5, 103.25, 106.0]
+        [91.0, 98.5, 106.0]
     )
-    assert mission["evaluated_gross_mass_kg"] == pytest.approx(103.25)
-    assert mission["primary_gross_mass_kg"] == pytest.approx(103.25)
+    assert mission["evaluated_gross_mass_kg"] == pytest.approx(98.5)
+    assert mission["primary_gross_mass_kg"] == pytest.approx(98.5)
+    assert mission["primary_design_gross_mass_kg"] == pytest.approx(98.5)
     assert mission["worst_case_evaluated_gross_mass_kg"] == pytest.approx(106.0)
 
 
