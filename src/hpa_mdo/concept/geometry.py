@@ -358,6 +358,23 @@ def _sample_secondary_design_variables(cfg, count: int) -> tuple[tuple[float, fl
     return tuple(sampled[:count])
 
 
+def _apply_spanload_bias_washout(
+    *,
+    twist_control_points: tuple[tuple[float, float], ...],
+    spanload_bias: float,
+    washout_gain_deg: float,
+) -> tuple[tuple[float, float], ...]:
+    if spanload_bias <= 0.0 or washout_gain_deg <= 0.0:
+        return twist_control_points
+    return tuple(
+        (
+            float(eta),
+            float(twist_deg) - float(washout_gain_deg) * float(spanload_bias) * float(eta) ** 2,
+        )
+        for eta, twist_deg in twist_control_points
+    )
+
+
 def _geometry_rejection(
     *,
     sample_index: int,
@@ -621,6 +638,11 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             (twist_outer_eta, twist_outer_deg),
             (1.0, tip_twist_deg),
         )
+        twist_control_points = _apply_spanload_bias_washout(
+            twist_control_points=twist_control_points,
+            spanload_bias=spanload_bias,
+            washout_gain_deg=float(cfg.geometry_family.spanload_bias_washout_gain_deg),
+        )
         if any(
             later_twist > earlier_twist
             for (_, earlier_twist), (_, later_twist) in zip(
@@ -870,7 +892,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             root_chord_m=float(root_chord_m),
             tip_chord_m=float(tip_chord_m),
             twist_root_deg=float(cfg.geometry_family.twist_root_deg),
-            twist_tip_deg=float(tip_twist_deg),
+            twist_tip_deg=float(twist_control_points[-1][1]),
             twist_control_points=twist_control_points,
             spanload_bias=float(spanload_bias),
             dihedral_root_deg=float(dihedral_root_deg),

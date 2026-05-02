@@ -656,6 +656,17 @@ class GeometryFamilyConfig(ConceptBaseModel):
             "The root and tip controls are fixed at eta=0 and eta=1."
         ),
     )
+    spanload_bias_washout_gain_deg: float = Field(
+        0.0,
+        ge=0.0,
+        le=30.0,
+        description=(
+            "Additional eta-squared washout in degrees applied as "
+            "spanload_bias_washout_gain_deg * spanload_bias * eta^2. "
+            "This makes the sampled spanload_bias physically visible to AVL "
+            "instead of only affecting coarse fallback spanload proxies."
+        ),
+    )
     cg_xc: float = Field(
         0.30,
         ge=0.0,
