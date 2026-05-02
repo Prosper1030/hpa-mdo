@@ -1896,10 +1896,12 @@ def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() 
 
     assert diagnostics["sizing_archetype"] == "low_speed_large_area_artifact_risk"
     assert closure["model"] == "area_mass_closure_v1_report_only"
+    assert closure["model_authority"] == "unvalidated_first_order_accounting_proxy"
+    assert "not_a_structural_sizing_authority" in closure["limitations"]
     assert closure["closed_wing_area_m2"] > concept.wing_area_m2
     assert closure["closed_gross_mass_kg"] > cfg.mass.design_gross_mass_kg
     assert closure["closed_aircraft_empty_mass_kg"] == pytest.approx(
-        closure["closed_gross_mass_kg"] - cfg.mass.pilot_mass_kg
+        closure["closed_gross_mass_kg"] - cfg.mass.design_pilot_mass_kg
     )
     assert closure["aircraft_empty_mass_target_range_kg"] == pytest.approx([35.0, 42.0])
     assert closure["aircraft_empty_mass_within_target_range"] is False

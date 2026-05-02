@@ -548,6 +548,9 @@ class GeometryPrimaryRangesConfig(ConceptBaseModel):
     span_m: ContinuousRangeConfig = Field(
         default_factory=lambda: ContinuousRangeConfig(min=30.0, max=36.0)
     )
+    mean_chord_m: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=0.82, max=1.10)
+    )
     wing_loading_target_Npm2: ContinuousRangeConfig = Field(
         default_factory=lambda: ContinuousRangeConfig(min=26.0, max=34.0)
     )
@@ -562,6 +565,10 @@ class GeometryPrimaryRangesConfig(ConceptBaseModel):
     def validate_ranges(self) -> GeometryPrimaryRangesConfig:
         if self.span_m.min <= 0.0:
             raise ValueError("geometry_family.primary_ranges.span_m must stay positive.")
+        if self.mean_chord_m.min <= 0.0:
+            raise ValueError(
+                "geometry_family.primary_ranges.mean_chord_m must stay positive."
+            )
         if self.wing_loading_target_Npm2.min <= 0.0:
             raise ValueError(
                 "geometry_family.primary_ranges.wing_loading_target_Npm2 must stay positive."
@@ -593,6 +600,7 @@ class GeometryHardConstraintConfig(ConceptBaseModel):
 
 
 class GeometryFamilyConfig(ConceptBaseModel):
+    planform_parameterization: Literal["wing_loading", "mean_chord"] = "wing_loading"
     sampling: GeometrySamplingConfig = Field(default_factory=GeometrySamplingConfig)
     primary_ranges: GeometryPrimaryRangesConfig = Field(
         default_factory=GeometryPrimaryRangesConfig

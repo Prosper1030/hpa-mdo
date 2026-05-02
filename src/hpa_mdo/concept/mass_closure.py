@@ -66,6 +66,76 @@ class AreaMassClosureResult:
     converged: bool
 
 
+@dataclass(frozen=True)
+class FixedPlanformMassResult:
+    wing_area_m2: float
+    gross_mass_kg: float
+    aircraft_empty_mass_kg: float
+    fixed_mass_kg: float
+    wing_area_dependent_mass_kg: float
+    mass_breakdown_kg: dict[str, float]
+
+
+def estimate_fixed_planform_mass(
+    *,
+    wing_area_m2: float,
+    pilot_mass_kg: float,
+    fixed_non_area_aircraft_mass_kg: float,
+    wing_areal_density_kgpm2: float = 0.22,
+    tube_system_mass_kg: float = 0.0,
+    wing_fittings_base_kg: float = 0.0,
+    wire_terminal_mass_kg: float = 0.0,
+    extra_system_margin_kg: float = 0.0,
+) -> FixedPlanformMassResult:
+    """Estimate mass for a planform whose wing area is already chosen.
+
+    Unlike ``close_area_mass``, this helper does not resize the wing area to
+    hit a wing-loading target. It is therefore the right report-only mass
+    proxy for mean-chord planform sampling, where ``S = b * c_bar`` is a
+    design input and wing loading is a derived consequence.
+    """
+
+    _require_finite_positive(wing_area_m2, "wing_area_m2")
+    _require_finite_positive(pilot_mass_kg, "pilot_mass_kg")
+    _require_finite_positive(
+        fixed_non_area_aircraft_mass_kg,
+        "fixed_non_area_aircraft_mass_kg",
+    )
+    _require_finite_non_negative(wing_areal_density_kgpm2, "wing_areal_density_kgpm2")
+    _require_finite_non_negative(tube_system_mass_kg, "tube_system_mass_kg")
+    _require_finite_non_negative(wing_fittings_base_kg, "wing_fittings_base_kg")
+    _require_finite_non_negative(wire_terminal_mass_kg, "wire_terminal_mass_kg")
+    _require_finite_non_negative(extra_system_margin_kg, "extra_system_margin_kg")
+
+    wing_area_dependent_mass_kg = float(wing_areal_density_kgpm2) * float(wing_area_m2)
+    aircraft_empty_mass_kg = (
+        float(fixed_non_area_aircraft_mass_kg)
+        + float(tube_system_mass_kg)
+        + float(wing_fittings_base_kg)
+        + float(wire_terminal_mass_kg)
+        + float(extra_system_margin_kg)
+        + wing_area_dependent_mass_kg
+    )
+    gross_mass_kg = float(pilot_mass_kg) + aircraft_empty_mass_kg
+    fixed_mass_kg = gross_mass_kg - wing_area_dependent_mass_kg
+    return FixedPlanformMassResult(
+        wing_area_m2=float(wing_area_m2),
+        gross_mass_kg=float(gross_mass_kg),
+        aircraft_empty_mass_kg=float(aircraft_empty_mass_kg),
+        fixed_mass_kg=float(fixed_mass_kg),
+        wing_area_dependent_mass_kg=float(wing_area_dependent_mass_kg),
+        mass_breakdown_kg={
+            "pilot_kg": float(pilot_mass_kg),
+            "fixed_non_area_aircraft_kg": float(fixed_non_area_aircraft_mass_kg),
+            "tube_system_kg": float(tube_system_mass_kg),
+            "wing_fittings_base_kg": float(wing_fittings_base_kg),
+            "wire_terminal_kg": float(wire_terminal_mass_kg),
+            "extra_system_margin_kg": float(extra_system_margin_kg),
+            "wing_area_dependent_kg": float(wing_area_dependent_mass_kg),
+        },
+    )
+
+
 def close_area_mass(
     *,
     wing_loading_target_Npm2: float,

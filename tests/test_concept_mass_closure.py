@@ -2,7 +2,11 @@ import math
 
 import pytest
 
-from hpa_mdo.concept.mass_closure import close_area_mass, estimate_tube_system_mass_kg
+from hpa_mdo.concept.mass_closure import (
+    close_area_mass,
+    estimate_fixed_planform_mass,
+    estimate_tube_system_mass_kg,
+)
 
 
 def test_close_area_mass_penalizes_large_area_low_wing_loading():
@@ -49,6 +53,25 @@ def test_close_area_mass_matches_gpt_pro_baseline_components():
     assert result.closed_wing_area_m2 == pytest.approx(30.17, abs=0.02)
     assert result.closed_gross_mass_kg == pytest.approx(104.63, abs=0.03)
     assert result.mass_breakdown_kg["tube_system_kg"] == pytest.approx(10.5)
+
+
+def test_estimate_fixed_planform_mass_keeps_area_independent_of_mass_proxy():
+    result = estimate_fixed_planform_mass(
+        wing_area_m2=31.5,
+        pilot_mass_kg=64.0,
+        fixed_non_area_aircraft_mass_kg=22.0,
+        wing_areal_density_kgpm2=0.20,
+        tube_system_mass_kg=10.0,
+        wing_fittings_base_kg=1.5,
+        wire_terminal_mass_kg=0.6,
+        extra_system_margin_kg=2.0,
+    )
+
+    assert result.wing_area_m2 == pytest.approx(31.5)
+    assert result.wing_area_dependent_mass_kg == pytest.approx(6.3)
+    assert result.aircraft_empty_mass_kg == pytest.approx(42.4)
+    assert result.gross_mass_kg == pytest.approx(106.4)
+    assert result.mass_breakdown_kg["pilot_kg"] == pytest.approx(64.0)
 
 
 def test_estimate_tube_system_mass_uniform_tube_matches_thin_wall_formula():

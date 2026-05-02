@@ -10,7 +10,11 @@ from scipy.stats import qmc
 
 from hpa_mdo.concept.jig_shape import estimate_tip_deflection_ratio
 from hpa_mdo.concept.lift_wire import estimate_lift_wire_tension_n
-from hpa_mdo.concept.mass_closure import close_area_mass, estimate_tube_system_mass_kg
+from hpa_mdo.concept.mass_closure import (
+    close_area_mass,
+    estimate_fixed_planform_mass,
+    estimate_tube_system_mass_kg,
+)
 
 
 def _resolve_tube_system_mass_kg(mass_closure_cfg, *, span_m: float) -> float:
@@ -56,7 +60,9 @@ class GeometryConcept:
     cg_xc: float
     segment_lengths_m: tuple[float, ...]
     wing_loading_target_Npm2: float | None = None
+    mean_chord_target_m: float | None = None
     wing_area_is_derived: bool = False
+    planform_parameterization: str = "wing_loading"
     design_gross_mass_kg: float | None = None
     dihedral_root_deg: float = 0.0
     dihedral_tip_deg: float = 0.0
@@ -82,6 +88,8 @@ class GeometryConcept:
             raise ValueError("tail_area_m2 must be positive.")
         if self.wing_loading_target_Npm2 is not None and self.wing_loading_target_Npm2 <= 0.0:
             raise ValueError("wing_loading_target_Npm2 must be positive when provided.")
+        if self.mean_chord_target_m is not None and self.mean_chord_target_m <= 0.0:
+            raise ValueError("mean_chord_target_m must be positive when provided.")
         if self.design_gross_mass_kg is not None and self.design_gross_mass_kg <= 0.0:
             raise ValueError("design_gross_mass_kg must be positive when provided.")
         if (
@@ -139,6 +147,8 @@ class GeometryConcept:
 
     @property
     def wing_area_source(self) -> str:
+        if self.planform_parameterization == "mean_chord":
+            return "derived_from_mean_chord_m"
         return (
             "derived_from_wing_loading_target_Npm2"
             if self.wing_area_is_derived
@@ -228,11 +238,19 @@ def _sample_primary_variables(cfg) -> tuple[dict[str, float], ...]:
     def _scale(range_cfg, unit_value: float) -> float:
         return float(range_cfg.min + unit_value * (range_cfg.max - range_cfg.min))
 
+    parameterization = str(cfg.geometry_family.planform_parameterization)
     return tuple(
         {
             "span_m": _scale(ranges.span_m, float(row[0])),
-            "wing_loading_target_Npm2": _scale(
-                ranges.wing_loading_target_Npm2, float(row[1])
+            (
+                "mean_chord_m"
+                if parameterization == "mean_chord"
+                else "wing_loading_target_Npm2"
+            ): _scale(
+                ranges.mean_chord_m
+                if parameterization == "mean_chord"
+                else ranges.wing_loading_target_Npm2,
+                float(row[1]),
             ),
             "taper_ratio": _scale(ranges.taper_ratio, float(row[2])),
             "tip_twist_deg": _scale(ranges.tip_twist_deg, float(row[3])),
@@ -472,7 +490,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
         start=1,
     ):
         span_m = float(primary_values["span_m"])
-        wing_loading_target_Npm2 = float(primary_values["wing_loading_target_Npm2"])
+        planform_parameterization = str(cfg.geometry_family.planform_parameterization)
         taper_ratio = float(primary_values["taper_ratio"])
         tip_twist_deg = float(primary_values["tip_twist_deg"])
         (
@@ -488,31 +506,62 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             "dihedral_exponent": float(dihedral_exponent),
         }
 
-        initial_wing_area_m2 = float(
-            cfg.design_gross_weight_n / max(wing_loading_target_Npm2, 1.0e-9)
-        )
+        mean_chord_target_m: float | None = None
+        if planform_parameterization == "mean_chord":
+            mean_chord_target_m = float(primary_values["mean_chord_m"])
+            initial_wing_area_m2 = float(span_m * mean_chord_target_m)
+            wing_loading_target_Npm2 = float(
+                cfg.design_gross_weight_n / max(initial_wing_area_m2, 1.0e-9)
+            )
+        else:
+            wing_loading_target_Npm2 = float(primary_values["wing_loading_target_Npm2"])
+            initial_wing_area_m2 = float(
+                cfg.design_gross_weight_n / max(wing_loading_target_Npm2, 1.0e-9)
+            )
         wing_area_m2 = initial_wing_area_m2
         design_gross_mass_kg = float(cfg.mass.design_gross_mass_kg)
         if bool(cfg.mass_closure.enabled):
             tube_mass_kg = _resolve_tube_system_mass_kg(cfg.mass_closure, span_m=span_m)
             try:
-                mass_closure = close_area_mass(
-                    wing_loading_target_Npm2=wing_loading_target_Npm2,
-                    pilot_mass_kg=float(cfg.mass.pilot_mass_kg),
-                    fixed_non_area_aircraft_mass_kg=float(
-                        cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
-                    ),
-                    wing_areal_density_kgpm2=float(
-                        cfg.mass_closure.rib_skin_areal_density_kgpm2
-                    ),
-                    tube_system_mass_kg=tube_mass_kg,
-                    wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
-                    wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
-                    extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
-                    initial_wing_area_m2=initial_wing_area_m2,
-                    tolerance_m2=float(cfg.mass_closure.area_tolerance_m2),
-                    max_iterations=int(cfg.mass_closure.max_iterations),
-                )
+                if planform_parameterization == "mean_chord":
+                    fixed_planform_mass = estimate_fixed_planform_mass(
+                        wing_area_m2=initial_wing_area_m2,
+                        pilot_mass_kg=float(cfg.mass.design_pilot_mass_kg),
+                        fixed_non_area_aircraft_mass_kg=float(
+                            cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
+                        ),
+                        wing_areal_density_kgpm2=float(
+                            cfg.mass_closure.rib_skin_areal_density_kgpm2
+                        ),
+                        tube_system_mass_kg=tube_mass_kg,
+                        wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
+                        wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
+                        extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
+                    )
+                    wing_area_m2 = float(fixed_planform_mass.wing_area_m2)
+                    design_gross_mass_kg = float(fixed_planform_mass.gross_mass_kg)
+                    wing_loading_target_Npm2 = float(
+                        design_gross_mass_kg * 9.80665 / max(wing_area_m2, 1.0e-9)
+                    )
+                    mass_closure = None
+                else:
+                    mass_closure = close_area_mass(
+                        wing_loading_target_Npm2=wing_loading_target_Npm2,
+                        pilot_mass_kg=float(cfg.mass.design_pilot_mass_kg),
+                        fixed_non_area_aircraft_mass_kg=float(
+                            cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
+                        ),
+                        wing_areal_density_kgpm2=float(
+                            cfg.mass_closure.rib_skin_areal_density_kgpm2
+                        ),
+                        tube_system_mass_kg=tube_mass_kg,
+                        wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
+                        wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
+                        extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
+                        initial_wing_area_m2=initial_wing_area_m2,
+                        tolerance_m2=float(cfg.mass_closure.area_tolerance_m2),
+                        max_iterations=int(cfg.mass_closure.max_iterations),
+                    )
             except ValueError as exc:
                 rejected_concepts.append(
                     _geometry_rejection(
@@ -524,7 +573,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                     )
                 )
                 continue
-            if not mass_closure.converged:
+            if mass_closure is not None and not mass_closure.converged:
                 rejected_concepts.append(
                     _geometry_rejection(
                         sample_index=sample_index,
@@ -535,23 +584,32 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                     )
                 )
                 continue
-            if mass_closure.closed_gross_mass_kg > float(
-                cfg.mass_closure.gross_mass_hard_max_kg
-            ):
+            candidate_gross_mass_kg = (
+                float(mass_closure.closed_gross_mass_kg)
+                if mass_closure is not None
+                else float(design_gross_mass_kg)
+            )
+            candidate_wing_area_m2 = (
+                float(mass_closure.closed_wing_area_m2)
+                if mass_closure is not None
+                else float(wing_area_m2)
+            )
+            if candidate_gross_mass_kg > float(cfg.mass_closure.gross_mass_hard_max_kg):
                 rejected_concepts.append(
                     _geometry_rejection(
                         sample_index=sample_index,
                         reason="mass_hard_max_exceeded",
                         primary_values=primary_values,
                         secondary_values=secondary_values,
-                        closed_gross_mass_kg=float(mass_closure.closed_gross_mass_kg),
+                        closed_gross_mass_kg=float(candidate_gross_mass_kg),
                         gross_mass_hard_max_kg=float(cfg.mass_closure.gross_mass_hard_max_kg),
-                        closed_wing_area_m2=float(mass_closure.closed_wing_area_m2),
+                        closed_wing_area_m2=float(candidate_wing_area_m2),
                     )
                 )
                 continue
-            wing_area_m2 = float(mass_closure.closed_wing_area_m2)
-            design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
+            if mass_closure is not None:
+                wing_area_m2 = float(mass_closure.closed_wing_area_m2)
+                design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
 
         jig_gate_cfg = getattr(cfg, "jig_shape_gate", None)
         accepted_tip_deflection_ratio: float | None = None
@@ -641,7 +699,9 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             cg_xc=float(cfg.geometry_family.cg_xc),
             segment_lengths_m=segment_lengths_m,
             wing_loading_target_Npm2=float(wing_loading_target_Npm2),
+            mean_chord_target_m=mean_chord_target_m,
             wing_area_is_derived=True,
+            planform_parameterization=planform_parameterization,
             design_gross_mass_kg=float(design_gross_mass_kg),
             tip_deflection_ratio_at_design_mass=accepted_tip_deflection_ratio,
             lift_wire_tension_at_limit_n=accepted_lift_wire_tension_n,

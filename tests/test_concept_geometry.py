@@ -240,15 +240,17 @@ def test_enumerate_geometry_concepts_generates_multiple_candidates():
 
     assert diagnostics is not None
     assert diagnostics.sampling_mode == "latin_hypercube"
-    assert diagnostics.requested_sample_count == 48
+    assert diagnostics.requested_sample_count == 96
     assert 1 <= len(concepts) <= diagnostics.requested_sample_count
 
     first = concepts[0]
     assert first.wing_loading_target_Npm2 is not None
+    assert first.mean_chord_target_m is not None
     assert first.wing_area_is_derived is True
-    assert first.design_gross_mass_kg != pytest.approx(cfg.mass.design_gross_mass_kg)
-    assert first.wing_area_m2 == pytest.approx(
-        first.design_gross_mass_kg * 9.80665 / first.wing_loading_target_Npm2
+    assert first.wing_area_m2 == pytest.approx(first.span_m * first.mean_chord_target_m)
+    assert first.wing_area_source == "derived_from_mean_chord_m"
+    assert first.wing_loading_target_Npm2 == pytest.approx(
+        first.design_gross_mass_kg * 9.80665 / first.wing_area_m2
     )
     assert first.root_chord_m == pytest.approx(
         2.0
@@ -259,16 +261,17 @@ def test_enumerate_geometry_concepts_generates_multiple_candidates():
     assert sum(first.segment_lengths_m) == pytest.approx(first.span_m / 2.0)
     assert any(abs(concept.span_m - round(concept.span_m)) > 1.0e-6 for concept in concepts)
     assert any(
-        abs(float(concept.wing_loading_target_Npm2) - round(float(concept.wing_loading_target_Npm2)))
+        abs(float(concept.mean_chord_target_m) - round(float(concept.mean_chord_target_m)))
         > 1.0e-6
         for concept in concepts
-        if concept.wing_loading_target_Npm2 is not None
+        if concept.mean_chord_target_m is not None
     )
 
 
 def test_enumerate_geometry_concepts_uses_area_coupled_design_mass():
     cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["geometry_family"]["planform_parameterization"] = "wing_loading"
     payload["geometry_family"]["sampling"]["sample_count"] = 1
     payload["geometry_family"]["primary_ranges"] = {
         "span_m": {"min": 32.0, "max": 32.0},
@@ -282,7 +285,7 @@ def test_enumerate_geometry_concepts_uses_area_coupled_design_mass():
     )
     expected = close_area_mass(
         wing_loading_target_Npm2=34.0,
-        pilot_mass_kg=cfg.mass.pilot_mass_kg,
+        pilot_mass_kg=cfg.mass.design_pilot_mass_kg,
         fixed_non_area_aircraft_mass_kg=cfg.mass_closure.fixed_nonwing_aircraft_mass_kg,
         wing_areal_density_kgpm2=cfg.mass_closure.rib_skin_areal_density_kgpm2,
         tube_system_mass_kg=expected_tube_mass_kg,
@@ -304,6 +307,7 @@ def test_enumerate_geometry_concepts_uses_area_coupled_design_mass():
 def test_enumerate_geometry_concepts_uses_configured_cg_location():
     cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["geometry_family"]["planform_parameterization"] = "wing_loading"
     payload["geometry_family"]["sampling"]["sample_count"] = 1
     payload["geometry_family"]["cg_xc"] = 0.34
     payload["geometry_family"]["primary_ranges"] = {
@@ -320,9 +324,46 @@ def test_enumerate_geometry_concepts_uses_configured_cg_location():
     assert concepts[0].cg_xc == pytest.approx(0.34)
 
 
+def test_enumerate_geometry_concepts_can_use_mean_chord_planform_parameterization():
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["mass_closure"]["enabled"] = False
+    payload["geometry_family"]["planform_parameterization"] = "mean_chord"
+    payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 35.0, "max": 35.0},
+        "mean_chord_m": {"min": 0.90, "max": 0.90},
+        "wing_loading_target_Npm2": {"min": 31.0, "max": 31.0},
+        "taper_ratio": {"min": 0.35, "max": 0.35},
+        "tip_twist_deg": {"min": -2.0, "max": -2.0},
+    }
+    payload["geometry_family"]["hard_constraints"]["wing_area_m2_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    payload["geometry_family"]["hard_constraints"]["aspect_ratio_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+
+    assert len(concepts) == 1
+    concept = concepts[0]
+    assert concept.mean_chord_target_m == pytest.approx(0.90)
+    assert concept.wing_area_m2 == pytest.approx(35.0 * 0.90)
+    assert concept.wing_area_source == "derived_from_mean_chord_m"
+    assert concept.wing_loading_target_Npm2 == pytest.approx(
+        cfg.mass.design_gross_mass_kg * 9.80665 / concept.wing_area_m2
+    )
+    assert concept.aspect_ratio == pytest.approx(35.0 / 0.90)
+
+
 def test_enumerate_geometry_concepts_rejects_mass_closure_above_hard_max():
     cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["geometry_family"]["planform_parameterization"] = "wing_loading"
     payload["geometry_family"]["sampling"]["sample_count"] = 1
     payload["geometry_family"]["primary_ranges"] = {
         "span_m": {"min": 34.7, "max": 34.7},
@@ -338,6 +379,7 @@ def test_enumerate_geometry_concepts_rejects_mass_closure_above_hard_max():
         "min": 1.0,
         "max": 90.0,
     }
+    payload["mass_closure"]["gross_mass_hard_max_kg"] = 112.0
     cfg = BirdmanConceptConfig.model_validate(payload)
 
     concepts = enumerate_geometry_concepts(cfg)
@@ -351,6 +393,7 @@ def test_enumerate_geometry_concepts_rejects_mass_closure_above_hard_max():
 def test_enumerate_geometry_concepts_tracks_clear_rejection_reasons():
     cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["geometry_family"]["planform_parameterization"] = "wing_loading"
     payload["geometry_family"]["sampling"]["sample_count"] = 4
     payload["geometry_family"]["primary_ranges"] = {
         "span_m": {"min": 30.0, "max": 30.0},

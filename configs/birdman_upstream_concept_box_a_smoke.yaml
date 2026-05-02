@@ -13,7 +13,7 @@ mass:
   use_gross_mass_sweep_for_mission_cases: true
 
 mass_closure:
-  gross_mass_hard_max_kg: 109.0
+  gross_mass_hard_max_kg: 115.0
 
 mission:
   objective_mode: fixed_range_best_time
@@ -86,18 +86,22 @@ tail_model:
   cm_spread_factor: 0.50
 
 geometry_family:
+  planform_parameterization: mean_chord
   sampling:
     mode: latin_hypercube
-    sample_count: 32
+    sample_count: 40
     seed: 42
     scramble: true
   primary_ranges:
     span_m:
-      min: 32.0
+      min: 31.0
       max: 35.0
+    mean_chord_m:
+      min: 0.90
+      max: 1.15
     wing_loading_target_Npm2:
-      min: 26.0
-      max: 31.0
+      min: 24.0
+      max: 42.0
     taper_ratio:
       min: 0.30
       max: 0.38
@@ -106,12 +110,12 @@ geometry_family:
       max: -0.5
   hard_constraints:
     wing_area_m2_range:
-      min: 30.0
-      max: 40.0
+      min: 28.0
+      max: 41.0
     aspect_ratio_range:
-      min: 30.0
+      min: 27.0
       max: 40.0
-    root_chord_min_m: 1.20
+    root_chord_min_m: 1.05
     tip_chord_min_m: 0.30
     segment_min_chord_m: 0.32
     root_zone_min_tc_ratio: 0.14

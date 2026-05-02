@@ -39,7 +39,7 @@ from hpa_mdo.concept.geometry import (
 )
 from hpa_mdo.concept.frontier import build_frontier_summary, sizing_archetype
 from hpa_mdo.concept.handoff import write_selected_concept_bundle
-from hpa_mdo.concept.mass_closure import close_area_mass
+from hpa_mdo.concept.mass_closure import close_area_mass, estimate_fixed_planform_mass
 from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
 from hpa_mdo.concept.propulsion import SimplifiedPropModel
 from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
@@ -3206,7 +3206,13 @@ def _run_artifact_trust(
 def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
     return {
         "primary_variables": {
+            "planform_parameterization": str(concept.planform_parameterization),
             "span_m": float(concept.span_m),
+            "mean_chord_m": (
+                None
+                if concept.mean_chord_target_m is None
+                else float(concept.mean_chord_target_m)
+            ),
             "wing_loading_target_Npm2": (
                 None
                 if concept.wing_loading_target_Npm2 is None
@@ -3241,6 +3247,15 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
     }
 
 
+def _mass_proxy_limitations() -> list[str]:
+    return [
+        "not_a_structural_sizing_authority",
+        "spar_not_bending_or_buckling_sized",
+        "wire_geometry_and_joint_mass_not_solved",
+        "fixed_nonwing_mass_is_user_budget_not_measured_bom",
+    ]
+
+
 def _sizing_diagnostics(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
@@ -3258,32 +3273,61 @@ def _sizing_diagnostics(
             cfg.mass_closure, span_m=float(concept.span_m)
         )
         try:
-            closure = close_area_mass(
-                wing_loading_target_Npm2=float(concept.wing_loading_target_Npm2),
-                pilot_mass_kg=float(cfg.mass.pilot_mass_kg),
-                fixed_non_area_aircraft_mass_kg=float(
-                    cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
-                ),
-                wing_areal_density_kgpm2=float(
-                    cfg.mass_closure.rib_skin_areal_density_kgpm2
-                ),
-                tube_system_mass_kg=tube_mass_kg,
-                wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
-                wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
-                extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
-                initial_wing_area_m2=float(concept.wing_area_m2),
-                tolerance_m2=float(cfg.mass_closure.area_tolerance_m2),
-                max_iterations=int(cfg.mass_closure.max_iterations),
-            )
+            if concept.planform_parameterization == "mean_chord":
+                fixed_mass = estimate_fixed_planform_mass(
+                    wing_area_m2=float(concept.wing_area_m2),
+                    pilot_mass_kg=float(cfg.mass.design_pilot_mass_kg),
+                    fixed_non_area_aircraft_mass_kg=float(
+                        cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
+                    ),
+                    wing_areal_density_kgpm2=float(
+                        cfg.mass_closure.rib_skin_areal_density_kgpm2
+                    ),
+                    tube_system_mass_kg=tube_mass_kg,
+                    wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
+                    wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
+                    extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
+                )
+                closure = None
+                closed_wing_area_m2 = float(fixed_mass.wing_area_m2)
+                closed_gross_mass_kg = float(fixed_mass.gross_mass_kg)
+                mass_breakdown_kg = dict(fixed_mass.mass_breakdown_kg)
+                area_residual_m2 = 0.0
+                iterations = 0
+                model_name = "fixed_planform_mass_proxy_v1_report_only"
+                status = "ok"
+            else:
+                closure = close_area_mass(
+                    wing_loading_target_Npm2=float(concept.wing_loading_target_Npm2),
+                    pilot_mass_kg=float(cfg.mass.design_pilot_mass_kg),
+                    fixed_non_area_aircraft_mass_kg=float(
+                        cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
+                    ),
+                    wing_areal_density_kgpm2=float(
+                        cfg.mass_closure.rib_skin_areal_density_kgpm2
+                    ),
+                    tube_system_mass_kg=tube_mass_kg,
+                    wing_fittings_base_kg=float(cfg.mass_closure.wing_fittings_base_kg),
+                    wire_terminal_mass_kg=float(cfg.mass_closure.wire_terminal_mass_kg),
+                    extra_system_margin_kg=float(cfg.mass_closure.system_margin_kg),
+                    initial_wing_area_m2=float(concept.wing_area_m2),
+                    tolerance_m2=float(cfg.mass_closure.area_tolerance_m2),
+                    max_iterations=int(cfg.mass_closure.max_iterations),
+                )
+                closed_wing_area_m2 = float(closure.closed_wing_area_m2)
+                closed_gross_mass_kg = float(closure.closed_gross_mass_kg)
+                mass_breakdown_kg = dict(closure.mass_breakdown_kg)
+                area_residual_m2 = float(closure.area_residual_m2)
+                iterations = int(closure.iterations)
+                model_name = "area_mass_closure_v1_report_only"
+                status = "ok" if closure.converged else "not_converged"
             design_gross_mass_kg = (
                 None
                 if concept.design_gross_mass_kg is None
                 else float(concept.design_gross_mass_kg)
             )
-            closure_pilot_mass_kg = float(cfg.mass.pilot_mass_kg)
-            closed_aircraft_empty_mass_kg = float(
-                closure.closed_gross_mass_kg - closure_pilot_mass_kg
-            )
+            closure_pilot_mass_kg = float(cfg.mass.design_pilot_mass_kg)
+            closed_aircraft_empty_mass_kg = float(closed_gross_mass_kg - closure_pilot_mass_kg)
             aircraft_empty_mass_target_min_kg = float(
                 min(cfg.mass.aircraft_empty_mass_cases_kg)
             )
@@ -3291,22 +3335,22 @@ def _sizing_diagnostics(
                 max(cfg.mass.aircraft_empty_mass_cases_kg)
             )
             closure_summary = {
-                "model": "area_mass_closure_v1_report_only",
-                "status": "ok" if closure.converged else "not_converged",
-                "closed_wing_area_m2": float(closure.closed_wing_area_m2),
+                "model": model_name,
+                "model_authority": "unvalidated_first_order_accounting_proxy",
+                "limitations": _mass_proxy_limitations(),
+                "status": status,
+                "closed_wing_area_m2": float(closed_wing_area_m2),
                 "current_wing_area_m2": float(concept.wing_area_m2),
-                "closed_area_delta_m2": float(
-                    closure.closed_wing_area_m2 - concept.wing_area_m2
-                ),
+                "closed_area_delta_m2": float(closed_wing_area_m2 - concept.wing_area_m2),
                 "closed_area_ratio_to_current": float(
-                    closure.closed_wing_area_m2 / max(concept.wing_area_m2, 1.0e-9)
+                    closed_wing_area_m2 / max(concept.wing_area_m2, 1.0e-9)
                 ),
-                "closed_gross_mass_kg": float(closure.closed_gross_mass_kg),
+                "closed_gross_mass_kg": float(closed_gross_mass_kg),
                 "design_gross_mass_kg": design_gross_mass_kg,
                 "closed_gross_mass_delta_vs_design_kg": (
                     None
                     if design_gross_mass_kg is None
-                    else float(closure.closed_gross_mass_kg - design_gross_mass_kg)
+                    else float(closed_gross_mass_kg - design_gross_mass_kg)
                 ),
                 "closed_aircraft_empty_mass_kg": closed_aircraft_empty_mass_kg,
                 "aircraft_empty_mass_target_range_kg": [
@@ -3321,9 +3365,9 @@ def _sizing_diagnostics(
                     <= closed_aircraft_empty_mass_kg
                     <= aircraft_empty_mass_target_max_kg
                 ),
-                "mass_breakdown_kg": dict(closure.mass_breakdown_kg),
-                "area_residual_m2": float(closure.area_residual_m2),
-                "iterations": int(closure.iterations),
+                "mass_breakdown_kg": mass_breakdown_kg,
+                "area_residual_m2": area_residual_m2,
+                "iterations": iterations,
                 "assumptions": {
                     "pilot_mass_kg": closure_pilot_mass_kg,
                     "fixed_non_area_aircraft_mass_kg": float(
@@ -3372,6 +3416,12 @@ def _build_ranked_concept_record(
         "overall_rank": overall_rank,
         "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
         "span_m": record.concept.span_m,
+        "planform_parameterization": str(record.concept.planform_parameterization),
+        "mean_chord_target_m": (
+            None
+            if record.concept.mean_chord_target_m is None
+            else float(record.concept.mean_chord_target_m)
+        ),
         "wing_area_m2": record.concept.wing_area_m2,
         "wing_loading_target_Npm2": (
             None
@@ -3470,6 +3520,12 @@ def _concept_to_bundle_payload(
     sizing_diagnostics = _sizing_diagnostics(cfg, concept)
     concept_config["geometry"] = {
         "span_m": float(concept.span_m),
+        "planform_parameterization": str(concept.planform_parameterization),
+        "mean_chord_target_m": (
+            None
+            if concept.mean_chord_target_m is None
+            else float(concept.mean_chord_target_m)
+        ),
         "wing_loading_target_Npm2": (
             None
             if concept.wing_loading_target_Npm2 is None
@@ -4274,7 +4330,12 @@ def run_birdman_concept_pipeline(
                     "best_infeasible_count": len(best_infeasible_records),
                     "geometry_primary_variables": [
                         "span_m",
-                        "wing_loading_target_Npm2",
+                        (
+                            "mean_chord_m"
+                            if str(cfg.geometry_family.planform_parameterization)
+                            == "mean_chord"
+                            else "wing_loading_target_Npm2"
+                        ),
                         "taper_ratio",
                         "tip_twist_deg",
                     ],
