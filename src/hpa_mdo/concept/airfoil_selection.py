@@ -1439,6 +1439,26 @@ def _aggregate_worker_condition_metrics(
     }
 
 
+def _existing_result_satisfies_stage(
+    result: Mapping[str, object] | None,
+    *,
+    robust_evaluation_enabled: bool,
+    robust_reynolds_factors: tuple[float, ...],
+    robust_roughness_modes: tuple[str, ...],
+) -> bool:
+    if result is None:
+        return False
+    if not robust_evaluation_enabled:
+        return True
+    expected_condition_count = len(
+        _normalize_robust_reynolds_factors(robust_reynolds_factors)
+    ) * len(_normalize_robust_roughness_modes(robust_roughness_modes))
+    observed_condition_count = result.get("robust_condition_count")
+    if not isinstance(observed_condition_count, int | float):
+        return False
+    return int(observed_condition_count) >= expected_condition_count
+
+
 def _run_zone_candidate_queries(
     *,
     zone_name: str,
@@ -1453,7 +1473,14 @@ def _run_zone_candidate_queries(
 ) -> tuple[dict[str, dict[str, object]], list[dict[str, object]]]:
     candidate_results = dict(existing_results or {})
     candidates_to_run = tuple(
-        candidate for candidate in candidates if candidate.candidate_role not in candidate_results
+        candidate
+        for candidate in candidates
+        if not _existing_result_satisfies_stage(
+            candidate_results.get(candidate.candidate_role),
+            robust_evaluation_enabled=robust_evaluation_enabled,
+            robust_reynolds_factors=robust_reynolds_factors,
+            robust_roughness_modes=robust_roughness_modes,
+        )
     )
     queries, query_roles = _zone_queries_for_candidates(
         zone_name=zone_name,
@@ -1562,7 +1589,14 @@ def _run_batched_zone_candidate_queries(
     for zone_name, candidates in zone_candidates.items():
         existing_zone_results = aggregated_results.setdefault(zone_name, {})
         candidates_to_run = tuple(
-            candidate for candidate in candidates if candidate.candidate_role not in existing_zone_results
+            candidate
+            for candidate in candidates
+            if not _existing_result_satisfies_stage(
+                existing_zone_results.get(candidate.candidate_role),
+                robust_evaluation_enabled=robust_evaluation_enabled,
+                robust_reynolds_factors=robust_reynolds_factors,
+                robust_roughness_modes=robust_roughness_modes,
+            )
         )
         queries, query_roles = _zone_queries_for_candidates(
             zone_name=zone_name,
@@ -1763,6 +1797,7 @@ def select_zone_airfoil_templates(
     seedless_random_seed: int | None = 0,
     seedless_max_oversample_factor: int = 8,
     robust_evaluation_enabled: bool = False,
+    coarse_robust_evaluation_enabled: bool = False,
     robust_reynolds_factors: tuple[float, ...] = (1.0,),
     robust_roughness_modes: tuple[str, ...] = ("clean",),
     robust_min_pass_rate: float = 0.75,
@@ -1815,6 +1850,7 @@ def select_zone_airfoil_templates(
         seedless_random_seed=seedless_random_seed,
         seedless_max_oversample_factor=seedless_max_oversample_factor,
         robust_evaluation_enabled=robust_evaluation_enabled,
+        coarse_robust_evaluation_enabled=coarse_robust_evaluation_enabled,
         robust_reynolds_factors=robust_reynolds_factors,
         robust_roughness_modes=robust_roughness_modes,
         robust_min_pass_rate=robust_min_pass_rate,
@@ -1878,6 +1914,7 @@ def select_zone_airfoil_templates_for_concepts(
     seedless_random_seed: int | None = 0,
     seedless_max_oversample_factor: int = 8,
     robust_evaluation_enabled: bool = False,
+    coarse_robust_evaluation_enabled: bool = False,
     robust_reynolds_factors: tuple[float, ...] = (1.0,),
     robust_roughness_modes: tuple[str, ...] = ("clean",),
     robust_min_pass_rate: float = 0.75,
@@ -2008,7 +2045,10 @@ def select_zone_airfoil_templates_for_concepts(
         zone_candidates=coarse_candidates_by_key,
         zone_points_by_name=zone_points_by_key,
         worker=worker,
-        robust_evaluation_enabled=robust_evaluation_enabled,
+        robust_evaluation_enabled=bool(
+            robust_evaluation_enabled
+            and (coarse_robust_evaluation_enabled or not coarse_to_fine_enabled)
+        ),
         robust_reynolds_factors=robust_reynolds_factors,
         robust_roughness_modes=robust_roughness_modes,
         robust_min_pass_rate=robust_min_pass_rate,

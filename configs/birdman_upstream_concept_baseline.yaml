@@ -187,23 +187,24 @@ cst_search:
   refine_neighbor_radius: 1
   successive_halving_enabled: true
   successive_halving_rounds: 2
-  successive_halving_beam_width: 6
-  seedless_sample_count: 512
+  successive_halving_beam_width: 3
+  seedless_sample_count: 96
   seedless_max_oversample_factor: 16
   robust_evaluation_enabled: true
+  coarse_robust_evaluation_enabled: false
   robust_reynolds_factors: [0.85, 1.0, 1.15]
   robust_roughness_modes: ["clean", "rough"]
   robust_min_pass_rate: 0.75
-  nsga_generation_count: 5
-  nsga_offspring_count: 32
+  nsga_generation_count: 0
+  nsga_offspring_count: 0
   nsga_parent_count: 16
   nsga_mutation_scale: 0.06
   cm_hard_lower_bound: -0.16
   cm_penalty_threshold: -0.12
   pareto_knee_count: 3
-  cma_es_enabled: true
-  cma_es_knee_count: 3
-  cma_es_iterations: 4
+  cma_es_enabled: false
+  cma_es_knee_count: 0
+  cma_es_iterations: 0
   cma_es_population_lambda: 12
   cma_es_sigma_init: 0.05
   cma_es_random_seed: 0

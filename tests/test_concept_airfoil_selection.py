@@ -612,6 +612,69 @@ def test_select_zone_airfoil_templates_can_aggregate_robust_screening_conditions
     assert all(result["candidate_role"] == "base" for result in selection.worker_results)
 
 
+def test_select_zone_airfoil_templates_can_skip_robust_on_coarse_stage() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.calls = []
+
+        def run_queries(self, queries):
+            self.calls.append(tuple(queries))
+            return [
+                {
+                    "status": "ok",
+                    "template_id": query.template_id,
+                    "geometry_hash": query.geometry_hash,
+                    "mean_cd": 0.020,
+                    "mean_cm": -0.10,
+                    "usable_clmax": 1.30,
+                }
+                for query in queries
+            ]
+
+    worker = FakeWorker()
+    seed_coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.06),
+        (0.0, 0.0),
+        (0.5, -0.04),
+        (1.0, 0.0),
+    )
+
+    select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.12,
+            }
+        },
+        seed_loader=lambda _seed_name: seed_coordinates,
+        worker=worker,
+        thickness_delta_levels=(-0.01, 0.0, 0.01),
+        camber_delta_levels=(-0.01, 0.0, 0.01),
+        robust_evaluation_enabled=True,
+        coarse_robust_evaluation_enabled=False,
+        robust_reynolds_factors=(0.90, 1.10),
+        robust_roughness_modes=("clean", "rough"),
+        coarse_to_fine_enabled=True,
+        coarse_keep_top_k=1,
+        refine_neighbor_radius=0,
+        successive_halving_enabled=False,
+    )
+
+    assert len(worker.calls) == 2
+    assert all("__robust_" not in query.template_id for query in worker.calls[0])
+    assert {query.analysis_stage for query in worker.calls[0]} == {"screening"}
+    assert all("__robust_" in query.template_id for query in worker.calls[1])
+    assert {query.analysis_stage for query in worker.calls[1]} == {"robust_screening"}
+
+
 def test_select_scored_candidate_beam_can_use_constrained_pareto_diversity() -> None:
     low_drag = CSTAirfoilTemplate(
         "root",

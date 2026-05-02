@@ -198,14 +198,15 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.cst_search.coarse_thickness_stride == 3
     assert cfg.cst_search.coarse_keep_top_k == 3
     assert cfg.cst_search.search_mode == "seedless_sobol"
-    assert cfg.cst_search.seedless_sample_count == 512
+    assert cfg.cst_search.seedless_sample_count == 96
     assert cfg.cst_search.seedless_max_oversample_factor == 16
+    assert cfg.cst_search.coarse_robust_evaluation_enabled is False
     assert cfg.cst_search.successive_halving_enabled is True
     assert cfg.cst_search.successive_halving_rounds == 2
-    assert cfg.cst_search.successive_halving_beam_width == 6
-    assert cfg.cst_search.cma_es_enabled is True
-    assert cfg.cst_search.cma_es_knee_count == 3
-    assert cfg.cst_search.cma_es_iterations == 4
+    assert cfg.cst_search.successive_halving_beam_width == 3
+    assert cfg.cst_search.cma_es_enabled is False
+    assert cfg.cst_search.cma_es_knee_count == 0
+    assert cfg.cst_search.cma_es_iterations == 0
     assert cfg.cst_search.cma_es_population_lambda == 12
     assert cfg.cst_search.cma_es_sigma_init == pytest.approx(0.05)
     assert cfg.cst_search.cma_es_random_seed == 0
