@@ -8,7 +8,10 @@ import math
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from hpa_mdo.concept.aero_proxies import misc_cd_proxy, oswald_efficiency_proxy
+from hpa_mdo.concept.aero_proxies import (
+    misc_cd_proxy,
+    spanload_efficiency_proxy,
+)
 from hpa_mdo.concept.airfoil_cst import (
     CSTAirfoilTemplate,
     build_lofting_guides,
@@ -1894,16 +1897,6 @@ def _assembly_penalty(concept: GeometryConcept) -> float:
     return 0.5 * float(joint_count)
 
 
-def _oswald_efficiency_proxy(
-    concept: GeometryConcept,
-    cfg: BirdmanConceptConfig,
-) -> float:
-    return oswald_efficiency_proxy(
-        concept=concept,
-        proxy_cfg=cfg.aero_proxies.oswald_efficiency,
-    )
-
-
 def _shaft_power_required_w(
     *,
     drag_n: float,
@@ -2064,7 +2057,12 @@ def _build_concept_mission_summary(
         airfoil_feedback,
     )
     aspect_ratio = concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9)
-    oswald_efficiency = _oswald_efficiency_proxy(concept, cfg)
+    oswald_efficiency_summary = spanload_efficiency_proxy(
+        concept=concept,
+        station_points=cruise_station_points or station_points,
+        proxy_cfg=cfg.aero_proxies.oswald_efficiency,
+    )
+    oswald_efficiency = float(oswald_efficiency_summary["efficiency"])
     tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
     tail_cl_required = abs(float(trim_summary.get("tail_cl_required", 0.0)))
     tail_trim_drag_cd = (
@@ -2434,6 +2432,11 @@ def _build_concept_mission_summary(
         "slow_speed_report": slow_speed_report,
         "tail_cl_required_for_trim": tail_cl_required,
         "oswald_efficiency_proxy": oswald_efficiency,
+        "oswald_efficiency_source": str(oswald_efficiency_summary["source"]),
+        "geometry_oswald_efficiency_proxy": float(
+            oswald_efficiency_summary["geometry_efficiency_proxy"]
+        ),
+        "spanload_rms_error": oswald_efficiency_summary["spanload_rms_error"],
         "propulsion_model": "simplified_prop_proxy_v1",
         "mission_speed_filter_model": "reference_case_local_stall_feasible_speed_v1",
         "operating_point_status": str(worst_case_result["operating_point_status"]),

@@ -21,9 +21,9 @@ mission:
   rider_power_curve_heat_loss_coefficient_per_h_c: 0.008
   rider_power_curve_duration_column: secs
   rider_power_curve_power_column: watts
-  speed_sweep_min_mps: 7.0
-  speed_sweep_max_mps: 10.0
-  speed_sweep_points: 7
+  speed_sweep_min_mps: 6.4
+  speed_sweep_max_mps: 7.2
+  speed_sweep_points: 5
   slow_report_speeds_mps: [6.0]
 
 segmentation:
@@ -87,24 +87,24 @@ geometry_family:
     scramble: true
   primary_ranges:
     span_m:
-      min: 30.0
-      max: 36.0
+      min: 32.0
+      max: 35.0
     wing_loading_target_Npm2:
-      min: 22.0
-      max: 34.0
+      min: 26.0
+      max: 31.0
     taper_ratio:
-      min: 0.24
-      max: 0.40
+      min: 0.30
+      max: 0.38
     tip_twist_deg:
       min: -3.0
       max: -0.5
   hard_constraints:
     wing_area_m2_range:
-      min: 28.0
-      max: 48.0
+      min: 30.0
+      max: 40.0
     aspect_ratio_range:
-      min: 24.0
-      max: 36.0
+      min: 30.0
+      max: 40.0
     root_chord_min_m: 1.20
     tip_chord_min_m: 0.30
     segment_min_chord_m: 0.32

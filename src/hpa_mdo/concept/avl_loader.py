@@ -15,7 +15,10 @@ import numpy as np
 from hpa_mdo.aero.avl_exporter import stage_avl_airfoil_files
 from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
 from hpa_mdo.aero.base import SpanwiseLoad
-from hpa_mdo.concept.aero_proxies import misc_cd_proxy, oswald_efficiency_proxy
+from hpa_mdo.concept.aero_proxies import (
+    misc_cd_proxy,
+    spanload_efficiency_proxy,
+)
 from hpa_mdo.concept.atmosphere import AirProperties
 from hpa_mdo.concept.atmosphere import LEGACY_DEFAULT_DYNAMIC_VISCOSITY_PA_S
 from hpa_mdo.concept.atmosphere import air_properties_from_environment
@@ -75,16 +78,6 @@ def _concept_gross_mass_cases(
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return (float(concept.design_gross_mass_kg),)
     return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
-
-
-def _oswald_efficiency_proxy(
-    concept: GeometryConcept,
-    cfg: BirdmanConceptConfig,
-) -> float:
-    return oswald_efficiency_proxy(
-        concept=concept,
-        proxy_cfg=cfg.aero_proxies.oswald_efficiency,
-    )
 
 
 def _shaft_power_required_w(
@@ -392,7 +385,6 @@ def _mission_mass_cases_for_avl(
 ) -> list[dict[str, Any]]:
     speed_sweep_mps = _speed_sweep_mps(cfg)
     aspect_ratio = float(concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9))
-    oswald_efficiency = _oswald_efficiency_proxy(concept, cfg)
     tail_area_ratio = float(concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9))
     misc_cd = float(
         misc_cd_proxy(
@@ -438,6 +430,12 @@ def _mission_mass_cases_for_avl(
         air_density_kg_per_m3=air_density_kg_per_m3,
         speed_sweep_mps=speed_sweep_mps,
     )
+    oswald_efficiency_summary = spanload_efficiency_proxy(
+        concept=concept,
+        station_points=reference_station_points,
+        proxy_cfg=cfg.aero_proxies.oswald_efficiency,
+    )
+    oswald_efficiency = float(oswald_efficiency_summary["efficiency"])
 
     mass_cases: list[dict[str, Any]] = []
     for gross_mass_kg in _concept_gross_mass_cases(cfg, concept):
@@ -596,6 +594,9 @@ def _mission_mass_cases_for_avl(
                     reference_speed_filter_summary["reference_speed_filter_model"]
                 ),
                 "reference_speed_filter_summary": dict(reference_speed_filter_summary),
+                "oswald_efficiency_proxy": oswald_efficiency,
+                "oswald_efficiency_source": str(oswald_efficiency_summary["source"]),
+                "spanload_rms_error": oswald_efficiency_summary["spanload_rms_error"],
             }
         )
 

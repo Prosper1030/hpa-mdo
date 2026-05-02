@@ -268,6 +268,14 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
         "relative_humidity_percent"
     ] == pytest.approx(80.0)
     assert first["mission"]["pilot_power_thermal_adjustment"]["power_factor"] < 1.0
+    assert first["mission"]["oswald_efficiency_source"] in {
+        "spanload_shape_proxy_v1",
+        "concept_geometry_proxy_v1",
+    }
+    assert first["mission"]["spanload_rms_error"] is None or isinstance(
+        first["mission"]["spanload_rms_error"],
+        float,
+    )
     assert isinstance(first["launch"]["cl_required"], float)
     assert isinstance(first["turn"]["required_cl"], float)
     assert isinstance(first["trim"]["margin_deg"], float)
@@ -1666,9 +1674,9 @@ def test_mission_summary_emits_slow_speed_report_payload_when_configured() -> No
     assert len(slow_report["speeds"]) == 1
     slow_entry = slow_report["speeds"][0]
     assert slow_entry["speed_mps"] == pytest.approx(6.0)
-    # CL_required at 6 m/s should be higher than at any cruise speed >=7 m/s.
+    # CL_required at 6 m/s should stay above the active cruise sweep window.
     cruise_min_speed_mps = float(min(summary["speed_sweep_window_mps"]))
-    assert cruise_min_speed_mps >= 7.0
+    assert cruise_min_speed_mps >= 6.4
     assert slow_entry["cl_required"] > 0.0
     # Power required for the slow case should be a positive shaft power.
     assert slow_entry["shaft_power_required_w"] > 0.0
@@ -1853,17 +1861,17 @@ def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
         air_density_kg_per_m3=1.15,
     )
 
-    assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(7.0)
-    assert mission["best_range_speed_mps"] == pytest.approx(7.5)
+    assert mission["best_range_unconstrained_speed_mps"] == pytest.approx(6.4)
+    assert mission["best_range_speed_mps"] == pytest.approx(7.2)
     assert mission["best_range_m"] < mission["best_range_unconstrained_m"]
     assert len(mission["power_margin_w_by_speed"]) == len(mission["power_required_w"])
     assert mission["best_power_margin_unconstrained_w"] == pytest.approx(
         max(mission["power_margin_w_by_speed"])
     )
     assert mission["best_power_margin_w"] is not None
-    assert mission["feasible_speed_set_mps"] == pytest.approx([7.5, 8.0, 8.5, 9.0, 9.5, 10.0])
+    assert mission["feasible_speed_set_mps"] == pytest.approx([7.2])
     assert mission["operating_point_status"] == "filtered_to_feasible_speeds"
-    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(0.5)
+    assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(0.8)
 
 
 def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() -> None:

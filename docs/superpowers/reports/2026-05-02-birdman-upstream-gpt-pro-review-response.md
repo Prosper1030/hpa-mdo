@@ -23,6 +23,39 @@ The most important message is not "run more CST". GPT Pro's response says the cu
 
 This means the next useful implementation work should harden evidence and calibration before widening the optimizer.
 
+## Project Direction Override: 35 m Span Cap
+
+The user accepted the fixed-range / best-time mission framing, but rejected
+treating the external `38..40 m` span recommendation as the project direction.
+For the current Birdman upstream concept line, `span_m <= 35 m` is a deliberate
+engineering boundary.
+
+That changes the geometry logic:
+
+- `AR = b^2/S`, so with `b <= 35 m` the route cannot reach `AR 43..48` while
+  also keeping `S = 32..34 m2`;
+- raising AR inside the cap means reducing area / MAC / chord, which increases
+  cruise `CL`, tip-Re sensitivity, launch risk, and local-stall risk;
+- the useful comparison is therefore not "larger span wins", but two 35 m
+  capped boxes:
+  - safe-completion: more area, lower wing loading, more stall/launch margin;
+  - compact-high-AR: smaller area, higher wing loading, lower profile drag, but
+    much tighter stall / control / structure margins.
+
+Implementation implication: do not add more diagnostic labels and call that
+engineering progress. The useful change is to make spanload / chord / twist
+distribution feed back into induced drag and mission power, while keeping the
+35 m span cap in the active configs.
+
+The user's note about `~2 m` flight deflection is promising, but should enter
+through the downstream jig-shape / aeroelastic loop. The current upstream
+uniform-cantilever deflection proxy is too crude to turn `2 m` into a ranking
+standard. A quick sweep of the new 35 m capped boxes with the current proxy
+predicts accepted-concept tip deflections around `3.2..5.2 m`, which is a
+model-gap signal: the proxy is missing lift-wire support and flight-shape /
+jig-shape coupling, so it should not be used to reject concepts against a
+`2 m` target yet.
+
 ## Preserved GPT Pro Findings
 
 ### 1. Verdict And Risk

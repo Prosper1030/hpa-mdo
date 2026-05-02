@@ -37,9 +37,9 @@ def test_load_concept_config_reads_birdman_baseline():
     assert Path(cfg.mission.rider_power_curve_metadata_yaml).is_file()
     assert cfg.mission.rider_power_curve_thermal_adjustment_enabled is True
     assert cfg.mission.rider_power_curve_heat_loss_coefficient_per_h_c == pytest.approx(0.008)
-    assert cfg.mission.speed_sweep_min_mps == pytest.approx(7.0)
-    assert cfg.mission.speed_sweep_max_mps == pytest.approx(10.0)
-    assert cfg.mission.speed_sweep_points == 7
+    assert cfg.mission.speed_sweep_min_mps == pytest.approx(6.4)
+    assert cfg.mission.speed_sweep_max_mps == pytest.approx(7.2)
+    assert cfg.mission.speed_sweep_points == 5
     assert cfg.mission.slow_report_speeds_mps == (6.0,)
     assert cfg.launch.mode == "restrained_pre_spin"
     assert cfg.launch.prop_ready_before_release is True
@@ -121,17 +121,18 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.sampling.mode == "latin_hypercube"
     assert cfg.geometry_family.sampling.sample_count == 48
     assert cfg.geometry_family.primary_ranges.span_m.min == pytest.approx(30.0)
-    assert cfg.geometry_family.primary_ranges.span_m.max == pytest.approx(36.0)
-    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(22.0)
-    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(30.0)
-    assert cfg.geometry_family.primary_ranges.taper_ratio.min == pytest.approx(0.24)
-    assert cfg.geometry_family.primary_ranges.taper_ratio.max == pytest.approx(0.40)
+    assert cfg.geometry_family.primary_ranges.span_m.max == pytest.approx(35.0)
+    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(26.0)
+    assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(36.0)
+    assert cfg.geometry_family.primary_ranges.taper_ratio.min == pytest.approx(0.30)
+    assert cfg.geometry_family.primary_ranges.taper_ratio.max == pytest.approx(0.38)
     assert cfg.geometry_family.primary_ranges.tip_twist_deg.min == pytest.approx(-3.0)
     assert cfg.geometry_family.primary_ranges.tip_twist_deg.max == pytest.approx(-0.5)
     assert cfg.geometry_family.hard_constraints.root_chord_min_m == pytest.approx(1.20)
     assert cfg.geometry_family.hard_constraints.tip_chord_min_m == pytest.approx(0.30)
     assert cfg.geometry_family.hard_constraints.wing_area_m2_range.min == pytest.approx(28.0)
-    assert cfg.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(46.0)
+    assert cfg.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(40.0)
+    assert cfg.geometry_family.hard_constraints.aspect_ratio_range.max == pytest.approx(44.0)
     assert cfg.geometry_family.twist_root_deg == pytest.approx(2.0)
     assert cfg.geometry_family.dihedral_root_deg_candidates == (0.0, 1.0, 2.0)
     assert cfg.geometry_family.dihedral_tip_deg_candidates == (4.0, 6.0, 8.0)
@@ -201,16 +202,25 @@ def test_load_concept_config_reads_birdman_low_speed_box_variants():
         repo_root / "configs" / "birdman_upstream_concept_box_b_smoke.yaml"
     )
 
-    assert box_a.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(22.0)
-    assert box_a.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(34.0)
-    assert box_a.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(48.0)
+    assert box_a.mission.speed_sweep_min_mps == pytest.approx(6.4)
+    assert box_a.mission.speed_sweep_max_mps == pytest.approx(7.2)
+    assert box_a.geometry_family.primary_ranges.span_m.max == pytest.approx(35.0)
+    assert box_a.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(26.0)
+    assert box_a.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(31.0)
+    assert box_a.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(40.0)
+    assert box_a.geometry_family.hard_constraints.aspect_ratio_range.max == pytest.approx(40.0)
     assert box_a.geometry_family.primary_ranges.taper_ratio == box_a_smoke.geometry_family.primary_ranges.taper_ratio
     assert box_a.geometry_family.primary_ranges.tip_twist_deg == box_a_smoke.geometry_family.primary_ranges.tip_twist_deg
     assert box_a_smoke.geometry_family.sampling.sample_count < box_a.geometry_family.sampling.sample_count
 
-    assert box_b.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(19.0)
-    assert box_b.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(34.0)
-    assert box_b.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(54.0)
+    assert box_b.mission.speed_sweep_min_mps == pytest.approx(6.4)
+    assert box_b.mission.speed_sweep_max_mps == pytest.approx(7.2)
+    assert box_b.geometry_family.primary_ranges.span_m.min == pytest.approx(33.0)
+    assert box_b.geometry_family.primary_ranges.span_m.max == pytest.approx(35.0)
+    assert box_b.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(31.0)
+    assert box_b.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(36.0)
+    assert box_b.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(34.0)
+    assert box_b.geometry_family.hard_constraints.aspect_ratio_range.max == pytest.approx(44.0)
     assert box_b.geometry_family.primary_ranges.taper_ratio == box_b_smoke.geometry_family.primary_ranges.taper_ratio
     assert box_b.geometry_family.primary_ranges.tip_twist_deg == box_b_smoke.geometry_family.primary_ranges.tip_twist_deg
     assert box_b_smoke.geometry_family.sampling.sample_count < box_b.geometry_family.sampling.sample_count

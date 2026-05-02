@@ -1,6 +1,10 @@
 import pytest
 
-from hpa_mdo.concept.aero_proxies import misc_cd_proxy, oswald_efficiency_proxy
+from hpa_mdo.concept.aero_proxies import (
+    misc_cd_proxy,
+    oswald_efficiency_proxy,
+    spanload_efficiency_proxy,
+)
 from hpa_mdo.concept.config import (
     OswaldEfficiencyProxyConfig,
     ParasiteDragProxyConfig,
@@ -57,6 +61,40 @@ def test_oswald_efficiency_proxy_drops_with_more_dihedral_spread():
     eff_flat = oswald_efficiency_proxy(concept=flat, proxy_cfg=cfg)
     eff_spread = oswald_efficiency_proxy(concept=spread, proxy_cfg=cfg)
     assert eff_spread < eff_flat
+
+
+def test_spanload_efficiency_proxy_uses_station_lift_shape_when_available():
+    cfg = OswaldEfficiencyProxyConfig(efficiency_ceiling=0.93)
+    concept = _build_concept(dihedral_tip_deg=6.0, twist_tip_deg=-1.5)
+    half_span = 0.5 * concept.span_m
+    good_points = [
+        {
+            "station_y_m": eta * half_span,
+            "chord_m": 1.0,
+            "cl_target": max((1.0 - eta**2) ** 0.5, 0.02),
+        }
+        for eta in (0.0, 0.25, 0.50, 0.75, 0.95)
+    ]
+    tip_loaded_points = [
+        {**point, "cl_target": 0.65 + 0.65 * point["station_y_m"] / half_span}
+        for point in good_points
+    ]
+
+    good = spanload_efficiency_proxy(
+        concept=concept,
+        station_points=good_points,
+        proxy_cfg=cfg,
+    )
+    tip_loaded = spanload_efficiency_proxy(
+        concept=concept,
+        station_points=tip_loaded_points,
+        proxy_cfg=cfg,
+    )
+
+    assert good["source"] == "spanload_shape_proxy_v1"
+    assert good["efficiency"] > oswald_efficiency_proxy(concept=concept, proxy_cfg=cfg)
+    assert good["efficiency"] > tip_loaded["efficiency"]
+    assert good["spanload_rms_error"] < tip_loaded["spanload_rms_error"]
 
 
 def test_misc_cd_proxy_matches_legacy_inline_formula():

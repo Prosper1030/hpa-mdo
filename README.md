@@ -187,11 +187,20 @@ Birdman rules / environment / rider power / mass
   -> OpenVSP / downstream mainline handoff
 ```
 
-目前進度：這條線已經不是假骨架。`scripts/birdman_upstream_concept_design.py` 可以用 `--worker-mode julia` 跑 real `julia_xfoil` worker，config 也已經把主要幾何變數改成 `span_m` + `wing_loading_target_Npm2`，`wing_area_m2` 則由翼載與 mass-closure 邏輯導出。`output/birdman_mass_closure_rerun_20260424/` 的最近一次 real Julia/XFoil run 評估了 40 個概念，沒有完全可行解；最佳診斷點約為 `span = 35.99 m`、`S = 38.09 m2`、`AR = 34.01`、`W/S = 27.35 N/m2`，主要失敗是 `local_stall + mission`，最佳航程約 `16.1 km`，距離 `42.195 km` 仍差很多。
+目前進度：這條線已經不是假骨架。`scripts/birdman_upstream_concept_design.py` 可以用 `--worker-mode julia` 跑 real `julia_xfoil` worker，config 也已經把主要幾何變數改成 `span_m` + `wing_loading_target_Npm2`，`wing_area_m2` 則由翼載與 mass-closure 邏輯導出。`output/birdman_mass_closure_rerun_20260424/` 的最近一次 real Julia/XFoil run 評估了 40 個概念，沒有完全可行解；最佳診斷點約為 `span = 35.99 m`、`S = 38.09 m2`、`AR = 34.01`、`W/S = 27.35 N/m2`，主要失敗是 `local_stall + mission`，最佳航程約 `16.1 km`，距離 `42.195 km` 仍差很多。這個舊結果現在只保留作為「為什麼要改設計邏輯」的背景，不作為新設計標準。
 
 主任務定義：這條線目前主 objective 命名為 **`fixed_range_best_time`**，中文稱「給定航程-最佳時間任務」。比賽航程 `R` 由 `mission.target_distance_km` 提出，預設為 `42.195 km`；若任一可飛速度能完成 `R`，mission score 以完賽時間 `R / V` 排序，但整體 concept ranking 仍先看 gate / feasibility margin，所以薄裕度高速解不會壓過裕度明顯更好的較慢完賽解。若不能完賽，則退回最大航程作為比較訊號。舊的 `max_range` 與 `min_power` objective 仍保留，可用於診斷或替代研究。
 
-工程判讀：mass closure 已經修掉最危險的假訊號，現在不能再單純用「加大翼面積」買 stall margin，因為需要的 repair area 會超過目前 gross-mass cap。下一步比較合理的是在約 `S = 34..40 m2`、`W/S = 27..31 N/m2` 內改善 `CLmax`、twist、planform distribution，並同時審核 rider-power / endurance model，而不是繼續把低翼載、大面積 box 往外推。
+工程判讀：這條線現在的主設計方向改成 **35m 翼展上限-給定航程最佳時間任務線**，短名 `span_capped_fixed_range_best_time`。`span_m <= 35 m` 是目前使用者指定的工程邊界；外部審查中 `38..40 m` span、`AR 43..48` 的方向只能當參考，不能直接照搬。因為在 `b <= 35 m` 下，想提高 `AR = b^2/S` 只能靠降低 `S` / 平均弦長，而不是靠繼續拉 span；這會同步提高 cruise `CL`、低速 stall / launch 風險，並讓 tip Reynolds 更吃緊。
+
+目前設計盒分兩條比較，而不是單一答案：
+
+- `box_a`：safe-completion box，`span = 32..35 m`、`W/S = 26..31 N/m2`、`S` 約落在較保守的大翼面積側，目標是完賽裕度與低速安全。
+- `box_b`：compact-high-AR box，`span = 33..35 m`、`W/S = 31..36 N/m2`、`S` 約落在 `28..34 m2`，目標是降低 profile drag / 提高 AR，但必須嚴格檢查 `CLmax`、launch、turn、tip-Re 與結構。
+
+翼分布也不再只當報表背景。AVL / fallback station points 的 `cl * chord` spanload shape 會進入 `spanload_efficiency_proxy_v1`，再回饋到 mission induced drag / required power；因此 chord/taper/twist 造成的分布變化會改變任務功率。這仍然是 concept-stage proxy，不是 Trefftz-plane sign-off，但比固定用幾何 proxy 的 `e` 更符合目前的工程問題。
+
+2m 級 tip deflection 是合理的 downstream jig / aeroelastic 設計目標，但目前 upstream concept 線只有很粗的 uniform-cantilever deflection gate，不能把 `2 m` 硬塞成 concept 排名標準。用目前 proxy 掃新的 35m 盒子時，accepted concepts 的 estimated tip deflection 約落在 `3.2..5.2 m`；這更像是在說「現在的 deflection model 沒有 wire support / jig-shape solve」，不是在說 2m 目標不合理。正確下一步是把 flight shape / jig shape / wire-braced beam loop 接進來，讓 `2 m` 變成 aeroelastic solve 的結果或目標，而不是只在 upstream proxy 裡貼標籤。
 
 外部嚴格審查紀錄：
 
