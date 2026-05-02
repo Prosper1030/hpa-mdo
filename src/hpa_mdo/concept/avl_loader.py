@@ -350,6 +350,30 @@ def _select_reference_speed_for_mass_case(
             return float(estimated_speed_mps), "estimated_first_feasible_speed_mps"
         return float(selected_mass_case["best_range_speed_mps"]), "best_range_speed_mps_unconstrained_fallback"
 
+    if objective_mode == "fixed_range_best_time":
+        feasible_time_speed_mps = _numeric_value(
+            selected_mass_case.get("best_time_feasible_speed_mps")
+        )
+        if feasible_time_speed_mps is not None:
+            return float(feasible_time_speed_mps), "best_time_feasible_speed_mps"
+        time_speed_mps = _numeric_value(selected_mass_case.get("best_time_speed_mps"))
+        if time_speed_mps is not None:
+            return float(time_speed_mps), "best_time_speed_mps"
+        feasible_range_speed_mps = _numeric_value(
+            selected_mass_case.get("best_range_feasible_speed_mps")
+        )
+        if feasible_range_speed_mps is not None:
+            return float(feasible_range_speed_mps), "best_range_feasible_speed_mps"
+        estimated_speed_mps = _numeric_value(
+            selected_mass_case.get("estimated_first_feasible_speed_mps")
+        )
+        if estimated_speed_mps is not None:
+            return float(estimated_speed_mps), "estimated_first_feasible_speed_mps"
+        return (
+            float(selected_mass_case["best_range_speed_mps"]),
+            "best_range_speed_mps_unconstrained_fallback",
+        )
+
     feasible_speed_mps = _numeric_value(selected_mass_case.get("min_power_feasible_speed_mps"))
     if feasible_speed_mps is not None:
         return float(feasible_speed_mps), "min_power_feasible_speed_mps"
@@ -518,6 +542,20 @@ def _mission_mass_cases_for_avl(
                 "available_power_w_by_speed": tuple(
                     mission_result.available_power_w_by_speed
                 ),
+                "target_completion_time_s_by_speed": tuple(
+                    mission_result.target_completion_time_s_by_speed
+                ),
+                "fixed_range_feasible_speed_set_mps": tuple(
+                    mission_result.fixed_range_feasible_speed_set_mps
+                ),
+                "best_time_s": mission_result.best_time_s,
+                "best_time_speed_mps": mission_result.best_time_speed_mps,
+                "best_time_feasible_s": (
+                    None if feasible_result is None else feasible_result.best_time_s
+                ),
+                "best_time_feasible_speed_mps": (
+                    None if feasible_result is None else feasible_result.best_time_speed_mps
+                ),
                 "best_power_margin_feasible_w": (
                     None if feasible_result is None else float(feasible_result.best_power_margin_w)
                 ),
@@ -538,6 +576,9 @@ def _mission_mass_cases_for_avl(
                 ),
                 "mission_feasible": bool(mission_result.mission_feasible),
                 "target_range_passed": bool(mission_result.target_range_passed),
+                "target_range_feasible_passed": (
+                    False if feasible_result is None else bool(feasible_result.target_range_passed)
+                ),
                 "mission_score": float(mission_result.mission_score),
                 "power_required_w": tuple(power_required_w),
                 "shaft_power_required_w_by_speed": tuple(shaft_power_required_w),
@@ -598,6 +639,25 @@ def select_avl_design_cases(
             ),
         )
         mass_selection_reason = "max_min_power_feasible_w"
+    elif objective_mode == "fixed_range_best_time":
+        def fixed_range_case_passed(case: dict[str, Any]) -> bool:
+            if "target_range_feasible_passed" in case:
+                return bool(case["target_range_feasible_passed"])
+            return bool(case.get("target_range_passed"))
+
+        selected_mass_case = max(
+            mass_cases,
+            key=lambda case: (
+                not fixed_range_case_passed(case),
+                (
+                    -float(_numeric_value(case.get("best_range_feasible_m")) or 0.0)
+                    if not fixed_range_case_passed(case)
+                    else float(_numeric_value(case.get("best_time_feasible_s")) or 0.0)
+                ),
+                float(case["gross_mass_kg"]),
+            ),
+        )
+        mass_selection_reason = "fixed_range_worst_time_or_range"
     else:
         raise ValueError(f"Unsupported mission objective mode: {objective_mode}")
     reference_speed_mps, reference_speed_reason = _select_reference_speed_for_mass_case(

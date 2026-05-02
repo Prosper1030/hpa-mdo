@@ -309,6 +309,125 @@ def test_select_avl_reference_condition_falls_back_to_estimated_first_feasible_s
     assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
 
 
+def test_select_avl_reference_condition_uses_slowest_worst_finish_case_for_fixed_range(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "mission": cfg.mission.model_copy(
+                update={"objective_mode": "fixed_range_best_time"}
+            )
+        }
+    )
+
+    monkeypatch.setattr(
+        concept_avl_loader,
+        "_mission_mass_cases_for_avl",
+        lambda **_: [
+            {
+                "gross_mass_kg": 95.0,
+                "target_range_passed": True,
+                "best_time_s": 5_800.0,
+                "best_time_speed_mps": 7.275,
+                "best_time_feasible_s": 5_800.0,
+                "best_time_feasible_speed_mps": 7.275,
+                "best_range_feasible_m": 45_000.0,
+                "best_range_feasible_speed_mps": 7.0,
+                "estimated_first_feasible_speed_mps": None,
+                "best_range_m": 46_000.0,
+                "best_range_speed_mps": 7.0,
+                "mission_score": 5_800.0,
+            },
+            {
+                "gross_mass_kg": 105.0,
+                "target_range_passed": True,
+                "best_time_s": 6_300.0,
+                "best_time_speed_mps": 6.698,
+                "best_time_feasible_s": 6_300.0,
+                "best_time_feasible_speed_mps": 6.698,
+                "best_range_feasible_m": 43_000.0,
+                "best_range_feasible_speed_mps": 6.5,
+                "estimated_first_feasible_speed_mps": None,
+                "best_range_m": 43_500.0,
+                "best_range_speed_mps": 6.5,
+                "mission_score": 6_300.0,
+            },
+        ],
+    )
+
+    reference = select_avl_reference_condition(
+        cfg=cfg,
+        concept=_sample_concept(),
+        air_density_kg_per_m3=1.10,
+    )
+
+    assert reference["objective_mode"] == "fixed_range_best_time"
+    assert reference["mass_selection_reason"] == "fixed_range_worst_time_or_range"
+    assert reference["reference_speed_reason"] == "best_time_feasible_speed_mps"
+    assert reference["reference_speed_mps"] == pytest.approx(6.698)
+    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
+
+
+def test_select_avl_reference_condition_fixed_range_miss_falls_back_to_range_case(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg = cfg.model_copy(
+        update={
+            "mission": cfg.mission.model_copy(
+                update={"objective_mode": "fixed_range_best_time"}
+            )
+        }
+    )
+
+    monkeypatch.setattr(
+        concept_avl_loader,
+        "_mission_mass_cases_for_avl",
+        lambda **_: [
+            {
+                "gross_mass_kg": 95.0,
+                "target_range_passed": False,
+                "best_time_s": None,
+                "best_time_speed_mps": None,
+                "best_time_feasible_s": None,
+                "best_time_feasible_speed_mps": None,
+                "best_range_feasible_m": 30_000.0,
+                "best_range_feasible_speed_mps": 8.0,
+                "estimated_first_feasible_speed_mps": None,
+                "best_range_m": 31_000.0,
+                "best_range_speed_mps": 7.5,
+                "mission_score": 970_000.0,
+            },
+            {
+                "gross_mass_kg": 105.0,
+                "target_range_passed": False,
+                "best_time_s": None,
+                "best_time_speed_mps": None,
+                "best_time_feasible_s": None,
+                "best_time_feasible_speed_mps": None,
+                "best_range_feasible_m": 24_000.0,
+                "best_range_feasible_speed_mps": 8.5,
+                "estimated_first_feasible_speed_mps": None,
+                "best_range_m": 25_000.0,
+                "best_range_speed_mps": 8.0,
+                "mission_score": 976_000.0,
+            },
+        ],
+    )
+
+    reference = select_avl_reference_condition(
+        cfg=cfg,
+        concept=_sample_concept(),
+        air_density_kg_per_m3=1.10,
+    )
+
+    assert reference["mass_selection_reason"] == "fixed_range_worst_time_or_range"
+    assert reference["reference_speed_reason"] == "best_range_feasible_speed_mps"
+    assert reference["reference_speed_mps"] == pytest.approx(8.5)
+    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
+
+
 def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     cfg = cfg.model_copy(

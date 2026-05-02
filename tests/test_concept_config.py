@@ -29,7 +29,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.mass_closure.tube_system.num_wings == 2
     assert cfg.mass_closure.rib_skin_areal_density_kgpm2 == pytest.approx(0.20)
     assert cfg.mass_closure.gross_mass_hard_max_kg == pytest.approx(107.0)
-    assert cfg.mission.objective_mode == "max_range"
+    assert cfg.mission.objective_mode == "fixed_range_best_time"
     assert cfg.mission.resolved_rider_model == "csv_power_curve"
     assert cfg.mission.rider_power_curve_csv is not None
     assert Path(cfg.mission.rider_power_curve_csv).is_file()

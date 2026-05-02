@@ -86,7 +86,9 @@ class MassClosureConfig(ConceptBaseModel):
 
 
 class MissionConfig(ConceptBaseModel):
-    objective_mode: Literal["max_range", "min_power"] = "max_range"
+    objective_mode: Literal["max_range", "min_power", "fixed_range_best_time"] = (
+        "fixed_range_best_time"
+    )
     target_distance_km: float = Field(42.195, gt=0.0)
     rider_model: Literal["fake_anchor_curve", "csv_power_curve"] = "fake_anchor_curve"
     anchor_power_w: float = Field(300.0, gt=0.0)

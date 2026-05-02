@@ -420,6 +420,64 @@ def test_evaluate_mission_objective_min_power_reports_min_power_metrics():
     assert result.target_range_passed is (max(expected_ranges) >= 15000.0)
 
 
+def test_evaluate_mission_objective_fixed_range_best_time_uses_fastest_finish():
+    curve = FakeAnchorCurve(
+        anchor_power_w=300.0,
+        anchor_duration_min=30.0,
+        exponent=1.0,
+    )
+    inputs = MissionEvaluationInputs(
+        objective_mode="fixed_range_best_time",
+        target_range_km=10.0,
+        speed_mps=(8.0, 10.0, 12.5),
+        power_required_w=(210.0, 225.0, 240.0),
+        rider_curve=curve,
+    )
+
+    result = evaluate_mission_objective(inputs)
+
+    expected_completion_time_s = 10_000.0 / 12.5
+    assert result.mission_objective_mode == "fixed_range_best_time"
+    assert result.target_range_passed is True
+    assert result.best_time_s == pytest.approx(expected_completion_time_s)
+    assert result.best_time_speed_mps == pytest.approx(12.5)
+    assert result.target_completion_time_s_by_speed == pytest.approx(
+        (10_000.0 / 8.0, 10_000.0 / 10.0, expected_completion_time_s)
+    )
+    assert result.fixed_range_feasible_speed_set_mps == pytest.approx((8.0, 10.0, 12.5))
+    assert result.mission_score == pytest.approx(expected_completion_time_s)
+    assert result.mission_score_reason == "fixed_range_minimize_time"
+
+
+def test_evaluate_mission_objective_fixed_range_falls_back_to_max_range_on_miss():
+    curve = FakeAnchorCurve(
+        anchor_power_w=300.0,
+        anchor_duration_min=30.0,
+        exponent=1.0,
+    )
+    inputs = MissionEvaluationInputs(
+        objective_mode="fixed_range_best_time",
+        target_range_km=500.0,
+        speed_mps=(8.0, 10.0, 12.5),
+        power_required_w=(250.0, 260.0, 280.0),
+        rider_curve=curve,
+    )
+
+    result = evaluate_mission_objective(inputs)
+
+    assert result.target_range_passed is False
+    assert result.best_time_s is None
+    assert result.best_time_speed_mps is None
+    assert result.fixed_range_feasible_speed_set_mps == ()
+    assert result.mission_score_reason == "fixed_range_fallback_max_range"
+    expected_shortfall_time_s = (500_000.0 - result.best_range_m) / min(inputs.speed_mps)
+    assert result.mission_score == pytest.approx(
+        max(result.target_completion_time_s_by_speed)
+        + 1_000_000.0
+        + expected_shortfall_time_s
+    )
+
+
 def test_evaluate_mission_objective_target_miss_is_infeasible():
     inputs = MissionEvaluationInputs(
         objective_mode="max_range",

@@ -10,7 +10,7 @@ mass:
   design_gross_mass_kg: 105.0
 
 mission:
-  objective_mode: max_range
+  objective_mode: fixed_range_best_time
   target_distance_km: 42.195
   rider_model: fake_anchor_curve
   anchor_power_w: 300.0

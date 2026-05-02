@@ -189,6 +189,8 @@ Birdman rules / environment / rider power / mass
 
 目前進度：這條線已經不是假骨架。`scripts/birdman_upstream_concept_design.py` 可以用 `--worker-mode julia` 跑 real `julia_xfoil` worker，config 也已經把主要幾何變數改成 `span_m` + `wing_loading_target_Npm2`，`wing_area_m2` 則由翼載與 mass-closure 邏輯導出。`output/birdman_mass_closure_rerun_20260424/` 的最近一次 real Julia/XFoil run 評估了 40 個概念，沒有完全可行解；最佳診斷點約為 `span = 35.99 m`、`S = 38.09 m2`、`AR = 34.01`、`W/S = 27.35 N/m2`，主要失敗是 `local_stall + mission`，最佳航程約 `16.1 km`，距離 `42.195 km` 仍差很多。
 
+主任務定義：這條線目前主 objective 命名為 **`fixed_range_best_time`**，中文稱「給定航程-最佳時間任務」。比賽航程 `R` 由 `mission.target_distance_km` 提出，預設為 `42.195 km`；若任一可飛速度能完成 `R`，mission score 以完賽時間 `R / V` 排序，但整體 concept ranking 仍先看 gate / feasibility margin，所以薄裕度高速解不會壓過裕度明顯更好的較慢完賽解。若不能完賽，則退回最大航程作為比較訊號。舊的 `max_range` 與 `min_power` objective 仍保留，可用於診斷或替代研究。
+
 工程判讀：mass closure 已經修掉最危險的假訊號，現在不能再單純用「加大翼面積」買 stall margin，因為需要的 repair area 會超過目前 gross-mass cap。下一步比較合理的是在約 `S = 34..40 m2`、`W/S = 27..31 N/m2` 內改善 `CLmax`、twist、planform distribution，並同時審核 rider-power / endurance model，而不是繼續把低翼載、大面積 box 往外推。
 
 外部嚴格審查紀錄：

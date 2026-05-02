@@ -53,6 +53,7 @@ from hpa_mdo.mission.objective import (
     MissionEvaluationInputs,
     build_rider_power_curve,
     evaluate_mission_objective,
+    fixed_range_infeasible_score,
 )
 
 _ROOT_SEED_AIRFOIL = "fx76mp140"
@@ -2206,9 +2207,23 @@ def _build_concept_mission_summary(
             best_endurance_s = 0.0
             best_power_margin_w = None
             best_power_margin_speed_mps = None
-            if str(cfg.mission.objective_mode) == "max_range":
+            best_time_s = None
+            best_time_speed_mps = None
+            fixed_range_feasible_speed_set_mps: tuple[float, ...] = ()
+            mission_objective_mode = str(cfg.mission.objective_mode)
+            if mission_objective_mode == "max_range":
                 mission_score = 0.0
                 mission_score_reason = "maximize_range_feasible_only"
+            elif mission_objective_mode == "fixed_range_best_time":
+                mission_score = fixed_range_infeasible_score(
+                    target_range_m=float(target_range_m),
+                    best_range_m=0.0,
+                    min_speed_mps=float(min(speed_sweep_mps)),
+                    slowest_completion_time_s=float(
+                        max(unconstrained_result.target_completion_time_s_by_speed)
+                    ),
+                )
+                mission_score_reason = "fixed_range_no_feasible_speed_samples"
             else:
                 mission_score = float(unconstrained_result.min_power_w) + 1_000_000.0
                 mission_score_reason = "minimize_power_feasible_only"
@@ -2222,6 +2237,11 @@ def _build_concept_mission_summary(
             best_endurance_s = float(feasible_result.best_endurance_s)
             best_power_margin_w = float(feasible_result.best_power_margin_w)
             best_power_margin_speed_mps = float(feasible_result.best_power_margin_speed_mps)
+            best_time_s = feasible_result.best_time_s
+            best_time_speed_mps = feasible_result.best_time_speed_mps
+            fixed_range_feasible_speed_set_mps = tuple(
+                feasible_result.fixed_range_feasible_speed_set_mps
+            )
             mission_score = float(feasible_result.mission_score)
             mission_score_reason = str(feasible_result.mission_score_reason)
             operating_point_status = (
@@ -2241,6 +2261,21 @@ def _build_concept_mission_summary(
                 "best_endurance_s": best_endurance_s,
                 "best_power_margin_w": best_power_margin_w,
                 "best_power_margin_speed_mps": best_power_margin_speed_mps,
+                "best_time_s": best_time_s,
+                "best_time_speed_mps": best_time_speed_mps,
+                "best_time_unconstrained_s": unconstrained_result.best_time_s,
+                "best_time_unconstrained_speed_mps": (
+                    unconstrained_result.best_time_speed_mps
+                ),
+                "target_completion_time_s_by_speed": tuple(
+                    unconstrained_result.target_completion_time_s_by_speed
+                ),
+                "fixed_range_feasible_speed_set_mps": tuple(
+                    fixed_range_feasible_speed_set_mps
+                ),
+                "fixed_range_feasible_speed_set_unconstrained_mps": tuple(
+                    unconstrained_result.fixed_range_feasible_speed_set_mps
+                ),
                 "best_power_margin_unconstrained_w": float(
                     unconstrained_result.best_power_margin_w
                 ),
@@ -2348,6 +2383,21 @@ def _build_concept_mission_summary(
         "best_endurance_unconstrained_s": float(
             worst_case_result["best_endurance_unconstrained_s"]
         ),
+        "best_time_s": worst_case_result["best_time_s"],
+        "best_time_speed_mps": worst_case_result["best_time_speed_mps"],
+        "best_time_unconstrained_s": worst_case_result["best_time_unconstrained_s"],
+        "best_time_unconstrained_speed_mps": worst_case_result[
+            "best_time_unconstrained_speed_mps"
+        ],
+        "target_completion_time_s_by_speed": list(
+            worst_case_result["target_completion_time_s_by_speed"]
+        ),
+        "fixed_range_feasible_speed_set_mps": list(
+            worst_case_result["fixed_range_feasible_speed_set_mps"]
+        ),
+        "fixed_range_feasible_speed_set_unconstrained_mps": list(
+            worst_case_result["fixed_range_feasible_speed_set_unconstrained_mps"]
+        ),
         "best_power_margin_w": worst_case_result["best_power_margin_w"],
         "best_power_margin_speed_mps": worst_case_result["best_power_margin_speed_mps"],
         "best_power_margin_unconstrained_w": float(
@@ -2414,6 +2464,21 @@ def _build_concept_mission_summary(
                 "best_endurance_s": float(result["best_endurance_s"]),
                 "best_endurance_unconstrained_s": float(
                     result["best_endurance_unconstrained_s"]
+                ),
+                "best_time_s": result["best_time_s"],
+                "best_time_speed_mps": result["best_time_speed_mps"],
+                "best_time_unconstrained_s": result["best_time_unconstrained_s"],
+                "best_time_unconstrained_speed_mps": result[
+                    "best_time_unconstrained_speed_mps"
+                ],
+                "target_completion_time_s_by_speed": list(
+                    result["target_completion_time_s_by_speed"]
+                ),
+                "fixed_range_feasible_speed_set_mps": list(
+                    result["fixed_range_feasible_speed_set_mps"]
+                ),
+                "fixed_range_feasible_speed_set_unconstrained_mps": list(
+                    result["fixed_range_feasible_speed_set_unconstrained_mps"]
                 ),
                 "best_power_margin_w": result["best_power_margin_w"],
                 "best_power_margin_speed_mps": result["best_power_margin_speed_mps"],

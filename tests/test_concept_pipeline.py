@@ -1815,6 +1815,7 @@ def test_launch_summary_uses_vstall_primary_gate_and_tracks_ground_effect_sensit
 
 def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg.mission.objective_mode = "max_range"
     cfg.rigging_drag.enabled = False
     concept = GeometryConcept(
         span_m=32.0,
@@ -2455,7 +2456,10 @@ def test_pipeline_reorders_selected_concepts_by_mission_ranking(
     assert summary["selected_concepts"][0]["enumeration_index"] == 2
     assert summary["selected_concepts"][0]["rank"] == 1
     assert summary["selected_concepts"][1]["rank"] == 2
-    assert summary["selected_concepts"][0]["mission"]["mission_objective_mode"] == "max_range"
+    assert (
+        summary["selected_concepts"][0]["mission"]["mission_objective_mode"]
+        == "fixed_range_best_time"
+    )
     assert "mission_score" in summary["selected_concepts"][0]["mission"]
     assert "ranking" in summary["selected_concepts"][0]
     assert summary["selected_concepts"][0]["ranking"]["selection_scope"] == "ranked_sampled_pool"

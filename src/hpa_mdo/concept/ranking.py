@@ -62,6 +62,8 @@ def _mission_component(result: CandidateConceptResult) -> float:
         return 0.001 * float(result.mission_score)
     if result.mission_objective_mode == "min_power":
         return float(result.mission_score)
+    if result.mission_objective_mode == "fixed_range_best_time":
+        return float(result.mission_score)
     raise ValueError(
         f"unsupported mission_objective_mode for ranking: {result.mission_objective_mode}"
     )
@@ -131,6 +133,11 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
                 and result.mission_score > best_result.mission_score
             ):
                 augmented_reasons.append("higher_power_than_best")
+            elif (
+                result.mission_objective_mode == "fixed_range_best_time"
+                and result.mission_score > best_result.mission_score
+            ):
+                augmented_reasons.append("slower_time_than_best")
             elif result.safety_margin < best_result.safety_margin:
                 augmented_reasons.append("lower_safety_margin_than_best")
             elif result.assembly_penalty > best_result.assembly_penalty:

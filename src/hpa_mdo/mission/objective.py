@@ -11,6 +11,8 @@ from typing import Any, Sequence
 
 import yaml
 
+_FIXED_RANGE_INFEASIBLE_SCORE_BUFFER_S = 1_000_000.0
+
 
 @dataclass(frozen=True)
 class RiderPowerEnvironment:
@@ -166,6 +168,10 @@ class MissionEvaluationResult:
     power_margin_w_by_speed: tuple[float, ...]
     required_duration_min_by_speed: tuple[float, ...]
     available_power_w_by_speed: tuple[float, ...]
+    target_completion_time_s_by_speed: tuple[float, ...]
+    fixed_range_feasible_speed_set_mps: tuple[float, ...]
+    best_time_s: float | None
+    best_time_speed_mps: float | None
     best_range_m: float
     best_range_speed_mps: float
     best_endurance_s: float
@@ -420,6 +426,7 @@ def evaluate_mission_objective(
     required_duration_min_by_speed = []
     available_power_w_by_speed = []
     power_margin_w_by_speed = []
+    target_completion_time_s_by_speed = []
     for speed_mps, power_required_w in zip(inputs.speed_mps, inputs.power_required_w):
         duration_min = inputs.rider_curve.duration_at_power_w(power_required_w)
         duration_s = duration_min * 60.0
@@ -427,8 +434,10 @@ def evaluate_mission_objective(
         ranges_m.append(speed_mps * duration_s)
 
         required_duration_min = target_range_m / speed_mps / 60.0
+        target_completion_time_s = target_range_m / speed_mps
         available_power_w = inputs.rider_curve.power_at_duration_min(required_duration_min)
         required_duration_min_by_speed.append(required_duration_min)
+        target_completion_time_s_by_speed.append(target_completion_time_s)
         available_power_w_by_speed.append(available_power_w)
         power_margin_w_by_speed.append(available_power_w - power_required_w)
 
@@ -441,6 +450,25 @@ def evaluate_mission_objective(
     best_range_m = ranges_m[best_index]
     best_endurance_s = max(endurance_s)
     min_power_w = inputs.power_required_w[min_power_index]
+    fixed_range_feasible_indices = [
+        index
+        for index, range_m in enumerate(ranges_m)
+        if float(range_m) + 1.0e-9 >= float(target_range_m)
+    ]
+    best_time_index = (
+        None
+        if not fixed_range_feasible_indices
+        else min(
+            fixed_range_feasible_indices,
+            key=target_completion_time_s_by_speed.__getitem__,
+        )
+    )
+    best_time_s = (
+        None if best_time_index is None else float(target_completion_time_s_by_speed[best_time_index])
+    )
+    best_time_speed_mps = (
+        None if best_time_index is None else float(inputs.speed_mps[best_time_index])
+    )
 
     if inputs.objective_mode == "max_range":
         mission_score = -best_range_m
@@ -448,14 +476,27 @@ def evaluate_mission_objective(
     elif inputs.objective_mode == "min_power":
         mission_score = float(min_power_w)
         mission_score_reason = "minimize_power"
+    elif inputs.objective_mode == "fixed_range_best_time":
+        if best_time_s is None:
+            mission_score = fixed_range_infeasible_score(
+                target_range_m=float(target_range_m),
+                best_range_m=float(best_range_m),
+                min_speed_mps=float(min(inputs.speed_mps)),
+                slowest_completion_time_s=float(max(target_completion_time_s_by_speed)),
+            )
+            mission_score_reason = "fixed_range_fallback_max_range"
+        else:
+            mission_score = float(best_time_s)
+            mission_score_reason = "fixed_range_minimize_time"
     else:
         raise ValueError(f"unsupported objective_mode: {inputs.objective_mode}")
 
+    target_range_passed = bool(best_range_m >= target_range_m)
     return MissionEvaluationResult(
         mission_objective_mode=inputs.objective_mode,
-        mission_feasible=best_range_m >= target_range_m,
+        mission_feasible=target_range_passed,
         target_range_km=inputs.target_range_km,
-        target_range_passed=best_range_m >= target_range_m,
+        target_range_passed=target_range_passed,
         target_range_margin_m=best_range_m - target_range_m,
         best_power_margin_w=float(power_margin_w_by_speed[best_power_margin_index]),
         best_power_margin_speed_mps=float(inputs.speed_mps[best_power_margin_index]),
@@ -466,6 +507,14 @@ def evaluate_mission_objective(
         available_power_w_by_speed=tuple(
             float(value) for value in available_power_w_by_speed
         ),
+        target_completion_time_s_by_speed=tuple(
+            float(value) for value in target_completion_time_s_by_speed
+        ),
+        fixed_range_feasible_speed_set_mps=tuple(
+            float(inputs.speed_mps[index]) for index in fixed_range_feasible_indices
+        ),
+        best_time_s=best_time_s,
+        best_time_speed_mps=best_time_speed_mps,
         best_range_m=best_range_m,
         best_range_speed_mps=float(inputs.speed_mps[best_index]),
         best_endurance_s=best_endurance_s,
@@ -476,6 +525,23 @@ def evaluate_mission_objective(
         pilot_power_model=_pilot_power_model_name(inputs.rider_curve),
         pilot_power_anchor=_pilot_power_anchor_label(inputs.rider_curve),
         speed_sweep_window_mps=(min(inputs.speed_mps), max(inputs.speed_mps)),
+    )
+
+
+def fixed_range_infeasible_score(
+    *,
+    target_range_m: float,
+    best_range_m: float,
+    min_speed_mps: float,
+    slowest_completion_time_s: float,
+) -> float:
+    """Unit-consistent fallback score for fixed-range missions that miss R."""
+
+    range_shortfall_m = max(float(target_range_m) - float(best_range_m), 0.0)
+    return (
+        float(slowest_completion_time_s)
+        + _FIXED_RANGE_INFEASIBLE_SCORE_BUFFER_S
+        + range_shortfall_m / max(float(min_speed_mps), 1.0e-9)
     )
 
 

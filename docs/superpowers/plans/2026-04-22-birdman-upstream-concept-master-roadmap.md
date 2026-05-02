@@ -11,6 +11,7 @@ This roadmap defines the remaining work required to turn the current Birdman ups
 -> `Julia(XFoil.jl) polar evaluation`
 -> `launch / turn / trim / local-stall / ground-effect checks`
 -> `simplified prop-aware coupling`
+-> `fixed-range best-time mission scoring`
 -> `3~5 ranked aircraft concepts`
 -> `OpenVSP + downstream mainline handoff`
 
@@ -35,6 +36,10 @@ This roadmap defines the full remaining sequence, why the order matters, and wha
   - `local_stall`
 - real `Julia + XFoil.jl` worker path
 - seed-airfoil based 2D polar evaluation
+- `fixed_range_best_time` mission mode for the Birdman `R = 42.195 km` rule:
+  finish-capable speeds are ranked by completion time, while concept ranking
+  still puts feasibility margin ahead of thin speed gains; non-finishers fall
+  back to maximum range for comparison.
 
 ### Still Incomplete
 
@@ -42,6 +47,8 @@ This roadmap defines the full remaining sequence, why the order matters, and wha
 - CST exists as a contract and handoff format, but not yet as the active airfoil design inner loop
 - `clmax`, `cm`, and `cd` are not yet fully coupled back into concept decisions
 - simplified prop coupling is still too weak to meaningfully shape concept ranking
+- fixed-range best-time scoring is connected, but the underlying drag / prop /
+  rider-endurance calibration is still diagnostic rather than decision-grade
 - current safety judgments still lean on coarse proxies
 - current concept ranking is not yet trustworthy enough for real design choice
 
