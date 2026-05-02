@@ -2429,7 +2429,7 @@ def _collect_brep_hotspot_report(
         }
 
     try:
-        from OCP.BRep import BRep_Tool
+        from OCP.BRep import BRep_Builder, BRep_Tool
         from OCP.BRepBndLib import BRepBndLib
         from OCP.BRepCheck import BRepCheck_Analyzer
         from OCP.BRepGProp import BRepGProp
@@ -2450,7 +2450,7 @@ def _collect_brep_hotspot_report(
             TopTools_IndexedDataMapOfShapeListOfShape,
             TopTools_IndexedMapOfShape,
         )
-        from OCP.TopoDS import TopoDS
+        from OCP.TopoDS import TopoDS, TopoDS_Shape
     except Exception as exc:
         return {
             "status": "unavailable",
@@ -2532,9 +2532,15 @@ def _collect_brep_hotspot_report(
         return {
             "valid_default": bool(analyzer_default.IsValid(subshape)),
             "valid_exact": bool(analyzer_exact.IsValid(subshape)),
-            "statuses_default": [_enum_name(status) for status in list(analyzer_default.Result(subshape).Status())],
-            "statuses_exact": [_enum_name(status) for status in list(analyzer_exact.Result(subshape).Status())],
+            "statuses_default": _shape_statuses(analyzer_default, subshape),
+            "statuses_exact": _shape_statuses(analyzer_exact, subshape),
         }
+
+    def _shape_statuses(analyzer, subshape) -> list[str]:
+        result = analyzer.Result(subshape)
+        if result is None:
+            return []
+        return [_enum_name(status) for status in list(result.Status())]
 
     def _linear_length(shape) -> float:
         props = GProp_GProps()
@@ -2557,18 +2563,55 @@ def _collect_brep_hotspot_report(
                 continue
         return active
 
-    reader = STEPControl_Reader()
-    status = reader.ReadFile(str(step_path))
-    if status != IFSelect_RetDone:
+    geometry_suffix = step_path.suffix.lower()
+    geometry_reader = "step"
+    if geometry_suffix in {".step", ".stp"}:
+        reader = STEPControl_Reader()
+        status = reader.ReadFile(str(step_path))
+        if status != IFSelect_RetDone:
+            return {
+                "status": "failed_to_read_step",
+                "reason": "step_reader_failed",
+                "step_path": str(step_path),
+                "geometry_path": str(step_path),
+                "reader_status": int(status),
+                **request,
+            }
+        reader.TransferRoots()
+        shape = reader.OneShape()
+    elif geometry_suffix == ".brep":
+        geometry_reader = "brep"
+        shape = TopoDS_Shape()
+        builder = BRep_Builder()
+        try:
+            read_ok = bool(BRepTools.Read_s(shape, str(step_path), builder))
+        except Exception as exc:
+            return {
+                "status": "failed_to_read_brep",
+                "reason": "brep_reader_failed",
+                "step_path": str(step_path),
+                "geometry_path": str(step_path),
+                "reader_error": str(exc),
+                **request,
+            }
+        if not read_ok or shape.IsNull():
+            return {
+                "status": "failed_to_read_brep",
+                "reason": "brep_reader_returned_null_shape",
+                "step_path": str(step_path),
+                "geometry_path": str(step_path),
+                "reader_status": bool(read_ok),
+                **request,
+            }
+    else:
         return {
-            "status": "failed_to_read_step",
-            "reason": "step_reader_failed",
+            "status": "failed_to_read_geometry",
+            "reason": "unsupported_geometry_format_for_brep_hotspot_reader",
             "step_path": str(step_path),
-            "reader_status": int(status),
+            "geometry_path": str(step_path),
+            "geometry_suffix": geometry_suffix,
             **request,
         }
-    reader.TransferRoots()
-    shape = reader.OneShape()
 
     analyzer_default = BRepCheck_Analyzer(shape)
     analyzer_exact = BRepCheck_Analyzer(shape)
@@ -3015,12 +3058,14 @@ def _collect_brep_hotspot_report(
     return {
         "status": "captured",
         "step_path": str(step_path),
+        "geometry_path": str(step_path),
+        "geometry_reader": geometry_reader,
         "units": str(output_units),
         "scale_to_output_units": scale,
         "shape_valid_default": bool(analyzer_default.IsValid(shape)),
         "shape_valid_exact": bool(analyzer_exact.IsValid(shape)),
-        "shape_status_default": [_enum_name(status) for status in list(analyzer_default.Result(shape).Status())],
-        "shape_status_exact": [_enum_name(status) for status in list(analyzer_exact.Result(shape).Status())],
+        "shape_status_default": _shape_statuses(analyzer_default, shape),
+        "shape_status_exact": _shape_statuses(analyzer_exact, shape),
         **request,
         "face_reports": face_reports,
         "curve_reports": curve_reports,

@@ -75,6 +75,30 @@ def _write_occ_box_step(tmp_path: Path, name: str = "box.step") -> Path:
     return step_path
 
 
+def _write_occ_box_brep(tmp_path: Path, name: str = "box.brep") -> Path:
+    gmsh_bin = shutil.which("gmsh")
+    if gmsh_bin is None:
+        pytest.skip("gmsh CLI not available")
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    geo_path = tmp_path / "box.geo"
+    brep_path = tmp_path / name
+    geo_path.write_text(
+        'SetFactory("OpenCASCADE");\n'
+        "Box(1) = {0, 0, 0, 1, 0.2, 0.1};\n",
+        encoding="utf-8",
+    )
+    completed = subprocess.run(
+        [gmsh_bin, str(geo_path), "-0", "-o", str(brep_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stderr or completed.stdout
+    assert brep_path.exists()
+    return brep_path
+
+
 def _write_occ_box_step_with_dims(
     tmp_path: Path,
     x_length: float,
@@ -1659,6 +1683,29 @@ def test_resolve_brep_hotspot_request_tracks_requested_faces_and_curves():
     assert request["curve_surface_context_tags"] == [1, 10, 20, 30, 31, 32]
     assert request["missing_surface_tags"] == [999]
     assert request["missing_curve_tags"] == [404]
+
+
+def test_collect_brep_hotspot_report_reads_brep_files(tmp_path: Path):
+    brep_path = _write_occ_box_brep(tmp_path)
+
+    report = _collect_brep_hotspot_report(
+        step_path=brep_path,
+        surface_patch_diagnostics={
+            "surface_records": [
+                {"tag": 1, "curve_tags": []},
+            ],
+            "curve_records": [],
+        },
+        requested_surface_tags=[1],
+        requested_curve_tags=[],
+    )
+
+    assert report["status"] == "captured"
+    assert report["geometry_reader"] == "brep"
+    assert report["geometry_path"] == str(brep_path)
+    assert report["selected_surface_tags"] == [1]
+    assert report["face_reports"]
+    assert report["face_reports"][0]["surface_id"] == 1
 
 
 def test_configure_volume_smoke_decoupled_field_uses_bounded_near_body_shell(tmp_path: Path):

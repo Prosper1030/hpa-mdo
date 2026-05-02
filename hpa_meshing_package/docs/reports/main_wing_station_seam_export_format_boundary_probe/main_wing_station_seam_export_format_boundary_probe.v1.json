@@ -171,7 +171,7 @@
         "export_exists": true,
         "export_size_bytes": 387984,
         "command_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_format_boundary_probe/artifacts/step/ocsm.log",
-        "stdout_tail": "  0.779 \n      659    661 linseg      658    -1   660   659    0.000     0     0     0     sketch    0.666   16.500    0.779 \n      660    662 skend       659    -1   661   660    0.001     3     3     1 sheet_body    0.000 \n      661*   663 rule         60   660     0   661    0.049    33    63    32 solid_body    0.000    0.000    0.000 \n                                             total    0.066\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  661   2.9980e+00   7.3099e+01    5.7774e-01  -2.0738e-15   2.2354e-01     1.8554e+02   2.1812e-15   2.5456e-02   2.7417e-01  -5.7555e-17   1.8562e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.257 sec\n==> serveCSM completed successfully with 11 warnings\n",
+        "stdout_tail": "  0.779 \n      659    661 linseg      658    -1   660   659    0.000     0     0     0     sketch    0.666   16.500    0.779 \n      660    662 skend       659    -1   661   660    0.001     3     3     1 sheet_body    0.000 \n      661*   663 rule         60   660     0   661    0.049    33    63    32 solid_body    0.000    0.000    0.000 \n                                             total    0.074\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  661   2.9980e+00   7.3099e+01    5.7774e-01  -2.0738e-15   2.2354e-01     1.8554e+02   2.1812e-15   2.5456e-02   2.7417e-01  -5.7555e-17   1.8562e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.261 sec\n==> serveCSM completed successfully with 11 warnings\n",
         "stderr_tail": "",
         "topology": {
           "status": "topology_counted",
@@ -1095,7 +1095,7 @@
         "export_exists": true,
         "export_size_bytes": 240451,
         "command_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_format_boundary_probe/artifacts/brep/ocsm.log",
-        "stdout_tail": "  0.779 \n      659    661 linseg      658    -1   660   659    0.000     0     0     0     sketch    0.666   16.500    0.779 \n      660    662 skend       659    -1   661   660    0.001     3     3     1 sheet_body    0.000 \n      661*   663 rule         60   660     0   661    0.052    33    63    32 solid_body    0.000    0.000    0.000 \n                                             total    0.070\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  661   2.9980e+00   7.3099e+01    5.7774e-01  -2.0738e-15   2.2354e-01     1.8554e+02   2.1812e-15   2.5456e-02   2.7417e-01  -5.7555e-17   1.8562e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.253 sec\n==> serveCSM completed successfully with 11 warnings\n",
+        "stdout_tail": "  0.779 \n      659    661 linseg      658    -1   660   659    0.000     0     0     0     sketch    0.666   16.500    0.779 \n      660    662 skend       659    -1   661   660    0.001     3     3     1 sheet_body    0.000 \n      661*   663 rule         60   660     0   661    0.049    33    63    32 solid_body    0.000    0.000    0.000 \n                                             total    0.065\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  661   2.9980e+00   7.3099e+01    5.7774e-01  -2.0738e-15   2.2354e-01     1.8554e+02   2.1812e-15   2.5456e-02   2.7417e-01  -5.7555e-17   1.8562e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.243 sec\n==> serveCSM completed successfully with 11 warnings\n",
         "stderr_tail": "",
         "topology": {
           "status": "topology_counted",
@@ -1470,13 +1470,13 @@
           ]
         }
       },
-      "validation_status": "side_aware_candidate_station_brep_validation_unavailable",
+      "validation_status": "side_aware_candidate_station_brep_edges_suspect",
       "validation": {
         "schema_version": "main_wing_station_seam_side_aware_brep_validation_probe.v1",
         "component": "main_wing",
         "execution_scope": "report_only_side_aware_candidate_brep_validation",
         "production_default_changed": false,
-        "probe_status": "side_aware_candidate_station_brep_validation_unavailable",
+        "probe_status": "side_aware_candidate_station_brep_edges_suspect",
         "side_aware_parametrization_probe_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_side_aware_parametrization_probe/main_wing_station_seam_side_aware_parametrization_probe.v1.json",
         "candidate_step_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_format_boundary_probe/artifacts/brep/candidate_raw_dump.brep",
         "target_station_y_m": [
@@ -1664,9 +1664,9 @@
         },
         "hotspot_summary": {
           "collector_status": "captured",
-          "hotspot_status": "failed_to_read_step",
-          "shape_valid_default": null,
-          "shape_valid_exact": null,
+          "hotspot_status": "captured",
+          "shape_valid_default": true,
+          "shape_valid_exact": true,
           "scale_to_output_units": 1.0,
           "selected_curve_tags": [
             7,
@@ -1690,18 +1690,303 @@
             29,
             30
           ],
-          "station_edge_check_count": 0,
-          "face_check_count": 0
+          "station_edge_check_count": 6,
+          "face_check_count": 12
         },
-        "station_edge_checks": [],
-        "face_checks": [],
+        "station_edge_checks": [
+          {
+            "station_y_m": -10.5,
+            "candidate_step_curve_tag": 7,
+            "candidate_step_edge_index": 7,
+            "owner_surface_tags": [
+              2,
+              3
+            ],
+            "ancestor_face_ids": [
+              2,
+              3
+            ],
+            "gmsh_length_3d_m": 0.010151388133646747,
+            "edge_length_3d_m": 0.010151388133646747,
+            "length_relative_delta": 0.0,
+            "match_score": 0.0,
+            "pcurve_presence_complete": true,
+            "curve3d_with_pcurve_consistent": false,
+            "same_parameter_by_face_ok": false,
+            "vertex_tolerance_by_face_ok": false,
+            "pcurve_range_matches_edge_range": true,
+            "pcurve_checks_complete": false,
+            "same_parameter_flag": true,
+            "same_range_flag": true,
+            "brep_valid_default": true,
+            "brep_valid_exact": true
+          },
+          {
+            "station_y_m": 13.5,
+            "candidate_step_curve_tag": 28,
+            "candidate_step_edge_index": 28,
+            "owner_surface_tags": [
+              9,
+              10
+            ],
+            "ancestor_face_ids": [
+              9,
+              10
+            ],
+            "gmsh_length_3d_m": 0.02892837160467289,
+            "edge_length_3d_m": 0.02892837160467289,
+            "length_relative_delta": 0.0,
+            "match_score": 0.0,
+            "pcurve_presence_complete": true,
+            "curve3d_with_pcurve_consistent": false,
+            "same_parameter_by_face_ok": false,
+            "vertex_tolerance_by_face_ok": false,
+            "pcurve_range_matches_edge_range": true,
+            "pcurve_checks_complete": false,
+            "same_parameter_flag": true,
+            "same_range_flag": true,
+            "brep_valid_default": true,
+            "brep_valid_exact": true
+          },
+          {
+            "station_y_m": -10.5,
+            "candidate_step_curve_tag": 36,
+            "candidate_step_edge_index": 36,
+            "owner_surface_tags": [
+              12,
+              13
+            ],
+            "ancestor_face_ids": [
+              12,
+              13
+            ],
+            "gmsh_length_3d_m": 2.1361305276962668,
+            "edge_length_3d_m": 2.1361305276962668,
+            "length_relative_delta": 0.0,
+            "match_score": 0.0,
+            "pcurve_presence_complete": true,
+            "curve3d_with_pcurve_consistent": false,
+            "same_parameter_by_face_ok": false,
+            "vertex_tolerance_by_face_ok": false,
+            "pcurve_range_matches_edge_range": true,
+            "pcurve_checks_complete": false,
+            "same_parameter_flag": true,
+            "same_range_flag": true,
+            "brep_valid_default": true,
+            "brep_valid_exact": true
+          },
+          {
+            "station_y_m": 13.5,
+            "candidate_step_curve_tag": 50,
+            "candidate_step_edge_index": 50,
+            "owner_surface_tags": [
+              19,
+              20
+            ],
+            "ancestor_face_ids": [
+              19,
+              20
+            ],
+            "gmsh_length_3d_m": 1.6616134883213196,
+            "edge_length_3d_m": 1.6616134883213196,
+            "length_relative_delta": 0.0,
+            "match_score": 0.0,
+            "pcurve_presence_complete": true,
+            "curve3d_with_pcurve_consistent": false,
+            "same_parameter_by_face_ok": false,
+            "vertex_tolerance_by_face_ok": false,
+            "pcurve_range_matches_edge_range": true,
+            "pcurve_checks_complete": false,
+            "same_parameter_flag": true,
+            "same_range_flag": true,
+            "brep_valid_default": true,
+            "brep_valid_exact": true
+          },
+          {
+            "station_y_m": -10.5,
+            "candidate_step_curve_tag": 55,
+            "candidate_step_edge_index": 55,
+            "owner_surface_tags": [
+              22,
+              23
+            ],
+            "ancestor_face_ids": [
+              22,
+              23
+            ],
+            "gmsh_length_3d_m": 0.011309738135821125,
+            "edge_length_3d_m": 0.011309738135821125,
+            "length_relative_delta": 0.0,
+            "match_score": 0.0,
+            "pcurve_presence_complete": true,
+            "curve3d_with_pcurve_consistent": false,
+            "same_parameter_by_face_ok": false,
+            "vertex_tolerance_by_face_ok": false,
+            "pcurve_range_matches_edge_range": true,
+            "pcurve_checks_complete": false,
+            "same_parameter_flag": true,
+            "same_range_flag": true,
+            "brep_valid_default": true,
+            "brep_valid_exact": true
+          },
+          {
+            "station_y_m": 13.5,
+            "candidate_step_curve_tag": 62,
+            "candidate_step_edge_index": 62,
+            "owner_surface_tags": [
+              29,
+              30
+            ],
+            "ancestor_face_ids": [
+              29,
+              30
+            ],
+            "gmsh_length_3d_m": 0.03041089332920436,
+            "edge_length_3d_m": 0.03041089332920436,
+            "length_relative_delta": 0.0,
+            "match_score": 0.0,
+            "pcurve_presence_complete": true,
+            "curve3d_with_pcurve_consistent": false,
+            "same_parameter_by_face_ok": false,
+            "vertex_tolerance_by_face_ok": false,
+            "pcurve_range_matches_edge_range": true,
+            "pcurve_checks_complete": false,
+            "same_parameter_flag": true,
+            "same_range_flag": true,
+            "brep_valid_default": true,
+            "brep_valid_exact": true
+          }
+        ],
+        "face_checks": [
+          {
+            "candidate_step_face_tag": 2,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 3,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 9,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 10,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 12,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 13,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 19,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 20,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 22,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 23,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 29,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          },
+          {
+            "candidate_step_face_tag": 30,
+            "brep_valid_default": true,
+            "brep_valid_exact": true,
+            "wire_count": 1,
+            "wire_order_all_ok": true,
+            "wires_connected": true,
+            "wires_closed": true,
+            "wire_self_intersection_detected": false
+          }
+        ],
         "upstream_validation_schema": "main_wing_station_seam_profile_resample_brep_validation_probe.v1",
         "engineering_findings": [
           "side_aware_candidate_brep_validation_report_captured",
           "side_aware_station_edges_geometrically_selected",
           "source_fixture_curve_surface_tags_not_replayed",
+          "side_aware_station_edge_pcurves_are_present",
           "side_aware_station_edge_pcurve_consistency_checks_are_suspect",
-          "side_aware_owner_face_or_wire_checks_are_suspect",
+          "side_aware_owner_faces_wires_are_closed_connected_and_ordered",
           "side_aware_candidate_still_not_mesh_ready"
         ],
         "blocking_reasons": [
@@ -1719,9 +2004,7 @@
           "It does not run Gmsh volume mesh generation, SU2_CFD, CL acceptance, or convergence checks.",
           "A side-aware candidate with valid gross topology is still not mesh-ready unless station-edge PCurve consistency passes."
         ],
-        "validated_export_format": "brep",
-        "original_probe_status": "side_aware_candidate_station_brep_edges_suspect",
-        "format_boundary_normalization_reason": "existing_station_hotspot_gate_uses_step_reader_for_non_step_export"
+        "validated_export_format": "brep"
       }
     },
     {
@@ -1736,7 +2019,7 @@
         "export_exists": true,
         "export_size_bytes": 256365,
         "command_log_path": "/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/docs/reports/main_wing_station_seam_export_format_boundary_probe/artifacts/egads/ocsm.log",
-        "stdout_tail": "  0.779 \n      659    661 linseg      658    -1   660   659    0.000     0     0     0     sketch    0.666   16.500    0.779 \n      660    662 skend       659    -1   661   660    0.001     3     3     1 sheet_body    0.000 \n      661*   663 rule         60   660     0   661    0.048    33    63    32 solid_body    0.000    0.000    0.000 \n                                             total    0.062\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  661   2.9980e+00   7.3099e+01    5.7774e-01  -2.0738e-15   2.2354e-01     1.8554e+02   2.1812e-15   2.5456e-02   2.7417e-01  -5.7555e-17   1.8562e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.238 sec\n==> serveCSM completed successfully with 11 warnings\n",
+        "stdout_tail": "  0.779 \n      659    661 linseg      658    -1   660   659    0.000     0     0     0     sketch    0.666   16.500    0.779 \n      660    662 skend       659    -1   661   660    0.002     3     3     1 sheet_body    0.000 \n      661*   663 rule         60   660     0   661    0.080    33    63    32 solid_body    0.000    0.000    0.000 \n                                             total    0.097\nMass properties of Bodys on stack\nibody    volume       area;len      xcg          ycg          zcg            Ixx          Ixy          Ixz          Iyy          Iyz          Izz\n  661   2.9980e+00   7.3099e+01    5.7774e-01  -2.0738e-15   2.2354e-01     1.8554e+02   2.1812e-15   2.5456e-02   2.7417e-01  -5.7555e-17   1.8562e+02\nOutput Parameters\n\nChecking for opportunity for ganged Boolean operations...\n--> ocsmFree() -> status=0 (success)\n--> ocsmFree(NULL) -> status=0 (success)\n--> EG_close() -> status=0\n    Total CPU time = 0.286 sec\n==> serveCSM completed successfully with 11 warnings\n",
         "stderr_tail": "",
         "topology": {
           "status": "surface_inventory_failed",
@@ -1799,14 +2082,14 @@
     "materialized_format_count": 3,
     "validated_format_count": 3,
     "passed_format_count": 0,
-    "suspect_format_count": 1,
-    "validation_unavailable_format_count": 2,
+    "suspect_format_count": 2,
+    "validation_unavailable_format_count": 1,
     "passed_formats": [],
     "suspect_formats": [
-      "step"
+      "step",
+      "brep"
     ],
     "validation_unavailable_formats": [
-      "brep",
       "egads"
     ]
   },
