@@ -59,6 +59,8 @@ class GeometryConcept:
     tail_area_m2: float
     cg_xc: float
     segment_lengths_m: tuple[float, ...]
+    tail_area_source: str = "fixed_area_candidate"
+    tail_volume_coefficient: float | None = None
     twist_control_points: tuple[tuple[float, float], ...] = ()
     spanload_bias: float = 0.0
     wing_loading_target_Npm2: float | None = None
@@ -93,6 +95,8 @@ class GeometryConcept:
             raise ValueError("dihedral_exponent must be positive.")
         if self.tail_area_m2 <= 0.0:
             raise ValueError("tail_area_m2 must be positive.")
+        if self.tail_volume_coefficient is not None and self.tail_volume_coefficient <= 0.0:
+            raise ValueError("tail_volume_coefficient must be positive when provided.")
         if self.spanload_bias < 0.0:
             raise ValueError("spanload_bias must be non-negative.")
         if self.wing_loading_target_Npm2 is not None and self.wing_loading_target_Npm2 <= 0.0:
@@ -328,9 +332,15 @@ def _sample_primary_variables(cfg) -> tuple[dict[str, float], ...]:
 
 
 def _sample_secondary_design_variables(cfg, count: int) -> tuple[tuple[float, float, float, float], ...]:
+    tail_sizing_mode = str(getattr(cfg.geometry_family, "tail_sizing_mode", "fixed_area"))
+    tail_candidates = (
+        cfg.geometry_family.tail_volume_coefficient_candidates
+        if tail_sizing_mode == "tail_volume"
+        else cfg.geometry_family.tail_area_candidates_m2
+    )
     base_combos = tuple(
         product(
-            cfg.geometry_family.tail_area_candidates_m2,
+            tail_candidates,
             cfg.geometry_family.dihedral_root_deg_candidates,
             cfg.geometry_family.dihedral_tip_deg_candidates,
             cfg.geometry_family.dihedral_exponent_candidates,
@@ -585,13 +595,19 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
         tip_twist_deg = float(primary_values["tip_twist_deg"])
         spanload_bias = float(primary_values["spanload_bias"])
         (
-            tail_area_m2,
+            tail_design_value,
             dihedral_root_deg,
             dihedral_tip_deg,
             dihedral_exponent,
         ) = secondary_values_tuple
+        tail_sizing_mode = str(cfg.geometry_family.tail_sizing_mode)
+        tail_design_key = (
+            "tail_volume_coefficient"
+            if tail_sizing_mode == "tail_volume"
+            else "tail_area_m2"
+        )
         secondary_values = {
-            "tail_area_m2": float(tail_area_m2),
+            tail_design_key: float(tail_design_value),
             "dihedral_root_deg": float(dihedral_root_deg),
             "dihedral_tip_deg": float(dihedral_tip_deg),
             "dihedral_exponent": float(dihedral_exponent),
@@ -731,6 +747,21 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                 wing_area_m2 = float(mass_closure.closed_wing_area_m2)
                 design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
 
+        tail_volume_coefficient: float | None = None
+        if tail_sizing_mode == "tail_volume":
+            tail_volume_coefficient = float(tail_design_value)
+            tail_area_m2 = (
+                tail_volume_coefficient
+                * float(wing_area_m2)
+                / float(cfg.tail_model.tail_arm_to_mac)
+            )
+            tail_area_source = "derived_from_tail_volume_coefficient"
+            secondary_values["tail_area_m2"] = float(tail_area_m2)
+        else:
+            tail_area_m2 = float(tail_design_value)
+            tail_area_source = "fixed_area_candidate"
+            secondary_values["tail_volume_coefficient"] = None
+
         jig_gate_cfg = getattr(cfg, "jig_shape_gate", None)
         accepted_tip_deflection_ratio: float | None = None
         accepted_tip_deflection_m: float | None = None
@@ -846,6 +877,8 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             dihedral_tip_deg=float(dihedral_tip_deg),
             dihedral_exponent=float(dihedral_exponent),
             tail_area_m2=float(tail_area_m2),
+            tail_area_source=tail_area_source,
+            tail_volume_coefficient=tail_volume_coefficient,
             cg_xc=float(cfg.geometry_family.cg_xc),
             segment_lengths_m=segment_lengths_m,
             wing_loading_target_Npm2=float(wing_loading_target_Npm2),

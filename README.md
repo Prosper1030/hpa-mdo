@@ -224,7 +224,9 @@ OpenVSP 匯出：Birdman concept configs 預設會對前 `output.export_vsp_for_
 
 推進 / 傳動初估：Birdman concept configs 目前採用 `eta_prop = 0.86`、`eta_trans = 0.96`，所以踏板到有效推進設計點效率 `eta_total = 0.8256`。這是巡航/爬升有前進速度的 sizing 值；螺旋槳直徑、轉速範圍、葉片數與 BEMT proxy 仍保留在 config surface，之後可替換成真實 prop design / map。
 
-翼分佈狀態：目前 upstream line 已把 mission induced-drag proxy 接到 station `cl * chord` spanload shape，幾何 primary variables 也已改成 `span_m + mean_chord_m + taper_ratio + twist_mid_deg + twist_outer_deg + tip_twist_deg + spanload_bias`；這解決了「為了過 stall gate 而用 W/S 反推出過大翼面積」的主要流程問題，也讓 35m span cap 內的小平均弦長 / 高 AR 方案有可調的外翼 unload 手段。flight-shape 方面也已把 wire-relieved cruise tip deflection 接成可檢查輸出。但這仍不是完整的 inverse spanload / flexible jig-shape solve。下一個工程升級應該把 tail-volume sizing、wire-braced beam sizing 接成 primary design variables，再用 AVL Trefftz / ASWING 或 beam-wire loop 取代現在的 proxy。
+尾翼 sizing：Birdman concept configs 目前使用 `tail_sizing_mode: tail_volume`，用 `tail_volume_coefficient_candidates = [0.35, 0.45, 0.55]` 和 `tail_arm_to_mac` 反推水平尾面積 `S_H = V_H * S / tail_arm_to_mac`。這比固定 `3.8 / 4.2 / 4.6 m2` 更適合現在的 mean-chord / 高 AR 搜尋，因為主翼面積縮小時尾翼不會被舊固定面積拖著增加 profile drag。`tail_area_candidates_m2` 仍保留作為 fixed-area fallback。
+
+翼分佈狀態：目前 upstream line 已把 mission induced-drag proxy 接到 station `cl * chord` spanload shape，幾何 primary variables 也已改成 `span_m + mean_chord_m + taper_ratio + twist_mid_deg + twist_outer_deg + tip_twist_deg + spanload_bias`；這解決了「為了過 stall gate 而用 W/S 反推出過大翼面積」的主要流程問題，也讓 35m span cap 內的小平均弦長 / 高 AR 方案有可調的外翼 unload 手段。flight-shape 方面也已把 wire-relieved cruise tip deflection 接成可檢查輸出，尾翼也已從 fixed area 改為 tail-volume sizing。但這仍不是完整的 inverse spanload / flexible jig-shape solve。下一個工程升級應該把 wire-braced beam sizing 接成 primary design variables，再用 AVL Trefftz / ASWING 或 beam-wire loop 取代現在的 proxy。
 
 常用指令：
 

@@ -167,7 +167,9 @@ geometry_family:
   twist_root_deg: 2.0
   twist_control_etas: [0.35, 0.70]
   cg_xc: 0.30
+  tail_sizing_mode: tail_volume
   tail_area_candidates_m2: [3.8, 4.2, 4.6]
+  tail_volume_coefficient_candidates: [0.35, 0.45, 0.55]
   dihedral_root_deg_candidates: [0.0, 1.0, 2.0]
   dihedral_tip_deg_candidates: [4.0, 6.0, 8.0]
   dihedral_exponent_candidates: [1.0, 1.5, 2.0]

@@ -659,7 +659,12 @@ class GeometryFamilyConfig(ConceptBaseModel):
         le=1.0,
         description="Concept-stage longitudinal CG location as fraction of MAC/chord.",
     )
+    tail_sizing_mode: Literal["fixed_area", "tail_volume"] = "fixed_area"
     tail_area_candidates_m2: tuple[float, ...] = Field((3.8, 4.2, 4.6), min_length=1)
+    tail_volume_coefficient_candidates: tuple[float, ...] = Field(
+        (0.35, 0.45, 0.55),
+        min_length=1,
+    )
     dihedral_root_deg_candidates: tuple[float, ...] = Field((0.0, 1.0, 2.0), min_length=1)
     dihedral_tip_deg_candidates: tuple[float, ...] = Field((4.0, 6.0, 8.0), min_length=1)
     dihedral_exponent_candidates: tuple[float, ...] = Field((1.0, 1.5, 2.0), min_length=1)
@@ -668,6 +673,12 @@ class GeometryFamilyConfig(ConceptBaseModel):
     def validate_candidate_ranges(self) -> GeometryFamilyConfig:
         if len(set(self.tail_area_candidates_m2)) != len(self.tail_area_candidates_m2):
             raise ValueError("geometry_family.tail_area_candidates_m2 entries must be unique.")
+        if len(set(self.tail_volume_coefficient_candidates)) != len(
+            self.tail_volume_coefficient_candidates
+        ):
+            raise ValueError(
+                "geometry_family.tail_volume_coefficient_candidates entries must be unique."
+            )
         if len(set(self.dihedral_root_deg_candidates)) != len(self.dihedral_root_deg_candidates):
             raise ValueError(
                 "geometry_family.dihedral_root_deg_candidates entries must be unique."
@@ -680,6 +691,10 @@ class GeometryFamilyConfig(ConceptBaseModel):
             )
         if any(tail_area <= 0.0 for tail_area in self.tail_area_candidates_m2):
             raise ValueError("geometry_family.tail_area_candidates_m2 entries must all be positive.")
+        if any(volume <= 0.0 for volume in self.tail_volume_coefficient_candidates):
+            raise ValueError(
+                "geometry_family.tail_volume_coefficient_candidates entries must all be positive."
+            )
         if any(root < -10.0 or root > 10.0 for root in self.dihedral_root_deg_candidates):
             raise ValueError(
                 "geometry_family.dihedral_root_deg_candidates entries must be in the interval [-10, 10]."

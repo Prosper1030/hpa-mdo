@@ -290,6 +290,13 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert isinstance(first["primary_variables"]["spanload_bias"], float)
     assert first["derived_geometry"]["wing_area_source"] == first["wing_area_source"]
     assert first["derived_geometry"]["wing_area_m2"] == pytest.approx(first["wing_area_m2"])
+    assert first["derived_geometry"]["tail_area_source"] == "derived_from_tail_volume_coefficient"
+    assert isinstance(first["derived_geometry"]["tail_volume_coefficient"], float)
+    assert first["tail_area_m2"] == pytest.approx(
+        first["derived_geometry"]["tail_volume_coefficient"]
+        * first["wing_area_m2"]
+        / cfg.tail_model.tail_arm_to_mac
+    )
     assert len(first["derived_geometry"]["twist_control_points"]) == 4
     assert isinstance(first["derived_geometry"]["tip_deflection_m_at_design_mass"], float)
     assert isinstance(first["derived_geometry"]["effective_dihedral_deg_at_design_mass"], float)

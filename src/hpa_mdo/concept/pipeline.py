@@ -3239,6 +3239,13 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
             "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
             "aspect_ratio": float(concept.aspect_ratio),
             "wing_area_source": str(concept.wing_area_source),
+            "tail_area_m2": float(concept.tail_area_m2),
+            "tail_area_source": str(concept.tail_area_source),
+            "tail_volume_coefficient": (
+                None
+                if concept.tail_volume_coefficient is None
+                else float(concept.tail_volume_coefficient)
+            ),
             "twist_control_points": [
                 {"eta": float(eta), "twist_deg": float(twist_deg)}
                 for eta, twist_deg in concept.twist_control_points
@@ -3468,6 +3475,13 @@ def _build_ranked_concept_record(
         "wing_area_source": str(record.concept.wing_area_source),
         "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
         "aspect_ratio": float(record.concept.aspect_ratio),
+        "tail_area_m2": float(record.concept.tail_area_m2),
+        "tail_area_source": str(record.concept.tail_area_source),
+        "tail_volume_coefficient": (
+            None
+            if record.concept.tail_volume_coefficient is None
+            else float(record.concept.tail_volume_coefficient)
+        ),
         "spanload_bias": float(record.concept.spanload_bias),
         "sizing_archetype": str(sizing_diagnostics["sizing_archetype"]),
         "sizing_diagnostics": sizing_diagnostics,
@@ -3612,6 +3626,12 @@ def _concept_to_bundle_payload(
         "dihedral_tip_deg": float(concept.dihedral_tip_deg),
         "dihedral_exponent": float(concept.dihedral_exponent),
         "tail_area_m2": float(concept.tail_area_m2),
+        "tail_area_source": str(concept.tail_area_source),
+        "tail_volume_coefficient": (
+            None
+            if concept.tail_volume_coefficient is None
+            else float(concept.tail_volume_coefficient)
+        ),
         "cg_xc": float(concept.cg_xc),
         "segment_lengths_m": list(concept.segment_lengths_m),
         "design_gross_mass_kg": (

@@ -382,6 +382,44 @@ def test_enumerate_geometry_concepts_can_use_mean_chord_planform_parameterizatio
     assert concept.aspect_ratio == pytest.approx(35.0 / 0.90)
 
 
+def test_enumerate_geometry_concepts_can_size_tail_from_tail_volume():
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["mass_closure"]["enabled"] = False
+    payload["geometry_family"]["planform_parameterization"] = "mean_chord"
+    payload["geometry_family"]["tail_sizing_mode"] = "tail_volume"
+    payload["geometry_family"]["tail_volume_coefficient_candidates"] = [0.45]
+    payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["tail_model"]["tail_arm_to_mac"] = 4.0
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 35.0, "max": 35.0},
+        "mean_chord_m": {"min": 0.90, "max": 0.90},
+        "wing_loading_target_Npm2": {"min": 31.0, "max": 31.0},
+        "taper_ratio": {"min": 0.35, "max": 0.35},
+        "twist_mid_deg": {"min": 0.75, "max": 0.75},
+        "twist_outer_deg": {"min": -1.25, "max": -1.25},
+        "tip_twist_deg": {"min": -2.75, "max": -2.75},
+        "spanload_bias": {"min": 0.08, "max": 0.08},
+    }
+    payload["geometry_family"]["hard_constraints"]["wing_area_m2_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    payload["geometry_family"]["hard_constraints"]["aspect_ratio_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+
+    assert len(concepts) == 1
+    concept = concepts[0]
+    assert concept.tail_area_source == "derived_from_tail_volume_coefficient"
+    assert concept.tail_volume_coefficient == pytest.approx(0.45)
+    assert concept.tail_area_m2 == pytest.approx(0.45 * concept.wing_area_m2 / 4.0)
+
+
 def test_enumerate_geometry_concepts_samples_spanload_bias_and_twist_controls():
     cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
     payload = load_concept_config(cfg_path).model_dump(mode="python")

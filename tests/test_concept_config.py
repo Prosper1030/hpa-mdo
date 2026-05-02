@@ -162,6 +162,10 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.twist_root_deg == pytest.approx(2.0)
     assert cfg.geometry_family.twist_control_etas == pytest.approx((0.35, 0.70))
     assert cfg.geometry_family.cg_xc == pytest.approx(0.30)
+    assert cfg.geometry_family.tail_sizing_mode == "tail_volume"
+    assert cfg.geometry_family.tail_volume_coefficient_candidates == pytest.approx(
+        (0.35, 0.45, 0.55)
+    )
     assert cfg.geometry_family.dihedral_root_deg_candidates == (0.0, 1.0, 2.0)
     assert cfg.geometry_family.dihedral_tip_deg_candidates == (4.0, 6.0, 8.0)
     assert cfg.geometry_family.dihedral_exponent_candidates == (1.0, 1.5, 2.0)
