@@ -3253,6 +3253,27 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
                 if concept.tip_deflection_ratio_at_design_mass is None
                 else float(concept.tip_deflection_ratio_at_design_mass)
             ),
+            "tip_deflection_m_at_design_mass": (
+                None
+                if concept.tip_deflection_m_at_design_mass is None
+                else float(concept.tip_deflection_m_at_design_mass)
+            ),
+            "effective_dihedral_deg_at_design_mass": (
+                None
+                if concept.effective_dihedral_deg_at_design_mass is None
+                else float(concept.effective_dihedral_deg_at_design_mass)
+            ),
+            "unbraced_tip_deflection_m_at_design_mass": (
+                None
+                if concept.unbraced_tip_deflection_m_at_design_mass is None
+                else float(concept.unbraced_tip_deflection_m_at_design_mass)
+            ),
+            "lift_wire_relief_deflection_m_at_design_mass": (
+                None
+                if concept.lift_wire_relief_deflection_m_at_design_mass is None
+                else float(concept.lift_wire_relief_deflection_m_at_design_mass)
+            ),
+            "tip_deflection_preferred_status": concept.tip_deflection_preferred_status,
             "lift_wire_tension_at_limit_n": (
                 None
                 if concept.lift_wire_tension_at_limit_n is None
@@ -3598,6 +3619,17 @@ def _concept_to_bundle_payload(
             if concept.design_gross_mass_kg is None
             else float(concept.design_gross_mass_kg)
         ),
+        "tip_deflection_m_at_design_mass": (
+            None
+            if concept.tip_deflection_m_at_design_mass is None
+            else float(concept.tip_deflection_m_at_design_mass)
+        ),
+        "effective_dihedral_deg_at_design_mass": (
+            None
+            if concept.effective_dihedral_deg_at_design_mass is None
+            else float(concept.effective_dihedral_deg_at_design_mass)
+        ),
+        "tip_deflection_preferred_status": concept.tip_deflection_preferred_status,
         "sizing_archetype": str(sizing_diagnostics["sizing_archetype"]),
         "sizing_diagnostics": sizing_diagnostics,
     }

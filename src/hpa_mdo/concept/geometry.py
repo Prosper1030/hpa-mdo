@@ -8,7 +8,7 @@ from itertools import product
 import numpy as np
 from scipy.stats import qmc
 
-from hpa_mdo.concept.jig_shape import estimate_tip_deflection_ratio
+from hpa_mdo.concept.jig_shape import estimate_tip_deflection
 from hpa_mdo.concept.lift_wire import estimate_lift_wire_tension_n
 from hpa_mdo.concept.mass_closure import (
     close_area_mass,
@@ -70,6 +70,11 @@ class GeometryConcept:
     dihedral_tip_deg: float = 0.0
     dihedral_exponent: float = 1.0
     tip_deflection_ratio_at_design_mass: float | None = None
+    tip_deflection_m_at_design_mass: float | None = None
+    effective_dihedral_deg_at_design_mass: float | None = None
+    unbraced_tip_deflection_m_at_design_mass: float | None = None
+    lift_wire_relief_deflection_m_at_design_mass: float | None = None
+    tip_deflection_preferred_status: str | None = None
     lift_wire_tension_at_limit_n: float | None = None
 
     def __post_init__(self) -> None:
@@ -103,6 +108,29 @@ class GeometryConcept:
             raise ValueError(
                 "tip_deflection_ratio_at_design_mass must be non-negative when provided."
             )
+        for field_name, value in (
+            ("tip_deflection_m_at_design_mass", self.tip_deflection_m_at_design_mass),
+            (
+                "effective_dihedral_deg_at_design_mass",
+                self.effective_dihedral_deg_at_design_mass,
+            ),
+            (
+                "unbraced_tip_deflection_m_at_design_mass",
+                self.unbraced_tip_deflection_m_at_design_mass,
+            ),
+            (
+                "lift_wire_relief_deflection_m_at_design_mass",
+                self.lift_wire_relief_deflection_m_at_design_mass,
+            ),
+        ):
+            if value is not None and value < 0.0:
+                raise ValueError(f"{field_name} must be non-negative when provided.")
+        if self.tip_deflection_preferred_status is not None and self.tip_deflection_preferred_status not in {
+            "below_preferred",
+            "within_preferred",
+            "above_preferred",
+        }:
+            raise ValueError("tip_deflection_preferred_status has an unsupported value.")
         if (
             self.lift_wire_tension_at_limit_n is not None
             and self.lift_wire_tension_at_limit_n < 0.0
@@ -705,15 +733,21 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
 
         jig_gate_cfg = getattr(cfg, "jig_shape_gate", None)
         accepted_tip_deflection_ratio: float | None = None
+        accepted_tip_deflection_m: float | None = None
+        accepted_effective_dihedral_deg: float | None = None
+        accepted_unbraced_tip_deflection_m: float | None = None
+        accepted_lift_wire_relief_deflection_m: float | None = None
+        accepted_tip_deflection_preferred_status: str | None = None
         if jig_gate_cfg is not None and bool(jig_gate_cfg.enabled):
             tube_geom = getattr(cfg.mass_closure, "tube_system", None)
             if tube_geom is not None:
-                deflection_ratio = estimate_tip_deflection_ratio(
+                deflection_estimate = estimate_tip_deflection(
                     gross_mass_kg=design_gross_mass_kg,
                     span_m=span_m,
                     tube_geom=tube_geom,
                     gate_cfg=jig_gate_cfg,
                 )
+                deflection_ratio = float(deflection_estimate.tip_deflection_ratio)
                 limit_ratio = float(jig_gate_cfg.max_tip_deflection_to_halfspan_ratio)
                 if deflection_ratio > limit_ratio:
                     rejected_concepts.append(
@@ -729,6 +763,28 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
                     )
                     continue
                 accepted_tip_deflection_ratio = float(deflection_ratio)
+                accepted_tip_deflection_m = float(deflection_estimate.tip_deflection_m)
+                accepted_effective_dihedral_deg = float(
+                    deflection_estimate.effective_dihedral_deg
+                )
+                accepted_unbraced_tip_deflection_m = float(
+                    deflection_estimate.unbraced_tip_deflection_m
+                )
+                accepted_lift_wire_relief_deflection_m = float(
+                    deflection_estimate.lift_wire_relief_deflection_m
+                )
+                min_preferred_deflection_m = float(
+                    jig_gate_cfg.preferred_tip_deflection_m_min
+                )
+                max_preferred_deflection_m = float(
+                    jig_gate_cfg.preferred_tip_deflection_m_max
+                )
+                if accepted_tip_deflection_m < min_preferred_deflection_m:
+                    accepted_tip_deflection_preferred_status = "below_preferred"
+                elif accepted_tip_deflection_m > max_preferred_deflection_m:
+                    accepted_tip_deflection_preferred_status = "above_preferred"
+                else:
+                    accepted_tip_deflection_preferred_status = "within_preferred"
 
         wire_gate_cfg = getattr(cfg, "lift_wire_gate", None)
         accepted_lift_wire_tension_n: float | None = None
@@ -798,6 +854,11 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             planform_parameterization=planform_parameterization,
             design_gross_mass_kg=float(design_gross_mass_kg),
             tip_deflection_ratio_at_design_mass=accepted_tip_deflection_ratio,
+            tip_deflection_m_at_design_mass=accepted_tip_deflection_m,
+            effective_dihedral_deg_at_design_mass=accepted_effective_dihedral_deg,
+            unbraced_tip_deflection_m_at_design_mass=accepted_unbraced_tip_deflection_m,
+            lift_wire_relief_deflection_m_at_design_mass=accepted_lift_wire_relief_deflection_m,
+            tip_deflection_preferred_status=accepted_tip_deflection_preferred_status,
             lift_wire_tension_at_limit_n=accepted_lift_wire_tension_n,
         )
         stations = build_linear_wing_stations(

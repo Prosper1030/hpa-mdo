@@ -367,6 +367,20 @@ class JigShapeGateConfig(ConceptBaseModel):
     spar_vertical_separation_m: float = Field(0.10, ge=0.0)
     deflection_taper_correction_factor: float = Field(1.7, gt=0.0)
     max_tip_deflection_to_halfspan_ratio: float = Field(0.30, gt=0.0, le=0.5)
+    lift_wire_relief_enabled: bool = True
+    lift_wire_attach_span_fraction: float = Field(0.70, gt=0.0, lt=1.0)
+    lift_wire_cruise_lift_fraction_carried: float = Field(0.35, ge=0.0, le=1.0)
+    preferred_tip_deflection_m_min: float = Field(1.6, ge=0.0)
+    preferred_tip_deflection_m_max: float = Field(2.2, gt=0.0)
+
+    @model_validator(mode="after")
+    def validate_tip_deflection_window(self) -> JigShapeGateConfig:
+        if self.preferred_tip_deflection_m_min >= self.preferred_tip_deflection_m_max:
+            raise ValueError(
+                "jig_shape_gate.preferred_tip_deflection_m_min must be < "
+                "preferred_tip_deflection_m_max."
+            )
+        return self
 
 
 class LiftWireGateConfig(ConceptBaseModel):

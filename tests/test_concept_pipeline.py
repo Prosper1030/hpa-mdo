@@ -264,7 +264,7 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert summary["evaluation_scope"]["selection_scope"] == "ranked_sampled_pool"
     assert summary["evaluation_scope"]["geometry_primary_variables"] == [
         "span_m",
-        "wing_loading_target_Npm2",
+        "mean_chord_m",
         "taper_ratio",
         "twist_mid_deg",
         "twist_outer_deg",
@@ -279,11 +279,11 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert first["artifact_trust"]["decision_grade"] is False
     assert "stub_worker_detected" in first["artifact_trust"]["not_decision_grade_reasons"]
     assert first["worker_statuses"] == ["ok", "ok", "ok", "ok"]
-    assert first["wing_area_source"] == "derived_from_wing_loading_target_Npm2"
+    assert first["wing_area_source"] == "derived_from_mean_chord_m"
     assert isinstance(first["wing_loading_target_Npm2"], float)
     assert isinstance(first["mean_aerodynamic_chord_m"], float)
-    assert first["primary_variables"]["wing_loading_target_Npm2"] == pytest.approx(
-        first["wing_loading_target_Npm2"]
+    assert first["primary_variables"]["mean_chord_m"] == pytest.approx(
+        first["wing_area_m2"] / first["span_m"]
     )
     assert isinstance(first["primary_variables"]["twist_mid_deg"], float)
     assert isinstance(first["primary_variables"]["twist_outer_deg"], float)
@@ -291,6 +291,13 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert first["derived_geometry"]["wing_area_source"] == first["wing_area_source"]
     assert first["derived_geometry"]["wing_area_m2"] == pytest.approx(first["wing_area_m2"])
     assert len(first["derived_geometry"]["twist_control_points"]) == 4
+    assert isinstance(first["derived_geometry"]["tip_deflection_m_at_design_mass"], float)
+    assert isinstance(first["derived_geometry"]["effective_dihedral_deg_at_design_mass"], float)
+    assert first["derived_geometry"]["tip_deflection_preferred_status"] in {
+        "below_preferred",
+        "within_preferred",
+        "above_preferred",
+    }
     assert "launch" in first
     assert "turn" in first
     assert "trim" in first

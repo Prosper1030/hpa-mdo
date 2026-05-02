@@ -102,6 +102,11 @@ jig_shape_gate:
   spar_vertical_separation_m: 0.10
   deflection_taper_correction_factor: 1.7
   max_tip_deflection_to_halfspan_ratio: 0.30
+  lift_wire_relief_enabled: true
+  lift_wire_attach_span_fraction: 0.70
+  lift_wire_cruise_lift_fraction_carried: 0.35
+  preferred_tip_deflection_m_min: 1.6
+  preferred_tip_deflection_m_max: 2.2
 
 tail_model:
   wing_ac_xc: 0.25

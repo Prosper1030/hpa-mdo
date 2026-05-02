@@ -203,7 +203,7 @@ Birdman rules / environment / rider power / mass
 
 翼分布也不再只當報表背景。AVL / fallback station points 的 `cl * chord` spanload shape 會進入 `spanload_efficiency_proxy_v1`，再回饋到 mission induced drag / required power；因此 chord/taper/twist 造成的分布變化會改變任務功率。`twist_mid_deg`、`twist_outer_deg`、`tip_twist_deg` 會組成 root/mid/outer/tip 四點 twist schedule，`spanload_bias` 則會在 fallback station loading 中刻意減少外翼 loading，讓 optimizer 可以探索「略微 inboard-biased spanload」而不是只靠加翼面積過 stall gate。這仍然是 concept-stage proxy，不是 Trefftz-plane sign-off；真正工程 sign-off 仍需要 AVL Trefftz / ASWING 或 beam-wire flexible loop。
 
-2m 級 tip deflection 是合理的 downstream jig / aeroelastic 設計目標，但目前 upstream concept 線只有很粗的 uniform-cantilever deflection gate，不能把 `2 m` 硬塞成 concept 排名標準。這更像是在說「現在的 deflection model 沒有 wire support / jig-shape solve」，不是在說 2m 目標不合理。正確下一步是把 flight shape / jig shape / wire-braced beam loop 接進來，讓 `2 m` 變成 aeroelastic solve 的結果或目標，而不是只在 upstream proxy 裡貼標籤。
+2m 級 tip deflection 現在已經不是純文字提醒。`jig_shape_gate` 會用一階 beam proxy 先估裸 cantilever deflection，再用 `lift_wire_attach_span_fraction` 與 `lift_wire_cruise_lift_fraction_carried` 估 lift-wire support reaction 的 deflection relief，最後輸出 `tip_deflection_m_at_design_mass`、`effective_dihedral_deg_at_design_mass`、`unbraced_tip_deflection_m_at_design_mass`、`lift_wire_relief_deflection_m_at_design_mass` 與 `tip_deflection_preferred_status`。目前 preferred window 是 `1.6..2.2 m`；超出 preferred window 先作為工程警訊，不是 hard reject。這仍然不是 ASWING / beam-wire aeroelastic solve，但比原本的裸 cantilever gate 更接近 wire-braced HPA 的 flight-shape 問題。
 
 外部嚴格審查紀錄：
 
@@ -224,7 +224,7 @@ OpenVSP 匯出：Birdman concept configs 預設會對前 `output.export_vsp_for_
 
 推進 / 傳動初估：Birdman concept configs 目前採用 `eta_prop = 0.86`、`eta_trans = 0.96`，所以踏板到有效推進設計點效率 `eta_total = 0.8256`。這是巡航/爬升有前進速度的 sizing 值；螺旋槳直徑、轉速範圍、葉片數與 BEMT proxy 仍保留在 config surface，之後可替換成真實 prop design / map。
 
-翼分佈狀態：目前 upstream line 已把 mission induced-drag proxy 接到 station `cl * chord` spanload shape，幾何 primary variables 也已改成 `span_m + mean_chord_m + taper_ratio + twist_mid_deg + twist_outer_deg + tip_twist_deg + spanload_bias`；這解決了「為了過 stall gate 而用 W/S 反推出過大翼面積」的主要流程問題，也讓 35m span cap 內的小平均弦長 / 高 AR 方案有可調的外翼 unload 手段。但這仍不是完整的 inverse spanload / flexible jig-shape solve。下一個工程升級應該把 `cruise_tip_deflection_target`、tail-volume sizing、wire-braced beam sizing 接成 primary design variables，再用 AVL Trefftz / ASWING 或 beam-wire loop 取代現在的 proxy。
+翼分佈狀態：目前 upstream line 已把 mission induced-drag proxy 接到 station `cl * chord` spanload shape，幾何 primary variables 也已改成 `span_m + mean_chord_m + taper_ratio + twist_mid_deg + twist_outer_deg + tip_twist_deg + spanload_bias`；這解決了「為了過 stall gate 而用 W/S 反推出過大翼面積」的主要流程問題，也讓 35m span cap 內的小平均弦長 / 高 AR 方案有可調的外翼 unload 手段。flight-shape 方面也已把 wire-relieved cruise tip deflection 接成可檢查輸出。但這仍不是完整的 inverse spanload / flexible jig-shape solve。下一個工程升級應該把 tail-volume sizing、wire-braced beam sizing 接成 primary design variables，再用 AVL Trefftz / ASWING 或 beam-wire loop 取代現在的 proxy。
 
 常用指令：
 

@@ -98,6 +98,11 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.jig_shape_gate.spar_vertical_separation_m == pytest.approx(0.10)
     assert cfg.jig_shape_gate.deflection_taper_correction_factor == pytest.approx(1.7)
     assert cfg.jig_shape_gate.max_tip_deflection_to_halfspan_ratio == pytest.approx(0.30)
+    assert cfg.jig_shape_gate.lift_wire_relief_enabled is True
+    assert cfg.jig_shape_gate.lift_wire_attach_span_fraction == pytest.approx(0.70)
+    assert cfg.jig_shape_gate.lift_wire_cruise_lift_fraction_carried == pytest.approx(0.35)
+    assert cfg.jig_shape_gate.preferred_tip_deflection_m_min == pytest.approx(1.6)
+    assert cfg.jig_shape_gate.preferred_tip_deflection_m_max == pytest.approx(2.2)
     assert cfg.lift_wire_gate.enabled is True
     assert cfg.lift_wire_gate.allowable_tension_n == pytest.approx(5000.0)
     assert cfg.lift_wire_gate.limit_load_factor == pytest.approx(1.75)
