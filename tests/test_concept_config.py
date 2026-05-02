@@ -199,8 +199,8 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.polar_worker.xfoil_max_iter == 40
     assert cfg.polar_worker.xfoil_panel_count == 96
     assert cfg.output.export_candidate_bundle is True
-    assert cfg.output.export_vsp is False
-    assert cfg.output.export_vsp_for_top_n == 0
+    assert cfg.output.export_vsp is True
+    assert cfg.output.export_vsp_for_top_n == 3
 
 
 def test_load_concept_config_reads_birdman_low_speed_box_variants():

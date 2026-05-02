@@ -203,5 +203,5 @@ polar_worker:
 
 output:
   export_candidate_bundle: true
-  export_vsp: false
-  export_vsp_for_top_n: 0
+  export_vsp: true
+  export_vsp_for_top_n: 3

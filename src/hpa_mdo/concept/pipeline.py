@@ -3415,6 +3415,7 @@ def _build_ranked_concept_record(
         "rank": rank,
         "overall_rank": overall_rank,
         "bundle_dir": str(bundle_dir) if bundle_dir is not None else None,
+        "openvsp_handoff": _openvsp_handoff_summary(bundle_dir),
         "span_m": record.concept.span_m,
         "planform_parameterization": str(record.concept.planform_parameterization),
         "mean_chord_target_m": (
@@ -3481,6 +3482,32 @@ def _build_ranked_concept_record(
             "selection_scope": "ranked_sampled_pool",
         },
         **_concept_geometry_summary(record.concept),
+    }
+
+
+def _openvsp_handoff_summary(bundle_dir: Path | None) -> dict[str, Any] | None:
+    if bundle_dir is None:
+        return None
+    bundle_dir = Path(bundle_dir)
+    script_path = bundle_dir / "concept_openvsp.vspscript"
+    metadata_path = bundle_dir / "concept_openvsp_metadata.json"
+    if not script_path.exists() and not metadata_path.exists():
+        return None
+    metadata: dict[str, Any] = {}
+    if metadata_path.exists():
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            metadata = {}
+    vsp3_build = metadata.get("vsp3_build") if isinstance(metadata, dict) else None
+    if not isinstance(vsp3_build, dict):
+        vsp3_build = {}
+    vsp3_path_value = vsp3_build.get("path") or vsp3_build.get("target_path")
+    return {
+        "script_path": str(script_path) if script_path.exists() else None,
+        "metadata_path": str(metadata_path) if metadata_path.exists() else None,
+        "vsp3_path": None if vsp3_path_value is None else str(vsp3_path_value),
+        "vsp3_build_status": str(vsp3_build.get("status", "unknown")),
     }
 
 

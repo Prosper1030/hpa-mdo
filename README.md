@@ -210,7 +210,9 @@ Birdman rules / environment / rider power / mass
 - [docs/superpowers/reports/2026-05-02-birdman-upstream-concept-gpt-pro-packet.md](docs/superpowers/reports/2026-05-02-birdman-upstream-concept-gpt-pro-packet.md) - 給 GPT Pro 的自包含偽代碼 / 公式 / 審查 prompt。
 - [docs/superpowers/reports/2026-05-02-birdman-upstream-gpt-pro-review-response.md](docs/superpowers/reports/2026-05-02-birdman-upstream-gpt-pro-review-response.md) - GPT Pro 回覆後整理出的 decision-grade、Daedalus benchmark、rider endurance、prop / `CLmax` / structure 修正建議。
 
-最新防誤判補強：`concept_summary.json`、`concept_ranked_pool.json`、`frontier_summary.json` 與候選 bundle 的 `concept_summary.json` 現在會輸出 `artifact_trust`，明確標示目前仍是 `diagnostic_only`，並列出 stub worker、worker fallback、missing polar、spanwise fallback、簡化 prop、OpenVSP 輸出關閉等非 decision-grade 原因。
+最新防誤判補強：`concept_summary.json`、`concept_ranked_pool.json`、`frontier_summary.json` 與候選 bundle 的 `concept_summary.json` 現在會輸出 `artifact_trust`，明確標示目前仍是 `diagnostic_only`，並列出 stub worker、worker fallback、missing polar、spanwise fallback、簡化 prop 等非 decision-grade 原因。
+
+OpenVSP 匯出：Birdman concept configs 預設會對前 `output.export_vsp_for_top_n = 3` 個 ranked bundle 輸出 `concept_openvsp.vsp3`、`concept_openvsp.vspscript` 與 `concept_openvsp_metadata.json`。如果本機沒有 OpenVSP Python binding，pipeline 仍會留下 `.vspscript`，可在 OpenVSP 裡執行產生 `.vsp3`。目前這個 VSP 匯出是幾何檢查用的 concept handoff：主翼 station schedule 來自 pipeline，水平尾是由 `tail_area_m2` / `tail_arm_to_mac` 產生的 proxy surface，翼型先用 NACA 0012 placeholder；它不是最終 CST airfoil loft，也不是尾翼控制力、結構或製造 sign-off。
 
 歷史參考資料：`data/reference_aircraft/hpa_benchmarks.yaml` 保存 Daedalus 88 與 Light Eagle 的可解析 SI 基準值與來源 URL；目前用途是 mission-context reference，避免搜尋範圍排除歷史 HPA 量級，不是硬性標準，也不是要求 optimizer 複製歷史外型。
 
@@ -232,6 +234,11 @@ PYTHONPATH=src ./.venv/bin/python scripts/birdman_upstream_concept_design.py \
   --config configs/birdman_upstream_concept_baseline.yaml \
   --output-dir output/birdman_upstream_concept_run \
   --worker-mode julia
+
+# 檢查 VSP 外型：
+# output/.../selected_concepts/concept-01/concept_openvsp.vsp3
+# 或沒有可行解時：
+# output/.../best_infeasible_concepts/infeasible-*/concept_openvsp.vsp3
 
 # fast plumbing smoke only; do not use stubbed output as engineering evidence
 PYTHONPATH=src ./.venv/bin/python scripts/birdman_upstream_concept_design.py \

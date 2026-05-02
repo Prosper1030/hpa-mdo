@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
+
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -36,9 +38,6 @@ _vsp_export = _load_concept_module(
 )
 _handoff = _load_concept_module("hpa_mdo.concept.handoff", "src/hpa_mdo/concept/handoff.py")
 write_selected_concept_bundle = _handoff.write_selected_concept_bundle
-
-
-from hpa_mdo.concept.ranking import CandidateConceptResult, rank_concepts
 
 
 def test_rank_concepts_prefers_feasible_safer_candidate():
@@ -393,6 +392,63 @@ def test_write_selected_concept_bundle_writes_openvsp_handoff_artifacts(tmp_path
     assert metadata["station_count"] == 3
     assert metadata["script_path"] == "concept_openvsp.vspscript"
     assert metadata["stations"][1]["y_m"] == 1.5
+    assert metadata["vsp3_build"]["target_path"].endswith("concept_openvsp.vsp3")
+    assert metadata["vsp3_build"]["status"] in {
+        "written",
+        "openvsp_python_unavailable",
+        "openvsp_api_failed",
+    }
+
+
+def test_write_selected_concept_bundle_writes_openvsp_vsp3_when_api_is_available(tmp_path):
+    openvsp = pytest.importorskip("openvsp")
+
+    bundle_dir = write_selected_concept_bundle(
+        output_dir=tmp_path,
+        concept_id="concept-vsp3",
+        concept_config={
+            "name": "concept-vsp3",
+            "geometry": {
+                "span_m": 35.0,
+                "wing_area_m2": 31.5,
+                "root_chord_m": 1.25,
+                "tip_chord_m": 0.55,
+                "mean_aerodynamic_chord_m": 0.92,
+                "tail_area_m2": 3.2,
+            },
+            "tail_model": {
+                "tail_arm_to_mac": 4.2,
+                "tail_aspect_ratio": 5.0,
+            },
+        },
+        stations_rows=[
+            {"y_m": 0.0, "chord_m": 1.25, "twist_deg": 2.0, "dihedral_deg": 0.0},
+            {"y_m": 6.0, "chord_m": 1.00, "twist_deg": 0.5, "dihedral_deg": 3.0},
+            {"y_m": 17.5, "chord_m": 0.55, "twist_deg": -2.0, "dihedral_deg": 6.0},
+        ],
+        airfoil_templates={"root": {"template_id": "root-seed"}},
+        lofting_guides={"authority": "concept_station_schedule"},
+        prop_assumption={"diameter_m": 3.0},
+        concept_summary={"rank": 1, "selected": True},
+    )
+
+    vsp3_path = bundle_dir / "concept_openvsp.vsp3"
+    metadata = json.loads((bundle_dir / "concept_openvsp_metadata.json").read_text(encoding="utf-8"))
+
+    assert vsp3_path.exists()
+    assert metadata["vsp3_build"]["status"] == "written"
+    assert metadata["vsp3_build"]["path"] == str(vsp3_path)
+    assert metadata["auxiliary_geometry"]["horizontal_tail_proxy"]["area_m2"] == pytest.approx(3.2)
+
+    openvsp.ClearVSPModel()
+    openvsp.ReadVSPFile(str(vsp3_path))
+    openvsp.Update()
+    geoms = {
+        openvsp.GetGeomName(geom_id): geom_id
+        for geom_id in openvsp.FindGeoms()
+    }
+    assert "concept-vsp3" in geoms
+    assert "HorizontalTail_proxy" in geoms
 
 
 def test_write_selected_concept_bundle_rejects_station_schema_mismatch_before_writing(tmp_path):

@@ -37,6 +37,37 @@ def _first_bundle_dir_from_summary(summary: dict[str, object]) -> Path:
     return Path(bundle_dir)
 
 
+def test_openvsp_handoff_summary_reports_generated_vsp_paths(tmp_path: Path) -> None:
+    bundle_dir = tmp_path / "concept-01"
+    bundle_dir.mkdir()
+    script_path = bundle_dir / "concept_openvsp.vspscript"
+    metadata_path = bundle_dir / "concept_openvsp_metadata.json"
+    vsp3_path = bundle_dir / "concept_openvsp.vsp3"
+    script_path.write_text("// vsp script\n", encoding="utf-8")
+    vsp3_path.write_text("mock vsp3\n", encoding="utf-8")
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "vsp3_build": {
+                    "status": "written",
+                    "path": str(vsp3_path),
+                    "target_path": str(vsp3_path),
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    summary = concept_pipeline._openvsp_handoff_summary(bundle_dir)
+
+    assert summary == {
+        "script_path": str(script_path),
+        "metadata_path": str(metadata_path),
+        "vsp3_path": str(vsp3_path),
+        "vsp3_build_status": "written",
+    }
+
+
 def _load_concept_cli_module():
     script_path = Path(__file__).resolve().parents[1] / "scripts" / "birdman_upstream_concept_design.py"
     spec = importlib.util.spec_from_file_location("birdman_upstream_concept_design", script_path)
@@ -3031,6 +3062,7 @@ def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
     payload = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
     payload["pipeline"]["stations_per_half"] = 9
     payload["pipeline"]["keep_top_n"] = 3
+    payload["geometry_family"]["sampling"]["sample_count"] = 8
     payload["output"]["export_vsp"] = True
     payload["output"]["export_vsp_for_top_n"] = 2
     payload["prop"]["blade_count"] = 3
@@ -3090,7 +3122,16 @@ def test_pipeline_respects_yaml_controls_for_station_count_prop_and_vsp_exports(
 
     assert (first_bundle / "concept_openvsp.vspscript").exists()
     assert (first_bundle / "concept_openvsp_metadata.json").exists()
+    assert (first_bundle / "concept_openvsp.vsp3").exists()
+    assert ranked_records[0]["openvsp_handoff"]["script_path"] == str(
+        first_bundle / "concept_openvsp.vspscript"
+    )
+    assert ranked_records[0]["openvsp_handoff"]["vsp3_build_status"] == "written"
+    assert ranked_records[0]["openvsp_handoff"]["vsp3_path"] == str(
+        first_bundle / "concept_openvsp.vsp3"
+    )
     assert (third_bundle / "concept_openvsp.vspscript").exists() is False
+    assert ranked_records[2]["openvsp_handoff"] is None
 
 
 @pytest.mark.slow
