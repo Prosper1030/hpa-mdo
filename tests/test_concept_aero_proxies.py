@@ -97,6 +97,36 @@ def test_spanload_efficiency_proxy_uses_station_lift_shape_when_available():
     assert good["spanload_rms_error"] < tip_loaded["spanload_rms_error"]
 
 
+def test_spanload_efficiency_proxy_responds_to_configured_shape_penalty():
+    concept = _build_concept(dihedral_tip_deg=6.0, twist_tip_deg=-1.5)
+    half_span = 0.5 * concept.span_m
+    tip_loaded_points = [
+        {
+            "station_y_m": eta * half_span,
+            "chord_m": 1.0,
+            "cl_target": 0.65 + 0.65 * eta,
+        }
+        for eta in (0.0, 0.25, 0.50, 0.75, 0.95)
+    ]
+
+    baseline = spanload_efficiency_proxy(
+        concept=concept,
+        station_points=tip_loaded_points,
+        proxy_cfg=OswaldEfficiencyProxyConfig(efficiency_ceiling=0.93),
+    )
+    harsher = spanload_efficiency_proxy(
+        concept=concept,
+        station_points=tip_loaded_points,
+        proxy_cfg=OswaldEfficiencyProxyConfig(
+            efficiency_ceiling=0.93,
+            spanload_shape_penalty_slope=0.44,
+            spanload_shape_penalty_max=0.36,
+        ),
+    )
+
+    assert harsher["efficiency"] < baseline["efficiency"]
+
+
 def test_misc_cd_proxy_matches_legacy_inline_formula():
     cfg = ParasiteDragProxyConfig()
     cd = misc_cd_proxy(profile_cd=0.020, tail_area_ratio=0.10, proxy_cfg=cfg)

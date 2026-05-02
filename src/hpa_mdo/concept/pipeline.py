@@ -489,6 +489,7 @@ def _attach_cl_max_proxies(
     *,
     half_span_m: float,
     concept: GeometryConcept,
+    proxy_cfg: Any,
 ) -> list[dict[str, float]]:
     enriched: list[dict[str, float]] = []
     span_ratio = 0.0 if concept.span_m <= 0.0 else concept.span_m / max(concept.wing_area_m2, 1.0)
@@ -496,8 +497,16 @@ def _attach_cl_max_proxies(
 
     for point in station_points:
         eta = 0.0 if half_span_m <= 0.0 else min(max(point["station_y_m"] / half_span_m, 0.0), 1.0)
-        cl_headroom = 0.24 - 0.09 * eta - 0.015 * (twist_delta / 5.0) + 0.01 * min(span_ratio, 1.2)
-        cl_headroom = min(max(cl_headroom, 0.08), 0.30)
+        cl_headroom = (
+            float(proxy_cfg.cl_headroom_base)
+            - float(proxy_cfg.cl_headroom_eta_slope) * eta
+            - float(proxy_cfg.cl_headroom_twist_slope) * (twist_delta / 5.0)
+            + float(proxy_cfg.cl_headroom_span_ratio_slope) * min(span_ratio, 1.2)
+        )
+        cl_headroom = min(
+            max(cl_headroom, float(proxy_cfg.cl_headroom_floor)),
+            float(proxy_cfg.cl_headroom_ceiling),
+        )
         cl_max_proxy = point["cl_target"] + cl_headroom
         enriched.append(
             {
@@ -1669,6 +1678,8 @@ def _concept_design_gross_mass_kg(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
 ) -> float:
+    if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
+        return float(max(cfg.mass.gross_mass_sweep_kg))
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return float(concept.design_gross_mass_kg)
     return float(max(cfg.mass.gross_mass_sweep_kg))
@@ -1678,6 +1689,8 @@ def _concept_gross_mass_cases(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
 ) -> tuple[float, ...]:
+    if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
+        return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return (float(concept.design_gross_mass_kg),)
     return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
@@ -1744,6 +1757,7 @@ def _mission_speed_feasibility_records(
             normalized_base_station_points,
             half_span_m=0.5 * concept.span_m,
             concept=concept,
+            proxy_cfg=cfg.aero_proxies.coarse_spanload,
         )
     normalized_base_station_points = [
         {
@@ -2322,7 +2336,11 @@ def _build_concept_mission_summary(
 
     worst_case_result = max(
         mission_results,
-        key=lambda item: float(item["mission_score"]),
+        key=lambda item: (
+            float(item["mission_score"]),
+            -float(item["best_power_margin_unconstrained_w"]),
+            float(item["gross_mass_kg"]),
+        ),
     )
 
     slow_speed_report = _build_slow_speed_report(
@@ -2824,6 +2842,7 @@ def _evaluate_selected_airfoils_for_concept(
         station_points,
         half_span_m=0.5 * concept.span_m,
         concept=concept,
+        proxy_cfg=cfg.aero_proxies.coarse_spanload,
     )
     worker_queries, worker_point_refs = _build_worker_queries_and_refs(
         zone_requirements=zone_requirements,
@@ -3261,6 +3280,16 @@ def _sizing_diagnostics(
                 if concept.design_gross_mass_kg is None
                 else float(concept.design_gross_mass_kg)
             )
+            closure_pilot_mass_kg = float(cfg.mass.pilot_mass_kg)
+            closed_aircraft_empty_mass_kg = float(
+                closure.closed_gross_mass_kg - closure_pilot_mass_kg
+            )
+            aircraft_empty_mass_target_min_kg = float(
+                min(cfg.mass.aircraft_empty_mass_cases_kg)
+            )
+            aircraft_empty_mass_target_max_kg = float(
+                max(cfg.mass.aircraft_empty_mass_cases_kg)
+            )
             closure_summary = {
                 "model": "area_mass_closure_v1_report_only",
                 "status": "ok" if closure.converged else "not_converged",
@@ -3279,11 +3308,24 @@ def _sizing_diagnostics(
                     if design_gross_mass_kg is None
                     else float(closure.closed_gross_mass_kg - design_gross_mass_kg)
                 ),
+                "closed_aircraft_empty_mass_kg": closed_aircraft_empty_mass_kg,
+                "aircraft_empty_mass_target_range_kg": [
+                    aircraft_empty_mass_target_min_kg,
+                    aircraft_empty_mass_target_max_kg,
+                ],
+                "aircraft_empty_mass_excess_vs_target_max_kg": float(
+                    closed_aircraft_empty_mass_kg - aircraft_empty_mass_target_max_kg
+                ),
+                "aircraft_empty_mass_within_target_range": bool(
+                    aircraft_empty_mass_target_min_kg
+                    <= closed_aircraft_empty_mass_kg
+                    <= aircraft_empty_mass_target_max_kg
+                ),
                 "mass_breakdown_kg": dict(closure.mass_breakdown_kg),
                 "area_residual_m2": float(closure.area_residual_m2),
                 "iterations": int(closure.iterations),
                 "assumptions": {
-                    "pilot_mass_kg": float(cfg.mass.pilot_mass_kg),
+                    "pilot_mass_kg": closure_pilot_mass_kg,
                     "fixed_non_area_aircraft_mass_kg": float(
                         cfg.mass_closure.fixed_nonwing_aircraft_mass_kg
                     ),
@@ -4212,6 +4254,20 @@ def run_birdman_concept_pipeline(
                     "selection_scope": "ranked_sampled_pool",
                     "ranking_basis": "feasibility_first_contract_aligned_v2",
                     "objective_mode": str(cfg.mission.objective_mode),
+                    "pilot_mass_cases_kg": [
+                        float(value) for value in cfg.mass.pilot_mass_cases_kg
+                    ],
+                    "aircraft_empty_mass_cases_kg": [
+                        float(value) for value in cfg.mass.aircraft_empty_mass_cases_kg
+                    ],
+                    "gross_mass_sweep_kg": [
+                        float(value) for value in cfg.mass.gross_mass_sweep_kg
+                    ],
+                    "mass_case_policy": (
+                        "configured_gross_mass_sweep"
+                        if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases)
+                        else "area_mass_closure_design_mass_when_available"
+                    ),
                     "enumerated_concept_count": len(all_concepts),
                     "evaluated_concept_count": len(evaluated_concepts),
                     "selected_concept_count": len(summary_records),

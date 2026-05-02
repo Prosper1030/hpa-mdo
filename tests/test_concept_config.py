@@ -14,8 +14,14 @@ def test_load_concept_config_reads_birdman_baseline():
 
     assert cfg.environment.temperature_c == pytest.approx(33.0)
     assert cfg.environment.relative_humidity == pytest.approx(80.0)
-    assert cfg.mass.pilot_mass_kg == pytest.approx(60.0)
-    assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
+    assert cfg.mass.pilot_mass_kg == pytest.approx(62.5)
+    assert cfg.mass.pilot_mass_cases_kg == (61.0, 62.5, 64.0)
+    assert cfg.mass.design_pilot_mass_kg == pytest.approx(64.0)
+    assert cfg.mass.baseline_aircraft_mass_kg == pytest.approx(38.5)
+    assert cfg.mass.aircraft_empty_mass_cases_kg == (35.0, 38.5, 42.0)
+    assert cfg.mass.design_aircraft_empty_mass_kg == pytest.approx(42.0)
+    assert cfg.mass.gross_mass_sweep_kg == (96.0, 101.0, 106.0)
+    assert cfg.mass.use_gross_mass_sweep_for_mission_cases is True
     assert cfg.mass_closure.enabled is True
     assert cfg.mass_closure.fixed_nonwing_aircraft_mass_kg == pytest.approx(24.0)
     assert cfg.mass_closure.tube_system_mass_kg == pytest.approx(10.5)
@@ -28,7 +34,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.mass_closure.tube_system.num_spars_per_wing == 2
     assert cfg.mass_closure.tube_system.num_wings == 2
     assert cfg.mass_closure.rib_skin_areal_density_kgpm2 == pytest.approx(0.20)
-    assert cfg.mass_closure.gross_mass_hard_max_kg == pytest.approx(107.0)
+    assert cfg.mass_closure.gross_mass_hard_max_kg == pytest.approx(109.0)
     assert cfg.mission.objective_mode == "fixed_range_best_time"
     assert cfg.mission.resolved_rider_model == "csv_power_curve"
     assert cfg.mission.rider_power_curve_csv is not None
@@ -102,8 +108,14 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.aero_proxies.oswald_efficiency.base_efficiency == pytest.approx(0.88)
     assert cfg.aero_proxies.oswald_efficiency.dihedral_delta_slope_per_deg == pytest.approx(0.012)
     assert cfg.aero_proxies.oswald_efficiency.twist_delta_slope_per_deg == pytest.approx(0.008)
+    assert cfg.aero_proxies.oswald_efficiency.spanload_shape_penalty_slope == pytest.approx(0.22)
+    assert cfg.aero_proxies.oswald_efficiency.spanload_shape_penalty_max == pytest.approx(0.18)
+    assert cfg.aero_proxies.oswald_efficiency.spanload_geometry_knockdown_weight == pytest.approx(0.50)
     assert cfg.aero_proxies.oswald_efficiency.efficiency_floor == pytest.approx(0.68)
     assert cfg.aero_proxies.oswald_efficiency.efficiency_ceiling == pytest.approx(0.92)
+    assert cfg.aero_proxies.coarse_spanload.elliptic_loading_floor == pytest.approx(0.35)
+    assert cfg.aero_proxies.coarse_spanload.washout_relief_fraction == pytest.approx(0.10)
+    assert cfg.aero_proxies.coarse_spanload.cl_headroom_base == pytest.approx(0.24)
     assert cfg.airfoil_selection_score.drag_weight == pytest.approx(1.50)
     assert cfg.airfoil_selection_score.stall_weight == pytest.approx(4.25)
     assert cfg.airfoil_selection_score.margin_weight == pytest.approx(2.25)
@@ -117,7 +129,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.airfoil_selection_score.enforce_structural_as_hard_reject is False
     assert cfg.segmentation.min_segment_length_m == pytest.approx(1.0)
     assert cfg.segmentation.max_segment_length_m == pytest.approx(3.0)
-    assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(106.0)
     assert cfg.geometry_family.sampling.mode == "latin_hypercube"
     assert cfg.geometry_family.sampling.sample_count == 48
     assert cfg.geometry_family.primary_ranges.span_m.min == pytest.approx(30.0)
@@ -134,6 +146,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(40.0)
     assert cfg.geometry_family.hard_constraints.aspect_ratio_range.max == pytest.approx(44.0)
     assert cfg.geometry_family.twist_root_deg == pytest.approx(2.0)
+    assert cfg.geometry_family.cg_xc == pytest.approx(0.30)
     assert cfg.geometry_family.dihedral_root_deg_candidates == (0.0, 1.0, 2.0)
     assert cfg.geometry_family.dihedral_tip_deg_candidates == (4.0, 6.0, 8.0)
     assert cfg.geometry_family.dihedral_exponent_candidates == (1.0, 1.5, 2.0)
@@ -201,6 +214,12 @@ def test_load_concept_config_reads_birdman_low_speed_box_variants():
     box_b_smoke = load_concept_config(
         repo_root / "configs" / "birdman_upstream_concept_box_b_smoke.yaml"
     )
+
+    for cfg in (box_a, box_b, box_a_smoke, box_b_smoke):
+        assert cfg.mass.pilot_mass_cases_kg == (61.0, 62.5, 64.0)
+        assert cfg.mass.aircraft_empty_mass_cases_kg == (35.0, 38.5, 42.0)
+        assert cfg.mass.gross_mass_sweep_kg == (96.0, 101.0, 106.0)
+        assert cfg.mass_closure.gross_mass_hard_max_kg == pytest.approx(109.0)
 
     assert box_a.mission.speed_sweep_min_mps == pytest.approx(6.4)
     assert box_a.mission.speed_sweep_max_mps == pytest.approx(7.2)
@@ -440,6 +459,47 @@ def test_load_concept_config_treats_reference_mass_as_independent():
     assert cfg.mass.baseline_aircraft_mass_kg == pytest.approx(40.0)
     assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
     assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)
+    assert cfg.mass.pilot_mass_cases_kg == (60.0,)
+    assert cfg.mass.aircraft_empty_mass_cases_kg == (40.0,)
+    assert cfg.mass.design_pilot_mass_kg == pytest.approx(60.0)
+    assert cfg.mass.design_aircraft_empty_mass_kg == pytest.approx(40.0)
+
+
+def test_load_concept_config_accepts_floating_pilot_and_aircraft_mass_cases():
+    cfg = BirdmanConceptConfig.model_validate(
+        {
+            "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+            "mass": {
+                "pilot_mass_kg": 62.5,
+                "pilot_mass_cases_kg": [61.0, 62.5, 64.0],
+                "baseline_aircraft_mass_kg": 38.5,
+                "aircraft_empty_mass_cases_kg": [35.0, 38.5, 42.0],
+                "gross_mass_sweep_kg": [96.0, 101.0, 106.0],
+            },
+            "mission": {"target_distance_km": 42.195},
+        }
+    )
+
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(106.0)
+    assert cfg.mass.design_pilot_mass_kg == pytest.approx(64.0)
+    assert cfg.mass.design_aircraft_empty_mass_kg == pytest.approx(42.0)
+
+
+def test_load_concept_config_rejects_unsorted_mass_cases():
+    with pytest.raises(ValueError, match="pilot_mass_cases_kg"):
+        BirdmanConceptConfig.model_validate(
+            {
+                "environment": {"temperature_c": 33.0, "relative_humidity": 80.0},
+                "mass": {
+                    "pilot_mass_kg": 62.5,
+                    "pilot_mass_cases_kg": [61.0, 64.0, 62.5],
+                    "baseline_aircraft_mass_kg": 38.5,
+                    "aircraft_empty_mass_cases_kg": [35.0, 38.5, 42.0],
+                    "gross_mass_sweep_kg": [96.0, 101.0, 106.0],
+                },
+                "mission": {"target_distance_km": 42.195},
+            }
+        )
 
 
 def test_load_concept_config_rejects_impossible_geometry_candidates():

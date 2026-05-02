@@ -24,7 +24,22 @@ class EnvironmentConfig(ConceptBaseModel):
 
 class MassConfig(ConceptBaseModel):
     pilot_mass_kg: float = Field(..., gt=0.0)
+    pilot_mass_cases_kg: tuple[float, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Pilot body-mass design cases. If omitted, the scalar pilot_mass_kg "
+            "is used as the only legacy case."
+        ),
+    )
     baseline_aircraft_mass_kg: float = Field(..., gt=0.0)
+    aircraft_empty_mass_cases_kg: tuple[float, ...] = Field(
+        default_factory=tuple,
+        description=(
+            "Aircraft empty-mass design cases excluding the pilot. These are "
+            "mission/sizing assumptions; the coarse area-mass closure remains "
+            "an independent structural proxy."
+        ),
+    )
     # Reference aircraft mass is a starting estimate, not a lower bound on
     # the independently swept total gross-mass cases.
     gross_mass_sweep_kg: tuple[float, ...] = Field(..., min_length=3, max_length=3)
@@ -37,9 +52,25 @@ class MassConfig(ConceptBaseModel):
             "line does not under-size the wing around an optimistic mass."
         ),
     )
+    use_gross_mass_sweep_for_mission_cases: bool = Field(
+        True,
+        description=(
+            "When true, mission, stall, turn, and AVL reference cases use the "
+            "configured gross_mass_sweep_kg even when area-mass closure has "
+            "produced a single concept mass."
+        ),
+    )
 
     @model_validator(mode="after")
     def validate_gross_mass_sweep(self) -> MassConfig:
+        self.pilot_mass_cases_kg = _validated_positive_sorted_tuple(
+            self.pilot_mass_cases_kg or (self.pilot_mass_kg,),
+            "mass.pilot_mass_cases_kg",
+        )
+        self.aircraft_empty_mass_cases_kg = _validated_positive_sorted_tuple(
+            self.aircraft_empty_mass_cases_kg or (self.baseline_aircraft_mass_kg,),
+            "mass.aircraft_empty_mass_cases_kg",
+        )
         if any(mass <= 0.0 for mass in self.gross_mass_sweep_kg):
             raise ValueError("mass.gross_mass_sweep_kg entries must all be positive.")
         if any(
@@ -58,6 +89,28 @@ class MassConfig(ConceptBaseModel):
                 "mass.design_gross_mass_kg must lie within mass.gross_mass_sweep_kg."
             )
         return self
+
+    @property
+    def design_pilot_mass_kg(self) -> float:
+        return float(max(self.pilot_mass_cases_kg))
+
+    @property
+    def design_aircraft_empty_mass_kg(self) -> float:
+        return float(max(self.aircraft_empty_mass_cases_kg))
+
+
+def _validated_positive_sorted_tuple(
+    values: tuple[float, ...],
+    field_name: str,
+) -> tuple[float, ...]:
+    normalized = tuple(float(value) for value in values)
+    if not normalized:
+        raise ValueError(f"{field_name} must not be empty.")
+    if any(value <= 0.0 for value in normalized):
+        raise ValueError(f"{field_name} entries must all be positive.")
+    if any(later < earlier for earlier, later in zip(normalized, normalized[1:])):
+        raise ValueError(f"{field_name} must be non-decreasing.")
+    return normalized
 
 
 class TubeSystemGeometryConfig(ConceptBaseModel):
@@ -356,11 +409,16 @@ class OswaldEfficiencyProxyConfig(ConceptBaseModel):
 
     Linear knockdown around ``base_efficiency`` driven by dihedral spread
     and twist spread, then clamped to ``[efficiency_floor, efficiency_ceiling]``.
+    The spanload-shape fields configure the newer station-load proxy that
+    compares ``cl * chord`` against an elliptic target.
     """
 
     base_efficiency: float = Field(0.88, gt=0.0, le=1.0)
     dihedral_delta_slope_per_deg: float = Field(0.012, ge=0.0)
     twist_delta_slope_per_deg: float = Field(0.008, ge=0.0)
+    spanload_shape_penalty_slope: float = Field(0.22, ge=0.0)
+    spanload_shape_penalty_max: float = Field(0.18, ge=0.0)
+    spanload_geometry_knockdown_weight: float = Field(0.50, ge=0.0, le=1.0)
     efficiency_floor: float = Field(0.68, gt=0.0, le=1.0)
     efficiency_ceiling: float = Field(0.92, gt=0.0, le=1.0)
 
@@ -380,10 +438,42 @@ class OswaldEfficiencyProxyConfig(ConceptBaseModel):
         return self
 
 
+class CoarseSpanloadProxyConfig(ConceptBaseModel):
+    """Fallback station-load and local CLmax proxy constants.
+
+    These coefficients control the pre-AVL / missing-AVL station targets used
+    before a true Trefftz-plane or flexible-wing solve is available. Keeping
+    them on the config surface makes the current engineering assumptions
+    visible while we move toward an AVL/ASWING spanload source.
+    """
+
+    elliptic_loading_floor: float = Field(0.35, ge=0.0)
+    washout_relief_fraction: float = Field(0.10, ge=0.0, le=1.0)
+    cl_headroom_base: float = Field(0.24, ge=0.0)
+    cl_headroom_eta_slope: float = Field(0.09, ge=0.0)
+    cl_headroom_twist_slope: float = Field(0.015, ge=0.0)
+    cl_headroom_span_ratio_slope: float = Field(0.01, ge=0.0)
+    cl_headroom_floor: float = Field(0.08, ge=0.0)
+    cl_headroom_ceiling: float = Field(0.30, ge=0.0)
+    cm_target_base: float = Field(-0.10)
+    cm_target_inboard_relief: float = Field(0.01, ge=0.0)
+
+    @model_validator(mode="after")
+    def validate_headroom_bounds(self) -> CoarseSpanloadProxyConfig:
+        if self.cl_headroom_floor > self.cl_headroom_ceiling:
+            raise ValueError(
+                "aero_proxies.coarse_spanload.cl_headroom_floor must be <= cl_headroom_ceiling."
+            )
+        return self
+
+
 class AeroProxiesConfig(ConceptBaseModel):
     parasite_drag: ParasiteDragProxyConfig = Field(default_factory=ParasiteDragProxyConfig)
     oswald_efficiency: OswaldEfficiencyProxyConfig = Field(
         default_factory=OswaldEfficiencyProxyConfig
+    )
+    coarse_spanload: CoarseSpanloadProxyConfig = Field(
+        default_factory=CoarseSpanloadProxyConfig
     )
 
 
@@ -515,6 +605,12 @@ class GeometryFamilyConfig(ConceptBaseModel):
         description=(
             "Root twist stays fixed so tip_twist_deg remains the primary wing twist variable."
         ),
+    )
+    cg_xc: float = Field(
+        0.30,
+        ge=0.0,
+        le=1.0,
+        description="Concept-stage longitudinal CG location as fraction of MAC/chord.",
     )
     tail_area_candidates_m2: tuple[float, ...] = Field((3.8, 4.2, 4.6), min_length=1)
     dihedral_root_deg_candidates: tuple[float, ...] = Field((0.0, 1.0, 2.0), min_length=1)

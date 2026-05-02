@@ -638,7 +638,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             dihedral_tip_deg=float(dihedral_tip_deg),
             dihedral_exponent=float(dihedral_exponent),
             tail_area_m2=float(tail_area_m2),
-            cg_xc=0.30,
+            cg_xc=float(cfg.geometry_family.cg_xc),
             segment_lengths_m=segment_lengths_m,
             wing_loading_target_Npm2=float(wing_loading_target_Npm2),
             wing_area_is_derived=True,

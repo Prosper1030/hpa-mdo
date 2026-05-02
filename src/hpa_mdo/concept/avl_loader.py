@@ -66,6 +66,8 @@ def _concept_design_gross_mass_kg(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
 ) -> float:
+    if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
+        return float(max(cfg.mass.gross_mass_sweep_kg))
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return float(concept.design_gross_mass_kg)
     return float(max(cfg.mass.gross_mass_sweep_kg))
@@ -75,6 +77,8 @@ def _concept_gross_mass_cases(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
 ) -> tuple[float, ...]:
+    if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
+        return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return (float(concept.design_gross_mass_kg),)
     return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
@@ -154,6 +158,7 @@ def _coarse_pre_avl_reference_station_points(
         0.0 if concept.span_m <= 0.0 else float(concept.span_m) / max(float(concept.wing_area_m2), 1.0)
     )
     twist_delta = abs(float(concept.twist_tip_deg) - float(concept.twist_root_deg))
+    spanload_cfg = cfg.aero_proxies.coarse_spanload
 
     raw_shape: list[float] = []
     for station in stations:
@@ -161,14 +166,14 @@ def _coarse_pre_avl_reference_station_points(
         elliptic_loading = math.sqrt(max(1.0 - eta**2, 1.0e-9))
         chord_ratio = float(station.chord_m) / max(float(concept.root_chord_m), 1.0e-9)
         local_washout_deg = max(float(concept.twist_root_deg) - float(station.twist_deg), 0.0)
-        washout_relief_factor = 1.0 - 0.10 * (
+        washout_relief_factor = 1.0 - float(spanload_cfg.washout_relief_fraction) * (
             0.0
             if total_washout_deg <= 0.0
             else min(local_washout_deg / total_washout_deg, 1.0)
         )
         raw_shape.append(
             max(
-                0.35,
+                float(spanload_cfg.elliptic_loading_floor),
                 (elliptic_loading / max(chord_ratio, 1.0e-6)) * washout_relief_factor,
             )
         )
@@ -183,19 +188,25 @@ def _coarse_pre_avl_reference_station_points(
         eta = 0.0 if half_span_m <= 0.0 else min(max(float(station.y_m) / half_span_m, 0.0), 1.0)
         cl_target = float(wing_cl_required) * (shape / normalized_denominator)
         cl_headroom = (
-            0.24
-            - 0.09 * eta
-            - 0.015 * (twist_delta / 5.0)
-            + 0.01 * min(span_ratio, 1.2)
+            float(spanload_cfg.cl_headroom_base)
+            - float(spanload_cfg.cl_headroom_eta_slope) * eta
+            - float(spanload_cfg.cl_headroom_twist_slope) * (twist_delta / 5.0)
+            + float(spanload_cfg.cl_headroom_span_ratio_slope) * min(span_ratio, 1.2)
         )
-        cl_headroom = min(max(cl_headroom, 0.08), 0.30)
+        cl_headroom = min(
+            max(cl_headroom, float(spanload_cfg.cl_headroom_floor)),
+            float(spanload_cfg.cl_headroom_ceiling),
+        )
+        cm_target = float(spanload_cfg.cm_target_base) + float(
+            spanload_cfg.cm_target_inboard_relief
+        ) * (1.0 - eta)
         coarse_points.append(
             {
                 "station_y_m": float(station.y_m),
                 "chord_m": float(station.chord_m),
                 "weight": float(area_weight),
                 "cl_target": float(cl_target),
-                "cm_target": -0.10 + 0.01 * (1.0 - eta),
+                "cm_target": float(cm_target),
                 "span_fraction": float(eta),
                 "taper_ratio": float(concept.taper_ratio),
                 "washout_deg": float(total_washout_deg),
@@ -204,7 +215,7 @@ def _coarse_pre_avl_reference_station_points(
                 "cl_max_proxy": float(cl_target + cl_headroom),
                 "cl_max_effective": float(cl_target + cl_headroom),
                 "cl_max_effective_source": "geometry_proxy",
-                "cm_effective": -0.10 + 0.01 * (1.0 - eta),
+                "cm_effective": float(cm_target),
                 "cm_effective_source": "zone_target_proxy",
             }
         )

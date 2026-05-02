@@ -215,7 +215,11 @@ Birdman rules / environment / rider power / mass
 
 飛行員功率曲線：原始 CSV `data/pilot_power_curves/current_pilot_power_curve.csv` 不做 in-place 修改；旁邊的 `current_pilot_power_curve.metadata.yaml` 標記這份資料是在 `26 C / 70% RH` 量測。mission config 目前開啟 simplified heat-stress 修正，會用 `k = 0.008` 把曲線自動平移到比賽環境 `33 C / 80% RH`，summary artifact 會輸出 `pilot_power_thermal_adjustment` 供檢查。
 
+質量設計空間：Birdman concept configs 現在把飛行員體重和機體空重拆成可調設計 case，而不是單一固定值。當前任務評估使用 `pilot_mass_cases_kg = [61.0, 62.5, 64.0]`、`aircraft_empty_mass_cases_kg = [35.0, 38.5, 42.0]`，對應 gross-mass sweep `[96.0, 101.0, 106.0]`；最重 case 會用於 mission / stall / turn / AVL reference 的保守評估。注意：現有 `area_mass_closure_v1` 還是粗略結構估重，不是能保證 42 kg 空機上限的 beam-wire sizing。
+
 推進 / 傳動初估：Birdman concept configs 目前採用 `eta_prop = 0.86`、`eta_trans = 0.96`，所以踏板到有效推進設計點效率 `eta_total = 0.8256`。這是巡航/爬升有前進速度的 sizing 值；螺旋槳直徑、轉速範圍、葉片數與 BEMT proxy 仍保留在 config surface，之後可替換成真實 prop design / map。
+
+翼分佈狀態：目前 upstream line 已把 mission induced-drag proxy 接到 station `cl * chord` spanload shape，但幾何 primary variables 仍是 `span_m + wing_loading_target_Npm2 + taper_ratio + tip_twist_deg`，翼面積仍由 W/S 反推；這還不是完整的「mean chord + spanload bias + flexible jig shape」設計。下一個工程升級應該把 `mean_chord_m`、多點 twist、spanload bias、cruise tip deflection target、tail volume sizing 接成 primary design variables，再用 AVL Trefftz / ASWING 或 beam-wire loop 取代現在的 proxy。
 
 常用指令：
 

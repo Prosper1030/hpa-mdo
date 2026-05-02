@@ -298,7 +298,26 @@ def test_enumerate_geometry_concepts_uses_area_coupled_design_mass():
     concept = concepts[0]
     assert concept.design_gross_mass_kg == pytest.approx(expected.closed_gross_mass_kg)
     assert concept.wing_area_m2 == pytest.approx(expected.closed_wing_area_m2)
-    assert concept.wing_area_m2 < cfg.design_gross_weight_n / 34.0
+    assert concept.wing_area_m2 != pytest.approx(cfg.design_gross_weight_n / 34.0)
+
+
+def test_enumerate_geometry_concepts_uses_configured_cg_location():
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["cg_xc"] = 0.34
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 32.0, "max": 32.0},
+        "wing_loading_target_Npm2": {"min": 34.0, "max": 34.0},
+        "taper_ratio": {"min": 0.30, "max": 0.30},
+        "tip_twist_deg": {"min": -1.0, "max": -1.0},
+    }
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+
+    assert len(concepts) == 1
+    assert concepts[0].cg_xc == pytest.approx(0.34)
 
 
 def test_enumerate_geometry_concepts_rejects_mass_closure_above_hard_max():

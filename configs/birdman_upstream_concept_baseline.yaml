@@ -4,10 +4,13 @@ environment:
   altitude_m: 0.0
 
 mass:
-  pilot_mass_kg: 60.0
-  baseline_aircraft_mass_kg: 40.0
-  gross_mass_sweep_kg: [95.0, 100.0, 105.0]
-  design_gross_mass_kg: 105.0
+  pilot_mass_kg: 62.5
+  pilot_mass_cases_kg: [61.0, 62.5, 64.0]
+  baseline_aircraft_mass_kg: 38.5
+  aircraft_empty_mass_cases_kg: [35.0, 38.5, 42.0]
+  gross_mass_sweep_kg: [96.0, 101.0, 106.0]
+  design_gross_mass_kg: 106.0
+  use_gross_mass_sweep_for_mission_cases: true
 
 mass_closure:
   enabled: true
@@ -26,7 +29,7 @@ mass_closure:
   wing_fittings_base_kg: 1.5
   wire_terminal_mass_kg: 0.6
   system_margin_kg: 2.0
-  gross_mass_hard_max_kg: 107.0
+  gross_mass_hard_max_kg: 109.0
 
 mission:
   objective_mode: fixed_range_best_time
@@ -144,6 +147,7 @@ geometry_family:
     root_zone_spar_depth_fraction: 0.62
     root_zone_required_spar_depth_m: 0.10
   twist_root_deg: 2.0
+  cg_xc: 0.30
   tail_area_candidates_m2: [3.8, 4.2, 4.6]
   dihedral_root_deg_candidates: [0.0, 1.0, 2.0]
   dihedral_tip_deg_candidates: [4.0, 6.0, 8.0]

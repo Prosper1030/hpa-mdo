@@ -1467,7 +1467,8 @@ def test_turn_summary_rescales_reference_cl_targets_to_release_condition() -> No
         trim_result=type("TrimResult", (), {"feasible": True})(),
     )
 
-    cl_scale = (105.0 / 95.0) * (6.0 / 8.0) ** 2
+    design_mass_kg = max(cfg.mass.gross_mass_sweep_kg)
+    cl_scale = (design_mass_kg / 95.0) * (6.0 / 8.0) ** 2
     assert turn["status"] == "ok"
     assert turn["cl_level"] == pytest.approx(cl_scale)
     assert turn["required_cl"] == pytest.approx(cl_scale / 0.9659258262890683)
@@ -1475,7 +1476,7 @@ def test_turn_summary_rescales_reference_cl_targets_to_release_condition() -> No
     assert turn["cl_scale_factor_max"] == pytest.approx(cl_scale)
     assert turn["reference_speed_mps"] == pytest.approx(6.0)
     assert turn["reference_gross_mass_kg"] == pytest.approx(95.0)
-    assert turn["evaluation_gross_mass_kg"] == pytest.approx(105.0)
+    assert turn["evaluation_gross_mass_kg"] == pytest.approx(design_mass_kg)
     assert turn["stall_utilization"] == pytest.approx(turn["required_cl"] / turn["cl_max"])
 
 
@@ -1897,10 +1898,15 @@ def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() 
     assert closure["model"] == "area_mass_closure_v1_report_only"
     assert closure["closed_wing_area_m2"] > concept.wing_area_m2
     assert closure["closed_gross_mass_kg"] > cfg.mass.design_gross_mass_kg
+    assert closure["closed_aircraft_empty_mass_kg"] == pytest.approx(
+        closure["closed_gross_mass_kg"] - cfg.mass.pilot_mass_kg
+    )
+    assert closure["aircraft_empty_mass_target_range_kg"] == pytest.approx([35.0, 42.0])
+    assert closure["aircraft_empty_mass_within_target_range"] is False
     assert concept.wing_area_m2 == pytest.approx(48.6)
 
 
-def test_mission_summary_uses_closed_concept_mass_as_primary_case() -> None:
+def test_mission_summary_uses_configured_mass_sweep_as_primary_cases() -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
     concept = GeometryConcept(
         span_m=32.0,
@@ -1941,9 +1947,9 @@ def test_mission_summary_uses_closed_concept_mass_as_primary_case() -> None:
     )
 
     assert [case["gross_mass_kg"] for case in mission["mass_cases"]] == pytest.approx(
-        [103.25]
+        [96.0, 101.0, 106.0]
     )
-    assert mission["evaluated_gross_mass_kg"] == pytest.approx(103.25)
+    assert mission["evaluated_gross_mass_kg"] == pytest.approx(106.0)
 
 
 def test_mission_summary_reports_empty_feasible_speed_set_and_delta() -> None:
@@ -2113,10 +2119,11 @@ def test_local_stall_summary_uses_worst_case_across_reference_mission_and_launch
         },
     )
 
-    launch_scale = (105.0 / 95.0) * (10.0 / 8.0) ** 2
+    design_mass_kg = max(cfg.mass.gross_mass_sweep_kg)
+    launch_scale = (design_mass_kg / 95.0) * (10.0 / 8.0) ** 2
     assert local_stall["evaluation_case"] == "launch_release_case"
     assert local_stall["evaluation_speed_mps"] == pytest.approx(8.0)
-    assert local_stall["evaluation_gross_mass_kg"] == pytest.approx(105.0)
+    assert local_stall["evaluation_gross_mass_kg"] == pytest.approx(design_mass_kg)
     assert local_stall["required_cl"] == pytest.approx(0.70 * launch_scale)
     assert local_stall["stall_utilization"] == pytest.approx(local_stall["required_cl"] / 1.20)
     assert {case["case_label"] for case in local_stall["case_results"]} == {
@@ -2163,7 +2170,8 @@ def test_local_stall_summary_reports_envelope_to_clear_limit() -> None:
     required_area_m2 = 32.0 * (
         local_stall["stall_utilization"] / local_stall["stall_utilization_limit"]
     )
-    required_gross_mass_kg = 105.0 * (
+    design_mass_kg = max(cfg.mass.gross_mass_sweep_kg)
+    required_gross_mass_kg = design_mass_kg * (
         local_stall["stall_utilization_limit"] / local_stall["stall_utilization"]
     )
 
@@ -2172,7 +2180,9 @@ def test_local_stall_summary_reports_envelope_to_clear_limit() -> None:
     assert local_stall["required_wing_area_for_limit_m2"] == pytest.approx(required_area_m2)
     assert local_stall["delta_wing_area_for_limit_m2"] == pytest.approx(required_area_m2 - 32.0)
     assert local_stall["required_gross_mass_for_limit_kg"] == pytest.approx(required_gross_mass_kg)
-    assert local_stall["delta_gross_mass_for_limit_kg"] == pytest.approx(required_gross_mass_kg - 105.0)
+    assert local_stall["delta_gross_mass_for_limit_kg"] == pytest.approx(
+        required_gross_mass_kg - design_mass_kg
+    )
 
 
 def test_local_stall_summary_keeps_slow_case_report_only() -> None:

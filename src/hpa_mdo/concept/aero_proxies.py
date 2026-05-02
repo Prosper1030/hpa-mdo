@@ -121,12 +121,15 @@ def spanload_efficiency_proxy(
             for weight, lift, elliptic in zip(weights, lift_shape, elliptic_shape, strict=True)
         )
     )
-    shape_penalty = min(0.18, 0.22 * rms_error)
+    shape_penalty = min(
+        float(proxy_cfg.spanload_shape_penalty_max),
+        float(proxy_cfg.spanload_shape_penalty_slope) * rms_error,
+    )
     geometry_knockdown = max(0.0, float(proxy_cfg.base_efficiency) - float(geometry_efficiency))
     efficiency = (
         float(proxy_cfg.efficiency_ceiling)
         - shape_penalty
-        - 0.50 * geometry_knockdown
+        - float(proxy_cfg.spanload_geometry_knockdown_weight) * geometry_knockdown
     )
     efficiency = max(
         float(proxy_cfg.efficiency_floor),
