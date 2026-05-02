@@ -5,6 +5,7 @@ import pytest
 from hpa_mdo.concept.config import BirdmanConceptConfig, load_concept_config
 from hpa_mdo.concept.geometry import (
     GeometryConcept,
+    _lambda_min_from_tip_chord,
     _resolve_tube_system_mass_kg,
     build_linear_wing_stations,
     build_segment_plan,
@@ -381,6 +382,86 @@ def test_enumerate_geometry_concepts_can_use_mean_chord_planform_parameterizatio
         cfg.mass.design_gross_mass_kg * 9.80665 / concept.wing_area_m2
     )
     assert concept.aspect_ratio == pytest.approx(35.0 / 0.90)
+
+
+def test_lambda_min_from_tip_chord_couples_taper_to_mean_chord() -> None:
+    assert _lambda_min_from_tip_chord(c_bar_m=0.86, c_tip_min_m=0.42) == pytest.approx(
+        0.42 / (2.0 * 0.86 - 0.42)
+    )
+    assert _lambda_min_from_tip_chord(c_bar_m=0.20, c_tip_min_m=0.42) == float("inf")
+
+
+def test_planform_tip_protection_raises_low_taper_to_dynamic_minimum() -> None:
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["mass_closure"]["enabled"] = False
+    payload["geometry_family"]["planform_parameterization"] = "mean_chord"
+    payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 35.0, "max": 35.0},
+        "mean_chord_m": {"min": 0.86, "max": 0.86},
+        "wing_loading_target_Npm2": {"min": 31.0, "max": 31.0},
+        "taper_ratio": {"min": 0.24, "max": 0.24},
+        "twist_mid_deg": {"min": 0.75, "max": 0.75},
+        "twist_outer_deg": {"min": -1.25, "max": -1.25},
+        "tip_twist_deg": {"min": -2.75, "max": -2.75},
+        "spanload_bias": {"min": 0.08, "max": 0.08},
+    }
+    payload["geometry_family"]["hard_constraints"]["wing_area_m2_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    payload["geometry_family"]["hard_constraints"]["aspect_ratio_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+
+    assert len(concepts) == 1
+    concept = concepts[0]
+    assert concept.mean_chord_target_m == pytest.approx(0.86)
+    assert concept.taper_ratio > 0.24
+    assert concept.taper_ratio == pytest.approx(
+        _lambda_min_from_tip_chord(c_bar_m=0.86, c_tip_min_m=0.42),
+        rel=0.02,
+    )
+    assert concept.tip_chord_m >= 0.42
+
+
+def test_planform_tip_protection_rejects_outer_loading_above_elliptic_limit() -> None:
+    cfg_path = Path(__file__).resolve().parents[1] / "configs" / "birdman_upstream_concept_baseline.yaml"
+    payload = load_concept_config(cfg_path).model_dump(mode="python")
+    payload["mass_closure"]["enabled"] = False
+    payload["geometry_family"]["planform_parameterization"] = "mean_chord"
+    payload["geometry_family"]["sampling"]["sample_count"] = 1
+    payload["geometry_family"]["primary_ranges"] = {
+        "span_m": {"min": 35.0, "max": 35.0},
+        "mean_chord_m": {"min": 0.86, "max": 0.86},
+        "wing_loading_target_Npm2": {"min": 31.0, "max": 31.0},
+        "taper_ratio": {"min": 0.36, "max": 0.36},
+        "twist_mid_deg": {"min": 0.75, "max": 0.75},
+        "twist_outer_deg": {"min": -1.25, "max": -1.25},
+        "tip_twist_deg": {"min": -2.75, "max": -2.75},
+        "spanload_bias": {"min": 0.0, "max": 0.0},
+    }
+    payload["geometry_family"]["hard_constraints"]["wing_area_m2_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    payload["geometry_family"]["hard_constraints"]["aspect_ratio_range"] = {
+        "min": 1.0,
+        "max": 90.0,
+    }
+    cfg = BirdmanConceptConfig.model_validate(payload)
+
+    concepts = enumerate_geometry_concepts(cfg)
+    diagnostics = get_last_geometry_enumeration_diagnostics()
+
+    assert concepts == ()
+    assert diagnostics is not None
+    assert diagnostics.rejection_reason_counts["outer_loading_ratio_above_max"] == 1
 
 
 def test_enumerate_geometry_concepts_can_size_tail_from_tail_volume():

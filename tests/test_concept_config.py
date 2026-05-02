@@ -145,18 +145,43 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.geometry_family.primary_ranges.mean_chord_m.max == pytest.approx(1.15)
     assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.min == pytest.approx(24.0)
     assert cfg.geometry_family.primary_ranges.wing_loading_target_Npm2.max == pytest.approx(42.0)
-    assert cfg.geometry_family.primary_ranges.taper_ratio.min == pytest.approx(0.30)
-    assert cfg.geometry_family.primary_ranges.taper_ratio.max == pytest.approx(0.38)
+    assert cfg.geometry_family.primary_ranges.taper_ratio.min == pytest.approx(0.34)
+    assert cfg.geometry_family.primary_ranges.taper_ratio.max == pytest.approx(0.40)
     assert cfg.geometry_family.primary_ranges.twist_mid_deg.min == pytest.approx(0.0)
     assert cfg.geometry_family.primary_ranges.twist_mid_deg.max == pytest.approx(1.25)
     assert cfg.geometry_family.primary_ranges.twist_outer_deg.min == pytest.approx(-1.0)
     assert cfg.geometry_family.primary_ranges.twist_outer_deg.max == pytest.approx(-0.25)
-    assert cfg.geometry_family.primary_ranges.tip_twist_deg.min == pytest.approx(-3.5)
-    assert cfg.geometry_family.primary_ranges.tip_twist_deg.max == pytest.approx(-1.0)
-    assert cfg.geometry_family.primary_ranges.spanload_bias.min == pytest.approx(0.0)
+    assert cfg.geometry_family.primary_ranges.tip_twist_deg.min == pytest.approx(-2.5)
+    assert cfg.geometry_family.primary_ranges.tip_twist_deg.max == pytest.approx(-1.2)
+    assert cfg.geometry_family.primary_ranges.spanload_bias.min == pytest.approx(0.07)
     assert cfg.geometry_family.primary_ranges.spanload_bias.max == pytest.approx(0.12)
     assert cfg.geometry_family.hard_constraints.root_chord_min_m == pytest.approx(1.05)
-    assert cfg.geometry_family.hard_constraints.tip_chord_min_m == pytest.approx(0.30)
+    assert cfg.geometry_family.hard_constraints.tip_chord_min_m == pytest.approx(0.42)
+    assert cfg.geometry_family.planform_tip_protection.enabled is True
+    assert cfg.geometry_family.planform_tip_protection.tip_chord_abs_min_m == pytest.approx(
+        0.42
+    )
+    assert cfg.geometry_family.planform_tip_protection.tip_chord_preferred_min_m == pytest.approx(
+        0.45
+    )
+    assert cfg.geometry_family.planform_tip_protection.tip_re_abs_min == pytest.approx(
+        170_000.0
+    )
+    assert cfg.geometry_family.planform_tip_protection.tip_re_preferred_min == pytest.approx(
+        180_000.0
+    )
+    assert cfg.geometry_family.planform_tip_protection.dynamic_lambda_min_from_tip_chord is True
+    assert (
+        cfg.geometry_family.planform_tip_protection.outer_loading_eta_0p90_max_ratio_to_ellipse
+        == pytest.approx(0.95)
+    )
+    assert (
+        cfg.geometry_family.planform_tip_protection.outer_loading_eta_0p95_max_ratio_to_ellipse
+        == pytest.approx(0.95)
+    )
+    assert cfg.geometry_family.planform_tip_protection.tip_spar_depth_min_m == pytest.approx(
+        0.040
+    )
     assert cfg.geometry_family.hard_constraints.wing_area_m2_range.min == pytest.approx(24.0)
     assert cfg.geometry_family.hard_constraints.wing_area_m2_range.max == pytest.approx(41.0)
     assert cfg.geometry_family.hard_constraints.aspect_ratio_range.max == pytest.approx(46.0)

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
+import math
 from math import floor, isclose
 from itertools import product
 
 import numpy as np
 from scipy.stats import qmc
 
+from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.jig_shape import estimate_tip_deflection
 from hpa_mdo.concept.lift_wire import estimate_lift_wire_tension_n
 from hpa_mdo.concept.mass_closure import (
@@ -242,6 +244,64 @@ class GeometryEnumerationDiagnostics:
 _LAST_ENUMERATION_DIAGNOSTICS: GeometryEnumerationDiagnostics | None = None
 
 
+def _lambda_min_from_tip_chord(*, c_bar_m: float, c_tip_min_m: float) -> float:
+    c_bar = float(c_bar_m)
+    c_tip_min = float(c_tip_min_m)
+    if 2.0 * c_bar <= c_tip_min:
+        return float("inf")
+    return float(c_tip_min / (2.0 * c_bar - c_tip_min))
+
+
+def _tip_re_design_speed_mps(cfg) -> float:
+    tip_protection = cfg.geometry_family.planform_tip_protection
+    if tip_protection.tip_re_design_speed_mps is not None:
+        return float(tip_protection.tip_re_design_speed_mps)
+    return 0.5 * (
+        float(cfg.mission.speed_sweep_min_mps) + float(cfg.mission.speed_sweep_max_mps)
+    )
+
+
+def _planform_tip_required_chord_m(cfg) -> float:
+    hard_constraints = cfg.geometry_family.hard_constraints
+    tip_protection = cfg.geometry_family.planform_tip_protection
+    if not bool(tip_protection.enabled):
+        return float(hard_constraints.tip_chord_min_m)
+
+    air_properties = air_properties_from_environment(
+        temperature_c=float(cfg.environment.temperature_c),
+        relative_humidity_percent=float(cfg.environment.relative_humidity),
+        altitude_m=float(cfg.environment.altitude_m),
+    )
+    design_speed_mps = _tip_re_design_speed_mps(cfg)
+    re_based_min_m = (
+        float(tip_protection.tip_re_abs_min)
+        * float(air_properties.dynamic_viscosity_pa_s)
+        / max(float(air_properties.density_kg_per_m3) * design_speed_mps, 1.0e-9)
+    )
+    spar_based_min_m = float(tip_protection.tip_spar_depth_min_m) / max(
+        float(tip_protection.tip_structural_tc_ratio),
+        1.0e-9,
+    )
+    return max(
+        float(hard_constraints.tip_chord_min_m),
+        float(tip_protection.tip_chord_abs_min_m),
+        re_based_min_m,
+        spar_based_min_m,
+    )
+
+
+def _linear_chord_at_eta(concept: GeometryConcept, eta: float) -> float:
+    eta_clamped = min(max(float(eta), 0.0), 1.0)
+    return float(
+        concept.root_chord_m
+        + eta_clamped * (float(concept.tip_chord_m) - float(concept.root_chord_m))
+    )
+
+
+def _outer_loading_ratio_to_ellipse(*, spanload_bias: float, eta: float) -> float:
+    return max(0.0, 1.0 - float(spanload_bias) * float(eta) ** 2)
+
+
 def _progressive_schedule_value(
     start_value: float,
     end_value: float,
@@ -447,15 +507,75 @@ def _evaluate_hard_constraints(
             root_chord_m=float(concept.root_chord_m),
             root_chord_min_m=float(constraints.root_chord_min_m),
         )
-    if concept.tip_chord_m < float(constraints.tip_chord_min_m):
+    tip_protection = cfg.geometry_family.planform_tip_protection
+    required_tip_chord_m = _planform_tip_required_chord_m(cfg)
+    tolerance_m = 1.0e-9
+    if concept.tip_chord_m + tolerance_m < required_tip_chord_m:
         return _geometry_rejection(
             sample_index=sample_index,
             reason="tip_chord_below_min",
             primary_values=primary_values,
             secondary_values=secondary_values,
             tip_chord_m=float(concept.tip_chord_m),
-            tip_chord_min_m=float(constraints.tip_chord_min_m),
+            tip_chord_min_m=float(required_tip_chord_m),
         )
+    if bool(tip_protection.enabled):
+        aerodynamic_tip_eta = float(tip_protection.aerodynamic_tip_station_eta)
+        chord_at_aero_tip_m = _linear_chord_at_eta(concept, aerodynamic_tip_eta)
+        chord_at_aero_tip_min_m = float(
+            tip_protection.require_chord_at_eta_0p95_min_m
+        )
+        if chord_at_aero_tip_m + tolerance_m < chord_at_aero_tip_min_m:
+            return _geometry_rejection(
+                sample_index=sample_index,
+                reason="aerodynamic_tip_chord_below_min",
+                primary_values=primary_values,
+                secondary_values=secondary_values,
+                aerodynamic_tip_station_eta=aerodynamic_tip_eta,
+                chord_at_aerodynamic_tip_eta_m=float(chord_at_aero_tip_m),
+                chord_at_aerodynamic_tip_eta_min_m=chord_at_aero_tip_min_m,
+            )
+
+        tip_spar_depth_m = float(concept.tip_chord_m) * float(
+            tip_protection.tip_structural_tc_ratio
+        )
+        if tip_spar_depth_m + tolerance_m < float(tip_protection.tip_spar_depth_min_m):
+            return _geometry_rejection(
+                sample_index=sample_index,
+                reason="tip_spar_depth_insufficient",
+                primary_values=primary_values,
+                secondary_values=secondary_values,
+                tip_spar_depth_m=float(tip_spar_depth_m),
+                tip_spar_depth_min_m=float(tip_protection.tip_spar_depth_min_m),
+                tip_structural_tc_ratio=float(tip_protection.tip_structural_tc_ratio),
+            )
+
+        outer_loading_checks = (
+            (
+                0.90,
+                float(tip_protection.outer_loading_eta_0p90_max_ratio_to_ellipse),
+            ),
+            (
+                0.95,
+                float(tip_protection.outer_loading_eta_0p95_max_ratio_to_ellipse),
+            ),
+        )
+        for eta, max_ratio in outer_loading_checks:
+            ratio = _outer_loading_ratio_to_ellipse(
+                spanload_bias=float(concept.spanload_bias),
+                eta=eta,
+            )
+            if ratio > max_ratio:
+                return _geometry_rejection(
+                    sample_index=sample_index,
+                    reason="outer_loading_ratio_above_max",
+                    primary_values=primary_values,
+                    secondary_values=secondary_values,
+                    spanload_bias=float(concept.spanload_bias),
+                    outer_loading_eta=float(eta),
+                    outer_loading_ratio_to_ellipse=float(ratio),
+                    outer_loading_max_ratio_to_ellipse=float(max_ratio),
+                )
 
     root_available_spar_depth_m = (
         float(concept.root_chord_m)
@@ -473,7 +593,7 @@ def _evaluate_hard_constraints(
         )
 
     minimum_station_chord_m = min(float(station.chord_m) for station in stations)
-    if minimum_station_chord_m < float(constraints.segment_min_chord_m):
+    if minimum_station_chord_m + tolerance_m < float(constraints.segment_min_chord_m):
         return _geometry_rejection(
             sample_index=sample_index,
             reason="segment_chord_below_min",
@@ -604,6 +724,7 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
         zip(primary_samples, secondary_samples, strict=True),
         start=1,
     ):
+        primary_values = dict(primary_values)
         span_m = float(primary_values["span_m"])
         planform_parameterization = str(cfg.geometry_family.planform_parameterization)
         taper_ratio = float(primary_values["taper_ratio"])
@@ -768,6 +889,39 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             if mass_closure is not None:
                 wing_area_m2 = float(mass_closure.closed_wing_area_m2)
                 design_gross_mass_kg = float(mass_closure.closed_gross_mass_kg)
+
+        tip_protection = cfg.geometry_family.planform_tip_protection
+        if bool(tip_protection.enabled) and bool(
+            tip_protection.dynamic_lambda_min_from_tip_chord
+        ):
+            c_bar_m = float(wing_area_m2) / max(float(span_m), 1.0e-9)
+            required_tip_chord_m = _planform_tip_required_chord_m(cfg)
+            dynamic_lambda_min = _lambda_min_from_tip_chord(
+                c_bar_m=c_bar_m,
+                c_tip_min_m=required_tip_chord_m,
+            )
+            if not math.isfinite(dynamic_lambda_min):
+                rejected_concepts.append(
+                    _geometry_rejection(
+                        sample_index=sample_index,
+                        reason="tip_dynamic_lambda_infeasible",
+                        primary_values=primary_values,
+                        secondary_values=secondary_values,
+                        mean_chord_m=float(c_bar_m),
+                        tip_chord_min_m=float(required_tip_chord_m),
+                    )
+                )
+                continue
+            if taper_ratio < dynamic_lambda_min:
+                primary_values["sampled_taper_ratio"] = float(taper_ratio)
+                primary_values["dynamic_lambda_min_from_tip_chord"] = float(
+                    dynamic_lambda_min
+                )
+                primary_values["tip_chord_min_governing_m"] = float(
+                    required_tip_chord_m
+                )
+                taper_ratio = float(dynamic_lambda_min)
+                primary_values["taper_ratio"] = float(taper_ratio)
 
         tail_volume_coefficient: float | None = None
         if tail_sizing_mode == "tail_volume":

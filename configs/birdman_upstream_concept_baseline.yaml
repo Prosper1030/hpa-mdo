@@ -137,8 +137,8 @@ geometry_family:
       min: 24.0
       max: 42.0
     taper_ratio:
-      min: 0.30
-      max: 0.38
+      min: 0.34
+      max: 0.40
     twist_mid_deg:
       min: 0.0
       max: 1.25
@@ -146,10 +146,10 @@ geometry_family:
       min: -1.0
       max: -0.25
     tip_twist_deg:
-      min: -3.5
-      max: -1.0
+      min: -2.5
+      max: -1.2
     spanload_bias:
-      min: 0.0
+      min: 0.07
       max: 0.12
   hard_constraints:
     wing_area_m2_range:
@@ -159,11 +159,33 @@ geometry_family:
       min: 25.0
       max: 46.0
     root_chord_min_m: 1.05
-    tip_chord_min_m: 0.30
-    segment_min_chord_m: 0.32
+    tip_chord_min_m: 0.42
+    segment_min_chord_m: 0.42
     root_zone_min_tc_ratio: 0.14
     root_zone_spar_depth_fraction: 0.62
     root_zone_required_spar_depth_m: 0.10
+  planform_tip_protection:
+    enabled: true
+    tip_chord_abs_min_m: 0.42
+    tip_chord_preferred_min_m: 0.45
+    tip_re_abs_min: 170000
+    tip_re_preferred_min: 180000
+    dynamic_lambda_min_from_tip_chord: true
+    aerodynamic_tip_station_eta: 0.95
+    require_chord_at_eta_0p95_min_m: 0.42
+    physical_tip_cap_eta_start: 0.96
+    tip_cap_shape: rounded_or_superellipse
+    outer_loading_eta_0p90_max_ratio_to_ellipse: 0.95
+    outer_loading_eta_0p95_max_ratio_to_ellipse: 0.95
+    outer_eta_start: 0.75
+    outer_cruise_clmax_utilization_max: 0.75
+    outer_turn_clmax_utilization_max: 0.80
+    require_monotonic_outer_washout: true
+    tip_flight_washout_deg_range: [-4.5, -2.0]
+    tip_minus_eta70_washout_min_deg: -0.8
+    tip_spar_depth_min_m: 0.040
+    tip_structural_tc_ratio: 0.11
+    tip_leading_edge_radius_min_m: 0.006
   twist_root_deg: 2.0
   twist_control_etas: [0.35, 0.70]
   cg_xc: 0.30

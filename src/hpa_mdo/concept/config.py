@@ -572,7 +572,7 @@ class GeometryPrimaryRangesConfig(ConceptBaseModel):
         default_factory=lambda: ContinuousRangeConfig(min=26.0, max=34.0)
     )
     taper_ratio: ContinuousRangeConfig = Field(
-        default_factory=lambda: ContinuousRangeConfig(min=0.24, max=0.40)
+        default_factory=lambda: ContinuousRangeConfig(min=0.34, max=0.40)
     )
     twist_mid_deg: ContinuousRangeConfig = Field(
         default_factory=lambda: ContinuousRangeConfig(min=0.0, max=1.25)
@@ -581,10 +581,10 @@ class GeometryPrimaryRangesConfig(ConceptBaseModel):
         default_factory=lambda: ContinuousRangeConfig(min=-1.0, max=-0.25)
     )
     tip_twist_deg: ContinuousRangeConfig = Field(
-        default_factory=lambda: ContinuousRangeConfig(min=-3.5, max=-1.0)
+        default_factory=lambda: ContinuousRangeConfig(min=-2.5, max=-1.2)
     )
     spanload_bias: ContinuousRangeConfig = Field(
-        default_factory=lambda: ContinuousRangeConfig(min=0.0, max=0.12)
+        default_factory=lambda: ContinuousRangeConfig(min=0.07, max=0.12)
     )
 
     @model_validator(mode="after")
@@ -627,11 +627,68 @@ class GeometryHardConstraintConfig(ConceptBaseModel):
         default_factory=lambda: ContinuousRangeConfig(min=24.0, max=36.0)
     )
     root_chord_min_m: float = Field(1.20, gt=0.0)
-    tip_chord_min_m: float = Field(0.30, gt=0.0)
+    tip_chord_min_m: float = Field(0.42, gt=0.0)
     segment_min_chord_m: float = Field(0.32, gt=0.0)
     root_zone_min_tc_ratio: float = Field(0.14, gt=0.0, le=1.0)
     root_zone_spar_depth_fraction: float = Field(0.62, gt=0.0, le=1.0)
     root_zone_required_spar_depth_m: float = Field(0.10, gt=0.0)
+
+
+class PlanformTipProtectionConfig(ConceptBaseModel):
+    enabled: bool = True
+    tip_chord_abs_min_m: float = Field(0.42, gt=0.0)
+    tip_chord_preferred_min_m: float = Field(0.45, gt=0.0)
+    tip_re_abs_min: float = Field(170_000.0, gt=0.0)
+    tip_re_preferred_min: float = Field(180_000.0, gt=0.0)
+    tip_re_design_speed_mps: float | None = Field(None, gt=0.0)
+    dynamic_lambda_min_from_tip_chord: bool = True
+    aerodynamic_tip_station_eta: float = Field(0.95, gt=0.0, lt=1.0)
+    require_chord_at_eta_0p95_min_m: float = Field(0.42, gt=0.0)
+    physical_tip_cap_eta_start: float = Field(0.96, gt=0.0, le=1.0)
+    tip_cap_shape: Literal["rounded_or_superellipse", "rounded", "superellipse"] = (
+        "rounded_or_superellipse"
+    )
+    outer_loading_eta_0p90_max_ratio_to_ellipse: float = Field(0.95, gt=0.0)
+    outer_loading_eta_0p95_max_ratio_to_ellipse: float = Field(0.95, gt=0.0)
+    outer_eta_start: float = Field(0.75, ge=0.0, lt=1.0)
+    outer_cruise_clmax_utilization_max: float = Field(0.75, gt=0.0, lt=1.0)
+    outer_turn_clmax_utilization_max: float = Field(0.80, gt=0.0, lt=1.0)
+    require_monotonic_outer_washout: bool = True
+    tip_flight_washout_deg_range: tuple[float, float] = (-4.5, -2.0)
+    tip_minus_eta70_washout_min_deg: float = Field(-0.8, lt=0.0)
+    tip_spar_depth_min_m: float = Field(0.040, gt=0.0)
+    tip_structural_tc_ratio: float = Field(0.11, gt=0.0, le=1.0)
+    tip_leading_edge_radius_min_m: float = Field(0.006, gt=0.0)
+
+    @model_validator(mode="after")
+    def validate_tip_protection(self) -> PlanformTipProtectionConfig:
+        if self.tip_chord_preferred_min_m < self.tip_chord_abs_min_m:
+            raise ValueError(
+                "geometry_family.planform_tip_protection.tip_chord_preferred_min_m "
+                "must be >= tip_chord_abs_min_m."
+            )
+        if self.tip_re_preferred_min < self.tip_re_abs_min:
+            raise ValueError(
+                "geometry_family.planform_tip_protection.tip_re_preferred_min "
+                "must be >= tip_re_abs_min."
+            )
+        if self.physical_tip_cap_eta_start < self.aerodynamic_tip_station_eta:
+            raise ValueError(
+                "geometry_family.planform_tip_protection.physical_tip_cap_eta_start "
+                "must be >= aerodynamic_tip_station_eta."
+            )
+        washout_min, washout_max = self.tip_flight_washout_deg_range
+        if washout_min > washout_max:
+            raise ValueError(
+                "geometry_family.planform_tip_protection.tip_flight_washout_deg_range "
+                "must be ordered [min, max]."
+            )
+        if washout_max >= 0.0:
+            raise ValueError(
+                "geometry_family.planform_tip_protection.tip_flight_washout_deg_range "
+                "must describe washout with negative values."
+            )
+        return self
 
 
 class GeometryFamilyConfig(ConceptBaseModel):
@@ -642,6 +699,9 @@ class GeometryFamilyConfig(ConceptBaseModel):
     )
     hard_constraints: GeometryHardConstraintConfig = Field(
         default_factory=GeometryHardConstraintConfig
+    )
+    planform_tip_protection: PlanformTipProtectionConfig = Field(
+        default_factory=PlanformTipProtectionConfig
     )
     twist_root_deg: float = Field(
         2.0,
