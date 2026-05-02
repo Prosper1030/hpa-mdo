@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import math
 from pathlib import Path
 import shutil
 import subprocess
@@ -1967,6 +1968,59 @@ def test_mission_summary_filters_best_range_to_feasible_speeds() -> None:
     assert mission["delta_v_to_first_feasible_mps"] == pytest.approx(0.6)
     assert mission["worst_case_evaluated_gross_mass_kg"] == pytest.approx(106.0)
     assert mission["mass_cases"][-1]["feasible_speed_set_mps"] == pytest.approx([7.2])
+
+
+def test_mission_summary_reports_avl_cdi_and_fourier_spanload_objectives() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg.rigging_drag.enabled = False
+    concept = GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+    station_points = [
+        {
+            "station_y_m": eta * 16.0,
+            "chord_m": 1.0,
+            "weight": 1.0,
+            "cl_target": max((1.0 - eta**2) ** 0.5, 0.0),
+            "cm_target": -0.05,
+            "cl_max_safe": 1.5,
+            "cl_max_safe_source": "airfoil_safe_observed",
+            "case_label": "reference_avl_case",
+            "evaluation_speed_mps": 8.0,
+            "evaluation_gross_mass_kg": 105.0,
+            "reference_speed_mps": 8.0,
+            "reference_gross_mass_kg": 105.0,
+            "trim_cl": 0.70,
+            "trim_cd_induced": 0.010,
+            "trim_span_efficiency": 0.49 / (math.pi * 32.0 * 0.010),
+        }
+        for eta in (0.0, 0.20, 0.40, 0.60, 0.80, 0.95, 1.0)
+    ]
+
+    mission = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback={"mean_cd_effective": 0.021},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+    )
+
+    assert mission["avl_oswald_efficiency"] == pytest.approx(
+        0.70**2 / (math.pi * concept.aspect_ratio * 0.010)
+    )
+    assert mission["oswald_efficiency_source"] == "avl_trim_force_totals_cdi_formula"
+    assert mission["spanload_fourier_efficiency"] > 0.98
+    assert mission["spanload_fourier_deviation"] < 0.05
+    assert mission["spanload_fourier_summary"]["source"] == "spanload_fourier_series_v1"
 
 
 def test_sizing_diagnostics_report_area_mass_closure_without_resizing_concept() -> None:

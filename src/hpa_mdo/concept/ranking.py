@@ -18,6 +18,7 @@ class CandidateConceptResult:
     local_stall_feasible: bool = True
     mission_margin_m: float | None = None
     span_efficiency: float | None = None
+    spanload_deviation: float | None = None
 
     @property
     def safety_feasible(self) -> bool:
@@ -83,6 +84,12 @@ def _span_efficiency_component(result: CandidateConceptResult) -> float:
     return float(result.span_efficiency)
 
 
+def _spanload_deviation_component(result: CandidateConceptResult) -> float:
+    if result.spanload_deviation is None:
+        return 1.0e9
+    return float(result.spanload_deviation)
+
+
 def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
     scored: list[tuple[CandidateConceptResult, float, float, list[str]]] = []
     for result in results:
@@ -107,6 +114,11 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             1000.0 * float(result.failed_gate_count)
             + mission_component
             - 100.0 * combined_feasibility_margin
+            + (
+                0.0
+                if result.spanload_deviation is None
+                else 50.0 * float(result.spanload_deviation)
+            )
             + result.assembly_penalty
         )
         scored.append((result, score, combined_feasibility_margin, reasons))
@@ -118,6 +130,7 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             -item[2],
             _mission_component(item[0]),
             -_span_efficiency_component(item[0]),
+            _spanload_deviation_component(item[0]),
             item[0].assembly_penalty,
             item[0].concept_id,
         )
@@ -150,6 +163,13 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
                 best_result
             ):
                 augmented_reasons.append("lower_span_efficiency_than_best")
+            elif (
+                best_result.spanload_deviation is not None
+                and result.spanload_deviation is not None
+                and _spanload_deviation_component(result)
+                > _spanload_deviation_component(best_result)
+            ):
+                augmented_reasons.append("higher_spanload_deviation_than_best")
             elif result.safety_margin < best_result.safety_margin:
                 augmented_reasons.append("lower_safety_margin_than_best")
             elif result.assembly_penalty > best_result.assembly_penalty:

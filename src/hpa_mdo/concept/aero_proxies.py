@@ -3,6 +3,8 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 if TYPE_CHECKING:
     from hpa_mdo.concept.config import (
         OswaldEfficiencyProxyConfig,
@@ -143,6 +145,106 @@ def spanload_efficiency_proxy(
     }
 
 
+def spanload_fourier_efficiency_records(
+    *,
+    concept: "GeometryConcept",
+    station_points: list[dict[str, object]],
+    harmonic_count: int = 8,
+) -> list[dict[str, object]]:
+    """Fit a lifting-line sine series to station loads and estimate span efficiency.
+
+    The input load shape is the section lift proxy ``cl_target * chord``. For a
+    symmetric wing, the positive-half stations are mirrored into ``theta`` space
+    and fit to ``sum(A_n sin(n theta))``. The induced-drag shape factor follows
+    the classic lifting-line relation ``1 / e = 1 + sum(n * (A_n/A_1)^2)``.
+    """
+
+    half_span_m = 0.5 * float(concept.span_m)
+    if half_span_m <= 0.0 or harmonic_count < 1:
+        return []
+
+    grouped: dict[str, list[tuple[float, float]]] = {}
+    for point in station_points:
+        y_m = _numeric(point.get("station_y_m"))
+        chord_m = _numeric(point.get("chord_m"))
+        cl_target = _numeric(point.get("cl_target"))
+        if y_m is None or chord_m is None or cl_target is None:
+            continue
+        if chord_m <= 0.0:
+            continue
+        eta = min(max(abs(y_m) / half_span_m, 0.0), 1.0)
+        lift_shape = max(chord_m * cl_target, 0.0)
+        case_label = str(point.get("case_label", "reference_avl_case"))
+        grouped.setdefault(case_label, []).append((eta, lift_shape))
+
+    records: list[dict[str, object]] = []
+    for case_label, samples in grouped.items():
+        unique_samples = sorted({(round(eta, 10), load) for eta, load in samples})
+        if len(unique_samples) < 4:
+            continue
+
+        theta_values: list[float] = []
+        load_values: list[float] = []
+        for eta, lift_shape in unique_samples:
+            theta = math.acos(min(max(eta, 0.0), 1.0))
+            theta_values.append(theta)
+            load_values.append(lift_shape)
+            mirrored_theta = math.pi - theta
+            if abs(mirrored_theta - theta) > 1.0e-9:
+                theta_values.append(mirrored_theta)
+                load_values.append(lift_shape)
+
+        if max(load_values, default=0.0) <= 0.0:
+            continue
+
+        fit_harmonics = min(int(harmonic_count), max(1, len(theta_values) - 1))
+        basis = np.asarray(
+            [
+                [math.sin(float(n) * theta) for n in range(1, fit_harmonics + 1)]
+                for theta in theta_values
+            ],
+            dtype=float,
+        )
+        loads = np.asarray(load_values, dtype=float)
+        try:
+            coefficients, *_ = np.linalg.lstsq(basis, loads, rcond=None)
+        except np.linalg.LinAlgError:
+            continue
+
+        first = float(coefficients[0])
+        if abs(first) <= 1.0e-12 or not math.isfinite(first):
+            continue
+        drag_factor = 0.0
+        normalized_coefficients = [1.0]
+        for harmonic_index, coefficient in enumerate(coefficients[1:], start=2):
+            ratio = float(coefficient) / first
+            normalized_coefficients.append(float(ratio))
+            drag_factor += float(harmonic_index) * ratio**2
+        efficiency = 1.0 / max(1.0 + drag_factor, 1.0e-12)
+        if not math.isfinite(efficiency) or efficiency <= 0.0:
+            continue
+        records.append(
+            {
+                "case_label": case_label,
+                "source": "spanload_fourier_series_v1",
+                "efficiency": float(min(efficiency, 1.0)),
+                "spanload_fourier_deviation": float(math.sqrt(max(drag_factor, 0.0))),
+                "fourier_drag_factor": float(drag_factor),
+                "harmonic_count": int(fit_harmonics),
+                "point_count": int(len(unique_samples)),
+                "normalized_coefficients": normalized_coefficients,
+            }
+        )
+
+    records.sort(
+        key=lambda record: (
+            0 if record["case_label"] == "reference_avl_case" else 1,
+            str(record["case_label"]),
+        )
+    )
+    return records
+
+
 def misc_cd_proxy(
     *,
     profile_cd: float,
@@ -162,4 +264,9 @@ def misc_cd_proxy(
     )
 
 
-__all__ = ["oswald_efficiency_proxy", "spanload_efficiency_proxy", "misc_cd_proxy"]
+__all__ = [
+    "oswald_efficiency_proxy",
+    "spanload_efficiency_proxy",
+    "spanload_fourier_efficiency_records",
+    "misc_cd_proxy",
+]

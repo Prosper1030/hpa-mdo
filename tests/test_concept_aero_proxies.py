@@ -3,6 +3,7 @@ import pytest
 from hpa_mdo.concept.aero_proxies import (
     misc_cd_proxy,
     oswald_efficiency_proxy,
+    spanload_fourier_efficiency_records,
     spanload_efficiency_proxy,
 )
 from hpa_mdo.concept.config import (
@@ -125,6 +126,38 @@ def test_spanload_efficiency_proxy_responds_to_configured_shape_penalty():
     )
 
     assert harsher["efficiency"] < baseline["efficiency"]
+
+
+def test_spanload_fourier_efficiency_rewards_elliptic_distribution():
+    concept = _build_concept(dihedral_tip_deg=0.0, twist_tip_deg=0.0)
+    half_span = 0.5 * concept.span_m
+    elliptic_points = [
+        {
+            "case_label": "reference_avl_case",
+            "station_y_m": eta * half_span,
+            "chord_m": 1.0,
+            "cl_target": max((1.0 - eta**2) ** 0.5, 0.0),
+        }
+        for eta in (0.0, 0.20, 0.40, 0.60, 0.80, 0.95, 1.0)
+    ]
+    tip_loaded_points = [
+        {**point, "cl_target": 0.55 + 0.75 * point["station_y_m"] / half_span}
+        for point in elliptic_points
+    ]
+
+    elliptic = spanload_fourier_efficiency_records(
+        concept=concept,
+        station_points=elliptic_points,
+    )[0]
+    tip_loaded = spanload_fourier_efficiency_records(
+        concept=concept,
+        station_points=tip_loaded_points,
+    )[0]
+
+    assert elliptic["source"] == "spanload_fourier_series_v1"
+    assert elliptic["efficiency"] > 0.98
+    assert elliptic["spanload_fourier_deviation"] < tip_loaded["spanload_fourier_deviation"]
+    assert tip_loaded["efficiency"] < elliptic["efficiency"]
 
 
 def test_misc_cd_proxy_matches_legacy_inline_formula():

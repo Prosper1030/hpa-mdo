@@ -13,6 +13,7 @@ from typing import Any, Callable, Protocol
 from hpa_mdo.concept.aero_proxies import (
     misc_cd_proxy,
     spanload_efficiency_proxy,
+    spanload_fourier_efficiency_records,
 )
 from hpa_mdo.concept.airfoil_cst import (
     CSTAirfoilTemplate,
@@ -2040,6 +2041,17 @@ def _select_avl_oswald_efficiency_for_cl(
     }
 
 
+def _select_spanload_fourier_record(
+    records: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    if not records:
+        return None
+    for record in records:
+        if str(record.get("case_label")) == "reference_avl_case":
+            return dict(record)
+    return dict(records[0])
+
+
 def _build_slow_speed_report(
     *,
     cfg: BirdmanConceptConfig,
@@ -2194,6 +2206,13 @@ def _build_concept_mission_summary(
         concept=concept,
         station_points=station_points,
     )
+    spanload_fourier_records = spanload_fourier_efficiency_records(
+        concept=concept,
+        station_points=cruise_station_points or station_points,
+    )
+    representative_spanload_fourier_record = _select_spanload_fourier_record(
+        spanload_fourier_records
+    )
     tail_area_ratio = concept.tail_area_m2 / max(concept.wing_area_m2, 1.0e-9)
     tail_cl_required = abs(float(trim_summary.get("tail_cl_required", 0.0)))
     tail_trim_drag_cd = (
@@ -2259,8 +2278,16 @@ def _build_concept_mission_summary(
                 cl_required=cl_required,
             )
             if avl_speed_oswald is None:
-                oswald_efficiency = oswald_efficiency_proxy_value
-                oswald_efficiency_source = str(oswald_efficiency_summary["source"])
+                if representative_spanload_fourier_record is None:
+                    oswald_efficiency = oswald_efficiency_proxy_value
+                    oswald_efficiency_source = str(oswald_efficiency_summary["source"])
+                else:
+                    oswald_efficiency = float(
+                        representative_spanload_fourier_record["efficiency"]
+                    )
+                    oswald_efficiency_source = str(
+                        representative_spanload_fourier_record["source"]
+                    )
             else:
                 oswald_efficiency = float(avl_speed_oswald["efficiency"])
                 oswald_efficiency_source = str(avl_speed_oswald["source"])
@@ -2641,6 +2668,18 @@ def _build_concept_mission_summary(
         ),
         "avl_oswald_efficiency_summary": representative_avl_oswald_selection,
         "avl_oswald_efficiency_records": list(avl_oswald_efficiency_records),
+        "spanload_fourier_efficiency": (
+            None
+            if representative_spanload_fourier_record is None
+            else float(representative_spanload_fourier_record["efficiency"])
+        ),
+        "spanload_fourier_deviation": (
+            None
+            if representative_spanload_fourier_record is None
+            else float(representative_spanload_fourier_record["spanload_fourier_deviation"])
+        ),
+        "spanload_fourier_summary": representative_spanload_fourier_record,
+        "spanload_fourier_records": list(spanload_fourier_records),
         "oswald_efficiency_by_speed": list(
             primary_case_result["oswald_efficiency_by_speed"]
         ),
@@ -3129,6 +3168,7 @@ def _evaluate_selected_airfoils_for_concept(
         local_stall_feasible=bool(local_stall_summary["feasible"]),
         mission_margin_m=float(mission_summary["target_range_margin_m"]),
         span_efficiency=float(mission_summary["oswald_efficiency"]),
+        spanload_deviation=_numeric_value(mission_summary.get("spanload_fourier_deviation")),
     )
     return (
         updated_selected_by_zone,
@@ -3728,8 +3768,9 @@ def _build_ranked_concept_record(
             "safety_feasible": ranked.safety_feasible,
             "fully_feasible": ranked.fully_feasible,
             "span_efficiency": record.ranking_input.span_efficiency,
+            "spanload_deviation": record.ranking_input.spanload_deviation,
             "assembly_penalty": record.ranking_input.assembly_penalty,
-            "ranking_basis": "feasibility_first_contract_aligned_v2",
+            "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
             "selection_scope": "ranked_sampled_pool",
         },
         **_concept_geometry_summary(record.concept),
@@ -4417,8 +4458,9 @@ def run_birdman_concept_pipeline(
             "safety_feasible": ranked.safety_feasible,
             "fully_feasible": ranked.fully_feasible,
             "span_efficiency": record.ranking_input.span_efficiency,
+            "spanload_deviation": record.ranking_input.spanload_deviation,
             "assembly_penalty": record.ranking_input.assembly_penalty,
-            "ranking_basis": "feasibility_first_contract_aligned_v2",
+            "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
             "selection_scope": "ranked_sampled_pool",
         }
         spanwise_requirement_summary = _summarize_spanwise_requirements(
@@ -4526,8 +4568,9 @@ def run_birdman_concept_pipeline(
                     "safety_feasible": ranked.safety_feasible,
                     "fully_feasible": ranked.fully_feasible,
                     "span_efficiency": record.ranking_input.span_efficiency,
+                    "spanload_deviation": record.ranking_input.spanload_deviation,
                     "assembly_penalty": record.ranking_input.assembly_penalty,
-                    "ranking_basis": "feasibility_first_contract_aligned_v2",
+                    "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
                     "selection_scope": "ranked_sampled_pool",
                 },
                 spanwise_requirement_summary=spanwise_requirement_summary,
@@ -4664,7 +4707,7 @@ def run_birdman_concept_pipeline(
                 },
                 "evaluation_scope": {
                     "selection_scope": "ranked_sampled_pool",
-                    "ranking_basis": "feasibility_first_contract_aligned_v2",
+                    "ranking_basis": "feasibility_first_contract_aligned_v3_spanload_fourier",
                     "objective_mode": str(cfg.mission.objective_mode),
                     "pilot_mass_cases_kg": [
                         float(value) for value in cfg.mass.pilot_mass_cases_kg

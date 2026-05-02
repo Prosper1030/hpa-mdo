@@ -10,6 +10,7 @@ def _fixed_range_candidate(
     safety_margin: float,
     mission_margin_m: float,
     span_efficiency: float | None = None,
+    spanload_deviation: float | None = None,
 ) -> CandidateConceptResult:
     return CandidateConceptResult(
         concept_id=concept_id,
@@ -25,6 +26,7 @@ def _fixed_range_candidate(
         mission_margin_m=mission_margin_m,
         assembly_penalty=0.0,
         span_efficiency=span_efficiency,
+        spanload_deviation=spanload_deviation,
     )
 
 
@@ -91,3 +93,28 @@ def test_fixed_range_best_time_breaks_time_ties_by_span_efficiency() -> None:
     assert ranked[0].concept_id == "high_e"
     assert ranked[1].concept_id == "low_e"
     assert "lower_span_efficiency_than_best" in ranked[1].why_not_higher
+
+
+def test_fixed_range_best_time_breaks_efficiency_ties_by_spanload_deviation() -> None:
+    wavy_load = _fixed_range_candidate(
+        concept_id="wavy_load",
+        completion_time_s=6_100.0,
+        safety_margin=0.12,
+        mission_margin_m=900.0,
+        span_efficiency=0.86,
+        spanload_deviation=0.30,
+    )
+    cleaner_load = _fixed_range_candidate(
+        concept_id="cleaner_load",
+        completion_time_s=6_100.0,
+        safety_margin=0.12,
+        mission_margin_m=900.0,
+        span_efficiency=0.86,
+        spanload_deviation=0.05,
+    )
+
+    ranked = rank_concepts([wavy_load, cleaner_load])
+
+    assert ranked[0].concept_id == "cleaner_load"
+    assert ranked[1].concept_id == "wavy_load"
+    assert "higher_spanload_deviation_than_best" in ranked[1].why_not_higher
