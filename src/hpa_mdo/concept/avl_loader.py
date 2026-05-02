@@ -66,11 +66,9 @@ def _concept_design_gross_mass_kg(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
 ) -> float:
-    if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
-        return float(max(cfg.mass.gross_mass_sweep_kg))
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return float(concept.design_gross_mass_kg)
-    return float(max(cfg.mass.gross_mass_sweep_kg))
+    return float(cfg.mass.design_gross_mass_kg)
 
 
 def _concept_gross_mass_cases(
@@ -78,10 +76,29 @@ def _concept_gross_mass_cases(
     concept: GeometryConcept,
 ) -> tuple[float, ...]:
     if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
-        return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
+        return tuple(
+            sorted(
+                {
+                    *(float(value) for value in cfg.mass.gross_mass_sweep_kg),
+                    float(_concept_design_gross_mass_kg(cfg, concept)),
+                }
+            )
+        )
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return (float(concept.design_gross_mass_kg),)
-    return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
+    return (float(cfg.mass.design_gross_mass_kg),)
+
+
+def _select_primary_mass_case(
+    mass_cases: Sequence[dict[str, Any]],
+    primary_gross_mass_kg: float,
+) -> dict[str, Any]:
+    if not mass_cases:
+        raise ValueError("mass_cases must not be empty.")
+    return min(
+        mass_cases,
+        key=lambda case: abs(float(case["gross_mass_kg"]) - float(primary_gross_mass_kg)),
+    )
 
 
 def _shaft_power_required_w(
@@ -636,52 +653,19 @@ def select_avl_design_cases(
         profile_cd_proxy=profile_cd_proxy,
     )
     objective_mode = str(cfg.mission.objective_mode)
-    if objective_mode == "max_range":
-        selected_mass_case = min(
-            mass_cases,
-            key=lambda case: (
-                float(_numeric_value(case.get("best_range_feasible_m")) or 0.0),
-                -float(case["gross_mass_kg"]),
-            ),
-        )
-        mass_selection_reason = "min_best_range_feasible_m"
-    elif objective_mode == "min_power":
-        selected_mass_case = max(
-            mass_cases,
-            key=lambda case: (
-                _numeric_value(case.get("min_power_feasible_w")) is not None,
-                float(_numeric_value(case.get("min_power_feasible_w")) or -1.0),
-                float(case["gross_mass_kg"]),
-            ),
-        )
-        mass_selection_reason = "max_min_power_feasible_w"
-    elif objective_mode == "fixed_range_best_time":
-        def fixed_range_case_passed(case: dict[str, Any]) -> bool:
-            if "target_range_feasible_passed" in case:
-                return bool(case["target_range_feasible_passed"])
-            return bool(case.get("target_range_passed"))
-
-        selected_mass_case = max(
-            mass_cases,
-            key=lambda case: (
-                not fixed_range_case_passed(case),
-                (
-                    -float(_numeric_value(case.get("best_range_feasible_m")) or 0.0)
-                    if not fixed_range_case_passed(case)
-                    else float(_numeric_value(case.get("best_time_feasible_s")) or 0.0)
-                ),
-                float(case["gross_mass_kg"]),
-            ),
-        )
-        mass_selection_reason = "fixed_range_worst_time_or_range"
-    else:
+    if objective_mode not in {"max_range", "min_power", "fixed_range_best_time"}:
         raise ValueError(f"Unsupported mission objective mode: {objective_mode}")
+    design_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
+    selected_mass_case = _select_primary_mass_case(
+        mass_cases,
+        design_gross_mass_kg,
+    )
+    mass_selection_reason = "primary_design_gross_mass"
     reference_speed_mps, reference_speed_reason = _select_reference_speed_for_mass_case(
         objective_mode=objective_mode,
         selected_mass_case=selected_mass_case,
     )
 
-    max_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
     slow_report_speeds_mps = tuple(cfg.mission.slow_report_speeds_mps)
     if slow_report_speeds_mps:
         slow_case_speed_mps = float(min(slow_report_speeds_mps))
@@ -705,32 +689,32 @@ def select_avl_design_cases(
         {
             "case_label": "slow_avl_case",
             "evaluation_speed_mps": float(slow_case_speed_mps),
-            "evaluation_gross_mass_kg": float(max_gross_mass_kg),
+            "evaluation_gross_mass_kg": float(design_gross_mass_kg),
             "load_factor": 1.0,
             "case_weight": slow_case_weight,
             "speed_reason": slow_case_speed_reason,
-            "mass_reason": "max_gross_mass",
-            "case_reason": "primary_low_speed_heavy_mass_case",
+            "mass_reason": mass_selection_reason,
+            "case_reason": "primary_low_speed_design_mass_case",
         },
         {
             "case_label": "launch_release_case",
             "evaluation_speed_mps": float(launch_speed_mps),
-            "evaluation_gross_mass_kg": float(max_gross_mass_kg),
+            "evaluation_gross_mass_kg": float(design_gross_mass_kg),
             "load_factor": 1.0,
             "case_weight": launch_case_weight,
             "speed_reason": "launch.release_speed_mps",
-            "mass_reason": "max_gross_mass",
-            "case_reason": "primary_launch_release_heavy_mass_case",
+            "mass_reason": mass_selection_reason,
+            "case_reason": "primary_launch_release_design_mass_case",
         },
         {
             "case_label": "turn_avl_case",
             "evaluation_speed_mps": float(launch_speed_mps),
-            "evaluation_gross_mass_kg": float(max_gross_mass_kg),
+            "evaluation_gross_mass_kg": float(design_gross_mass_kg),
             "load_factor": float(turn_load_factor),
             "case_weight": turn_case_weight,
             "speed_reason": "launch.release_speed_mps",
-            "mass_reason": "max_gross_mass",
-            "case_reason": "primary_banked_turn_heavy_mass_case",
+            "mass_reason": mass_selection_reason,
+            "case_reason": "primary_banked_turn_design_mass_case",
         },
     ]
     return {

@@ -17,6 +17,7 @@ class CandidateConceptResult:
     assembly_penalty: float
     local_stall_feasible: bool = True
     mission_margin_m: float | None = None
+    span_efficiency: float | None = None
 
     @property
     def safety_feasible(self) -> bool:
@@ -76,6 +77,12 @@ def _combined_feasibility_margin(result: CandidateConceptResult) -> float:
     return min(float(result.safety_margin), mission_margin_km)
 
 
+def _span_efficiency_component(result: CandidateConceptResult) -> float:
+    if result.span_efficiency is None:
+        return 0.0
+    return float(result.span_efficiency)
+
+
 def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
     scored: list[tuple[CandidateConceptResult, float, float, list[str]]] = []
     for result in results:
@@ -110,6 +117,7 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
             item[0].failed_gate_count,
             -item[2],
             _mission_component(item[0]),
+            -_span_efficiency_component(item[0]),
             item[0].assembly_penalty,
             item[0].concept_id,
         )
@@ -138,6 +146,10 @@ def rank_concepts(results: list[CandidateConceptResult]) -> list[RankedConcept]:
                 and result.mission_score > best_result.mission_score
             ):
                 augmented_reasons.append("slower_time_than_best")
+            elif _span_efficiency_component(result) < _span_efficiency_component(
+                best_result
+            ):
+                augmented_reasons.append("lower_span_efficiency_than_best")
             elif result.safety_margin < best_result.safety_margin:
                 augmented_reasons.append("lower_safety_margin_than_best")
             elif result.assembly_penalty > best_result.assembly_penalty:

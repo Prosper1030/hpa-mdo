@@ -194,7 +194,10 @@ def test_select_avl_reference_condition_uses_range_speed_for_max_range() -> None
     )
 
     assert reference["objective_mode"] == "max_range"
-    assert reference["mass_selection_reason"] == "min_best_range_feasible_m"
+    assert reference["mass_selection_reason"] == "primary_design_gross_mass"
+    assert reference["reference_gross_mass_kg"] == pytest.approx(
+        cfg.mass.design_gross_mass_kg
+    )
     assert (
         reference["reference_condition_policy"]
         == "low_speed_primary_multipoint_design_cases_v4_feasible_reference_proxy"
@@ -239,7 +242,7 @@ def test_avl_mass_cases_convert_shaft_power_to_pedal_power_with_drivetrain() -> 
     assert tuple(first_case["power_required_w"]) == pytest.approx(pedal_power)
 
 
-def test_select_avl_reference_condition_prefers_feasible_range_speed_for_max_range(
+def test_select_avl_reference_condition_uses_primary_mass_for_max_range(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
@@ -269,6 +272,21 @@ def test_select_avl_reference_condition_prefers_feasible_range_speed_for_max_ran
                 "mission_score": 0.0,
             },
             {
+                "gross_mass_kg": 100.0,
+                "best_range_m": 6500.0,
+                "best_range_speed_mps": 6.0,
+                "best_range_feasible_m": 1400.0,
+                "best_range_feasible_speed_mps": 9.8,
+                "estimated_first_feasible_speed_mps": None,
+                "min_power_w": 355.0,
+                "min_power_speed_mps": 6.0,
+                "min_power_feasible_w": 500.0,
+                "min_power_feasible_speed_mps": 9.8,
+                "mission_feasible": False,
+                "target_range_passed": False,
+                "mission_score": 0.0,
+            },
+            {
                 "gross_mass_kg": 105.0,
                 "best_range_m": 5900.0,
                 "best_range_speed_mps": 6.0,
@@ -292,10 +310,10 @@ def test_select_avl_reference_condition_prefers_feasible_range_speed_for_max_ran
         air_density_kg_per_m3=1.10,
     )
 
-    assert reference["mass_selection_reason"] == "min_best_range_feasible_m"
+    assert reference["mass_selection_reason"] == "primary_design_gross_mass"
     assert reference["reference_speed_reason"] == "best_range_feasible_speed_mps"
-    assert reference["reference_speed_mps"] == pytest.approx(10.0)
-    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
+    assert reference["reference_speed_mps"] == pytest.approx(9.8)
+    assert reference["reference_gross_mass_kg"] == pytest.approx(100.0)
 
 
 def test_select_avl_reference_condition_falls_back_to_estimated_first_feasible_speed(
@@ -328,6 +346,21 @@ def test_select_avl_reference_condition_falls_back_to_estimated_first_feasible_s
                 "mission_score": 0.0,
             },
             {
+                "gross_mass_kg": 100.0,
+                "best_range_m": 6500.0,
+                "best_range_speed_mps": 6.0,
+                "best_range_feasible_m": 0.0,
+                "best_range_feasible_speed_mps": None,
+                "estimated_first_feasible_speed_mps": 8.4,
+                "min_power_w": 355.0,
+                "min_power_speed_mps": 6.0,
+                "min_power_feasible_w": None,
+                "min_power_feasible_speed_mps": None,
+                "mission_feasible": False,
+                "target_range_passed": False,
+                "mission_score": 0.0,
+            },
+            {
                 "gross_mass_kg": 105.0,
                 "best_range_m": 5900.0,
                 "best_range_speed_mps": 6.0,
@@ -351,13 +384,13 @@ def test_select_avl_reference_condition_falls_back_to_estimated_first_feasible_s
         air_density_kg_per_m3=1.10,
     )
 
-    assert reference["mass_selection_reason"] == "min_best_range_feasible_m"
+    assert reference["mass_selection_reason"] == "primary_design_gross_mass"
     assert reference["reference_speed_reason"] == "estimated_first_feasible_speed_mps"
-    assert reference["reference_speed_mps"] == pytest.approx(8.7)
-    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
+    assert reference["reference_speed_mps"] == pytest.approx(8.4)
+    assert reference["reference_gross_mass_kg"] == pytest.approx(100.0)
 
 
-def test_select_avl_reference_condition_uses_slowest_worst_finish_case_for_fixed_range(
+def test_select_avl_reference_condition_uses_primary_finish_case_for_fixed_range(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
@@ -388,6 +421,20 @@ def test_select_avl_reference_condition_uses_slowest_worst_finish_case_for_fixed
                 "mission_score": 5_800.0,
             },
             {
+                "gross_mass_kg": 100.0,
+                "target_range_passed": True,
+                "best_time_s": 6_050.0,
+                "best_time_speed_mps": 6.974,
+                "best_time_feasible_s": 6_050.0,
+                "best_time_feasible_speed_mps": 6.974,
+                "best_range_feasible_m": 44_000.0,
+                "best_range_feasible_speed_mps": 6.8,
+                "estimated_first_feasible_speed_mps": None,
+                "best_range_m": 44_500.0,
+                "best_range_speed_mps": 6.8,
+                "mission_score": 6_050.0,
+            },
+            {
                 "gross_mass_kg": 105.0,
                 "target_range_passed": True,
                 "best_time_s": 6_300.0,
@@ -411,10 +458,10 @@ def test_select_avl_reference_condition_uses_slowest_worst_finish_case_for_fixed
     )
 
     assert reference["objective_mode"] == "fixed_range_best_time"
-    assert reference["mass_selection_reason"] == "fixed_range_worst_time_or_range"
+    assert reference["mass_selection_reason"] == "primary_design_gross_mass"
     assert reference["reference_speed_reason"] == "best_time_feasible_speed_mps"
-    assert reference["reference_speed_mps"] == pytest.approx(6.698)
-    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
+    assert reference["reference_speed_mps"] == pytest.approx(6.974)
+    assert reference["reference_gross_mass_kg"] == pytest.approx(100.0)
 
 
 def test_select_avl_reference_condition_fixed_range_miss_falls_back_to_range_case(
@@ -448,6 +495,20 @@ def test_select_avl_reference_condition_fixed_range_miss_falls_back_to_range_cas
                 "mission_score": 970_000.0,
             },
             {
+                "gross_mass_kg": 100.0,
+                "target_range_passed": False,
+                "best_time_s": None,
+                "best_time_speed_mps": None,
+                "best_time_feasible_s": None,
+                "best_time_feasible_speed_mps": None,
+                "best_range_feasible_m": 27_000.0,
+                "best_range_feasible_speed_mps": 8.3,
+                "estimated_first_feasible_speed_mps": None,
+                "best_range_m": 28_000.0,
+                "best_range_speed_mps": 7.8,
+                "mission_score": 973_000.0,
+            },
+            {
                 "gross_mass_kg": 105.0,
                 "target_range_passed": False,
                 "best_time_s": None,
@@ -470,10 +531,10 @@ def test_select_avl_reference_condition_fixed_range_miss_falls_back_to_range_cas
         air_density_kg_per_m3=1.10,
     )
 
-    assert reference["mass_selection_reason"] == "fixed_range_worst_time_or_range"
+    assert reference["mass_selection_reason"] == "primary_design_gross_mass"
     assert reference["reference_speed_reason"] == "best_range_feasible_speed_mps"
-    assert reference["reference_speed_mps"] == pytest.approx(8.5)
-    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
+    assert reference["reference_speed_mps"] == pytest.approx(8.3)
+    assert reference["reference_gross_mass_kg"] == pytest.approx(100.0)
 
 
 def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> None:
@@ -491,7 +552,7 @@ def test_select_avl_reference_condition_uses_min_power_speed_for_min_power() -> 
     )
 
     assert reference["objective_mode"] == "min_power"
-    assert reference["mass_selection_reason"] == "max_min_power_feasible_w"
+    assert reference["mass_selection_reason"] == "primary_design_gross_mass"
     assert (
         reference["reference_condition_policy"]
         == "low_speed_primary_multipoint_design_cases_v4_feasible_reference_proxy"
@@ -546,6 +607,21 @@ def test_select_avl_reference_condition_for_min_power_prefers_feasible_case_over
                 "mission_score": 0.0,
             },
             {
+                "gross_mass_kg": 100.0,
+                "best_range_m": 6500.0,
+                "best_range_speed_mps": 6.0,
+                "best_range_feasible_m": 1400.0,
+                "best_range_feasible_speed_mps": 9.8,
+                "estimated_first_feasible_speed_mps": None,
+                "min_power_w": 355.0,
+                "min_power_speed_mps": 6.0,
+                "min_power_feasible_w": None,
+                "min_power_feasible_speed_mps": None,
+                "mission_feasible": False,
+                "target_range_passed": False,
+                "mission_score": 0.0,
+            },
+            {
                 "gross_mass_kg": 105.0,
                 "best_range_m": 5900.0,
                 "best_range_speed_mps": 6.0,
@@ -569,9 +645,10 @@ def test_select_avl_reference_condition_for_min_power_prefers_feasible_case_over
         air_density_kg_per_m3=1.10,
     )
 
-    assert reference["reference_gross_mass_kg"] == pytest.approx(105.0)
-    assert reference["reference_speed_reason"] == "min_power_feasible_speed_mps"
-    assert reference["reference_speed_mps"] == pytest.approx(10.0)
+    assert reference["mass_selection_reason"] == "primary_design_gross_mass"
+    assert reference["reference_gross_mass_kg"] == pytest.approx(100.0)
+    assert reference["reference_speed_reason"] == "min_power_speed_mps_unconstrained_fallback"
+    assert reference["reference_speed_mps"] == pytest.approx(6.0)
 
 
 def test_select_avl_design_cases_exposes_reference_slow_launch_and_turn_cases() -> None:
@@ -592,7 +669,7 @@ def test_select_avl_design_cases_exposes_reference_slow_launch_and_turn_cases() 
     ]
     turn_case = payload["design_cases"][-1]
     assert turn_case["evaluation_speed_mps"] == pytest.approx(cfg.launch.release_speed_mps)
-    assert turn_case["evaluation_gross_mass_kg"] == pytest.approx(max(cfg.mass.gross_mass_sweep_kg))
+    assert turn_case["evaluation_gross_mass_kg"] == pytest.approx(cfg.mass.design_gross_mass_kg)
     assert turn_case["load_factor"] == pytest.approx(
         1.0 / np.cos(np.radians(cfg.turn.required_bank_angle_deg))
     )

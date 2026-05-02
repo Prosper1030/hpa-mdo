@@ -1685,11 +1685,9 @@ def _concept_design_gross_mass_kg(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
 ) -> float:
-    if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
-        return float(max(cfg.mass.gross_mass_sweep_kg))
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return float(concept.design_gross_mass_kg)
-    return float(max(cfg.mass.gross_mass_sweep_kg))
+    return float(cfg.mass.design_gross_mass_kg)
 
 
 def _concept_gross_mass_cases(
@@ -1697,10 +1695,29 @@ def _concept_gross_mass_cases(
     concept: GeometryConcept,
 ) -> tuple[float, ...]:
     if bool(cfg.mass.use_gross_mass_sweep_for_mission_cases):
-        return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
+        return tuple(
+            sorted(
+                {
+                    *(float(value) for value in cfg.mass.gross_mass_sweep_kg),
+                    float(_concept_design_gross_mass_kg(cfg, concept)),
+                }
+            )
+        )
     if bool(cfg.mass_closure.enabled) and concept.design_gross_mass_kg is not None:
         return (float(concept.design_gross_mass_kg),)
-    return tuple(float(value) for value in cfg.mass.gross_mass_sweep_kg)
+    return (float(cfg.mass.design_gross_mass_kg),)
+
+
+def _select_primary_mass_case_result(
+    mission_results: list[dict[str, Any]],
+    primary_gross_mass_kg: float,
+) -> dict[str, Any]:
+    if not mission_results:
+        raise ValueError("mission_results must not be empty.")
+    return min(
+        mission_results,
+        key=lambda item: abs(float(item["gross_mass_kg"]) - float(primary_gross_mass_kg)),
+    )
 
 
 def _mission_speed_feasibility_records(
@@ -2468,9 +2485,14 @@ def _build_concept_mission_summary(
             float(item["gross_mass_kg"]),
         ),
     )
+    primary_gross_mass_kg = _concept_design_gross_mass_kg(cfg, concept)
+    primary_case_result = _select_primary_mass_case_result(
+        mission_results,
+        primary_gross_mass_kg,
+    )
     representative_speed_mps = (
-        worst_case_result.get("best_range_speed_mps")
-        or worst_case_result.get("best_range_unconstrained_speed_mps")
+        primary_case_result.get("best_range_speed_mps")
+        or primary_case_result.get("best_range_unconstrained_speed_mps")
         or min(speed_sweep_mps)
     )
     representative_speed_index = min(
@@ -2478,12 +2500,12 @@ def _build_concept_mission_summary(
         key=lambda index: abs(float(speed_sweep_mps[index]) - float(representative_speed_mps)),
     )
     representative_oswald_efficiency = float(
-        worst_case_result["oswald_efficiency_by_speed"][representative_speed_index]
+        primary_case_result["oswald_efficiency_by_speed"][representative_speed_index]
     )
     representative_oswald_efficiency_source = str(
-        worst_case_result["oswald_efficiency_source_by_speed"][representative_speed_index]
+        primary_case_result["oswald_efficiency_source_by_speed"][representative_speed_index]
     )
-    representative_avl_oswald_selection = worst_case_result[
+    representative_avl_oswald_selection = primary_case_result[
         "oswald_efficiency_selection_by_speed"
     ][representative_speed_index]
 
@@ -2499,19 +2521,19 @@ def _build_concept_mission_summary(
         rigging_cd=rigging_cd,
         prop_model=prop_model,
         rider_curve=rider_curve,
-        worst_case_result=worst_case_result,
+        worst_case_result=primary_case_result,
         drivetrain_efficiency=drivetrain_efficiency,
     )
 
-    best_range_speed_mps_for_loss = worst_case_result.get("best_range_speed_mps")
+    best_range_speed_mps_for_loss = primary_case_result.get("best_range_speed_mps")
     if best_range_speed_mps_for_loss is None:
-        best_range_speed_mps_for_loss = worst_case_result.get(
+        best_range_speed_mps_for_loss = primary_case_result.get(
             "best_range_unconstrained_speed_mps"
         )
     if best_range_speed_mps_for_loss is None:
         drivetrain_loss_w_at_best_range = None
     else:
-        speeds = list(worst_case_result["power_required_w"])
+        speeds = list(primary_case_result["power_required_w"])
         sweep_speeds = list(speed_sweep_mps)
         # Find pedal power at best range speed (exact match in the sweep grid)
         pedal_power_at_best = None
@@ -2527,62 +2549,78 @@ def _build_concept_mission_summary(
 
     return {
         "mission_objective_mode": str(cfg.mission.objective_mode),
-        "mission_feasible": all(bool(result["mission_feasible"]) for result in mission_results),
+        "mission_feasible": bool(primary_case_result["mission_feasible"]),
         "target_range_km": float(cfg.mission.target_distance_km),
-        "target_range_passed": all(bool(result["target_range_passed"]) for result in mission_results),
-        "target_range_margin_m": min(
-            float(result["target_range_margin_m"]) for result in mission_results
+        "target_range_passed": bool(primary_case_result["target_range_passed"]),
+        "target_range_margin_m": float(primary_case_result["target_range_margin_m"]),
+        "best_range_m": float(primary_case_result["best_range_m"]),
+        "best_range_speed_mps": primary_case_result["best_range_speed_mps"],
+        "best_range_unconstrained_m": float(
+            primary_case_result["best_range_unconstrained_m"]
         ),
-        "best_range_m": float(worst_case_result["best_range_m"]),
-        "best_range_speed_mps": worst_case_result["best_range_speed_mps"],
-        "best_range_unconstrained_m": float(worst_case_result["best_range_unconstrained_m"]),
         "best_range_unconstrained_speed_mps": float(
-            worst_case_result["best_range_unconstrained_speed_mps"]
+            primary_case_result["best_range_unconstrained_speed_mps"]
         ),
-        "best_endurance_s": float(worst_case_result["best_endurance_s"]),
+        "best_endurance_s": float(primary_case_result["best_endurance_s"]),
         "best_endurance_unconstrained_s": float(
-            worst_case_result["best_endurance_unconstrained_s"]
+            primary_case_result["best_endurance_unconstrained_s"]
         ),
-        "best_time_s": worst_case_result["best_time_s"],
-        "best_time_speed_mps": worst_case_result["best_time_speed_mps"],
-        "best_time_unconstrained_s": worst_case_result["best_time_unconstrained_s"],
-        "best_time_unconstrained_speed_mps": worst_case_result[
+        "best_time_s": primary_case_result["best_time_s"],
+        "best_time_speed_mps": primary_case_result["best_time_speed_mps"],
+        "best_time_unconstrained_s": primary_case_result["best_time_unconstrained_s"],
+        "best_time_unconstrained_speed_mps": primary_case_result[
             "best_time_unconstrained_speed_mps"
         ],
         "target_completion_time_s_by_speed": list(
-            worst_case_result["target_completion_time_s_by_speed"]
+            primary_case_result["target_completion_time_s_by_speed"]
         ),
         "fixed_range_feasible_speed_set_mps": list(
-            worst_case_result["fixed_range_feasible_speed_set_mps"]
+            primary_case_result["fixed_range_feasible_speed_set_mps"]
         ),
         "fixed_range_feasible_speed_set_unconstrained_mps": list(
-            worst_case_result["fixed_range_feasible_speed_set_unconstrained_mps"]
+            primary_case_result["fixed_range_feasible_speed_set_unconstrained_mps"]
         ),
-        "best_power_margin_w": worst_case_result["best_power_margin_w"],
-        "best_power_margin_speed_mps": worst_case_result["best_power_margin_speed_mps"],
+        "best_power_margin_w": primary_case_result["best_power_margin_w"],
+        "best_power_margin_speed_mps": primary_case_result["best_power_margin_speed_mps"],
         "best_power_margin_unconstrained_w": float(
-            worst_case_result["best_power_margin_unconstrained_w"]
+            primary_case_result["best_power_margin_unconstrained_w"]
         ),
         "best_power_margin_unconstrained_speed_mps": float(
-            worst_case_result["best_power_margin_unconstrained_speed_mps"]
+            primary_case_result["best_power_margin_unconstrained_speed_mps"]
         ),
-        "power_margin_w_by_speed": list(worst_case_result["power_margin_w_by_speed"]),
+        "power_margin_w_by_speed": list(primary_case_result["power_margin_w_by_speed"]),
         "required_duration_min_by_speed": list(
-            worst_case_result["required_duration_min_by_speed"]
+            primary_case_result["required_duration_min_by_speed"]
         ),
         "available_power_w_by_speed": list(
-            worst_case_result["available_power_w_by_speed"]
+            primary_case_result["available_power_w_by_speed"]
         ),
-        "min_power_w": float(worst_case_result["min_power_w"]),
-        "min_power_speed_mps": float(worst_case_result["min_power_speed_mps"]),
-        "mission_score": float(worst_case_result["mission_score"]),
-        "mission_score_reason": str(worst_case_result["mission_score_reason"]),
-        "pilot_power_model": str(worst_case_result["pilot_power_model"]),
-        "pilot_power_anchor": str(worst_case_result["pilot_power_anchor"]),
+        "min_power_w": float(primary_case_result["min_power_w"]),
+        "min_power_speed_mps": float(primary_case_result["min_power_speed_mps"]),
+        "mission_score": float(primary_case_result["mission_score"]),
+        "mission_score_reason": str(primary_case_result["mission_score_reason"]),
+        "pilot_power_model": str(primary_case_result["pilot_power_model"]),
+        "pilot_power_anchor": str(primary_case_result["pilot_power_anchor"]),
         "pilot_power_thermal_adjustment": dict(rider_power_thermal_adjustment),
         "speed_sweep_window_mps": [float(min(speed_sweep_mps)), float(max(speed_sweep_mps))],
-        "aggregation_mode": "worst_case_over_gross_mass_sweep",
-        "evaluated_gross_mass_kg": float(worst_case_result["gross_mass_kg"]),
+        "aggregation_mode": "primary_design_mass_with_gross_sweep_audit",
+        "evaluated_gross_mass_kg": float(primary_case_result["gross_mass_kg"]),
+        "primary_gross_mass_kg": float(primary_case_result["gross_mass_kg"]),
+        "primary_design_gross_mass_kg": float(primary_gross_mass_kg),
+        "primary_mass_selection_reason": "nearest_primary_design_gross_mass",
+        "all_mass_cases_mission_feasible": all(
+            bool(result["mission_feasible"]) for result in mission_results
+        ),
+        "all_mass_cases_target_range_passed": all(
+            bool(result["target_range_passed"]) for result in mission_results
+        ),
+        "worst_case_evaluated_gross_mass_kg": float(worst_case_result["gross_mass_kg"]),
+        "worst_case_mission_score": float(worst_case_result["mission_score"]),
+        "worst_case_target_range_passed": bool(worst_case_result["target_range_passed"]),
+        "worst_case_target_range_margin_m": min(
+            float(result["target_range_margin_m"]) for result in mission_results
+        ),
+        "worst_case_best_range_m": float(worst_case_result["best_range_m"]),
         "profile_cd_proxy": profile_cd,
         "misc_cd_proxy": misc_cd,
         "trim_drag_cd_proxy": tail_trim_drag_cd,
@@ -2604,10 +2642,10 @@ def _build_concept_mission_summary(
         "avl_oswald_efficiency_summary": representative_avl_oswald_selection,
         "avl_oswald_efficiency_records": list(avl_oswald_efficiency_records),
         "oswald_efficiency_by_speed": list(
-            worst_case_result["oswald_efficiency_by_speed"]
+            primary_case_result["oswald_efficiency_by_speed"]
         ),
         "oswald_efficiency_source_by_speed": list(
-            worst_case_result["oswald_efficiency_source_by_speed"]
+            primary_case_result["oswald_efficiency_source_by_speed"]
         ),
         "geometry_oswald_efficiency_proxy": float(
             oswald_efficiency_summary["geometry_efficiency_proxy"]
@@ -2615,16 +2653,18 @@ def _build_concept_mission_summary(
         "spanload_rms_error": oswald_efficiency_summary["spanload_rms_error"],
         "propulsion_model": "simplified_prop_proxy_v1",
         "mission_speed_filter_model": "reference_case_local_stall_feasible_speed_v1",
-        "operating_point_status": str(worst_case_result["operating_point_status"]),
-        "operating_point_feasible": bool(worst_case_result["operating_point_feasible"]),
-        "feasible_speed_set_mps": list(worst_case_result["feasible_speed_set_mps"]),
-        "first_feasible_speed_mps": worst_case_result["first_feasible_speed_mps"],
-        "estimated_first_feasible_speed_mps": worst_case_result[
+        "operating_point_status": str(primary_case_result["operating_point_status"]),
+        "operating_point_feasible": bool(primary_case_result["operating_point_feasible"]),
+        "feasible_speed_set_mps": list(primary_case_result["feasible_speed_set_mps"]),
+        "first_feasible_speed_mps": primary_case_result["first_feasible_speed_mps"],
+        "estimated_first_feasible_speed_mps": primary_case_result[
             "estimated_first_feasible_speed_mps"
         ],
-        "delta_v_to_first_feasible_mps": worst_case_result["delta_v_to_first_feasible_mps"],
-        "speed_feasibility_records": list(worst_case_result["speed_feasibility_records"]),
-        "limiter_audit": dict(worst_case_result["limiter_audit"]),
+        "delta_v_to_first_feasible_mps": primary_case_result[
+            "delta_v_to_first_feasible_mps"
+        ],
+        "speed_feasibility_records": list(primary_case_result["speed_feasibility_records"]),
+        "limiter_audit": dict(primary_case_result["limiter_audit"]),
         "mission_case_source": "reference_avl_case"
         if cruise_station_points
         else "all_station_points_fallback",
@@ -2703,7 +2743,7 @@ def _build_concept_mission_summary(
             }
             for result in mission_results
         ],
-        "power_required_w": list(worst_case_result["power_required_w"]),
+        "power_required_w": list(primary_case_result["power_required_w"]),
     }
 
 
@@ -3088,6 +3128,7 @@ def _evaluate_selected_airfoils_for_concept(
         assembly_penalty=_assembly_penalty(concept),
         local_stall_feasible=bool(local_stall_summary["feasible"]),
         mission_margin_m=float(mission_summary["target_range_margin_m"]),
+        span_efficiency=float(mission_summary["oswald_efficiency"]),
     )
     return (
         updated_selected_by_zone,
@@ -3686,6 +3727,7 @@ def _build_ranked_concept_record(
             "combined_feasibility_margin": ranked.combined_feasibility_margin,
             "safety_feasible": ranked.safety_feasible,
             "fully_feasible": ranked.fully_feasible,
+            "span_efficiency": record.ranking_input.span_efficiency,
             "assembly_penalty": record.ranking_input.assembly_penalty,
             "ranking_basis": "feasibility_first_contract_aligned_v2",
             "selection_scope": "ranked_sampled_pool",
@@ -4373,6 +4415,7 @@ def run_birdman_concept_pipeline(
             "combined_feasibility_margin": ranked.combined_feasibility_margin,
             "safety_feasible": ranked.safety_feasible,
             "fully_feasible": ranked.fully_feasible,
+            "span_efficiency": record.ranking_input.span_efficiency,
             "assembly_penalty": record.ranking_input.assembly_penalty,
             "ranking_basis": "feasibility_first_contract_aligned_v2",
             "selection_scope": "ranked_sampled_pool",
@@ -4481,6 +4524,7 @@ def run_birdman_concept_pipeline(
                     "combined_feasibility_margin": ranked.combined_feasibility_margin,
                     "safety_feasible": ranked.safety_feasible,
                     "fully_feasible": ranked.fully_feasible,
+                    "span_efficiency": record.ranking_input.span_efficiency,
                     "assembly_penalty": record.ranking_input.assembly_penalty,
                     "ranking_basis": "feasibility_first_contract_aligned_v2",
                     "selection_scope": "ranked_sampled_pool",

@@ -48,8 +48,9 @@ class MassConfig(ConceptBaseModel):
         gt=0.0,
         description=(
             "Mass case used to derive the primary wing sizing geometry. "
-            "Defaults to the heaviest gross_mass_sweep_kg case so the concept "
-            "line does not under-size the wing around an optimistic mass."
+            "Defaults to pilot_mass_kg + baseline_aircraft_mass_kg. Heavier "
+            "gross-mass sweep points remain audit cases, not the nominal "
+            "design point."
         ),
     )
     use_gross_mass_sweep_for_mission_cases: bool = Field(
@@ -79,7 +80,9 @@ class MassConfig(ConceptBaseModel):
         ):
             raise ValueError("mass.gross_mass_sweep_kg must be non-decreasing.")
         if self.design_gross_mass_kg is None:
-            self.design_gross_mass_kg = float(max(self.gross_mass_sweep_kg))
+            self.design_gross_mass_kg = float(
+                self.pilot_mass_kg + self.baseline_aircraft_mass_kg
+            )
         if not (
             min(self.gross_mass_sweep_kg)
             <= float(self.design_gross_mass_kg)
@@ -92,11 +95,11 @@ class MassConfig(ConceptBaseModel):
 
     @property
     def design_pilot_mass_kg(self) -> float:
-        return float(max(self.pilot_mass_cases_kg))
+        return float(self.pilot_mass_kg)
 
     @property
     def design_aircraft_empty_mass_kg(self) -> float:
-        return float(max(self.aircraft_empty_mass_cases_kg))
+        return float(self.baseline_aircraft_mass_kg)
 
 
 def _validated_positive_sorted_tuple(

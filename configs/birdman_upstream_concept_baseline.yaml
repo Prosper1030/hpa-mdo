@@ -6,10 +6,10 @@ environment:
 mass:
   pilot_mass_kg: 62.5
   pilot_mass_cases_kg: [61.0, 62.5, 64.0]
-  baseline_aircraft_mass_kg: 38.5
-  aircraft_empty_mass_cases_kg: [35.0, 38.5, 42.0]
-  gross_mass_sweep_kg: [96.0, 101.0, 106.0]
-  design_gross_mass_kg: 106.0
+  baseline_aircraft_mass_kg: 36.0
+  aircraft_empty_mass_cases_kg: [30.0, 36.0, 42.0]
+  gross_mass_sweep_kg: [91.0, 98.5, 106.0]
+  design_gross_mass_kg: 98.5
   use_gross_mass_sweep_for_mission_cases: true
 
 mass_closure:

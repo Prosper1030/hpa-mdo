@@ -16,11 +16,12 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.environment.relative_humidity == pytest.approx(80.0)
     assert cfg.mass.pilot_mass_kg == pytest.approx(62.5)
     assert cfg.mass.pilot_mass_cases_kg == (61.0, 62.5, 64.0)
-    assert cfg.mass.design_pilot_mass_kg == pytest.approx(64.0)
-    assert cfg.mass.baseline_aircraft_mass_kg == pytest.approx(38.5)
-    assert cfg.mass.aircraft_empty_mass_cases_kg == (35.0, 38.5, 42.0)
-    assert cfg.mass.design_aircraft_empty_mass_kg == pytest.approx(42.0)
-    assert cfg.mass.gross_mass_sweep_kg == (96.0, 101.0, 106.0)
+    assert cfg.mass.design_pilot_mass_kg == pytest.approx(62.5)
+    assert cfg.mass.baseline_aircraft_mass_kg == pytest.approx(36.0)
+    assert cfg.mass.aircraft_empty_mass_cases_kg == (30.0, 36.0, 42.0)
+    assert cfg.mass.design_aircraft_empty_mass_kg == pytest.approx(36.0)
+    assert cfg.mass.gross_mass_sweep_kg == (91.0, 98.5, 106.0)
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(98.5)
     assert cfg.mass.use_gross_mass_sweep_for_mission_cases is True
     assert cfg.mass_closure.enabled is True
     assert cfg.mass_closure.fixed_nonwing_aircraft_mass_kg == pytest.approx(24.0)
@@ -134,7 +135,7 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.airfoil_selection_score.enforce_structural_as_hard_reject is False
     assert cfg.segmentation.min_segment_length_m == pytest.approx(1.0)
     assert cfg.segmentation.max_segment_length_m == pytest.approx(3.0)
-    assert cfg.mass.design_gross_mass_kg == pytest.approx(106.0)
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(98.5)
     assert cfg.geometry_family.sampling.mode == "latin_hypercube"
     assert cfg.geometry_family.sampling.sample_count == 96
     assert cfg.geometry_family.planform_parameterization == "mean_chord"
@@ -236,8 +237,9 @@ def test_load_concept_config_reads_birdman_low_speed_box_variants():
 
     for cfg in (box_a, box_b, box_a_smoke, box_b_smoke):
         assert cfg.mass.pilot_mass_cases_kg == (61.0, 62.5, 64.0)
-        assert cfg.mass.aircraft_empty_mass_cases_kg == (35.0, 38.5, 42.0)
-        assert cfg.mass.gross_mass_sweep_kg == (96.0, 101.0, 106.0)
+        assert cfg.mass.aircraft_empty_mass_cases_kg == (30.0, 36.0, 42.0)
+        assert cfg.mass.gross_mass_sweep_kg == (91.0, 98.5, 106.0)
+        assert cfg.mass.design_gross_mass_kg == pytest.approx(98.5)
         assert cfg.mass_closure.gross_mass_hard_max_kg == pytest.approx(115.0)
 
     assert box_a.mission.speed_sweep_min_mps == pytest.approx(6.4)
@@ -480,7 +482,7 @@ def test_load_concept_config_treats_reference_mass_as_independent():
 
     assert cfg.mass.baseline_aircraft_mass_kg == pytest.approx(40.0)
     assert cfg.mass.gross_mass_sweep_kg == (95.0, 100.0, 105.0)
-    assert cfg.mass.design_gross_mass_kg == pytest.approx(105.0)
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(100.0)
     assert cfg.mass.pilot_mass_cases_kg == (60.0,)
     assert cfg.mass.aircraft_empty_mass_cases_kg == (40.0,)
     assert cfg.mass.design_pilot_mass_kg == pytest.approx(60.0)
@@ -494,17 +496,17 @@ def test_load_concept_config_accepts_floating_pilot_and_aircraft_mass_cases():
             "mass": {
                 "pilot_mass_kg": 62.5,
                 "pilot_mass_cases_kg": [61.0, 62.5, 64.0],
-                "baseline_aircraft_mass_kg": 38.5,
-                "aircraft_empty_mass_cases_kg": [35.0, 38.5, 42.0],
-                "gross_mass_sweep_kg": [96.0, 101.0, 106.0],
+                "baseline_aircraft_mass_kg": 36.0,
+                "aircraft_empty_mass_cases_kg": [30.0, 36.0, 42.0],
+                "gross_mass_sweep_kg": [91.0, 98.5, 106.0],
             },
             "mission": {"target_distance_km": 42.195},
         }
     )
 
-    assert cfg.mass.design_gross_mass_kg == pytest.approx(106.0)
-    assert cfg.mass.design_pilot_mass_kg == pytest.approx(64.0)
-    assert cfg.mass.design_aircraft_empty_mass_kg == pytest.approx(42.0)
+    assert cfg.mass.design_gross_mass_kg == pytest.approx(98.5)
+    assert cfg.mass.design_pilot_mass_kg == pytest.approx(62.5)
+    assert cfg.mass.design_aircraft_empty_mass_kg == pytest.approx(36.0)
 
 
 def test_load_concept_config_rejects_unsorted_mass_cases():

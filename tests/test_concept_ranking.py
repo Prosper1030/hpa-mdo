@@ -9,6 +9,7 @@ def _fixed_range_candidate(
     completion_time_s: float,
     safety_margin: float,
     mission_margin_m: float,
+    span_efficiency: float | None = None,
 ) -> CandidateConceptResult:
     return CandidateConceptResult(
         concept_id=concept_id,
@@ -23,6 +24,7 @@ def _fixed_range_candidate(
         best_range_m=42_195.0 + mission_margin_m,
         mission_margin_m=mission_margin_m,
         assembly_penalty=0.0,
+        span_efficiency=span_efficiency,
     )
 
 
@@ -66,3 +68,26 @@ def test_fixed_range_best_time_breaks_margin_ties_by_completion_time() -> None:
     assert ranked[0].concept_id == "fast"
     assert ranked[1].concept_id == "slow"
     assert "slower_time_than_best" in ranked[1].why_not_higher
+
+
+def test_fixed_range_best_time_breaks_time_ties_by_span_efficiency() -> None:
+    low_e = _fixed_range_candidate(
+        concept_id="low_e",
+        completion_time_s=6_100.0,
+        safety_margin=0.12,
+        mission_margin_m=900.0,
+        span_efficiency=0.72,
+    )
+    high_e = _fixed_range_candidate(
+        concept_id="high_e",
+        completion_time_s=6_100.0,
+        safety_margin=0.12,
+        mission_margin_m=900.0,
+        span_efficiency=0.90,
+    )
+
+    ranked = rank_concepts([low_e, high_e])
+
+    assert ranked[0].concept_id == "high_e"
+    assert ranked[1].concept_id == "low_e"
+    assert "lower_span_efficiency_than_best" in ranked[1].why_not_higher
