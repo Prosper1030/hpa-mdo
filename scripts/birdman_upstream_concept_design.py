@@ -85,6 +85,12 @@ def main() -> None:
         default="julia",
         help="Choose the airfoil-worker backend for the concept smoke run.",
     )
+    parser.add_argument(
+        "--julia-worker-count",
+        type=int,
+        default=None,
+        help="Override the persistent Julia/XFoil worker count for this run.",
+    )
     args = parser.parse_args()
 
     airfoil_worker_factory = (
@@ -102,6 +108,7 @@ def main() -> None:
         output_dir=Path(args.output_dir).expanduser().resolve(),
         airfoil_worker_factory=airfoil_worker_factory,
         spanwise_loader=spanwise_loader,
+        polar_worker_count_override=args.julia_worker_count,
     )
 
 

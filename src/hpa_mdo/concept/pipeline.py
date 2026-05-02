@@ -6,6 +6,8 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import sys
+import time
 from typing import Any, Callable, Protocol
 
 from hpa_mdo.concept.aero_proxies import (
@@ -3778,22 +3780,73 @@ def run_birdman_concept_pipeline(
     output_dir: Path,
     airfoil_worker_factory: AirfoilWorkerFactory = _default_airfoil_worker_factory,
     spanwise_loader: SpanwiseLoadLoader = _default_spanwise_loader,
+    polar_worker_count_override: int | None = None,
 ) -> ConceptPipelineResult:
     cfg = load_concept_config(config_path)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    progress_jsonl_path = output_dir / "concept_progress.jsonl"
+    progress_jsonl_path.write_text("", encoding="utf-8")
+    progress_start_time = time.monotonic()
+
+    def _record_progress(event: dict[str, object]) -> None:
+        elapsed_s = time.monotonic() - progress_start_time
+        payload = {
+            "elapsed_s": round(elapsed_s, 3),
+            **event,
+        }
+        with progress_jsonl_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n")
+        event_name = str(event.get("event", "progress"))
+        printable_events = {
+            "geometry_enumeration_done",
+            "airfoil_selection_start",
+            "airfoil_candidate_preparation_done",
+            "seedless_candidate_pool_start",
+            "seedless_candidate_pool_done",
+            "airfoil_worker_batch_build_start",
+            "airfoil_worker_batch_build_done",
+            "airfoil_worker_batch_start",
+            "airfoil_worker_batch_done",
+            "airfoil_worker_batch_skip",
+            "pipeline_summary_written",
+        }
+        if event_name not in printable_events:
+            return
+        compact = " ".join(
+            f"{key}={value}"
+            for key, value in event.items()
+            if key in {"stage", "concept_count", "zone_batch_count", "query_count"}
+        )
+        print(
+            f"[concept-progress] {elapsed_s:8.1f}s {event_name}"
+            + (f" {compact}" if compact else ""),
+            file=sys.stderr,
+            flush=True,
+        )
 
     all_concepts = enumerate_geometry_concepts(cfg)
+    _record_progress(
+        {
+            "event": "geometry_enumeration_done",
+            "concept_count": len(all_concepts),
+        }
+    )
     geometry_diagnostics = get_last_geometry_enumeration_diagnostics()
     if len(all_concepts) < 3:
         raise RuntimeError("Birdman concept enumeration must yield at least 3 candidate concepts.")
     concepts = all_concepts
 
     repo_root = _repo_root()
+    actual_persistent_worker_count = (
+        int(cfg.polar_worker.persistent_worker_count)
+        if polar_worker_count_override is None
+        else int(polar_worker_count_override)
+    )
     worker = airfoil_worker_factory(
         project_dir=repo_root,
         cache_dir=output_dir / "polar_db",
-        persistent_worker_count=cfg.polar_worker.persistent_worker_count,
+        persistent_worker_count=actual_persistent_worker_count,
         xfoil_max_iter=cfg.polar_worker.xfoil_max_iter,
         xfoil_panel_count=cfg.polar_worker.xfoil_panel_count,
     )
@@ -3892,6 +3945,7 @@ def run_birdman_concept_pipeline(
                 turn_stall_utilization_limit=cfg.stall_model.turn_utilization_limit,
                 local_stall_utilization_limit=cfg.stall_model.local_stall_utilization_limit,
                 score_cfg=cfg.airfoil_selection_score,
+                progress_callback=_record_progress,
             )
             if zone_requirements_with_points_by_concept
             else {}
@@ -4386,7 +4440,7 @@ def run_birdman_concept_pipeline(
             f"[polar_worker] cache hits={cache_statistics['cache_hits']} "
             f"misses={cache_statistics['cache_misses']} "
             f"hit_rate={hit_rate:.3f} "
-            f"workers={cfg.polar_worker.persistent_worker_count}"
+            f"workers={actual_persistent_worker_count}"
         )
 
     summary_json_path = output_dir / "concept_summary.json"
@@ -4397,13 +4451,14 @@ def run_birdman_concept_pipeline(
                 "analysis_artifacts": {
                     "ranked_pool_json_path": str(ranked_pool_json_path),
                     "frontier_summary_json_path": str(frontier_summary_json_path),
+                    "progress_jsonl_path": str(progress_jsonl_path),
                 },
                 "worker_backend": worker_backend,
                 "worker_statuses": summary_worker_statuses,
                 "environment_air_properties": air_properties.to_dict(),
                 "artifact_trust": artifact_trust,
                 "polar_worker": {
-                    "persistent_worker_count": int(cfg.polar_worker.persistent_worker_count),
+                    "persistent_worker_count": int(actual_persistent_worker_count),
                     "cache_statistics": cache_statistics,
                 },
                 "evaluation_scope": {
@@ -4457,6 +4512,14 @@ def run_birdman_concept_pipeline(
             ensure_ascii=False,
         ),
         encoding="utf-8",
+    )
+    _record_progress(
+        {
+            "event": "pipeline_summary_written",
+            "concept_count": len(evaluated_concepts),
+            "selected_count": len(selected_concept_dirs),
+            "best_infeasible_count": len(best_infeasible_concept_dirs),
+        }
     )
     return ConceptPipelineResult(
         summary_json_path=summary_json_path,

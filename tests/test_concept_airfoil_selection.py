@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import pytest
 
+from hpa_mdo.concept import airfoil_selection as airfoil_selection_module
 from hpa_mdo.concept.airfoil_cst import CSTAirfoilTemplate
 from hpa_mdo.concept.airfoil_selection import (
+    _coarse_seed_candidates,
+    _refinement_candidates,
     _select_scored_candidate_beam,
     _ZoneCandidateScore,
+    _zone_queries_for_candidates,
     build_base_cst_template,
     select_best_zone_candidate,
     select_zone_airfoil_templates,
@@ -1152,3 +1156,239 @@ def test_select_zone_airfoil_templates_uses_coarse_to_fine_refinement_to_recover
     assert worker.query_count < 15
     assert worker.call_count == 2
     assert any(template_id.endswith("t01_c04") for template_id in worker.template_ids)
+
+
+def test_select_zone_airfoil_templates_for_concepts_reuses_seedless_candidate_pool(
+    monkeypatch,
+) -> None:
+    seedless_calls: list[tuple[str, float, int, int | None, int]] = []
+    prescreen_calls: list[float] = []
+    template = CSTAirfoilTemplate(
+        "root",
+        (0.22, 0.28, 0.18, 0.10, 0.04),
+        (-0.18, -0.14, -0.08, -0.03, -0.01),
+        0.0015,
+        candidate_role="seedless_sobol_0000",
+    )
+
+    def fake_seedless_zone_candidates(
+        *,
+        zone_name,
+        zone_min_tc_ratio,
+        sample_count,
+        random_seed,
+        max_oversample_factor,
+    ):
+        seedless_calls.append(
+            (
+                zone_name,
+                zone_min_tc_ratio,
+                sample_count,
+                random_seed,
+                max_oversample_factor,
+            )
+        )
+        return (template,)
+
+    class FakeWorker:
+        def run_queries(self, queries):
+            return [
+                {
+                    "status": "ok",
+                    "template_id": query.template_id,
+                    "geometry_hash": query.geometry_hash,
+                    "mean_cd": 0.020,
+                    "mean_cm": -0.09,
+                    "usable_clmax": 1.30,
+                }
+                for query in queries
+            ]
+
+    monkeypatch.setattr(
+        airfoil_selection_module,
+        "_seedless_zone_candidates",
+        fake_seedless_zone_candidates,
+    )
+    original_prescreen = airfoil_selection_module._prescreen_zone_candidates
+
+    def counting_prescreen(candidates, *, zone_points, zone_min_tc_ratio):
+        prescreen_calls.append(float(zone_min_tc_ratio))
+        return original_prescreen(
+            candidates,
+            zone_points=zone_points,
+            zone_min_tc_ratio=zone_min_tc_ratio,
+        )
+
+    monkeypatch.setattr(
+        airfoil_selection_module,
+        "_prescreen_zone_candidates",
+        counting_prescreen,
+    )
+
+    batches = select_zone_airfoil_templates_for_concepts(
+        concept_zone_requirements={
+            "eval-01": {
+                "root": {
+                    "points": [
+                        {
+                            "reynolds": 260000.0,
+                            "cl_target": 0.70,
+                            "cm_target": -0.10,
+                            "weight": 1.0,
+                        }
+                    ],
+                    "min_tc_ratio": 0.12,
+                }
+            },
+            "eval-02": {
+                "root": {
+                    "points": [
+                        {
+                            "reynolds": 255000.0,
+                            "cl_target": 0.72,
+                            "cm_target": -0.10,
+                            "weight": 1.0,
+                        }
+                    ],
+                    "min_tc_ratio": 0.12,
+                }
+            },
+        },
+        seed_loader=lambda seed_name: pytest.fail(f"unexpected seed load: {seed_name}"),
+        worker=FakeWorker(),
+        search_mode="seedless_sobol",
+        seedless_sample_count=8,
+        seedless_random_seed=17,
+        seedless_max_oversample_factor=4,
+        coarse_to_fine_enabled=False,
+        successive_halving_enabled=False,
+    )
+
+    assert set(batches) == {"eval-01", "eval-02"}
+    assert seedless_calls == [("root", 0.12, 8, 17, 4)]
+    assert prescreen_calls == [0.12]
+
+
+def test_select_zone_airfoil_templates_for_concepts_emits_progress_events() -> None:
+    events: list[dict[str, object]] = []
+
+    class FakeWorker:
+        def run_queries(self, queries):
+            return [
+                {
+                    "status": "ok",
+                    "template_id": query.template_id,
+                    "geometry_hash": query.geometry_hash,
+                    "mean_cd": 0.020,
+                    "mean_cm": -0.09,
+                    "usable_clmax": 1.30,
+                }
+                for query in queries
+            ]
+
+    seed_coordinates = (
+        (1.0, 0.0),
+        (0.5, 0.06),
+        (0.0, 0.0),
+        (0.5, -0.04),
+        (1.0, 0.0),
+    )
+
+    select_zone_airfoil_templates_for_concepts(
+        concept_zone_requirements={
+            "eval-01": {
+                "root": {
+                    "points": [
+                        {
+                            "reynolds": 260000.0,
+                            "cl_target": 0.70,
+                            "cm_target": -0.10,
+                            "weight": 1.0,
+                        }
+                    ],
+                    "min_tc_ratio": 0.12,
+                }
+            }
+        },
+        seed_loader=lambda _seed_name: seed_coordinates,
+        worker=FakeWorker(),
+        thickness_delta_levels=(0.0,),
+        camber_delta_levels=(0.0,),
+        coarse_to_fine_enabled=False,
+        successive_halving_enabled=False,
+        progress_callback=events.append,
+    )
+
+    event_names = [str(event["event"]) for event in events]
+    assert event_names[0] == "airfoil_selection_start"
+    assert "airfoil_candidate_preparation_done" in event_names
+    assert "airfoil_worker_batch_start" in event_names
+    assert "airfoil_worker_batch_done" in event_names
+
+
+def test_seedless_coarse_candidates_downsample_indexless_pool() -> None:
+    candidates = tuple(
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.28, 0.18, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            candidate_role=f"seedless_sobol_{index:04d}",
+        )
+        for index in range(64)
+    )
+
+    coarse = _coarse_seed_candidates(
+        candidates,
+        thickness_stride=2,
+        camber_stride=2,
+    )
+
+    assert 1 < len(coarse) < len(candidates)
+    assert coarse[0].candidate_role == "seedless_sobol_0000"
+    assert coarse[-1].candidate_role == "seedless_sobol_0063"
+
+
+def test_seedless_refinement_without_grid_indices_keeps_existing_beam() -> None:
+    candidates = tuple(
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.28, 0.18, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            candidate_role=f"seedless_sobol_{index:04d}",
+        )
+        for index in range(16)
+    )
+    seed_candidates = (candidates[2], candidates[9])
+
+    refined = _refinement_candidates(
+        candidates,
+        seed_candidates=seed_candidates,
+        neighbor_radius=1,
+    )
+
+    assert refined == seed_candidates
+
+
+def test_zone_queries_quantize_reynolds_and_cl_samples_for_cache_reuse() -> None:
+    candidate = CSTAirfoilTemplate(
+        "root",
+        (0.22, 0.28, 0.18, 0.10, 0.04),
+        (-0.18, -0.14, -0.08, -0.03, -0.01),
+        0.0015,
+        candidate_role="seedless_sobol_0000",
+    )
+
+    queries, _ = _zone_queries_for_candidates(
+        zone_name="eval-01__root",
+        candidates=(candidate,),
+        zone_points=[
+            {"reynolds": 262340.0, "cl_target": 0.704, "weight": 1.0},
+            {"reynolds": 263210.0, "cl_target": 0.706, "weight": 1.0},
+        ],
+    )
+
+    assert len(queries) == 1
+    assert queries[0].reynolds == pytest.approx(265000.0)
+    assert queries[0].cl_samples == (0.70, 0.71)

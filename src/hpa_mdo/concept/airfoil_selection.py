@@ -30,6 +30,19 @@ from hpa_mdo.concept.airfoil_pareto import (
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 from hpa_mdo.concept.stall_model import compute_safe_local_clmax
 
+ProgressCallback = Callable[[dict[str, object]], None]
+SeedlessCandidateCacheKey = tuple[str, float, int, int | None, int]
+
+
+def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    event: str,
+    **payload: object,
+) -> None:
+    if progress_callback is None:
+        return
+    progress_callback({"event": event, **payload})
+
 
 _BASE_TEMPLATE_LIBRARY: dict[str, dict[str, object]] = {
     "fx76mp140": {
@@ -804,6 +817,13 @@ def _prepare_zone_selection_inputs(
     seedless_sample_count: int,
     seedless_random_seed: int | None,
     seedless_max_oversample_factor: int,
+    seedless_candidate_cache: (
+        dict[SeedlessCandidateCacheKey, tuple[CSTAirfoilTemplate, ...]] | None
+    ) = None,
+    seedless_prescreen_cache: (
+        dict[SeedlessCandidateCacheKey, tuple[CSTAirfoilTemplate, ...]] | None
+    ) = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> tuple[
     dict[str, list[dict[str, float]]],
     dict[str, float],
@@ -818,6 +838,7 @@ def _prepare_zone_selection_inputs(
     for zone_name, zone_data in zone_requirements.items():
         zone_points = list(zone_data.get("points", []))
         zone_min_tc_ratio = float(zone_data.get("min_tc_ratio", 0.10))
+        cache_key: SeedlessCandidateCacheKey | None = None
         if search_mode == "seed_neighborhood":
             seed_name = _default_seed_name(zone_name)
             base_template = build_base_cst_template(
@@ -831,20 +852,67 @@ def _prepare_zone_selection_inputs(
                 camber_delta_levels=camber_delta_levels,
             )
         elif search_mode == "seedless_sobol":
-            candidates = _seedless_zone_candidates(
-                zone_name=zone_name,
-                zone_min_tc_ratio=zone_min_tc_ratio,
-                sample_count=seedless_sample_count,
-                random_seed=seedless_random_seed,
-                max_oversample_factor=seedless_max_oversample_factor,
+            cache_key = (
+                str(zone_name),
+                float(zone_min_tc_ratio),
+                int(seedless_sample_count),
+                seedless_random_seed,
+                int(seedless_max_oversample_factor),
             )
+            candidates = (
+                seedless_candidate_cache.get(cache_key)
+                if seedless_candidate_cache is not None
+                else None
+            )
+            if candidates is None:
+                _emit_progress(
+                    progress_callback,
+                    "seedless_candidate_pool_start",
+                    zone_name=str(zone_name),
+                    zone_min_tc_ratio=float(zone_min_tc_ratio),
+                    sample_count=int(seedless_sample_count),
+                    max_oversample_factor=int(seedless_max_oversample_factor),
+                )
+                candidates = _seedless_zone_candidates(
+                    zone_name=zone_name,
+                    zone_min_tc_ratio=zone_min_tc_ratio,
+                    sample_count=seedless_sample_count,
+                    random_seed=seedless_random_seed,
+                    max_oversample_factor=seedless_max_oversample_factor,
+                )
+                if seedless_candidate_cache is not None:
+                    seedless_candidate_cache[cache_key] = candidates
+                _emit_progress(
+                    progress_callback,
+                    "seedless_candidate_pool_done",
+                    zone_name=str(zone_name),
+                    zone_min_tc_ratio=float(zone_min_tc_ratio),
+                    candidate_count=len(candidates),
+                )
+            else:
+                _emit_progress(
+                    progress_callback,
+                    "seedless_candidate_pool_cache_hit",
+                    zone_name=str(zone_name),
+                    zone_min_tc_ratio=float(zone_min_tc_ratio),
+                    candidate_count=len(candidates),
+                )
         else:
             raise ValueError(f"Unsupported CST search mode: {search_mode!r}")
-        candidates = _prescreen_zone_candidates(
-            candidates,
-            zone_points=zone_points,
-            zone_min_tc_ratio=zone_min_tc_ratio,
+        prescreened_candidates = (
+            seedless_prescreen_cache.get(cache_key)
+            if cache_key is not None and seedless_prescreen_cache is not None
+            else None
         )
+        if prescreened_candidates is None:
+            prescreened_candidates = _prescreen_zone_candidates(
+                candidates,
+                zone_points=zone_points,
+                zone_min_tc_ratio=zone_min_tc_ratio,
+            )
+            if cache_key is not None and seedless_prescreen_cache is not None:
+                seedless_prescreen_cache[cache_key] = prescreened_candidates
+        candidates = prescreened_candidates
         if not candidates:
             raise ValueError(f"Zone {zone_name!r} did not produce any valid CST candidates.")
 
@@ -919,6 +987,28 @@ def _coarse_seed_candidates(
 ) -> tuple[CSTAirfoilTemplate, ...]:
     if not candidates:
         return ()
+
+    if all(
+        candidate.thickness_index is None and candidate.camber_index is None
+        for candidate in candidates
+    ):
+        target_count = min(
+            len(candidates),
+            max(
+                8,
+                min(
+                    32,
+                    max(1, int(thickness_stride)) * max(1, int(camber_stride)) * 2,
+                ),
+            ),
+        )
+        if target_count >= len(candidates):
+            return candidates
+        selected_indices = {
+            round(index * (len(candidates) - 1) / (target_count - 1))
+            for index in range(target_count)
+        }
+        return tuple(candidates[index] for index in sorted(selected_indices))
 
     selected: list[CSTAirfoilTemplate] = []
     seen_roles: set[str] = set()
@@ -1175,6 +1265,11 @@ def _refinement_candidates(
         for candidate in seed_candidates
         if candidate.thickness_index is not None and candidate.camber_index is not None
     }
+    if not seed_index_pairs and all(
+        candidate.thickness_index is None and candidate.camber_index is None
+        for candidate in candidates
+    ):
+        return seed_candidates
 
     for candidate in candidates:
         include = _is_anchor_candidate(candidate)
@@ -1246,8 +1341,17 @@ def _zone_queries_for_candidates(
         if robust_evaluation_enabled
         else ("clean",)
     )
-    base_reynolds = _representative_reynolds(zone_points)
-    cl_samples = _representative_cl_samples(zone_points)
+    base_reynolds = _quantize_reynolds_for_screening(
+        _representative_reynolds(zone_points)
+    )
+    cl_samples = tuple(
+        sorted(
+            {
+                _quantize_cl_for_screening(value)
+                for value in _representative_cl_samples(zone_points)
+            }
+        )
+    )
     for candidate in candidates:
         coordinates = generate_cst_coordinates(candidate)
         validity = validate_cst_candidate_coordinates(coordinates)
@@ -1437,6 +1541,8 @@ def _run_batched_zone_candidate_queries(
     robust_reynolds_factors: tuple[float, ...] = (1.0,),
     robust_roughness_modes: tuple[str, ...] = ("clean",),
     robust_min_pass_rate: float = 0.75,
+    progress_callback: ProgressCallback | None = None,
+    stage_label: str = "screening",
 ) -> tuple[dict[str, dict[str, dict[str, object]]], list[dict[str, object]]]:
     aggregated_results: dict[str, dict[str, dict[str, object]]] = {
         zone_name: dict((existing_results_by_zone or {}).get(zone_name, {}))
@@ -1446,6 +1552,13 @@ def _run_batched_zone_candidate_queries(
     query_identity_by_template_id: dict[str, dict[str, str]] = {}
     condition_count_by_zone_role: dict[tuple[str, str], int] = {}
 
+    _emit_progress(
+        progress_callback,
+        "airfoil_worker_batch_build_start",
+        stage=stage_label,
+        zone_batch_count=len(zone_candidates),
+        candidate_count=sum(len(candidates) for candidates in zone_candidates.values()),
+    )
     for zone_name, candidates in zone_candidates.items():
         existing_zone_results = aggregated_results.setdefault(zone_name, {})
         candidates_to_run = tuple(
@@ -1471,9 +1584,31 @@ def _run_batched_zone_candidate_queries(
                 condition_count_by_zone_role.get(role_key, 0) + 1
             )
 
+    _emit_progress(
+        progress_callback,
+        "airfoil_worker_batch_build_done",
+        stage=stage_label,
+        zone_batch_count=len(zone_candidates),
+        query_count=len(batch_queries),
+    )
     if not batch_queries:
+        _emit_progress(
+            progress_callback,
+            "airfoil_worker_batch_skip",
+            stage=stage_label,
+            zone_batch_count=len(zone_candidates),
+            query_count=0,
+        )
         return aggregated_results, []
 
+    _emit_progress(
+        progress_callback,
+        "airfoil_worker_batch_start",
+        stage=stage_label,
+        zone_batch_count=len(zone_candidates),
+        candidate_count=sum(len(candidates) for candidates in zone_candidates.values()),
+        query_count=len(batch_queries),
+    )
     batch_results = worker.run_queries(batch_queries)
     if len(batch_results) != len(batch_queries):
         raise RuntimeError(
@@ -1528,6 +1663,14 @@ def _run_batched_zone_candidate_queries(
         )
         if aggregated_metrics is not None:
             aggregated_results.setdefault(zone_name, {})[candidate_role] = aggregated_metrics
+    _emit_progress(
+        progress_callback,
+        "airfoil_worker_batch_done",
+        stage=stage_label,
+        zone_batch_count=len(zone_candidates),
+        query_count=len(batch_queries),
+        result_count=len(batch_results),
+    )
     return aggregated_results, normalized_worker_results
 
 
@@ -1552,12 +1695,21 @@ def _representative_reynolds(zone_points: list[dict[str, float]]) -> float:
     return weighted_sum / total_weight
 
 
+def _quantize_reynolds_for_screening(reynolds: float) -> float:
+    quantum = 5000.0
+    return max(quantum, round(float(reynolds) / quantum) * quantum)
+
+
 def _representative_cl_samples(zone_points: list[dict[str, float]]) -> tuple[float, ...]:
     if not zone_points:
         return (0.70,)
     return tuple(
         sorted({float(point["cl_target"]) for point in zone_points})
     )
+
+
+def _quantize_cl_for_screening(cl: float) -> float:
+    return round(float(cl), 2)
 
 
 def _metrics_from_worker_result(result: Mapping[str, object]) -> dict[str, object] | None:
@@ -1649,6 +1801,7 @@ def select_zone_airfoil_templates(
     turn_stall_utilization_limit: float | None = None,
     local_stall_utilization_limit: float | None = None,
     score_cfg: object | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> ZoneSelectionBatch:
     concept_batches = select_zone_airfoil_templates_for_concepts(
         concept_zone_requirements={"single": zone_requirements},
@@ -1700,6 +1853,7 @@ def select_zone_airfoil_templates(
         turn_stall_utilization_limit=turn_stall_utilization_limit,
         local_stall_utilization_limit=local_stall_utilization_limit,
         score_cfg=score_cfg,
+        progress_callback=progress_callback,
     )
     batch = concept_batches["single"]
     return ZoneSelectionBatch(
@@ -1762,6 +1916,7 @@ def select_zone_airfoil_templates_for_concepts(
     turn_stall_utilization_limit: float | None = None,
     local_stall_utilization_limit: float | None = None,
     score_cfg: object | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> dict[str, ZoneSelectionBatch]:
     if not concept_zone_requirements:
         return {}
@@ -1786,8 +1941,31 @@ def select_zone_airfoil_templates_for_concepts(
     zone_min_tc_by_key: dict[str, float] = {}
     candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
     coarse_candidates_by_key: dict[str, tuple[CSTAirfoilTemplate, ...]] = {}
+    seedless_candidate_cache: dict[
+        SeedlessCandidateCacheKey, tuple[CSTAirfoilTemplate, ...]
+    ] = {}
+    seedless_prescreen_cache: dict[
+        SeedlessCandidateCacheKey, tuple[CSTAirfoilTemplate, ...]
+    ] = {}
+
+    _emit_progress(
+        progress_callback,
+        "airfoil_selection_start",
+        concept_count=len(concept_zone_requirements),
+        requested_zone_batch_count=sum(
+            len(zone_requirements)
+            for zone_requirements in concept_zone_requirements.values()
+        ),
+        search_mode=search_mode,
+    )
 
     for concept_id, zone_requirements in concept_zone_requirements.items():
+        _emit_progress(
+            progress_callback,
+            "airfoil_candidate_preparation_start",
+            concept_id=str(concept_id),
+            zone_count=len(zone_requirements),
+        )
         (
             zone_points_by_name,
             zone_min_tc_by_name,
@@ -1805,6 +1983,9 @@ def select_zone_airfoil_templates_for_concepts(
             seedless_sample_count=seedless_sample_count,
             seedless_random_seed=seedless_random_seed,
             seedless_max_oversample_factor=seedless_max_oversample_factor,
+            seedless_candidate_cache=seedless_candidate_cache,
+            seedless_prescreen_cache=seedless_prescreen_cache,
+            progress_callback=progress_callback,
         )
         for zone_name in zone_requirements:
             batch_key = _concept_zone_batch_key(concept_id=concept_id, zone_name=zone_name)
@@ -1812,6 +1993,16 @@ def select_zone_airfoil_templates_for_concepts(
             zone_min_tc_by_key[batch_key] = zone_min_tc_by_name[zone_name]
             candidates_by_key[batch_key] = candidates_by_zone[zone_name]
             coarse_candidates_by_key[batch_key] = coarse_candidates_by_zone[zone_name]
+
+    _emit_progress(
+        progress_callback,
+        "airfoil_candidate_preparation_done",
+        concept_count=len(concept_zone_requirements),
+        zone_batch_count=len(candidates_by_key),
+        seedless_candidate_pool_count=len(seedless_candidate_cache),
+        seedless_prescreen_pool_count=len(seedless_prescreen_cache),
+        candidate_count=sum(len(candidates) for candidates in candidates_by_key.values()),
+    )
 
     candidate_results_by_key, coarse_worker_results = _run_batched_zone_candidate_queries(
         zone_candidates=coarse_candidates_by_key,
@@ -1821,6 +2012,8 @@ def select_zone_airfoil_templates_for_concepts(
         robust_reynolds_factors=robust_reynolds_factors,
         robust_roughness_modes=robust_roughness_modes,
         robust_min_pass_rate=robust_min_pass_rate,
+        progress_callback=progress_callback,
+        stage_label="coarse_screening",
     )
     worker_results_by_concept: dict[str, list[dict[str, object]]] = {
         concept_id: [] for concept_id in concept_zone_requirements
@@ -1903,6 +2096,8 @@ def select_zone_airfoil_templates_for_concepts(
                 robust_reynolds_factors=robust_reynolds_factors,
                 robust_roughness_modes=robust_roughness_modes,
                 robust_min_pass_rate=robust_min_pass_rate,
+                progress_callback=progress_callback,
+                stage_label=f"nsga_generation_{generation_index}",
             )
             for result in nsga_worker_results:
                 concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
@@ -2016,6 +2211,8 @@ def select_zone_airfoil_templates_for_concepts(
                 robust_reynolds_factors=robust_reynolds_factors,
                 robust_roughness_modes=robust_roughness_modes,
                 robust_min_pass_rate=robust_min_pass_rate,
+                progress_callback=progress_callback,
+                stage_label=f"cma_es_iteration_{iteration_index + 1}",
             )
             for result in cma_worker_results:
                 concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
@@ -2139,6 +2336,8 @@ def select_zone_airfoil_templates_for_concepts(
                     robust_reynolds_factors=robust_reynolds_factors,
                     robust_roughness_modes=robust_roughness_modes,
                     robust_min_pass_rate=robust_min_pass_rate,
+                    progress_callback=progress_callback,
+                    stage_label=f"successive_halving_round_{round_index + 1}",
                 )
                 for result in stage_worker_results:
                     concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
@@ -2202,6 +2401,8 @@ def select_zone_airfoil_templates_for_concepts(
                 robust_reynolds_factors=robust_reynolds_factors,
                 robust_roughness_modes=robust_roughness_modes,
                 robust_min_pass_rate=robust_min_pass_rate,
+                progress_callback=progress_callback,
+                stage_label="refinement",
             )
             for result in refinement_worker_results:
                 concept_id, zone_name = _split_concept_zone_batch_key(str(result["zone_name"]))
