@@ -266,7 +266,10 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
         "span_m",
         "wing_loading_target_Npm2",
         "taper_ratio",
+        "twist_mid_deg",
+        "twist_outer_deg",
         "tip_twist_deg",
+        "spanload_bias",
     ]
     assert (
         summary["evaluation_scope"]["geometry_sampling"]["accepted_concept_count"]
@@ -282,8 +285,12 @@ def test_pipeline_writes_ranked_concept_summary(tmp_path: Path) -> None:
     assert first["primary_variables"]["wing_loading_target_Npm2"] == pytest.approx(
         first["wing_loading_target_Npm2"]
     )
+    assert isinstance(first["primary_variables"]["twist_mid_deg"], float)
+    assert isinstance(first["primary_variables"]["twist_outer_deg"], float)
+    assert isinstance(first["primary_variables"]["spanload_bias"], float)
     assert first["derived_geometry"]["wing_area_source"] == first["wing_area_source"]
     assert first["derived_geometry"]["wing_area_m2"] == pytest.approx(first["wing_area_m2"])
+    assert len(first["derived_geometry"]["twist_control_points"]) == 4
     assert "launch" in first
     assert "turn" in first
     assert "trim" in first

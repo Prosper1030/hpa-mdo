@@ -177,7 +177,7 @@ graph LR
 
 ```text
 Birdman rules / environment / rider power / mass
-  -> range-based span_m + mean_chord_m + taper/twist concept sampling
+  -> range-based span_m + mean_chord_m + taper / multi-point twist / spanload-bias concept sampling
   -> wing_area_m2 = span_m * mean_chord_m
   -> wing_loading_Npm2 is derived from the selected mass case
   -> report-only fixed-planform mass accounting / gross-mass cap
@@ -189,7 +189,7 @@ Birdman rules / environment / rider power / mass
   -> OpenVSP / downstream mainline handoff
 ```
 
-目前進度：這條線已經不是假骨架。`scripts/birdman_upstream_concept_design.py` 可以用 `--worker-mode julia` 跑 real `julia_xfoil` worker；config 目前的主幾何變數已改成 `span_m + mean_chord_m + taper_ratio + tip_twist_deg`，`wing_area_m2 = span_m * mean_chord_m`，`W/S` 是結果不是 primary input。`output/birdman_mass_closure_rerun_20260424/` 的舊 real Julia/XFoil run 評估了 40 個概念，沒有完全可行解；最佳診斷點約為 `span = 35.99 m`、`S = 38.09 m2`、`AR = 34.01`、`W/S = 27.35 N/m2`，主要失敗是 `local_stall + mission`，最佳航程約 `16.1 km`，距離 `42.195 km` 仍差很多。這個舊結果現在只保留作為「為什麼要改設計邏輯」的背景，不作為新設計標準。
+目前進度：這條線已經不是假骨架。`scripts/birdman_upstream_concept_design.py` 可以用 `--worker-mode julia` 跑 real `julia_xfoil` worker；config 目前的主幾何變數已改成 `span_m + mean_chord_m + taper_ratio + twist_mid_deg + twist_outer_deg + tip_twist_deg + spanload_bias`，`wing_area_m2 = span_m * mean_chord_m`，`W/S` 是結果不是 primary input。`output/birdman_mass_closure_rerun_20260424/` 的舊 real Julia/XFoil run 評估了 40 個概念，沒有完全可行解；最佳診斷點約為 `span = 35.99 m`、`S = 38.09 m2`、`AR = 34.01`、`W/S = 27.35 N/m2`，主要失敗是 `local_stall + mission`，最佳航程約 `16.1 km`，距離 `42.195 km` 仍差很多。這個舊結果現在只保留作為「為什麼要改設計邏輯」的背景，不作為新設計標準。
 
 主任務定義：這條線目前主 objective 命名為 **`fixed_range_best_time`**，中文稱「給定航程-最佳時間任務」。比賽航程 `R` 由 `mission.target_distance_km` 提出，預設為 `42.195 km`；若任一可飛速度能完成 `R`，mission score 以完賽時間 `R / V` 排序，但整體 concept ranking 仍先看 gate / feasibility margin，所以薄裕度高速解不會壓過裕度明顯更好的較慢完賽解。若不能完賽，則退回最大航程作為比較訊號。舊的 `max_range` 與 `min_power` objective 仍保留，可用於診斷或替代研究。
 
@@ -201,7 +201,7 @@ Birdman rules / environment / rider power / mass
 - `box_a`：safe-completion box，`span = 31..35 m`、`mean_chord = 0.90..1.15 m`、`S` 約落在較保守的大翼面積側，目標是完賽裕度與低速安全。
 - `box_b`：compact-high-AR box，`span = 32..35 m`、`mean_chord = 0.78..1.00 m`、`S` 約落在 `24..35 m2`，目標是降低 profile drag / 提高 AR，但必須嚴格檢查 `CLmax`、launch、turn、tip-Re 與結構。
 
-翼分布也不再只當報表背景。AVL / fallback station points 的 `cl * chord` spanload shape 會進入 `spanload_efficiency_proxy_v1`，再回饋到 mission induced drag / required power；因此 chord/taper/twist 造成的分布變化會改變任務功率。這仍然是 concept-stage proxy，不是 Trefftz-plane sign-off，但比固定用幾何 proxy 的 `e` 更符合目前的工程問題。
+翼分布也不再只當報表背景。AVL / fallback station points 的 `cl * chord` spanload shape 會進入 `spanload_efficiency_proxy_v1`，再回饋到 mission induced drag / required power；因此 chord/taper/twist 造成的分布變化會改變任務功率。`twist_mid_deg`、`twist_outer_deg`、`tip_twist_deg` 會組成 root/mid/outer/tip 四點 twist schedule，`spanload_bias` 則會在 fallback station loading 中刻意減少外翼 loading，讓 optimizer 可以探索「略微 inboard-biased spanload」而不是只靠加翼面積過 stall gate。這仍然是 concept-stage proxy，不是 Trefftz-plane sign-off；真正工程 sign-off 仍需要 AVL Trefftz / ASWING 或 beam-wire flexible loop。
 
 2m 級 tip deflection 是合理的 downstream jig / aeroelastic 設計目標，但目前 upstream concept 線只有很粗的 uniform-cantilever deflection gate，不能把 `2 m` 硬塞成 concept 排名標準。這更像是在說「現在的 deflection model 沒有 wire support / jig-shape solve」，不是在說 2m 目標不合理。正確下一步是把 flight shape / jig shape / wire-braced beam loop 接進來，讓 `2 m` 變成 aeroelastic solve 的結果或目標，而不是只在 upstream proxy 裡貼標籤。
 
@@ -224,7 +224,7 @@ OpenVSP 匯出：Birdman concept configs 預設會對前 `output.export_vsp_for_
 
 推進 / 傳動初估：Birdman concept configs 目前採用 `eta_prop = 0.86`、`eta_trans = 0.96`，所以踏板到有效推進設計點效率 `eta_total = 0.8256`。這是巡航/爬升有前進速度的 sizing 值；螺旋槳直徑、轉速範圍、葉片數與 BEMT proxy 仍保留在 config surface，之後可替換成真實 prop design / map。
 
-翼分佈狀態：目前 upstream line 已把 mission induced-drag proxy 接到 station `cl * chord` spanload shape，幾何 primary variables 也已先改成 `span_m + mean_chord_m + taper_ratio + tip_twist_deg`；這解決了「為了過 stall gate 而用 W/S 反推出過大翼面積」的主要流程問題。但翼分佈仍然只有單一 tip twist 和粗 spanload proxy，還不是完整的「spanload bias + 多點 twist + flexible jig shape」設計。下一個工程升級應該把多點 twist、spanload bias、cruise tip deflection target、tail volume sizing 接成 primary design variables，再用 AVL Trefftz / ASWING 或 beam-wire loop 取代現在的 proxy。
+翼分佈狀態：目前 upstream line 已把 mission induced-drag proxy 接到 station `cl * chord` spanload shape，幾何 primary variables 也已改成 `span_m + mean_chord_m + taper_ratio + twist_mid_deg + twist_outer_deg + tip_twist_deg + spanload_bias`；這解決了「為了過 stall gate 而用 W/S 反推出過大翼面積」的主要流程問題，也讓 35m span cap 內的小平均弦長 / 高 AR 方案有可調的外翼 unload 手段。但這仍不是完整的 inverse spanload / flexible jig-shape solve。下一個工程升級應該把 `cruise_tip_deflection_target`、tail-volume sizing、wire-braced beam sizing 接成 primary design variables，再用 AVL Trefftz / ASWING 或 beam-wire loop 取代現在的 proxy。
 
 常用指令：
 

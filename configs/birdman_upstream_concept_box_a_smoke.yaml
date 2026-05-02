@@ -105,9 +105,18 @@ geometry_family:
     taper_ratio:
       min: 0.30
       max: 0.38
+    twist_mid_deg:
+      min: 0.0
+      max: 1.25
+    twist_outer_deg:
+      min: -1.0
+      max: -0.25
     tip_twist_deg:
-      min: -3.0
-      max: -0.5
+      min: -3.5
+      max: -1.0
+    spanload_bias:
+      min: 0.0
+      max: 0.12
   hard_constraints:
     wing_area_m2_range:
       min: 28.0
@@ -122,6 +131,7 @@ geometry_family:
     root_zone_spar_depth_fraction: 0.62
     root_zone_required_spar_depth_m: 0.10
   twist_root_deg: 2.0
+  twist_control_etas: [0.35, 0.70]
   cg_xc: 0.30
   tail_area_candidates_m2: [3.8, 4.2, 4.6]
   dihedral_root_deg_candidates: [0.0, 1.0, 2.0]

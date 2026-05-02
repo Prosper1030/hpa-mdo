@@ -557,8 +557,17 @@ class GeometryPrimaryRangesConfig(ConceptBaseModel):
     taper_ratio: ContinuousRangeConfig = Field(
         default_factory=lambda: ContinuousRangeConfig(min=0.24, max=0.40)
     )
+    twist_mid_deg: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=0.0, max=1.25)
+    )
+    twist_outer_deg: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=-1.0, max=-0.25)
+    )
     tip_twist_deg: ContinuousRangeConfig = Field(
-        default_factory=lambda: ContinuousRangeConfig(min=-3.0, max=-0.5)
+        default_factory=lambda: ContinuousRangeConfig(min=-3.5, max=-1.0)
+    )
+    spanload_bias: ContinuousRangeConfig = Field(
+        default_factory=lambda: ContinuousRangeConfig(min=0.0, max=0.12)
     )
 
     @model_validator(mode="after")
@@ -577,9 +586,18 @@ class GeometryPrimaryRangesConfig(ConceptBaseModel):
             raise ValueError(
                 "geometry_family.primary_ranges.taper_ratio must stay within (0, 1]."
             )
-        if self.tip_twist_deg.min < -10.0 or self.tip_twist_deg.max > 10.0:
+        for field_name, range_cfg in (
+            ("twist_mid_deg", self.twist_mid_deg),
+            ("twist_outer_deg", self.twist_outer_deg),
+            ("tip_twist_deg", self.tip_twist_deg),
+        ):
+            if range_cfg.min < -10.0 or range_cfg.max > 10.0:
+                raise ValueError(
+                    f"geometry_family.primary_ranges.{field_name} must stay within [-10, 10]."
+                )
+        if self.spanload_bias.min < 0.0 or self.spanload_bias.max > 0.5:
             raise ValueError(
-                "geometry_family.primary_ranges.tip_twist_deg must stay within [-10, 10]."
+                "geometry_family.primary_ranges.spanload_bias must stay within [0, 0.5]."
             )
         return self
 
@@ -611,7 +629,14 @@ class GeometryFamilyConfig(ConceptBaseModel):
     twist_root_deg: float = Field(
         2.0,
         description=(
-            "Root twist stays fixed so tip_twist_deg remains the primary wing twist variable."
+            "Root twist stays fixed while mid/outer/tip twist controls are sampled."
+        ),
+    )
+    twist_control_etas: tuple[float, float] = Field(
+        (0.35, 0.70),
+        description=(
+            "Span fractions for the sampled mid and outer twist control points. "
+            "The root and tip controls are fixed at eta=0 and eta=1."
         ),
     )
     cg_xc: float = Field(
@@ -659,6 +684,13 @@ class GeometryFamilyConfig(ConceptBaseModel):
             )
         if self.twist_root_deg < -10.0 or self.twist_root_deg > 10.0:
             raise ValueError("geometry_family.twist_root_deg must be in the interval [-10, 10].")
+        if len(self.twist_control_etas) != 2:
+            raise ValueError("geometry_family.twist_control_etas must contain exactly two etas.")
+        first_eta, second_eta = (float(value) for value in self.twist_control_etas)
+        if not (0.0 < first_eta < second_eta < 1.0):
+            raise ValueError(
+                "geometry_family.twist_control_etas must satisfy 0 < eta_mid < eta_outer < 1."
+            )
         return self
 
 

@@ -59,6 +59,8 @@ class GeometryConcept:
     tail_area_m2: float
     cg_xc: float
     segment_lengths_m: tuple[float, ...]
+    twist_control_points: tuple[tuple[float, float], ...] = ()
+    spanload_bias: float = 0.0
     wing_loading_target_Npm2: float | None = None
     mean_chord_target_m: float | None = None
     wing_area_is_derived: bool = False
@@ -86,6 +88,8 @@ class GeometryConcept:
             raise ValueError("dihedral_exponent must be positive.")
         if self.tail_area_m2 <= 0.0:
             raise ValueError("tail_area_m2 must be positive.")
+        if self.spanload_bias < 0.0:
+            raise ValueError("spanload_bias must be non-negative.")
         if self.wing_loading_target_Npm2 is not None and self.wing_loading_target_Npm2 <= 0.0:
             raise ValueError("wing_loading_target_Npm2 must be positive when provided.")
         if self.mean_chord_target_m is not None and self.mean_chord_target_m <= 0.0:
@@ -118,6 +122,27 @@ class GeometryConcept:
             raise ValueError("segment_lengths_m must not be empty.")
         if any(length <= 0.0 for length in self.segment_lengths_m):
             raise ValueError("segment_lengths_m entries must all be positive.")
+        normalized_twist_controls = tuple(
+            (float(eta), float(twist_deg)) for eta, twist_deg in self.twist_control_points
+        )
+        if normalized_twist_controls:
+            if len(normalized_twist_controls) < 2:
+                raise ValueError("twist_control_points must contain at least root and tip controls.")
+            if not isclose(normalized_twist_controls[0][0], 0.0, abs_tol=1.0e-9):
+                raise ValueError("twist_control_points must start at eta=0.")
+            if not isclose(normalized_twist_controls[-1][0], 1.0, abs_tol=1.0e-9):
+                raise ValueError("twist_control_points must end at eta=1.")
+            if any(
+                later_eta <= earlier_eta
+                for (earlier_eta, _), (later_eta, _) in zip(
+                    normalized_twist_controls,
+                    normalized_twist_controls[1:],
+                )
+            ):
+                raise ValueError("twist_control_points eta values must be strictly increasing.")
+            if any(eta < 0.0 or eta > 1.0 for eta, _ in normalized_twist_controls):
+                raise ValueError("twist_control_points eta values must stay in [0, 1].")
+            object.__setattr__(self, "twist_control_points", normalized_twist_controls)
 
         half_span_m = 0.5 * self.span_m
         if not isclose(sum(self.segment_lengths_m), half_span_m, rel_tol=1e-6, abs_tol=1e-6):
@@ -200,17 +225,20 @@ def _sample_unit_hypercube(
     sample_count: int,
     seed: int,
     scramble: bool,
+    dimensions: int,
 ) -> np.ndarray:
+    if dimensions <= 0:
+        raise ValueError("dimensions must be positive.")
     if mode == "latin_hypercube":
-        return qmc.LatinHypercube(d=4, seed=seed, scramble=scramble).random(sample_count)
+        return qmc.LatinHypercube(d=dimensions, seed=seed, scramble=scramble).random(sample_count)
     if mode == "sobol":
-        return qmc.Sobol(d=4, seed=seed, scramble=scramble).random(sample_count)
+        return qmc.Sobol(d=dimensions, seed=seed, scramble=scramble).random(sample_count)
     if mode == "uniform_random":
-        return np.random.default_rng(seed).random((sample_count, 4))
+        return np.random.default_rng(seed).random((sample_count, dimensions))
     if mode == "linspace_grid":
-        samples_per_axis = max(1, int(round(sample_count ** 0.25)))
+        samples_per_axis = max(1, int(round(sample_count ** (1.0 / float(dimensions)))))
         axis = np.linspace(0.0, 1.0, samples_per_axis)
-        grid = np.asarray(tuple(product(axis, repeat=4)), dtype=float)
+        grid = np.asarray(tuple(product(axis, repeat=dimensions)), dtype=float)
         if grid.shape[0] == sample_count:
             return grid
         rng = np.random.default_rng(seed)
@@ -225,35 +253,47 @@ def _sample_unit_hypercube(
     raise ValueError(f"Unsupported sampling mode: {mode}")
 
 
+def _primary_variable_specs(cfg) -> tuple[tuple[str, object], ...]:
+    ranges = cfg.geometry_family.primary_ranges
+    planform_key = (
+        "mean_chord_m"
+        if str(cfg.geometry_family.planform_parameterization) == "mean_chord"
+        else "wing_loading_target_Npm2"
+    )
+    planform_range = (
+        ranges.mean_chord_m
+        if str(cfg.geometry_family.planform_parameterization) == "mean_chord"
+        else ranges.wing_loading_target_Npm2
+    )
+    return (
+        ("span_m", ranges.span_m),
+        (planform_key, planform_range),
+        ("taper_ratio", ranges.taper_ratio),
+        ("twist_mid_deg", ranges.twist_mid_deg),
+        ("twist_outer_deg", ranges.twist_outer_deg),
+        ("tip_twist_deg", ranges.tip_twist_deg),
+        ("spanload_bias", ranges.spanload_bias),
+    )
+
+
 def _sample_primary_variables(cfg) -> tuple[dict[str, float], ...]:
     sampling = cfg.geometry_family.sampling
-    ranges = cfg.geometry_family.primary_ranges
+    variable_specs = _primary_variable_specs(cfg)
     unit_samples = _sample_unit_hypercube(
         mode=str(sampling.mode),
         sample_count=int(sampling.sample_count),
         seed=int(sampling.seed),
         scramble=bool(sampling.scramble),
+        dimensions=len(variable_specs),
     )
 
     def _scale(range_cfg, unit_value: float) -> float:
         return float(range_cfg.min + unit_value * (range_cfg.max - range_cfg.min))
 
-    parameterization = str(cfg.geometry_family.planform_parameterization)
     return tuple(
         {
-            "span_m": _scale(ranges.span_m, float(row[0])),
-            (
-                "mean_chord_m"
-                if parameterization == "mean_chord"
-                else "wing_loading_target_Npm2"
-            ): _scale(
-                ranges.mean_chord_m
-                if parameterization == "mean_chord"
-                else ranges.wing_loading_target_Npm2,
-                float(row[1]),
-            ),
-            "taper_ratio": _scale(ranges.taper_ratio, float(row[2])),
-            "tip_twist_deg": _scale(ranges.tip_twist_deg, float(row[3])),
+            variable_name: _scale(range_cfg, float(row[index]))
+            for index, (variable_name, range_cfg) in enumerate(variable_specs)
         }
         for row in unit_samples
     )
@@ -411,6 +451,26 @@ def build_segment_plan(
     return tuple(float(segment_length) for _ in range(segment_count))
 
 
+def _twist_at_span_fraction(concept: GeometryConcept, frac: float) -> float:
+    frac = min(max(float(frac), 0.0), 1.0)
+    controls = concept.twist_control_points
+    if not controls:
+        return float(
+            concept.twist_root_deg
+            + frac * (concept.twist_tip_deg - concept.twist_root_deg)
+        )
+    if frac <= controls[0][0]:
+        return float(controls[0][1])
+    for (left_eta, left_twist), (right_eta, right_twist) in zip(
+        controls,
+        controls[1:],
+    ):
+        if frac <= right_eta:
+            local_frac = (frac - left_eta) / max(right_eta - left_eta, 1.0e-9)
+            return float(left_twist + local_frac * (right_twist - left_twist))
+    return float(controls[-1][1])
+
+
 def build_linear_wing_stations(
     concept: GeometryConcept,
     *,
@@ -464,7 +524,7 @@ def build_linear_wing_stations(
     for y_m in y_locations:
         frac = 0.0 if half_span_m == 0.0 else y_m / half_span_m
         chord_m = concept.root_chord_m + frac * (concept.tip_chord_m - concept.root_chord_m)
-        twist_deg = concept.twist_root_deg + frac * (concept.twist_tip_deg - concept.twist_root_deg)
+        twist_deg = _twist_at_span_fraction(concept, frac)
         dihedral_deg = _progressive_schedule_value(
             concept.dihedral_root_deg,
             concept.dihedral_tip_deg,
@@ -492,7 +552,10 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
         span_m = float(primary_values["span_m"])
         planform_parameterization = str(cfg.geometry_family.planform_parameterization)
         taper_ratio = float(primary_values["taper_ratio"])
+        twist_mid_deg = float(primary_values["twist_mid_deg"])
+        twist_outer_deg = float(primary_values["twist_outer_deg"])
         tip_twist_deg = float(primary_values["tip_twist_deg"])
+        spanload_bias = float(primary_values["spanload_bias"])
         (
             tail_area_m2,
             dihedral_root_deg,
@@ -505,6 +568,35 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             "dihedral_tip_deg": float(dihedral_tip_deg),
             "dihedral_exponent": float(dihedral_exponent),
         }
+        twist_mid_eta, twist_outer_eta = (
+            float(value) for value in cfg.geometry_family.twist_control_etas
+        )
+        twist_control_points = (
+            (0.0, float(cfg.geometry_family.twist_root_deg)),
+            (twist_mid_eta, twist_mid_deg),
+            (twist_outer_eta, twist_outer_deg),
+            (1.0, tip_twist_deg),
+        )
+        if any(
+            later_twist > earlier_twist
+            for (_, earlier_twist), (_, later_twist) in zip(
+                twist_control_points,
+                twist_control_points[1:],
+            )
+        ):
+            rejected_concepts.append(
+                _geometry_rejection(
+                    sample_index=sample_index,
+                    reason="twist_schedule_not_monotone_washout",
+                    primary_values=primary_values,
+                    secondary_values=secondary_values,
+                    twist_root_deg=float(cfg.geometry_family.twist_root_deg),
+                    twist_mid_deg=twist_mid_deg,
+                    twist_outer_deg=twist_outer_deg,
+                    tip_twist_deg=tip_twist_deg,
+                )
+            )
+            continue
 
         mean_chord_target_m: float | None = None
         if planform_parameterization == "mean_chord":
@@ -692,6 +784,8 @@ def enumerate_geometry_concepts(cfg) -> tuple[GeometryConcept, ...]:
             tip_chord_m=float(tip_chord_m),
             twist_root_deg=float(cfg.geometry_family.twist_root_deg),
             twist_tip_deg=float(tip_twist_deg),
+            twist_control_points=twist_control_points,
+            spanload_bias=float(spanload_bias),
             dihedral_root_deg=float(dihedral_root_deg),
             dihedral_tip_deg=float(dihedral_tip_deg),
             dihedral_exponent=float(dihedral_exponent),

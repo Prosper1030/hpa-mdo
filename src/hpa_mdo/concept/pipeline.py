@@ -3219,7 +3219,18 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
                 else float(concept.wing_loading_target_Npm2)
             ),
             "taper_ratio": float(concept.taper_ratio),
+            "twist_mid_deg": (
+                None
+                if len(concept.twist_control_points) < 3
+                else float(concept.twist_control_points[1][1])
+            ),
+            "twist_outer_deg": (
+                None
+                if len(concept.twist_control_points) < 4
+                else float(concept.twist_control_points[2][1])
+            ),
             "tip_twist_deg": float(concept.twist_tip_deg),
+            "spanload_bias": float(concept.spanload_bias),
         },
         "derived_geometry": {
             "wing_area_m2": float(concept.wing_area_m2),
@@ -3228,6 +3239,10 @@ def _concept_geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
             "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
             "aspect_ratio": float(concept.aspect_ratio),
             "wing_area_source": str(concept.wing_area_source),
+            "twist_control_points": [
+                {"eta": float(eta), "twist_deg": float(twist_deg)}
+                for eta, twist_deg in concept.twist_control_points
+            ],
             "design_gross_mass_kg": (
                 None
                 if concept.design_gross_mass_kg is None
@@ -3432,6 +3447,7 @@ def _build_ranked_concept_record(
         "wing_area_source": str(record.concept.wing_area_source),
         "mean_aerodynamic_chord_m": float(record.concept.mean_aerodynamic_chord_m),
         "aspect_ratio": float(record.concept.aspect_ratio),
+        "spanload_bias": float(record.concept.spanload_bias),
         "sizing_archetype": str(sizing_diagnostics["sizing_archetype"]),
         "sizing_diagnostics": sizing_diagnostics,
         "zone_count": len(record.zone_requirements),
@@ -3565,7 +3581,12 @@ def _concept_to_bundle_payload(
         "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
         "aspect_ratio": float(concept.aspect_ratio),
         "twist_root_deg": float(concept.twist_root_deg),
+        "twist_control_points": [
+            {"eta": float(eta), "twist_deg": float(twist_deg)}
+            for eta, twist_deg in concept.twist_control_points
+        ],
         "twist_tip_deg": float(concept.twist_tip_deg),
+        "spanload_bias": float(concept.spanload_bias),
         "dihedral_root_deg": float(concept.dihedral_root_deg),
         "dihedral_tip_deg": float(concept.dihedral_tip_deg),
         "dihedral_exponent": float(concept.dihedral_exponent),
@@ -4364,7 +4385,10 @@ def run_birdman_concept_pipeline(
                             else "wing_loading_target_Npm2"
                         ),
                         "taper_ratio",
+                        "twist_mid_deg",
+                        "twist_outer_deg",
                         "tip_twist_deg",
+                        "spanload_bias",
                     ],
                     "geometry_sampling": geometry_sampling_summary,
                     "speed_sweep_window_mps": [

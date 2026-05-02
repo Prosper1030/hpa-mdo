@@ -171,10 +171,13 @@ def _coarse_pre_avl_reference_station_points(
             if total_washout_deg <= 0.0
             else min(local_washout_deg / total_washout_deg, 1.0)
         )
+        inboard_bias_factor = max(0.2, 1.0 - float(concept.spanload_bias) * eta**2)
         raw_shape.append(
             max(
                 float(spanload_cfg.elliptic_loading_floor),
-                (elliptic_loading / max(chord_ratio, 1.0e-6)) * washout_relief_factor,
+                (elliptic_loading / max(chord_ratio, 1.0e-6))
+                * washout_relief_factor
+                * inboard_bias_factor,
             )
         )
 
@@ -210,6 +213,7 @@ def _coarse_pre_avl_reference_station_points(
                 "span_fraction": float(eta),
                 "taper_ratio": float(concept.taper_ratio),
                 "washout_deg": float(total_washout_deg),
+                "spanload_bias": float(concept.spanload_bias),
                 "reference_speed_mps": float(reference_speed_mps),
                 "reference_gross_mass_kg": float(reference_gross_mass_kg),
                 "cl_max_proxy": float(cl_target + cl_headroom),
