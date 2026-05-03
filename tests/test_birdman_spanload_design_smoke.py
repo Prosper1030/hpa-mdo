@@ -274,3 +274,111 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     assert "selected_cst_dat_files" in metadata
     assert "ReadFileAirfoil" in script
     assert "NACA 0012" not in script
+
+
+def test_outer_loading_diagnostics_flags_underloaded_outer_stations() -> None:
+    station_table = [
+        {
+            "eta": 0.70,
+            "target_circulation_norm": 0.80,
+            "avl_circulation_norm": 0.78,
+            "target_local_cl": 1.00,
+            "avl_local_cl": 0.98,
+            "target_clmax_utilization": 0.60,
+            "reynolds": 300000.0,
+            "chord_m": 0.70,
+            "ainc_deg": 0.5,
+        },
+        {
+            "eta": 0.82,
+            "target_circulation_norm": 0.58,
+            "avl_circulation_norm": 0.40,
+            "target_local_cl": 0.90,
+            "avl_local_cl": 0.62,
+            "target_clmax_utilization": 0.55,
+            "reynolds": 240000.0,
+            "chord_m": 0.56,
+            "ainc_deg": 0.0,
+        },
+        {
+            "eta": 0.90,
+            "target_circulation_norm": 0.42,
+            "avl_circulation_norm": 0.25,
+            "target_local_cl": 0.78,
+            "avl_local_cl": 0.46,
+            "target_clmax_utilization": 0.47,
+            "reynolds": 205000.0,
+            "chord_m": 0.48,
+            "ainc_deg": -0.4,
+        },
+        {
+            "eta": 0.95,
+            "target_circulation_norm": 0.28,
+            "avl_circulation_norm": 0.15,
+            "target_local_cl": 0.62,
+            "avl_local_cl": 0.33,
+            "target_clmax_utilization": 0.38,
+            "reynolds": 180000.0,
+            "chord_m": 0.43,
+            "ainc_deg": -0.9,
+        },
+    ]
+
+    diagnostics = smoke._outer_loading_diagnostics(
+        station_table=station_table,
+        spanload_gate_health={"local_margin_to_limit": 0.20, "outer_margin_to_limit": 0.18},
+        tip_gate_summary={
+            "tip_chord_m": 0.43,
+            "tip_required_chord_m": 0.42,
+            "tip_re": 180000.0,
+            "tip_re_preferred_min": 180000.0,
+        },
+        twist_gate_metrics={"twist_physical_gates_pass": True, "max_abs_flight_twist_deg": 2.0},
+    )
+
+    assert diagnostics["outer_underloaded"] is True
+    assert diagnostics["eta_samples"]["0.90"]["avl_to_target_circulation_ratio"] == pytest.approx(0.25 / 0.42)
+    assert diagnostics["eta_samples"]["0.95"]["avl_cl_to_target_cl_ratio"] == pytest.approx(0.33 / 0.62)
+    assert "outer_underloaded" in diagnostics["e_cdi_loss_diagnosis"]["drivers"]
+
+
+def test_smooth_small_outer_ainc_correction_is_allowed_by_twist_gates() -> None:
+    stations = (
+        smoke.WingStation(y_m=0.0, chord_m=1.2, twist_deg=2.0, dihedral_deg=0.0),
+        smoke.WingStation(y_m=5.0, chord_m=1.0, twist_deg=1.2, dihedral_deg=0.0),
+        smoke.WingStation(y_m=9.0, chord_m=0.8, twist_deg=0.7, dihedral_deg=0.0),
+        smoke.WingStation(y_m=12.0, chord_m=0.7, twist_deg=0.95, dihedral_deg=0.0),
+        smoke.WingStation(y_m=15.0, chord_m=0.55, twist_deg=0.4, dihedral_deg=0.0),
+        smoke.WingStation(y_m=17.0, chord_m=0.45, twist_deg=-0.8, dihedral_deg=0.0),
+    )
+
+    metrics = smoke._twist_gate_metrics(stations)
+
+    assert metrics["outer_monotonic_washout"] is False
+    assert metrics["max_outer_wash_in_step_deg"] <= 0.6
+    assert metrics["twist_physical_gates_pass"] is True
+
+
+def test_objective_prioritizes_avl_cdi_over_spanload_match() -> None:
+    low_cdi_worse_match = {
+        "avl_match_metrics": {
+            "rms_target_avl_circulation_norm_delta": 0.20,
+            "max_target_avl_circulation_norm_delta": 0.32,
+        },
+        "twist_gate_metrics": {"twist_physical_gates_pass": True, "outer_monotonic_washout": True},
+        "spanload_gate_health": {"local_margin_to_limit": 0.1, "outer_margin_to_limit": 0.1},
+        "avl_reference_case": {"avl_e_cdi": 0.91, "trim_cd_induced": 0.0120},
+        "avl_cdi_power_proxy": {"induced_cd": 0.0120},
+        "inverse_twist": {"smoothness_penalty": 0.0},
+    }
+    high_cdi_better_match = {
+        **low_cdi_worse_match,
+        "avl_match_metrics": {
+            "rms_target_avl_circulation_norm_delta": 0.02,
+            "max_target_avl_circulation_norm_delta": 0.04,
+        },
+        "avl_reference_case": {"avl_e_cdi": 0.82, "trim_cd_induced": 0.0180},
+        "avl_cdi_power_proxy": {"induced_cd": 0.0180},
+    }
+
+    assert smoke._twist_objective_value(low_cdi_worse_match) < smoke._twist_objective_value(high_cdi_better_match)

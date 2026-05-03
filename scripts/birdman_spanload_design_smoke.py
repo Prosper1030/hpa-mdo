@@ -1745,6 +1745,7 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
             "power_required_w"
         ),
         "avl_cdi_power_margin_w": record.get("avl_cdi_power_proxy", {}).get("power_margin_w"),
+        "outer_loading_diagnostics": record.get("outer_loading_diagnostics", {}),
         "objective_value": record.get("objective_value"),
     }
 
@@ -2111,6 +2112,7 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
             "max_abs_flight_twist_deg": None,
             "max_adjacent_twist_jump_deg": None,
             "outer_monotonic_washout": False,
+            "max_outer_wash_in_step_deg": None,
             "max_outer_washin_bump_deg": None,
             "tip_minus_eta70_twist_deg": None,
             "twist_physical_gates_pass": False,
@@ -2130,6 +2132,12 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
         for eta, twist in zip(etas, twists, strict=True)
         if eta >= OUTER_WASHOUT_START_ETA
     ]
+    outer_wash_in_steps = [
+        right_twist - left_twist
+        for (_, left_twist), (_, right_twist) in zip(outer_pairs[:-1], outer_pairs[1:])
+        if right_twist > left_twist
+    ]
+    max_outer_wash_in_step = max(outer_wash_in_steps, default=0.0)
     outer_monotonic = all(
         right_twist <= left_twist + 1.0e-6
         for (_, left_twist), (_, right_twist) in zip(outer_pairs[:-1], outer_pairs[1:])
@@ -2150,7 +2158,7 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
         failures.append("twist_range_exceeded")
     if max_adjacent_jump > TWIST_ADJACENT_JUMP_LIMIT_DEG:
         failures.append("adjacent_twist_jump_exceeded")
-    if not outer_monotonic:
+    if not outer_monotonic and max_outer_wash_in_step > 0.60:
         failures.append("outer_monotonic_washout_failed")
     if max_outer_washin_bump > OUTER_WASHIN_BUMP_LIMIT_ABOVE_ROOT_DEG:
         failures.append("outer_washin_bump_exceeded")
@@ -2164,6 +2172,8 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
         "max_adjacent_twist_jump_deg": float(max_adjacent_jump),
         "max_adjacent_twist_jump_limit_deg": float(TWIST_ADJACENT_JUMP_LIMIT_DEG),
         "outer_monotonic_washout": bool(outer_monotonic),
+        "max_outer_wash_in_step_deg": float(max_outer_wash_in_step),
+        "max_outer_wash_in_step_limit_deg": 0.60,
         "max_outer_washin_bump_deg": float(max(max_outer_washin_bump, 0.0)),
         "outer_washin_bump_limit_above_root_deg": float(
             OUTER_WASHIN_BUMP_LIMIT_ABOVE_ROOT_DEG
@@ -2441,6 +2451,122 @@ def _avl_match_metrics(station_table: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _ratio_or_none(numerator: Any, denominator: Any) -> float | None:
+    if numerator is None or denominator is None:
+        return None
+    denominator_float = float(denominator)
+    if abs(denominator_float) <= 1.0e-9:
+        return None
+    return float(numerator) / denominator_float
+
+
+def _outer_loading_diagnostics(
+    *,
+    station_table: list[dict[str, Any]],
+    spanload_gate_health: dict[str, Any],
+    tip_gate_summary: dict[str, Any],
+    twist_gate_metrics: dict[str, Any],
+) -> dict[str, Any]:
+    eta_samples: dict[str, dict[str, Any]] = {}
+    for eta in (0.70, 0.82, 0.90, 0.95):
+        if not station_table:
+            continue
+        nearest = min(
+            station_table,
+            key=lambda row: abs(float(row.get("eta", 0.0)) - eta),
+        )
+        circ_ratio = _ratio_or_none(
+            nearest.get("avl_circulation_norm"),
+            nearest.get("target_circulation_norm"),
+        )
+        cl_ratio = _ratio_or_none(
+            nearest.get("avl_local_cl"),
+            nearest.get("target_local_cl"),
+        )
+        eta_samples[f"{eta:.2f}"] = {
+            "requested_eta": float(eta),
+            "station_eta": nearest.get("eta"),
+            "y_m": nearest.get("y_m"),
+            "chord_m": nearest.get("chord_m"),
+            "reynolds": nearest.get("reynolds"),
+            "target_circulation_norm": nearest.get("target_circulation_norm"),
+            "avl_circulation_norm": nearest.get("avl_circulation_norm"),
+            "avl_to_target_circulation_ratio": circ_ratio,
+            "target_local_cl": nearest.get("target_local_cl"),
+            "avl_local_cl": nearest.get("avl_local_cl"),
+            "avl_cl_to_target_cl_ratio": cl_ratio,
+            "target_clmax_utilization": nearest.get("target_clmax_utilization"),
+            "ainc_deg": nearest.get("ainc_deg", nearest.get("twist_deg")),
+        }
+
+    outer_ratios = [
+        float(sample["avl_to_target_circulation_ratio"])
+        for key, sample in eta_samples.items()
+        if float(key) >= 0.82
+        and sample.get("avl_to_target_circulation_ratio") is not None
+    ]
+    inner_ratios = [
+        _ratio_or_none(row.get("avl_circulation_norm"), row.get("target_circulation_norm"))
+        for row in station_table
+        if float(row.get("eta", 0.0)) <= 0.45
+    ]
+    inner_ratios = [float(value) for value in inner_ratios if value is not None]
+    outer_underloaded = bool(outer_ratios and min(outer_ratios) < 0.85)
+    inner_overloaded = bool(inner_ratios and max(inner_ratios) > 1.15)
+    twist_limited = (
+        not bool(twist_gate_metrics.get("twist_physical_gates_pass", False))
+        or float(twist_gate_metrics.get("max_abs_flight_twist_deg") or 0.0)
+        > 0.85 * RESIDUAL_TWIST_MAX_ABS_DEG
+    )
+    local_cl_limited = float(spanload_gate_health.get("local_margin_to_limit", 0.0)) < 0.05
+    outer_cl_limited = float(spanload_gate_health.get("outer_margin_to_limit", 0.0)) < 0.05
+    tip_chord_limited = float(tip_gate_summary.get("tip_chord_m") or 0.0) <= float(
+        tip_gate_summary.get("tip_required_chord_m") or 0.0
+    ) + 0.02
+    tip_re_limited = float(tip_gate_summary.get("tip_re") or 0.0) <= float(
+        tip_gate_summary.get("tip_re_preferred_min") or 0.0
+    ) + 5000.0
+    drivers: list[str] = []
+    if outer_underloaded:
+        drivers.append("outer_underloaded")
+    if inner_overloaded:
+        drivers.append("inner_overloaded")
+    if twist_limited:
+        drivers.append("twist_limited")
+    if local_cl_limited:
+        drivers.append("local_cl_limited")
+    if outer_cl_limited:
+        drivers.append("outer_cl_limited")
+    if tip_chord_limited:
+        drivers.append("tip_chord_limited")
+    if tip_re_limited:
+        drivers.append("tip_re_limited")
+    return {
+        "eta_samples": eta_samples,
+        "outer_underloaded": outer_underloaded,
+        "inner_overloaded": inner_overloaded,
+        "min_outer_avl_to_target_circulation_ratio": min(outer_ratios) if outer_ratios else None,
+        "max_inner_avl_to_target_circulation_ratio": max(inner_ratios) if inner_ratios else None,
+        "tip_re": tip_gate_summary.get("tip_re"),
+        "tip_chord_m": tip_gate_summary.get("tip_chord_m"),
+        "ainc_distribution": [
+            {
+                "eta": row.get("eta"),
+                "y_m": row.get("y_m"),
+                "ainc_deg": row.get("ainc_deg", row.get("twist_deg")),
+            }
+            for row in station_table
+        ],
+        "e_cdi_loss_diagnosis": {
+            "drivers": drivers,
+            "primary_driver": drivers[0] if drivers else "no_clear_loss_driver",
+            "notes": (
+                "outer/mixed-airfoil incidence diagnosis; target_fourier_e is not ranking authority"
+            ),
+        },
+    }
+
+
 def _spanload_trust_status(candidate: dict[str, Any]) -> str:
     fourier_e = candidate["spanload_fourier"].get("target_fourier_e")
     avl_e = candidate["avl_reference_case"].get("avl_e_cdi")
@@ -2584,9 +2710,9 @@ def _twist_objective_components(candidate: dict[str, Any]) -> dict[str, float]:
 def _twist_objective_value(candidate: dict[str, Any]) -> float:
     c = _twist_objective_components(candidate)
     return float(
-        160.0 * c["load_rms"] ** 2
-        + 60.0 * c["load_max_excess"] ** 2
-        + 80.0 * c["e_shortfall"] ** 2
+        24.0 * c["load_rms"] ** 2
+        + 12.0 * c["load_max_excess"] ** 2
+        + 220.0 * c["e_shortfall"] ** 2
         + 0.08 * c["smoothness"]
         + 80.0 * c["range_excess"] ** 2
         + 80.0 * c["abs_twist_excess"] ** 2
@@ -2596,7 +2722,7 @@ def _twist_objective_value(candidate: dict[str, Any]) -> float:
         + 25.0 * c["outer_monotonic_violation"]
         + 70.0 * c["local_util_excess"] ** 2
         + 90.0 * c["outer_util_excess"] ** 2
-        + 8.0 * c["induced_cd"]
+        + 1400.0 * c["induced_cd"]
     )
 
 
@@ -2761,6 +2887,12 @@ def _evaluate_twist_design(
     }
     if stage0_metric and stage0_metric.get("spanload_to_geometry") is not None:
         record["spanload_to_geometry"] = stage0_metric["spanload_to_geometry"]
+    record["outer_loading_diagnostics"] = _outer_loading_diagnostics(
+        station_table=station_table,
+        spanload_gate_health=record["spanload_gate_health"],
+        tip_gate_summary=record["tip_gate_summary"],
+        twist_gate_metrics=twist_gate_metrics,
+    )
     record["objective_components"] = _twist_objective_components(record)
     record["objective_value"] = _twist_objective_value(record)
     record["physical_acceptance"] = _physical_acceptance_status(
@@ -3014,9 +3146,10 @@ def _optimize_regularized_twist_candidate(
         "evaluation_count": int(evaluation_counter[0]),
         "iteration_records": iteration_records,
         "objective_weights": {
-            "load_rms": 160.0,
-            "load_max_excess": 60.0,
-            "e_shortfall": 80.0,
+            "objective_authority": "primary_avl_cdi_and_avl_e_cdi_secondary_target_avl_spanload_match",
+            "load_rms": 24.0,
+            "load_max_excess": 12.0,
+            "e_shortfall": 220.0,
             "smoothness": 0.08,
             "range_excess": 80.0,
             "abs_twist_excess": 80.0,
@@ -3026,7 +3159,7 @@ def _optimize_regularized_twist_candidate(
             "outer_monotonic_violation": 25.0,
             "local_util_excess": 70.0,
             "outer_util_excess": 90.0,
-            "induced_cd": 8.0,
+            "induced_cd": 1400.0,
         },
     }
     best_record["stage0_prefilter"] = {
@@ -3060,6 +3193,7 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
     avl_power = candidate["avl_cdi_power_proxy"]
     match = candidate["avl_match_metrics"]
     twist = candidate.get("twist_gate_metrics", {})
+    outer_diag = candidate.get("outer_loading_diagnostics", {})
     physical = candidate.get("physical_acceptance", {})
     title = f"{str(candidate['status']).title()} candidate"
     if candidate.get("sample_index") is not None:
@@ -3127,6 +3261,19 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"(goal < {SPANLOAD_DELTA_SUCCESS_LIMIT:.2f}); "
         f"AVL e_CDi goal >= {AVL_E_CDI_SUCCESS_FLOOR:.2f}."
     )
+    eta_samples = outer_diag.get("eta_samples", {})
+    if eta_samples:
+        ratio_summary = ", ".join(
+            f"eta {eta}: circ {_format_float(sample.get('avl_to_target_circulation_ratio'), 2)}, "
+            f"cl {_format_float(sample.get('avl_cl_to_target_cl_ratio'), 2)}"
+            for eta, sample in eta_samples.items()
+        )
+        lines.append(
+            "- Outer loading diagnostics: "
+            f"outer_underloaded {outer_diag.get('outer_underloaded')}; "
+            f"{ratio_summary}; "
+            f"drivers {outer_diag.get('e_cdi_loss_diagnosis', {}).get('drivers', [])}."
+        )
     lines.append(
         "- Twist gates: "
         f"range {_format_float(twist.get('twist_range_deg'), 2)} deg, "
@@ -3159,9 +3306,13 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"util {_format_float(worst.get('clmax_utilization'), 3)}."
     )
     lines.append("")
-    lines.append("| eta | y m | chord m | Re | target cl | util | Ainc deg | target circ | AVL cl | AVL circ | d circ |")
-    lines.append("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| eta | y m | chord m | Re | target cl | util | Ainc deg | target circ | AVL cl | AVL circ | AVL/target | d circ |")
+    lines.append("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in candidate.get("station_table", []):
+        avl_target_ratio = _ratio_or_none(
+            row.get("avl_circulation_norm"),
+            row.get("target_circulation_norm"),
+        )
         lines.append(
             "| "
             f"{_format_float(row.get('eta'), 3)} | "
@@ -3174,6 +3325,7 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
             f"{_format_float(row.get('target_circulation_norm'), 3)} | "
             f"{_format_float(row.get('avl_local_cl'), 3)} | "
             f"{_format_float(row.get('avl_circulation_norm'), 3)} | "
+            f"{_format_float(avl_target_ratio, 3)} | "
             f"{_format_float(row.get('target_minus_avl_circulation_norm'), 3)} |"
         )
     lines.append("")
@@ -3186,6 +3338,7 @@ def _leaderboard_candidate_summary(candidate: dict[str, Any]) -> str:
     avl = candidate["avl_reference_case"]
     match = candidate["avl_match_metrics"]
     twist = candidate.get("twist_gate_metrics", {})
+    outer_diag = candidate.get("outer_loading_diagnostics", {})
     return (
         f"sample {candidate['sample_index']}: "
         f"AR {_format_float(geometry['aspect_ratio'], 2)}, "
@@ -3196,7 +3349,8 @@ def _leaderboard_candidate_summary(candidate: dict[str, Any]) -> str:
         f"AVL e_CDi {_format_float(avl.get('avl_e_cdi'), 4)}, "
         f"target max/RMS delta {_format_float(match.get('max_target_avl_circulation_norm_delta'), 3)}/"
         f"{_format_float(match.get('rms_target_avl_circulation_norm_delta'), 3)}, "
-        f"twist pass {twist.get('twist_physical_gates_pass')}"
+        f"twist pass {twist.get('twist_physical_gates_pass')}, "
+        f"outer_underloaded {outer_diag.get('outer_underloaded')}"
     )
 
 
@@ -3349,6 +3503,15 @@ def _engineering_read(report: dict[str, Any]) -> list[str]:
         if item["avl_reference_case"].get("status") == "ok"
     ]
     if avl_ok:
+        outer_underloaded_count = sum(
+            1
+            for item in avl_ok
+            if bool(item.get("outer_loading_diagnostics", {}).get("outer_underloaded", False))
+        )
+        if outer_underloaded_count:
+            read.append(
+                f"{outer_underloaded_count} reported AVL candidates are outer-underloaded; inspect eta 0.82/0.90/0.95 AVL-to-target circulation ratios before trusting e_CDi."
+            )
         max_avl_delta = max(
             abs(float(row.get("target_minus_avl_circulation_norm", 0.0)))
             for item in avl_ok
