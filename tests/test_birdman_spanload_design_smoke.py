@@ -269,6 +269,8 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     )
 
     assert Path(artifacts["avl_file_path"]).is_file()
+    assert Path(artifacts["station_table_csv_path"]).is_file()
+    assert "target_circulation" in Path(artifacts["station_table_csv_path"]).read_text(encoding="utf-8").splitlines()[0]
     metadata = Path(artifacts["vsp_metadata_path"]).read_text(encoding="utf-8")
     script = Path(artifacts["vsp_script_path"]).read_text(encoding="utf-8")
     assert "selected_cst_dat_files" in metadata

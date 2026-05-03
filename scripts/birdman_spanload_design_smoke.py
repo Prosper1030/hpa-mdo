@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+import csv
 from dataclasses import replace
 import json
 import math
@@ -1858,6 +1859,25 @@ def _export_top_candidate_artifacts(
     station_rows = _station_rows_for_export(record)
     station_table_path = bundle_dir / "station_table.json"
     station_table_path.write_text(json.dumps(_round(station_rows), indent=2) + "\n", encoding="utf-8")
+    station_table_csv_path = bundle_dir / "station_table.csv"
+    with station_table_csv_path.open("w", encoding="utf-8", newline="") as handle:
+        fieldnames = list(station_rows[0].keys()) if station_rows else [
+            "eta",
+            "y_m",
+            "chord_m",
+            "twist_deg",
+            "ainc_deg",
+            "dihedral_deg",
+            "reynolds",
+            "target_cl",
+            "avl_cl",
+            "target_circulation",
+            "avl_circulation",
+            "target_avl_delta",
+        ]
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(_round(station_rows))
     concept_id = f"birdman_inverse_chord_sample_{sample_index:04d}"
     script_path, metadata_path = write_concept_openvsp_handoff(
         bundle_dir=bundle_dir,
@@ -1890,6 +1910,7 @@ def _export_top_candidate_artifacts(
         "vsp_script_path": str(script_path),
         "vsp_metadata_path": str(metadata_path),
         "station_table_path": str(station_table_path),
+        "station_table_csv_path": str(station_table_csv_path),
     }
 
 
