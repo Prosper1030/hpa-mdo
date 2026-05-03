@@ -122,3 +122,155 @@ def test_candidate_physical_status_requires_e_load_twist_and_power() -> None:
         },
     }
     assert smoke._physical_acceptance_status(bad_twist)["status"] == "spanload_matched_but_twist_unphysical"
+
+
+def test_inverse_chord_geometry_uses_cl_schedule_not_linear_taper() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+
+    metric, rejection = smoke._build_inverse_chord_stage0_metric(
+        cfg=cfg,
+        sample_index=7,
+        span_m=34.5,
+        tail_volume_coefficient=0.42,
+        a3=-0.06,
+        a5=0.01,
+        cl_controls=(1.16, 1.28, 0.98, 0.55),
+        design_speed_mps=6.8,
+    )
+
+    assert rejection is None
+    assert metric is not None
+    assert metric["spanload_to_geometry"]["mode"] == "inverse_chord_then_inverse_twist"
+    stations = metric["stations"]
+    assert stations[0].chord_m == pytest.approx(metric["geometry"]["root_chord_m"])
+    assert 1.15 <= metric["geometry"]["root_chord_m"] <= 1.45
+    assert metric["geometry"]["tip_chord_m"] >= 0.43
+    assert metric["tip_gate_summary"]["chord_at_aerodynamic_tip_eta_m"] >= 0.42
+    mid_linear_chord = 0.5 * (stations[0].chord_m + stations[-1].chord_m)
+    assert abs(stations[len(stations) // 2].chord_m - mid_linear_chord) > 0.03
+    assert metric["spanload_to_geometry"]["local_cl_schedule"]["control_etas"] == [0.0, 0.35, 0.7, 0.95]
+
+
+def test_new_mode_does_not_reject_on_target_avl_delta_alone() -> None:
+    base = {
+        "avl_reference_case": {"avl_e_cdi": 0.88},
+        "avl_match_metrics": {"max_target_avl_circulation_norm_delta": 0.35, "rms_target_avl_circulation_norm_delta": 0.14},
+        "twist_gate_metrics": {"twist_physical_gates_pass": True},
+        "spanload_gate_health": {
+            "local_margin_to_limit": 0.05,
+            "outer_margin_to_limit": 0.05,
+        },
+        "tip_gate_summary": {"tip_gates_pass": True},
+        "avl_cdi_power_proxy": {"power_margin_w": -30.0},
+    }
+
+    status = smoke._physical_acceptance_status(base, target_delta_is_hard_gate=False)
+
+    assert status["status"] == "physically_acceptable"
+    assert "target_avl_max_delta_exceeded" not in status["failure_reasons"]
+
+
+def test_engineering_leaderboards_include_requested_inverse_chord_boards() -> None:
+    records = [
+        {
+            "sample_index": 1,
+            "status": "physically_acceptable",
+            "geometry": {"aspect_ratio": 38.0},
+            "physical_acceptance": {"physically_acceptable": True, "failure_reasons": []},
+            "avl_reference_case": {"avl_e_cdi": 0.86},
+            "avl_cdi_power_proxy": {"power_required_w": 240.0, "power_margin_w": -20.0},
+            "twist_gate_metrics": {"twist_physical_gates_pass": True},
+            "spanload_gate_health": {"local_margin_to_limit": 0.1, "outer_margin_to_limit": 0.1},
+            "tip_gate_summary": {"tip_gates_pass": True},
+        },
+        {
+            "sample_index": 2,
+            "status": "physically_acceptable",
+            "geometry": {"aspect_ratio": 35.0},
+            "physical_acceptance": {"physically_acceptable": True, "failure_reasons": []},
+            "avl_reference_case": {"avl_e_cdi": 0.91},
+            "avl_cdi_power_proxy": {"power_required_w": 230.0, "power_margin_w": -10.0},
+            "twist_gate_metrics": {"twist_physical_gates_pass": True},
+            "spanload_gate_health": {"local_margin_to_limit": 0.1, "outer_margin_to_limit": 0.1},
+            "tip_gate_summary": {"tip_gates_pass": True},
+        },
+        {
+            "sample_index": 3,
+            "status": "rejected",
+            "geometry": {"aspect_ratio": 40.0},
+            "physical_acceptance": {"physically_acceptable": False, "failure_reasons": ["twist_physical_gates_failed"]},
+            "avl_reference_case": {"avl_e_cdi": 0.89},
+            "avl_cdi_power_proxy": {"power_required_w": 235.0, "power_margin_w": -15.0},
+            "twist_gate_metrics": {"twist_physical_gates_pass": False, "twist_gate_failures": ["twist_range_exceeded"]},
+            "spanload_gate_health": {"local_margin_to_limit": 0.1, "outer_margin_to_limit": 0.1},
+            "tip_gate_summary": {"tip_gates_pass": True},
+        },
+        {
+            "sample_index": 4,
+            "status": "rejected",
+            "geometry": {"aspect_ratio": 41.0},
+            "physical_acceptance": {"physically_acceptable": False, "failure_reasons": ["tip_geometry_gates_failed"]},
+            "avl_reference_case": {"avl_e_cdi": 0.87},
+            "avl_cdi_power_proxy": {"power_required_w": 236.0, "power_margin_w": -16.0},
+            "twist_gate_metrics": {"twist_physical_gates_pass": True},
+            "spanload_gate_health": {"local_margin_to_limit": 0.1, "outer_margin_to_limit": 0.1},
+            "tip_gate_summary": {"tip_gates_pass": False},
+        },
+    ]
+
+    leaderboards = smoke._select_engineering_leaderboards(records, per_board_count=1)
+
+    assert leaderboards["highest_AR_engineering_candidate"][0]["sample_index"] == 1
+    assert leaderboards["best_AVL_e_CDi_candidate"][0]["sample_index"] == 2
+    assert leaderboards["best_AVL_CDi_power_proxy_candidate"][0]["sample_index"] == 2
+    assert leaderboards["closest_rejected_due_to_twist"][0]["sample_index"] == 3
+    assert leaderboards["closest_rejected_due_to_tip_or_local_cl"][0]["sample_index"] == 4
+
+
+def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path: Path) -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    metric, rejection = smoke._build_inverse_chord_stage0_metric(
+        cfg=cfg,
+        sample_index=8,
+        span_m=34.0,
+        tail_volume_coefficient=0.40,
+        a3=-0.05,
+        a5=0.0,
+        cl_controls=(1.16, 1.26, 0.96, 0.58),
+        design_speed_mps=6.8,
+    )
+    assert rejection is None
+    assert metric is not None
+    record = {
+        "sample_index": 8,
+        "geometry": metric["geometry"],
+        "station_table": [
+            {
+                "eta": row["eta"],
+                "y_m": row["y_m"],
+                "chord_m": row["chord_m"],
+                "twist_deg": 0.0,
+                "ainc_deg": 0.0,
+                "dihedral_deg": 0.0,
+            }
+            for row in metric["station_table"]
+        ],
+        "avl_reference_case": {"avl_case_dir": str(tmp_path / "avl_case")},
+    }
+    avl_file = tmp_path / "avl_case" / "concept_wing.avl"
+    avl_file.parent.mkdir(parents=True)
+    avl_file.write_text("SECTION\nAFILE\n", encoding="utf-8")
+
+    artifacts = smoke._export_top_candidate_artifacts(
+        cfg=cfg,
+        record=record,
+        output_dir=tmp_path,
+        rank=1,
+    )
+
+    assert Path(artifacts["avl_file_path"]).is_file()
+    metadata = Path(artifacts["vsp_metadata_path"]).read_text(encoding="utf-8")
+    script = Path(artifacts["vsp_script_path"]).read_text(encoding="utf-8")
+    assert "selected_cst_dat_files" in metadata
+    assert "ReadFileAirfoil" in script
+    assert "NACA 0012" not in script

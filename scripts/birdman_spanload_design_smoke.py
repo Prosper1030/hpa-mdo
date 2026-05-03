@@ -7,9 +7,11 @@ from dataclasses import replace
 import json
 import math
 from pathlib import Path
+import shutil
 from typing import Any
 
 import numpy as np
+from scipy.interpolate import PchipInterpolator
 from scipy.optimize import minimize
 from scipy.stats import qmc
 
@@ -35,6 +37,7 @@ from hpa_mdo.concept.geometry import (
 )
 from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
 from hpa_mdo.concept.pipeline import _sizing_diagnostics
+from hpa_mdo.concept.vsp_export import write_concept_openvsp_handoff
 from hpa_mdo.mission.objective import build_rider_power_curve
 
 
@@ -58,6 +61,8 @@ SPANLOAD_DELTA_SUCCESS_LIMIT = 0.15
 SPANLOAD_RMS_SUCCESS_LIMIT = 0.08
 AVL_E_CDI_SUCCESS_FLOOR = 0.85
 AVL_E_CDI_STRETCH_FLOOR = 0.90
+SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE = "inverse_chord_then_inverse_twist"
+SPANLOAD_TO_GEOMETRY_LINEAR_MODE = "linear_taper_then_inverse_twist"
 STAGE0_SPAN_RANGE_M = (31.0, 35.0)
 STAGE0_MEAN_CHORD_RANGE_M = (0.78, 1.05)
 STAGE0_TAPER_SAMPLE_RANGE = (0.24, 0.42)
@@ -68,6 +73,17 @@ STAGE0_A5_RANGE = (-0.04, 0.04)
 STAGE0_WING_AREA_RANGE_M2 = (26.0, 36.0)
 STAGE0_AR_RANGE = (32.0, 45.0)
 STAGE0_ROOT_CHORD_MIN_M = 1.05
+INVERSE_CHORD_CL_CONTROL_ETAS = (0.0, 0.35, 0.70, 0.95)
+INVERSE_CHORD_CL_CONTROL_BOUNDS = (
+    (1.05, 1.25),
+    (1.15, 1.40),
+    (0.85, 1.15),
+    (0.35, 0.85),
+)
+INVERSE_CHORD_STATION_ETAS = (0.0, 0.16, 0.35, 0.52, 0.70, 0.82, 0.90, 0.95, 1.0)
+INVERSE_CHORD_PHYSICAL_TIP_CHORD_MIN_M = 0.43
+INVERSE_CHORD_ROOT_CHORD_RANGE_M = (1.15, 1.45)
+RESIDUAL_TWIST_MAX_ABS_DEG = 6.0
 
 
 def _round(value: Any, digits: int = 6) -> Any:
@@ -172,6 +188,18 @@ def _linear_chord_at_eta(concept: GeometryConcept, eta: float) -> float:
     )
 
 
+def _chord_at_eta_from_stations(
+    stations: tuple[WingStation, ...] | None,
+    concept: GeometryConcept,
+    eta: float,
+) -> float:
+    if not stations:
+        return _linear_chord_at_eta(concept, eta)
+    etas = _station_etas(stations)
+    chords = [float(station.chord_m) for station in stations]
+    return _linear_interp(tuple(etas), tuple(chords), float(eta))
+
+
 def _tip_required_chord_m_for_speed(
     cfg: BirdmanConceptConfig,
     *,
@@ -225,11 +253,12 @@ def _tip_gate_summary(
     cfg: BirdmanConceptConfig,
     concept: GeometryConcept,
     design_speed_mps: float,
+    stations: tuple[WingStation, ...] | None = None,
 ) -> dict[str, Any]:
     tip_protection = cfg.geometry_family.planform_tip_protection
     air = _air_properties(cfg)
     eta = float(tip_protection.aerodynamic_tip_station_eta)
-    chord_eta_m = _linear_chord_at_eta(concept, eta)
+    chord_eta_m = _chord_at_eta_from_stations(stations, concept, eta)
     tip_re = (
         float(air.density_kg_per_m3)
         * float(design_speed_mps)
@@ -374,6 +403,7 @@ def _target_local_record_at_eta(
     concept: GeometryConcept,
     solution: dict[str, Any],
     eta: float,
+    chord_m: float | None = None,
 ) -> dict[str, float]:
     eta_clamped = min(max(float(eta), 0.0), 1.0)
     shape = _fourier_spanload_shape(
@@ -381,13 +411,19 @@ def _target_local_record_at_eta(
         a5_over_a1=float(concept.spanload_a5_over_a1),
         eta=eta_clamped,
     )
-    chord_m = _linear_chord_at_eta(concept, eta_clamped)
-    local_cl = float(solution["cl_scale"]) * float(shape) / max(chord_m, 1.0e-9)
+    local_chord_m = (
+        _linear_chord_at_eta(concept, eta_clamped)
+        if chord_m is None
+        else float(chord_m)
+    )
+    local_cl = float(solution["cl_scale"]) * float(shape) / max(local_chord_m, 1.0e-9)
+    target_circulation_proxy = 0.5 * float(solution["design_speed_mps"]) * local_chord_m * local_cl
     return {
         "eta": float(eta_clamped),
-        "chord_m": float(chord_m),
+        "chord_m": float(local_chord_m),
         "shape": float(shape),
         "target_circulation_norm": float(shape / max(float(solution["max_shape"]), 1.0e-9)),
+        "target_circulation_proxy": float(target_circulation_proxy),
         "target_local_cl": float(local_cl),
     }
 
@@ -418,7 +454,13 @@ def _target_station_records(
     )
     integration_records: list[dict[str, float]] = []
     for eta in sorted(min(max(float(value), 0.0), 1.0) for value in target_etas):
-        local = _target_local_record_at_eta(concept=concept, solution=solution, eta=eta)
+        chord_m = _chord_at_eta_from_stations(stations, concept, eta)
+        local = _target_local_record_at_eta(
+            concept=concept,
+            solution=solution,
+            eta=eta,
+            chord_m=chord_m,
+        )
         integration_records.append(
             {
                 "eta": float(eta),
@@ -448,7 +490,12 @@ def _target_station_records(
         eta = float(record["eta"])
         y_m = float(record["y_m"])
         chord_m = float(record["chord_m"])
-        local = _target_local_record_at_eta(concept=concept, solution=solution, eta=eta)
+        local = _target_local_record_at_eta(
+            concept=concept,
+            solution=solution,
+            eta=eta,
+            chord_m=chord_m,
+        )
         shape = float(local["shape"])
         local_cl = float(local["target_local_cl"])
         utilization = local_cl / max(safe_clmax, 1.0e-9)
@@ -465,6 +512,7 @@ def _target_station_records(
             "reynolds": float(reynolds),
             "target_circulation_shape": float(shape),
             "target_circulation_norm": float(local["target_circulation_norm"]),
+            "target_circulation_proxy": float(local["target_circulation_proxy"]),
             "target_local_cl": float(local_cl),
             "target_clmax_safe_floor": float(safe_clmax),
             "target_clmax_utilization": float(utilization),
@@ -498,7 +546,12 @@ def _target_station_records(
     station_records: list[dict[str, Any]] = []
     for station in stations:
         eta = 0.0 if half_span_m <= 0.0 else min(max(float(station.y_m) / half_span_m, 0.0), 1.0)
-        local = _target_local_record_at_eta(concept=concept, solution=solution, eta=eta)
+        local = _target_local_record_at_eta(
+            concept=concept,
+            solution=solution,
+            eta=eta,
+            chord_m=float(station.chord_m),
+        )
         shape = float(local["shape"])
         local_cl = float(local["target_local_cl"])
         utilization = local_cl / max(safe_clmax, 1.0e-9)
@@ -517,6 +570,7 @@ def _target_station_records(
                 "reynolds": float(reynolds),
                 "target_circulation_shape": float(shape),
                 "target_circulation_norm": float(local["target_circulation_norm"]),
+                "target_circulation_proxy": float(local["target_circulation_proxy"]),
                 "target_local_cl": float(local_cl),
                 "target_clmax_safe_floor": float(safe_clmax),
                 "target_clmax_utilization": float(utilization),
@@ -675,12 +729,12 @@ def _scale_range(bounds: tuple[float, float], unit_value: float) -> float:
     return float(low + float(unit_value) * (high - low))
 
 
-def _sample_stage0_units(*, sample_count: int, seed: int) -> np.ndarray:
+def _sample_stage0_units(*, sample_count: int, seed: int, dimensions: int = 6) -> np.ndarray:
     # Sobol prefers powers of two. random() works for arbitrary N but emits a scipy
     # warning; random_base2 keeps the sequence balanced and we trim to the requested N.
     count = max(1, int(sample_count))
     exponent = int(math.ceil(math.log2(count)))
-    sampler = qmc.Sobol(d=6, seed=int(seed), scramble=True)
+    sampler = qmc.Sobol(d=int(dimensions), seed=int(seed), scramble=True)
     return sampler.random_base2(m=exponent)[:count]
 
 
@@ -689,6 +743,384 @@ def _median_candidate(values: tuple[float, ...] | list[float], default: float) -
         return float(default)
     sorted_values = sorted(float(value) for value in values)
     return float(sorted_values[len(sorted_values) // 2])
+
+
+def _cl_schedule_values(
+    cl_controls: tuple[float, float, float, float] | list[float],
+    etas: tuple[float, ...] | list[float],
+) -> list[float]:
+    if len(cl_controls) != len(INVERSE_CHORD_CL_CONTROL_ETAS):
+        raise ValueError("cl_controls must match INVERSE_CHORD_CL_CONTROL_ETAS.")
+    interpolator = PchipInterpolator(
+        np.asarray(INVERSE_CHORD_CL_CONTROL_ETAS, dtype=float),
+        np.asarray(tuple(float(value) for value in cl_controls), dtype=float),
+        extrapolate=True,
+    )
+    values = interpolator(np.asarray(tuple(float(eta) for eta in etas), dtype=float))
+    return [float(max(0.05, value)) for value in values]
+
+
+def _integrate_station_chords(stations: tuple[WingStation, ...]) -> float:
+    if len(stations) < 2:
+        return 0.0
+    half_area = 0.0
+    for left, right in zip(stations[:-1], stations[1:]):
+        dy_m = float(right.y_m) - float(left.y_m)
+        half_area += 0.5 * dy_m * (float(left.chord_m) + float(right.chord_m))
+    return float(2.0 * half_area)
+
+
+def _inverse_chord_target_solution(
+    *,
+    cfg: BirdmanConceptConfig,
+    span_m: float,
+    a3: float,
+    a5: float,
+    design_speed_mps: float,
+) -> dict[str, Any]:
+    air = _air_properties(cfg)
+    half_span_m = 0.5 * float(span_m)
+    integration_etas = np.linspace(0.0, 1.0, 401)
+    shapes = [
+        max(0.0, _fourier_spanload_shape(a3_over_a1=float(a3), a5_over_a1=float(a5), eta=float(eta)))
+        for eta in integration_etas
+    ]
+    shape_integral_m = float(
+        np.trapezoid(
+            np.asarray(shapes, dtype=float),
+            x=np.asarray(integration_etas, dtype=float) * half_span_m,
+        )
+    )
+    design_weight_n = float(cfg.mass.design_gross_mass_kg) * G_MPS2
+    gamma_scale = design_weight_n / max(
+        2.0 * float(air.density_kg_per_m3) * float(design_speed_mps) * shape_integral_m,
+        1.0e-9,
+    )
+    cl_scale = 2.0 * gamma_scale / max(float(design_speed_mps), 1.0e-9)
+    return {
+        "air_properties": air,
+        "span_m": float(span_m),
+        "half_span_m": float(half_span_m),
+        "design_speed_mps": float(design_speed_mps),
+        "design_mass_kg": float(cfg.mass.design_gross_mass_kg),
+        "design_weight_n": float(design_weight_n),
+        "shape_integral_m": float(shape_integral_m),
+        "gamma_scale_m2ps": float(gamma_scale),
+        "cl_scale": float(cl_scale),
+        "max_shape": float(max(shapes, default=1.0)),
+    }
+
+
+def _inverse_chord_build_stations(
+    *,
+    cfg: BirdmanConceptConfig,
+    span_m: float,
+    a3: float,
+    a5: float,
+    cl_controls: tuple[float, float, float, float] | list[float],
+    design_speed_mps: float,
+) -> tuple[tuple[WingStation, ...], dict[str, Any]]:
+    half_span_m = 0.5 * float(span_m)
+    etas = tuple(float(value) for value in INVERSE_CHORD_STATION_ETAS)
+    cl_values = _cl_schedule_values(cl_controls, etas)
+    target = _inverse_chord_target_solution(
+        cfg=cfg,
+        span_m=span_m,
+        a3=a3,
+        a5=a5,
+        design_speed_mps=design_speed_mps,
+    )
+    tip_required_m = max(
+        INVERSE_CHORD_PHYSICAL_TIP_CHORD_MIN_M,
+        _tip_required_chord_m_for_speed(cfg, design_speed_mps=design_speed_mps),
+    )
+    tip_eta_chord_min_m = max(
+        float(cfg.geometry_family.planform_tip_protection.require_chord_at_eta_0p95_min_m),
+        _tip_required_chord_m_for_speed(cfg, design_speed_mps=design_speed_mps),
+    )
+    raw_chords: list[float] = []
+    for eta, local_cl in zip(etas, cl_values, strict=True):
+        eta_for_lift = min(float(eta), float(cfg.geometry_family.planform_tip_protection.aerodynamic_tip_station_eta))
+        shape = max(
+            0.0,
+            _fourier_spanload_shape(a3_over_a1=float(a3), a5_over_a1=float(a5), eta=eta_for_lift),
+        )
+        chord_m = float(target["cl_scale"]) * shape / max(float(local_cl), 1.0e-9)
+        if math.isclose(eta, 0.95, abs_tol=1.0e-9):
+            chord_m = max(chord_m, tip_eta_chord_min_m)
+        if math.isclose(eta, 1.0, abs_tol=1.0e-9):
+            chord_m = max(tip_required_m, raw_chords[-1] if raw_chords else tip_required_m)
+        raw_chords.append(float(chord_m))
+
+    fitted_chords = list(raw_chords)
+    root_low, root_high = INVERSE_CHORD_ROOT_CHORD_RANGE_M
+    root_scale = 1.0
+    if fitted_chords[0] < root_low:
+        root_scale = float(root_low / max(fitted_chords[0], 1.0e-9))
+    elif fitted_chords[0] > root_high:
+        root_scale = float(root_high / max(fitted_chords[0], 1.0e-9))
+    if not math.isclose(root_scale, 1.0):
+        fitted_chords = [max(tip_required_m, chord * root_scale) for chord in fitted_chords]
+    fitted_chords[-2] = max(fitted_chords[-2], tip_eta_chord_min_m)
+    fitted_chords[-1] = max(fitted_chords[-1], tip_required_m, 0.95 * fitted_chords[-2])
+
+    stations = tuple(
+        WingStation(
+            y_m=float(eta * half_span_m),
+            chord_m=float(chord_m),
+            twist_deg=float(TWIST_ROOT_ANCHOR_DEG),
+            dihedral_deg=_linear_interp(
+                (0.0, 1.0),
+                (
+                    _median_candidate(cfg.geometry_family.dihedral_root_deg_candidates, 0.0),
+                    _median_candidate(cfg.geometry_family.dihedral_tip_deg_candidates, 6.0),
+                ),
+                float(eta),
+            ),
+        )
+        for eta, chord_m in zip(etas, fitted_chords, strict=True)
+    )
+    adjacent_ratios = [
+        max(left, right) / max(min(left, right), 1.0e-9)
+        for left, right in zip(fitted_chords[:-1], fitted_chords[1:])
+    ]
+    slope_changes = [
+        abs(right - 2.0 * center + left)
+        for left, center, right in zip(fitted_chords[:-2], fitted_chords[1:-1], fitted_chords[2:])
+    ]
+    return stations, {
+        "mode": SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE,
+        "stage_a_fourier_target": _fourier_efficiency(a3, a5),
+        "local_cl_schedule": {
+            "model": "pchip_b_spline_control_schedule",
+            "control_etas": [float(value) for value in INVERSE_CHORD_CL_CONTROL_ETAS],
+            "control_bounds": [
+                [float(low), float(high)] for low, high in INVERSE_CHORD_CL_CONTROL_BOUNDS
+            ],
+            "control_values": [float(value) for value in cl_controls],
+            "station_values": [
+                {"eta": float(eta), "target_cl": float(cl)}
+                for eta, cl in zip(etas, cl_values, strict=True)
+            ],
+        },
+        "inverse_chord": {
+            "formula": "c_y_eq_2_gamma_target_over_v_cl_design",
+            "station_etas": [float(value) for value in etas],
+            "raw_chords_m": [float(value) for value in raw_chords],
+            "fitted_chords_m": [float(value) for value in fitted_chords],
+            "root_scale_applied": float(root_scale),
+            "max_adjacent_chord_ratio": float(max(adjacent_ratios, default=1.0)),
+            "max_chord_second_difference_m": float(max(slope_changes, default=0.0)),
+            "physical_tip_not_primary_lifting_station": True,
+            "chord_eta_0p95_min_m": float(tip_eta_chord_min_m),
+            "physical_tip_chord_min_m": float(tip_required_m),
+        },
+        "target_solution": {
+            key: value
+            for key, value in target.items()
+            if key != "air_properties"
+        },
+    }
+
+
+def _inverse_chord_gate_failures(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    spanload_to_geometry: dict[str, Any],
+    design_speed_mps: float,
+) -> list[str]:
+    failures: list[str] = []
+    root_low, root_high = INVERSE_CHORD_ROOT_CHORD_RANGE_M
+    if concept.root_chord_m < root_low or concept.root_chord_m > root_high:
+        failures.append("inverse_chord_root_chord_outside_hpa_range")
+    if concept.wing_area_m2 < STAGE0_WING_AREA_RANGE_M2[0]:
+        failures.append("wing_area_below_optimizer_min")
+    if concept.wing_area_m2 > STAGE0_WING_AREA_RANGE_M2[1]:
+        failures.append("wing_area_above_optimizer_max")
+    if concept.aspect_ratio < STAGE0_AR_RANGE[0]:
+        failures.append("aspect_ratio_below_optimizer_min")
+    if concept.aspect_ratio > STAGE0_AR_RANGE[1]:
+        failures.append("aspect_ratio_above_optimizer_max")
+    if concept.tip_chord_m < INVERSE_CHORD_PHYSICAL_TIP_CHORD_MIN_M:
+        failures.append("inverse_chord_physical_tip_chord_below_min")
+    chord_eta_0p95 = _chord_at_eta_from_stations(stations, concept, 0.95)
+    if chord_eta_0p95 < float(cfg.geometry_family.planform_tip_protection.require_chord_at_eta_0p95_min_m):
+        failures.append("inverse_chord_eta_0p95_chord_below_min")
+    inverse_chord = spanload_to_geometry.get("inverse_chord", {})
+    if float(inverse_chord.get("max_adjacent_chord_ratio", 1.0)) > 1.45:
+        failures.append("sharp_chord_kink_ratio_without_joint")
+    if float(inverse_chord.get("max_chord_second_difference_m", 0.0)) > 0.35:
+        failures.append("sharp_chord_kink_curvature_without_joint")
+    air = _air_properties(cfg)
+    tip_re = (
+        float(air.density_kg_per_m3)
+        * float(design_speed_mps)
+        * float(concept.tip_chord_m)
+        / max(float(air.dynamic_viscosity_pa_s), 1.0e-12)
+    )
+    if tip_re < float(cfg.geometry_family.planform_tip_protection.tip_re_abs_min):
+        failures.append("inverse_chord_physical_tip_re_below_abs_min")
+    return failures
+
+
+def _make_inverse_chord_concept(
+    *,
+    cfg: BirdmanConceptConfig,
+    span_m: float,
+    tail_volume_coefficient: float,
+    a3: float,
+    a5: float,
+    stations: tuple[WingStation, ...],
+) -> GeometryConcept:
+    wing_area_m2 = _integrate_station_chords(stations)
+    root_chord_m = float(stations[0].chord_m)
+    tip_chord_m = float(stations[-1].chord_m)
+    tail_area_m2 = (
+        float(tail_volume_coefficient)
+        * wing_area_m2
+        / max(float(cfg.tail_model.tail_arm_to_mac), 1.0e-9)
+    )
+    twist_control_points = (
+        (0.0, float(TWIST_ROOT_ANCHOR_DEG)),
+        (0.35, 0.7),
+        (0.70, -0.6),
+        (1.0, -1.8),
+    )
+    segment_lengths_m = tuple(
+        float(right.y_m - left.y_m)
+        for left, right in zip(stations[:-1], stations[1:])
+    )
+    return GeometryConcept(
+        span_m=float(span_m),
+        wing_area_m2=float(wing_area_m2),
+        root_chord_m=float(root_chord_m),
+        tip_chord_m=float(tip_chord_m),
+        twist_root_deg=float(TWIST_ROOT_ANCHOR_DEG),
+        twist_tip_deg=float(twist_control_points[-1][1]),
+        twist_control_points=twist_control_points,
+        spanload_bias=0.0,
+        spanload_a3_over_a1=float(a3),
+        spanload_a5_over_a1=float(a5),
+        dihedral_root_deg=_median_candidate(cfg.geometry_family.dihedral_root_deg_candidates, 0.0),
+        dihedral_tip_deg=_median_candidate(cfg.geometry_family.dihedral_tip_deg_candidates, 6.0),
+        dihedral_exponent=_median_candidate(cfg.geometry_family.dihedral_exponent_candidates, 1.5),
+        tail_area_m2=float(tail_area_m2),
+        tail_area_source="derived_from_tail_volume_coefficient",
+        tail_volume_coefficient=float(tail_volume_coefficient),
+        cg_xc=float(cfg.geometry_family.cg_xc),
+        segment_lengths_m=segment_lengths_m,
+        wing_loading_target_Npm2=float(cfg.design_gross_weight_n / max(wing_area_m2, 1.0e-9)),
+        mean_chord_target_m=float(wing_area_m2 / max(float(span_m), 1.0e-9)),
+        wing_area_is_derived=True,
+        planform_parameterization="spanload_inverse_chord",
+        design_gross_mass_kg=float(cfg.mass.design_gross_mass_kg),
+    )
+
+
+def _build_inverse_chord_stage0_metric(
+    *,
+    cfg: BirdmanConceptConfig,
+    sample_index: int,
+    span_m: float,
+    tail_volume_coefficient: float,
+    a3: float,
+    a5: float,
+    cl_controls: tuple[float, float, float, float] | list[float],
+    design_speed_mps: float,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    stations, spanload_to_geometry = _inverse_chord_build_stations(
+        cfg=cfg,
+        span_m=float(span_m),
+        a3=float(a3),
+        a5=float(a5),
+        cl_controls=cl_controls,
+        design_speed_mps=float(design_speed_mps),
+    )
+    concept = _make_inverse_chord_concept(
+        cfg=cfg,
+        span_m=float(span_m),
+        tail_volume_coefficient=float(tail_volume_coefficient),
+        a3=float(a3),
+        a5=float(a5),
+        stations=stations,
+    )
+    station_table, target_summary = _target_station_records(
+        cfg=cfg,
+        concept=concept,
+        stations=stations,
+        design_speed_mps=design_speed_mps,
+    )
+    health = _spanload_gate_health(target_summary, cfg)
+    fourier = _fourier_efficiency(float(a3), float(a5))
+    tip_summary = _tip_gate_summary(
+        cfg=cfg,
+        concept=concept,
+        stations=stations,
+        design_speed_mps=design_speed_mps,
+    )
+    spanload_cfg = cfg.geometry_family.spanload_design
+    gate_failures = _inverse_chord_gate_failures(
+        cfg=cfg,
+        concept=concept,
+        stations=stations,
+        spanload_to_geometry=spanload_to_geometry,
+        design_speed_mps=design_speed_mps,
+    )
+    if fourier["outer_loading_ratio_eta_0p90"] > float(
+        spanload_cfg.outer_loading_eta_0p90_max_ratio_to_ellipse
+    ) or fourier["outer_loading_ratio_eta_0p95"] > float(
+        spanload_cfg.outer_loading_eta_0p95_max_ratio_to_ellipse
+    ):
+        gate_failures.append("outer_loading_ratio_above_max")
+    if not bool(tip_summary["tip_gates_pass"]):
+        gate_failures.append("tip_geometry_gates_failed")
+    if float(health["local_margin_to_limit"]) < 0.0 or float(health["outer_margin_to_limit"]) < 0.0:
+        gate_failures.append("spanload_local_or_outer_utilization_failed")
+    target_power_proxy = _mission_power_proxy(
+        cfg=cfg,
+        concept=concept,
+        design_speed_mps=design_speed_mps,
+    )
+    metric = {
+        "sample_index": int(sample_index),
+        "concept": concept,
+        "stations": stations,
+        "geometry": _geometry_summary(concept),
+        "spanload_to_geometry": spanload_to_geometry,
+        "spanload_fourier": fourier,
+        "spanload_gate_health": health,
+        "tip_gate_summary": tip_summary,
+        "target_fourier_power_proxy": target_power_proxy,
+        "avl_cdi_power_proxy": {
+            **target_power_proxy,
+            "model": "stage0_placeholder_uses_target_fourier_cdi_until_avl",
+        },
+        "station_table": station_table,
+        "gate_station_table": target_summary["gate_station_table"],
+        "worst_station": target_summary["worst_station"],
+        "stage0_prefilter_status": "accepted" if not gate_failures else "rejected",
+    }
+    if not gate_failures:
+        return metric, None
+    reason = str(gate_failures[0])
+    rejection = {
+        "sample_index": int(sample_index),
+        "reason": reason,
+        "details": {
+            "gate_failures": sorted(set(gate_failures)),
+            "spanload_gate_health": health,
+            "tip_gate_summary": tip_summary,
+            "spanload_to_geometry": spanload_to_geometry,
+        },
+        "geometry": metric["geometry"],
+        "metric": metric,
+        "severity_ratio": _stage0_rejection_severity(
+            {"reason": reason, "details": {"gate_failures": len(gate_failures)}}
+        ),
+    }
+    return None, rejection
 
 
 def _make_stage0_concept(
@@ -1039,6 +1471,53 @@ def _stage0_sobol_prefilter(
     }
 
 
+def _stage0_inverse_chord_sobol_prefilter(
+    *,
+    cfg: BirdmanConceptConfig,
+    sample_count: int,
+    design_speed_mps: float,
+    seed: int,
+) -> dict[str, Any]:
+    units = _sample_stage0_units(sample_count=sample_count, seed=seed, dimensions=8)
+    accepted: list[dict[str, Any]] = []
+    rejected: list[dict[str, Any]] = []
+    for sample_index, unit_row in enumerate(units, start=1):
+        span_m = _scale_range(STAGE0_SPAN_RANGE_M, float(unit_row[0]))
+        tail_volume = _scale_range(STAGE0_TAIL_VOLUME_RANGE, float(unit_row[1]))
+        a3 = _scale_range(STAGE0_A3_RANGE, float(unit_row[2]))
+        a5 = _scale_range(STAGE0_A5_RANGE, float(unit_row[3]))
+        cl_controls = tuple(
+            _scale_range(bounds, float(unit_row[index]))
+            for index, bounds in enumerate(INVERSE_CHORD_CL_CONTROL_BOUNDS, start=4)
+        )
+        metric, rejection = _build_inverse_chord_stage0_metric(
+            cfg=cfg,
+            sample_index=sample_index,
+            span_m=span_m,
+            tail_volume_coefficient=tail_volume,
+            a3=a3,
+            a5=a5,
+            cl_controls=cl_controls,
+            design_speed_mps=design_speed_mps,
+        )
+        if metric is not None:
+            accepted.append(metric)
+        elif rejection is not None:
+            rejected.append(rejection)
+    return {
+        "accepted": accepted,
+        "rejected": rejected,
+        "counts": {
+            "requested": int(sample_count),
+            "accepted": len(accepted),
+            "rejected": len(rejected),
+            "rejection_reason_counts": dict(
+                Counter(str(item["reason"]) for item in rejected)
+            ),
+        },
+    }
+
+
 def _select_stage1_inputs(
     accepted_metrics: list[dict[str, Any]],
     *,
@@ -1144,6 +1623,86 @@ def _select_accepted_leaderboards(
     }
 
 
+def _record_is_engineering_candidate(record: dict[str, Any]) -> bool:
+    physical = record.get("physical_acceptance", {})
+    if bool(physical.get("physically_acceptable", False)):
+        return True
+    return str(record.get("status")) == "physically_acceptable"
+
+
+def _select_engineering_leaderboards(
+    records: list[dict[str, Any]],
+    *,
+    per_board_count: int,
+) -> dict[str, list[dict[str, Any]]]:
+    count = max(0, int(per_board_count))
+    accepted = [record for record in records if _record_is_engineering_candidate(record)]
+    rejected = [record for record in records if not _record_is_engineering_candidate(record)]
+
+    def _failure_text(record: dict[str, Any]) -> str:
+        reasons = record.get("physical_acceptance", {}).get("failure_reasons", [])
+        twist_failures = record.get("twist_gate_metrics", {}).get("twist_gate_failures", [])
+        return " ".join(str(item) for item in [*reasons, *twist_failures])
+
+    twist_rejected = [
+        record
+        for record in rejected
+        if "twist" in _failure_text(record) or not bool(
+            record.get("twist_gate_metrics", {}).get("twist_physical_gates_pass", True)
+        )
+    ]
+    tip_local_rejected = [
+        record
+        for record in rejected
+        if any(
+            token in _failure_text(record)
+            for token in ("tip", "local_cl", "outer_cl", "utilization", "chord")
+        )
+        or not bool(record.get("tip_gate_summary", {}).get("tip_gates_pass", True))
+    ]
+    return {
+        "highest_AR_engineering_candidate": sorted(
+            accepted,
+            key=lambda record: (
+                -float(record["geometry"]["aspect_ratio"]),
+                int(record["sample_index"]),
+            ),
+        )[:count],
+        "best_AVL_e_CDi_candidate": sorted(
+            accepted,
+            key=lambda record: (
+                -float(record.get("avl_reference_case", {}).get("avl_e_cdi") or -1.0),
+                float(record.get("avl_cdi_power_proxy", {}).get("power_required_w") or float("inf")),
+                int(record["sample_index"]),
+            ),
+        )[:count],
+        "best_AVL_CDi_power_proxy_candidate": sorted(
+            accepted,
+            key=lambda record: (
+                float(record.get("avl_cdi_power_proxy", {}).get("power_required_w") or float("inf")),
+                -float(record.get("avl_reference_case", {}).get("avl_e_cdi") or -1.0),
+                int(record["sample_index"]),
+            ),
+        )[:count],
+        "closest_rejected_due_to_twist": sorted(
+            twist_rejected,
+            key=lambda record: (
+                float(record.get("objective_value", float("inf"))),
+                -float(record.get("geometry", {}).get("aspect_ratio", 0.0)),
+                int(record.get("sample_index") or 0),
+            ),
+        )[:count],
+        "closest_rejected_due_to_tip_or_local_cl": sorted(
+            tip_local_rejected,
+            key=lambda record: (
+                float(record.get("objective_value", float("inf"))),
+                -float(record.get("geometry", {}).get("aspect_ratio", 0.0)),
+                int(record.get("sample_index") or 0),
+            ),
+        )[:count],
+    }
+
+
 def _leaderboard_memberships(
     leaderboards: dict[str, list[dict[str, Any]]],
 ) -> dict[int, list[str]]:
@@ -1190,6 +1749,187 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _read_airfoil_dat_coordinates(path: Path) -> tuple[str, list[list[float]]]:
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    title = Path(path).stem
+    coordinates: list[list[float]] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        parts = stripped.split()
+        if len(parts) < 2:
+            title = stripped
+            continue
+        try:
+            coordinates.append([float(parts[0]), float(parts[1])])
+        except ValueError:
+            title = stripped
+    if len(coordinates) < 3:
+        raise ValueError(f"Airfoil dat file has too few coordinates: {path}")
+    return title, coordinates
+
+
+def _seed_airfoil_templates() -> dict[str, Any]:
+    fx_title, fx_coordinates = _read_airfoil_dat_coordinates(Path("data/airfoils/fx76mp140.dat"))
+    clark_title, clark_coordinates = _read_airfoil_dat_coordinates(Path("data/airfoils/clarkysm.dat"))
+    return {
+        "root": {
+            "template_id": fx_title,
+            "source_file": "data/airfoils/fx76mp140.dat",
+            "geometry_hash": "seedfx76mp140",
+            "coordinates": fx_coordinates,
+        },
+        "mid1": {
+            "template_id": fx_title,
+            "source_file": "data/airfoils/fx76mp140.dat",
+            "geometry_hash": "seedfx76mp140",
+            "coordinates": fx_coordinates,
+        },
+        "mid2": {
+            "template_id": clark_title,
+            "source_file": "data/airfoils/clarkysm.dat",
+            "geometry_hash": "seedclarkysm",
+            "coordinates": clark_coordinates,
+        },
+        "tip": {
+            "template_id": clark_title,
+            "source_file": "data/airfoils/clarkysm.dat",
+            "geometry_hash": "seedclarkysm",
+            "coordinates": clark_coordinates,
+        },
+    }
+
+
+def _seed_zone_airfoil_paths() -> dict[str, Path]:
+    return {
+        "root": Path("data/airfoils/fx76mp140.dat").resolve(),
+        "mid1": Path("data/airfoils/fx76mp140.dat").resolve(),
+        "mid2": Path("data/airfoils/clarkysm.dat").resolve(),
+        "tip": Path("data/airfoils/clarkysm.dat").resolve(),
+    }
+
+
+def _station_rows_for_export(record: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = record.get("station_table") or []
+    if not rows:
+        return []
+    export_rows: list[dict[str, Any]] = []
+    for row in rows:
+        export_rows.append(
+            {
+                "eta": float(row.get("eta", 0.0)),
+                "y_m": float(row["y_m"]),
+                "chord_m": float(row["chord_m"]),
+                "twist_deg": float(row.get("twist_deg", row.get("ainc_deg", 0.0))),
+                "ainc_deg": float(row.get("ainc_deg", row.get("twist_deg", 0.0))),
+                "dihedral_deg": float(row.get("dihedral_deg", 0.0)),
+                "reynolds": row.get("reynolds"),
+                "target_cl": row.get("target_local_cl"),
+                "avl_cl": row.get("avl_local_cl"),
+                "target_circulation": row.get("target_circulation_proxy"),
+                "avl_circulation": row.get("avl_circulation_proxy"),
+                "target_avl_delta": row.get("target_minus_avl_circulation_norm"),
+            }
+        )
+    return export_rows
+
+
+def _export_top_candidate_artifacts(
+    *,
+    cfg: BirdmanConceptConfig,
+    record: dict[str, Any],
+    output_dir: Path,
+    rank: int,
+) -> dict[str, str]:
+    sample_index = int(record.get("sample_index") or rank)
+    bundle_dir = Path(output_dir) / "top_candidate_exports" / f"rank_{int(rank):02d}_sample_{sample_index:04d}"
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+
+    avl_record = record.get("avl_reference_case", {})
+    avl_source = avl_record.get("avl_file_path")
+    if avl_source is None and avl_record.get("avl_case_dir") is not None:
+        avl_source = str(Path(str(avl_record["avl_case_dir"])) / "concept_wing.avl")
+    avl_target = bundle_dir / "concept_wing.avl"
+    if avl_source is not None and Path(str(avl_source)).is_file():
+        shutil.copyfile(Path(str(avl_source)), avl_target)
+
+    station_rows = _station_rows_for_export(record)
+    station_table_path = bundle_dir / "station_table.json"
+    station_table_path.write_text(json.dumps(_round(station_rows), indent=2) + "\n", encoding="utf-8")
+    concept_id = f"birdman_inverse_chord_sample_{sample_index:04d}"
+    script_path, metadata_path = write_concept_openvsp_handoff(
+        bundle_dir=bundle_dir,
+        concept_id=concept_id,
+        concept_config={
+            "name": concept_id,
+            "geometry": record.get("geometry", {}),
+            "tail_model": {
+                "tail_arm_to_mac": float(cfg.tail_model.tail_arm_to_mac),
+                "tail_aspect_ratio": float(cfg.tail_model.tail_aspect_ratio),
+            },
+        },
+        stations_rows=station_rows,
+        airfoil_templates=_seed_airfoil_templates(),
+        lofting_guides={
+            "source": SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE,
+            "note": "actual_station_chord_and_residual_ainc_export_no_naca0012_main_wing_fallback",
+        },
+        prop_assumption={},
+        concept_summary={
+            "sample_index": sample_index,
+            "leaderboard_memberships": record.get("leaderboard_memberships", []),
+            "avl_reference_case": record.get("avl_reference_case", {}),
+            "spanload_fourier": record.get("spanload_fourier", {}),
+        },
+    )
+    return {
+        "bundle_dir": str(bundle_dir),
+        "avl_file_path": str(avl_target),
+        "vsp_script_path": str(script_path),
+        "vsp_metadata_path": str(metadata_path),
+        "station_table_path": str(station_table_path),
+    }
+
+
+def _export_top_candidates(
+    *,
+    cfg: BirdmanConceptConfig,
+    records: list[dict[str, Any]],
+    output_dir: Path,
+    count: int,
+) -> list[dict[str, Any]]:
+    unique_records: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for record in records:
+        sample_index = int(record.get("sample_index") or -1)
+        if sample_index in seen:
+            continue
+        seen.add(sample_index)
+        unique_records.append(record)
+    artifacts: list[dict[str, Any]] = []
+    for rank, record in enumerate(unique_records[: max(0, int(count))], start=1):
+        try:
+            paths = _export_top_candidate_artifacts(
+                cfg=cfg,
+                record=record,
+                output_dir=output_dir,
+                rank=rank,
+            )
+            record["export_artifacts"] = paths
+            artifacts.append({"sample_index": record.get("sample_index"), **paths})
+        except Exception as exc:  # noqa: BLE001 - preserve smoke report even when VSP export fails.
+            artifacts.append(
+                {
+                    "sample_index": record.get("sample_index"),
+                    "rank": rank,
+                    "status": "export_failed",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+    return artifacts
+
+
 def _run_reference_avl_case(
     *,
     cfg: BirdmanConceptConfig,
@@ -1211,7 +1951,7 @@ def _run_reference_avl_case(
         concept=concept,
         stations=stations,
         output_path=case_dir / "concept_wing.avl",
-        zone_airfoil_paths=None,
+        zone_airfoil_paths=_seed_zone_airfoil_paths(),
     )
     dynamic_pressure_pa = 0.5 * float(air.density_kg_per_m3) * float(design_speed_mps) ** 2
     cl_required = (
@@ -1263,6 +2003,8 @@ def _run_reference_avl_case(
         return {
             "status": "failed",
             "error": str(exc),
+            "avl_file_path": str(avl_path),
+            "avl_case_dir": str(case_dir),
             "case_label": CASE_LABEL,
             "evaluation_speed_mps": float(design_speed_mps),
             "evaluation_gross_mass_kg": float(design_mass_kg),
@@ -1295,6 +2037,7 @@ def _run_reference_avl_case(
         "avl_e_cdi": e_cdi,
         "avl_reported_e": trim_totals.get("span_efficiency"),
         "ranking_authority_status": status_for_ranking,
+        "avl_file_path": str(avl_path),
         "avl_case_dir": str(case_dir),
         "station_points": flat_points,
     }
@@ -1362,6 +2105,7 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
     if not stations:
         return {
             "twist_range_deg": None,
+            "max_abs_flight_twist_deg": None,
             "max_adjacent_twist_jump_deg": None,
             "outer_monotonic_washout": False,
             "max_outer_washin_bump_deg": None,
@@ -1372,6 +2116,7 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
     etas = _station_etas(stations)
     twists = [float(station.twist_deg) for station in stations]
     twist_range = max(twists) - min(twists)
+    max_abs_twist = max(abs(value) for value in twists)
     adjacent_jumps = [
         abs(right - left)
         for left, right in zip(twists[:-1], twists[1:])
@@ -1396,6 +2141,8 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
     eta70_twist = _linear_interp(etas, twists, 0.70)
     tip_minus_eta70 = twists[-1] - eta70_twist
     failures: list[str] = []
+    if max_abs_twist > RESIDUAL_TWIST_MAX_ABS_DEG:
+        failures.append("max_abs_flight_twist_exceeded")
     if twist_range > TWIST_RANGE_LIMIT_DEG:
         failures.append("twist_range_exceeded")
     if max_adjacent_jump > TWIST_ADJACENT_JUMP_LIMIT_DEG:
@@ -1409,6 +2156,8 @@ def _twist_gate_metrics(stations: tuple[WingStation, ...]) -> dict[str, Any]:
     return {
         "twist_range_deg": float(twist_range),
         "twist_range_limit_deg": float(TWIST_RANGE_LIMIT_DEG),
+        "max_abs_flight_twist_deg": float(max_abs_twist),
+        "max_abs_flight_twist_limit_deg": float(RESIDUAL_TWIST_MAX_ABS_DEG),
         "max_adjacent_twist_jump_deg": float(max_adjacent_jump),
         "max_adjacent_twist_jump_limit_deg": float(TWIST_ADJACENT_JUMP_LIMIT_DEG),
         "outer_monotonic_washout": bool(outer_monotonic),
@@ -1545,6 +2294,93 @@ def _build_regularized_twist_initial_stations(
     }
 
 
+def _build_residual_twist_initial_stations(
+    *,
+    cfg: BirdmanConceptConfig,
+    concept: GeometryConcept,
+    stations: tuple[WingStation, ...],
+    design_speed_mps: float,
+) -> tuple[tuple[WingStation, ...], dict[str, Any]]:
+    target_table, target_summary = _target_station_records(
+        cfg=cfg,
+        concept=concept,
+        stations=stations,
+        design_speed_mps=design_speed_mps,
+    )
+    raw_section_angles: list[float] = []
+    control_records: list[dict[str, float]] = []
+    for eta in TWIST_CONTROL_ETAS:
+        eta_for_twist = min(float(eta), INVERSE_TWIST_MAX_AERO_ETA)
+        nearest = min(
+            target_table,
+            key=lambda row: abs(float(row["eta"]) - eta_for_twist),
+        )
+        alpha_2d_deg = _alpha_2d_from_cl_deg(float(nearest["target_local_cl"]))
+        induced_angle_deg = _target_induced_angle_deg(
+            concept=concept,
+            design_cl=float(target_summary["design_cl"]),
+            eta=eta_for_twist,
+        )
+        section_angle = alpha_2d_deg + induced_angle_deg
+        raw_section_angles.append(section_angle)
+        control_records.append(
+            {
+                "eta": float(eta),
+                "eta_for_twist": float(eta_for_twist),
+                "target_local_cl": float(nearest["target_local_cl"]),
+                "alpha_2d_deg": float(alpha_2d_deg),
+                "induced_angle_deg": float(induced_angle_deg),
+                "raw_section_angle_deg": float(section_angle),
+            }
+        )
+
+    root_section_angle = raw_section_angles[0] if raw_section_angles else 0.0
+    raw_residuals = [
+        float(TWIST_ROOT_ANCHOR_DEG) + 0.35 * (float(angle) - root_section_angle)
+        for angle in raw_section_angles
+    ]
+    lower, upper = TWIST_BOUNDS_DEG
+    controls = [float(TWIST_ROOT_ANCHOR_DEG)]
+    for eta, raw_twist in zip(TWIST_CONTROL_ETAS[1:], raw_residuals[1:], strict=True):
+        clipped = max(float(lower), min(float(upper), float(raw_twist)))
+        if eta >= 0.55:
+            clipped = min(clipped, controls[-1] - 0.15)
+        clipped = max(controls[-1] - TWIST_ADJACENT_JUMP_LIMIT_DEG, clipped)
+        clipped = min(controls[-1] + TWIST_ADJACENT_JUMP_LIMIT_DEG, clipped)
+        clipped = max(-RESIDUAL_TWIST_MAX_ABS_DEG, min(RESIDUAL_TWIST_MAX_ABS_DEG, clipped))
+        controls.append(float(clipped))
+    eta70_twist = _linear_interp(TWIST_CONTROL_ETAS, tuple(controls), 0.70)
+    controls[-1] = min(controls[-1], eta70_twist + TIP_MINUS_ETA70_WASHOUT_MIN_DEG)
+    controls[-1] = max(controls[-2] - TWIST_ADJACENT_JUMP_LIMIT_DEG, controls[-1])
+    controls[-1] = max(-RESIDUAL_TWIST_MAX_ABS_DEG, controls[-1])
+    inverse_stations = _stations_from_twist_controls(
+        base_stations=stations,
+        control_twists_deg=tuple(controls),
+    )
+    inverse_records = [
+        {
+            **record,
+            "raw_residual_twist_deg": float(raw),
+            "twist_deg": float(twist),
+        }
+        for record, raw, twist in zip(control_records, raw_residuals, controls, strict=True)
+    ]
+    return tuple(inverse_stations), {
+        "model": "inverse_chord_residual_twist_initial_lift_curve",
+        "zero_lift_alpha_deg": float(INVERSE_TWIST_ZERO_LIFT_ALPHA_DEG),
+        "lift_curve_slope_per_rad": float(INVERSE_TWIST_LIFT_CURVE_SLOPE_PER_RAD),
+        "induced_angle_model": "fourier_lifting_line_local_downwash",
+        "residual_twist_fraction_of_raw_inverse": 0.35,
+        "max_aero_eta_for_tip_twist": float(INVERSE_TWIST_MAX_AERO_ETA),
+        "root_twist_anchor_deg": float(TWIST_ROOT_ANCHOR_DEG),
+        "control_etas": list(TWIST_CONTROL_ETAS),
+        "control_twists_deg": [float(value) for value in controls],
+        "twist_gate_metrics": _twist_gate_metrics(inverse_stations),
+        "design_cl": float(target_summary["design_cl"]),
+        "station_records": inverse_records,
+    }
+
+
 def _build_inverse_twist_stations(
     *,
     cfg: BirdmanConceptConfig,
@@ -1619,7 +2455,11 @@ def _spanload_trust_status(candidate: dict[str, Any]) -> str:
     return "spanload_crosscheck_reasonable"
 
 
-def _physical_acceptance_status(candidate: dict[str, Any]) -> dict[str, Any]:
+def _physical_acceptance_status(
+    candidate: dict[str, Any],
+    *,
+    target_delta_is_hard_gate: bool = True,
+) -> dict[str, Any]:
     reasons: list[str] = []
     avl_e_cdi = candidate.get("avl_reference_case", {}).get("avl_e_cdi")
     match = candidate.get("avl_match_metrics", {})
@@ -1631,7 +2471,9 @@ def _physical_acceptance_status(candidate: dict[str, Any]) -> dict[str, Any]:
 
     if avl_e_cdi is None or float(avl_e_cdi) < AVL_E_CDI_SUCCESS_FLOOR:
         reasons.append("avl_e_cdi_below_min")
-    if max_delta is None or float(max_delta) >= SPANLOAD_DELTA_SUCCESS_LIMIT:
+    if target_delta_is_hard_gate and (
+        max_delta is None or float(max_delta) >= SPANLOAD_DELTA_SUCCESS_LIMIT
+    ):
         reasons.append("target_avl_max_delta_exceeded")
     if not bool(twist.get("twist_physical_gates_pass", False)):
         reasons.extend(str(reason) for reason in twist.get("twist_gate_failures", []))
@@ -1653,7 +2495,10 @@ def _physical_acceptance_status(candidate: dict[str, Any]) -> dict[str, Any]:
         avl_e_cdi is not None
         and float(avl_e_cdi) >= AVL_E_CDI_SUCCESS_FLOOR
         and max_delta is not None
-        and float(max_delta) < SPANLOAD_DELTA_SUCCESS_LIMIT
+        and (
+            float(max_delta) < SPANLOAD_DELTA_SUCCESS_LIMIT
+            or not bool(target_delta_is_hard_gate)
+        )
         and "twist_physical_gates_failed" in reasons
     ):
         status = "spanload_matched_but_twist_unphysical"
@@ -1684,6 +2529,10 @@ def _twist_objective_components(candidate: dict[str, Any]) -> dict[str, float]:
     range_excess = max(
         0.0,
         float(twist.get("twist_range_deg") or 0.0) - TWIST_RANGE_LIMIT_DEG,
+    )
+    abs_twist_excess = max(
+        0.0,
+        float(twist.get("max_abs_flight_twist_deg") or 0.0) - RESIDUAL_TWIST_MAX_ABS_DEG,
     )
     jump_excess = max(
         0.0,
@@ -1716,6 +2565,7 @@ def _twist_objective_components(candidate: dict[str, Any]) -> dict[str, float]:
         ),
         "smoothness": float(smoothness),
         "range_excess": float(range_excess),
+        "abs_twist_excess": float(abs_twist_excess),
         "jump_excess": float(jump_excess),
         "tip_washout_excess": float(tip_washout_excess),
         "outer_bump_excess": float(outer_bump_excess),
@@ -1736,6 +2586,7 @@ def _twist_objective_value(candidate: dict[str, Any]) -> float:
         + 80.0 * c["e_shortfall"] ** 2
         + 0.08 * c["smoothness"]
         + 80.0 * c["range_excess"] ** 2
+        + 80.0 * c["abs_twist_excess"] ** 2
         + 100.0 * c["jump_excess"] ** 2
         + 90.0 * c["tip_washout_excess"] ** 2
         + 90.0 * c["outer_bump_excess"] ** 2
@@ -1767,6 +2618,7 @@ def _evaluate_twist_design(
     concept: GeometryConcept,
     sample_index: int,
     base_stations: tuple[WingStation, ...],
+    stage0_metric: dict[str, Any] | None = None,
     control_twists_deg: tuple[float, ...],
     output_dir: Path,
     design_speed_mps: float,
@@ -1774,6 +2626,7 @@ def _evaluate_twist_design(
     cache: dict[tuple[Any, ...], dict[str, Any]],
     evaluation_counter: list[int],
     status_for_ranking: str,
+    target_delta_is_hard_gate: bool = True,
     a3: float | None = None,
     a5: float | None = None,
 ) -> dict[str, Any]:
@@ -1825,6 +2678,20 @@ def _evaluate_twist_design(
         case_tag=f"opt_{int(sample_index):04d}_{evaluation_counter[0]:04d}",
     )
     station_table = _attach_avl_to_station_table(target_table, avl)
+    enriched_station_table: list[dict[str, Any]] = []
+    for row in station_table:
+        nearest_station = min(
+            stations,
+            key=lambda station: abs(float(station.y_m) - float(row["y_m"])),
+        )
+        enriched_station_table.append(
+            {
+                **row,
+                "ainc_deg": float(row.get("twist_deg", nearest_station.twist_deg)),
+                "dihedral_deg": float(nearest_station.dihedral_deg),
+            }
+        )
+    station_table = enriched_station_table
     avl_induced_cd = avl.get("trim_cd_induced")
     if avl_induced_cd is None:
         avl_induced_cd = _mission_power_proxy(
@@ -1855,6 +2722,7 @@ def _evaluate_twist_design(
         "tip_gate_summary": _tip_gate_summary(
             cfg=cfg,
             concept=optimized_concept,
+            stations=stations,
             design_speed_mps=design_speed_mps,
         ),
         "target_fourier_power_proxy": target_power_proxy,
@@ -1862,6 +2730,11 @@ def _evaluate_twist_design(
         "mission_power_proxy": target_power_proxy,
         "inverse_twist": {
             "model": "regularized_avl_twist_optimizer_v1",
+            "architecture": (
+                SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE
+                if stage0_metric and stage0_metric.get("spanload_to_geometry")
+                else SPANLOAD_TO_GEOMETRY_LINEAR_MODE
+            ),
             "control_etas": list(TWIST_CONTROL_ETAS),
             "control_twists_deg": [float(value) for value in control_twists_deg],
             "smoothness_penalty": _twist_smoothness_penalty(stations),
@@ -1883,9 +2756,14 @@ def _evaluate_twist_design(
         ],
         "worst_station": target_summary["worst_station"],
     }
+    if stage0_metric and stage0_metric.get("spanload_to_geometry") is not None:
+        record["spanload_to_geometry"] = stage0_metric["spanload_to_geometry"]
     record["objective_components"] = _twist_objective_components(record)
     record["objective_value"] = _twist_objective_value(record)
-    record["physical_acceptance"] = _physical_acceptance_status(record)
+    record["physical_acceptance"] = _physical_acceptance_status(
+        record,
+        target_delta_is_hard_gate=target_delta_is_hard_gate,
+    )
     record["physical_acceptance_status"] = record["physical_acceptance"]["status"]
     record["status"] = record["physical_acceptance_status"]
     record["spanload_trust_status"] = _spanload_trust_status(record)
@@ -1924,16 +2802,25 @@ def _optimize_regularized_twist_candidate(
 ) -> dict[str, Any]:
     concept = stage0_metric["concept"]
     sample_index = int(stage0_metric["sample_index"])
-    base_stations = build_linear_wing_stations(
+    inverse_chord_mode = bool(stage0_metric.get("spanload_to_geometry"))
+    base_stations = tuple(stage0_metric.get("stations") or ()) or build_linear_wing_stations(
         concept,
         stations_per_half=int(cfg.pipeline.stations_per_half),
     )
-    initial_stations, initial_summary = _build_regularized_twist_initial_stations(
-        cfg=cfg,
-        concept=concept,
-        stations=base_stations,
-        design_speed_mps=design_speed_mps,
-    )
+    if inverse_chord_mode:
+        initial_stations, initial_summary = _build_residual_twist_initial_stations(
+            cfg=cfg,
+            concept=concept,
+            stations=base_stations,
+            design_speed_mps=design_speed_mps,
+        )
+    else:
+        initial_stations, initial_summary = _build_regularized_twist_initial_stations(
+            cfg=cfg,
+            concept=concept,
+            stations=base_stations,
+            design_speed_mps=design_speed_mps,
+        )
     initial_controls = tuple(float(value) for value in initial_summary["control_twists_deg"])
     cache: dict[tuple[Any, ...], dict[str, Any]] = {}
     evaluation_counter = [0]
@@ -1943,6 +2830,7 @@ def _optimize_regularized_twist_candidate(
         concept=concept,
         sample_index=sample_index,
         base_stations=base_stations,
+        stage0_metric=stage0_metric,
         control_twists_deg=initial_controls,
         output_dir=output_dir,
         design_speed_mps=design_speed_mps,
@@ -1950,14 +2838,23 @@ def _optimize_regularized_twist_candidate(
         cache=cache,
         evaluation_counter=evaluation_counter,
         status_for_ranking=status_for_ranking,
+        target_delta_is_hard_gate=not inverse_chord_mode,
     )
-    seed_controls = [
-        initial_controls,
-        (2.0, 1.5, 1.2, 1.2, 1.0, 0.15),
-        (2.0, 2.0, 2.0, 2.0, 1.8, 0.95),
-        (2.0, 3.0, 3.0, 3.0, 3.0, 2.15),
-        (2.0, 4.0, 4.0, 4.0, 4.0, 3.15),
-    ]
+    if inverse_chord_mode:
+        seed_controls = [
+            initial_controls,
+            (2.0, 1.4, 0.8, 0.0, -0.8, -1.7),
+            (2.0, 1.2, 0.4, -0.4, -1.0, -1.9),
+            (2.0, 1.7, 0.9, 0.1, -0.7, -1.8),
+        ]
+    else:
+        seed_controls = [
+            initial_controls,
+            (2.0, 1.5, 1.2, 1.2, 1.0, 0.15),
+            (2.0, 2.0, 2.0, 2.0, 1.8, 0.95),
+            (2.0, 3.0, 3.0, 3.0, 3.0, 2.15),
+            (2.0, 4.0, 4.0, 4.0, 4.0, 3.15),
+        ]
     seen_seed_controls: set[tuple[float, ...]] = set()
     for seed_control in seed_controls:
         rounded_seed = tuple(round(float(value), 3) for value in seed_control)
@@ -1969,6 +2866,7 @@ def _optimize_regularized_twist_candidate(
             concept=concept,
             sample_index=sample_index,
             base_stations=base_stations,
+            stage0_metric=stage0_metric,
             control_twists_deg=tuple(float(value) for value in seed_control),
             output_dir=output_dir,
             design_speed_mps=design_speed_mps,
@@ -1976,6 +2874,7 @@ def _optimize_regularized_twist_candidate(
             cache=cache,
             evaluation_counter=evaluation_counter,
             status_for_ranking=status_for_ranking,
+            target_delta_is_hard_gate=not inverse_chord_mode,
         )
         if float(seed_record["objective_value"]) < float(best_record["objective_value"]):
             best_record = seed_record
@@ -2015,6 +2914,7 @@ def _optimize_regularized_twist_candidate(
             concept=concept,
             sample_index=sample_index,
             base_stations=base_stations,
+            stage0_metric=stage0_metric,
             control_twists_deg=controls,
             output_dir=output_dir,
             design_speed_mps=design_speed_mps,
@@ -2022,6 +2922,7 @@ def _optimize_regularized_twist_candidate(
             cache=cache,
             evaluation_counter=evaluation_counter,
             status_for_ranking=status_for_ranking,
+            target_delta_is_hard_gate=not inverse_chord_mode,
             a3=a3,
             a5=a5,
         )
@@ -2054,6 +2955,7 @@ def _optimize_regularized_twist_candidate(
             concept=concept,
             sample_index=sample_index,
             base_stations=base_stations,
+            stage0_metric=stage0_metric,
             control_twists_deg=final_controls,
             output_dir=output_dir,
             design_speed_mps=design_speed_mps,
@@ -2061,6 +2963,7 @@ def _optimize_regularized_twist_candidate(
             cache=cache,
             evaluation_counter=evaluation_counter,
             status_for_ranking=status_for_ranking,
+            target_delta_is_hard_gate=not inverse_chord_mode,
             a3=final_a3,
             a5=final_a5,
         )
@@ -2113,6 +3016,7 @@ def _optimize_regularized_twist_candidate(
             "e_shortfall": 80.0,
             "smoothness": 0.08,
             "range_excess": 80.0,
+            "abs_twist_excess": 80.0,
             "jump_excess": 100.0,
             "tip_washout_excess": 90.0,
             "outer_bump_excess": 90.0,
@@ -2127,6 +3031,7 @@ def _optimize_regularized_twist_candidate(
         "target_fourier_power_proxy": stage0_metric.get("target_fourier_power_proxy"),
         "spanload_gate_health": stage0_metric.get("spanload_gate_health"),
         "tip_gate_summary": stage0_metric.get("tip_gate_summary"),
+        "spanload_to_geometry": stage0_metric.get("spanload_to_geometry"),
     }
     return best_record
 
@@ -2251,7 +3156,7 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"util {_format_float(worst.get('clmax_utilization'), 3)}."
     )
     lines.append("")
-    lines.append("| eta | y m | chord m | Re | target cl | util | twist deg | target circ | AVL cl | AVL circ | d circ |")
+    lines.append("| eta | y m | chord m | Re | target cl | util | Ainc deg | target circ | AVL cl | AVL circ | d circ |")
     lines.append("|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in candidate.get("station_table", []):
         lines.append(
@@ -2262,7 +3167,7 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
             f"{_format_float(row.get('reynolds'), 0)} | "
             f"{_format_float(row.get('target_local_cl'), 3)} | "
             f"{_format_float(row.get('target_clmax_utilization'), 3)} | "
-            f"{_format_float(row.get('twist_deg'), 2)} | "
+            f"{_format_float(row.get('ainc_deg', row.get('twist_deg')), 2)} | "
             f"{_format_float(row.get('target_circulation_norm'), 3)} | "
             f"{_format_float(row.get('avl_local_cl'), 3)} | "
             f"{_format_float(row.get('avl_circulation_norm'), 3)} | "
@@ -2509,6 +3414,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Also let Powell adjust a3/a5 inside the bounded Fourier spanload box.",
     )
+    parser.add_argument(
+        "--spanload-to-geometry-mode",
+        choices=(SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE, SPANLOAD_TO_GEOMETRY_LINEAR_MODE),
+        default=SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE,
+    )
     parser.add_argument("--avl-binary", default=None)
     return parser.parse_args()
 
@@ -2520,12 +3430,20 @@ def main() -> None:
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    stage0 = _stage0_sobol_prefilter(
-        cfg=cfg,
-        sample_count=int(args.stage0_samples),
-        design_speed_mps=design_speed_mps,
-        seed=int(args.stage0_seed),
-    )
+    if args.spanload_to_geometry_mode == SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE:
+        stage0 = _stage0_inverse_chord_sobol_prefilter(
+            cfg=cfg,
+            sample_count=int(args.stage0_samples),
+            design_speed_mps=design_speed_mps,
+            seed=int(args.stage0_seed),
+        )
+    else:
+        stage0 = _stage0_sobol_prefilter(
+            cfg=cfg,
+            sample_count=int(args.stage0_samples),
+            design_speed_mps=design_speed_mps,
+            seed=int(args.stage0_seed),
+        )
     stage1_inputs = _select_stage1_inputs(
         list(stage0["accepted"]),
         top_k=int(args.stage1_top_k),
@@ -2557,6 +3475,7 @@ def main() -> None:
                 "spanload_fourier": metric["spanload_fourier"],
                 "spanload_gate_health": metric["spanload_gate_health"],
                 "tip_gate_summary": metric["tip_gate_summary"],
+                "spanload_to_geometry": metric.get("spanload_to_geometry"),
                 "target_fourier_power_proxy": metric["target_fourier_power_proxy"],
                 "avl_cdi_power_proxy": metric["avl_cdi_power_proxy"],
                 "mission_power_proxy": metric["target_fourier_power_proxy"],
@@ -2583,24 +3502,30 @@ def main() -> None:
         for record in records
         if bool(record.get("physical_acceptance", {}).get("physically_acceptable", False))
     ]
-    accepted_leaderboards = _select_accepted_leaderboards(
-        physically_accepted,
-        per_board_count=int(args.accepted_count),
-    )
     rejected_records = [
         record
         for record in records
         if not bool(record.get("physical_acceptance", {}).get("physically_acceptable", False))
     ]
-    closest_rejected = sorted(
-        rejected_records,
-        key=lambda record: (
-            -float(record.get("geometry", {}).get("aspect_ratio", 0.0)),
-            float(record.get("objective_value", float("inf"))),
-            int(record.get("sample_index") or 0),
-        ),
-    )[: max(0, int(args.rejected_count))]
-    accepted_leaderboards["closest_rejected_high_AR"] = closest_rejected
+    if args.spanload_to_geometry_mode == SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE:
+        accepted_leaderboards = _select_engineering_leaderboards(
+            records,
+            per_board_count=int(args.accepted_count),
+        )
+    else:
+        accepted_leaderboards = _select_accepted_leaderboards(
+            physically_accepted,
+            per_board_count=int(args.accepted_count),
+        )
+        closest_rejected = sorted(
+            rejected_records,
+            key=lambda record: (
+                -float(record.get("geometry", {}).get("aspect_ratio", 0.0)),
+                float(record.get("objective_value", float("inf"))),
+                int(record.get("sample_index") or 0),
+            ),
+        )[: max(0, int(args.rejected_count))]
+        accepted_leaderboards["closest_rejected_high_AR"] = closest_rejected
     memberships = _leaderboard_memberships(accepted_leaderboards)
     selected_sample_ids = {
         int(record["sample_index"])
@@ -2608,18 +3533,43 @@ def main() -> None:
         for record in records_for_board
         if record.get("sample_index") is not None
     }
+    if not selected_sample_ids:
+        fallback_records = sorted(
+            records,
+            key=lambda record: (
+                float(record.get("objective_value", float("inf"))),
+                -float(record.get("geometry", {}).get("aspect_ratio", 0.0)),
+                int(record.get("sample_index") or 0),
+            ),
+        )[:10]
+        selected_sample_ids.update(
+            int(record["sample_index"])
+            for record in fallback_records
+            if record.get("sample_index") is not None
+        )
     reported_records = [
         record for record in records if int(record.get("sample_index") or -1) in selected_sample_ids
     ]
     for record in reported_records:
         sample_index = int(record.get("sample_index") or -1)
         record["leaderboard_memberships"] = memberships.get(sample_index, [])
+    export_artifacts = _export_top_candidates(
+        cfg=cfg,
+        records=reported_records,
+        output_dir=output_dir,
+        count=10,
+    )
 
     report: dict[str, Any] = {
-        "schema_version": "birdman_spanload_twist_optimizer_smoke_v2",
+        "schema_version": "birdman_spanload_inverse_chord_residual_twist_smoke_v1",
         "config_path": str(args.config),
         "output_dir": str(output_dir),
-        "route": "geometry_spanload_regularized_twist_optimizer_no_cst_no_xfoil",
+        "route": (
+            "inverse_chord_then_residual_twist_no_cst_no_xfoil"
+            if args.spanload_to_geometry_mode == SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE
+            else "geometry_spanload_regularized_twist_optimizer_no_cst_no_xfoil"
+        ),
+        "spanload_to_geometry_mode": str(args.spanload_to_geometry_mode),
         "fixed_airfoil_note": "AVL wing-only route uses the repo default fixed seed airfoils; no CST/XFOIL worker is invoked.",
         "profile_drag_note": "fixed_airfoil_no_xfoil_not_final_profile_drag",
         "search_box": {
@@ -2632,14 +3582,19 @@ def main() -> None:
             "tail_volume_coefficient": list(STAGE0_TAIL_VOLUME_RANGE),
             "a3_over_a1": list(STAGE0_A3_RANGE),
             "a5_over_a1": list(STAGE0_A5_RANGE),
+            "cl_control_etas": list(INVERSE_CHORD_CL_CONTROL_ETAS),
+            "cl_control_bounds": [
+                [float(low), float(high)] for low, high in INVERSE_CHORD_CL_CONTROL_BOUNDS
+            ],
             "wing_area_m2": list(STAGE0_WING_AREA_RANGE_M2),
             "aspect_ratio": list(STAGE0_AR_RANGE),
         },
         "candidate_selection_rule": (
-            "Stage 0 Sobol prefilters geometry/spanload gates; Stage 1 runs "
-            "regularized AVL twist optimization on the selected top K. Accepted "
-            "leaderboards use physical acceptance and avl_cdi_power_proxy; "
-            "target_fourier_power_proxy is report-only."
+            "Stage 0 Sobol prefilters Fourier target plus local-cl inverse-chord "
+            "geometry gates; Stage 1 runs low-order residual AVL Ainc/twist "
+            "optimization on the selected top K. Engineering leaderboards use "
+            "AVL e_CDi, AVL CDi power proxy, local/outer utilization, twist gates, "
+            "and tip gates; target_fourier_power_proxy is report-only."
         ),
         "success_criteria": {
             "max_target_avl_circulation_norm_delta_lt": SPANLOAD_DELTA_SUCCESS_LIMIT,
@@ -2649,6 +3604,9 @@ def main() -> None:
             "twist_physical_gates_pass": True,
             "tip_geometry_gates_pass": True,
             "local_and_outer_cl_utilization_pass": True,
+            "target_avl_delta_is_diagnostic_not_hard_gate_for_inverse_chord_mode": (
+                args.spanload_to_geometry_mode == SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE
+            ),
         },
         "design_cruise_case": {
             "case_label": CASE_LABEL,
@@ -2675,6 +3633,7 @@ def main() -> None:
             "stage1_physically_accepted": len(physically_accepted),
         },
         "accepted_leaderboards": accepted_leaderboards,
+        "export_artifacts": export_artifacts,
         "candidates": reported_records,
     }
     report["engineering_read"] = _engineering_read(report)

@@ -187,7 +187,10 @@ class GeometryConcept:
             raise ValueError("segment_lengths_m must sum to half-span within tolerance.")
 
         expected_area_m2 = self.span_m * (self.root_chord_m + self.tip_chord_m) / 2.0
-        if not isclose(self.wing_area_m2, expected_area_m2, rel_tol=1e-6, abs_tol=1e-6):
+        if (
+            self.planform_parameterization != "spanload_inverse_chord"
+            and not isclose(self.wing_area_m2, expected_area_m2, rel_tol=1e-6, abs_tol=1e-6)
+        ):
             raise ValueError("trapezoidal wing area is inconsistent with span/root/tip chord.")
 
     @property
@@ -210,6 +213,8 @@ class GeometryConcept:
 
     @property
     def wing_area_source(self) -> str:
+        if self.planform_parameterization == "spanload_inverse_chord":
+            return "integrated_from_inverse_chord_station_distribution"
         if self.planform_parameterization == "mean_chord":
             return "derived_from_mean_chord_m"
         return (
