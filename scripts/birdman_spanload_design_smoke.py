@@ -37,6 +37,9 @@ from hpa_mdo.concept.geometry import (
     build_segment_plan,
 )
 from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
+from hpa_mdo.concept.outer_loading import (
+    apply_outer_chord_redistribution,
+)
 from hpa_mdo.concept.pipeline import _sizing_diagnostics
 from hpa_mdo.concept.vsp_export import write_concept_openvsp_handoff
 from hpa_mdo.mission.objective import build_rider_power_curve
@@ -85,6 +88,17 @@ INVERSE_CHORD_STATION_ETAS = (0.0, 0.16, 0.35, 0.52, 0.70, 0.82, 0.90, 0.95, 1.0
 INVERSE_CHORD_PHYSICAL_TIP_CHORD_MIN_M = 0.43
 INVERSE_CHORD_ROOT_CHORD_RANGE_M = (1.15, 1.45)
 RESIDUAL_TWIST_MAX_ABS_DEG = 6.0
+
+OUTER_CHORD_BUMP_AMP_RANGE = (0.0, 0.30)
+"""Bounds for the stage-0 outer chord redistribution amplitude.
+
+The standalone authority sweep showed +0.40 starts pressing the
+``max_chord_second_difference`` gate (0.35 m) on sample 1476, so the
+production Stage-1 search caps the variable at +0.30 to keep all chord
+manufacturing gates in their existing thresholds.
+"""
+
+STAGE0_SAMPLE_DIMENSIONS = 9
 
 
 def _round(value: Any, digits: int = 6) -> Any:
@@ -950,9 +964,22 @@ def _inverse_chord_gate_failures(
     if chord_eta_0p95 < float(cfg.geometry_family.planform_tip_protection.require_chord_at_eta_0p95_min_m):
         failures.append("inverse_chord_eta_0p95_chord_below_min")
     inverse_chord = spanload_to_geometry.get("inverse_chord", {})
-    if float(inverse_chord.get("max_adjacent_chord_ratio", 1.0)) > 1.45:
+    chord_bump = spanload_to_geometry.get("outer_chord_bump") or {}
+    bump_succeeded = bool(chord_bump.get("succeeded", True))
+    bump_active = float(chord_bump.get("outer_chord_bump_amp", 0.0)) > 0.0 and bump_succeeded
+    max_adjacent_ratio = (
+        float(chord_bump.get("max_adjacent_chord_ratio", 1.0))
+        if bump_active
+        else float(inverse_chord.get("max_adjacent_chord_ratio", 1.0))
+    )
+    max_second_difference = (
+        float(chord_bump.get("max_chord_second_difference_m", 0.0))
+        if bump_active
+        else float(inverse_chord.get("max_chord_second_difference_m", 0.0))
+    )
+    if max_adjacent_ratio > 1.45:
         failures.append("sharp_chord_kink_ratio_without_joint")
-    if float(inverse_chord.get("max_chord_second_difference_m", 0.0)) > 0.35:
+    if max_second_difference > 0.35:
         failures.append("sharp_chord_kink_curvature_without_joint")
     air = _air_properties(cfg)
     tip_re = (
@@ -1030,8 +1057,9 @@ def _build_inverse_chord_stage0_metric(
     a5: float,
     cl_controls: tuple[float, float, float, float] | list[float],
     design_speed_mps: float,
+    outer_chord_bump_amp: float = 0.0,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    stations, spanload_to_geometry = _inverse_chord_build_stations(
+    base_stations, spanload_to_geometry = _inverse_chord_build_stations(
         cfg=cfg,
         span_m=float(span_m),
         a3=float(a3),
@@ -1039,6 +1067,41 @@ def _build_inverse_chord_stage0_metric(
         cl_controls=cl_controls,
         design_speed_mps=float(design_speed_mps),
     )
+    bump_amp = max(0.0, float(outer_chord_bump_amp))
+    stations, chord_bump_diag = apply_outer_chord_redistribution(
+        stations=base_stations,
+        amplitude=bump_amp,
+        chord_floor_m=float(INVERSE_CHORD_PHYSICAL_TIP_CHORD_MIN_M),
+    )
+    spanload_to_geometry = {
+        **spanload_to_geometry,
+        "outer_chord_bump": chord_bump_diag.to_dict(),
+    }
+    if bump_amp > 0.0 and not chord_bump_diag.succeeded:
+        rejection = {
+            "sample_index": int(sample_index),
+            "reason": (
+                f"outer_chord_bump_redistribution_failed:"
+                f"{chord_bump_diag.failure_reason or 'unknown'}"
+            ),
+            "details": {
+                "outer_chord_bump_amp": float(bump_amp),
+                "chord_redistribution": chord_bump_diag.to_dict(),
+                "spanload_to_geometry": spanload_to_geometry,
+            },
+            "geometry": {
+                "span_m": float(span_m),
+                "wing_area_m2": _integrate_station_chords(base_stations),
+            },
+            "metric": None,
+            "severity_ratio": _stage0_rejection_severity(
+                {
+                    "reason": "outer_chord_bump_redistribution_failed",
+                    "details": {"gate_failures": 1},
+                }
+            ),
+        }
+        return None, rejection
     concept = _make_inverse_chord_concept(
         cfg=cfg,
         span_m=float(span_m),
@@ -1102,6 +1165,8 @@ def _build_inverse_chord_stage0_metric(
         "gate_station_table": target_summary["gate_station_table"],
         "worst_station": target_summary["worst_station"],
         "stage0_prefilter_status": "accepted" if not gate_failures else "rejected",
+        "outer_chord_bump_amp": float(bump_amp),
+        "outer_chord_redistribution": chord_bump_diag.to_dict(),
     }
     if not gate_failures:
         return metric, None
@@ -1478,8 +1543,14 @@ def _stage0_inverse_chord_sobol_prefilter(
     sample_count: int,
     design_speed_mps: float,
     seed: int,
+    enable_outer_chord_bump: bool = True,
+    outer_chord_bump_amp_range: tuple[float, float] = OUTER_CHORD_BUMP_AMP_RANGE,
 ) -> dict[str, Any]:
-    units = _sample_stage0_units(sample_count=sample_count, seed=seed, dimensions=8)
+    units = _sample_stage0_units(
+        sample_count=sample_count,
+        seed=seed,
+        dimensions=STAGE0_SAMPLE_DIMENSIONS,
+    )
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
     for sample_index, unit_row in enumerate(units, start=1):
@@ -1491,6 +1562,13 @@ def _stage0_inverse_chord_sobol_prefilter(
             _scale_range(bounds, float(unit_row[index]))
             for index, bounds in enumerate(INVERSE_CHORD_CL_CONTROL_BOUNDS, start=4)
         )
+        if enable_outer_chord_bump:
+            outer_chord_bump_amp = _scale_range(
+                tuple(float(value) for value in outer_chord_bump_amp_range),
+                float(unit_row[8]),
+            )
+        else:
+            outer_chord_bump_amp = 0.0
         metric, rejection = _build_inverse_chord_stage0_metric(
             cfg=cfg,
             sample_index=sample_index,
@@ -1500,6 +1578,7 @@ def _stage0_inverse_chord_sobol_prefilter(
             a5=a5,
             cl_controls=cl_controls,
             design_speed_mps=design_speed_mps,
+            outer_chord_bump_amp=outer_chord_bump_amp,
         )
         if metric is not None:
             accepted.append(metric)
@@ -1902,6 +1981,9 @@ def _export_top_candidate_artifacts(
             "leaderboard_memberships": record.get("leaderboard_memberships", []),
             "avl_reference_case": record.get("avl_reference_case", {}),
             "spanload_fourier": record.get("spanload_fourier", {}),
+            "outer_chord_bump_amp": record.get("outer_chord_bump_amp"),
+            "outer_chord_redistribution": record.get("outer_chord_redistribution"),
+            "outer_loading_diagnostics": record.get("outer_loading_diagnostics"),
         },
     )
     return {
@@ -2908,6 +2990,13 @@ def _evaluate_twist_design(
     }
     if stage0_metric and stage0_metric.get("spanload_to_geometry") is not None:
         record["spanload_to_geometry"] = stage0_metric["spanload_to_geometry"]
+    if stage0_metric is not None:
+        record["outer_chord_bump_amp"] = float(
+            stage0_metric.get("outer_chord_bump_amp", 0.0)
+        )
+        record["outer_chord_redistribution"] = stage0_metric.get(
+            "outer_chord_redistribution"
+        )
     record["outer_loading_diagnostics"] = _outer_loading_diagnostics(
         station_table=station_table,
         spanload_gate_health=record["spanload_gate_health"],

@@ -263,6 +263,7 @@ def _compact_record(record: dict[str, Any]) -> dict[str, Any]:
     geometry = _record_geometry(record)
     outer_diagnostics = record.get("outer_loading_diagnostics") or {}
     mission_sweep = record.get("mission_speed_sweep") or {}
+    chord_redistribution = record.get("outer_chord_redistribution") or {}
     trim_cd_induced = record.get("avl_reference_case", {}).get("trim_cd_induced")
     if trim_cd_induced is None:
         trim_cd_induced = record.get("trim_cd_induced")
@@ -289,6 +290,12 @@ def _compact_record(record: dict[str, Any]) -> dict[str, Any]:
         "best_complete_power_margin_w": mission_sweep.get("best_complete_power_margin_w"),
         "outer_underloaded": outer_diagnostics.get("outer_underloaded"),
         "outer_loading_diagnostics": record.get("outer_loading_diagnostics"),
+        "outer_chord_bump_amp": record.get("outer_chord_bump_amp"),
+        "outer_chord_redistribution": chord_redistribution,
+        "min_chord_m": chord_redistribution.get("min_chord_m"),
+        "chord_area_error_m2": chord_redistribution.get("half_area_error_m2"),
+        "max_adjacent_chord_ratio": chord_redistribution.get("max_adjacent_chord_ratio"),
+        "max_chord_second_difference_m": chord_redistribution.get("max_chord_second_difference_m"),
         "twist_gate_metrics": record.get("twist_gate_metrics"),
         "tip_gate_summary": record.get("tip_gate_summary"),
         "physical_acceptance": record.get("physical_acceptance"),
@@ -567,6 +574,30 @@ def _engineering_read(report: dict[str, Any]) -> list[str]:
         read.append(
             f"{len(underloaded)} ranked records are outer-underloaded, so the next geometry move is cl schedule/chord/Ainc redistribution rather than AR chasing."
         )
+    accepted_records = [
+        record
+        for record in report.get("ranked_records_compact", [])
+        if bool(record.get("physical_acceptance", {}).get("physically_acceptable", False))
+    ]
+    if accepted_records:
+        bump_amps = [
+            float(record.get("outer_chord_bump_amp"))
+            for record in accepted_records
+            if record.get("outer_chord_bump_amp") is not None
+        ]
+        if bump_amps:
+            non_zero = [amp for amp in bump_amps if amp > 1.0e-3]
+            best_e_record = max(
+                accepted_records,
+                key=lambda record: float(record.get("avl_e_cdi") or 0.0),
+            )
+            read.append(
+                "Outer chord bump usage in accepted candidates: "
+                f"{len(non_zero)}/{len(accepted_records)} active "
+                f"(amp range {min(bump_amps):.3f}-{max(bump_amps):.3f}); "
+                f"best e_CDi accepted = {best_e_record.get('avl_e_cdi')} "
+                f"with outer_chord_bump_amp = {best_e_record.get('outer_chord_bump_amp')}."
+            )
     return read
 
 
@@ -634,11 +665,25 @@ def _write_markdown(*, report: dict[str, Any], path: Path) -> None:
                 "",
                 f"## {name}",
                 "",
-                "| rank | sample | design V | tier | span | S | AR | e_CDi | P req | V complete | max range m | outer underloaded |",
-                "|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---|",
+                "| rank | sample | design V | tier | span | S | AR | e_CDi | P req | V complete | max range m | bump | outer_min[0.80-0.92] | min chord | outer underloaded |",
+                "|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|",
             ]
         )
         for rank, record in enumerate(records, start=1):
+            outer = record.get("outer_loading_diagnostics") or {}
+            outer_samples = outer.get("eta_samples") or {}
+            outer_min = outer.get("min_outer_avl_to_target_circulation_ratio")
+            if outer_min is None:
+                ratios = []
+                for sample in outer_samples.values():
+                    requested = sample.get("requested_eta")
+                    if requested is None:
+                        continue
+                    if 0.80 <= float(requested) <= 0.92:
+                        value = sample.get("avl_to_target_circulation_ratio")
+                        if value is not None:
+                            ratios.append(float(value))
+                outer_min = min(ratios) if ratios else None
             lines.append(
                 "| "
                 f"{rank} | "
@@ -652,6 +697,9 @@ def _write_markdown(*, report: dict[str, Any], path: Path) -> None:
                 f"{record.get('avl_cdi_power_required_w')} | "
                 f"{record.get('v_complete_max_mps')} | "
                 f"{record.get('max_range_if_not_complete_m')} | "
+                f"{record.get('outer_chord_bump_amp')} | "
+                f"{outer_min} | "
+                f"{record.get('min_chord_m')} | "
                 f"{record.get('outer_underloaded')} |"
             )
     lines.extend(
@@ -659,8 +707,8 @@ def _write_markdown(*, report: dict[str, Any], path: Path) -> None:
             "",
             "## Top Candidates",
             "",
-            "| rank | sample | design V | tier | e_CDi | V_complete | T_complete s | max range m | outer underloaded |",
-            "|---:|---:|---:|---|---:|---:|---:|---:|---|",
+            "| rank | sample | design V | tier | e_CDi | V_complete | T_complete s | max range m | bump | outer underloaded |",
+            "|---:|---:|---:|---|---:|---:|---:|---:|---:|---|",
         ]
     )
     for rank, record in enumerate(report.get("ranked_records_compact", [])[:20], start=1):
@@ -675,6 +723,7 @@ def _write_markdown(*, report: dict[str, Any], path: Path) -> None:
             f"{sweep.get('v_complete_max_mps')} | "
             f"{sweep.get('t_complete_min_s')} | "
             f"{sweep.get('max_range_if_not_complete_m')} | "
+            f"{record.get('outer_chord_bump_amp')} | "
             f"{record.get('outer_loading_diagnostics', {}).get('outer_underloaded')} |"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

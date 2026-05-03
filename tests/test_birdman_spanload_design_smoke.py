@@ -384,3 +384,86 @@ def test_objective_prioritizes_avl_cdi_over_spanload_match() -> None:
     }
 
     assert smoke._twist_objective_value(low_cdi_worse_match) < smoke._twist_objective_value(high_cdi_better_match)
+
+
+def test_inverse_chord_stage0_metric_records_outer_chord_bump_passthrough() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    metric, rejection = smoke._build_inverse_chord_stage0_metric(
+        cfg=cfg,
+        sample_index=11,
+        span_m=34.5,
+        tail_volume_coefficient=0.42,
+        a3=-0.06,
+        a5=0.01,
+        cl_controls=(1.16, 1.28, 0.98, 0.55),
+        design_speed_mps=6.8,
+        outer_chord_bump_amp=0.0,
+    )
+    assert rejection is None
+    assert metric is not None
+    assert metric["outer_chord_bump_amp"] == pytest.approx(0.0)
+    assert metric["outer_chord_redistribution"]["succeeded"] is True
+    assert metric["outer_chord_redistribution"]["outer_chord_bump_amp"] == pytest.approx(0.0)
+    inner_chord = metric["spanload_to_geometry"]["inverse_chord"]["fitted_chords_m"]
+    assert all(
+        station.chord_m == pytest.approx(chord, abs=1.0e-6)
+        for station, chord in zip(metric["stations"], inner_chord)
+    )
+
+
+def test_inverse_chord_stage0_metric_grows_outer_chord_under_bump() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    common_kwargs = dict(
+        cfg=cfg,
+        sample_index=12,
+        span_m=34.5,
+        tail_volume_coefficient=0.42,
+        a3=-0.06,
+        a5=0.01,
+        cl_controls=(1.16, 1.28, 0.98, 0.55),
+        design_speed_mps=6.8,
+    )
+    no_bump_metric, _ = smoke._build_inverse_chord_stage0_metric(
+        outer_chord_bump_amp=0.0, **common_kwargs
+    )
+    bumped_metric, _ = smoke._build_inverse_chord_stage0_metric(
+        outer_chord_bump_amp=0.20, **common_kwargs
+    )
+    assert no_bump_metric is not None
+    assert bumped_metric is not None
+    assert bumped_metric["outer_chord_bump_amp"] == pytest.approx(0.20)
+    assert bumped_metric["outer_chord_redistribution"]["succeeded"]
+    half_span = no_bump_metric["stations"][-1].y_m
+    outer_chord_grew = False
+    inner_chord_shrunk = False
+    for original, bumped in zip(no_bump_metric["stations"], bumped_metric["stations"]):
+        eta = original.y_m / half_span
+        if 0.70 < eta < 0.95:
+            if bumped.chord_m > original.chord_m + 1.0e-6:
+                outer_chord_grew = True
+        if eta < 0.50:
+            if bumped.chord_m < original.chord_m - 1.0e-6:
+                inner_chord_shrunk = True
+    assert outer_chord_grew
+    assert inner_chord_shrunk
+    assert bumped_metric["geometry"]["wing_area_m2"] == pytest.approx(
+        no_bump_metric["geometry"]["wing_area_m2"], rel=1.0e-6
+    )
+
+
+def test_stage0_inverse_chord_sobol_prefilter_uses_nine_dimensions() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    result = smoke._stage0_inverse_chord_sobol_prefilter(
+        cfg=cfg,
+        sample_count=64,
+        design_speed_mps=6.4,
+        seed=20260601,
+    )
+    assert result["counts"]["accepted"] >= 1
+    bump_amps = [
+        float(metric["outer_chord_bump_amp"]) for metric in result["accepted"]
+    ]
+    assert all(0.0 <= amp <= smoke.OUTER_CHORD_BUMP_AMP_RANGE[1] + 1.0e-9 for amp in bump_amps)
+    assert max(bump_amps) > 1.0e-3, (
+        "9-dim Sobol sampling must produce at least one non-zero outer chord bump"
+    )

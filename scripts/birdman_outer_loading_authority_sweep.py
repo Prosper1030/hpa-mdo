@@ -36,19 +36,21 @@ from hpa_mdo.concept.geometry import (  # noqa: E402
     WingStation,
     build_segment_plan,
 )
+from hpa_mdo.concept.outer_loading import (  # noqa: E402, F401
+    OUTER_BUMP_HI_ETA,
+    OUTER_BUMP_LO_ETA,
+    OUTER_BUMP_PEAK_ETA,
+    apply_outer_ainc_bump,
+    apply_outer_chord_redistribution as _apply_outer_chord_redistribution,
+    outer_smooth_bump,
+)
 
 import scripts.birdman_spanload_design_smoke as spanload_smoke  # noqa: E402
 
 
-OUTER_BUMP_LO_ETA = 0.65
-OUTER_BUMP_PEAK_ETA = 0.85
-OUTER_BUMP_HI_ETA = 0.98
-
 DEFAULT_AINC_AMPS_DEG = (0.0, 0.5, 1.0, 1.5, 2.0, 2.5)
 DEFAULT_CHORD_AMPS = (0.0, 0.10, 0.20, 0.30, 0.40)
 DEFAULT_TARGET_OUTER_TAPER_FRACTIONS = (0.0, 0.30, 0.50, 0.70)
-
-INNER_AREA_COMPENSATION_END_ETA = 0.55
 
 OUTER_RATIO_WINDOWS_ETA = (
     (0.70, 0.95),
@@ -58,133 +60,22 @@ OUTER_RATIO_WINDOWS_ETA = (
 EXPORT_DIAGNOSTIC_ETAS = (0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95)
 
 
-def outer_smooth_bump(
-    eta: float,
-    *,
-    eta_lo: float = OUTER_BUMP_LO_ETA,
-    eta_peak: float = OUTER_BUMP_PEAK_ETA,
-    eta_hi: float = OUTER_BUMP_HI_ETA,
-) -> float:
-    eta_clamped = float(eta)
-    if eta_clamped <= eta_lo or eta_clamped >= eta_hi:
-        return 0.0
-    if eta_clamped <= eta_peak:
-        denom = max(eta_peak - eta_lo, 1.0e-9)
-        return 0.5 * (1.0 - math.cos(math.pi * (eta_clamped - eta_lo) / denom))
-    denom = max(eta_hi - eta_peak, 1.0e-9)
-    return 0.5 * (1.0 + math.cos(math.pi * (eta_clamped - eta_peak) / denom))
-
-
-def apply_outer_ainc_bump(
-    *,
-    stations: tuple[WingStation, ...],
-    amplitude_deg: float,
-    eta_lo: float = OUTER_BUMP_LO_ETA,
-    eta_peak: float = OUTER_BUMP_PEAK_ETA,
-    eta_hi: float = OUTER_BUMP_HI_ETA,
-) -> tuple[WingStation, ...]:
-    if not stations:
-        return stations
-    half_span_m = max(float(stations[-1].y_m), 1.0e-9)
-    bumped: list[WingStation] = []
-    for station in stations:
-        eta = float(station.y_m) / half_span_m
-        delta = float(amplitude_deg) * outer_smooth_bump(
-            eta,
-            eta_lo=eta_lo,
-            eta_peak=eta_peak,
-            eta_hi=eta_hi,
-        )
-        bumped.append(
-            WingStation(
-                y_m=float(station.y_m),
-                chord_m=float(station.chord_m),
-                twist_deg=float(station.twist_deg) + delta,
-                dihedral_deg=float(station.dihedral_deg),
-            )
-        )
-    return tuple(bumped)
-
-
 def apply_outer_chord_redistribution(
     *,
     stations: tuple[WingStation, ...],
     amplitude: float,
-    inner_compensation_end_eta: float = INNER_AREA_COMPENSATION_END_ETA,
-    eta_lo: float = OUTER_BUMP_LO_ETA,
-    eta_peak: float = OUTER_BUMP_PEAK_ETA,
-    eta_hi: float = OUTER_BUMP_HI_ETA,
-    chord_floor_m: float = 0.30,
 ) -> tuple[WingStation, ...]:
-    if not stations:
-        return stations
-    half_span_m = max(float(stations[-1].y_m), 1.0e-9)
-    original_chords = [float(station.chord_m) for station in stations]
-    bumped_chords: list[float] = []
-    inner_flags: list[bool] = []
-    for station, chord_orig in zip(stations, original_chords):
-        eta = float(station.y_m) / half_span_m
-        bump = outer_smooth_bump(
-            eta,
-            eta_lo=eta_lo,
-            eta_peak=eta_peak,
-            eta_hi=eta_hi,
-        )
-        bumped_chords.append(chord_orig * (1.0 + float(amplitude) * bump))
-        inner_flags.append(eta <= inner_compensation_end_eta)
+    """Backward-compatible wrapper around the shared module.
 
-    half_area_orig = _half_area_from_chords(stations, original_chords)
-    half_area_outer_only = _half_area_from_chords(
-        stations,
-        chords=[
-            bumped_chord if not inner else 0.0
-            for bumped_chord, inner in zip(bumped_chords, inner_flags)
-        ],
+    The shared module returns a ``(stations, diagnostic)`` pair; the legacy
+    sweep harness only needs the redistributed stations.
+    """
+
+    redistributed, _ = _apply_outer_chord_redistribution(
+        stations=stations,
+        amplitude=float(amplitude),
     )
-    half_area_inner_unit = _half_area_from_chords(
-        stations,
-        chords=[
-            chord_orig if inner else 0.0
-            for chord_orig, inner in zip(original_chords, inner_flags)
-        ],
-    )
-    if half_area_inner_unit <= 0.0:
-        scale = 1.0
-    else:
-        scale = (half_area_orig - half_area_outer_only) / half_area_inner_unit
-        scale = max(0.5, min(1.5, float(scale)))
-
-    redistributed: list[WingStation] = []
-    for station, chord_orig, chord_bumped, inner in zip(
-        stations, original_chords, bumped_chords, inner_flags, strict=True
-    ):
-        if inner:
-            new_chord = chord_orig * scale
-        else:
-            new_chord = chord_bumped
-        new_chord = max(float(chord_floor_m), float(new_chord))
-        redistributed.append(
-            WingStation(
-                y_m=float(station.y_m),
-                chord_m=float(new_chord),
-                twist_deg=float(station.twist_deg),
-                dihedral_deg=float(station.dihedral_deg),
-            )
-        )
-    return tuple(redistributed)
-
-
-def _half_area_from_chords(
-    stations: tuple[WingStation, ...],
-    chords: list[float],
-) -> float:
-    half = 0.0
-    for left, right, c_left, c_right in zip(
-        stations[:-1], stations[1:], chords[:-1], chords[1:], strict=True
-    ):
-        dy = float(right.y_m) - float(left.y_m)
-        half += 0.5 * dy * (float(c_left) + float(c_right))
-    return float(half)
+    return redistributed
 
 
 def apply_outer_target_taper(
