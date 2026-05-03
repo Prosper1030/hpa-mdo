@@ -1941,6 +1941,7 @@ def _run_reference_avl_case(
     status_for_ranking: str,
     avl_binary: str | None,
     case_tag: str | None = None,
+    zone_airfoil_paths: dict[str, Path] | None = None,
 ) -> dict[str, Any]:
     air = _air_properties(cfg)
     case_dir_name = f"{status_for_ranking}_{concept.span_m:.3f}_{concept.taper_ratio:.4f}"
@@ -1951,7 +1952,9 @@ def _run_reference_avl_case(
         concept=concept,
         stations=stations,
         output_path=case_dir / "concept_wing.avl",
-        zone_airfoil_paths=_seed_zone_airfoil_paths(),
+        zone_airfoil_paths=(
+            _seed_zone_airfoil_paths() if zone_airfoil_paths is None else zone_airfoil_paths
+        ),
     )
     dynamic_pressure_pa = 0.5 * float(air.density_kg_per_m3) * float(design_speed_mps) ** 2
     cl_required = (
