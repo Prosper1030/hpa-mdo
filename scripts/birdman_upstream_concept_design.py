@@ -16,6 +16,11 @@ from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline  # noqa: E402
 from hpa_mdo.concept.airfoil_worker import JuliaXFoilWorker  # noqa: E402
 from hpa_mdo.concept.avl_loader import build_avl_backed_spanwise_loader  # noqa: E402
 from hpa_mdo.concept.config import load_concept_config  # noqa: E402
+from hpa_mdo.mission.drag_budget_shadow import (  # noqa: E402
+    SHADOW_CSV_FILENAME,
+    SHADOW_SUMMARY_JSON_FILENAME,
+    run_shadow_on_ranked_pool_json,
+)
 
 
 def _cli_spanwise_loader(concept, stations):
@@ -91,6 +96,19 @@ def main() -> None:
         default=None,
         help="Override the persistent Julia/XFoil worker count for this run.",
     )
+    parser.add_argument(
+        "--enable-mission-drag-budget-shadow",
+        action="store_true",
+        help="After the pipeline completes, run shadow-mode mission drag budget "
+        "evaluation on all candidates and write mission_drag_budget_shadow.csv "
+        "and mission_drag_budget_shadow_summary.json to the output directory.",
+    )
+    parser.add_argument(
+        "--drag-budget-config",
+        default=str(REPO_ROOT / "configs" / "mission_drag_budget_example.yaml"),
+        help="Path to the mission_drag_budget YAML config for shadow evaluation. "
+        "Only used when --enable-mission-drag-budget-shadow is set.",
+    )
     args = parser.parse_args()
 
     airfoil_worker_factory = (
@@ -103,13 +121,47 @@ def main() -> None:
         fallback_loader=_cli_spanwise_loader,
     )
 
+    output_dir = Path(args.output_dir).expanduser().resolve()
     run_birdman_concept_pipeline(
         config_path=Path(args.config).expanduser().resolve(),
-        output_dir=Path(args.output_dir).expanduser().resolve(),
+        output_dir=output_dir,
         airfoil_worker_factory=airfoil_worker_factory,
         spanwise_loader=spanwise_loader,
         polar_worker_count_override=args.julia_worker_count,
     )
+
+    if args.enable_mission_drag_budget_shadow:
+        ranked_pool_path = output_dir / "concept_ranked_pool.json"
+        budget_config_path = Path(args.drag_budget_config).expanduser().resolve()
+        if not ranked_pool_path.exists():
+            print(
+                f"[shadow] WARNING: ranked pool not found at {ranked_pool_path}, "
+                "skipping shadow evaluation.",
+                file=sys.stderr,
+            )
+        elif not budget_config_path.exists():
+            print(
+                f"[shadow] WARNING: budget config not found at {budget_config_path}, "
+                "skipping shadow evaluation.",
+                file=sys.stderr,
+            )
+        else:
+            print(f"[shadow] Running mission drag budget shadow evaluation…")
+            try:
+                summary = run_shadow_on_ranked_pool_json(
+                    ranked_pool_json_path=ranked_pool_path,
+                    budget_config_path=budget_config_path,
+                    output_dir=output_dir,
+                )
+                print(
+                    f"[shadow] evaluated {summary['evaluated_candidates']}/"
+                    f"{summary['total_candidates']} candidates, "
+                    f"bands={summary['count_by_drag_budget_band']}"
+                )
+                print(f"[shadow] → {output_dir / SHADOW_CSV_FILENAME}")
+                print(f"[shadow] → {output_dir / SHADOW_SUMMARY_JSON_FILENAME}")
+            except Exception as exc:
+                print(f"[shadow] ERROR during shadow evaluation: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":
