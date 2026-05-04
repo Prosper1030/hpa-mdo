@@ -41,3 +41,9 @@ outputs:
   write_full_results_csv: true
   write_envelope_csv: true
   write_markdown_report: true
+  write_plots: true
+
+plots:
+  dpi: 160
+  format: png
+  max_candidate_rows_in_report: 10

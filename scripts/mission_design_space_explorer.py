@@ -8,6 +8,7 @@ from dataclasses import replace
 from itertools import product
 from pathlib import Path
 from typing import Any
+import json
 
 from hpa_mdo.mission import (
     MissionQuickScreenResult,
@@ -18,6 +19,7 @@ from hpa_mdo.mission import (
     load_mission_design_space_spec,
     summarize_design_space,
     write_design_space_report,
+    write_design_space_plots,
     write_envelope_rows,
     write_full_results_csv,
     is_robust_case,
@@ -57,6 +59,11 @@ def _build_parser() -> ArgumentParser:
         default=None,
         help="Limit evaluations to the first N cases (for testing).",
     )
+    parser.add_argument(
+        "--skip-plots",
+        action="store_true",
+        help="Skip matplotlib plot generation.",
+    )
     return parser
 
 
@@ -71,6 +78,20 @@ def _missing_file_message(kind: str, path: Path) -> str:
 
 def _parse_args(argv: list[str] | None = None) -> Namespace:
     return _build_parser().parse_args(argv)
+
+
+def _update_summary_json_with_plots(
+    summary_json_path: Path,
+    plot_paths: dict[str, str],
+) -> None:
+    payload = json.loads(summary_json_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("summary.json should be a JSON object.")
+    payload["plot_paths"] = plot_paths
+    summary_json_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _evaluate_design_space(
@@ -131,6 +152,7 @@ def run_mission_design_space(
     output_dir_override: Path | None = None,
     dry_run: bool = False,
     limit: int | None = None,
+    skip_plots: bool = False,
 ) -> tuple[Path, Path, list[MissionQuickScreenResult]]:
     if output_dir_override is not None:
         spec = replace(spec, output_dir=output_dir_override)
@@ -172,6 +194,18 @@ def run_mission_design_space(
 
     full_results_csv = spec.output_dir / "full_results.csv"
     report_md = spec.output_dir / "report.md"
+    plot_paths: dict[str, str] = {}
+    if spec.write_plots and not skip_plots:
+        plot_paths = write_design_space_plots(
+            spec.output_dir,
+            spec=spec,
+            results=cases,
+            envelopes=envelopes,
+            boundary_tables=boundaries,
+            test_env=test_env,
+            target_env=target_env,
+            filters=spec.filters,
+        )
     if spec.write_full_results_csv:
         write_full_results_csv(full_results_csv, cases, spec.filters)
     if spec.write_markdown_report:
@@ -186,7 +220,12 @@ def run_mission_design_space(
             target_env=target_env,
             heat_derate=heat_derate,
             filters=spec.filters,
+            plot_paths=plot_paths or None,
         )
+
+    summary_json_path = spec.output_dir / "summary.json"
+    if summary_json_path.exists() and plot_paths:
+        _update_summary_json_with_plots(summary_json_path, plot_paths)
     if spec.write_envelope_csv:
         by_speed = [row for row in envelopes if row.get("group") == "by_speed"]
         by_cd0 = [row for row in envelopes if row.get("group") == "by_cd0"]
@@ -284,6 +323,7 @@ def main() -> int:
             output_dir_override=Path(args.output_dir) if args.output_dir else None,
             dry_run=False,
             limit=args.limit,
+            skip_plots=args.skip_plots,
         )
         _print_console_summary(
             spec=spec,
