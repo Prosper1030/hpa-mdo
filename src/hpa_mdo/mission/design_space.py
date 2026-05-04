@@ -1424,7 +1424,9 @@ def write_design_space_report(
         "",
         "## Boundary Tables",
         "",
-        "### best margin by speed/CD0",
+        "### raw best power margin by speed/CD0",
+        "This table is power-only and may include stall-risky cases. "
+        "Use robust count by speed/CD0 for design-space feasibility.",
         "| speed | CD0 | best_margin(W) | span | AR | clmax |",
         "|---:|---:|---:|---:|---:|---:|",
     ]

@@ -610,9 +610,21 @@ plots:
     assert "## Visual Summary" in report_text
     assert "plots/robust_cases_by_speed.png" in report_text
     assert "plots/feasible_speed_range_by_cd0.png" in report_text
+    inputs_block = report_text.split("## Inputs", 1)[1].split("## Case Counts", 1)[0]
+    summary_lines = [
+        line for line in inputs_block.splitlines() if line.strip().startswith("- summary.json:")
+    ]
+    assert len(summary_lines) == 1
+    assert "### raw best power margin by speed/CD0" in report_text
+    assert (
+        "This table is power-only and may include stall-risky cases. "
+        "Use robust count by speed/CD0 for design-space feasibility."
+        in report_text
+    )
 
     summary_payload = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
     assert "counts" in summary_payload
+    assert "observed_robust_envelope" in summary_payload
     assert "suggested_main_design_region" in summary_payload
     assert "robust_speed_envelope" in summary_payload
     assert "plot_paths" in summary_payload
@@ -622,6 +634,10 @@ plots:
         "feasible_speed_range_by_cd0",
         "robust_count_heatmap_speed_cd0",
     }
+
+    docs_text = Path(__file__).resolve().parents[1].joinpath("docs/mission_design_space_explorer.md").read_text(encoding="utf-8")
+    assert "not the unique best solution" in docs_text
+    assert "observed_robust_envelope" in docs_text
 
 
 def test_skip_plots_still_generates_summary_json(tmp_path: Path) -> None:

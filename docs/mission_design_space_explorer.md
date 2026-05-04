@@ -85,8 +85,11 @@ When plots are available, `report.md` includes a `## Visual Summary` section wit
 - `environments`: `test_environment`, `target_environment`, `heat_derate_factor`
 - `counts`: `total_cases`, `power_passed_cases`, `robust_cases`, `margin_ge_min_cases`, `margin_ge_robust_cases`
 - `robust_definition`, `robust_speed_envelope`, `cd0_envelope`, `ar_envelope`, `span_envelope`, `clmax_robust_counts`
-- `suggested_main_design_region` (descriptive robust region, not single recommended design)
+- `observed_robust_envelope` (full robust case boundary, i.e., all robust cases)
+- `suggested_main_design_region` (conservative initial design-search region, not unique optimum)
 - `output_files`
 - `plot_paths` (empty dict if `--skip-plots` or plots disabled)
 
 `report.md` `## Inputs` adds a `summary.json` path entry for traceability.
+
+`observed_robust_envelope` is the full boundary from all robust cases. `suggested_main_design_region` is a conservative initial region only (for design exploration), not the unique best solution.

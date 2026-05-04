@@ -120,6 +120,68 @@ def _clmax_robust_counts(
     return counts
 
 
+def _robust_region(cases: list[MissionQuickScreenResult]) -> dict[str, list[float] | None]:
+    if not cases:
+        return {
+            "speed_mps": None,
+            "span_m": None,
+            "aspect_ratio": None,
+            "cd0_total": None,
+            "cl_max_effective": None,
+            "mass_kg": None,
+            "oswald_e": None,
+        }
+    return {
+        "speed_mps": _robust_range("speed_mps", cases),
+        "span_m": _robust_range("span_m", cases),
+        "aspect_ratio": _robust_range("aspect_ratio", cases),
+        "cd0_total": _robust_range("cd0_total", cases),
+        "cl_max_effective": _robust_range("cl_max_effective", cases),
+        "mass_kg": _robust_range("mass_kg", cases),
+        "oswald_e": _robust_range("oswald_e", cases),
+    }
+
+
+def _select_main_design_region(cases: list[MissionQuickScreenResult], by_cd0_rows: list[dict[str, object]]) -> dict[str, list[float] | None]:
+    if not cases:
+        return {
+            "speed_mps": None,
+            "span_m": None,
+            "aspect_ratio": None,
+            "cd0_total": None,
+            "cl_max_effective": None,
+            "mass_kg": None,
+            "oswald_e": None,
+        }
+
+    cd0_counts: dict[float, int] = {}
+    for row in by_cd0_rows:
+        cd0 = float(row["cd0_total"])
+        cd0_counts[cd0] = int(row["robust_cases"])
+
+    if not cd0_counts:
+        return _robust_region(cases)
+
+    max_cd0_count = max(cd0_counts.values())
+    if max_cd0_count <= 0:
+        return _robust_region(cases)
+
+    threshold = max(1, int(max_cd0_count * 0.20))
+    if threshold <= 0:
+        threshold = 1
+    keep_cd0 = {
+        cd0
+        for cd0, count in cd0_counts.items()
+        if count >= threshold
+    }
+    filtered_cases = [
+        case for case in cases if float(case.cd0_total) in keep_cd0
+    ]
+    if not filtered_cases:
+        return _robust_region(cases)
+    return _robust_region(filtered_cases)
+
+
 def _build_summary_payload(
     spec,
     *,
@@ -140,34 +202,11 @@ def _build_summary_payload(
     by_clmax = [row for row in envelopes if row.get("group") == "by_clmax"]
     robust_by_clmax = [row for row in by_clmax if row.get("robust_cases", 0) > 0]
 
-    robust_speed_envelope = _robust_range("speed_mps", robust_cases)
-    cd0_envelope = _robust_range("cd0_total", robust_cases)
-    ar_envelope = _robust_range("aspect_ratio", robust_cases)
-    span_envelope = _robust_range("span_m", robust_cases)
-    clmax_envelope = _robust_range("cl_max_effective", robust_cases)
-    mass_envelope = _robust_range("mass_kg", robust_cases)
-    oswald_envelope = _robust_range("oswald_e", robust_cases)
-
-    if has_robust:
-        suggested_main_design_region = {
-            "speed_mps": [robust_speed_envelope[0], robust_speed_envelope[1]],
-            "span_m": [span_envelope[0], span_envelope[1]],
-            "aspect_ratio": [ar_envelope[0], ar_envelope[1]],
-            "cd0_total": [cd0_envelope[0], cd0_envelope[1]],
-            "cl_max_effective": [clmax_envelope[0], clmax_envelope[1]],
-            "mass_kg": [mass_envelope[0], mass_envelope[1]],
-            "oswald_e": [oswald_envelope[0], oswald_envelope[1]],
-        }
-    else:
-        suggested_main_design_region = {
-            "speed_mps": None,
-            "span_m": None,
-            "aspect_ratio": None,
-            "cd0_total": None,
-            "cl_max_effective": None,
-            "mass_kg": None,
-            "oswald_e": None,
-        }
+    observed_robust_envelope = _robust_region(robust_cases)
+    suggested_main_design_region = _select_main_design_region(
+        cases=robust_cases,
+        by_cd0_rows=by_cd0,
+    )
 
     by_speed = [row for row in envelopes if row.get("group") == "by_speed"]
     robust_speed_rows = [row for row in by_speed if row.get("robust_cases", 0) > 0]
@@ -206,10 +245,11 @@ def _build_summary_payload(
             "allowed_stall_bands": list(spec.filters.allowed_stall_bands),
             "max_cl_to_clmax_ratio": spec.filters.max_cl_to_clmax_ratio,
         },
-        "robust_speed_envelope": robust_speed_envelope,
-        "cd0_envelope": cd0_envelope,
-        "ar_envelope": ar_envelope,
-        "span_envelope": span_envelope,
+        "robust_speed_envelope": observed_robust_envelope["speed_mps"],
+        "cd0_envelope": observed_robust_envelope["cd0_total"],
+        "ar_envelope": observed_robust_envelope["aspect_ratio"],
+        "span_envelope": observed_robust_envelope["span_m"],
+        "observed_robust_envelope": observed_robust_envelope,
         "clmax_robust_counts": _clmax_robust_counts(robust_by_clmax),
         "suggested_main_design_region": suggested_main_design_region,
         "has_robust_design_space": has_robust,
