@@ -52,6 +52,8 @@ class ShadowRow:
     wing_area_m2: Optional[float] = None
     mass_kg: Optional[float] = None
     cd0_wing_profile: Optional[float] = None
+    profile_cd_proxy_source: Optional[str] = None
+    profile_cd_proxy_quality: Optional[str] = None
     cda_nonwing_m2: Optional[float] = None
     cd0_nonwing_equivalent: Optional[float] = None
     cd0_total_est: Optional[float] = None
@@ -200,20 +202,35 @@ def _extract_shadow_inputs(
     rider_curve: RiderCurve | None,
     thermal_derate_factor: float,
     target_range_km: float = 42.195,
-) -> tuple[MissionDragBudgetInputs | None, str, list[str]]:
+) -> tuple[MissionDragBudgetInputs | None, str, list[str], str | None, str | None]:
     """Extract inputs for shadow evaluation from a ranked-pool candidate dict.
 
-    Returns (inputs, evaluation_status, notes).
+    Returns (inputs, evaluation_status, notes, profile_cd_source, profile_cd_quality).
+    evaluation_status is 'ok', 'profile_cd_not_mission_grade', or a missing-field code.
     """
     notes: list[str] = []
     mission = candidate.get("mission", {})
 
     # cd0_wing_profile — mandatory, sourced from profile_cd_proxy
     cd0_wing_profile_raw = _get_float(mission, "profile_cd_proxy")
+    profile_cd_source: str | None = mission.get("profile_cd_proxy_source")
+    profile_cd_quality: str | None = mission.get("profile_cd_proxy_quality")
+
     if cd0_wing_profile_raw is None or cd0_wing_profile_raw <= 0.0:
         return None, "missing_cd0_wing_profile", [
             "profile_cd_proxy is None or non-positive in mission summary"
-        ]
+        ], None, None
+
+    # Determine pre-evaluation status based on quality metadata
+    quality_status = "ok"
+    if profile_cd_quality == "not_mission_grade":
+        quality_status = "profile_cd_not_mission_grade"
+        notes.append(
+            "profile_cd_proxy is stub fallback and should be replaced by "
+            "polar-based estimate before mission-grade budget judgment"
+        )
+    elif profile_cd_quality is None:
+        notes.append("profile_cd_proxy_quality unknown: missing from candidate mission dict")
 
     # speed_mps — prefer midpoint of speed_sweep_window_mps
     speed_source = "actual"
@@ -298,7 +315,7 @@ def _extract_shadow_inputs(
         rider_curve=rider_curve,
         thermal_derate_factor=thermal_derate_factor,
     )
-    return inputs, "ok", notes
+    return inputs, quality_status, notes, profile_cd_source, profile_cd_quality
 
 
 def evaluate_shadow_candidate(
@@ -313,7 +330,7 @@ def evaluate_shadow_candidate(
     """Evaluate one ranked-pool candidate in shadow mode."""
     candidate_id = str(candidate.get("concept_id", candidate.get("evaluation_id", "unknown")))
 
-    inputs, status, notes = _extract_shadow_inputs(
+    inputs, status, notes, profile_cd_source, profile_cd_quality = _extract_shadow_inputs(
         candidate=candidate,
         budget=budget,
         air_density=air_density,
@@ -327,6 +344,8 @@ def evaluate_shadow_candidate(
         evaluation_status=status,
         span_m=_get_float(candidate, "span_m"),
         aspect_ratio=_get_float(candidate, "aspect_ratio"),
+        profile_cd_proxy_source=profile_cd_source,
+        profile_cd_proxy_quality=profile_cd_quality,
         notes="; ".join(notes),
     )
 
@@ -356,13 +375,15 @@ def evaluate_shadow_candidate(
 
         return ShadowRow(
             candidate_id=candidate_id,
-            evaluation_status="ok",
+            evaluation_status=status,  # preserves "profile_cd_not_mission_grade" if flagged
             speed_mps=inputs.speed_mps,
             span_m=inputs.span_m,
             aspect_ratio=inputs.aspect_ratio,
             wing_area_m2=result.wing_area_m2,
             mass_kg=inputs.mass_kg,
             cd0_wing_profile=result.cd0_wing_profile,
+            profile_cd_proxy_source=profile_cd_source,
+            profile_cd_proxy_quality=profile_cd_quality,
             cda_nonwing_m2=result.cda_nonwing_m2,
             cd0_nonwing_equivalent=result.cd0_nonwing_equivalent,
             cd0_total_est=result.cd0_total_est,
@@ -387,6 +408,8 @@ def evaluate_shadow_candidate(
             span_m=inputs.span_m,
             aspect_ratio=inputs.aspect_ratio,
             cd0_wing_profile=inputs.cd0_wing_profile,
+            profile_cd_proxy_source=profile_cd_source,
+            profile_cd_proxy_quality=profile_cd_quality,
             notes=f"exception: {exc}; " + "; ".join(notes),
         )
 
@@ -508,6 +531,8 @@ def _write_shadow_csv(rows: list[ShadowRow], path: Path) -> None:
         "wing_area_m2",
         "mass_kg",
         "cd0_wing_profile",
+        "profile_cd_proxy_source",
+        "profile_cd_proxy_quality",
         "cda_nonwing_m2",
         "cd0_nonwing_equivalent",
         "cd0_total_est",
@@ -539,6 +564,8 @@ def _write_shadow_csv(rows: list[ShadowRow], path: Path) -> None:
                     "wing_area_m2": _fmt(row.wing_area_m2),
                     "mass_kg": _fmt(row.mass_kg),
                     "cd0_wing_profile": _fmt(row.cd0_wing_profile),
+                    "profile_cd_proxy_source": row.profile_cd_proxy_source or "",
+                    "profile_cd_proxy_quality": row.profile_cd_proxy_quality or "",
                     "cda_nonwing_m2": _fmt(row.cda_nonwing_m2),
                     "cd0_nonwing_equivalent": _fmt(row.cd0_nonwing_equivalent),
                     "cd0_total_est": _fmt(row.cd0_total_est),
@@ -574,12 +601,24 @@ def _build_shadow_summary(
 ) -> dict[str, Any]:
     total = len(rows)
     evaluated = [r for r in rows if r.evaluation_status == "ok"]
-    missing_input = [r for r in rows if r.evaluation_status != "ok"]
+    not_mission_grade = [
+        r for r in rows if r.evaluation_status == "profile_cd_not_mission_grade"
+    ]
+    missing_input = [
+        r for r in rows
+        if r.evaluation_status not in ("ok", "profile_cd_not_mission_grade")
+    ]
 
     band_counts: dict[str, int] = {}
     for row in evaluated:
         band = str(row.drag_budget_band or "unknown")
         band_counts[band] = band_counts.get(band, 0) + 1
+
+    # Profile CD quality counts across ALL rows
+    quality_counts: dict[str, int] = {}
+    for row in rows:
+        q = row.profile_cd_proxy_quality or "unknown"
+        quality_counts[q] = quality_counts.get(q, 0) + 1
 
     power_passed_count = sum(1 for r in evaluated if r.power_passed is True)
     robust_passed_count = sum(1 for r in evaluated if r.robust_passed is True)
@@ -613,8 +652,13 @@ def _build_shadow_summary(
     return {
         "total_candidates": total,
         "evaluated_candidates": len(evaluated),
+        "count_not_mission_grade_profile_cd": len(not_mission_grade),
+        "count_mission_budget_candidate_profile_cd": quality_counts.get(
+            "mission_budget_candidate", 0
+        ),
         "missing_input_candidates": len(missing_input),
         "missing_input_statuses": [r.evaluation_status for r in missing_input],
+        "profile_cd_quality_counts": quality_counts,
         "count_by_drag_budget_band": band_counts,
         "count_power_passed": power_passed_count,
         "count_robust_passed": robust_passed_count,

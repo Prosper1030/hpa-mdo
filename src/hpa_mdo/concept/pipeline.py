@@ -1899,10 +1899,19 @@ def _mission_limiter_audit(
     }
 
 
-def _mean_effective_cd(
+_PROFILE_CD_SOURCE_STATION = "cruise_station_points_cd_effective"
+_PROFILE_CD_SOURCE_FEEDBACK = "airfoil_feedback_mean_cd_effective"
+_PROFILE_CD_SOURCE_STUB = "hardcoded_stub_fallback_0p020"
+_PROFILE_CD_QUALITY_MISSION = "mission_budget_candidate"
+_PROFILE_CD_QUALITY_FALLBACK = "fallback_not_cd0_budget_grade"
+_PROFILE_CD_QUALITY_NOT_MISSION = "not_mission_grade"
+
+
+def _mean_effective_cd_with_source(
     station_points: list[dict[str, float]],
     airfoil_feedback: dict[str, Any],
-) -> float:
+) -> tuple[float, str, str]:
+    """Return (cd_value, source_tag, quality_tag) for the wing profile CD estimate."""
     weighted_values: list[tuple[float, float]] = []
     for point in station_points:
         cd_value = _numeric_value(point.get("cd_effective"))
@@ -1910,14 +1919,24 @@ def _mean_effective_cd(
             continue
         weighted_values.append((cd_value, float(point.get("weight", 1.0))))
     if weighted_values:
-        total_weight = sum(weight for _, weight in weighted_values)
+        total_weight = sum(w for _, w in weighted_values)
         if total_weight > 0.0:
-            return sum(value * weight for value, weight in weighted_values) / total_weight
+            cd = sum(v * w for v, w in weighted_values) / total_weight
+            return cd, _PROFILE_CD_SOURCE_STATION, _PROFILE_CD_QUALITY_MISSION
 
     mean_cd = _numeric_value(airfoil_feedback.get("mean_cd_effective"))
     if mean_cd is not None:
-        return mean_cd
-    return 0.020
+        return mean_cd, _PROFILE_CD_SOURCE_FEEDBACK, _PROFILE_CD_QUALITY_FALLBACK
+
+    return 0.020, _PROFILE_CD_SOURCE_STUB, _PROFILE_CD_QUALITY_NOT_MISSION
+
+
+def _mean_effective_cd(
+    station_points: list[dict[str, float]],
+    airfoil_feedback: dict[str, Any],
+) -> float:
+    cd, _, _ = _mean_effective_cd_with_source(station_points, airfoil_feedback)
+    return cd
 
 
 def _assembly_penalty(concept: GeometryConcept) -> float:
@@ -2223,7 +2242,7 @@ def _build_concept_mission_summary(
         station_points,
         "reference_avl_case",
     )
-    profile_cd = _mean_effective_cd(
+    profile_cd, profile_cd_source, profile_cd_quality = _mean_effective_cd_with_source(
         cruise_station_points or station_points,
         airfoil_feedback,
     )
@@ -2727,6 +2746,8 @@ def _build_concept_mission_summary(
         ),
         "worst_case_best_range_m": float(worst_case_result["best_range_m"]),
         "profile_cd_proxy": profile_cd,
+        "profile_cd_proxy_source": profile_cd_source,
+        "profile_cd_proxy_quality": profile_cd_quality,
         "misc_cd_proxy": misc_cd,
         "trim_drag_cd_proxy": tail_trim_drag_cd,
         "rigging_cda_m2": float(rigging_cda_m2),

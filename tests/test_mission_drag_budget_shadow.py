@@ -8,6 +8,15 @@ from pathlib import Path
 
 import pytest
 
+from hpa_mdo.concept.pipeline import (
+    _mean_effective_cd_with_source,
+    _PROFILE_CD_SOURCE_STATION,
+    _PROFILE_CD_SOURCE_FEEDBACK,
+    _PROFILE_CD_SOURCE_STUB,
+    _PROFILE_CD_QUALITY_MISSION,
+    _PROFILE_CD_QUALITY_FALLBACK,
+    _PROFILE_CD_QUALITY_NOT_MISSION,
+)
 from hpa_mdo.mission.drag_budget import load_mission_drag_budget
 from hpa_mdo.mission.drag_budget_shadow import (
     SHADOW_CSV_FILENAME,
@@ -281,3 +290,175 @@ def test_shadow_run_on_real_ranked_pool(tmp_path: Path) -> None:
     assert "total_candidates" in summary_data
     assert "count_by_drag_budget_band" in summary_data
     assert "config_paths" in summary_data
+
+
+# ---------------------------------------------------------------------------
+# Test 7: _mean_effective_cd_with_source — three source paths
+# ---------------------------------------------------------------------------
+
+def test_mean_effective_cd_with_source_station_points() -> None:
+    """When station_points have cd_effective, source=cruise_station_points."""
+    station_points = [
+        {"cd_effective": 0.0110, "weight": 1.5},
+        {"cd_effective": 0.0130, "weight": 0.5},
+    ]
+    airfoil_feedback: dict = {}
+
+    cd, source, quality = _mean_effective_cd_with_source(station_points, airfoil_feedback)
+
+    expected_cd = (0.0110 * 1.5 + 0.0130 * 0.5) / 2.0
+    assert cd == pytest.approx(expected_cd, rel=1e-9)
+    assert source == _PROFILE_CD_SOURCE_STATION
+    assert quality == _PROFILE_CD_QUALITY_MISSION
+
+
+def test_mean_effective_cd_with_source_airfoil_feedback_fallback() -> None:
+    """When station_points lack cd_effective, falls back to airfoil_feedback."""
+    station_points = [{"weight": 1.0}]  # no cd_effective
+    airfoil_feedback = {"mean_cd_effective": 0.0155}
+
+    cd, source, quality = _mean_effective_cd_with_source(station_points, airfoil_feedback)
+
+    assert cd == pytest.approx(0.0155, rel=1e-9)
+    assert source == _PROFILE_CD_SOURCE_FEEDBACK
+    assert quality == _PROFILE_CD_QUALITY_FALLBACK
+
+
+def test_mean_effective_cd_with_source_stub_fallback() -> None:
+    """When neither source is available, returns stub 0.020."""
+    station_points: list = []
+    airfoil_feedback: dict = {}
+
+    cd, source, quality = _mean_effective_cd_with_source(station_points, airfoil_feedback)
+
+    assert cd == pytest.approx(0.020, rel=1e-9)
+    assert source == _PROFILE_CD_SOURCE_STUB
+    assert quality == _PROFILE_CD_QUALITY_NOT_MISSION
+
+
+# ---------------------------------------------------------------------------
+# Test 8: shadow reads and propagates source/quality from candidate dict
+# ---------------------------------------------------------------------------
+
+def test_shadow_propagates_source_quality_from_candidate_dict() -> None:
+    """ShadowRow carries profile_cd_proxy_source and _quality from the candidate."""
+    budget = _budget()
+    candidate = _make_candidate(profile_cd_proxy=0.0115)
+    candidate["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STATION
+    candidate["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_MISSION
+
+    row = evaluate_shadow_candidate(
+        candidate=candidate,
+        budget=budget,
+        air_density=1.1357,
+        rider_curve=None,
+        thermal_derate_factor=1.0,
+        target_range_km=42.195,
+    )
+
+    assert row.evaluation_status == "ok"
+    assert row.profile_cd_proxy_source == _PROFILE_CD_SOURCE_STATION
+    assert row.profile_cd_proxy_quality == _PROFILE_CD_QUALITY_MISSION
+
+
+# ---------------------------------------------------------------------------
+# Test 9: not_mission_grade profile_cd — no crash, status flagged
+# ---------------------------------------------------------------------------
+
+def test_shadow_not_mission_grade_does_not_crash_and_is_flagged() -> None:
+    """Candidate with quality=not_mission_grade gets status=profile_cd_not_mission_grade."""
+    budget = _budget()
+    candidate = _make_candidate(profile_cd_proxy=0.020)
+    candidate["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STUB
+    candidate["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_NOT_MISSION
+
+    row = evaluate_shadow_candidate(
+        candidate=candidate,
+        budget=budget,
+        air_density=1.1357,
+        rider_curve=None,
+        thermal_derate_factor=1.0,
+        target_range_km=42.195,
+    )
+
+    assert row.evaluation_status == "profile_cd_not_mission_grade"
+    assert row.cd0_total_est is not None  # values still computed
+    assert row.drag_budget_band is not None
+    assert "stub fallback" in row.notes
+
+
+# ---------------------------------------------------------------------------
+# Test 10: summary counts not_mission_grade and mission_budget_candidate
+# ---------------------------------------------------------------------------
+
+def test_shadow_summary_counts_profile_cd_quality(tmp_path: Path) -> None:
+    """Summary correctly tallies profile_cd_quality_counts and derived counts."""
+    c_mission = _make_candidate("c-m", profile_cd_proxy=0.0115)
+    c_mission["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STATION
+    c_mission["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_MISSION
+
+    c_stub = _make_candidate("c-s", profile_cd_proxy=0.020)
+    c_stub["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STUB
+    c_stub["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_NOT_MISSION
+
+    c_missing = _make_candidate("c-x", profile_cd_proxy=None)
+
+    ranked_pool_json = {"config_path": None, "ranked_pool": [c_mission, c_stub, c_missing]}
+    pool_path = tmp_path / "concept_ranked_pool.json"
+    pool_path.write_text(json.dumps(ranked_pool_json), encoding="utf-8")
+
+    summary = run_shadow_on_ranked_pool_json(
+        ranked_pool_json_path=pool_path,
+        budget_config_path=_BUDGET_YAML,
+        output_dir=tmp_path,
+        rider_curve=None,
+        auto_load_rider_curve=False,
+    )
+
+    assert summary["total_candidates"] == 3
+    assert summary["evaluated_candidates"] == 1          # only mission-grade "ok"
+    assert summary["count_not_mission_grade_profile_cd"] == 1
+    assert summary["count_mission_budget_candidate_profile_cd"] == 1
+    assert summary["missing_input_candidates"] == 1      # c-x with None cd
+
+    qc = summary["profile_cd_quality_counts"]
+    assert qc.get("mission_budget_candidate", 0) == 1
+    assert qc.get("not_mission_grade", 0) == 1
+    assert qc.get("unknown", 0) == 1  # c-x has no quality field
+
+    # profile_cd_proxy_quality column must appear in the CSV header
+    lines = (tmp_path / SHADOW_CSV_FILENAME).read_text(encoding="utf-8").splitlines()
+    assert "profile_cd_proxy_quality" in lines[0]
+    assert "profile_cd_proxy_source" in lines[0]
+
+
+# ---------------------------------------------------------------------------
+# Test 11: stubbed smoke — not_mission_grade > 0 in quality counts
+# ---------------------------------------------------------------------------
+
+def test_shadow_summary_with_all_stub_candidates(tmp_path: Path) -> None:
+    """All candidates with stub quality → count_not_mission_grade_profile_cd == total evaluated-ish."""
+    candidates = [
+        _make_candidate(f"s-{i:02d}", profile_cd_proxy=0.020)
+        for i in range(5)
+    ]
+    for c in candidates:
+        c["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STUB
+        c["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_NOT_MISSION
+
+    pool = {"config_path": None, "ranked_pool": candidates}
+    pool_path = tmp_path / "concept_ranked_pool.json"
+    pool_path.write_text(json.dumps(pool), encoding="utf-8")
+
+    summary = run_shadow_on_ranked_pool_json(
+        ranked_pool_json_path=pool_path,
+        budget_config_path=_BUDGET_YAML,
+        output_dir=tmp_path,
+        rider_curve=None,
+        auto_load_rider_curve=False,
+    )
+
+    assert summary["total_candidates"] == 5
+    assert summary["evaluated_candidates"] == 0           # none are "ok"
+    assert summary["count_not_mission_grade_profile_cd"] == 5
+    assert summary["profile_cd_quality_counts"].get("not_mission_grade", 0) == 5
