@@ -29,6 +29,17 @@ output/
 database/
 *.sql
 *.sqlite
+hpa_meshing_package/docs/reports/**/artifacts/
+hpa_meshing_package/docs/reports/**/*.su2
+hpa_meshing_package/docs/reports/**/*.msh
+hpa_meshing_package/docs/reports/**/*.log
+hpa_meshing_package/docs/reports/**/*.history
+hpa_meshing_package/docs/reports/**/*.history.csv
+hpa_meshing_package/docs/reports/**/*.cfg
+hpa_meshing_package/docs/reports/**/*.vsp3
+hpa_meshing_package/docs/reports/**/*.csm
+hpa_meshing_package/docs/reports/**/*.stp
+hpa_meshing_package/docs/reports/**/*.obj
 
 # OpenMDAO
 *.db
