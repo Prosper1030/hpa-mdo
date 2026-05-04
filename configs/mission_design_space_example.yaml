@@ -1,0 +1,43 @@
+schema_version: mission_design_space_v1
+
+mission:
+  target_range_km: 42.195
+
+rider:
+  power_csv: data/pilot_power_curves/current_pilot_power_curve.csv
+  metadata_yaml: data/pilot_power_curves/current_pilot_power_curve.metadata.yaml
+
+environment:
+  target_temperature_c: 33.0
+  target_relative_humidity_percent: 80.0
+  heat_loss_coefficient_per_h_c: 0.008
+
+aircraft:
+  mass_kg: [96.0, 98.5, 101.0]
+  air_density_kg_m3: [1.1357]
+  oswald_e: [0.85, 0.90, 0.95]
+  eta_prop: [0.86]
+  eta_trans: [0.96]
+
+design_space:
+  speeds_mps:
+    min: 5.8
+    max: 7.0
+    step: 0.1
+  spans_m: [33.0, 34.0, 35.0]
+  aspect_ratios: [37.0, 38.0, 39.0, 40.0]
+  cd0_totals: [0.016, 0.017, 0.018, 0.020]
+  cl_max_effectives: [1.35, 1.45, 1.55, 1.65]
+
+filters:
+  min_power_margin_crank_w: 5.0
+  robust_power_margin_crank_w: 10.0
+  allowed_cl_bands: ["normal"]
+  allowed_stall_bands: ["healthy", "caution"]
+  max_cl_to_clmax_ratio: 0.9
+
+outputs:
+  output_dir: output/mission_design_space
+  write_full_results_csv: true
+  write_envelope_csv: true
+  write_markdown_report: true

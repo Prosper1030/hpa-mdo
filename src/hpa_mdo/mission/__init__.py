@@ -14,6 +14,26 @@ from hpa_mdo.mission.objective import (
     simplified_heat_stress_h,
     thermal_power_derate_factor,
 )
+from hpa_mdo.mission.design_space import (
+    MissionDesignSpaceFilters,
+    MissionDesignSpaceSpec,
+    build_boundary_tables,
+    build_feasible_envelope,
+    count_design_space_cases,
+    is_robust_case,
+    load_mission_design_space_spec,
+    summarize_design_space,
+    sort_design_space_cases,
+    write_design_space_report,
+    write_full_results_csv,
+    write_envelope_rows,
+)
+from hpa_mdo.mission.quick_screen import (
+    MissionQuickScreenInputs,
+    MissionQuickScreenResult,
+    evaluate_quick_screen,
+    sweep_quick_screen_grid,
+)
 
 __all__ = [
     "CsvPowerCurve",
@@ -28,4 +48,20 @@ __all__ = [
     "load_rider_power_curve_metadata",
     "simplified_heat_stress_h",
     "thermal_power_derate_factor",
+    "MissionDesignSpaceFilters",
+    "MissionDesignSpaceSpec",
+    "build_boundary_tables",
+    "build_feasible_envelope",
+    "count_design_space_cases",
+    "is_robust_case",
+    "load_mission_design_space_spec",
+    "summarize_design_space",
+    "write_design_space_report",
+    "write_full_results_csv",
+    "write_envelope_rows",
+    "sort_design_space_cases",
+    "MissionQuickScreenInputs",
+    "MissionQuickScreenResult",
+    "evaluate_quick_screen",
+    "sweep_quick_screen_grid",
 ]
