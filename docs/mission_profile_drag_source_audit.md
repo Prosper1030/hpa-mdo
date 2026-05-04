@@ -50,6 +50,8 @@ profile_cd = _mean_effective_cd(
 > `cruise_station_points` 只含 `reference_avl_case` 標記的巡航工況（低 CL 操作點），  
 > 不包含高 CL 失速掃描點。
 
+`profile_cd_proxy_source` 反映 pipeline 計算時的內部資料路徑；部分 intermediate station/cruise points 不一定會完整序列化到 final ranked_pool JSON。
+
 ### 2.3 `_mean_effective_cd` 的三層 fallback 邏輯
 
 ```
