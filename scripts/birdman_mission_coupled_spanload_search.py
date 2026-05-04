@@ -387,6 +387,7 @@ def run_search(
     optimize_spanload_coefficients: bool,
     workers: int,
     avl_binary: str | None,
+    enable_outer_chord_bump: bool = False,
 ) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     allocation = allocate_stage1_budget(
@@ -402,6 +403,7 @@ def run_search(
             sample_count=int(stage0_samples),
             design_speed_mps=float(design_speed_mps),
             seed=20260503 + speed_index,
+            enable_outer_chord_bump=bool(enable_outer_chord_bump),
         )
         stage0_by_speed[f"{design_speed_mps:.1f}"] = stage0["counts"]
         selected = spanload_smoke._select_stage1_inputs(
@@ -618,6 +620,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--avl-binary", default=None)
     parser.add_argument("--optimize-spanload-coefficients", action="store_true")
+    parser.add_argument(
+        "--enable-outer-chord-bump",
+        action="store_true",
+        help=(
+            "Use the legacy outer chord bump (default: disabled). "
+            "Stage-1 generation switched to the MIT-like closed-loop architecture "
+            "in birdman_mit_like_closed_loop_search.py; this flag is kept for "
+            "regression comparison only."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -636,6 +648,7 @@ def main() -> None:
         optimize_spanload_coefficients=bool(args.optimize_spanload_coefficients),
         workers=max(1, int(args.workers)),
         avl_binary=args.avl_binary,
+        enable_outer_chord_bump=bool(args.enable_outer_chord_bump),
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     json_path = args.output_dir / "mission_coupled_spanload_search_report.json"
