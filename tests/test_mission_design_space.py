@@ -506,6 +506,10 @@ outputs:
     assert (output_dir / "report.md").exists()
     assert (output_dir / "boundary_speed_cd0.csv").exists()
     assert (output_dir / "envelope_by_speed.csv").exists()
+    assert (output_dir / "summary.json").exists()
+    summary_payload = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    assert "robust_speed_envelope" in summary_payload
+    assert summary_payload["output_files"]["report_md"] == "report.md"
 
 
 def test_plot_generation_smoke_test_and_report_summary(tmp_path: Path) -> None:
@@ -608,9 +612,94 @@ plots:
     assert "plots/feasible_speed_range_by_cd0.png" in report_text
 
     summary_payload = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    assert "counts" in summary_payload
+    assert "suggested_main_design_region" in summary_payload
+    assert "robust_speed_envelope" in summary_payload
     assert "plot_paths" in summary_payload
+    assert isinstance(summary_payload["plot_paths"], dict)
     assert set(summary_payload["plot_paths"].keys()) >= {
         "robust_cases_by_speed",
         "feasible_speed_range_by_cd0",
         "robust_count_heatmap_speed_cd0",
     }
+
+
+def test_skip_plots_still_generates_summary_json(tmp_path: Path) -> None:
+    power_csv = tmp_path / "power_curve.csv"
+    power_csv.write_text("secs,watts\n6000,213\n6600,212\n7200,211\n", encoding="utf-8")
+    metadata_yaml = tmp_path / "metadata.yaml"
+    metadata_yaml.write_text(
+        """\
+schema_version: rider_power_curve_metadata_v1
+source_csv: power_curve.csv
+measurement_environment:
+  temperature_c: 26.0
+  relative_humidity_percent: 70.0
+""",
+        encoding="utf-8",
+    )
+    output_dir = tmp_path / "mission_design_space_skip_plots"
+    config_yaml = tmp_path / "design_space_plot.yaml"
+    _write_tmp_yaml(
+        config_yaml,
+        f"""
+schema_version: mission_design_space_v1
+mission:
+  target_range_km: 42.195
+rider:
+  power_csv: {power_csv}
+  metadata_yaml: {metadata_yaml}
+environment:
+  target_temperature_c: 33.0
+  target_relative_humidity_percent: 80.0
+  heat_loss_coefficient_per_h_c: 0.008
+aircraft:
+  mass_kg: [98.5]
+  air_density_kg_m3: [1.1357]
+  oswald_e: [0.9]
+  eta_prop: [0.86]
+  eta_trans: [0.96]
+design_space:
+  speeds_mps:
+    min: 6.0
+    max: 6.4
+    step: 0.1
+  spans_m: [34.0]
+  aspect_ratios: [38.0]
+  cd0_totals: [0.017, 0.018]
+  cl_max_effectives: [1.45, 1.55]
+filters:
+  min_power_margin_crank_w: 5.0
+  robust_power_margin_crank_w: 10.0
+  allowed_cl_bands: ["normal"]
+  allowed_stall_bands: ["healthy", "caution"]
+  max_cl_to_clmax_ratio: 0.90
+outputs:
+  output_dir: {output_dir}
+  write_full_results_csv: true
+  write_envelope_csv: true
+  write_markdown_report: true
+  write_plots: true
+plots:
+  dpi: 160
+  format: png
+  max_candidate_rows_in_report: 10
+""",
+    )
+
+    repo_root = Path(__file__).resolve().parents[1]
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/mission_design_space_explorer.py",
+            "--config",
+            str(config_yaml),
+            "--skip-plots",
+        ],
+        check=True,
+        cwd=repo_root,
+    )
+
+    assert (output_dir / "summary.json").exists()
+    summary_payload = json.loads((output_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary_payload["plot_paths"] == {}

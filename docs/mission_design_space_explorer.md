@@ -12,7 +12,7 @@ This tool runs quick-screen sweeps over mission design combinations and outputs 
 - `envelope_by_clmax.csv`
 - `boundary_speed_cd0.csv`
 - `report.md`
-- `summary.json` (if already exists, this tool will inject `plot_paths`)
+- `summary.json` (always generated, includes input/environment/counts/envelopes/plot paths)
 - `plots/*.png` (when plot generation is enabled)
 
 ## Plot outputs generated
@@ -79,3 +79,14 @@ If `plots` block is omitted, defaults are:
 
 When plots are available, `report.md` includes a `## Visual Summary` section with all generated image links so the design envelope can be reviewed without opening CSV only.
 
+`summary.json` is written to `output_dir` every run and is intended for automation or quick post-processing. It includes:
+
+- `input_paths`: power csv and metadata yaml paths
+- `environments`: `test_environment`, `target_environment`, `heat_derate_factor`
+- `counts`: `total_cases`, `power_passed_cases`, `robust_cases`, `margin_ge_min_cases`, `margin_ge_robust_cases`
+- `robust_definition`, `robust_speed_envelope`, `cd0_envelope`, `ar_envelope`, `span_envelope`, `clmax_robust_counts`
+- `suggested_main_design_region` (descriptive robust region, not single recommended design)
+- `output_files`
+- `plot_paths` (empty dict if `--skip-plots` or plots disabled)
+
+`report.md` `## Inputs` adds a `summary.json` path entry for traceability.

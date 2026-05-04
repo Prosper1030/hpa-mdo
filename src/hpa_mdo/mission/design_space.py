@@ -1201,6 +1201,7 @@ def write_design_space_report(
     target_env: RiderPowerEnvironment,
     heat_derate: float,
     filters: MissionDesignSpaceFilters,
+    summary_json_path: Path | None = None,
     plot_paths: dict[str, str] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -1219,6 +1220,11 @@ def write_design_space_report(
         f"- mission target range: {spec.target_range_km:.3f} km",
         f"- rider power csv: `{spec.rider_power_csv}`",
         f"- rider metadata: `{spec.rider_metadata_yaml}`",
+        (
+            f"- summary.json: {summary_json_path}"
+            if summary_json_path is not None
+            else "- summary.json: will be created on run completion"
+        ),
         f"- test environment: {test_env.temperature_c:.2f}°C / {test_env.relative_humidity_percent:.1f}%RH",
         f"- target environment: {target_env.temperature_c:.2f}°C / {target_env.relative_humidity_percent:.1f}%RH",
         f"- heat derate factor: {heat_derate:.12f}",

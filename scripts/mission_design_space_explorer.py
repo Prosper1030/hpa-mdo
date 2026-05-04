@@ -32,6 +32,7 @@ from hpa_mdo.mission.quick_screen import sweep_quick_screen_grid
 
 
 DEFAULT_CONFIG_PATH = "configs/mission_design_space_example.yaml"
+SUMMARY_JSON_FILENAME = "summary.json"
 
 
 def _build_parser() -> ArgumentParser:
@@ -92,6 +93,183 @@ def _update_summary_json_with_plots(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _range_pair(values: list[float]) -> list[float] | None:
+    if not values:
+        return None
+    return [min(values), max(values)]
+
+
+def _robust_range(value_key: str, cases: list[MissionQuickScreenResult]) -> list[float] | None:
+    values = [float(getattr(case, value_key)) for case in cases]
+    return _range_pair(values)
+
+
+def _clmax_robust_counts(
+    by_clmax_rows: list[dict[str, object]],
+    *,
+    include_zero: bool = True,
+) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in by_clmax_rows:
+        key = f"{float(row['cl_max_effective']):.6g}"  # stable text keys for JSON
+        count = int(row["robust_cases"])
+        if include_zero or count > 0:
+            counts[key] = count
+    return counts
+
+
+def _build_summary_payload(
+    spec,
+    *,
+    cases: list[MissionQuickScreenResult],
+    envelopes: list[dict[str, object]],
+    summary: dict[str, int | float],
+    heat_derate: float,
+    test_env: RiderPowerEnvironment,
+    target_env: RiderPowerEnvironment,
+    plot_paths: dict[str, str],
+) -> dict[str, object]:
+    robust_cases = [case for case in cases if is_robust_case(case, spec.filters)]
+    has_robust = len(robust_cases) > 0
+
+    by_cd0 = [row for row in envelopes if row.get("group") == "by_cd0"]
+    by_ar = [row for row in envelopes if row.get("group") == "by_aspect_ratio"]
+    by_span = [row for row in envelopes if row.get("group") == "by_span"]
+    by_clmax = [row for row in envelopes if row.get("group") == "by_clmax"]
+    robust_by_clmax = [row for row in by_clmax if row.get("robust_cases", 0) > 0]
+
+    robust_speed_envelope = _robust_range("speed_mps", robust_cases)
+    cd0_envelope = _robust_range("cd0_total", robust_cases)
+    ar_envelope = _robust_range("aspect_ratio", robust_cases)
+    span_envelope = _robust_range("span_m", robust_cases)
+    clmax_envelope = _robust_range("cl_max_effective", robust_cases)
+    mass_envelope = _robust_range("mass_kg", robust_cases)
+    oswald_envelope = _robust_range("oswald_e", robust_cases)
+
+    if has_robust:
+        suggested_main_design_region = {
+            "speed_mps": [robust_speed_envelope[0], robust_speed_envelope[1]],
+            "span_m": [span_envelope[0], span_envelope[1]],
+            "aspect_ratio": [ar_envelope[0], ar_envelope[1]],
+            "cd0_total": [cd0_envelope[0], cd0_envelope[1]],
+            "cl_max_effective": [clmax_envelope[0], clmax_envelope[1]],
+            "mass_kg": [mass_envelope[0], mass_envelope[1]],
+            "oswald_e": [oswald_envelope[0], oswald_envelope[1]],
+        }
+    else:
+        suggested_main_design_region = {
+            "speed_mps": None,
+            "span_m": None,
+            "aspect_ratio": None,
+            "cd0_total": None,
+            "cl_max_effective": None,
+            "mass_kg": None,
+            "oswald_e": None,
+        }
+
+    by_speed = [row for row in envelopes if row.get("group") == "by_speed"]
+    robust_speed_rows = [row for row in by_speed if row.get("robust_cases", 0) > 0]
+    by_cd0_robust_rows = [row for row in by_cd0 if row.get("robust_cases", 0) > 0]
+    by_ar_robust_rows = [row for row in by_ar if row.get("robust_cases", 0) > 0]
+    by_span_robust_rows = [row for row in by_span if row.get("robust_cases", 0) > 0]
+
+    payload: dict[str, object] = {
+        "input_paths": {
+            "power_csv": str(spec.rider_power_csv),
+            "metadata_yaml": str(spec.rider_metadata_yaml),
+        },
+        "environments": {
+            "test_environment": {
+                "temperature_c": test_env.temperature_c,
+                "relative_humidity_percent": test_env.relative_humidity_percent,
+            },
+            "target_environment": {
+                "temperature_c": target_env.temperature_c,
+                "relative_humidity_percent": target_env.relative_humidity_percent,
+            },
+            "heat_derate_factor": heat_derate,
+        },
+        "counts": {
+            "total_cases": summary["total_cases"],
+            "power_passed_cases": summary["power_passed_cases"],
+            "robust_cases": summary["robust_cases"],
+            "margin_ge_min_cases": summary["margin_ge_min_cases"],
+            "margin_ge_robust_cases": summary["margin_ge_robust_cases"],
+        },
+        "robust_definition": {
+            "power_passed_required": True,
+            "min_power_margin_crank_w": spec.filters.min_power_margin_crank_w,
+            "robust_power_margin_crank_w": spec.filters.robust_power_margin_crank_w,
+            "allowed_cl_bands": list(spec.filters.allowed_cl_bands),
+            "allowed_stall_bands": list(spec.filters.allowed_stall_bands),
+            "max_cl_to_clmax_ratio": spec.filters.max_cl_to_clmax_ratio,
+        },
+        "robust_speed_envelope": robust_speed_envelope,
+        "cd0_envelope": cd0_envelope,
+        "ar_envelope": ar_envelope,
+        "span_envelope": span_envelope,
+        "clmax_robust_counts": _clmax_robust_counts(robust_by_clmax),
+        "suggested_main_design_region": suggested_main_design_region,
+        "has_robust_design_space": has_robust,
+        "output_files": {
+            "full_results_csv": "full_results.csv",
+            "envelope_by_speed_csv": "envelope_by_speed.csv",
+            "envelope_by_cd0_csv": "envelope_by_cd0.csv",
+            "envelope_by_ar_csv": "envelope_by_ar.csv",
+            "envelope_by_span_csv": "envelope_by_span.csv",
+            "envelope_by_clmax_csv": "envelope_by_clmax.csv",
+            "boundary_speed_cd0_csv": "boundary_speed_cd0.csv",
+            "report_md": "report.md",
+        },
+        "robust_summary_by_speed": [
+            {
+                "speed_mps": row["speed_mps"],
+                "robust_cases": row["robust_cases"],
+            }
+            for row in robust_speed_rows
+        ],
+        "cd0_envelope_by_cd0": [
+            {
+                "cd0_total": row["cd0_total"],
+                "robust_cases": row["robust_cases"],
+                "feasible_speed_min": row["feasible_speed_min"],
+                "feasible_speed_max": row["feasible_speed_max"],
+            }
+            for row in by_cd0_robust_rows
+        ],
+        "ar_envelope_by_ar": [
+            {
+                "aspect_ratio": row["aspect_ratio"],
+                "robust_cases": row["robust_cases"],
+                "feasible_speed_min": row["feasible_speed_min"],
+                "feasible_speed_max": row["feasible_speed_max"],
+            }
+            for row in by_ar_robust_rows
+        ],
+        "span_envelope_by_span": [
+            {
+                "span_m": row["span_m"],
+                "robust_cases": row["robust_cases"],
+                "feasible_speed_min": row["feasible_speed_min"],
+                "feasible_speed_max": row["feasible_speed_max"],
+            }
+            for row in by_span_robust_rows
+        ],
+        "clmax_robust_counts_detail": {
+            f"{float(row['cl_max_effective']):.6g}": {
+                "robust_cases": int(row["robust_cases"]),
+                "over_clmax_cases": int(row["over_clmax_cases"]),
+                "thin_margin_cases": int(row["thin_margin_cases"]),
+                "healthy_cases": int(row["healthy_cases"]),
+                "caution_cases": int(row["caution_cases"]),
+            }
+            for row in robust_by_clmax
+        },
+        "plot_paths": plot_paths,
+    }
+    return payload
 
 
 def _evaluate_design_space(
@@ -220,12 +398,25 @@ def run_mission_design_space(
             target_env=target_env,
             heat_derate=heat_derate,
             filters=spec.filters,
+            summary_json_path=spec.output_dir / SUMMARY_JSON_FILENAME,
             plot_paths=plot_paths or None,
         )
 
-    summary_json_path = spec.output_dir / "summary.json"
-    if summary_json_path.exists() and plot_paths:
-        _update_summary_json_with_plots(summary_json_path, plot_paths)
+    summary_json_path = spec.output_dir / SUMMARY_JSON_FILENAME
+    payload = _build_summary_payload(
+        spec,
+        cases=cases,
+        envelopes=envelopes,
+        summary=summary,
+        heat_derate=heat_derate,
+        test_env=test_env,
+        target_env=target_env,
+        plot_paths=plot_paths if spec.write_plots and not skip_plots else {},
+    )
+    summary_json_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     if spec.write_envelope_csv:
         by_speed = [row for row in envelopes if row.get("group") == "by_speed"]
         by_cd0 = [row for row in envelopes if row.get("group") == "by_cd0"]
