@@ -7,8 +7,8 @@ from argparse import ArgumentParser, Namespace
 from dataclasses import replace
 from itertools import product
 from pathlib import Path
-from typing import Any
 import json
+from typing import Any, Sequence
 
 from hpa_mdo.mission import (
     MissionQuickScreenResult,
@@ -17,6 +17,10 @@ from hpa_mdo.mission import (
     build_feasible_envelope,
     MissionDesignSpaceSpec,
     load_mission_design_space_spec,
+    summarize_seed_tier_counts,
+    summarize_optimizer_exploration_tier_counts,
+    write_candidate_seed_pool_csv,
+    build_candidate_seed_pool,
     summarize_design_space,
     write_design_space_report,
     write_design_space_plots,
@@ -33,6 +37,23 @@ from hpa_mdo.mission.quick_screen import sweep_quick_screen_grid
 
 DEFAULT_CONFIG_PATH = "configs/mission_design_space_example.yaml"
 SUMMARY_JSON_FILENAME = "summary.json"
+CANDIDATE_SEED_POOL_CSV_FILENAME = "candidate_seed_pool.csv"
+OPTIMIZER_HANDOFF_JSON_FILENAME = "optimizer_handoff.json"
+HUMAN_READABLE_SUMMARY_JSON_FILENAME = "human_readable_summary.json"
+
+
+def _format_stall_band_counts(cases: Sequence[MissionQuickScreenResult]) -> str:
+    bands = ("healthy", "caution", "thin_margin", "over_clmax")
+    return " / ".join(
+        f"{band}:{sum(1 for case in cases if case.stall_band == band)}"
+        for band in bands
+    )
+
+
+def _coerce_bounds(values: Sequence[float] | None) -> list[float] | None:
+    if not values:
+        return None
+    return [float(min(values)), float(max(values))]
 
 
 def _build_parser() -> ArgumentParser:
@@ -81,20 +102,6 @@ def _parse_args(argv: list[str] | None = None) -> Namespace:
     return _build_parser().parse_args(argv)
 
 
-def _update_summary_json_with_plots(
-    summary_json_path: Path,
-    plot_paths: dict[str, str],
-) -> None:
-    payload = json.loads(summary_json_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError("summary.json should be a JSON object.")
-    payload["plot_paths"] = plot_paths
-    summary_json_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-
-
 def _range_pair(values: list[float]) -> list[float] | None:
     if not values:
         return None
@@ -140,6 +147,17 @@ def _robust_region(cases: list[MissionQuickScreenResult]) -> dict[str, list[floa
         "mass_kg": _robust_range("mass_kg", cases),
         "oswald_e": _robust_range("oswald_e", cases),
     }
+
+
+def _coerce_range_from_region(
+    region: dict[str, list[float] | None],
+    key: str,
+    fallback: Sequence[float],
+) -> list[float]:
+    value = region.get(key)
+    if value is not None and len(value) == 2:
+        return value
+    return [float(min(fallback)), float(max(fallback))]
 
 
 def _select_main_design_region(cases: list[MissionQuickScreenResult], by_cd0_rows: list[dict[str, object]]) -> dict[str, list[float] | None]:
@@ -192,6 +210,12 @@ def _build_summary_payload(
     test_env: RiderPowerEnvironment,
     target_env: RiderPowerEnvironment,
     plot_paths: dict[str, str],
+    robust_region: dict[str, list[float] | None] | None = None,
+    suggested_main_design_region: dict[str, list[float] | None] | None = None,
+    optimizer_handoff_json: str | None = None,
+    candidate_seed_pool_csv: str | None = None,
+    seed_tier_counts: dict[str, int] | None = None,
+    optimizer_exploration_tier_counts: dict[str, int] | None = None,
 ) -> dict[str, object]:
     robust_cases = [case for case in cases if is_robust_case(case, spec.filters)]
     has_robust = len(robust_cases) > 0
@@ -202,10 +226,18 @@ def _build_summary_payload(
     by_clmax = [row for row in envelopes if row.get("group") == "by_clmax"]
     robust_by_clmax = [row for row in by_clmax if row.get("robust_cases", 0) > 0]
 
-    observed_robust_envelope = _robust_region(robust_cases)
-    suggested_main_design_region = _select_main_design_region(
-        cases=robust_cases,
-        by_cd0_rows=by_cd0,
+    observed_robust_envelope = (
+        robust_region
+        if robust_region is not None
+        else _robust_region(robust_cases)
+    )
+    resolved_suggested_region = (
+        suggested_main_design_region
+        if suggested_main_design_region is not None
+        else _select_main_design_region(
+            cases=robust_cases,
+            by_cd0_rows=by_cd0,
+        )
     )
 
     by_speed = [row for row in envelopes if row.get("group") == "by_speed"]
@@ -251,7 +283,7 @@ def _build_summary_payload(
         "span_envelope": observed_robust_envelope["span_m"],
         "observed_robust_envelope": observed_robust_envelope,
         "clmax_robust_counts": _clmax_robust_counts(robust_by_clmax),
-        "suggested_main_design_region": suggested_main_design_region,
+        "suggested_main_design_region": resolved_suggested_region,
         "has_robust_design_space": has_robust,
         "output_files": {
             "full_results_csv": "full_results.csv",
@@ -262,6 +294,40 @@ def _build_summary_payload(
             "envelope_by_clmax_csv": "envelope_by_clmax.csv",
             "boundary_speed_cd0_csv": "boundary_speed_cd0.csv",
             "report_md": "report.md",
+            "candidate_seed_pool_csv": (
+                candidate_seed_pool_csv if candidate_seed_pool_csv is not None else None
+            ),
+            "optimizer_handoff_json": (
+                optimizer_handoff_json if optimizer_handoff_json is not None else None
+            ),
+        },
+        "optimizer_handoff": {
+            "optimizer_handoff_json": (
+                optimizer_handoff_json if optimizer_handoff_json is not None else None
+            ),
+            "candidate_seed_pool_csv": (
+                candidate_seed_pool_csv if candidate_seed_pool_csv is not None else None
+            ),
+            "seed_tier_counts": (
+                seed_tier_counts
+                if seed_tier_counts is not None
+                else {
+                    "high_confidence": 0,
+                    "primary": 0,
+                    "boundary": 0,
+                    "reject": 0,
+                }
+            ),
+            "optimizer_exploration_tier_counts": (
+                optimizer_exploration_tier_counts
+                if optimizer_exploration_tier_counts is not None
+                else {
+                    "exploration_primary": 0,
+                    "exploration_promising": 0,
+                    "exploration_boundary": 0,
+                    "exploration_reject": 0,
+                }
+            ),
         },
         "robust_summary_by_speed": [
             {
@@ -310,6 +376,324 @@ def _build_summary_payload(
         "plot_paths": plot_paths,
     }
     return payload
+
+
+def _build_human_readable_summary(
+    *,
+    spec: MissionDesignSpaceSpec,
+    summary: dict[str, int | float],
+    cases: list[MissionQuickScreenResult],
+    summary_payload: dict[str, object],
+    robust_region: dict[str, list[float] | None] | None,
+    candidate_seed_pool_csv_path: Path,
+    optimizer_handoff_json_path: Path,
+    test_env: RiderPowerEnvironment,
+    target_env: RiderPowerEnvironment,
+    report_path: Path,
+) -> dict[str, object]:
+    robust_cases = summary_payload.get("counts", {}).get("robust_cases", 0)
+    has_robust_design_space = bool(robust_cases)
+    robust_speed_values = []
+    if cases:
+        robust_speed_values = sorted(
+            {float(case.speed_mps) for case in cases if is_robust_case(case, spec.filters)},
+        )
+    robust_speed_envelope = (
+        [float(min(robust_speed_values)), float(max(robust_speed_values))]
+        if robust_speed_values
+        else None
+    )
+
+    suggested_main_design_region = summary_payload.get("suggested_main_design_region")
+    by_cd0 = summary_payload.get("cd0_envelope_by_cd0")
+    cd0_sensitivity = "資料不足，CD0 敏感度無法判讀。"
+    if isinstance(by_cd0, list) and by_cd0:
+        best_cd0 = max(by_cd0, key=lambda row: int(row.get("robust_cases", 0)))
+        least_cd0 = min(by_cd0, key=lambda row: int(row.get("robust_cases", 0)))
+        cd0_sensitivity = (
+            "CD0 影響可行密度明顯："
+            f"{best_cd0['cd0_total']} 段有較多 robust 候選({best_cd0['robust_cases']})，"
+            f"{least_cd0['cd0_total']} 段較少({least_cd0['robust_cases']})。"
+        )
+
+    clmax_counts = summary_payload.get("clmax_robust_counts_detail", {})
+    if isinstance(clmax_counts, dict) and clmax_counts:
+        clmax_sorted = sorted(
+            (float(k), v) for k, v in clmax_counts.items() if isinstance(v, dict)
+        )
+        stall_summary = []
+        for clmax_value, details in clmax_sorted:
+            stall_summary.append(
+                f"CLmax={clmax_value:g}:healthy={details.get('healthy_cases', 0)},"
+                f"caution={details.get('caution_cases', 0)},thin_margin={details.get('thin_margin_cases', 0)},"
+                f"over={details.get('over_clmax_cases', 0)}"
+            )
+        stall_sensitivity = "；".join(stall_summary[:3])
+    else:
+        stall_sensitivity = "CLmax/stall 分佈資料不足，建議補足候選點。"
+
+    low_speed = min((float(case.speed_mps) for case in cases), default=None)
+    high_speed = max((float(case.speed_mps) for case in cases), default=None)
+    low_speed_cases = (
+        [case for case in cases if low_speed is not None and abs(float(case.speed_mps) - low_speed) <= 1e-9]
+        if low_speed is not None
+        else []
+    )
+    high_speed_cases = (
+        [case for case in cases if high_speed is not None and abs(float(case.speed_mps) - high_speed) <= 1e-9]
+        if high_speed is not None
+        else []
+    )
+
+    low_speed_risk = (
+        f"{low_speed:.2f} m/s: {_format_stall_band_counts(low_speed_cases)}"
+        if low_speed is not None
+        else "no data"
+    )
+    high_speed_risk = (
+        f"{high_speed:.2f} m/s: {_format_stall_band_counts(high_speed_cases)}"
+        if high_speed is not None
+        else "no data"
+    )
+
+    return {
+        "schema_version": "mission_human_summary_v1",
+        "mission": {
+            "target_range_km": spec.target_range_km,
+            "target_speed_mps": {
+                "min": float(min((case.speed_mps for case in cases), default=0.0)),
+                "max": float(max((case.speed_mps for case in cases), default=0.0)),
+            },
+        },
+        "environment": {
+            "test_environment": {
+                "temperature_c": test_env.temperature_c,
+                "relative_humidity_percent": test_env.relative_humidity_percent,
+            },
+            "target_environment": {
+                "temperature_c": target_env.temperature_c,
+                "relative_humidity_percent": target_env.relative_humidity_percent,
+            },
+        },
+        "headline": {
+            "has_robust_design_space": has_robust_design_space,
+            "robust_cases": robust_cases,
+            "total_cases": summary["total_cases"],
+            "observed_robust_speed_envelope": robust_speed_envelope or [],
+            "suggested_main_design_region": suggested_main_design_region,
+        },
+        "risk_summary": {
+            "cd0_sensitivity": cd0_sensitivity,
+            "stall_sensitivity": stall_sensitivity,
+            "low_speed_risk": low_speed_risk,
+            "high_speed_risk": high_speed_risk,
+        },
+        "user_guidance": [
+            "這不是 optimizer。",
+            "這不是唯一最佳設計。",
+            "請用此輸出決定下一層分析範圍。",
+        ],
+        "important_paths": {
+            "report_md": str(report_path),
+            "summary_json": str(report_path.parent / SUMMARY_JSON_FILENAME),
+            "optimizer_handoff_json": str(optimizer_handoff_json_path),
+            "candidate_seed_pool_csv": str(candidate_seed_pool_csv_path),
+            "plots_dir": str(report_path.parent / "plots"),
+            "candidate_robust_region": robust_region,
+        },
+    }
+
+
+def _build_optimizer_handoff_payload(
+    *,
+    spec: MissionDesignSpaceSpec,
+    suggested_region: dict[str, list[float] | None],
+    observed_robust_envelope: dict[str, list[float] | None],
+    candidate_seed_pool: list[dict[str, float | int | None | str]],
+    seed_tier_counts: dict[str, int],
+    optimizer_exploration_tier_counts: dict[str, int] | None = None,
+    candidate_seed_pool_path: str = CANDIDATE_SEED_POOL_CSV_FILENAME,
+    optimizer_handoff_path: str = OPTIMIZER_HANDOFF_JSON_FILENAME,
+    test_env: RiderPowerEnvironment,
+    target_env: RiderPowerEnvironment,
+    heat_derate: float,
+) -> dict[str, object]:
+    return {
+        "schema_version": "mission_optimizer_handoff_v1",
+        "input_files": {
+            "summary_json": "summary.json",
+            "full_results_csv": "full_results.csv",
+            "candidate_seed_pool_csv": candidate_seed_pool_path,
+            "report_md": "report.md",
+        },
+        "mission_context": {
+            "target_range_km": spec.target_range_km,
+            "test_environment": {
+                "temperature_c": test_env.temperature_c,
+                "relative_humidity_percent": test_env.relative_humidity_percent,
+            },
+            "target_environment": {
+                "temperature_c": target_env.temperature_c,
+                "relative_humidity_percent": target_env.relative_humidity_percent,
+            },
+            "heat_derate_factor": heat_derate,
+            "rider_power_csv": str(spec.rider_power_csv),
+            "rider_metadata_yaml": str(spec.rider_metadata_yaml),
+        },
+        "optimizer_role": {
+            "role": "search_bounds_and_pre_gate",
+            "note": "This handoff defines initial search bounds, seed candidates, and mission feasibility gates. It is not a final design selection.",
+        },
+        "search_bounds": {
+            "speed_mps": _coerce_range_from_region(
+                region=suggested_region,
+                key="speed_mps",
+                fallback=spec.speeds_mps,
+            ),
+            "span_m": _coerce_range_from_region(
+                region=suggested_region,
+                key="span_m",
+                fallback=spec.spans_m,
+            ),
+            "aspect_ratio": _coerce_range_from_region(
+                region=suggested_region,
+                key="aspect_ratio",
+                fallback=spec.aspect_ratios,
+            ),
+            "cd0_total": _coerce_range_from_region(
+                region=suggested_region,
+                key="cd0_total",
+                fallback=spec.cd0_totals,
+            ),
+            "cl_max_effective": _coerce_range_from_region(
+                region=suggested_region,
+                key="cl_max_effective",
+                fallback=spec.cl_max_effectives,
+            ),
+            "mass_kg": _coerce_range_from_region(
+                region={"mass_kg": _coerce_bounds(list(spec.mass_kg))},
+                key="mass_kg",
+                fallback=spec.mass_kg,
+            ),
+            "oswald_e": _coerce_range_from_region(
+                region={"oswald_e": _coerce_bounds(list(spec.oswald_e))},
+                key="oswald_e",
+                fallback=spec.oswald_e,
+            ),
+        },
+        "observed_robust_envelope": observed_robust_envelope,
+        "suggested_main_design_region": suggested_region,
+        "mission_gate": {
+            "power_margin_crank_w_min": 0.0,
+            "robust_power_margin_crank_w_min": 5.0,
+            "cl_to_clmax_ratio_max": 0.90,
+            "allowed_cl_bands": ["normal"],
+            "allowed_stall_bands": ["healthy", "caution"],
+        },
+        "soft_objectives": {
+            "maximize_power_margin": True,
+            "minimize_required_time": True,
+            "maximize_stall_margin": True,
+            "prefer_lower_cd0": True,
+            "prefer_higher_robust_fraction": True,
+        },
+        "seed_policy": {
+            "group_key": ["speed_mps", "span_m", "aspect_ratio", "cd0_total"],
+            "scenario_dimensions": [
+                "mass_kg",
+                "oswald_e",
+                "cl_max_effective",
+                "eta_prop",
+                "eta_trans",
+                "air_density_kg_m3",
+            ],
+            "ranking_fields": [
+                "optimizer_exploration_tier",
+                "strict_tier",
+                "tier",
+                "robust_fraction",
+                "p10_power_margin_crank_w",
+                "median_power_margin_crank_w",
+                "max_power_margin_crank_w",
+                "min_required_time_min",
+            ],
+        },
+        "optimizer_exploration_policy": {
+            "description": (
+                "Use optimizer_exploration_tier for optimizer initialization seeds. "
+                "strict_tier remains conservative engineering annotation."
+            ),
+            "tier_definitions": {
+                "exploration_primary": {
+                    "robust_scenarios": "> 0",
+                    "median_power_margin_crank_w_min": 5.0,
+                    "max_cl_to_clmax_ratio": 0.95,
+                },
+                "exploration_promising": {
+                    "robust_scenarios": "> 0",
+                    "median_power_margin_crank_w_min": 0.0,
+                    "max_cl_to_clmax_ratio": 1.0,
+                },
+                "exploration_boundary": {
+                    "power_passed_scenarios": "> 0",
+                    "default": "not primary or promising",
+                },
+                "exploration_reject": {"power_passed_scenarios": "= 0"},
+            },
+            "tier_counts": {
+                "exploration_primary": (
+                    (optimizer_exploration_tier_counts or {}).get(
+                        "exploration_primary",
+                        0,
+                    )
+                    if optimizer_exploration_tier_counts is not None
+                    else 0
+                ),
+                "exploration_promising": (
+                    (optimizer_exploration_tier_counts or {}).get(
+                        "exploration_promising",
+                        0,
+                    )
+                    if optimizer_exploration_tier_counts is not None
+                    else 0
+                ),
+                "exploration_boundary": (
+                    (optimizer_exploration_tier_counts or {}).get(
+                        "exploration_boundary",
+                        0,
+                    )
+                    if optimizer_exploration_tier_counts is not None
+                    else 0
+                ),
+                "exploration_reject": (
+                    (optimizer_exploration_tier_counts or {}).get(
+                        "exploration_reject",
+                        0,
+                    )
+                    if optimizer_exploration_tier_counts is not None
+                    else 0
+                ),
+            },
+        },
+        "output_files": {
+            "candidate_seed_pool_csv": candidate_seed_pool_path,
+            "optimizer_handoff_json": optimizer_handoff_path,
+            "summary_json": "summary.json",
+            "full_results_csv": "full_results.csv",
+        },
+        "seed_tier_counts": seed_tier_counts,
+        "optimizer_exploration_tier_counts": (
+            optimizer_exploration_tier_counts
+            if optimizer_exploration_tier_counts is not None
+            else {
+                "exploration_primary": 0,
+                "exploration_promising": 0,
+                "exploration_boundary": 0,
+                "exploration_reject": 0,
+            }
+        ),
+        "candidate_seed_pool_count": len(candidate_seed_pool),
+    }
 
 
 def _evaluate_design_space(
@@ -409,9 +793,47 @@ def run_mission_design_space(
         target_environment=target_env,
         heat_loss_coefficient_per_h_c=spec.heat_loss_coefficient_per_h_c,
     )
+    robust_cases = [case for case in cases if is_robust_case(case, spec.filters)]
+    by_cd0 = [row for row in envelopes if row.get("group") == "by_cd0"]
+    suggested_main_design_region = _select_main_design_region(
+        cases=robust_cases,
+        by_cd0_rows=by_cd0,
+    )
+    observed_robust_envelope = _robust_region(robust_cases)
+
+    candidate_seed_pool = build_candidate_seed_pool(cases, spec.filters)
+    seed_tier_counts = summarize_seed_tier_counts(candidate_seed_pool)
+    optimizer_exploration_tier_counts = (
+        summarize_optimizer_exploration_tier_counts(candidate_seed_pool)
+    )
+
+    candidate_seed_pool_csv = spec.output_dir / CANDIDATE_SEED_POOL_CSV_FILENAME
+    optimizer_handoff_json = spec.output_dir / OPTIMIZER_HANDOFF_JSON_FILENAME
+    human_readable_summary_json = (
+        spec.output_dir / HUMAN_READABLE_SUMMARY_JSON_FILENAME
+    )
+    write_candidate_seed_pool_csv(candidate_seed_pool_csv, candidate_seed_pool)
+    handoff_payload = _build_optimizer_handoff_payload(
+        spec=spec,
+        suggested_region=suggested_main_design_region,
+        observed_robust_envelope=observed_robust_envelope,
+        candidate_seed_pool=candidate_seed_pool,
+        seed_tier_counts=seed_tier_counts,
+        optimizer_exploration_tier_counts=optimizer_exploration_tier_counts,
+        candidate_seed_pool_path=CANDIDATE_SEED_POOL_CSV_FILENAME,
+        optimizer_handoff_path=OPTIMIZER_HANDOFF_JSON_FILENAME,
+        test_env=test_env,
+        target_env=target_env,
+        heat_derate=heat_derate,
+    )
+    optimizer_handoff_json.write_text(
+        json.dumps(handoff_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     full_results_csv = spec.output_dir / "full_results.csv"
     report_md = spec.output_dir / "report.md"
+    summary_json_path = spec.output_dir / SUMMARY_JSON_FILENAME
     plot_paths: dict[str, str] = {}
     if spec.write_plots and not skip_plots:
         plot_paths = write_design_space_plots(
@@ -438,11 +860,13 @@ def run_mission_design_space(
             target_env=target_env,
             heat_derate=heat_derate,
             filters=spec.filters,
-            summary_json_path=spec.output_dir / SUMMARY_JSON_FILENAME,
+            summary_json_path=summary_json_path,
+            candidate_seed_pool_csv=candidate_seed_pool_csv,
+            optimizer_handoff_json=optimizer_handoff_json,
+            human_readable_summary_json=human_readable_summary_json,
             plot_paths=plot_paths or None,
         )
 
-    summary_json_path = spec.output_dir / SUMMARY_JSON_FILENAME
     payload = _build_summary_payload(
         spec,
         cases=cases,
@@ -452,9 +876,35 @@ def run_mission_design_space(
         test_env=test_env,
         target_env=target_env,
         plot_paths=plot_paths if spec.write_plots and not skip_plots else {},
+        robust_region=observed_robust_envelope,
+        suggested_main_design_region=suggested_main_design_region,
+        optimizer_handoff_json=OPTIMIZER_HANDOFF_JSON_FILENAME,
+        candidate_seed_pool_csv=CANDIDATE_SEED_POOL_CSV_FILENAME,
+        seed_tier_counts=seed_tier_counts,
+        optimizer_exploration_tier_counts=optimizer_exploration_tier_counts,
     )
     summary_json_path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    human_readable_summary_json.write_text(
+        json.dumps(
+            _build_human_readable_summary(
+                spec=spec,
+                summary=summary,
+                cases=cases,
+                summary_payload=payload,
+                robust_region=observed_robust_envelope,
+                candidate_seed_pool_csv_path=candidate_seed_pool_csv,
+                optimizer_handoff_json_path=optimizer_handoff_json,
+                test_env=test_env,
+                target_env=target_env,
+                report_path=report_md,
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
     if spec.write_envelope_csv:
@@ -509,6 +959,10 @@ def _print_console_summary(
     cases: list[MissionQuickScreenResult],
     full_results_csv: Path,
     report_md: Path,
+    candidate_seed_pool_csv: Path | None = None,
+    optimizer_handoff_json: Path | None = None,
+    human_readable_summary_json: Path | None = None,
+    summary_json: Path | None = None,
 ) -> None:
     robust_count = len([case for case in cases if is_robust_case(case, spec.filters)])
     passed_count = len([case for case in cases if case.power_passed])
@@ -519,6 +973,14 @@ def _print_console_summary(
     print(f"robust candidates: {robust_count}")
     print(f"full_results.csv: {full_results_csv}")
     print(f"report.md: {report_md}")
+    if candidate_seed_pool_csv is not None:
+        print(f"candidate_seed_pool.csv: {candidate_seed_pool_csv}")
+    if optimizer_handoff_json is not None:
+        print(f"optimizer_handoff.json: {optimizer_handoff_json}")
+    if human_readable_summary_json is not None:
+        print(f"human_readable_summary.json: {human_readable_summary_json}")
+    if summary_json is not None:
+        print(f"summary.json: {summary_json}")
 
 
 def main() -> int:
@@ -561,6 +1023,11 @@ def main() -> int:
             cases=results,
             full_results_csv=full_csv,
             report_md=report_md,
+            candidate_seed_pool_csv=full_csv.parent / "candidate_seed_pool.csv",
+            optimizer_handoff_json=full_csv.parent / "optimizer_handoff.json",
+            human_readable_summary_json=full_csv.parent
+            / "human_readable_summary.json",
+            summary_json=full_csv.parent / "summary.json",
         )
         print(f"total case combinations: {total_cases}")
     except Exception as exc:

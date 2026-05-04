@@ -12,6 +12,10 @@ from typing import Any
 
 from .objective import RiderPowerEnvironment
 from .quick_screen import MissionQuickScreenResult
+from .optimizer_handoff import (
+    assign_optimizer_exploration_tier,
+    assign_optimizer_seed_tier,
+)
 
 import csv
 import yaml
@@ -322,6 +326,272 @@ def _min_or_none(values: Sequence[float | None]) -> float | None:
 def _max_or_none(values: Sequence[float | None]) -> float | None:
     filtered = [value for value in values if value is not None and isfinite(float(value))]
     return max(filtered) if filtered else None
+
+
+def _percentile(values: Sequence[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    if not (0.0 <= percentile <= 1.0):
+        raise ValueError("percentile must be between 0 and 1")
+    ordered = sorted(float(value) for value in values if isfinite(float(value)))
+    if not ordered:
+        return None
+    if len(ordered) == 1:
+        return ordered[0]
+    index = (len(ordered) - 1) * percentile
+    lower = int(index)
+    upper = min(lower + 1, len(ordered) - 1)
+    if lower == upper:
+        return ordered[lower]
+    frac = index - lower
+    return ordered[lower] * (1.0 - frac) + ordered[upper] * frac
+
+
+def _group_key_float(value: float) -> float:
+    return round(float(value), 10)
+
+
+def build_candidate_seed_pool(
+    results: Sequence[MissionQuickScreenResult],
+    filters: MissionDesignSpaceFilters,
+) -> list[dict[str, float | int | None | str]]:
+    groups: defaultdict[
+        tuple[float, float, float, float],
+        list[MissionQuickScreenResult],
+    ] = defaultdict(list)
+
+    for result in results:
+        groups[
+            (
+                _group_key_float(result.speed_mps),
+                _group_key_float(result.span_m),
+                _group_key_float(result.aspect_ratio),
+                _group_key_float(result.cd0_total),
+            )
+        ].append(result)
+
+    rows: list[dict[str, float | int | None | str]] = []
+    for key, group_cases in sorted(
+        groups.items(),
+        key=lambda item: (item[0][0], item[0][1], item[0][2], item[0][3]),
+    ):
+        speed_mps, span_m, aspect_ratio, cd0_total = key
+        robust_cases = [case for case in group_cases if is_robust_case(case, filters)]
+        robust_fraction = (
+            len(robust_cases) / len(group_cases) if group_cases else 0.0
+        )
+        power_passed_scenarios = len(
+            [case for case in group_cases if case.power_passed is True],
+        )
+        total_scenarios = len(group_cases)
+
+        robust_scales = [
+            float(case.power_margin_crank_w)
+            for case in group_cases
+            if case.power_margin_crank_w is not None
+        ]
+        robust_only_margins = [
+            float(case.power_margin_crank_w)
+            for case in robust_cases
+            if case.power_margin_crank_w is not None
+        ]
+        required_times = [case.required_time_min for case in group_cases]
+        cl_required_values = [case.cl_required for case in group_cases]
+        cl_to_clmax_ratio_values = [case.cl_to_clmax_ratio for case in group_cases]
+
+        strict_tier = assign_optimizer_seed_tier(
+            robust_fraction=robust_fraction,
+            power_passed_scenarios=power_passed_scenarios,
+            p10_power_margin_crank_w=_percentile(robust_scales, 0.10),
+            max_cl_to_clmax_ratio=_max_or_none(cl_to_clmax_ratio_values),
+        )
+        optimizer_exploration_tier = assign_optimizer_exploration_tier(
+            robust_scenarios=len(robust_cases),
+            power_passed_scenarios=power_passed_scenarios,
+            median_power_margin_crank_w=_median_or_none(robust_scales),
+            max_cl_to_clmax_ratio=_max_or_none(cl_to_clmax_ratio_values),
+        )
+
+        row: dict[str, float | int | None | str] = {
+            "speed_mps": speed_mps,
+            "span_m": span_m,
+            "aspect_ratio": aspect_ratio,
+            "cd0_total": cd0_total,
+            "total_scenarios": total_scenarios,
+            "power_passed_scenarios": power_passed_scenarios,
+            "robust_scenarios": len(robust_cases),
+            "robust_fraction": robust_fraction,
+            "min_power_margin_crank_w": _min_or_none(robust_scales),
+            "p10_power_margin_crank_w": _percentile(robust_scales, 0.10),
+            "median_power_margin_crank_w": _median_or_none(robust_scales),
+            "max_power_margin_crank_w": _max_or_none(robust_scales),
+            "min_required_time_min": _min_or_none(required_times),
+            "max_required_time_min": _max_or_none(required_times),
+            "min_cl_required": _min_or_none(cl_required_values),
+            "max_cl_required": _max_or_none(cl_required_values),
+            "min_cl_to_clmax_ratio": _min_or_none(cl_to_clmax_ratio_values),
+            "max_cl_to_clmax_ratio": _max_or_none(cl_to_clmax_ratio_values),
+            "min_mass_kg_robust": _min_or_none(
+                [case.mass_kg for case in robust_cases]
+            ),
+            "max_mass_kg_robust": _max_or_none(
+                [case.mass_kg for case in robust_cases]
+            ),
+            "min_oswald_e_robust": _min_or_none(
+                [case.oswald_e for case in robust_cases]
+            ),
+            "max_oswald_e_robust": _max_or_none(
+                [case.oswald_e for case in robust_cases]
+            ),
+            "min_clmax_effective_robust": _min_or_none(
+                [case.cl_max_effective for case in robust_cases]
+            ),
+            "max_clmax_effective_robust": _max_or_none(
+                [case.cl_max_effective for case in robust_cases]
+            ),
+            "tier": strict_tier,
+            "strict_tier": strict_tier,
+            "optimizer_exploration_tier": optimizer_exploration_tier,
+        }
+
+        # keep a few robust-only margin fields so downstream users can compare
+        # seed robustness against the whole scenario group
+        row["min_robust_power_margin_crank_w"] = _min_or_none(robust_only_margins)
+        row["p10_robust_power_margin_crank_w"] = _percentile(
+            robust_only_margins,
+            0.10,
+        )
+        row["median_robust_power_margin_crank_w"] = _median_or_none(robust_only_margins)
+        row["max_robust_power_margin_crank_w"] = _max_or_none(robust_only_margins)
+
+        rows.append(row)
+    return rows
+
+
+def summarize_seed_tier_counts(
+    rows: Sequence[dict[str, float | int | None | str]],
+) -> dict[str, int]:
+    counts = {
+        "high_confidence": 0,
+        "primary": 0,
+        "boundary": 0,
+        "reject": 0,
+    }
+    for row in rows:
+        tier = str(row.get("tier"))
+        if tier not in counts:
+            continue
+        counts[tier] += 1
+    return counts
+
+
+def summarize_optimizer_exploration_tier_counts(
+    rows: Sequence[dict[str, float | int | None | str]],
+) -> dict[str, int]:
+    counts = {
+        "exploration_primary": 0,
+        "exploration_promising": 0,
+        "exploration_boundary": 0,
+        "exploration_reject": 0,
+    }
+    for row in rows:
+        tier = str(row.get("optimizer_exploration_tier"))
+        if tier not in counts:
+            continue
+        counts[tier] += 1
+    return counts
+
+
+def write_candidate_seed_pool_csv(
+    path: Path,
+    rows: Sequence[dict[str, float | int | None | str]],
+) -> None:
+    def _exploration_tier_rank(tier: str) -> int:
+        return {
+            "exploration_primary": 0,
+            "exploration_promising": 1,
+            "exploration_boundary": 2,
+            "exploration_reject": 3,
+        }.get(tier, 4)
+
+    def _csv_float(value: float | int | None | str) -> float:
+        if value is None:
+            return float("inf")
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return float("inf")
+        return float(value)
+
+    def _safe_min_required_time(value: float | int | None | str) -> float:
+        if value is None:
+            return float("inf")
+        if isinstance(value, str):
+            try:
+                parsed = float(value)
+            except ValueError:
+                return float("inf")
+        else:
+            parsed = float(value)
+        return parsed
+
+    sorted_rows = sorted(
+        rows,
+        key=lambda row: (
+            _exploration_tier_rank(str(row.get("optimizer_exploration_tier", ""))),
+            -_csv_float(row.get("robust_fraction")),
+            -_csv_float(row.get("median_power_margin_crank_w")),
+            -_csv_float(row.get("p10_power_margin_crank_w")),
+            _safe_min_required_time(row.get("min_required_time_min")),
+        ),
+    )
+
+    field_names = (
+        "speed_mps",
+        "span_m",
+        "aspect_ratio",
+        "cd0_total",
+        "total_scenarios",
+        "power_passed_scenarios",
+        "robust_scenarios",
+        "robust_fraction",
+        "min_power_margin_crank_w",
+        "p10_power_margin_crank_w",
+        "median_power_margin_crank_w",
+        "max_power_margin_crank_w",
+        "min_required_time_min",
+        "max_required_time_min",
+        "min_cl_required",
+        "max_cl_required",
+        "min_cl_to_clmax_ratio",
+        "max_cl_to_clmax_ratio",
+        "min_mass_kg_robust",
+        "max_mass_kg_robust",
+        "min_oswald_e_robust",
+        "max_oswald_e_robust",
+        "min_clmax_effective_robust",
+        "max_clmax_effective_robust",
+        "strict_tier",
+        "tier",
+        "optimizer_exploration_tier",
+    )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as file_obj:
+        writer = csv.DictWriter(file_obj, fieldnames=field_names)
+        writer.writeheader()
+        for row in sorted_rows:
+            safe_row: dict[str, str] = {}
+            for name in field_names:
+                value = row.get(name)
+                if isinstance(value, float):
+                    safe_row[name] = f"{value:.6f}"
+                elif value is None:
+                    safe_row[name] = ""
+                else:
+                    safe_row[name] = str(value)
+            writer.writerow(safe_row)
 
 
 def _max_margin(cases: Sequence[MissionQuickScreenResult]) -> float | None:
@@ -1189,6 +1459,121 @@ def _table_rows_from_iterable(
     return lines
 
 
+def _build_human_summary_lines(
+    *,
+    spec: MissionDesignSpaceSpec,
+    results: Sequence[MissionQuickScreenResult],
+    robust_cases: list[MissionQuickScreenResult],
+    envelopes: Sequence[dict[str, Any]],
+    filters: MissionDesignSpaceFilters,
+    summary: dict[str, int | float],
+) -> list[str]:
+    if not summary or not spec.speeds_mps:
+        return ["No data available for executive summary."]
+
+    by_cd0_rows = [row for row in envelopes if row.get("group") == "by_cd0"]
+    by_clmax_rows = [row for row in envelopes if row.get("group") == "by_clmax"]
+
+    speeds = [float(case.speed_mps) for case in results]
+    low_speed = min(speeds) if speeds else None
+    high_speed = max(speeds) if speeds else None
+
+    low_speed_cases = (
+        [case for case in results if low_speed is not None and case.speed_mps <= low_speed + 1e-9]
+        if low_speed is not None
+        else []
+    )
+    high_speed_cases = (
+        [case for case in results if high_speed is not None and case.speed_mps >= high_speed - 1e-9]
+        if high_speed is not None
+        else []
+    )
+
+    if by_cd0_rows:
+        cd0_desc = sorted(by_cd0_rows, key=lambda row: float(row["cd0_total"]))
+        best_cd0_row = max(cd0_desc, key=lambda row: int(row["robust_cases"]))
+        worst_cd0_row = min(
+            cd0_desc,
+            key=lambda row: (int(row["robust_cases"]), float(row["cd0_total"])),
+        )
+        cd0_sensitivity = (
+            "CD0 越高通常可行裕度下降，建議優先在較低 CD0 區間搜尋；"
+            f"本輪中 CD0={best_cd0_row['cd0_total']:.3f} 的 robust_數最多 "
+            f"({best_cd0_row['robust_cases']}), 而 CD0={worst_cd0_row['cd0_total']:.3f} 最少 "
+            f"({worst_cd0_row['robust_cases']})."
+        )
+    else:
+        cd0_sensitivity = "CD0 敏感度無法判讀，請確認有無有效輸出。"
+
+    if by_clmax_rows:
+        clmax_sorted = sorted(by_clmax_rows, key=lambda row: float(row["cl_max_effective"]))
+        healthy_share = _median_or_none(
+            [int(row["healthy_cases"]) for row in clmax_sorted],
+        )
+        caution_share = _median_or_none([int(row["caution_cases"]) for row in clmax_sorted])
+        if healthy_share is not None and caution_share is not None:
+            stall_sensitivity = (
+                f"CLmax 影響可見：healthy 的中位數佔比 {healthy_share}, caution 中位數 {caution_share}；"
+                f"高 CLmax 常降低 stall 風險，但仍需與低速風險一起決策。"
+            )
+        else:
+            stall_sensitivity = "CLmax/stall 分佈資料不足，無法穩健判讀。"
+    else:
+        stall_sensitivity = "CLmax/stall 資料不足，無法穩健判讀。"
+
+    low_speed_band = (
+        " / ".join(
+            f"{band}:{sum(1 for case in low_speed_cases if case.stall_band == band)}"
+            for band in ("healthy", "caution", "thin_margin", "over_clmax")
+        )
+        if low_speed_cases
+        else "no data"
+    )
+    high_speed_band = (
+        " / ".join(
+            f"{band}:{sum(1 for case in high_speed_cases if case.stall_band == band)}"
+            for band in ("healthy", "caution", "thin_margin", "over_clmax")
+        )
+        if high_speed_cases
+        else "no data"
+    )
+
+    robust_speed_values = [float(case.speed_mps) for case in robust_cases]
+    robust_speed_envelope = (
+        [min(robust_speed_values), max(robust_speed_values)]
+        if robust_speed_values
+        else None
+    )
+    has_robust = robust_cases and len(robust_cases) > 0
+    return [
+        "- 是否存在 robust design space："
+        + ("是" if has_robust else "否"),
+        f"- observed robust speed envelope: {robust_speed_envelope}",
+        "- suggested main design region: 請參見 summary/optimizer-handoff 中提案；此區塊為可行密度較高、低邊界重疊風險的初始區。",
+        f"- CD0 sensitivity summary: {cd0_sensitivity}",
+        f"- stall / CLmax sensitivity summary: {stall_sensitivity}",
+        (
+            f"- low-speed risk summary: speed={low_speed:.2f} m/s, stall band counts -> {low_speed_band}"
+            if low_speed is not None
+            else "- low-speed risk summary: no speed samples"
+        ),
+        (
+            f"- high-speed risk summary: speed={high_speed:.2f} m/s, stall band counts -> {high_speed_band}"
+            if high_speed is not None
+            else "- high-speed risk summary: no speed samples"
+        ),
+        f"- 有 {summary.get('robust_cases', 0)} 個 robust cases（> {filters.min_power_margin_crank_w:.1f}W）",
+        (
+            f"- 建議保留 robust_cases >= 0.5 的種子作為主要區域，"
+            f"robust speed envelope sample: {robust_speed_envelope}"
+        ),
+        f"- power/margin envelope at target: max margin row -> "
+        f"{_fmt_or_blank(summary.get('margin_ge_robust_cases'), '.0f') if robust_cases else '0'}",
+        "- 人類閱讀版提醒：本工具提供設計空間邊界，不是 optimizer 的最終選擇；"
+        f"raw power margin 只看功率餘裕，不代表失速安全（需同時核對 stall band）。",
+        "- 建議先依建議區域進入 AVL/XFOIL/結構分析，確認能否滿足飛行面與機體條件。",
+    ]
+
 def write_design_space_report(
     path: Path,
     *,
@@ -1203,6 +1588,9 @@ def write_design_space_report(
     filters: MissionDesignSpaceFilters,
     summary_json_path: Path | None = None,
     plot_paths: dict[str, str] | None = None,
+    candidate_seed_pool_csv: Path | None = None,
+    optimizer_handoff_json: Path | None = None,
+    human_readable_summary_json: Path | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     robust_cases = [case for case in results if is_robust_case(case, filters)]
@@ -1213,7 +1601,23 @@ def write_design_space_report(
     by_span = [row for row in envelopes if row.get("group") == "by_span"]
     by_clmax = [row for row in envelopes if row.get("group") == "by_clmax"]
 
-    lines = ["# Mission Design Space Explorer Report", ""]
+    lines = [
+        "# Mission Design Space Explorer Report",
+        "",
+        "## Human Executive Summary",
+        "",
+        *(
+            _build_human_summary_lines(
+                spec=spec,
+                results=results,
+                robust_cases=robust_cases,
+                envelopes=envelopes,
+                filters=filters,
+                summary=summary,
+            )
+        ),
+        "",
+    ]
     lines += [
         "## Inputs",
         "",
@@ -1224,6 +1628,11 @@ def write_design_space_report(
             f"- summary.json: {summary_json_path}"
             if summary_json_path is not None
             else "- summary.json: will be created on run completion"
+        ),
+        (
+            f"- human_readable_summary.json: {human_readable_summary_json}"
+            if human_readable_summary_json is not None
+            else "- human_readable_summary.json: will be created on run completion"
         ),
         f"- test environment: {test_env.temperature_c:.2f}°C / {test_env.relative_humidity_percent:.1f}%RH",
         f"- target environment: {target_env.temperature_c:.2f}°C / {target_env.relative_humidity_percent:.1f}%RH",
@@ -1238,6 +1647,15 @@ def write_design_space_report(
         f"- rho: {list(spec.air_density_kg_m3)}",
         f"- eta_prop: {list(spec.eta_prop)}",
         f"- eta_trans: {list(spec.eta_trans)}",
+        "",
+        "## Optimizer Handoff",
+        "",
+        f"- optimizer_handoff.json: {optimizer_handoff_json if optimizer_handoff_json else 'will be created on run completion'}",
+        f"- candidate_seed_pool.csv: {candidate_seed_pool_csv if candidate_seed_pool_csv else 'will be created on run completion'}",
+        "- 用途: 給 optimizer pipeline 讀取的 stage-0 search gate / seed / boundary 契約。",
+        "- optimizer_handoff.json 定義 search bounds、mission gate 與 seed policy；不是用來直接產生唯一最終設計。",
+        "- candidate_seed_pool.csv 按 (speed, span, AR, CD0) 分組後的種子池，不是 full_results.csv 的逐列資料。",
+        "- strict_tier 用於保守工程判讀；optimizer_exploration_tier 提供 optimizer 初始探索種子，不代表該設計已通過設計審核。",
         "",
         "## Case Counts",
         "",
