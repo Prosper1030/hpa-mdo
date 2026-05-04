@@ -1,0 +1,31 @@
+schema_version: mission_drag_budget_v1
+
+mission_reference:
+  mission_design_space_summary: output/mission_design_space/summary.json
+  optimizer_handoff: output/mission_design_space/optimizer_handoff.json
+  target_range_km: 42.195
+  target_speed_region_mps: [6.2, 6.6]
+
+total_drag_budget:
+  cd0_total_target: 0.017
+  cd0_total_boundary: 0.018
+  cd0_total_rescue: 0.020
+
+main_wing_budget:
+  cd0_profile_target: 0.0125
+  cd0_profile_boundary: 0.0140
+  oswald_e_target: 0.90
+  oswald_e_stretch: 0.93
+
+nonwing_reserve:
+  mode: cda
+  cda_target_m2: 0.13
+  cda_boundary_m2: 0.16
+  notes:
+    - Non-wing reserve covers fairing, tail, hub, pylon, exposed drivetrain, joints, misc.
+    - Propeller aerodynamic loss belongs in eta_prop, not CD0.
+
+propulsion_budget:
+  eta_prop_sizing: 0.86
+  eta_prop_target: 0.88
+  eta_trans: 0.96

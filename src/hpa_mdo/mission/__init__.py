@@ -39,6 +39,14 @@ from hpa_mdo.mission.quick_screen import (
     evaluate_quick_screen,
     sweep_quick_screen_grid,
 )
+from hpa_mdo.mission.drag_budget import (
+    MissionDragBudget,
+    MissionDragBudgetInputs,
+    MissionDragBudgetResult,
+    load_mission_drag_budget,
+    estimate_cd0_total_from_wing_budget,
+    evaluate_drag_budget_candidate,
+)
 
 __all__ = [
     "CsvPowerCurve",
@@ -74,4 +82,10 @@ __all__ = [
     "MissionQuickScreenResult",
     "evaluate_quick_screen",
     "sweep_quick_screen_grid",
+    "MissionDragBudget",
+    "MissionDragBudgetInputs",
+    "MissionDragBudgetResult",
+    "load_mission_drag_budget",
+    "estimate_cd0_total_from_wing_budget",
+    "evaluate_drag_budget_candidate",
 ]
