@@ -109,6 +109,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Reuse complete zones from existing artifacts and rerun only incomplete/missing zones.",
     )
+    parser.add_argument(
+        "--force-zone",
+        action="append",
+        default=[],
+        help="When used with --resume, rerun this zone even if existing artifacts mark it complete.",
+    )
     return parser.parse_args()
 
 
@@ -159,6 +165,7 @@ def main() -> None:
             worker=worker,
             progress_callback=progress,
             resume=bool(args.resume),
+            force_zones=tuple(args.force_zone or ()),
         )
     finally:
         close = getattr(worker, "close", None)

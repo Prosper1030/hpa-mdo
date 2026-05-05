@@ -5,10 +5,13 @@ from pathlib import Path
 
 from hpa_mdo.airfoils.cst_database_builder import (
     CSTZoneSearchConfig,
+    _cl_samples_for_envelope,
+    _re_samples_for_envelope,
     build_cst_zone_airfoil_database,
     load_zone_envelopes_from_artifact,
     zone_work_points_from_envelope,
 )
+from hpa_mdo.airfoils.database import ZoneEnvelope
 from hpa_mdo.airfoils.database import AirfoilQuery
 
 
@@ -179,6 +182,46 @@ def test_zone_work_points_cover_envelope_extremes(tmp_path: Path) -> None:
     assert all(point["source"] == "loaded_dihedral_avl" for point in points)
 
 
+def test_tip_re_grid_includes_envelope_min_max_and_robust_p50_points() -> None:
+    envelope = ZoneEnvelope(
+        zone_name="tip",
+        eta_min=0.8,
+        eta_max=1.0,
+        re_min=258201.117615,
+        re_p50=300708.289704,
+        re_max=387649.954804,
+    )
+
+    config = _small_config(re_robustness_factors=(0.85, 1.0, 1.15))
+    samples = _re_samples_for_envelope(envelope, config=config)
+
+    assert samples == tuple(sorted(samples))
+    assert 258201.117615 in samples
+    assert 300708.289704 in samples
+    assert 387649.954804 in samples
+    assert any(abs(value - 0.85 * 300708.289704) < 1e-6 for value in samples)
+    assert any(abs(value - 1.15 * 300708.289704) < 1e-6 for value in samples)
+
+
+def test_tip_cl_grid_includes_fourier_target_cl_max() -> None:
+    envelope = ZoneEnvelope(
+        zone_name="tip",
+        eta_min=0.8,
+        eta_max=1.0,
+        cl_min=0.0586,
+        cl_p50=0.404942,
+        cl_p90=0.467074,
+        cl_max=0.484833,
+        max_avl_actual_cl=0.484833,
+        max_fourier_target_cl=0.796663,
+    )
+
+    samples = _cl_samples_for_envelope(envelope, config=_small_config())
+
+    assert max(samples) >= 0.80
+    assert any(abs(value - 0.80) <= 0.01 for value in samples)
+
+
 def test_cst_builder_writes_quality_labeled_database_and_lookup(tmp_path: Path) -> None:
     result = build_cst_zone_airfoil_database(
         zone_envelope_path=_zone_envelope_path(tmp_path),
@@ -274,3 +317,29 @@ def test_resume_skips_completed_zones_and_keeps_existing_records(tmp_path: Path)
     top_k_rows = (output_dir / "per_zone_top_k.csv").read_text(encoding="utf-8")
     assert "cst_mid2_" in top_k_rows
     assert "cst_tip_" in top_k_rows
+
+
+def test_resume_force_zone_reruns_complete_zone(tmp_path: Path) -> None:
+    output_dir = tmp_path / "build"
+    config = _small_config(population_size_per_zone=3, generations=1, top_k_per_zone=2)
+    initial_worker = _FakeWorker()
+    build_cst_zone_airfoil_database(
+        zone_envelope_path=_multi_zone_envelope_path(tmp_path, ("tip",)),
+        output_dir=output_dir,
+        config=config,
+        worker=initial_worker,
+    )
+
+    rescue_worker = _FakeWorker()
+    rescued = build_cst_zone_airfoil_database(
+        zone_envelope_path=_multi_zone_envelope_path(tmp_path, ("tip",)),
+        output_dir=output_dir,
+        config=config,
+        worker=rescue_worker,
+        resume=True,
+        force_zones=("tip",),
+    )
+
+    assert rescued.report["zones"]["tip"]["evaluated_candidate_count"] == 3
+    assert "resume_status" not in rescued.report["zones"]["tip"]
+    assert all("cst_tip_" in query.template_id for query in rescue_worker.queries)

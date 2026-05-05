@@ -161,6 +161,7 @@ def _load_resume_state(
     *,
     config: CSTZoneSearchConfig,
     requested_zone_names: frozenset[str],
+    forced_zone_names: frozenset[str] = frozenset(),
 ) -> _ResumeState:
     report_path = output / "build_report.json"
     database_path = output / "airfoil_database.json"
@@ -173,6 +174,7 @@ def _load_resume_state(
         zone_name
         for zone_name, zone_report in raw_zones.items()
         if zone_name in requested_zone_names
+        and zone_name not in forced_zone_names
         and _resume_zone_is_complete(zone_report, config=config)
     )
     if not completed_zone_names:
@@ -309,6 +311,7 @@ def build_cst_zone_airfoil_database(
     worker: Any,
     progress_callback: Any | None = None,
     resume: bool = False,
+    force_zones: Sequence[str] = (),
 ) -> CSTZoneSearchResult:
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -318,8 +321,14 @@ def build_cst_zone_airfoil_database(
     if not envelopes:
         raise ValueError("No zone envelopes were available for CST database build.")
     requested_zone_names = frozenset(str(envelope.zone_name) for envelope in envelopes)
+    forced_zone_names = frozenset(str(zone_name).strip() for zone_name in force_zones if str(zone_name).strip())
     resume_state = (
-        _load_resume_state(output, config=config, requested_zone_names=requested_zone_names)
+        _load_resume_state(
+            output,
+            config=config,
+            requested_zone_names=requested_zone_names,
+            forced_zone_names=forced_zone_names,
+        )
         if resume
         else _empty_resume_state()
     )
@@ -338,7 +347,11 @@ def build_cst_zone_airfoil_database(
         config=config,
         zone_envelope_path=zone_envelope_path,
         status="running",
-        extra={"resume": bool(resume), "completed_zones": list(report_zones)},
+        extra={
+            "resume": bool(resume),
+            "force_zones": sorted(forced_zone_names),
+            "completed_zones": list(report_zones),
+        },
     )
     for zone_index, envelope in enumerate(envelopes):
         zone_name = str(envelope.zone_name)
@@ -686,19 +699,19 @@ def _evaluate_candidates(
 ) -> list[dict[str, Any]]:
     queries: list[PolarQuery] = []
     query_to_candidate: dict[str, CSTAirfoilTemplate] = {}
-    base_re = _first_finite(envelope.re_p50, envelope.re_min, envelope.re_max, 250_000.0)
+    re_samples = _re_samples_for_envelope(envelope, config=config)
     cl_samples = _cl_samples_for_envelope(envelope, config=config)
     for candidate in candidates:
         coordinates = generate_cst_coordinates(candidate)
         geometry_hash = geometry_hash_from_coordinates(coordinates)
         airfoil_id = _airfoil_id(zone_name, candidate, geometry_hash)
-        for factor in config.re_robustness_factors:
+        for re_value in re_samples:
             for roughness_mode in config.roughness_modes:
-                template_id = f"{airfoil_id}__{stage}__re{float(factor):.3f}__{roughness_mode}"
+                template_id = f"{airfoil_id}__{stage}__re{float(re_value):.0f}__{roughness_mode}"
                 queries.append(
                     PolarQuery(
                         template_id=template_id,
-                        reynolds=float(base_re) * float(factor),
+                        reynolds=float(re_value),
                         cl_samples=cl_samples,
                         roughness_mode=str(roughness_mode),
                         geometry_hash=geometry_hash,
@@ -732,9 +745,7 @@ def _evaluate_candidates(
                 envelope=envelope,
                 work_points=work_points,
                 worker_results=results,
-                expected_query_count=sum(
-                    1 for query in queries if query.template_id.startswith(f"{airfoil_id}__")
-                ),
+                expected_query_count=len(re_samples) * len(config.roughness_modes),
                 backend_name=backend_name,
                 config=config,
                 stage=stage,
@@ -1218,6 +1229,10 @@ def _cl_samples_for_envelope(envelope: ZoneEnvelope, *, config: CSTZoneSearchCon
         _first_finite(envelope.cl_p90, envelope.cl_max, 0.9),
         _first_finite(envelope.cl_max, envelope.max_avl_actual_cl, envelope.cl_p90, 1.0),
     ]
+    if str(envelope.zone_name) == "tip":
+        fourier_cl_max = _finite_float(envelope.max_fourier_target_cl)
+        if fourier_cl_max is not None:
+            values.append(float(fourier_cl_max))
     high = max(values) + float(config.cl_coverage_margin)
     low = max(0.05, min(values) - 0.05)
     grid = {round(float(value), 2) for value in values}
@@ -1225,6 +1240,25 @@ def _cl_samples_for_envelope(envelope: ZoneEnvelope, *, config: CSTZoneSearchCon
         grid.add(round(low + 0.10 * index, 2))
     grid.add(round(high, 2))
     return tuple(sorted(value for value in grid if math.isfinite(value) and value > 0.0))
+
+
+def _re_samples_for_envelope(envelope: ZoneEnvelope, *, config: CSTZoneSearchConfig) -> tuple[float, ...]:
+    base_re = _first_finite(envelope.re_p50, envelope.re_min, envelope.re_max, 250_000.0)
+    values = [float(base_re) * float(factor) for factor in config.re_robustness_factors]
+    if str(envelope.zone_name) == "tip":
+        for re_value in (envelope.re_min, envelope.re_p50, envelope.re_max):
+            finite_value = _finite_float(re_value)
+            if finite_value is not None:
+                values.append(float(finite_value))
+    return tuple(
+        sorted(
+            {
+                round(float(value), 6)
+                for value in values
+                if math.isfinite(float(value)) and float(value) > 0.0
+            }
+        )
+    )
 
 
 def _linear_lift_curve_estimate(points: Sequence[AirfoilPolarPoint]) -> tuple[float, float]:
