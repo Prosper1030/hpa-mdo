@@ -219,6 +219,41 @@ CD0_total_est_airfoil_db = CD_profile + CDA_nonwing_target / S
 `airfoil_profile_drag.json` / `airfoil_profile_drag.csv`。這些值仍是
 shadow-only，不改變 ranking、objective、hard gate 或 rejection。
 
+## Loaded Shape / Jig Feasibility Shadow Diagnostics
+
+新增 loaded-shape shadow adapter 後，route 會把目前 candidate 的
+dihedral 欄位轉成半翼 loaded Z 參考，並輸出：
+
+- `loaded_shape_mode`
+- `loaded_tip_dihedral_deg`
+- `loaded_tip_z_m`
+- `loaded_shape_source`
+- `jig_feasible_shadow`
+- `jig_feasibility_band`
+- `jig_tip_deflection_m`
+- `jig_tip_deflection_ratio`
+- `jig_effective_dihedral_deg`
+- `jig_tip_deflection_preferred_status`
+- `jig_warning_count`
+
+jig feasibility 會優先重用 `hpa_mdo.concept.jig_shape.estimate_tip_deflection`
+的 wire-relieved concept proxy；若缺少 config / geometry 欄位，會明確標成
+`placeholder_not_structure_grade`，不會被當成結構級判定。
+
+AVL writer 仍保留 flat fallback；當 station 帶入 explicit `z_m` 或既有
+dihedral schedule 時，SECTION 的 Z coordinate 會是非零 loaded-shape geometry。
+profile drag integration 現在同時輸出 AVL Cl source metadata：
+
+- `profile_drag_cl_source_shape_mode`
+- `profile_drag_cl_source_loaded_shape`
+- `profile_drag_cl_source_warning_count`
+
+若 profile drag 使用的是 flat 或尚未驗證 loaded-shape 的 AVL local Cl，
+`profile_drag_cl_source_shape_mode` 會標為
+`flat_or_unverified_loaded_shape`。只有確認來自 loaded-dihedral AVL geometry
+時，才會標為 `loaded_dihedral_avl`。這些欄位仍是 shadow-only，不改變
+ranking、objective、hard gate 或 rejection。
+
 ---
 
 ## 這只是早期設計預算，不取代高精度分析

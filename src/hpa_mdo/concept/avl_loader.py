@@ -781,6 +781,11 @@ def _concept_case_slug(concept: GeometryConcept) -> str:
 def _station_z_positions(stations: tuple[WingStation, ...]) -> tuple[float, ...]:
     if not stations:
         return ()
+    explicit_z = tuple(getattr(station, "z_m", None) for station in stations)
+    if any(value is not None for value in explicit_z):
+        if any(value is None for value in explicit_z):
+            raise ValueError("Either all AVL stations or no AVL stations must provide z_m.")
+        return tuple(float(value) for value in explicit_z if value is not None)
     z_positions = [0.0]
     for left, right in zip(stations[:-1], stations[1:]):
         dy_m = float(right.y_m) - float(left.y_m)

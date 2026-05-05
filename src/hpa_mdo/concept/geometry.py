@@ -46,6 +46,7 @@ class WingStation:
     chord_m: float
     twist_deg: float
     dihedral_deg: float
+    z_m: float | None = None
 
 
 @dataclass(frozen=True)

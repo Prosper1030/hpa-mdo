@@ -142,6 +142,9 @@ class ProfileDragIntegrationResult:
     cd0_total_est: float
     drag_budget_band: str
     zone_airfoil_assignment: tuple[ZoneAirfoilAssignment, ...]
+    profile_drag_cl_source_shape_mode: str = "flat_or_unverified_loaded_shape"
+    profile_drag_cl_source_loaded_shape: bool = False
+    profile_drag_cl_source_warning_count: int = 1
     source: str = "airfoil_database_profile_drag_shadow_v1"
 
     def to_dict(self) -> dict[str, Any]:
@@ -158,6 +161,13 @@ class ProfileDragIntegrationResult:
             "cd0_total_est_airfoil_db": float(self.cd0_total_est),
             "drag_budget_band": self.drag_budget_band,
             "mission_drag_budget_band_airfoil_db": self.drag_budget_band,
+            "profile_drag_cl_source_shape_mode": self.profile_drag_cl_source_shape_mode,
+            "profile_drag_cl_source_loaded_shape": bool(
+                self.profile_drag_cl_source_loaded_shape
+            ),
+            "profile_drag_cl_source_warning_count": int(
+                self.profile_drag_cl_source_warning_count
+            ),
             "zone_airfoil_assignment": [
                 assignment.to_dict() for assignment in self.zone_airfoil_assignment
             ],
@@ -215,8 +225,25 @@ def integrate_profile_drag_from_avl(
     chord_distribution: Sequence[Mapping[str, Any]],
     zone_airfoil_assignment: Sequence[ZoneAirfoilAssignment] | Mapping[str, str],
     airfoil_database: AirfoilDatabase,
+    *,
+    cl_source_shape_mode: str = "flat_or_unverified_loaded_shape",
+    cl_source_loaded_shape: bool | None = None,
+    cl_source_warning_count: int | None = None,
 ) -> ProfileDragIntegrationResult:
     """Integrate wing profile drag using AVL actual local Cl."""
+
+    source_shape_mode = str(cl_source_shape_mode or "flat_or_unverified_loaded_shape")
+    source_loaded_shape = (
+        source_shape_mode == "loaded_dihedral_avl"
+        if cl_source_loaded_shape is None
+        else bool(cl_source_loaded_shape)
+    )
+    if cl_source_warning_count is None:
+        source_warning_count = 0 if source_loaded_shape else 1
+    else:
+        source_warning_count = max(0, int(cl_source_warning_count))
+    if not source_loaded_shape and source_warning_count == 0:
+        source_warning_count = 1
 
     speed_mps = _positive_contract_float(mission_contract, "speed_mps")
     rho = _positive_contract_float(mission_contract, "rho")
@@ -287,6 +314,8 @@ def integrate_profile_drag_from_avl(
                 "cl_utilization": float(cl_util),
                 "source_quality": str(query.source_quality),
                 "warning_flags": list(warnings),
+                "profile_drag_cl_source_shape_mode": source_shape_mode,
+                "profile_drag_cl_source_loaded_shape": bool(source_loaded_shape),
             }
         )
 
@@ -311,6 +340,9 @@ def integrate_profile_drag_from_avl(
         cd0_total_est=float(cd0_total_est),
         drag_budget_band=_classify_drag_budget_band(mission_contract, cd_profile, cd0_total_est),
         zone_airfoil_assignment=assignments,
+        profile_drag_cl_source_shape_mode=source_shape_mode,
+        profile_drag_cl_source_loaded_shape=bool(source_loaded_shape),
+        profile_drag_cl_source_warning_count=int(source_warning_count),
     )
 
 

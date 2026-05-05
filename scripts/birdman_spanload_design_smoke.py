@@ -48,6 +48,12 @@ from hpa_mdo.concept.geometry import (
     build_linear_wing_stations,
     build_segment_plan,
 )
+from hpa_mdo.concept.jig_shape import estimate_tip_deflection
+from hpa_mdo.concept.loaded_shape import (
+    LoadedWingShape,
+    build_loaded_wing_shape,
+    build_loaded_wing_shape_from_stations,
+)
 from hpa_mdo.concept.mission_drag import compute_rigging_drag_cda_m2
 from hpa_mdo.concept.outer_loading import (
     apply_outer_chord_redistribution,
@@ -139,6 +145,22 @@ AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS = (
     "profile_drag_station_warning_count",
     "min_stall_margin_airfoil_db",
     "max_station_cl_utilization_airfoil_db",
+    "profile_drag_cl_source_shape_mode",
+    "profile_drag_cl_source_loaded_shape",
+    "profile_drag_cl_source_warning_count",
+)
+LOADED_SHAPE_JIG_SHADOW_FIELDS = (
+    "loaded_shape_mode",
+    "loaded_tip_dihedral_deg",
+    "loaded_tip_z_m",
+    "loaded_shape_source",
+    "jig_feasible_shadow",
+    "jig_feasibility_band",
+    "jig_tip_deflection_m",
+    "jig_tip_deflection_ratio",
+    "jig_effective_dihedral_deg",
+    "jig_tip_deflection_preferred_status",
+    "jig_warning_count",
 )
 
 
@@ -158,6 +180,15 @@ def _round(value: Any, digits: int = 6) -> Any:
     if isinstance(value, list | tuple):
         return [_round(item, digits) for item in value]
     return value
+
+
+def _numeric_value(value: object) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        parsed = float(value)
+        return parsed if math.isfinite(parsed) else None
+    return None
 
 
 def _air_properties(cfg: BirdmanConceptConfig):
@@ -203,7 +234,7 @@ def _mission_mass_authority(cfg: BirdmanConceptConfig, concept: GeometryConcept)
     }
 
 
-def _geometry_summary(concept: GeometryConcept) -> dict[str, float]:
+def _geometry_summary(concept: GeometryConcept) -> dict[str, Any]:
     return {
         "span_m": float(concept.span_m),
         "wing_area_m2": float(concept.wing_area_m2),
@@ -213,6 +244,22 @@ def _geometry_summary(concept: GeometryConcept) -> dict[str, float]:
         "tip_chord_m": float(concept.tip_chord_m),
         "mean_chord_m": float(concept.wing_area_m2 / max(concept.span_m, 1.0e-9)),
         "mean_aerodynamic_chord_m": float(concept.mean_aerodynamic_chord_m),
+        "dihedral_root_deg": float(concept.dihedral_root_deg),
+        "dihedral_tip_deg": float(concept.dihedral_tip_deg),
+        "dihedral_exponent": float(concept.dihedral_exponent),
+        "design_gross_mass_kg": concept.design_gross_mass_kg,
+        "tip_deflection_m_at_design_mass": concept.tip_deflection_m_at_design_mass,
+        "tip_deflection_ratio_at_design_mass": concept.tip_deflection_ratio_at_design_mass,
+        "effective_dihedral_deg_at_design_mass": (
+            concept.effective_dihedral_deg_at_design_mass
+        ),
+        "unbraced_tip_deflection_m_at_design_mass": (
+            concept.unbraced_tip_deflection_m_at_design_mass
+        ),
+        "lift_wire_relief_deflection_m_at_design_mass": (
+            concept.lift_wire_relief_deflection_m_at_design_mass
+        ),
+        "tip_deflection_preferred_status": concept.tip_deflection_preferred_status,
     }
 
 
@@ -905,6 +952,256 @@ def _attach_mission_contract_shadow_fields(
         record.update(contract.to_shadow_fields())
 
 
+def _station_etas_from_record(record: dict[str, Any]) -> tuple[float, ...]:
+    station_table = record.get("station_table") or []
+    eta_values: list[float] = []
+    for row in station_table:
+        if not isinstance(row, dict):
+            continue
+        eta_value = _numeric_value(row.get("eta"))
+        if eta_value is not None:
+            eta_values.append(min(max(float(eta_value), 0.0), 1.0))
+    if eta_values:
+        return tuple(eta_values)
+    return (0.0, 1.0)
+
+
+def _loaded_shape_from_record(record: dict[str, Any]) -> LoadedWingShape:
+    geometry = record.get("geometry") or {}
+    span_m = _numeric_value(geometry.get("span_m"))
+    if span_m is None or span_m <= 0.0:
+        raise ValueError("geometry.span_m is unavailable")
+    station_table = record.get("station_table") or []
+    station_shape_inputs: list[WingStation] = []
+    for row in station_table:
+        if not isinstance(row, dict):
+            continue
+        y_m = _numeric_value(row.get("y_m"))
+        dihedral_deg = _numeric_value(row.get("dihedral_deg"))
+        if y_m is None or dihedral_deg is None:
+            continue
+        station_shape_inputs.append(
+            WingStation(
+                y_m=float(y_m),
+                chord_m=float(_numeric_value(row.get("chord_m")) or 1.0),
+                twist_deg=float(
+                    _numeric_value(row.get("twist_deg"))
+                    or _numeric_value(row.get("ainc_deg"))
+                    or 0.0
+                ),
+                dihedral_deg=float(dihedral_deg),
+            )
+        )
+    if len(station_shape_inputs) >= 2:
+        return build_loaded_wing_shape_from_stations(
+            span_m=float(span_m),
+            stations=tuple(station_shape_inputs),
+            source="station_table_dihedral_fields_shadow",
+        )
+
+    tip_dihedral_deg = _numeric_value(geometry.get("dihedral_tip_deg"))
+    if tip_dihedral_deg is None:
+        tip_dihedral_deg = 0.0
+    dihedral_exponent = _numeric_value(geometry.get("dihedral_exponent"))
+    mode = (
+        "flat"
+        if abs(float(tip_dihedral_deg)) <= 1.0e-9
+        else "concept_dihedral_fields"
+    )
+    return build_loaded_wing_shape(
+        span_m=float(span_m),
+        eta=_station_etas_from_record(record),
+        loaded_tip_dihedral_deg=float(tip_dihedral_deg),
+        dihedral_exponent=dihedral_exponent or 1.0,
+        loaded_shape_mode=mode,
+        source="candidate_geometry_dihedral_fields_shadow",
+    )
+
+
+def _tip_deflection_preferred_status(
+    *,
+    tip_deflection_m: float | None,
+    cfg: BirdmanConceptConfig | None,
+    fallback_status: object = None,
+) -> str | None:
+    if isinstance(fallback_status, str) and fallback_status:
+        return fallback_status
+    if tip_deflection_m is None or cfg is None:
+        return None
+    lower = float(cfg.jig_shape_gate.preferred_tip_deflection_m_min)
+    upper = float(cfg.jig_shape_gate.preferred_tip_deflection_m_max)
+    if tip_deflection_m < lower:
+        return "below_preferred"
+    if tip_deflection_m > upper:
+        return "above_preferred"
+    return "within_preferred"
+
+
+def _jig_feasibility_band(
+    *,
+    feasible: bool | None,
+    preferred_status: str | None,
+    ratio: float | None,
+    cfg: BirdmanConceptConfig | None,
+) -> str:
+    if feasible is None or ratio is None:
+        return "unknown_placeholder"
+    if feasible is False:
+        return "above_limit"
+    if preferred_status == "within_preferred":
+        return "preferred_window"
+    if preferred_status == "below_preferred":
+        return "feasible_below_preferred"
+    if preferred_status == "above_preferred":
+        return "feasible_above_preferred"
+    if cfg is not None and ratio <= float(cfg.jig_shape_gate.max_tip_deflection_to_halfspan_ratio):
+        return "feasible"
+    return "unknown"
+
+
+def _jig_shadow_from_record(
+    record: dict[str, Any],
+    *,
+    cfg: BirdmanConceptConfig | None,
+) -> dict[str, Any]:
+    geometry = record.get("geometry") or {}
+    span_m = _numeric_value(geometry.get("span_m"))
+    mass_kg = _numeric_value(geometry.get("design_gross_mass_kg"))
+    warnings: list[str] = []
+
+    estimate = None
+    if cfg is not None and span_m is not None and span_m > 0.0:
+        try:
+            estimate = estimate_tip_deflection(
+                gross_mass_kg=float(cfg.mass.design_gross_mass_kg),
+                span_m=float(span_m),
+                tube_geom=cfg.mass_closure.tube_system,
+                gate_cfg=cfg.jig_shape_gate,
+            )
+            mass_kg = float(cfg.mass.design_gross_mass_kg)
+        except Exception as exc:  # noqa: BLE001 - shadow-only structural provenance.
+            warnings.append(f"estimate_tip_deflection_failed:{type(exc).__name__}")
+
+    if estimate is not None:
+        tip_deflection_m = float(estimate.tip_deflection_m)
+        ratio = float(estimate.tip_deflection_ratio)
+        effective_dihedral_deg = float(estimate.effective_dihedral_deg)
+        unbraced_tip_deflection_m = float(estimate.unbraced_tip_deflection_m)
+        lift_wire_relief_deflection_m = float(estimate.lift_wire_relief_deflection_m)
+        source_quality = "concept_jig_shape_estimate_tip_deflection_shadow"
+    else:
+        tip_deflection_m = _numeric_value(
+            geometry.get("tip_deflection_m_at_design_mass")
+        )
+        ratio = _numeric_value(geometry.get("tip_deflection_ratio_at_design_mass"))
+        effective_dihedral_deg = _numeric_value(
+            geometry.get("effective_dihedral_deg_at_design_mass")
+        )
+        unbraced_tip_deflection_m = _numeric_value(
+            geometry.get("unbraced_tip_deflection_m_at_design_mass")
+        )
+        lift_wire_relief_deflection_m = _numeric_value(
+            geometry.get("lift_wire_relief_deflection_m_at_design_mass")
+        )
+        source_quality = (
+            "concept_jig_shape_estimate_tip_deflection_shadow"
+            if ratio is not None
+            else "placeholder_not_structure_grade"
+        )
+        if ratio is None:
+            warnings.append("jig_shape_estimate_unavailable")
+
+    feasible: bool | None
+    if ratio is None:
+        feasible = None
+    elif cfg is None:
+        feasible = None
+        warnings.append("jig_shape_gate_config_unavailable")
+    else:
+        feasible = bool(
+            ratio <= float(cfg.jig_shape_gate.max_tip_deflection_to_halfspan_ratio)
+        )
+    preferred_status = _tip_deflection_preferred_status(
+        tip_deflection_m=tip_deflection_m,
+        cfg=cfg,
+        fallback_status=geometry.get("tip_deflection_preferred_status"),
+    )
+    band = _jig_feasibility_band(
+        feasible=feasible,
+        preferred_status=preferred_status,
+        ratio=ratio,
+        cfg=cfg,
+    )
+    return {
+        "source": "jig_feasibility_shadow_v1",
+        "source_mode": "shadow_no_ranking_gate",
+        "jig_source_quality": source_quality,
+        "design_mass_kg": mass_kg,
+        "tip_deflection_m_at_design_mass": tip_deflection_m,
+        "tip_deflection_ratio_at_design_mass": ratio,
+        "effective_dihedral_deg_at_design_mass": effective_dihedral_deg,
+        "unbraced_tip_deflection_m_at_design_mass": unbraced_tip_deflection_m,
+        "lift_wire_relief_deflection_m_at_design_mass": lift_wire_relief_deflection_m,
+        "tip_deflection_preferred_status": preferred_status,
+        "jig_feasible_shadow": feasible,
+        "jig_feasibility_band": band,
+        "warnings": warnings,
+        "warning_count": len(warnings),
+    }
+
+
+def _attach_loaded_shape_jig_shadow_fields(
+    records: list[dict[str, Any]],
+    *,
+    cfg: BirdmanConceptConfig | None = None,
+) -> None:
+    for record in records:
+        try:
+            loaded_shape = _loaded_shape_from_record(record)
+            record["loaded_wing_shape"] = loaded_shape.to_dict()
+            loaded_shape_fields = {
+                "loaded_shape_mode": loaded_shape.loaded_shape_mode,
+                "loaded_tip_dihedral_deg": float(loaded_shape.loaded_tip_dihedral_deg),
+                "loaded_tip_z_m": float(loaded_shape.loaded_tip_z_m),
+                "loaded_shape_source": loaded_shape.source,
+            }
+        except Exception as exc:  # noqa: BLE001 - loaded shape is shadow-only here.
+            record["loaded_wing_shape"] = {
+                "source": "loaded_wing_shape_shadow_v1",
+                "source_mode": "shadow_no_ranking_gate",
+                "error": f"{type(exc).__name__}: {exc}",
+                "warnings": ["loaded_shape_unavailable"],
+            }
+            loaded_shape_fields = {
+                "loaded_shape_mode": None,
+                "loaded_tip_dihedral_deg": None,
+                "loaded_tip_z_m": None,
+                "loaded_shape_source": "loaded_wing_shape_unavailable",
+            }
+
+        jig = _jig_shadow_from_record(record, cfg=cfg)
+        record["jig_feasibility"] = jig
+        record.update(
+            {
+                **loaded_shape_fields,
+                "jig_feasible_shadow": jig.get("jig_feasible_shadow"),
+                "jig_feasibility_band": jig.get("jig_feasibility_band"),
+                "jig_tip_deflection_m": jig.get("tip_deflection_m_at_design_mass"),
+                "jig_tip_deflection_ratio": jig.get(
+                    "tip_deflection_ratio_at_design_mass"
+                ),
+                "jig_effective_dihedral_deg": jig.get(
+                    "effective_dihedral_deg_at_design_mass"
+                ),
+                "jig_tip_deflection_preferred_status": jig.get(
+                    "tip_deflection_preferred_status"
+                ),
+                "jig_warning_count": int(jig.get("warning_count", 0)),
+                "jig_source_quality": jig.get("jig_source_quality"),
+            }
+        )
+
+
 def _attach_mission_fourier_shadow_fields(records: list[dict[str, Any]]) -> None:
     for record in records:
         try:
@@ -959,6 +1256,27 @@ def _attach_airfoil_profile_drag_shadow_fields(records: list[dict[str, Any]]) ->
     database = default_airfoil_database()
     assignments = fixed_seed_zone_airfoil_assignments()
     for record in records:
+        avl_reference = record.get("avl_reference_case") or {}
+        cl_source_shape_mode = str(
+            avl_reference.get(
+                "profile_drag_cl_source_shape_mode",
+                "flat_or_unverified_loaded_shape",
+            )
+        )
+        cl_source_loaded_shape = bool(
+            avl_reference.get(
+                "profile_drag_cl_source_loaded_shape",
+                cl_source_shape_mode == "loaded_dihedral_avl",
+            )
+        )
+        cl_source_warning_count = int(
+            avl_reference.get(
+                "profile_drag_cl_source_warning_count",
+                0 if cl_source_loaded_shape else 1,
+            )
+        )
+        if not cl_source_loaded_shape and cl_source_warning_count == 0:
+            cl_source_warning_count = 1
         try:
             contract = _mission_contract_from_record(record)
             if contract is None:
@@ -969,18 +1287,27 @@ def _attach_airfoil_profile_drag_shadow_fields(records: list[dict[str, Any]]) ->
                 record.get("station_table") or [],
                 assignments,
                 database,
+                cl_source_shape_mode=cl_source_shape_mode,
+                cl_source_loaded_shape=cl_source_loaded_shape,
+                cl_source_warning_count=cl_source_warning_count,
             )
         except Exception as exc:  # noqa: BLE001 - profile drag database is shadow-only.
             record["airfoil_profile_drag"] = {
                 "source": "airfoil_database_profile_drag_shadow_v1",
                 "source_mode": "shadow_no_ranking_gate",
                 "error": f"{type(exc).__name__}: {exc}",
+                "profile_drag_cl_source_shape_mode": cl_source_shape_mode,
+                "profile_drag_cl_source_loaded_shape": bool(cl_source_loaded_shape),
+                "profile_drag_cl_source_warning_count": int(cl_source_warning_count),
                 "zone_airfoil_assignment": [
                     assignment.to_dict() for assignment in assignments
                 ],
             }
             for field in AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS:
                 record[field] = None
+            record["profile_drag_cl_source_shape_mode"] = cl_source_shape_mode
+            record["profile_drag_cl_source_loaded_shape"] = bool(cl_source_loaded_shape)
+            record["profile_drag_cl_source_warning_count"] = int(cl_source_warning_count)
             continue
 
         record["airfoil_profile_drag"] = result.to_dict()
@@ -996,6 +1323,15 @@ def _attach_airfoil_profile_drag_shadow_fields(records: list[dict[str, Any]]) ->
                     None
                     if result.max_station_cl_utilization is None
                     else float(result.max_station_cl_utilization)
+                ),
+                "profile_drag_cl_source_shape_mode": (
+                    result.profile_drag_cl_source_shape_mode
+                ),
+                "profile_drag_cl_source_loaded_shape": bool(
+                    result.profile_drag_cl_source_loaded_shape
+                ),
+                "profile_drag_cl_source_warning_count": int(
+                    result.profile_drag_cl_source_warning_count
                 ),
             }
         )
@@ -2158,6 +2494,20 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
         "target_vs_avl_rms_delta": record.get("target_vs_avl_rms_delta"),
         "target_vs_avl_max_delta": record.get("target_vs_avl_max_delta"),
         "target_vs_avl_outer_delta": record.get("target_vs_avl_outer_delta"),
+        "loaded_shape_mode": record.get("loaded_shape_mode"),
+        "loaded_tip_dihedral_deg": record.get("loaded_tip_dihedral_deg"),
+        "loaded_tip_z_m": record.get("loaded_tip_z_m"),
+        "loaded_shape_source": record.get("loaded_shape_source"),
+        "jig_feasible_shadow": record.get("jig_feasible_shadow"),
+        "jig_feasibility_band": record.get("jig_feasibility_band"),
+        "jig_tip_deflection_m": record.get("jig_tip_deflection_m"),
+        "jig_tip_deflection_ratio": record.get("jig_tip_deflection_ratio"),
+        "jig_effective_dihedral_deg": record.get("jig_effective_dihedral_deg"),
+        "jig_tip_deflection_preferred_status": record.get(
+            "jig_tip_deflection_preferred_status"
+        ),
+        "jig_warning_count": record.get("jig_warning_count"),
+        "jig_source_quality": record.get("jig_source_quality"),
         "profile_cd_airfoil_db": record.get("profile_cd_airfoil_db"),
         "profile_cd_airfoil_db_source_quality": record.get(
             "profile_cd_airfoil_db_source_quality"
@@ -2172,6 +2522,15 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
         "min_stall_margin_airfoil_db": record.get("min_stall_margin_airfoil_db"),
         "max_station_cl_utilization_airfoil_db": record.get(
             "max_station_cl_utilization_airfoil_db"
+        ),
+        "profile_drag_cl_source_shape_mode": record.get(
+            "profile_drag_cl_source_shape_mode"
+        ),
+        "profile_drag_cl_source_loaded_shape": record.get(
+            "profile_drag_cl_source_loaded_shape"
+        ),
+        "profile_drag_cl_source_warning_count": record.get(
+            "profile_drag_cl_source_warning_count"
         ),
         "outer_loading_diagnostics": record.get("outer_loading_diagnostics", {}),
         "objective_value": record.get("objective_value"),
@@ -2399,6 +2758,8 @@ def _export_top_candidate_artifacts(
             "stall_margin_deg",
             "source_quality",
             "warning_flags",
+            "profile_drag_cl_source_shape_mode",
+            "profile_drag_cl_source_loaded_shape",
         ]
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
@@ -2436,6 +2797,11 @@ def _export_top_candidate_artifacts(
                 field: record.get(field) for field in MISSION_FOURIER_SHADOW_FIELDS
             },
             "mission_fourier_comparison": record.get("mission_fourier_comparison", {}),
+            "loaded_shape_jig_summary": {
+                field: record.get(field) for field in LOADED_SHAPE_JIG_SHADOW_FIELDS
+            },
+            "loaded_wing_shape": record.get("loaded_wing_shape", {}),
+            "jig_feasibility": record.get("jig_feasibility", {}),
             "airfoil_profile_drag_summary": {
                 field: record.get(field) for field in AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS
             },
@@ -2585,6 +2951,19 @@ def _run_reference_avl_case(
     for zone_payload_record in zone_payload.values():
         flat_points.extend(zone_payload_record.get("points", []))
     flat_points.sort(key=lambda point: float(point.get("station_y_m", 0.0)))
+    loaded_shape = build_loaded_wing_shape_from_stations(
+        span_m=float(concept.span_m),
+        stations=stations,
+        source="avl_section_z_from_wing_station_dihedral",
+    )
+    cl_source_shape_mode = (
+        "loaded_dihedral_avl"
+        if abs(float(loaded_shape.loaded_tip_z_m)) > 1.0e-9
+        else "flat_or_unverified_loaded_shape"
+    )
+    cl_source_warning_count = int(loaded_shape.warning_count)
+    if cl_source_shape_mode != "loaded_dihedral_avl":
+        cl_source_warning_count += 1
     trim_cl = trim_totals.get("cl_trim")
     cd_induced = trim_totals.get("cd_induced")
     e_cdi = None
@@ -2609,6 +2988,14 @@ def _run_reference_avl_case(
         "avl_file_path": str(avl_path),
         "avl_case_dir": str(case_dir),
         "station_points": flat_points,
+        "loaded_shape_mode": loaded_shape.loaded_shape_mode,
+        "loaded_tip_dihedral_deg": float(loaded_shape.loaded_tip_dihedral_deg),
+        "loaded_tip_z_m": float(loaded_shape.loaded_tip_z_m),
+        "loaded_shape_source": loaded_shape.source,
+        "loaded_shape_warning_count": int(loaded_shape.warning_count),
+        "profile_drag_cl_source_shape_mode": cl_source_shape_mode,
+        "profile_drag_cl_source_loaded_shape": cl_source_shape_mode == "loaded_dihedral_avl",
+        "profile_drag_cl_source_warning_count": int(cl_source_warning_count),
     }
 
 
@@ -3832,6 +4219,18 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
             f"{_format_float(candidate.get('mission_fourier_root_bending_proxy'), 1)}; "
             "shadow only, no ranking gate."
         )
+    if candidate.get("loaded_wing_shape") is not None or candidate.get("jig_feasibility") is not None:
+        lines.append(
+            "- Loaded shape / jig shadow: "
+            f"mode {candidate.get('loaded_shape_mode')}, "
+            f"tip dihedral {_format_float(candidate.get('loaded_tip_dihedral_deg'), 2)} deg, "
+            f"tip z {_format_float(candidate.get('loaded_tip_z_m'), 3)} m, "
+            f"jig band {candidate.get('jig_feasibility_band')}, "
+            f"tip deflection {_format_float(candidate.get('jig_tip_deflection_m'), 3)} m, "
+            f"effective dihedral {_format_float(candidate.get('jig_effective_dihedral_deg'), 2)} deg, "
+            f"warnings {candidate.get('jig_warning_count')}; "
+            "shadow only, no ranking gate."
+        )
     if candidate.get("airfoil_profile_drag") is not None:
         lines.append(
             "- Airfoil DB profile drag shadow: "
@@ -3841,6 +4240,7 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
             f"min stall margin {_format_float(candidate.get('min_stall_margin_airfoil_db'), 2)} deg, "
             f"max cl util {_format_float(candidate.get('max_station_cl_utilization_airfoil_db'), 3)}, "
             f"warnings {candidate.get('profile_drag_station_warning_count')}; "
+            f"Cl source {candidate.get('profile_drag_cl_source_shape_mode')}, "
             f"quality {candidate.get('profile_cd_airfoil_db_source_quality')}. "
             "shadow only, no ranking gate."
         )
@@ -3990,6 +4390,8 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
         f"({report.get('mission_contract_shadow', {}).get('ranking_behavior', 'unchanged')})",
         f"- FourierTarget v2 shadow: {report.get('mission_fourier_target_shadow', {}).get('source', 'unknown')} "
         f"({report.get('mission_fourier_target_shadow', {}).get('ranking_behavior', 'unchanged')})",
+        f"- Loaded shape / jig shadow: {report.get('loaded_shape_jig_shadow', {}).get('source', 'unknown')} "
+        f"({report.get('loaded_shape_jig_shadow', {}).get('ranking_behavior', 'unchanged')})",
         f"- Airfoil DB profile drag shadow: {report.get('airfoil_profile_drag_shadow', {}).get('database', 'unknown')} "
         f"({report.get('airfoil_profile_drag_shadow', {}).get('ranking_behavior', 'unchanged')})",
         "",
@@ -4315,6 +4717,7 @@ def main() -> None:
         context=mission_contract_context,
     )
     _attach_mission_fourier_shadow_fields(records)
+    _attach_loaded_shape_jig_shadow_fields(records, cfg=cfg)
     _attach_airfoil_profile_drag_shadow_fields(records)
 
     physically_accepted = [
@@ -4455,6 +4858,16 @@ def main() -> None:
             "ranking_behavior": "unchanged_no_rejection_no_sort_key",
             "comparison": "normalized_half_span_loading_shape_vs_avl_actual",
         },
+        "loaded_shape_jig_shadow": {
+            "source_mode": "shadow_no_ranking_gate",
+            "source": "loaded_wing_shape_plus_jig_feasibility_shadow_v1",
+            "export_fields": list(LOADED_SHAPE_JIG_SHADOW_FIELDS),
+            "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+            "profile_drag_contract": (
+                "profile drag must label whether AVL local Cl came from flat_or_unverified_loaded_shape "
+                "or loaded_dihedral_avl"
+            ),
+        },
         "airfoil_profile_drag_shadow": {
             "source_mode": "shadow_no_ranking_gate",
             "source": "airfoil_database_profile_drag_shadow_v1",
@@ -4464,7 +4877,7 @@ def main() -> None:
             ],
             "export_fields": list(AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS),
             "ranking_behavior": "unchanged_no_rejection_no_sort_key",
-            "cl_source": "AVL actual local Cl",
+            "cl_source": "AVL actual local Cl with flat_or_loaded_shape provenance",
         },
         "stage0_counts": stage0["counts"],
         "stage1_counts": {

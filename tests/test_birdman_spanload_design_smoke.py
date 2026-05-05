@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 import pytest
@@ -293,6 +294,7 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
         },
     }
     smoke._attach_mission_fourier_shadow_fields([record])
+    smoke._attach_loaded_shape_jig_shadow_fields([record])
     smoke._attach_airfoil_profile_drag_shadow_fields([record])
     avl_file = tmp_path / "avl_case" / "concept_wing.avl"
     avl_file.parent.mkdir(parents=True)
@@ -323,6 +325,7 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     )
     assert "profile_cd_airfoil_db" in airfoil_profile_drag
     assert "cd0_total_est_airfoil_db" in airfoil_profile_drag
+    assert "profile_drag_cl_source_shape_mode" in airfoil_profile_drag
     airfoil_profile_drag_csv_header = Path(artifacts["airfoil_profile_drag_csv_path"]).read_text(
         encoding="utf-8"
     ).splitlines()[0]
@@ -338,6 +341,67 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     assert "selected_cst_dat_files" in metadata
     assert "ReadFileAirfoil" in script
     assert "NACA 0012" not in script
+
+
+def test_loaded_shape_jig_shadow_attach_preserves_ranking_inputs() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    metric, rejection = smoke._build_inverse_chord_stage0_metric(
+        cfg=cfg,
+        sample_index=12,
+        span_m=34.0,
+        tail_volume_coefficient=0.40,
+        a3=-0.05,
+        a5=0.01,
+        cl_controls=(1.16, 1.26, 0.96, 0.58),
+        design_speed_mps=6.8,
+    )
+    assert rejection is None
+    assert metric is not None
+    record = {
+        "sample_index": 12,
+        "geometry": metric["geometry"],
+        "station_table": [dict(row) for row in metric["station_table"]],
+        "objective_value": 4.25,
+    }
+    before_objective = record["objective_value"]
+
+    smoke._attach_loaded_shape_jig_shadow_fields([record])
+
+    assert record["objective_value"] == before_objective
+    assert record["loaded_shape_mode"] in {"concept_dihedral_fields", "flat"}
+    assert record["loaded_tip_z_m"] is not None
+    assert record["jig_source_quality"] in {
+        "concept_jig_shape_estimate_tip_deflection_shadow",
+        "placeholder_not_structure_grade",
+    }
+    assert "jig_feasible_shadow" in record
+    assert record["jig_warning_count"] >= 0
+    compact = smoke._stage1_compact_record(record)
+    assert compact["loaded_shape_mode"] == record["loaded_shape_mode"]
+    assert "jig_feasibility_band" in compact
+
+
+def test_loaded_shape_shadow_prefers_station_dihedral_over_tip_formula() -> None:
+    record = {
+        "geometry": {
+            "span_m": 20.0,
+            "dihedral_tip_deg": 6.0,
+            "dihedral_exponent": 1.5,
+        },
+        "station_table": [
+            {"eta": 0.0, "y_m": 0.0, "chord_m": 1.0, "dihedral_deg": 0.0},
+            {"eta": 0.5, "y_m": 5.0, "chord_m": 1.0, "dihedral_deg": 2.0},
+            {"eta": 1.0, "y_m": 10.0, "chord_m": 1.0, "dihedral_deg": 4.0},
+        ],
+    }
+
+    smoke._attach_loaded_shape_jig_shadow_fields([record])
+
+    assert record["loaded_shape_source"] == "station_table_dihedral_fields_shadow"
+    assert record["loaded_tip_z_m"] == pytest.approx(
+        5.0 * math.tan(math.radians(1.0)) + 5.0 * math.tan(math.radians(3.0))
+    )
+    assert record["loaded_tip_z_m"] != pytest.approx(10.0 * math.tan(math.radians(6.0)))
 
 
 def test_mission_fourier_shadow_attach_preserves_ranking_inputs() -> None:
@@ -490,12 +554,16 @@ def test_airfoil_profile_drag_shadow_attach_preserves_ranking_inputs() -> None:
         "over_budget",
     }
     assert record["profile_drag_station_warning_count"] >= 0
+    assert record["profile_drag_cl_source_shape_mode"] == "flat_or_unverified_loaded_shape"
+    assert record["profile_drag_cl_source_loaded_shape"] is False
+    assert record["profile_drag_cl_source_warning_count"] >= 1
     assert record["max_station_cl_utilization_airfoil_db"] > 0.0
     compact = smoke._stage1_compact_record(record)
     assert compact["profile_cd_airfoil_db"] == pytest.approx(
         record["profile_cd_airfoil_db"]
     )
     assert "cd0_total_est_airfoil_db" in compact
+    assert compact["profile_drag_cl_source_shape_mode"] == "flat_or_unverified_loaded_shape"
 
 
 def test_mission_contract_shadow_attach_preserves_record_order_and_rank_inputs() -> None:

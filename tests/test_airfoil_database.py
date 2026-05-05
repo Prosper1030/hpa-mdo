@@ -178,6 +178,36 @@ def test_profile_drag_uses_avl_actual_cl_not_fourier_target_cl() -> None:
     assert result.CD_profile != pytest.approx(0.010 + 0.020 * 1.2)
 
 
+def test_profile_drag_records_flat_or_loaded_cl_source_metadata() -> None:
+    contract = _mission_contract()
+    database = _constant_cd_database(cd=0.012)
+    assignments = (ZoneAirfoilAssignment("root", "constant", 0.0, 1.0),)
+
+    default_result = integrate_profile_drag_from_avl(
+        contract,
+        _full_span_constant_chord_stations(avl_cl=0.5),
+        _full_span_constant_chord_stations(avl_cl=0.5),
+        assignments,
+        database,
+    )
+    loaded_result = integrate_profile_drag_from_avl(
+        contract,
+        _full_span_constant_chord_stations(avl_cl=0.5),
+        _full_span_constant_chord_stations(avl_cl=0.5),
+        assignments,
+        database,
+        cl_source_shape_mode="loaded_dihedral_avl",
+        cl_source_loaded_shape=True,
+        cl_source_warning_count=0,
+    )
+
+    assert default_result.profile_drag_cl_source_shape_mode == "flat_or_unverified_loaded_shape"
+    assert default_result.profile_drag_cl_source_loaded_shape is False
+    assert loaded_result.profile_drag_cl_source_shape_mode == "loaded_dihedral_avl"
+    assert loaded_result.profile_drag_cl_source_loaded_shape is True
+    assert loaded_result.to_dict()["profile_drag_cl_source_shape_mode"] == "loaded_dihedral_avl"
+
+
 def test_mission_cd0_total_est_adds_nonwing_cda_over_wing_area() -> None:
     contract = _mission_contract()
     database = _constant_cd_database(cd=0.012)
