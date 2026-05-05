@@ -416,18 +416,28 @@ function build_polar_points(alpha_deg, cl, cd, cdp, cm, converged, cl_samples)
     for cl_target in cl_samples
         best_local_index = argmin(abs.(cl_converged .- cl_target))
         best_index = converged_indices[best_local_index]
+        cl_value = json_float(cl[best_index])
+        cd_value = json_float(cd[best_index])
+        cdp_value = json_float(cdp[best_index])
+        cm_value = json_float(cm[best_index])
         push!(points, Dict(
             "cl_target" => Float64(cl_target),
             "alpha_deg" => Float64(alpha_deg[best_index]),
-            "cl" => Float64(cl[best_index]),
-            "cd" => Float64(cd[best_index]),
-            "cdp" => Float64(cdp[best_index]),
-            "cm" => Float64(cm[best_index]),
+            "cl" => cl_value,
+            "cd" => cd_value,
+            "cdp" => cdp_value,
+            "cm" => cm_value,
             "converged" => Bool(converged[best_index]),
-            "cl_error" => Float64(cl[best_index] - cl_target),
+            "cl_error" => cl_value === nothing ? nothing : Float64(cl_value - cl_target),
         ))
     end
     return points
+end
+
+
+function json_float(value)
+    number = Float64(value)
+    return isfinite(number) ? number : nothing
 end
 
 
@@ -436,10 +446,10 @@ function build_full_polar_points(alpha_deg, cl, cd, cdp, cm, converged)
     for index in eachindex(alpha_deg)
         push!(points, Dict(
             "alpha_deg" => Float64(alpha_deg[index]),
-            "cl" => Float64(cl[index]),
-            "cd" => Float64(cd[index]),
-            "cdp" => Float64(cdp[index]),
-            "cm" => Float64(cm[index]),
+            "cl" => json_float(cl[index]),
+            "cd" => json_float(cd[index]),
+            "cdp" => json_float(cdp[index]),
+            "cm" => json_float(cm[index]),
             "converged" => Bool(converged[index]),
         ))
     end
@@ -482,23 +492,24 @@ function build_sweep_summary(alpha_deg, cl, cd, cdp, cm, converged)
         "first_pass_observed_clmax_proxy_at_sweep_edge" => nothing,
     )
 
-    if isempty(converged_indices)
+    finite_cl_indices = [index for index in converged_indices if isfinite(Float64(cl[index]))]
+    if isempty(finite_cl_indices)
         return summary
     end
 
-    cl_converged = Float64[Float64(cl[i]) for i in converged_indices]
+    cl_converged = Float64[Float64(cl[i]) for i in finite_cl_indices]
     observed_local_index = argmax(cl_converged)
-    observed_index = converged_indices[observed_local_index]
+    observed_index = finite_cl_indices[observed_local_index]
     last_converged_index = converged_indices[end]
-    summary["cl_max_observed"] = Float64(cl[observed_index])
+    summary["cl_max_observed"] = json_float(cl[observed_index])
     summary["alpha_at_cl_max_deg"] = Float64(alpha_deg[observed_index])
     summary["last_converged_alpha_deg"] = Float64(alpha_deg[last_converged_index])
     summary["clmax_is_lower_bound"] = Bool(observed_index == last_converged_index)
-    summary["first_pass_observed_clmax_proxy"] = Float64(cl[observed_index])
+    summary["first_pass_observed_clmax_proxy"] = json_float(cl[observed_index])
     summary["first_pass_observed_clmax_proxy_alpha_deg"] = Float64(alpha_deg[observed_index])
-    summary["first_pass_observed_clmax_proxy_cd"] = Float64(cd[observed_index])
-    summary["first_pass_observed_clmax_proxy_cdp"] = Float64(cdp[observed_index])
-    summary["first_pass_observed_clmax_proxy_cm"] = Float64(cm[observed_index])
+    summary["first_pass_observed_clmax_proxy_cd"] = json_float(cd[observed_index])
+    summary["first_pass_observed_clmax_proxy_cdp"] = json_float(cdp[observed_index])
+    summary["first_pass_observed_clmax_proxy_cm"] = json_float(cm[observed_index])
     summary["first_pass_observed_clmax_proxy_index"] = Int(observed_index)
     summary["first_pass_observed_clmax_proxy_at_sweep_edge"] =
         Bool(observed_index == firstindex(alpha_deg) || observed_index == lastindex(alpha_deg))

@@ -12,7 +12,7 @@ import select
 import subprocess
 from uuid import uuid4
 
-_CACHE_SCHEMA_VERSION = 4
+_CACHE_SCHEMA_VERSION = 5
 _SUCCESS_STATUSES = frozenset({"ok", "stubbed_ok", "mini_sweep_fallback"})
 _NEGATIVE_CACHE_STATUSES = frozenset({"analysis_failed"})
 _CACHEABLE_STATUSES = _SUCCESS_STATUSES | _NEGATIVE_CACHE_STATUSES
