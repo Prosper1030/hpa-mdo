@@ -179,6 +179,46 @@ e_theory = 1 / (1 + 3*r3^2 + 5*r5^2)
 這些欄位是後續「equivalent incidence / physical twist reconstruction」與
 「AVL actual Cl 回查 airfoil database」的診斷基準，不是目前的淘汰條件。
 
+## Airfoil Database Profile Drag Shadow
+
+`hpa_mdo.airfoils.database` 是 Phase 3 的正式 airfoil database 介面。
+目前它只放入手動 fixture：
+
+- `fx76mp140`：使用 `docs/research/xfoil_fx76mp140_re410000/` 的單一
+  Reynolds XFOIL 參考 polar。
+- `clarkysm`：手動 quadratic polar fixture。
+- `dae31`、`dae11`、`dae21`、`dae41`：歷史翼型 schema placeholder。
+
+所有上述資料目前都標成 `not_mission_grade`，placeholder 不會被當成
+最終任務級 polar。這個 phase 不做 CST / XFOIL closed-loop，不做 NSGA，
+也不做 station-by-station greedy min-CD 選型。
+
+`inverse_chord_then_residual_twist_no_cst_no_xfoil` 的 Phase 3 shadow route
+使用固定 zone assignment：
+
+| Zone | Airfoil |
+|------|---------|
+| root | FX 76-MP-140 |
+| mid1 | FX 76-MP-140 |
+| mid2 | ClarkY smoothed |
+| tip | ClarkY smoothed |
+
+profile drag 估算使用 AVL actual local Cl，而不是 Fourier target Cl：
+
+```
+Re_i = rho * V * chord_i / mu
+cd_i = airfoil_db.lookup(airfoil_id(zone_i), Re_i, AVL_cl_i)
+CD_profile = 2 / S * integral(chord_i * cd_i dy)
+CD0_total_est_airfoil_db = CD_profile + CDA_nonwing_target / S
+```
+
+輸出欄位包含 `profile_cd_airfoil_db`、`cd0_total_est_airfoil_db`、
+`mission_drag_budget_band_airfoil_db`、`profile_drag_station_warning_count`、
+`min_stall_margin_airfoil_db`、`max_station_cl_utilization_airfoil_db` 與
+`profile_cd_airfoil_db_source_quality`。top-candidate bundle 另輸出
+`airfoil_profile_drag.json` / `airfoil_profile_drag.csv`。這些值仍是
+shadow-only，不改變 ranking、objective、hard gate 或 rejection。
+
 ---
 
 ## 這只是早期設計預算，不取代高精度分析

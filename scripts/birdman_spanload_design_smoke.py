@@ -23,6 +23,12 @@ from hpa_mdo.aero.fourier_target import (
     build_fourier_target,
     compare_fourier_target_to_avl,
 )
+from hpa_mdo.airfoils.database import (
+    ProfileDragIntegrationResult,
+    default_airfoil_database,
+    fixed_seed_zone_airfoil_assignments,
+    integrate_profile_drag_from_avl,
+)
 from hpa_mdo.concept.aero_proxies import misc_cd_proxy
 from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.avl_loader import (
@@ -124,6 +130,15 @@ MISSION_FOURIER_SHADOW_FIELDS = (
     "target_vs_avl_rms_delta",
     "target_vs_avl_max_delta",
     "target_vs_avl_outer_delta",
+)
+AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS = (
+    "profile_cd_airfoil_db",
+    "profile_cd_airfoil_db_source_quality",
+    "cd0_total_est_airfoil_db",
+    "mission_drag_budget_band_airfoil_db",
+    "profile_drag_station_warning_count",
+    "min_stall_margin_airfoil_db",
+    "max_station_cl_utilization_airfoil_db",
 )
 
 
@@ -936,6 +951,52 @@ def _attach_mission_fourier_shadow_fields(records: list[dict[str, Any]]) -> None
                 "target_vs_avl_rms_delta": comparison.get("target_vs_avl_rms_delta"),
                 "target_vs_avl_max_delta": comparison.get("target_vs_avl_max_delta"),
                 "target_vs_avl_outer_delta": comparison.get("target_vs_avl_outer_delta"),
+            }
+        )
+
+
+def _attach_airfoil_profile_drag_shadow_fields(records: list[dict[str, Any]]) -> None:
+    database = default_airfoil_database()
+    assignments = fixed_seed_zone_airfoil_assignments()
+    for record in records:
+        try:
+            contract = _mission_contract_from_record(record)
+            if contract is None:
+                raise ValueError("mission_contract is unavailable")
+            result = integrate_profile_drag_from_avl(
+                contract,
+                record.get("station_table") or [],
+                record.get("station_table") or [],
+                assignments,
+                database,
+            )
+        except Exception as exc:  # noqa: BLE001 - profile drag database is shadow-only.
+            record["airfoil_profile_drag"] = {
+                "source": "airfoil_database_profile_drag_shadow_v1",
+                "source_mode": "shadow_no_ranking_gate",
+                "error": f"{type(exc).__name__}: {exc}",
+                "zone_airfoil_assignment": [
+                    assignment.to_dict() for assignment in assignments
+                ],
+            }
+            for field in AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS:
+                record[field] = None
+            continue
+
+        record["airfoil_profile_drag"] = result.to_dict()
+        record.update(
+            {
+                "profile_cd_airfoil_db": float(result.CD_profile),
+                "profile_cd_airfoil_db_source_quality": result.source_quality,
+                "cd0_total_est_airfoil_db": float(result.cd0_total_est),
+                "mission_drag_budget_band_airfoil_db": result.drag_budget_band,
+                "profile_drag_station_warning_count": int(result.station_warning_count),
+                "min_stall_margin_airfoil_db": result.min_stall_margin_deg,
+                "max_station_cl_utilization_airfoil_db": (
+                    None
+                    if result.max_station_cl_utilization is None
+                    else float(result.max_station_cl_utilization)
+                ),
             }
         )
 
@@ -2097,6 +2158,21 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
         "target_vs_avl_rms_delta": record.get("target_vs_avl_rms_delta"),
         "target_vs_avl_max_delta": record.get("target_vs_avl_max_delta"),
         "target_vs_avl_outer_delta": record.get("target_vs_avl_outer_delta"),
+        "profile_cd_airfoil_db": record.get("profile_cd_airfoil_db"),
+        "profile_cd_airfoil_db_source_quality": record.get(
+            "profile_cd_airfoil_db_source_quality"
+        ),
+        "cd0_total_est_airfoil_db": record.get("cd0_total_est_airfoil_db"),
+        "mission_drag_budget_band_airfoil_db": record.get(
+            "mission_drag_budget_band_airfoil_db"
+        ),
+        "profile_drag_station_warning_count": record.get(
+            "profile_drag_station_warning_count"
+        ),
+        "min_stall_margin_airfoil_db": record.get("min_stall_margin_airfoil_db"),
+        "max_station_cl_utilization_airfoil_db": record.get(
+            "max_station_cl_utilization_airfoil_db"
+        ),
         "outer_loading_diagnostics": record.get("outer_loading_diagnostics", {}),
         "objective_value": record.get("objective_value"),
     }
@@ -2205,6 +2281,16 @@ def _fourier_target_rows_for_export(record: dict[str, Any]) -> list[dict[str, An
     return rows
 
 
+def _airfoil_profile_drag_rows_for_export(record: dict[str, Any]) -> list[dict[str, Any]]:
+    result = record.get("airfoil_profile_drag") or {}
+    if isinstance(result, ProfileDragIntegrationResult):
+        return [dict(row) for row in result.station_rows]
+    if not isinstance(result, dict):
+        return []
+    rows = result.get("station_rows") or []
+    return [dict(row) for row in rows if isinstance(row, dict)]
+
+
 def _export_top_candidate_artifacts(
     *,
     cfg: BirdmanConceptConfig,
@@ -2289,6 +2375,34 @@ def _export_top_candidate_artifacts(
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(_round(fourier_rows))
+    airfoil_profile_drag_payload = {
+        **{field: record.get(field) for field in AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS},
+        "airfoil_profile_drag": record.get("airfoil_profile_drag", {}),
+    }
+    airfoil_profile_drag_json_path = bundle_dir / "airfoil_profile_drag.json"
+    airfoil_profile_drag_json_path.write_text(
+        json.dumps(_round(airfoil_profile_drag_payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    airfoil_rows = _airfoil_profile_drag_rows_for_export(record)
+    airfoil_profile_drag_csv_path = bundle_dir / "airfoil_profile_drag.csv"
+    with airfoil_profile_drag_csv_path.open("w", encoding="utf-8", newline="") as handle:
+        fieldnames = list(airfoil_rows[0].keys()) if airfoil_rows else [
+            "eta",
+            "y",
+            "chord",
+            "Re",
+            "cl_actual_avl",
+            "airfoil_id",
+            "cd_profile",
+            "cm",
+            "stall_margin_deg",
+            "source_quality",
+            "warning_flags",
+        ]
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(_round(airfoil_rows))
     concept_id = f"birdman_inverse_chord_sample_{sample_index:04d}"
     script_path, metadata_path = write_concept_openvsp_handoff(
         bundle_dir=bundle_dir,
@@ -2322,6 +2436,10 @@ def _export_top_candidate_artifacts(
                 field: record.get(field) for field in MISSION_FOURIER_SHADOW_FIELDS
             },
             "mission_fourier_comparison": record.get("mission_fourier_comparison", {}),
+            "airfoil_profile_drag_summary": {
+                field: record.get(field) for field in AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS
+            },
+            "airfoil_profile_drag": record.get("airfoil_profile_drag", {}),
         },
     )
     return {
@@ -2335,6 +2453,8 @@ def _export_top_candidate_artifacts(
         "mission_contract_csv_path": str(mission_contract_csv_path),
         "fourier_target_json_path": str(fourier_target_json_path),
         "fourier_target_csv_path": str(fourier_target_csv_path),
+        "airfoil_profile_drag_json_path": str(airfoil_profile_drag_json_path),
+        "airfoil_profile_drag_csv_path": str(airfoil_profile_drag_csv_path),
     }
 
 
@@ -3712,6 +3832,18 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
             f"{_format_float(candidate.get('mission_fourier_root_bending_proxy'), 1)}; "
             "shadow only, no ranking gate."
         )
+    if candidate.get("airfoil_profile_drag") is not None:
+        lines.append(
+            "- Airfoil DB profile drag shadow: "
+            f"CD_profile {_format_float(candidate.get('profile_cd_airfoil_db'), 5)}, "
+            f"CD0_total {_format_float(candidate.get('cd0_total_est_airfoil_db'), 5)}, "
+            f"band {candidate.get('mission_drag_budget_band_airfoil_db')}, "
+            f"min stall margin {_format_float(candidate.get('min_stall_margin_airfoil_db'), 2)} deg, "
+            f"max cl util {_format_float(candidate.get('max_station_cl_utilization_airfoil_db'), 3)}, "
+            f"warnings {candidate.get('profile_drag_station_warning_count')}; "
+            f"quality {candidate.get('profile_cd_airfoil_db_source_quality')}. "
+            "shadow only, no ranking gate."
+        )
     lines.append(
         "- Gate health: "
         f"local util {_format_float(health['max_local_clmax_utilization'], 3)} / "
@@ -3831,6 +3963,7 @@ def _leaderboard_candidate_summary(candidate: dict[str, Any]) -> str:
         f"{_format_float(match.get('rms_target_avl_circulation_norm_delta'), 3)}, "
         f"mission Fourier RMS/max {_format_float(candidate.get('target_vs_avl_rms_delta'), 3)}/"
         f"{_format_float(candidate.get('target_vs_avl_max_delta'), 3)}, "
+        f"airfoil-db CDp {_format_float(candidate.get('profile_cd_airfoil_db'), 5)}, "
         f"twist pass {twist.get('twist_physical_gates_pass')}, "
         f"outer_underloaded {outer_diag.get('outer_underloaded')}"
     )
@@ -3857,6 +3990,8 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
         f"({report.get('mission_contract_shadow', {}).get('ranking_behavior', 'unchanged')})",
         f"- FourierTarget v2 shadow: {report.get('mission_fourier_target_shadow', {}).get('source', 'unknown')} "
         f"({report.get('mission_fourier_target_shadow', {}).get('ranking_behavior', 'unchanged')})",
+        f"- Airfoil DB profile drag shadow: {report.get('airfoil_profile_drag_shadow', {}).get('database', 'unknown')} "
+        f"({report.get('airfoil_profile_drag_shadow', {}).get('ranking_behavior', 'unchanged')})",
         "",
         "## Engineering Read",
         "",
@@ -4180,6 +4315,7 @@ def main() -> None:
         context=mission_contract_context,
     )
     _attach_mission_fourier_shadow_fields(records)
+    _attach_airfoil_profile_drag_shadow_fields(records)
 
     physically_accepted = [
         record
@@ -4318,6 +4454,17 @@ def main() -> None:
             "export_fields": list(MISSION_FOURIER_SHADOW_FIELDS),
             "ranking_behavior": "unchanged_no_rejection_no_sort_key",
             "comparison": "normalized_half_span_loading_shape_vs_avl_actual",
+        },
+        "airfoil_profile_drag_shadow": {
+            "source_mode": "shadow_no_ranking_gate",
+            "source": "airfoil_database_profile_drag_shadow_v1",
+            "database": "manual_fixtures_not_mission_grade",
+            "zone_assignment": [
+                assignment.to_dict() for assignment in fixed_seed_zone_airfoil_assignments()
+            ],
+            "export_fields": list(AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS),
+            "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+            "cl_source": "AVL actual local Cl",
         },
         "stage0_counts": stage0["counts"],
         "stage1_counts": {
