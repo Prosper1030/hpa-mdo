@@ -1,0 +1,5 @@
+scale,zone,cl_target_range,re_range,required_stall_margin,historical_best_safe_clmax,historical_pass_fail,likely_issue
+medium,root,1.156-1.370,452-544k,utilization <= 0.75,1.5194324248706033,0/3 pass,root t/c gate plus high CL demand rejects thin historical references
+medium,mid1,1.396-1.466,374-397k,utilization <= 0.75,1.498821580562758,0/3 pass,target CL/stall-utilization contract is tighter than historical safe CLmax
+medium,mid2,1.224-1.224,348-348k,utilization <= 0.75,1.4195236071178694,0/3 pass,target CL/stall-utilization contract is tighter than historical safe CLmax
+medium,tip,0.665-1.012,265-330k,utilization <= 0.75,1.393891699059522,2/3 pass,historical reference includes at least one hard-gate pass

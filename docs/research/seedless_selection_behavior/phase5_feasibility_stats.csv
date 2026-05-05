@@ -1,0 +1,5 @@
+scale,zone,feasible_geometry_candidates,coarse_scored,robust_scored,aero_scored,hard_gate_pass_count,stall_pass_count,cm_pass_count,tc_pass_count,spar_pass_count,best_stall_margin,best_hard_gate_pass_score,dominant_failures
+medium,root,511,64,16,64,0,0,62,64,64,-0.08569119138746606,,stall:64; cm:2
+medium,mid1,512,64,16,64,0,0,61,64,64,-0.181721771206369,,stall:64; cm:3
+medium,mid2,512,64,16,64,0,0,64,64,64,-0.11218328950691636,,stall:64
+medium,tip,512,64,16,64,1,1,64,64,64,0.016492084724282874,4.035068629387182,stall:63

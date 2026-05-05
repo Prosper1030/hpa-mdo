@@ -193,6 +193,9 @@ def _build_selected_cst_airfoil_templates(
             "selected_mean_cd": float(selected.mean_cd),
             "selected_mean_cm": float(selected.mean_cm),
             "selected_usable_clmax": float(selected.usable_clmax),
+            "hard_gate_pass": bool(selected.hard_gate_pass),
+            "selection_status": str(selected.selection_status),
+            "hard_gate_notes": list(selected.hard_gate_notes),
             "points": zone_requirements[zone_name].get("points", []),
         }
     return templates
@@ -809,6 +812,9 @@ def _update_selected_by_zone_from_station_points(
             usable_clmax=usable_clmax,
             safe_clmax=safe_clmax,
             candidate_score=selected.candidate_score,
+            hard_gate_pass=selected.hard_gate_pass,
+            selection_status=selected.selection_status,
+            hard_gate_notes=selected.hard_gate_notes,
         )
 
     return updated
@@ -4360,6 +4366,8 @@ def run_birdman_concept_pipeline(
                 coarse_thickness_stride=cfg.cst_search.coarse_thickness_stride,
                 coarse_camber_stride=cfg.cst_search.coarse_camber_stride,
                 coarse_keep_top_k=cfg.cst_search.coarse_keep_top_k,
+                coarse_score_count=cfg.cst_search.coarse_score_count,
+                robust_score_count=cfg.cst_search.robust_score_count,
                 refine_neighbor_radius=cfg.cst_search.refine_neighbor_radius,
                 successive_halving_enabled=cfg.cst_search.successive_halving_enabled,
                 successive_halving_rounds=cfg.cst_search.successive_halving_rounds,

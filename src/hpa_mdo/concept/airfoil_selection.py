@@ -85,6 +85,9 @@ class SelectedZoneCandidate:
     usable_clmax: float
     safe_clmax: float
     candidate_score: float
+    hard_gate_pass: bool = True
+    selection_status: str = "selected"
+    hard_gate_notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -660,6 +663,8 @@ def select_best_zone_candidate(
     launch_stall_utilization_limit: float | None = None,
     turn_stall_utilization_limit: float | None = None,
     local_stall_utilization_limit: float | None = None,
+    cm_hard_lower_bound: float = -0.16,
+    cm_penalty_threshold: float = -0.12,
     score_cfg: object | None = None,
 ) -> SelectedZoneCandidate:
     local_stall_utilization_limit = (
@@ -740,12 +745,25 @@ def select_best_zone_candidate(
         required_spar_depth_ratio = float(metrics["required_spar_depth_ratio"])
         safe_clmax = float(metrics["safe_clmax"])
         worst_case_margin = float(metrics["worst_case_margin"])
-        feasible = (
-            safe_clmax >= 0.0
-            and worst_case_margin >= 0.0
-            and thickness_ratio >= float(zone_min_tc_ratio)
-            and spar_depth_ratio >= required_spar_depth_ratio
-        )
+        cm_hard_violation = max(0.0, float(cm_hard_lower_bound) - mean_cm)
+        hard_gate_notes: list[str] = []
+        if safe_clmax < 0.0:
+            hard_gate_notes.append(f"safe_clmax={safe_clmax:.4f} < 0.0000")
+        if worst_case_margin < 0.0:
+            hard_gate_notes.append(f"stall_margin={worst_case_margin:.4f} < 0.0000")
+        if thickness_ratio < float(zone_min_tc_ratio):
+            hard_gate_notes.append(
+                f"t/c={thickness_ratio:.4f} < {float(zone_min_tc_ratio):.4f}"
+            )
+        if spar_depth_ratio < required_spar_depth_ratio:
+            hard_gate_notes.append(
+                f"spar_depth={spar_depth_ratio:.4f} < {required_spar_depth_ratio:.4f}"
+            )
+        if cm_hard_violation > 0.0:
+            hard_gate_notes.append(
+                f"cm={mean_cm:.4f} < {float(cm_hard_lower_bound):.4f}"
+            )
+        feasible = not hard_gate_notes
         scored.append(
             (
                 0 if feasible else 1,
@@ -757,6 +775,9 @@ def select_best_zone_candidate(
                     usable_clmax=usable_clmax,
                     safe_clmax=safe_clmax,
                     candidate_score=candidate_score,
+                    hard_gate_pass=feasible,
+                    selection_status="selected" if feasible else "infeasible_best_effort",
+                    hard_gate_notes=tuple(hard_gate_notes),
                 ),
             )
         )
@@ -822,6 +843,7 @@ def _prepare_zone_selection_inputs(
     coarse_to_fine_enabled: bool,
     coarse_thickness_stride: int,
     coarse_camber_stride: int,
+    coarse_score_count: int | None,
     search_mode: Literal["seed_neighborhood", "seedless_sobol"],
     seedless_sample_count: int,
     seedless_random_seed: int | None,
@@ -936,6 +958,7 @@ def _prepare_zone_selection_inputs(
                 candidates,
                 thickness_stride=coarse_thickness_stride,
                 camber_stride=coarse_camber_stride,
+                target_count=coarse_score_count,
             )
             if coarse_to_fine_enabled
             else candidates
@@ -996,6 +1019,7 @@ def _coarse_seed_candidates(
     *,
     thickness_stride: int,
     camber_stride: int,
+    target_count: int | None = None,
 ) -> tuple[CSTAirfoilTemplate, ...]:
     if not candidates:
         return ()
@@ -1004,21 +1028,25 @@ def _coarse_seed_candidates(
         candidate.thickness_index is None and candidate.camber_index is None
         for candidate in candidates
     ):
-        target_count = min(
-            len(candidates),
-            max(
+        resolved_target_count = (
+            max(1, int(target_count))
+            if target_count is not None
+            else max(
                 8,
                 min(
                     32,
                     max(1, int(thickness_stride)) * max(1, int(camber_stride)) * 2,
                 ),
-            ),
+            )
         )
-        if target_count >= len(candidates):
+        resolved_target_count = min(len(candidates), resolved_target_count)
+        if resolved_target_count >= len(candidates):
             return candidates
+        if resolved_target_count == 1:
+            return (candidates[0],)
         selected_indices = {
-            round(index * (len(candidates) - 1) / (target_count - 1))
-            for index in range(target_count)
+            round(index * (len(candidates) - 1) / (resolved_target_count - 1))
+            for index in range(resolved_target_count)
         }
         return tuple(candidates[index] for index in sorted(selected_indices))
 
@@ -1823,6 +1851,8 @@ def select_zone_airfoil_templates(
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
     coarse_keep_top_k: int = 2,
+    coarse_score_count: int | None = None,
+    robust_score_count: int | None = None,
     refine_neighbor_radius: int = 1,
     successive_halving_enabled: bool = True,
     successive_halving_rounds: int = 2,
@@ -1877,6 +1907,8 @@ def select_zone_airfoil_templates(
         coarse_thickness_stride=coarse_thickness_stride,
         coarse_camber_stride=coarse_camber_stride,
         coarse_keep_top_k=coarse_keep_top_k,
+        coarse_score_count=coarse_score_count,
+        robust_score_count=robust_score_count,
         refine_neighbor_radius=refine_neighbor_radius,
         successive_halving_enabled=successive_halving_enabled,
         successive_halving_rounds=successive_halving_rounds,
@@ -1942,6 +1974,8 @@ def select_zone_airfoil_templates_for_concepts(
     coarse_thickness_stride: int = 2,
     coarse_camber_stride: int = 2,
     coarse_keep_top_k: int = 2,
+    coarse_score_count: int | None = None,
+    robust_score_count: int | None = None,
     refine_neighbor_radius: int = 1,
     successive_halving_enabled: bool = True,
     successive_halving_rounds: int = 2,
@@ -2031,6 +2065,7 @@ def select_zone_airfoil_templates_for_concepts(
             coarse_to_fine_enabled=coarse_to_fine_enabled,
             coarse_thickness_stride=coarse_thickness_stride,
             coarse_camber_stride=coarse_camber_stride,
+            coarse_score_count=coarse_score_count,
             search_mode=search_mode,
             seedless_sample_count=seedless_sample_count,
             seedless_random_seed=seedless_random_seed,
@@ -2363,7 +2398,12 @@ def select_zone_airfoil_templates_for_concepts(
                 trim_drag_per_cm_squared=trim_drag_per_cm_squared,
                 score_cfg=score_cfg,
             )
-            coarse_seed_count = min(max(1, int(coarse_keep_top_k)), len(coarse_scored))
+            promoted_count = (
+                int(robust_score_count)
+                if robust_score_count is not None
+                else int(coarse_keep_top_k)
+            )
+            coarse_seed_count = min(max(1, promoted_count), len(coarse_scored))
             coarse_beam_by_key[batch_key] = _select_scored_candidate_beam(
                 coarse_scored,
                 beam_count=coarse_seed_count,
@@ -2498,6 +2538,8 @@ def select_zone_airfoil_templates_for_concepts(
                 launch_stall_utilization_limit=launch_stall_utilization_limit,
                 turn_stall_utilization_limit=turn_stall_utilization_limit,
                 local_stall_utilization_limit=local_stall_utilization_limit,
+                cm_hard_lower_bound=cm_hard_lower_bound,
+                cm_penalty_threshold=cm_penalty_threshold,
                 score_cfg=score_cfg,
             )
 

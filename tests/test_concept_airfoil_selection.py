@@ -279,6 +279,102 @@ def test_select_best_zone_candidate_uses_case_specific_launch_limit() -> None:
     assert selected.template.candidate_role == "slightly_draggier_launch_safe"
 
 
+def test_select_best_zone_candidate_rejects_cm_hard_violation_before_drag() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.28, 0.18, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            candidate_role="low_drag_cm_violator",
+        ),
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.30, 0.19, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            candidate_role="draggier_feasible",
+        ),
+    )
+    zone_points = [
+        {"reynolds": 260000.0, "chord_m": 1.20, "cl_target": 0.70, "cm_target": -0.10, "weight": 1.0},
+    ]
+    candidate_results = {
+        "low_drag_cm_violator": {
+            "status": "ok",
+            "mean_cd": 0.010,
+            "mean_cm": -0.20,
+            "usable_clmax": 1.35,
+        },
+        "draggier_feasible": {
+            "status": "ok",
+            "mean_cd": 0.024,
+            "mean_cm": -0.10,
+            "usable_clmax": 1.30,
+        },
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.10,
+        cm_hard_lower_bound=-0.16,
+        cm_penalty_threshold=-0.12,
+    )
+
+    assert selected.template.candidate_role == "draggier_feasible"
+    assert selected.hard_gate_pass is True
+    assert selected.selection_status == "selected"
+
+
+def test_select_best_zone_candidate_labels_no_feasible_airfoil_as_best_effort() -> None:
+    candidates = (
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.28, 0.18, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            candidate_role="low_drag_infeasible",
+        ),
+        CSTAirfoilTemplate(
+            "root",
+            (0.23, 0.30, 0.19, 0.10, 0.04),
+            (-0.18, -0.15, -0.09, -0.03, -0.01),
+            0.0015,
+            candidate_role="slightly_safer_infeasible",
+        ),
+    )
+    zone_points = [
+        {"reynolds": 260000.0, "chord_m": 1.20, "cl_target": 1.10, "cm_target": -0.10, "weight": 1.0},
+    ]
+    candidate_results = {
+        "low_drag_infeasible": {
+            "status": "ok",
+            "mean_cd": 0.014,
+            "mean_cm": -0.10,
+            "usable_clmax": 1.05,
+        },
+        "slightly_safer_infeasible": {
+            "status": "ok",
+            "mean_cd": 0.018,
+            "mean_cm": -0.10,
+            "usable_clmax": 1.08,
+        },
+    }
+
+    selected = select_best_zone_candidate(
+        candidates,
+        zone_points,
+        candidate_results,
+        zone_min_tc_ratio=0.10,
+    )
+
+    assert selected.hard_gate_pass is False
+    assert selected.selection_status == "infeasible_best_effort"
+    assert any("stall_margin" in note for note in selected.hard_gate_notes)
+
+
 def test_select_best_zone_candidate_applies_outer_span_safe_clmax_penalty() -> None:
     candidates = (
         CSTAirfoilTemplate(
@@ -672,6 +768,66 @@ def test_select_zone_airfoil_templates_can_skip_robust_on_coarse_stage() -> None
     assert all("__robust_" not in query.template_id for query in worker.calls[0])
     assert {query.analysis_stage for query in worker.calls[0]} == {"screening"}
     assert all("__robust_" in query.template_id for query in worker.calls[1])
+    assert {query.analysis_stage for query in worker.calls[1]} == {"robust_screening"}
+
+
+def test_seedless_funnel_count_controls_expand_coarse_and_robust_scoring() -> None:
+    class FakeWorker:
+        def __init__(self):
+            self.calls = []
+
+        def run_queries(self, queries):
+            self.calls.append(tuple(queries))
+            return [
+                {
+                    "status": "ok",
+                    "template_id": query.template_id,
+                    "geometry_hash": query.geometry_hash,
+                    "mean_cd": 0.020,
+                    "mean_cm": -0.09,
+                    "usable_clmax": 1.35,
+                }
+                for query in queries
+            ]
+
+    worker = FakeWorker()
+    selection = select_zone_airfoil_templates(
+        zone_requirements={
+            "root": {
+                "points": [
+                    {
+                        "reynolds": 260000.0,
+                        "chord_m": 1.20,
+                        "cl_target": 0.70,
+                        "cm_target": -0.10,
+                        "weight": 1.0,
+                    }
+                ],
+                "min_tc_ratio": 0.10,
+            }
+        },
+        seed_loader=lambda seed_name: pytest.fail(f"unexpected seed load: {seed_name}"),
+        worker=worker,
+        search_mode="seedless_sobol",
+        seedless_sample_count=64,
+        seedless_random_seed=17,
+        coarse_to_fine_enabled=True,
+        coarse_score_count=20,
+        robust_score_count=5,
+        robust_evaluation_enabled=True,
+        coarse_robust_evaluation_enabled=False,
+        robust_reynolds_factors=(0.90, 1.10),
+        robust_roughness_modes=("clean", "rough"),
+        successive_halving_enabled=True,
+        successive_halving_rounds=1,
+        successive_halving_beam_width=1,
+    )
+
+    assert set(selection.selected_by_zone) == {"root"}
+    assert len(worker.calls) == 2
+    assert len(worker.calls[0]) == 20
+    assert {query.analysis_stage for query in worker.calls[0]} == {"screening"}
+    assert len(worker.calls[1]) == 5 * 2 * 2
     assert {query.analysis_stage for query in worker.calls[1]} == {"robust_screening"}
 
 
@@ -1410,6 +1566,30 @@ def test_seedless_coarse_candidates_downsample_indexless_pool() -> None:
     )
 
     assert 1 < len(coarse) < len(candidates)
+    assert coarse[0].candidate_role == "seedless_sobol_0000"
+    assert coarse[-1].candidate_role == "seedless_sobol_0063"
+
+
+def test_seedless_coarse_candidates_honor_explicit_target_count() -> None:
+    candidates = tuple(
+        CSTAirfoilTemplate(
+            "root",
+            (0.22, 0.28, 0.18, 0.10, 0.04),
+            (-0.18, -0.14, -0.08, -0.03, -0.01),
+            0.0015,
+            candidate_role=f"seedless_sobol_{index:04d}",
+        )
+        for index in range(64)
+    )
+
+    coarse = _coarse_seed_candidates(
+        candidates,
+        thickness_stride=2,
+        camber_stride=2,
+        target_count=20,
+    )
+
+    assert len(coarse) == 20
     assert coarse[0].candidate_role == "seedless_sobol_0000"
     assert coarse[-1].candidate_role == "seedless_sobol_0063"
 

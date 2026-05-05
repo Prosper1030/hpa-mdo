@@ -828,6 +828,8 @@ class CSTSearchConfig(ConceptBaseModel):
     coarse_thickness_stride: int = Field(2, ge=1)
     coarse_camber_stride: int = Field(2, ge=1)
     coarse_keep_top_k: int = Field(2, ge=1)
+    coarse_score_count: int | None = Field(None, ge=1)
+    robust_score_count: int | None = Field(None, ge=1)
     refine_neighbor_radius: int = Field(1, ge=0)
     seedless_sample_count: int = Field(32, ge=1)
     seedless_random_seed: int | None = 0
@@ -884,6 +886,14 @@ class CSTSearchConfig(ConceptBaseModel):
         if self.coarse_keep_top_k > candidate_count:
             raise ValueError(
                 "cst_search.coarse_keep_top_k must not exceed the total candidate count."
+            )
+        if self.coarse_score_count is not None and self.coarse_score_count > candidate_count:
+            raise ValueError(
+                "cst_search.coarse_score_count must not exceed the total candidate count."
+            )
+        if self.robust_score_count is not None and self.robust_score_count > candidate_count:
+            raise ValueError(
+                "cst_search.robust_score_count must not exceed the total candidate count."
             )
         if self.successive_halving_beam_width > candidate_count:
             raise ValueError(

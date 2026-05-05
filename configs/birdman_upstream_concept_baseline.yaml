@@ -217,11 +217,17 @@ cst_search:
   coarse_to_fine_enabled: true
   coarse_thickness_stride: 3
   coarse_camber_stride: 2
+  # Production seedless funnel. These counts control how many Sobol geometries
+  # are aerodynamically screened before robust clean/rough multipoint scoring.
+  coarse_score_count: 96
+  robust_score_count: 24
+  # Legacy seed-neighborhood promotion count; seedless production uses
+  # robust_score_count above to avoid collapsing 1024 samples to 3 candidates.
   coarse_keep_top_k: 3
   refine_neighbor_radius: 1
   successive_halving_enabled: true
   successive_halving_rounds: 1
-  successive_halving_beam_width: 1
+  successive_halving_beam_width: 24
   # Production airfoil search: use >=1024 Sobol samples per zone.
   # Smoke/CI configs may override this to 96 or 128 to avoid running a full XFOIL campaign.
   seedless_sample_count: 1024
