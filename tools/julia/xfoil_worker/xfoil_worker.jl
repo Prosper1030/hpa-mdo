@@ -609,6 +609,7 @@ end
 
 
 if length(ARGS) == 1 && ARGS[1] == "--stdio"
+    protocol_stdout = stdout
     while !eof(stdin)
         line = try
             readline(stdin)
@@ -618,12 +619,14 @@ if length(ARGS) == 1 && ARGS[1] == "--stdio"
         isempty(strip(line)) && continue
 
         payload = JSON3.read(line)
-        results = handle_stdio_payload(payload)
+        results = redirect_stdout(stderr) do
+            handle_stdio_payload(payload)
+        end
         results === nothing && break
 
-        write(stdout, JSON3.write(results))
-        write(stdout, "\n")
-        flush(stdout)
+        write(protocol_stdout, JSON3.write(results))
+        write(protocol_stdout, "\n")
+        flush(protocol_stdout)
     end
 elseif length(ARGS) == 2
     request_path = ARGS[1]

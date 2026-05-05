@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import atexit
-from dataclasses import asdict, dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import asdict, dataclass
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
+import select
 import subprocess
 from uuid import uuid4
 
@@ -193,7 +194,6 @@ class JuliaXFoilWorker:
         self,
         result: dict[str, object],
     ) -> tuple[str, float, tuple[float, ...], str, str, str, str]:
-        template_id = result.get("template_id")
         return (
             self._result_template_id(result),
             *self._physical_result_identity(result),
@@ -202,7 +202,6 @@ class JuliaXFoilWorker:
     def _result_template_id(self, result: dict[str, object]) -> str:
         template_id = result.get("template_id")
         reynolds = result.get("reynolds")
-        cl_samples = result.get("cl_samples")
         roughness_mode = result.get("roughness_mode")
         geometry_hash = result.get("geometry_hash")
         if not isinstance(template_id, str):
@@ -319,6 +318,88 @@ class JuliaXFoilWorker:
         except Exception:
             return ""
 
+    def _persistent_stderr_snapshot(self, process: subprocess.Popen[str]) -> str:
+        stream = process.stderr
+        if stream is None:
+            return ""
+        getvalue = getattr(stream, "getvalue", None)
+        if callable(getvalue):
+            try:
+                return str(getvalue())
+            except Exception:
+                return ""
+        try:
+            fileno = stream.fileno()
+            readable, _, _ = select.select([stream], [], [], 0.0)
+            if not readable:
+                return ""
+            data = os.read(fileno, 65536)
+            return data.decode("utf-8", errors="replace")
+        except Exception:
+            return ""
+
+    def _append_worker_protocol_error_log(
+        self,
+        *,
+        event: str,
+        raw_stdout_line: str,
+        stderr_text: str,
+        query_count: int,
+    ) -> None:
+        log_path = self.cache_dir / "worker_protocol_errors.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "event": event,
+            "raw_stdout_line": raw_stdout_line,
+            "stderr": stderr_text,
+            "query_count": int(query_count),
+        }
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, sort_keys=True, ensure_ascii=False) + "\n")
+
+    def _terminate_affected_persistent_worker(self, process: subprocess.Popen[str]) -> None:
+        try:
+            if process.stdin is not None:
+                try:
+                    process.stdin.close()
+                except Exception:
+                    pass
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5.0)
+        except Exception:
+            pass
+
+    def _analysis_failed_results_for_queries(
+        self,
+        queries: list[PolarQuery],
+        *,
+        error: str,
+        raw_stdout_line: str = "",
+        stderr_text: str = "",
+    ) -> list[dict[str, object]]:
+        return [
+            {
+                "template_id": query.template_id,
+                "reynolds": float(query.reynolds),
+                "cl_samples": list(float(value) for value in query.cl_samples),
+                "roughness_mode": query.roughness_mode,
+                "geometry_hash": self._validated_geometry_hash(query),
+                "analysis_mode": query.analysis_mode,
+                "analysis_stage": query.analysis_stage,
+                "status": "analysis_failed",
+                "polar_points": [],
+                "error": error,
+                "raw_stdout_line": raw_stdout_line,
+                "stderr": stderr_text,
+            }
+            for query in queries
+        ]
+
     def _spawn_persistent_process(self) -> subprocess.Popen[str]:
         julia = self._resolve_julia()
         if julia is None:
@@ -413,9 +494,38 @@ class JuliaXFoilWorker:
                 + (f" Stderr: {stderr_text}" if stderr_text else "")
             )
 
-        response_payload = json.loads(response_line)
+        try:
+            response_payload = json.loads(response_line)
+        except json.JSONDecodeError:
+            stderr_text = self._persistent_stderr_snapshot(process)
+            self._append_worker_protocol_error_log(
+                event="worker_protocol_non_json_stdout",
+                raw_stdout_line=response_line,
+                stderr_text=stderr_text,
+                query_count=len(queries),
+            )
+            self._terminate_affected_persistent_worker(process)
+            return self._analysis_failed_results_for_queries(
+                queries,
+                error="worker_protocol_non_json_stdout",
+                raw_stdout_line=response_line,
+                stderr_text=stderr_text,
+            )
         if not isinstance(response_payload, list):
-            raise RuntimeError("Persistent Julia XFoil worker response must be a JSON array.")
+            stderr_text = self._persistent_stderr_snapshot(process)
+            self._append_worker_protocol_error_log(
+                event="worker_protocol_non_array_json",
+                raw_stdout_line=response_line,
+                stderr_text=stderr_text,
+                query_count=len(queries),
+            )
+            self._terminate_affected_persistent_worker(process)
+            return self._analysis_failed_results_for_queries(
+                queries,
+                error="worker_protocol_non_array_json",
+                raw_stdout_line=response_line,
+                stderr_text=stderr_text,
+            )
         if len(response_payload) != len(queries):
             raise RuntimeError(
                 "Persistent Julia XFoil worker returned "

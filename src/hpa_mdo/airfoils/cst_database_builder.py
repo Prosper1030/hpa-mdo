@@ -76,6 +76,19 @@ class CSTZoneSearchResult:
     paths: dict[str, Path]
 
 
+@dataclass(frozen=True)
+class _ResumeState:
+    completed_zone_names: frozenset[str]
+    records: tuple[AirfoilRecord, ...]
+    polar_rows: tuple[dict[str, Any], ...]
+    per_zone_rows: tuple[dict[str, Any], ...]
+    top_k_rows: tuple[dict[str, Any], ...]
+    failed_rows: tuple[dict[str, Any], ...]
+    geometry_rejection_rows: tuple[dict[str, Any], ...]
+    coverage_rows: tuple[dict[str, Any], ...]
+    report_zones: dict[str, Any]
+
+
 def load_zone_envelopes_from_artifact(path: Path) -> tuple[ZoneEnvelope, ...]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if isinstance(payload, list):
@@ -129,6 +142,131 @@ def load_zone_envelopes_from_artifact(path: Path) -> tuple[ZoneEnvelope, ...]:
     )
 
 
+def _empty_resume_state() -> _ResumeState:
+    return _ResumeState(
+        completed_zone_names=frozenset(),
+        records=tuple(),
+        polar_rows=tuple(),
+        per_zone_rows=tuple(),
+        top_k_rows=tuple(),
+        failed_rows=tuple(),
+        geometry_rejection_rows=tuple(),
+        coverage_rows=tuple(),
+        report_zones={},
+    )
+
+
+def _load_resume_state(
+    output: Path,
+    *,
+    config: CSTZoneSearchConfig,
+    requested_zone_names: frozenset[str],
+) -> _ResumeState:
+    report_path = output / "build_report.json"
+    database_path = output / "airfoil_database.json"
+    if not report_path.is_file() or not database_path.is_file():
+        return _empty_resume_state()
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    raw_zones = report.get("zones", {}) if isinstance(report, Mapping) else {}
+    completed_zone_names = frozenset(
+        zone_name
+        for zone_name, zone_report in raw_zones.items()
+        if zone_name in requested_zone_names
+        and _resume_zone_is_complete(zone_report, config=config)
+    )
+    if not completed_zone_names:
+        return _empty_resume_state()
+
+    database_payload = json.loads(database_path.read_text(encoding="utf-8"))
+    records = tuple(
+        record
+        for record in (
+            _airfoil_record_from_dict(item)
+            for item in database_payload.get("records", [])
+            if isinstance(item, Mapping)
+        )
+        if record.zone_hint in completed_zone_names
+    )
+    report_zones = {
+        zone_name: {
+            **dict(raw_zones[zone_name]),
+            "resume_status": "skipped_complete_zone",
+        }
+        for zone_name in completed_zone_names
+        if zone_name in raw_zones
+    }
+    return _ResumeState(
+        completed_zone_names=completed_zone_names,
+        records=records,
+        polar_rows=tuple(_read_zone_csv_rows(output / "airfoil_database.csv", completed_zone_names)),
+        per_zone_rows=tuple(_read_zone_csv_rows(output / "per_zone_pareto.csv", completed_zone_names)),
+        top_k_rows=tuple(_read_zone_csv_rows(output / "per_zone_top_k.csv", completed_zone_names)),
+        failed_rows=tuple(_read_zone_csv_rows(output / "failed_candidates.csv", completed_zone_names)),
+        geometry_rejection_rows=tuple(
+            _read_zone_csv_rows(output / "geometry_rejections.csv", completed_zone_names)
+        ),
+        coverage_rows=tuple(_read_zone_csv_rows(output / "coverage_report.csv", completed_zone_names)),
+        report_zones=report_zones,
+    )
+
+
+def _resume_zone_is_complete(zone_report: object, *, config: CSTZoneSearchConfig) -> bool:
+    if not isinstance(zone_report, Mapping):
+        return False
+    generation_summaries = zone_report.get("generation_summaries", [])
+    if not isinstance(generation_summaries, list):
+        return False
+    expected_generations = _generation_count(config)
+    expected_evaluated = _population_size(config) * expected_generations
+    return (
+        len(generation_summaries) >= expected_generations
+        and int(zone_report.get("evaluated_candidate_count", 0)) >= expected_evaluated
+    )
+
+
+def _airfoil_record_from_dict(item: Mapping[str, Any]) -> AirfoilRecord:
+    polar_points = tuple(
+        AirfoilPolarPoint(
+            Re=float(point.get("Re")),
+            cl=float(point.get("cl")),
+            cd=float(point.get("cd")),
+            cm=float(point.get("cm")),
+            alpha_deg=float(point.get("alpha_deg")),
+            roughness_mode=str(point.get("roughness_mode", "clean")),
+        )
+        for point in item.get("polar_points", [])
+        if isinstance(point, Mapping)
+    )
+    return AirfoilRecord(
+        airfoil_id=str(item["airfoil_id"]),
+        name=str(item.get("name", item["airfoil_id"])),
+        source=str(item.get("source", CST_DATABASE_SOURCE)),
+        source_quality=str(item["source_quality"]),
+        zone_hint=str(item["zone_hint"]),
+        thickness_ratio=float(item.get("thickness_ratio", 0.0)),
+        max_camber=float(item.get("max_camber", 0.0)),
+        alpha_L0_deg=float(item.get("alpha_L0_deg", 0.0)),
+        cl_alpha_per_rad=float(item.get("cl_alpha_per_rad", 2.0 * math.pi)),
+        cm_design=float(item.get("cm_design", 0.0)),
+        safe_clmax=float(item.get("safe_clmax", float("nan"))),
+        usable_clmax=float(item.get("usable_clmax", float("nan"))),
+        polar_points=polar_points,
+        notes=str(item.get("notes", "")),
+    )
+
+
+def _read_zone_csv_rows(path: Path, zone_names: frozenset[str]) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    with path.open(encoding="utf-8", newline="") as handle:
+        return [
+            dict(row)
+            for row in csv.DictReader(handle)
+            if str(row.get("zone_name", "")) in zone_names
+        ]
+
+
 def zone_work_points_from_envelope(envelope: ZoneEnvelope) -> tuple[dict[str, Any], ...]:
     re_min = _first_finite(envelope.re_min, envelope.re_p50, envelope.re_max, 250_000.0)
     re_p50 = _first_finite(envelope.re_p50, envelope.re_min, envelope.re_max, 250_000.0)
@@ -170,6 +308,7 @@ def build_cst_zone_airfoil_database(
     config: CSTZoneSearchConfig,
     worker: Any,
     progress_callback: Any | None = None,
+    resume: bool = False,
 ) -> CSTZoneSearchResult:
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -178,19 +317,40 @@ def build_cst_zone_airfoil_database(
     envelopes = load_zone_envelopes_from_artifact(zone_envelope_path)
     if not envelopes:
         raise ValueError("No zone envelopes were available for CST database build.")
+    requested_zone_names = frozenset(str(envelope.zone_name) for envelope in envelopes)
+    resume_state = (
+        _load_resume_state(output, config=config, requested_zone_names=requested_zone_names)
+        if resume
+        else _empty_resume_state()
+    )
 
-    records: list[AirfoilRecord] = []
-    all_polar_rows: list[dict[str, Any]] = []
-    per_zone_rows: list[dict[str, Any]] = []
-    top_k_rows: list[dict[str, Any]] = []
-    failed_rows: list[dict[str, Any]] = []
-    geometry_rejection_rows: list[dict[str, Any]] = []
-    coverage_rows: list[dict[str, Any]] = []
-    report_zones: dict[str, Any] = {}
+    records: list[AirfoilRecord] = list(resume_state.records)
+    all_polar_rows: list[dict[str, Any]] = list(resume_state.polar_rows)
+    per_zone_rows: list[dict[str, Any]] = list(resume_state.per_zone_rows)
+    top_k_rows: list[dict[str, Any]] = list(resume_state.top_k_rows)
+    failed_rows: list[dict[str, Any]] = list(resume_state.failed_rows)
+    geometry_rejection_rows: list[dict[str, Any]] = list(resume_state.geometry_rejection_rows)
+    coverage_rows: list[dict[str, Any]] = list(resume_state.coverage_rows)
+    report_zones: dict[str, Any] = dict(resume_state.report_zones)
 
-    _write_run_metadata(output, config=config, zone_envelope_path=zone_envelope_path, status="running")
+    _write_run_metadata(
+        output,
+        config=config,
+        zone_envelope_path=zone_envelope_path,
+        status="running",
+        extra={"resume": bool(resume), "completed_zones": list(report_zones)},
+    )
     for zone_index, envelope in enumerate(envelopes):
         zone_name = str(envelope.zone_name)
+        if zone_name in resume_state.completed_zone_names:
+            _emit_progress(
+                progress_callback,
+                "zone_skipped_resume",
+                zone_name=zone_name,
+                zone_index=zone_index,
+                reason="completed_zone_present_in_existing_artifacts",
+            )
+            continue
         _emit_progress(progress_callback, "zone_start", zone_name=zone_name, zone_index=zone_index)
         work_points = zone_work_points_from_envelope(envelope)
         population_size = _population_size(config)
@@ -654,7 +814,7 @@ def _candidate_result(
         issues.append("required_cl_stall_margin_not_met")
     if coverage_failed:
         issues.append("zone_envelope_coverage_not_met")
-    if len(worker_results) < int(expected_query_count):
+    if len(worker_results) < int(expected_query_count) or success_results < int(expected_query_count):
         issues.append("missing_worker_conditions")
 
     real_xfoil_backend = str(backend_name) not in {
@@ -926,7 +1086,7 @@ def _zone_report(
 ) -> dict[str, Any]:
     return {
         "status": "complete"
-        if int(generation_count) >= len(generation_summaries)
+        if len(generation_summaries) >= int(generation_count)
         else "partial",
         "source": envelope.source,
         "search_mode": "nsga2_seedless_sobol_initial_population",

@@ -104,6 +104,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--random-seed", type=int, default=17)
     parser.add_argument("--max-oversample-factor", type=int, default=8)
     parser.add_argument("--julia-worker-count", type=int, default=None)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Reuse complete zones from existing artifacts and rerun only incomplete/missing zones.",
+    )
     return parser.parse_args()
 
 
@@ -153,6 +158,7 @@ def main() -> None:
             config=config,
             worker=worker,
             progress_callback=progress,
+            resume=bool(args.resume),
         )
     finally:
         close = getattr(worker, "close", None)

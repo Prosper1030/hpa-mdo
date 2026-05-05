@@ -91,6 +91,65 @@ def _zone_envelope_path(tmp_path: Path) -> Path:
     return path
 
 
+def _multi_zone_envelope_path(tmp_path: Path, zones: tuple[str, ...]) -> Path:
+    rows = {
+        "root": {
+            "zone_name": "root",
+            "eta_min": 0.0,
+            "eta_max": 0.25,
+            "re_min": 300000.0,
+            "re_p50": 340000.0,
+            "re_max": 380000.0,
+            "cl_min": 0.85,
+            "cl_p50": 0.95,
+            "cl_p90": 1.02,
+            "cl_max": 1.05,
+            "current_airfoil_id": "fx76mp140",
+            "current_stall_margin": 0.08,
+            "current_profile_cd_estimate": 0.018,
+            "source": "loaded_dihedral_avl",
+        },
+        "mid2": {
+            "zone_name": "mid2",
+            "eta_min": 0.55,
+            "eta_max": 0.8,
+            "re_min": 240000.0,
+            "re_p50": 260000.0,
+            "re_max": 280000.0,
+            "cl_min": 0.60,
+            "cl_p50": 0.68,
+            "cl_p90": 0.76,
+            "cl_max": 0.82,
+            "current_airfoil_id": "clarkysm",
+            "current_stall_margin": 0.16,
+            "current_profile_cd_estimate": 0.016,
+            "source": "loaded_dihedral_avl",
+        },
+        "tip": {
+            "zone_name": "tip",
+            "eta_min": 0.8,
+            "eta_max": 1.0,
+            "re_min": 180000.0,
+            "re_p50": 220000.0,
+            "re_max": 260000.0,
+            "cl_min": 0.55,
+            "cl_p50": 0.70,
+            "cl_p90": 0.82,
+            "cl_max": 0.88,
+            "current_airfoil_id": "clarkysm",
+            "current_stall_margin": 0.12,
+            "current_profile_cd_estimate": 0.018,
+            "source": "loaded_dihedral_avl",
+        },
+    }
+    path = tmp_path / ("zone_envelope_" + "_".join(zones) + ".json")
+    path.write_text(
+        json.dumps({"zone_envelope": [rows[zone] for zone in zones]}),
+        encoding="utf-8",
+    )
+    return path
+
+
 def _small_config(**overrides) -> CSTZoneSearchConfig:
     values = {
         "population_size_per_zone": 4,
@@ -184,3 +243,34 @@ def test_nsga_generations_create_offspring_after_sobol_initial_population(tmp_pa
         "nsga2_g01_child" in airfoil_id
         for airfoil_id in result.airfoil_database.records
     )
+
+
+def test_resume_skips_completed_zones_and_keeps_existing_records(tmp_path: Path) -> None:
+    output_dir = tmp_path / "build"
+    config = _small_config(population_size_per_zone=3, generations=1, top_k_per_zone=2)
+    root_worker = _FakeWorker()
+    initial = build_cst_zone_airfoil_database(
+        zone_envelope_path=_multi_zone_envelope_path(tmp_path, ("tip",)),
+        output_dir=output_dir,
+        config=config,
+        worker=root_worker,
+    )
+    tip_ids = set(initial.airfoil_database.records)
+
+    resume_worker = _FakeWorker()
+    resumed = build_cst_zone_airfoil_database(
+        zone_envelope_path=_multi_zone_envelope_path(tmp_path, ("mid2", "tip")),
+        output_dir=output_dir,
+        config=config,
+        worker=resume_worker,
+        resume=True,
+    )
+
+    assert tip_ids.issubset(set(resumed.airfoil_database.records))
+    assert resumed.report["zones"]["tip"]["resume_status"] == "skipped_complete_zone"
+    assert resumed.report["zones"]["mid2"]["evaluated_candidate_count"] == 3
+    assert all("cst_mid2_" in query.template_id for query in resume_worker.queries)
+
+    top_k_rows = (output_dir / "per_zone_top_k.csv").read_text(encoding="utf-8")
+    assert "cst_mid2_" in top_k_rows
+    assert "cst_tip_" in top_k_rows
