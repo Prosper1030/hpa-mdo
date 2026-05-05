@@ -99,14 +99,27 @@ class ZoneEnvelope:
     eta_max: float
     re_min: float | None = None
     re_max: float | None = None
+    re_p50: float | None = None
     cl_min: float | None = None
     cl_max: float | None = None
+    cl_p50: float | None = None
+    cl_p90: float | None = None
+    max_avl_actual_cl: float | None = None
+    max_fourier_target_cl: float | None = None
+    target_vs_actual_cl_delta: float | None = None
+    current_airfoil_id: str | None = None
+    current_stall_margin: float | None = None
+    current_profile_cd_estimate: float | None = None
+    source: str = "loaded_dihedral_avl"
 
     def contains_eta(self, eta: float) -> bool:
         eta_float = float(eta)
         if self.zone_name == "tip":
             return self.eta_min <= eta_float <= self.eta_max
         return self.eta_min <= eta_float < self.eta_max
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass(frozen=True)

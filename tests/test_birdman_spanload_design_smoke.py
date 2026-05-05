@@ -4,6 +4,11 @@ from pathlib import Path
 import pytest
 
 import scripts.birdman_spanload_design_smoke as smoke
+from hpa_mdo.airfoils.database import (
+    AirfoilDatabase,
+    AirfoilPolarPoint,
+    AirfoilRecord,
+)
 from hpa_mdo.concept.config import load_concept_config
 from hpa_mdo.concept.geometry import GeometryConcept, build_linear_wing_stations
 
@@ -296,6 +301,101 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     smoke._attach_mission_fourier_shadow_fields([record])
     smoke._attach_loaded_shape_jig_shadow_fields([record])
     smoke._attach_airfoil_profile_drag_shadow_fields([record])
+    record["zone_envelope"] = [
+        {
+            "zone_name": "root",
+            "eta_min": 0.0,
+            "eta_max": 0.25,
+            "re_min": 100000.0,
+            "re_max": 120000.0,
+            "re_p50": 110000.0,
+            "cl_min": 0.9,
+            "cl_max": 1.1,
+            "cl_p50": 1.0,
+            "cl_p90": 1.08,
+            "max_avl_actual_cl": 1.1,
+            "max_fourier_target_cl": 1.0,
+            "target_vs_actual_cl_delta": -0.1,
+            "current_airfoil_id": "fx76mp140",
+            "current_stall_margin": 3.0,
+            "current_profile_cd_estimate": 0.012,
+            "source": "loaded_dihedral_avl",
+        }
+    ]
+    record["zone_airfoil_topk"] = {
+        "root": [
+            {
+                "zone_name": "root",
+                "airfoil_id": "fx76mp140",
+                "score": 0.02,
+                "source_quality": "not_mission_grade_sidecar",
+            }
+        ]
+    }
+    record["airfoil_sidecar"] = {
+        "source": "zone_airfoil_sidecar_avl_rerun_shadow_v1",
+        "source_mode": "shadow_no_ranking_gate",
+        "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+    }
+    record["airfoil_sidecar_combinations"] = [
+        {
+            "combination_index": 0,
+            "status": "ok",
+            "is_baseline": True,
+            "assignment_label": "root:fx76mp140|mid1:fx76mp140|mid2:clarkysm|tip:clarkysm",
+            "CL": 1.18,
+            "CDi": 0.015,
+            "e_CDi": 0.92,
+            "target_vs_avl_rms": 0.02,
+            "target_vs_avl_max": 0.04,
+            "target_vs_avl_outer_delta": 0.03,
+            "profile_cd_airfoil_db": 0.012,
+            "cd0_total_est_airfoil_db": 0.016,
+            "mission_drag_budget_band": "target",
+            "min_stall_margin_airfoil_db": 2.5,
+            "max_station_cl_utilization_airfoil_db": 0.72,
+            "source_quality": "not_mission_grade_sidecar",
+            "profile_drag_cl_source_shape_mode": "loaded_dihedral_avl",
+            "profile_drag_cl_source_loaded_shape": True,
+            "profile_drag_cl_source_warning_count": 0,
+            "airfoil_profile_drag": {
+                "station_rows": [
+                    {
+                        "eta": 0.0,
+                        "y": 0.0,
+                        "chord": 1.0,
+                        "Re": 100000.0,
+                        "cl_actual_avl": 1.0,
+                        "airfoil_id": "fx76mp140",
+                        "cd_profile": 0.012,
+                        "cm": -0.08,
+                        "stall_margin_deg": 2.5,
+                        "source_quality": "manual_placeholder_not_mission_grade",
+                        "warning_flags": [],
+                        "profile_drag_cl_source_shape_mode": "loaded_dihedral_avl",
+                        "profile_drag_cl_source_loaded_shape": True,
+                    }
+                ]
+            },
+        }
+    ]
+    record["airfoil_sidecar_best"] = record["airfoil_sidecar_combinations"][0]
+    record.update(
+        {
+            "sidecar_best_airfoil_assignment": record["airfoil_sidecar_best"][
+                "assignment_label"
+            ],
+            "sidecar_best_e_CDi": 0.92,
+            "sidecar_best_target_vs_avl_rms": 0.02,
+            "sidecar_best_target_vs_avl_outer_delta": 0.03,
+            "sidecar_best_profile_cd": 0.012,
+            "sidecar_best_cd0_total_est": 0.016,
+            "sidecar_best_min_stall_margin": 2.5,
+            "sidecar_best_source_quality": "not_mission_grade_sidecar",
+            "sidecar_improved_vs_baseline": False,
+            "sidecar_improvement_notes": ["baseline_assignment_remains_best_sidecar"],
+        }
+    )
     avl_file = tmp_path / "avl_case" / "concept_wing.avl"
     avl_file.parent.mkdir(parents=True)
     avl_file.write_text("SECTION\nAFILE\n", encoding="utf-8")
@@ -315,6 +415,10 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     assert Path(artifacts["fourier_target_csv_path"]).is_file()
     assert Path(artifacts["airfoil_profile_drag_json_path"]).is_file()
     assert Path(artifacts["airfoil_profile_drag_csv_path"]).is_file()
+    assert Path(artifacts["zone_envelope_json_path"]).is_file()
+    assert Path(artifacts["zone_envelope_csv_path"]).is_file()
+    assert Path(artifacts["airfoil_sidecar_combinations_csv_path"]).is_file()
+    assert Path(artifacts["airfoil_sidecar_best_json_path"]).is_file()
     assert "target_circulation" in Path(artifacts["station_table_csv_path"]).read_text(encoding="utf-8").splitlines()[0]
     mission_contract = Path(artifacts["mission_contract_json_path"]).read_text(encoding="utf-8")
     assert "mission_CL_req" in mission_contract
@@ -336,6 +440,18 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     ).splitlines()[0]
     assert "gamma_target" in fourier_target_csv_header
     assert "cl_target" in fourier_target_csv_header
+    zone_envelope = Path(artifacts["zone_envelope_json_path"]).read_text(encoding="utf-8")
+    assert "loaded_dihedral_avl" in zone_envelope
+    assert "zone_airfoil_topk" in zone_envelope
+    sidecar_csv_header = Path(artifacts["airfoil_sidecar_combinations_csv_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()[0]
+    assert "assignment_label" in sidecar_csv_header
+    assert "profile_drag_cl_source_shape_mode" in sidecar_csv_header
+    sidecar_best = Path(artifacts["airfoil_sidecar_best_json_path"]).read_text(
+        encoding="utf-8"
+    )
+    assert "sidecar_best_profile_cd" in sidecar_best
     metadata = Path(artifacts["vsp_metadata_path"]).read_text(encoding="utf-8")
     script = Path(artifacts["vsp_script_path"]).read_text(encoding="utf-8")
     assert "selected_cst_dat_files" in metadata
@@ -564,6 +680,206 @@ def test_airfoil_profile_drag_shadow_attach_preserves_ranking_inputs() -> None:
     )
     assert "cd0_total_est_airfoil_db" in compact
     assert compact["profile_drag_cl_source_shape_mode"] == "flat_or_unverified_loaded_shape"
+
+
+def _sidecar_test_database() -> AirfoilDatabase:
+    def record(airfoil_id: str) -> AirfoilRecord:
+        points = tuple(
+            AirfoilPolarPoint(
+                Re=re_value,
+                cl=cl_value,
+                cd=0.010 + 0.004 * cl_value,
+                cm=-0.05,
+                alpha_deg=8.0 * cl_value,
+            )
+            for re_value in (100_000.0, 410_000.0)
+            for cl_value in (0.0, 0.5, 1.1, 1.4)
+        )
+        return AirfoilRecord(
+            airfoil_id=airfoil_id,
+            name=airfoil_id,
+            source="unit_test_fixture",
+            source_quality="manual_placeholder_not_mission_grade",
+            zone_hint="unit_test",
+            thickness_ratio=0.12,
+            max_camber=0.03,
+            alpha_L0_deg=-2.0,
+            cl_alpha_per_rad=2.0 * math.pi,
+            cm_design=-0.05,
+            safe_clmax=1.4,
+            usable_clmax=1.5,
+            polar_points=points,
+            notes="unit test sidecar fixture",
+        )
+
+    return AirfoilDatabase.from_records((record("fx76mp140"), record("clarkysm")))
+
+
+def _sidecar_record(metric: dict, *, objective_value: float = 4.25) -> dict:
+    return {
+        "sample_index": 14,
+        "status": "physically_acceptable",
+        "physical_acceptance_status": "physically_acceptable",
+        "physical_acceptance": {"physically_acceptable": True, "failure_reasons": []},
+        "geometry": metric["geometry"],
+        "spanload_fourier": metric["spanload_fourier"],
+        "station_table": [
+            {
+                **row,
+                "avl_local_cl": 0.20,
+                "avl_circulation_proxy": 0.20 * row["chord_m"],
+                "target_circulation_norm": row.get("target_circulation_norm", 1.0),
+                "dihedral_deg": 5.0 * row["eta"],
+            }
+            for row in metric["station_table"]
+        ],
+        "mission_contract": {
+            "speed_mps": 6.8,
+            "span_m": metric["geometry"]["span_m"],
+            "aspect_ratio": metric["geometry"]["aspect_ratio"],
+            "wing_area_m2": metric["geometry"]["wing_area_m2"],
+            "mass_kg": 98.5,
+            "weight_n": 98.5 * 9.80665,
+            "rho": 1.14,
+            "CL_req": 1.18,
+            "target_range_km": 42.195,
+            "required_time_min": 42.195 * 1000.0 / 6.8 / 60.0,
+            "eta_prop": 0.88,
+            "eta_trans": 0.96,
+            "pilot_power_hot_w": 205.0,
+            "power_margin_required_w": 5.0,
+            "CD0_total_target": 0.017,
+            "CD0_total_boundary": 0.018,
+            "CD0_total_rescue": 0.020,
+            "CD_wing_profile_target": 0.0128,
+            "CD_wing_profile_boundary": 0.0135,
+            "CDA_nonwing_target_m2": 0.13,
+            "CDA_nonwing_boundary_m2": 0.16,
+            "CLmax_effective_assumption": 1.55,
+            "mission_contract_source": "unit_test_context",
+            "source_mode": "shadow_no_ranking_gate",
+        },
+        "objective_value": objective_value,
+    }
+
+
+def test_airfoil_sidecar_profile_drag_uses_rerun_avl_actual_cl(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    metric, rejection = smoke._build_inverse_chord_stage0_metric(
+        cfg=cfg,
+        sample_index=14,
+        span_m=34.0,
+        tail_volume_coefficient=0.40,
+        a3=-0.05,
+        a5=0.01,
+        cl_controls=(1.16, 1.26, 0.96, 0.58),
+        design_speed_mps=6.8,
+    )
+    assert rejection is None
+    assert metric is not None
+    record = _sidecar_record(metric)
+
+    def fake_run_reference_avl_case(**kwargs):
+        stations = kwargs["stations"]
+        return {
+            "status": "ok",
+            "trim_cl": 1.18,
+            "trim_cd_induced": 0.015,
+            "avl_e_cdi": 0.92,
+            "profile_drag_cl_source_shape_mode": "loaded_dihedral_avl",
+            "profile_drag_cl_source_loaded_shape": True,
+            "profile_drag_cl_source_warning_count": 0,
+            "station_points": [
+                {
+                    "station_y_m": station.y_m,
+                    "chord_m": station.chord_m,
+                    "cl_target": 1.10,
+                    "reynolds": 150_000.0,
+                }
+                for station in stations
+            ],
+        }
+
+    monkeypatch.setattr(smoke, "_run_reference_avl_case", fake_run_reference_avl_case)
+
+    result = smoke._evaluate_airfoil_sidecar_combination(
+        cfg=cfg,
+        record=record,
+        combination=smoke.fixed_seed_zone_airfoil_assignments(),
+        combination_index=0,
+        output_dir=tmp_path,
+        design_speed_mps=6.8,
+        avl_binary=None,
+        database=_sidecar_test_database(),
+        is_baseline=True,
+    )
+
+    assert result["status"] == "ok"
+    station_rows = result["airfoil_profile_drag"]["station_rows"]
+    assert all(row["cl_actual_avl"] == pytest.approx(1.10) for row in station_rows)
+    assert all(row["cl_actual_avl"] != pytest.approx(0.20) for row in station_rows)
+    assert result["profile_drag_cl_source_shape_mode"] == "loaded_dihedral_avl"
+    assert result["profile_drag_cl_source_loaded_shape"] is True
+
+
+def test_airfoil_sidecar_attach_preserves_ranking_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    metric, rejection = smoke._build_inverse_chord_stage0_metric(
+        cfg=cfg,
+        sample_index=15,
+        span_m=34.0,
+        tail_volume_coefficient=0.40,
+        a3=-0.05,
+        a5=0.01,
+        cl_controls=(1.16, 1.26, 0.96, 0.58),
+        design_speed_mps=6.8,
+    )
+    assert rejection is None
+    assert metric is not None
+    record = _sidecar_record(metric, objective_value=4.25)
+    before_status = record["status"]
+    before_physical = record["physical_acceptance_status"]
+    before_objective = record["objective_value"]
+
+    def fake_evaluate(**kwargs):
+        return {
+            "combination_index": kwargs["combination_index"],
+            "status": "ok",
+            "is_baseline": kwargs["is_baseline"],
+            "assignment_label": smoke.assignment_label(kwargs["combination"]),
+            "e_CDi": 0.91,
+            "target_vs_avl_rms": 0.02,
+            "target_vs_avl_outer_delta": 0.03,
+            "profile_cd_airfoil_db": 0.012,
+            "cd0_total_est_airfoil_db": 0.016,
+            "min_stall_margin_airfoil_db": 3.0,
+            "source_quality": "not_mission_grade_sidecar",
+        }
+
+    monkeypatch.setattr(smoke, "_evaluate_airfoil_sidecar_combination", fake_evaluate)
+
+    smoke._attach_airfoil_sidecar_shadow_fields(
+        [record],
+        cfg=cfg,
+        output_dir=tmp_path,
+        design_speed_mps=6.8,
+        avl_binary=None,
+        max_airfoil_combinations=1,
+    )
+
+    assert record["status"] == before_status
+    assert record["physical_acceptance_status"] == before_physical
+    assert record["objective_value"] == before_objective
+    assert record["sidecar_best_airfoil_assignment"]
+    assert record["sidecar_best_source_quality"] == "not_mission_grade_sidecar"
+    compact = smoke._stage1_compact_record(record)
+    assert compact["sidecar_best_profile_cd"] == pytest.approx(0.012)
 
 
 def test_mission_contract_shadow_attach_preserves_record_order_and_rank_inputs() -> None:

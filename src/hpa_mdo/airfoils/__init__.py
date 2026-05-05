@@ -12,6 +12,14 @@ from hpa_mdo.airfoils.database import (
     integrate_profile_drag_from_avl,
     lookup_airfoil_polar,
 )
+from hpa_mdo.airfoils.sidecar import (
+    assignment_label,
+    assignment_to_dicts,
+    build_zone_envelopes,
+    generate_airfoil_sidecar_combinations,
+    query_zone_airfoil_topk,
+    zone_envelopes_to_rows,
+)
 
 __all__ = [
     "AirfoilDatabase",
@@ -26,4 +34,10 @@ __all__ = [
     "fixed_seed_zone_airfoil_assignments",
     "integrate_profile_drag_from_avl",
     "lookup_airfoil_polar",
+    "assignment_label",
+    "assignment_to_dicts",
+    "build_zone_envelopes",
+    "generate_airfoil_sidecar_combinations",
+    "query_zone_airfoil_topk",
+    "zone_envelopes_to_rows",
 ]

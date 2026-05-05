@@ -25,9 +25,18 @@ from hpa_mdo.aero.fourier_target import (
 )
 from hpa_mdo.airfoils.database import (
     ProfileDragIntegrationResult,
+    ZoneAirfoilAssignment,
     default_airfoil_database,
     fixed_seed_zone_airfoil_assignments,
     integrate_profile_drag_from_avl,
+)
+from hpa_mdo.airfoils.sidecar import (
+    assignment_label,
+    assignment_to_dicts,
+    build_zone_envelopes,
+    generate_airfoil_sidecar_combinations,
+    query_zone_airfoil_topk,
+    zone_envelopes_to_rows,
 )
 from hpa_mdo.concept.aero_proxies import misc_cd_proxy
 from hpa_mdo.concept.atmosphere import air_properties_from_environment
@@ -148,6 +157,18 @@ AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS = (
     "profile_drag_cl_source_shape_mode",
     "profile_drag_cl_source_loaded_shape",
     "profile_drag_cl_source_warning_count",
+)
+AIRFOIL_SIDECAR_SHADOW_FIELDS = (
+    "sidecar_best_airfoil_assignment",
+    "sidecar_best_e_CDi",
+    "sidecar_best_target_vs_avl_rms",
+    "sidecar_best_target_vs_avl_outer_delta",
+    "sidecar_best_profile_cd",
+    "sidecar_best_cd0_total_est",
+    "sidecar_best_min_stall_margin",
+    "sidecar_best_source_quality",
+    "sidecar_improved_vs_baseline",
+    "sidecar_improvement_notes",
 )
 LOADED_SHAPE_JIG_SHADOW_FIELDS = (
     "loaded_shape_mode",
@@ -1335,6 +1356,463 @@ def _attach_airfoil_profile_drag_shadow_fields(records: list[dict[str, Any]]) ->
                 ),
             }
         )
+
+
+def _airfoil_geometry_path(airfoil_id: str) -> Path | None:
+    mapping = {
+        "fx76mp140": Path("data/airfoils/fx76mp140.dat"),
+        "clarkysm": Path("data/airfoils/clarkysm.dat"),
+        "dae11": Path("docs/research/historical_airfoil_cst_coverage/airfoils/dae11.dat"),
+        "dae21": Path("docs/research/historical_airfoil_cst_coverage/airfoils/dae21.dat"),
+        "dae31": Path("docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat"),
+        "dae41": Path("docs/research/historical_airfoil_cst_coverage/airfoils/dae41.dat"),
+    }
+    path = mapping.get(str(airfoil_id))
+    if path is None:
+        return None
+    resolved = path.resolve()
+    return resolved if resolved.is_file() else None
+
+
+def _zone_airfoil_paths_from_assignment(
+    assignments: tuple[ZoneAirfoilAssignment, ...],
+) -> dict[str, Path]:
+    paths: dict[str, Path] = {}
+    for assignment in assignments:
+        path = _airfoil_geometry_path(assignment.airfoil_id)
+        if path is None:
+            raise FileNotFoundError(f"Missing airfoil geometry for {assignment.airfoil_id}")
+        paths[str(assignment.zone_name)] = path
+    return paths
+
+
+def _sidecar_available_airfoil_ids() -> tuple[str, ...]:
+    return tuple(
+        airfoil_id
+        for airfoil_id in ("fx76mp140", "clarkysm", "dae11", "dae21", "dae31", "dae41")
+        if _airfoil_geometry_path(airfoil_id) is not None
+    )
+
+
+def _sidecar_stations_from_record(record: dict[str, Any]) -> tuple[WingStation, ...]:
+    rows = [
+        row for row in record.get("station_table") or [] if isinstance(row, dict)
+    ]
+    rows.sort(key=lambda row: float(row.get("y_m", row.get("y", 0.0)) or 0.0))
+    stations: list[WingStation] = []
+    for row in rows:
+        y_m = _float_or_none(row.get("y_m", row.get("y")))
+        chord_m = _float_or_none(row.get("chord_m", row.get("chord")))
+        if y_m is None or chord_m is None or chord_m <= 0.0:
+            continue
+        twist_deg = _float_or_none(row.get("ainc_deg"))
+        if twist_deg is None:
+            twist_deg = _float_or_none(row.get("twist_deg"))
+        if twist_deg is None:
+            twist_deg = 0.0
+        dihedral_deg = _float_or_none(row.get("dihedral_deg"))
+        if dihedral_deg is None:
+            dihedral_deg = _station_dihedral_from_geometry(
+                record.get("geometry") or {},
+                eta=_float_or_none(row.get("eta")) or 0.0,
+            )
+        stations.append(
+            WingStation(
+                y_m=float(y_m),
+                chord_m=float(chord_m),
+                twist_deg=float(twist_deg),
+                dihedral_deg=float(dihedral_deg),
+            )
+        )
+    if len(stations) < 2:
+        raise ValueError("At least two station_table rows are required for sidecar AVL.")
+    return tuple(stations)
+
+
+def _station_dihedral_from_geometry(geometry: dict[str, Any], *, eta: float) -> float:
+    root = _float_or_none(geometry.get("dihedral_root_deg"))
+    tip = _float_or_none(geometry.get("dihedral_tip_deg"))
+    exponent = _float_or_none(geometry.get("dihedral_exponent"))
+    if root is None and tip is None:
+        return 0.0
+    root = 0.0 if root is None else root
+    tip = root if tip is None else tip
+    exponent = 1.0 if exponent is None or exponent <= 0.0 else exponent
+    eta_shaped = min(max(float(eta), 0.0), 1.0) ** float(exponent)
+    return float(root + (tip - root) * eta_shaped)
+
+
+def _sidecar_concept_from_record(
+    *,
+    cfg: BirdmanConceptConfig,
+    record: dict[str, Any],
+    stations: tuple[WingStation, ...],
+) -> GeometryConcept:
+    geometry = record.get("geometry") or {}
+    span_m = _float_or_none(geometry.get("span_m"))
+    if span_m is None:
+        span_m = 2.0 * max(float(station.y_m) for station in stations)
+    wing_area_m2 = _float_or_none(geometry.get("wing_area_m2"))
+    if wing_area_m2 is None:
+        wing_area_m2 = _integrate_station_chords(stations)
+    root_chord_m = _float_or_none(geometry.get("root_chord_m")) or float(stations[0].chord_m)
+    tip_chord_m = _float_or_none(geometry.get("tip_chord_m")) or float(stations[-1].chord_m)
+    segment_lengths = tuple(
+        float(right.y_m - left.y_m)
+        for left, right in zip(stations[:-1], stations[1:], strict=True)
+    )
+    tail_volume = _float_or_none((record.get("spanload_to_geometry") or {}).get("tail_volume_coefficient"))
+    if tail_volume is None:
+        tail_volume = _float_or_none(geometry.get("tail_volume_coefficient"))
+    tail_area_m2 = _float_or_none(geometry.get("tail_area_m2"))
+    if tail_area_m2 is None:
+        tail_area_m2 = (
+            float(tail_volume or 0.4)
+            * float(wing_area_m2)
+            / max(float(cfg.tail_model.tail_arm_to_mac), 1.0e-9)
+        )
+    return GeometryConcept(
+        span_m=float(span_m),
+        wing_area_m2=float(wing_area_m2),
+        root_chord_m=float(root_chord_m),
+        tip_chord_m=float(tip_chord_m),
+        twist_root_deg=float(stations[0].twist_deg),
+        twist_tip_deg=float(stations[-1].twist_deg),
+        tail_area_m2=float(tail_area_m2),
+        tail_area_source="airfoil_sidecar_reconstructed_from_stage1_record",
+        tail_volume_coefficient=tail_volume,
+        cg_xc=float(_float_or_none(geometry.get("cg_xc")) or cfg.geometry_family.cg_xc),
+        segment_lengths_m=segment_lengths,
+        twist_control_points=tuple(
+            (
+                0.0
+                if span_m <= 0.0
+                else min(max(float(station.y_m) / (0.5 * float(span_m)), 0.0), 1.0),
+                float(station.twist_deg),
+            )
+            for station in stations
+        ),
+        spanload_a3_over_a1=float(record.get("spanload_fourier", {}).get("a3_over_a1", 0.0)),
+        spanload_a5_over_a1=float(record.get("spanload_fourier", {}).get("a5_over_a1", 0.0)),
+        wing_loading_target_Npm2=float(cfg.design_gross_weight_n / max(float(wing_area_m2), 1.0e-9)),
+        mean_chord_target_m=float(float(wing_area_m2) / max(float(span_m), 1.0e-9)),
+        wing_area_is_derived=True,
+        planform_parameterization="spanload_inverse_chord",
+        design_gross_mass_kg=float(cfg.mass.design_gross_mass_kg),
+        dihedral_root_deg=float(_float_or_none(geometry.get("dihedral_root_deg")) or 0.0),
+        dihedral_tip_deg=float(_float_or_none(geometry.get("dihedral_tip_deg")) or 0.0),
+        dihedral_exponent=float(_float_or_none(geometry.get("dihedral_exponent")) or 1.0),
+    )
+
+
+def _fourier_target_from_record(record: dict[str, Any]) -> FourierTarget | None:
+    target = record.get("mission_fourier_target")
+    if isinstance(target, FourierTarget):
+        return target
+    if not isinstance(target, dict) or target.get("error") is not None:
+        return None
+    field_names = {field.name for field in fields(FourierTarget)}
+    payload = {key: value for key, value in target.items() if key in field_names}
+    if field_names - set(payload):
+        return None
+    tuple_fields = {
+        "y",
+        "eta",
+        "theta",
+        "chord_ref",
+        "gamma_target",
+        "lprime_target",
+        "cl_target",
+        "validation_warnings",
+    }
+    for field_name in tuple_fields:
+        payload[field_name] = tuple(payload[field_name])
+    return FourierTarget(**payload)
+
+
+def _sidecar_source_quality(source_quality: str | None) -> str:
+    text = str(source_quality or "")
+    if "mission_grade" in text and "not_mission_grade" not in text:
+        return "mission_grade_sidecar"
+    return "not_mission_grade_sidecar"
+
+
+def _evaluate_airfoil_sidecar_combination(
+    *,
+    cfg: BirdmanConceptConfig,
+    record: dict[str, Any],
+    combination: tuple[ZoneAirfoilAssignment, ...],
+    combination_index: int,
+    output_dir: Path,
+    design_speed_mps: float,
+    avl_binary: str | None,
+    database: Any,
+    is_baseline: bool,
+) -> dict[str, Any]:
+    assignment_dicts = assignment_to_dicts(combination)
+    base_payload: dict[str, Any] = {
+        "combination_index": int(combination_index),
+        "is_baseline": bool(is_baseline),
+        "assignment_label": assignment_label(combination),
+        "airfoil_assignment": assignment_dicts,
+        "source": "zone_airfoil_sidecar_avl_rerun_shadow_v1",
+        "source_mode": "shadow_no_ranking_gate",
+    }
+    try:
+        contract = _mission_contract_from_record(record)
+        if contract is None:
+            raise ValueError("mission_contract is unavailable")
+        stations = _sidecar_stations_from_record(record)
+        concept = _sidecar_concept_from_record(cfg=cfg, record=record, stations=stations)
+        avl = _run_reference_avl_case(
+            cfg=cfg,
+            concept=concept,
+            stations=stations,
+            output_dir=output_dir,
+            design_speed_mps=float(design_speed_mps),
+            design_mass_kg=float(cfg.mass.design_gross_mass_kg),
+            status_for_ranking="airfoil_sidecar_shadow",
+            avl_binary=avl_binary,
+            case_tag=f"sample_{int(record.get('sample_index') or 0):04d}_combo_{combination_index:02d}",
+            zone_airfoil_paths=_zone_airfoil_paths_from_assignment(combination),
+        )
+        if avl.get("status") != "ok":
+            raise RuntimeError(str(avl.get("error", "sidecar AVL rerun failed")))
+        rerun_station_table = _attach_avl_to_station_table(
+            [dict(row) for row in record.get("station_table") or []],
+            avl,
+        )
+        profile = integrate_profile_drag_from_avl(
+            contract,
+            rerun_station_table,
+            rerun_station_table,
+            combination,
+            database,
+            cl_source_shape_mode=str(
+                avl.get(
+                    "profile_drag_cl_source_shape_mode",
+                    "flat_or_unverified_loaded_shape",
+                )
+            ),
+            cl_source_loaded_shape=bool(
+                avl.get("profile_drag_cl_source_loaded_shape", False)
+            ),
+            cl_source_warning_count=int(
+                avl.get("profile_drag_cl_source_warning_count", 1)
+            ),
+        )
+        target = _fourier_target_from_record(record)
+        comparison = (
+            compare_fourier_target_to_avl(target, rerun_station_table)
+            if target is not None
+            else {
+                "target_vs_avl_compare_success": False,
+                "target_vs_avl_compare_reason": "mission_fourier_target_unavailable",
+                "target_vs_avl_rms_delta": None,
+                "target_vs_avl_max_delta": None,
+                "target_vs_avl_outer_delta": None,
+            }
+        )
+        source_quality = _sidecar_source_quality(profile.source_quality)
+        return {
+            **base_payload,
+            "status": "ok",
+            "CL": avl.get("trim_cl"),
+            "CDi": avl.get("trim_cd_induced"),
+            "e_CDi": avl.get("avl_e_cdi"),
+            "target_vs_avl_rms": comparison.get("target_vs_avl_rms_delta"),
+            "target_vs_avl_max": comparison.get("target_vs_avl_max_delta"),
+            "target_vs_avl_outer_delta": comparison.get("target_vs_avl_outer_delta"),
+            "profile_cd_airfoil_db": float(profile.CD_profile),
+            "cd0_total_est_airfoil_db": float(profile.cd0_total_est),
+            "mission_drag_budget_band": profile.drag_budget_band,
+            "min_stall_margin_airfoil_db": profile.min_stall_margin_deg,
+            "max_station_cl_utilization_airfoil_db": profile.max_station_cl_utilization,
+            "source_quality": source_quality,
+            "profile_drag_station_warning_count": int(profile.station_warning_count),
+            "profile_drag_cl_source_shape_mode": profile.profile_drag_cl_source_shape_mode,
+            "profile_drag_cl_source_loaded_shape": bool(
+                profile.profile_drag_cl_source_loaded_shape
+            ),
+            "profile_drag_cl_source_warning_count": int(
+                profile.profile_drag_cl_source_warning_count
+            ),
+            "avl_reference_case": avl,
+            "target_vs_avl_comparison": comparison,
+            "airfoil_profile_drag": profile.to_dict(),
+        }
+    except Exception as exc:  # noqa: BLE001 - sidecar must never gate the route.
+        return {
+            **base_payload,
+            "status": "failed",
+            "error": f"{type(exc).__name__}: {exc}",
+            "source_quality": "not_mission_grade_sidecar",
+        }
+
+
+def _sidecar_best_score(row: dict[str, Any]) -> tuple[float, float, float, int]:
+    return (
+        float(row.get("profile_cd_airfoil_db") or float("inf")),
+        float(row.get("target_vs_avl_rms") or float("inf")),
+        -float(row.get("e_CDi") or -float("inf")),
+        int(row.get("combination_index") or 0),
+    )
+
+
+def _sidecar_improvement_notes(
+    *,
+    baseline: dict[str, Any] | None,
+    best: dict[str, Any] | None,
+) -> tuple[bool, list[str]]:
+    if baseline is None or best is None:
+        return False, ["baseline_or_best_sidecar_result_unavailable"]
+    if best.get("combination_index") == baseline.get("combination_index"):
+        return False, ["baseline_assignment_remains_best_sidecar"]
+    notes: list[str] = []
+    improved = False
+    best_profile = _float_or_none(best.get("profile_cd_airfoil_db"))
+    base_profile = _float_or_none(baseline.get("profile_cd_airfoil_db"))
+    if best_profile is not None and base_profile is not None and best_profile < base_profile - 1.0e-6:
+        improved = True
+        notes.append("profile_cd_lower_than_baseline")
+    best_e = _float_or_none(best.get("e_CDi"))
+    base_e = _float_or_none(baseline.get("e_CDi"))
+    if best_e is not None and base_e is not None and best_e > base_e + 1.0e-4:
+        improved = True
+        notes.append("e_CDi_higher_than_baseline")
+    best_rms = _float_or_none(best.get("target_vs_avl_rms"))
+    base_rms = _float_or_none(baseline.get("target_vs_avl_rms"))
+    if best_rms is not None and base_rms is not None and best_rms < base_rms - 1.0e-4:
+        improved = True
+        notes.append("target_vs_avl_rms_lower_than_baseline")
+    if not notes:
+        notes.append("no_material_sidecar_improvement_vs_baseline")
+    return improved, notes
+
+
+def _attach_airfoil_sidecar_shadow_fields(
+    records: list[dict[str, Any]],
+    *,
+    cfg: BirdmanConceptConfig,
+    output_dir: Path,
+    design_speed_mps: float,
+    avl_binary: str | None,
+    max_airfoil_combinations: int = 8,
+) -> None:
+    database = default_airfoil_database()
+    baseline = fixed_seed_zone_airfoil_assignments()
+    available_airfoils = _sidecar_available_airfoil_ids()
+    for record in records:
+        for field in AIRFOIL_SIDECAR_SHADOW_FIELDS:
+            record.setdefault(field, None)
+        try:
+            contract = _mission_contract_from_record(record)
+            if contract is None:
+                raise ValueError("mission_contract is unavailable")
+            profile_rows = _airfoil_profile_drag_rows_for_export(record)
+            envelopes = build_zone_envelopes(
+                loaded_avl_spanwise_result=record.get("station_table") or [],
+                chord_distribution=record.get("station_table") or [],
+                mission_contract=contract,
+                fourier_target=record.get("mission_fourier_target"),
+                zone_definitions=baseline,
+                current_profile_drag_rows=profile_rows,
+            )
+            topk = query_zone_airfoil_topk(envelopes, database, top_k=2)
+            combinations = generate_airfoil_sidecar_combinations(
+                baseline,
+                topk,
+                available_airfoil_ids=available_airfoils,
+                max_airfoil_combinations=int(max_airfoil_combinations),
+            )
+            results = [
+                _evaluate_airfoil_sidecar_combination(
+                    cfg=cfg,
+                    record=record,
+                    combination=combination,
+                    combination_index=index,
+                    output_dir=output_dir,
+                    design_speed_mps=design_speed_mps,
+                    avl_binary=avl_binary,
+                    database=database,
+                    is_baseline=index == 0,
+                )
+                for index, combination in enumerate(combinations)
+            ]
+            successful = [row for row in results if row.get("status") == "ok"]
+            baseline_result = next(
+                (row for row in successful if bool(row.get("is_baseline"))),
+                None,
+            )
+            best = min(successful, key=_sidecar_best_score) if successful else None
+            improved, notes = _sidecar_improvement_notes(
+                baseline=baseline_result,
+                best=best,
+            )
+            record["zone_envelope"] = zone_envelopes_to_rows(envelopes)
+            record["zone_airfoil_topk"] = {
+                str(zone_name): [dict(item) for item in candidates]
+                for zone_name, candidates in topk.items()
+            }
+            record["airfoil_sidecar"] = {
+                "source": "zone_airfoil_sidecar_avl_rerun_shadow_v1",
+                "source_mode": "shadow_no_ranking_gate",
+                "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+                "max_airfoil_combinations": int(max_airfoil_combinations),
+                "available_airfoil_ids": list(available_airfoils),
+                "combination_count": len(results),
+            }
+            record["airfoil_sidecar_combinations"] = results
+            record["airfoil_sidecar_best"] = best or {
+                "status": "unavailable",
+                "source_quality": "not_mission_grade_sidecar",
+                "notes": notes,
+            }
+            if best is not None:
+                record.update(
+                    {
+                        "sidecar_best_airfoil_assignment": best.get("assignment_label"),
+                        "sidecar_best_e_CDi": best.get("e_CDi"),
+                        "sidecar_best_target_vs_avl_rms": best.get(
+                            "target_vs_avl_rms"
+                        ),
+                        "sidecar_best_target_vs_avl_outer_delta": best.get(
+                            "target_vs_avl_outer_delta"
+                        ),
+                        "sidecar_best_profile_cd": best.get("profile_cd_airfoil_db"),
+                        "sidecar_best_cd0_total_est": best.get(
+                            "cd0_total_est_airfoil_db"
+                        ),
+                        "sidecar_best_min_stall_margin": best.get(
+                            "min_stall_margin_airfoil_db"
+                        ),
+                        "sidecar_best_source_quality": best.get("source_quality"),
+                        "sidecar_improved_vs_baseline": bool(improved),
+                        "sidecar_improvement_notes": notes,
+                    }
+                )
+            else:
+                record["sidecar_improved_vs_baseline"] = False
+                record["sidecar_improvement_notes"] = notes
+                record["sidecar_best_source_quality"] = "not_mission_grade_sidecar"
+        except Exception as exc:  # noqa: BLE001 - Phase 4 sidecar is shadow-only.
+            record["zone_envelope"] = []
+            record["zone_airfoil_topk"] = {}
+            record["airfoil_sidecar"] = {
+                "source": "zone_airfoil_sidecar_avl_rerun_shadow_v1",
+                "source_mode": "shadow_no_ranking_gate",
+                "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            record["airfoil_sidecar_combinations"] = []
+            record["airfoil_sidecar_best"] = {
+                "status": "failed",
+                "error": f"{type(exc).__name__}: {exc}",
+                "source_quality": "not_mission_grade_sidecar",
+            }
+            record["sidecar_improved_vs_baseline"] = False
+            record["sidecar_improvement_notes"] = ["sidecar_failed_shadow_only"]
+            record["sidecar_best_source_quality"] = "not_mission_grade_sidecar"
 
 
 def _mission_contract_from_record(record: dict[str, Any]) -> MissionContract | None:
@@ -2532,6 +3010,18 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
         "profile_drag_cl_source_warning_count": record.get(
             "profile_drag_cl_source_warning_count"
         ),
+        "sidecar_best_airfoil_assignment": record.get("sidecar_best_airfoil_assignment"),
+        "sidecar_best_e_CDi": record.get("sidecar_best_e_CDi"),
+        "sidecar_best_target_vs_avl_rms": record.get("sidecar_best_target_vs_avl_rms"),
+        "sidecar_best_target_vs_avl_outer_delta": record.get(
+            "sidecar_best_target_vs_avl_outer_delta"
+        ),
+        "sidecar_best_profile_cd": record.get("sidecar_best_profile_cd"),
+        "sidecar_best_cd0_total_est": record.get("sidecar_best_cd0_total_est"),
+        "sidecar_best_min_stall_margin": record.get("sidecar_best_min_stall_margin"),
+        "sidecar_best_source_quality": record.get("sidecar_best_source_quality"),
+        "sidecar_improved_vs_baseline": record.get("sidecar_improved_vs_baseline"),
+        "sidecar_improvement_notes": record.get("sidecar_improvement_notes"),
         "outer_loading_diagnostics": record.get("outer_loading_diagnostics", {}),
         "objective_value": record.get("objective_value"),
     }
@@ -2650,6 +3140,59 @@ def _airfoil_profile_drag_rows_for_export(record: dict[str, Any]) -> list[dict[s
     return [dict(row) for row in rows if isinstance(row, dict)]
 
 
+def _zone_envelope_rows_for_export(record: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = record.get("zone_envelope") or []
+    return [dict(row) for row in rows if isinstance(row, dict)]
+
+
+def _airfoil_sidecar_combination_rows_for_export(
+    record: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for item in record.get("airfoil_sidecar_combinations") or []:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                "combination_index": item.get("combination_index"),
+                "status": item.get("status"),
+                "is_baseline": item.get("is_baseline"),
+                "assignment_label": item.get("assignment_label"),
+                "CL": item.get("CL"),
+                "CDi": item.get("CDi"),
+                "e_CDi": item.get("e_CDi"),
+                "target_vs_avl_rms": item.get("target_vs_avl_rms"),
+                "target_vs_avl_max": item.get("target_vs_avl_max"),
+                "target_vs_avl_outer_delta": item.get("target_vs_avl_outer_delta"),
+                "profile_cd_airfoil_db": item.get("profile_cd_airfoil_db"),
+                "cd0_total_est_airfoil_db": item.get("cd0_total_est_airfoil_db"),
+                "mission_drag_budget_band": item.get("mission_drag_budget_band"),
+                "min_stall_margin_airfoil_db": item.get(
+                    "min_stall_margin_airfoil_db"
+                ),
+                "max_station_cl_utilization_airfoil_db": item.get(
+                    "max_station_cl_utilization_airfoil_db"
+                ),
+                "source_quality": item.get("source_quality"),
+                "profile_drag_cl_source_shape_mode": item.get(
+                    "profile_drag_cl_source_shape_mode"
+                ),
+                "profile_drag_cl_source_loaded_shape": item.get(
+                    "profile_drag_cl_source_loaded_shape"
+                ),
+                "profile_drag_cl_source_warning_count": item.get(
+                    "profile_drag_cl_source_warning_count"
+                ),
+                "sidecar_summary_json_path": item.get("sidecar_summary_json_path"),
+                "sidecar_profile_drag_csv_path": item.get(
+                    "sidecar_profile_drag_csv_path"
+                ),
+                "error": item.get("error"),
+            }
+        )
+    return rows
+
+
 def _export_top_candidate_artifacts(
     *,
     cfg: BirdmanConceptConfig,
@@ -2764,6 +3307,135 @@ def _export_top_candidate_artifacts(
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(_round(airfoil_rows))
+    zone_envelope_payload = {
+        "source": "loaded_dihedral_avl_zone_envelope_shadow_v1",
+        "source_mode": "shadow_no_ranking_gate",
+        "zone_envelope": record.get("zone_envelope", []),
+        "zone_airfoil_topk": record.get("zone_airfoil_topk", {}),
+    }
+    zone_envelope_json_path = bundle_dir / "zone_envelope.json"
+    zone_envelope_json_path.write_text(
+        json.dumps(_round(zone_envelope_payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    zone_rows = _zone_envelope_rows_for_export(record)
+    zone_envelope_csv_path = bundle_dir / "zone_envelope.csv"
+    with zone_envelope_csv_path.open("w", encoding="utf-8", newline="") as handle:
+        fieldnames = list(zone_rows[0].keys()) if zone_rows else [
+            "zone_name",
+            "eta_min",
+            "eta_max",
+            "re_min",
+            "re_max",
+            "re_p50",
+            "cl_min",
+            "cl_max",
+            "cl_p50",
+            "cl_p90",
+            "max_avl_actual_cl",
+            "max_fourier_target_cl",
+            "target_vs_actual_cl_delta",
+            "current_airfoil_id",
+            "current_stall_margin",
+            "current_profile_cd_estimate",
+            "source",
+        ]
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(_round(zone_rows))
+    sidecar_dir = bundle_dir / "airfoil_sidecar"
+    sidecar_dir.mkdir(parents=True, exist_ok=True)
+    for item in record.get("airfoil_sidecar_combinations") or []:
+        if not isinstance(item, dict):
+            continue
+        combo_index = int(item.get("combination_index") or 0)
+        summary_path = sidecar_dir / f"combination_{combo_index:02d}_summary.json"
+        summary_path.write_text(
+            json.dumps(_round(item), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        profile_rows = []
+        profile_payload = item.get("airfoil_profile_drag") or {}
+        if isinstance(profile_payload, dict):
+            profile_rows = [
+                dict(row)
+                for row in profile_payload.get("station_rows", [])
+                if isinstance(row, dict)
+            ]
+        profile_path = sidecar_dir / f"combination_{combo_index:02d}_profile_drag.csv"
+        with profile_path.open("w", encoding="utf-8", newline="") as handle:
+            fieldnames = list(profile_rows[0].keys()) if profile_rows else [
+                "eta",
+                "y",
+                "chord",
+                "Re",
+                "cl_actual_avl",
+                "airfoil_id",
+                "cd_profile",
+                "cm",
+                "stall_margin_deg",
+                "source_quality",
+                "warning_flags",
+                "profile_drag_cl_source_shape_mode",
+                "profile_drag_cl_source_loaded_shape",
+            ]
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(_round(profile_rows))
+        item["sidecar_summary_json_path"] = str(summary_path)
+        item["sidecar_profile_drag_csv_path"] = str(profile_path)
+    sidecar_combinations_payload = {
+        "airfoil_sidecar": record.get("airfoil_sidecar", {}),
+        "airfoil_sidecar_combinations": record.get("airfoil_sidecar_combinations", []),
+    }
+    airfoil_sidecar_combinations_json_path = (
+        bundle_dir / "airfoil_sidecar_combinations.json"
+    )
+    airfoil_sidecar_combinations_json_path.write_text(
+        json.dumps(_round(sidecar_combinations_payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    sidecar_rows = _airfoil_sidecar_combination_rows_for_export(record)
+    airfoil_sidecar_combinations_csv_path = (
+        bundle_dir / "airfoil_sidecar_combinations.csv"
+    )
+    with airfoil_sidecar_combinations_csv_path.open("w", encoding="utf-8", newline="") as handle:
+        fieldnames = list(sidecar_rows[0].keys()) if sidecar_rows else [
+            "combination_index",
+            "status",
+            "is_baseline",
+            "assignment_label",
+            "CL",
+            "CDi",
+            "e_CDi",
+            "target_vs_avl_rms",
+            "target_vs_avl_max",
+            "target_vs_avl_outer_delta",
+            "profile_cd_airfoil_db",
+            "cd0_total_est_airfoil_db",
+            "mission_drag_budget_band",
+            "min_stall_margin_airfoil_db",
+            "max_station_cl_utilization_airfoil_db",
+            "source_quality",
+            "profile_drag_cl_source_shape_mode",
+            "profile_drag_cl_source_loaded_shape",
+            "profile_drag_cl_source_warning_count",
+            "sidecar_summary_json_path",
+            "sidecar_profile_drag_csv_path",
+            "error",
+        ]
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(_round(sidecar_rows))
+    sidecar_best_payload = {
+        **{field: record.get(field) for field in AIRFOIL_SIDECAR_SHADOW_FIELDS},
+        "airfoil_sidecar_best": record.get("airfoil_sidecar_best", {}),
+    }
+    airfoil_sidecar_best_json_path = bundle_dir / "airfoil_sidecar_best.json"
+    airfoil_sidecar_best_json_path.write_text(
+        json.dumps(_round(sidecar_best_payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     concept_id = f"birdman_inverse_chord_sample_{sample_index:04d}"
     script_path, metadata_path = write_concept_openvsp_handoff(
         bundle_dir=bundle_dir,
@@ -2806,6 +3478,12 @@ def _export_top_candidate_artifacts(
                 field: record.get(field) for field in AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS
             },
             "airfoil_profile_drag": record.get("airfoil_profile_drag", {}),
+            "zone_envelope": record.get("zone_envelope", []),
+            "zone_airfoil_topk": record.get("zone_airfoil_topk", {}),
+            "airfoil_sidecar_summary": {
+                field: record.get(field) for field in AIRFOIL_SIDECAR_SHADOW_FIELDS
+            },
+            "airfoil_sidecar_best": record.get("airfoil_sidecar_best", {}),
         },
     )
     return {
@@ -2821,6 +3499,15 @@ def _export_top_candidate_artifacts(
         "fourier_target_csv_path": str(fourier_target_csv_path),
         "airfoil_profile_drag_json_path": str(airfoil_profile_drag_json_path),
         "airfoil_profile_drag_csv_path": str(airfoil_profile_drag_csv_path),
+        "zone_envelope_json_path": str(zone_envelope_json_path),
+        "zone_envelope_csv_path": str(zone_envelope_csv_path),
+        "airfoil_sidecar_combinations_json_path": str(
+            airfoil_sidecar_combinations_json_path
+        ),
+        "airfoil_sidecar_combinations_csv_path": str(
+            airfoil_sidecar_combinations_csv_path
+        ),
+        "airfoil_sidecar_best_json_path": str(airfoil_sidecar_best_json_path),
     }
 
 
@@ -4244,6 +4931,21 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
             f"quality {candidate.get('profile_cd_airfoil_db_source_quality')}. "
             "shadow only, no ranking gate."
         )
+    if candidate.get("airfoil_sidecar") is not None:
+        lines.append(
+            "- Airfoil sidecar shadow: "
+            f"best {candidate.get('sidecar_best_airfoil_assignment')}, "
+            f"e_CDi {_format_float(candidate.get('sidecar_best_e_CDi'), 4)}, "
+            f"profile CD {_format_float(candidate.get('sidecar_best_profile_cd'), 5)}, "
+            f"CD0_total {_format_float(candidate.get('sidecar_best_cd0_total_est'), 5)}, "
+            f"target RMS/outer "
+            f"{_format_float(candidate.get('sidecar_best_target_vs_avl_rms'), 3)}/"
+            f"{_format_float(candidate.get('sidecar_best_target_vs_avl_outer_delta'), 3)}, "
+            f"min stall margin {_format_float(candidate.get('sidecar_best_min_stall_margin'), 2)} deg, "
+            f"quality {candidate.get('sidecar_best_source_quality')}, "
+            f"improved vs baseline {candidate.get('sidecar_improved_vs_baseline')}; "
+            "shadow only, no ranking gate."
+        )
     lines.append(
         "- Gate health: "
         f"local util {_format_float(health['max_local_clmax_utilization'], 3)} / "
@@ -4394,6 +5096,8 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
         f"({report.get('loaded_shape_jig_shadow', {}).get('ranking_behavior', 'unchanged')})",
         f"- Airfoil DB profile drag shadow: {report.get('airfoil_profile_drag_shadow', {}).get('database', 'unknown')} "
         f"({report.get('airfoil_profile_drag_shadow', {}).get('ranking_behavior', 'unchanged')})",
+        f"- Airfoil zone/top-k sidecar shadow: {report.get('airfoil_sidecar_shadow', {}).get('source', 'unknown')} "
+        f"({report.get('airfoil_sidecar_shadow', {}).get('ranking_behavior', 'unchanged')})",
         "",
         "## Engineering Read",
         "",
@@ -4626,6 +5330,12 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_MISSION_DRAG_BUDGET_CONFIG_PATH,
         help="Mission drag budget YAML used by the shadow MissionContract adapter.",
     )
+    parser.add_argument(
+        "--max-airfoil-sidecar-combinations",
+        type=int,
+        default=8,
+        help="Maximum zone-level airfoil assignment combinations to rerun in the Phase 4 sidecar.",
+    )
     parser.add_argument("--avl-binary", default=None)
     return parser.parse_args()
 
@@ -4776,6 +5486,14 @@ def main() -> None:
     for record in reported_records:
         sample_index = int(record.get("sample_index") or -1)
         record["leaderboard_memberships"] = memberships.get(sample_index, [])
+    _attach_airfoil_sidecar_shadow_fields(
+        reported_records,
+        cfg=cfg,
+        output_dir=output_dir,
+        design_speed_mps=design_speed_mps,
+        avl_binary=args.avl_binary,
+        max_airfoil_combinations=int(args.max_airfoil_sidecar_combinations),
+    )
     export_artifacts = _export_top_candidates(
         cfg=cfg,
         records=reported_records,
@@ -4878,6 +5596,19 @@ def main() -> None:
             "export_fields": list(AIRFOIL_PROFILE_DRAG_SHADOW_FIELDS),
             "ranking_behavior": "unchanged_no_rejection_no_sort_key",
             "cl_source": "AVL actual local Cl with flat_or_loaded_shape provenance",
+        },
+        "airfoil_sidecar_shadow": {
+            "source_mode": "shadow_no_ranking_gate",
+            "source": "zone_airfoil_sidecar_avl_rerun_shadow_v1",
+            "database": "manual_fixtures_not_mission_grade_sidecar",
+            "zone_assignment_baseline": [
+                assignment.to_dict() for assignment in fixed_seed_zone_airfoil_assignments()
+            ],
+            "max_airfoil_combinations": int(args.max_airfoil_sidecar_combinations),
+            "export_fields": list(AIRFOIL_SIDECAR_SHADOW_FIELDS),
+            "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+            "cl_source": "rerun AVL actual local Cl with loaded-shape provenance",
+            "selection_rule": "zone-level top-k/Pareto sidecar combinations; no station-by-station greedy min-cd selection",
         },
         "stage0_counts": stage0["counts"],
         "stage1_counts": {

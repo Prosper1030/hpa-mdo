@@ -219,6 +219,43 @@ CD0_total_est_airfoil_db = CD_profile + CDA_nonwing_target / S
 `airfoil_profile_drag.json` / `airfoil_profile_drag.csv`。這些值仍是
 shadow-only，不改變 ranking、objective、hard gate 或 rejection。
 
+## Zone Airfoil Sidecar Shadow
+
+Phase 4 在 `inverse_chord_then_residual_twist_no_cst_no_xfoil` 上加入第一個
+airfoil closed-loop sidecar，但仍不改變主 route 的排序或淘汰條件。
+流程是：
+
+```
+loaded-shape AVL actual Cl/Re
+→ zone_envelope
+→ zone-level airfoil top-k
+→ capped AVL rerun combinations
+→ rerun AVL actual Cl profile-drag integration
+```
+
+重要限制：
+
+- 不做 station-by-station greedy min-CD airfoil selection。
+- 不啟動 CST / NSGA / XFOIL closed-loop。
+- fixture polar 仍標示為 `not_mission_grade_sidecar`。
+- sidecar best 只輸出診斷欄位，例如 `sidecar_best_profile_cd`、
+  `sidecar_best_cd0_total_est`、`sidecar_best_e_CDi`、
+  `sidecar_best_target_vs_avl_rms` 與 `sidecar_improved_vs_baseline`。
+- profile drag 一律使用 sidecar rerun 後的 AVL actual local Cl，而不是
+  Fourier target Cl。
+
+top-candidate bundle 會輸出：
+
+- `zone_envelope.json` / `zone_envelope.csv`
+- `airfoil_sidecar_combinations.csv`
+- `airfoil_sidecar_best.json`
+- `airfoil_sidecar/combination_XX_summary.json`
+- `airfoil_sidecar/combination_XX_profile_drag.csv`
+
+這些輸出用來比較固定 seed assignment 與 zone-level top-k assignment 的
+loaded-shape AVL / profile-drag 變化；目前仍是 shadow-only，不新增 hard gate，
+也不進入 ranking sort key。
+
 ## Loaded Shape / Jig Feasibility Shadow Diagnostics
 
 新增 loaded-shape shadow adapter 後，route 會把目前 candidate 的
