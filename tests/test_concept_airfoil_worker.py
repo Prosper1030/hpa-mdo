@@ -284,6 +284,77 @@ def test_persistent_worker_non_json_stdout_marks_chunk_failed_and_restarts(
     assert "worker stderr warning" in log_text
 
 
+def test_persistent_worker_eof_marks_chunk_failed_and_restarts(tmp_path, monkeypatch):
+    worker_dir = tmp_path / "repo" / "tools" / "julia" / "xfoil_worker"
+    worker_dir.mkdir(parents=True)
+    (worker_dir / "Project.toml").write_text("name = \"BirdmanXFoilWorker\"\n", encoding="utf-8")
+
+    worker = JuliaXFoilWorker(
+        project_dir=tmp_path / "repo",
+        cache_dir=tmp_path / "cache",
+        persistent_mode=True,
+    )
+    monkeypatch.setattr(worker, "_resolve_julia", lambda: "/opt/julia/bin/julia")
+
+    created_processes = []
+
+    class _FakeStdout:
+        def readline(self):
+            return ""
+
+    class _FakeStdin:
+        def write(self, text):
+            return len(text)
+
+        def flush(self):
+            return None
+
+        def close(self):
+            return None
+
+    class _FakeProcess:
+        def __init__(self):
+            self.stdin = _FakeStdin()
+            self.stdout = _FakeStdout()
+            self.stderr = io.StringIO("worker exited mid sweep\n")
+            self.returncode = -15
+            self.terminated = False
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout=None):
+            return self.returncode
+
+        def terminate(self):
+            self.terminated = True
+
+        def kill(self):
+            self.returncode = -9
+
+    def fake_popen(cmd, cwd, stdin, stdout, stderr, text):
+        process = _FakeProcess()
+        created_processes.append(process)
+        return process
+
+    monkeypatch.setattr("hpa_mdo.concept.airfoil_worker.subprocess.Popen", fake_popen)
+
+    query = _sample_query(cl_samples=(0.7,), analysis_mode="full_alpha_sweep")
+    results = worker.run_queries([query])
+
+    assert results[0]["status"] == "analysis_failed"
+    assert "worker_exited_before_response" in results[0]["error"]
+    assert results[0]["polar_points"] == []
+    assert created_processes[0].returncode == -15
+    assert worker._negative_cache_path(query).is_file()
+
+    protocol_log = tmp_path / "cache" / "worker_protocol_errors.log"
+    assert protocol_log.is_file()
+    log_text = protocol_log.read_text(encoding="utf-8")
+    assert "worker_exited_before_response" in log_text
+    assert "worker exited mid sweep" in log_text
+
+
 def test_worker_uses_multi_worker_persistent_pool_for_uncached_queries_and_cache_hits(
     tmp_path, monkeypatch
 ):

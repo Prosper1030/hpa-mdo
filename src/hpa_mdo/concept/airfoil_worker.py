@@ -507,11 +507,25 @@ class JuliaXFoilWorker:
         if response_line == "":
             stderr_text = self._persistent_stderr_text(process).strip()
             return_code = process.poll()
-            self.close()
-            raise RuntimeError(
-                "Persistent Julia XFoil worker exited before returning a response."
-                + (f" Return code: {return_code}." if return_code is not None else "")
-                + (f" Stderr: {stderr_text}" if stderr_text else "")
+            event = "worker_exited_before_response"
+            self._append_worker_protocol_error_log(
+                event=event,
+                raw_stdout_line="",
+                stderr_text=(
+                    (f"Return code: {return_code}.\n" if return_code is not None else "")
+                    + stderr_text
+                ).strip(),
+                query_count=len(queries),
+            )
+            self._terminate_affected_persistent_worker(process)
+            return self._analysis_failed_results_for_queries(
+                queries,
+                error=event,
+                raw_stdout_line="",
+                stderr_text=(
+                    (f"Return code: {return_code}.\n" if return_code is not None else "")
+                    + stderr_text
+                ).strip(),
             )
 
         try:
