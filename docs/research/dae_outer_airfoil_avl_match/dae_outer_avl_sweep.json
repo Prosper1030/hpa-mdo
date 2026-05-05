@@ -1,0 +1,2070 @@
+{
+  "schema_version": "dae_outer_avl_sweep.v1",
+  "source_report": "/Volumes/Samsung SSD/hpa-mdo/output/birdman_outer_loading_diagnostic_smoke/spanload_design_smoke_report.json",
+  "config_path": "configs/birdman_upstream_concept_baseline.yaml",
+  "design_case": {
+    "case_label": "spanload_smoke_reference_cruise",
+    "mass_authority": "mass.design_gross_mass_kg",
+    "mass_kg": 98.5,
+    "speed_mps": 6.8,
+    "speed_window_mps": [
+      6.4,
+      7.2
+    ]
+  },
+  "airfoil_assignment": {
+    "root": "data/airfoils/fx76mp140.dat",
+    "mid1": "data/airfoils/fx76mp140.dat",
+    "mid2_tip_sweep": [
+      "dae11.dat",
+      "dae21.dat",
+      "dae31.dat",
+      "dae41.dat"
+    ]
+  },
+  "dae_airfoils": [
+    {
+      "name": "dae11",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae11.dat"
+    },
+    {
+      "name": "dae21",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae21.dat"
+    },
+    {
+      "name": "dae31",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat"
+    },
+    {
+      "name": "dae41",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae41.dat"
+    }
+  ],
+  "avl_output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match",
+  "results": [
+    {
+      "sample_index": 59,
+      "outer_airfoil": "clarkysm",
+      "airfoil_role": "existing_reference_mid2_tip",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/data/airfoils/clarkysm.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.172715,
+        "trim_aoa_deg": -0.12135,
+        "trim_cl": 1.17272,
+        "trim_cd_induced": 0.01391,
+        "avl_e_cdi": 0.813432,
+        "avl_reported_e": 0.8026,
+        "avl_file_path": "output/birdman_outer_loading_diagnostic_smoke/avl_cases/valid_design_cruise_same_mass_hard_gates_passed_34.838_0.3335_opt_0059_0009/concept_wing.avl",
+        "avl_case_dir": "output/birdman_outer_loading_diagnostic_smoke/avl_cases/valid_design_cruise_same_mass_hard_gates_passed_34.838_0.3335_opt_0059_0009"
+      },
+      "avl_match_metrics": {
+        "max_delta_station": {
+          "avl_circulation_norm": 0.019257,
+          "eta": 1.0,
+          "target_circulation_norm": 0.0,
+          "target_minus_avl_circulation_norm": -0.019257,
+          "y_m": 17.419112
+        },
+        "max_target_avl_circulation_norm_delta": 0.334178,
+        "rms_target_avl_circulation_norm_delta": 0.193273,
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 12.193378,
+          "chord_m": 0.820287,
+          "reynolds": 337831.984489,
+          "target_local_cl": 1.134466,
+          "avl_local_cl": 0.732792,
+          "avl_to_target_cl_ratio": 0.645936,
+          "target_circulation_norm": 0.663867,
+          "avl_circulation_norm": 0.329689,
+          "avl_to_target_circulation_ratio": 0.496619
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 14.283672,
+          "chord_m": 0.696985,
+          "reynolds": 287050.609221,
+          "target_local_cl": 0.998018,
+          "avl_local_cl": 0.578968,
+          "avl_to_target_cl_ratio": 0.580118,
+          "target_circulation_norm": 0.496233,
+          "avl_circulation_norm": 0.220598,
+          "avl_to_target_circulation_ratio": 0.444545
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.677201,
+          "chord_m": 0.565371,
+          "reynolds": 232845.754691,
+          "target_local_cl": 0.871816,
+          "avl_local_cl": 0.523781,
+          "avl_to_target_cl_ratio": 0.600793,
+          "target_circulation_norm": 0.351626,
+          "avl_circulation_norm": 0.160589,
+          "avl_to_target_circulation_ratio": 0.456704
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 16.548156,
+          "chord_m": 0.423522,
+          "reynolds": 174426.002292,
+          "target_local_cl": 0.785271,
+          "avl_local_cl": 0.482869,
+          "avl_to_target_cl_ratio": 0.614907,
+          "target_circulation_norm": 0.237257,
+          "avl_circulation_norm": 0.116792,
+          "avl_to_target_circulation_ratio": 0.492259
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.472532,
+        "min_outer_circulation_ratio": 0.444545,
+        "mean_abs_outer_circulation_ratio_error": 0.527468,
+        "mean_outer_cl_ratio": 0.610438,
+        "min_outer_cl_ratio": 0.580118,
+        "mean_abs_outer_cl_gap": 0.36779
+      }
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae11",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae11.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.172715,
+        "trim_aoa_deg": -0.69568,
+        "trim_cl": 1.17272,
+        "trim_cd_induced": 0.012761,
+        "avl_e_cdi": 0.886652,
+        "avl_reported_e": 0.8734,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae11_sample_0059_34.838_0.3335_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae11_sample_0059_34.838_0.3335_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.269504,
+        "rms_target_avl_circulation_norm_delta": 0.159045,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 17.419112,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.025344,
+          "target_minus_avl_circulation_norm": -0.025344
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 12.193378,
+          "chord_m": 0.820287,
+          "reynolds": 337832.072068,
+          "target_local_cl": 1.134465,
+          "avl_local_cl": 0.842384,
+          "avl_to_target_cl_ratio": 0.742538,
+          "target_circulation_norm": 0.663865,
+          "avl_circulation_norm": 0.394361,
+          "avl_to_target_circulation_ratio": 0.594038
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 14.283672,
+          "chord_m": 0.696985,
+          "reynolds": 287050.613688,
+          "target_local_cl": 0.998017,
+          "avl_local_cl": 0.713131,
+          "avl_to_target_cl_ratio": 0.714548,
+          "target_circulation_norm": 0.496232,
+          "avl_circulation_norm": 0.282734,
+          "avl_to_target_circulation_ratio": 0.569761
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.677201,
+          "chord_m": 0.565371,
+          "reynolds": 232845.889813,
+          "target_local_cl": 0.871815,
+          "avl_local_cl": 0.660395,
+          "avl_to_target_cl_ratio": 0.757494,
+          "target_circulation_norm": 0.351626,
+          "avl_circulation_norm": 0.210684,
+          "avl_to_target_circulation_ratio": 0.59917
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 16.548156,
+          "chord_m": 0.423522,
+          "reynolds": 174425.920228,
+          "target_local_cl": 0.785272,
+          "avl_local_cl": 0.617336,
+          "avl_to_target_cl_ratio": 0.786143,
+          "target_circulation_norm": 0.237257,
+          "avl_circulation_norm": 0.15537,
+          "avl_to_target_circulation_ratio": 0.654858
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.604457,
+        "min_outer_circulation_ratio": 0.569761,
+        "mean_abs_outer_circulation_ratio_error": 0.395543,
+        "mean_outer_cl_ratio": 0.750181,
+        "min_outer_cl_ratio": 0.714548,
+        "mean_abs_outer_cl_gap": 0.239081
+      }
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae21",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae21.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.172715,
+        "trim_aoa_deg": -0.74175,
+        "trim_cl": 1.17272,
+        "trim_cd_induced": 0.012684,
+        "avl_e_cdi": 0.892084,
+        "avl_reported_e": 0.8786,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae21_sample_0059_34.838_0.3335_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae21_sample_0059_34.838_0.3335_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.264035,
+        "rms_target_avl_circulation_norm_delta": 0.156286,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 17.419112,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.026021,
+          "target_minus_avl_circulation_norm": -0.026021
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 12.193378,
+          "chord_m": 0.820287,
+          "reynolds": 337832.072068,
+          "target_local_cl": 1.134465,
+          "avl_local_cl": 0.851287,
+          "avl_to_target_cl_ratio": 0.750387,
+          "target_circulation_norm": 0.663865,
+          "avl_circulation_norm": 0.399831,
+          "avl_to_target_circulation_ratio": 0.602277
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 14.283672,
+          "chord_m": 0.696985,
+          "reynolds": 287050.613688,
+          "target_local_cl": 0.998017,
+          "avl_local_cl": 0.723824,
+          "avl_to_target_cl_ratio": 0.725262,
+          "target_circulation_norm": 0.496232,
+          "avl_circulation_norm": 0.28791,
+          "avl_to_target_circulation_ratio": 0.580193
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.677201,
+          "chord_m": 0.565371,
+          "reynolds": 232845.889813,
+          "target_local_cl": 0.871815,
+          "avl_local_cl": 0.671295,
+          "avl_to_target_cl_ratio": 0.769997,
+          "target_circulation_norm": 0.351626,
+          "avl_circulation_norm": 0.214861,
+          "avl_to_target_circulation_ratio": 0.611049
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 16.548156,
+          "chord_m": 0.423522,
+          "reynolds": 174425.920228,
+          "target_local_cl": 0.785272,
+          "avl_local_cl": 0.628073,
+          "avl_to_target_cl_ratio": 0.799816,
+          "target_circulation_norm": 0.237257,
+          "avl_circulation_norm": 0.158588,
+          "avl_to_target_circulation_ratio": 0.668424
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.615486,
+        "min_outer_circulation_ratio": 0.580193,
+        "mean_abs_outer_circulation_ratio_error": 0.384514,
+        "mean_outer_cl_ratio": 0.761365,
+        "min_outer_cl_ratio": 0.725262,
+        "mean_abs_outer_cl_gap": 0.228773
+      }
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae31",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.172715,
+        "trim_aoa_deg": -0.95086,
+        "trim_cl": 1.17272,
+        "trim_cd_induced": 0.01236,
+        "avl_e_cdi": 0.91541,
+        "avl_reported_e": 0.901,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0059_34.838_0.3335_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0059_34.838_0.3335_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.238765,
+        "rms_target_avl_circulation_norm_delta": 0.14377,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 17.419112,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.029253,
+          "target_minus_avl_circulation_norm": -0.029253
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 12.193378,
+          "chord_m": 0.820287,
+          "reynolds": 337832.072068,
+          "target_local_cl": 1.134465,
+          "avl_local_cl": 0.891652,
+          "avl_to_target_cl_ratio": 0.785967,
+          "target_circulation_norm": 0.663865,
+          "avl_circulation_norm": 0.4251,
+          "avl_to_target_circulation_ratio": 0.640341
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 14.283672,
+          "chord_m": 0.696985,
+          "reynolds": 287050.613688,
+          "target_local_cl": 0.998017,
+          "avl_local_cl": 0.772647,
+          "avl_to_target_cl_ratio": 0.774182,
+          "target_circulation_norm": 0.496232,
+          "avl_circulation_norm": 0.311962,
+          "avl_to_target_circulation_ratio": 0.628661
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.677201,
+          "chord_m": 0.565371,
+          "reynolds": 232845.889813,
+          "target_local_cl": 0.871815,
+          "avl_local_cl": 0.720838,
+          "avl_to_target_cl_ratio": 0.826824,
+          "target_circulation_norm": 0.351626,
+          "avl_circulation_norm": 0.234195,
+          "avl_to_target_circulation_ratio": 0.666033
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 16.548156,
+          "chord_m": 0.423522,
+          "reynolds": 174425.920228,
+          "target_local_cl": 0.785272,
+          "avl_local_cl": 0.676813,
+          "avl_to_target_cl_ratio": 0.861883,
+          "target_circulation_norm": 0.237257,
+          "avl_circulation_norm": 0.17347,
+          "avl_to_target_circulation_ratio": 0.731149
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.666546,
+        "min_outer_circulation_ratio": 0.628661,
+        "mean_abs_outer_circulation_ratio_error": 0.333454,
+        "mean_outer_cl_ratio": 0.812214,
+        "min_outer_cl_ratio": 0.774182,
+        "mean_abs_outer_cl_gap": 0.181905
+      }
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae41",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae41.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.172715,
+        "trim_aoa_deg": 0.11763,
+        "trim_cl": 1.17272,
+        "trim_cd_induced": 0.01449,
+        "avl_e_cdi": 0.780878,
+        "avl_reported_e": 0.771,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae41_sample_0059_34.838_0.3335_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae41_sample_0059_34.838_0.3335_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.359654,
+        "rms_target_avl_circulation_norm_delta": 0.207181,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 17.419112,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.016056,
+          "target_minus_avl_circulation_norm": -0.016056
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 12.193378,
+          "chord_m": 0.820287,
+          "reynolds": 337832.072068,
+          "target_local_cl": 1.134465,
+          "avl_local_cl": 0.687125,
+          "avl_to_target_cl_ratio": 0.605682,
+          "target_circulation_norm": 0.663865,
+          "avl_circulation_norm": 0.304211,
+          "avl_to_target_circulation_ratio": 0.458242
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 14.283672,
+          "chord_m": 0.696985,
+          "reynolds": 287050.613688,
+          "target_local_cl": 0.998017,
+          "avl_local_cl": 0.523398,
+          "avl_to_target_cl_ratio": 0.524438,
+          "target_circulation_norm": 0.496232,
+          "avl_circulation_norm": 0.196243,
+          "avl_to_target_circulation_ratio": 0.395467
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.677201,
+          "chord_m": 0.565371,
+          "reynolds": 232845.889813,
+          "target_local_cl": 0.871815,
+          "avl_local_cl": 0.467281,
+          "avl_to_target_cl_ratio": 0.535986,
+          "target_circulation_norm": 0.351626,
+          "avl_circulation_norm": 0.140981,
+          "avl_to_target_circulation_ratio": 0.40094
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 16.548156,
+          "chord_m": 0.423522,
+          "reynolds": 174425.920228,
+          "target_local_cl": 0.785272,
+          "avl_local_cl": 0.427155,
+          "avl_to_target_cl_ratio": 0.543958,
+          "target_circulation_norm": 0.237257,
+          "avl_circulation_norm": 0.101668,
+          "avl_to_target_circulation_ratio": 0.428515
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.420791,
+        "min_outer_circulation_ratio": 0.395467,
+        "mean_abs_outer_circulation_ratio_error": 0.579209,
+        "mean_outer_cl_ratio": 0.552516,
+        "min_outer_cl_ratio": 0.524438,
+        "mean_abs_outer_cl_gap": 0.421153
+      }
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "clarkysm",
+      "airfoil_role": "existing_reference_mid2_tip",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/data/airfoils/clarkysm.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.110934,
+        "trim_aoa_deg": -0.11423,
+        "trim_cl": 1.11093,
+        "trim_cd_induced": 0.014599,
+        "avl_e_cdi": 0.791019,
+        "avl_reported_e": 0.7894,
+        "avl_file_path": "output/birdman_outer_loading_diagnostic_smoke/avl_cases/valid_design_cruise_same_mass_hard_gates_passed_33.564_0.3987_opt_0034_0011/concept_wing.avl",
+        "avl_case_dir": "output/birdman_outer_loading_diagnostic_smoke/avl_cases/valid_design_cruise_same_mass_hard_gates_passed_33.564_0.3987_opt_0034_0011"
+      },
+      "avl_match_metrics": {
+        "max_delta_station": {
+          "avl_circulation_norm": 0.018162,
+          "eta": 1.0,
+          "target_circulation_norm": 0.0,
+          "target_minus_avl_circulation_norm": -0.018162,
+          "y_m": 16.782087
+        },
+        "max_target_avl_circulation_norm_delta": 0.295726,
+        "rms_target_avl_circulation_norm_delta": 0.158888,
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.747461,
+          "chord_m": 0.848957,
+          "reynolds": 349639.676043,
+          "target_local_cl": 1.105464,
+          "avl_local_cl": 0.697593,
+          "avl_to_target_cl_ratio": 0.631041,
+          "target_circulation_norm": 0.628301,
+          "avl_circulation_norm": 0.332575,
+          "avl_to_target_circulation_ratio": 0.529324
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.761311,
+          "chord_m": 0.726002,
+          "reynolds": 299000.951592,
+          "target_local_cl": 0.956823,
+          "avl_local_cl": 0.533063,
+          "avl_to_target_cl_ratio": 0.557118,
+          "target_circulation_norm": 0.465058,
+          "avl_circulation_norm": 0.21661,
+          "avl_to_target_circulation_ratio": 0.46577
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.103878,
+          "chord_m": 0.627386,
+          "reynolds": 258386.478975,
+          "target_local_cl": 0.782153,
+          "avl_local_cl": 0.459164,
+          "avl_to_target_cl_ratio": 0.587051,
+          "target_circulation_norm": 0.328522,
+          "avl_circulation_norm": 0.159042,
+          "avl_to_target_circulation_ratio": 0.484114
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.942982,
+          "chord_m": 0.500881,
+          "reynolds": 206286.02332,
+          "target_local_cl": 0.661332,
+          "avl_local_cl": 0.404067,
+          "avl_to_target_cl_ratio": 0.61099,
+          "target_circulation_norm": 0.221764,
+          "avl_circulation_norm": 0.116516,
+          "avl_to_target_circulation_ratio": 0.525405
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.501153,
+        "min_outer_circulation_ratio": 0.46577,
+        "mean_abs_outer_circulation_ratio_error": 0.498847,
+        "mean_outer_cl_ratio": 0.59655,
+        "min_outer_cl_ratio": 0.557118,
+        "mean_abs_outer_cl_gap": 0.352971
+      }
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae11",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae11.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.110934,
+        "trim_aoa_deg": -0.67248,
+        "trim_cl": 1.11093,
+        "trim_cd_induced": 0.013311,
+        "avl_e_cdi": 0.867541,
+        "avl_reported_e": 0.8647,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae11_sample_0034_33.564_0.3987_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae11_sample_0034_33.564_0.3987_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.228833,
+        "rms_target_avl_circulation_norm_delta": 0.119938,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.782087,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.024602,
+          "target_minus_avl_circulation_norm": -0.024602
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.747461,
+          "chord_m": 0.848957,
+          "reynolds": 349639.70221,
+          "target_local_cl": 1.105464,
+          "avl_local_cl": 0.805286,
+          "avl_to_target_cl_ratio": 0.72846,
+          "target_circulation_norm": 0.628301,
+          "avl_circulation_norm": 0.399468,
+          "avl_to_target_circulation_ratio": 0.635791
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.761311,
+          "chord_m": 0.726002,
+          "reynolds": 299001.154456,
+          "target_local_cl": 0.956823,
+          "avl_local_cl": 0.666788,
+          "avl_to_target_cl_ratio": 0.696877,
+          "target_circulation_norm": 0.465058,
+          "avl_circulation_norm": 0.281923,
+          "avl_to_target_circulation_ratio": 0.606212
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.103878,
+          "chord_m": 0.627386,
+          "reynolds": 258386.531015,
+          "target_local_cl": 0.782153,
+          "avl_local_cl": 0.593335,
+          "avl_to_target_cl_ratio": 0.758592,
+          "target_circulation_norm": 0.328522,
+          "avl_circulation_norm": 0.21384,
+          "avl_to_target_circulation_ratio": 0.650914
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.942982,
+          "chord_m": 0.500881,
+          "reynolds": 206285.929302,
+          "target_local_cl": 0.661333,
+          "avl_local_cl": 0.533128,
+          "avl_to_target_cl_ratio": 0.806141,
+          "target_circulation_norm": 0.221765,
+          "avl_circulation_norm": 0.159959,
+          "avl_to_target_circulation_ratio": 0.721298
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.653554,
+        "min_outer_circulation_ratio": 0.606212,
+        "mean_abs_outer_circulation_ratio_error": 0.346446,
+        "mean_outer_cl_ratio": 0.747517,
+        "min_outer_cl_ratio": 0.696877,
+        "mean_abs_outer_cl_gap": 0.226809
+      }
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae21",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae21.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.110934,
+        "trim_aoa_deg": -0.71733,
+        "trim_cl": 1.11093,
+        "trim_cd_induced": 0.013222,
+        "avl_e_cdi": 0.873348,
+        "avl_reported_e": 0.8703,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae21_sample_0034_33.564_0.3987_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae21_sample_0034_33.564_0.3987_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.223183,
+        "rms_target_avl_circulation_norm_delta": 0.11676,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.782087,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.025327,
+          "target_minus_avl_circulation_norm": -0.025327
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.747461,
+          "chord_m": 0.848957,
+          "reynolds": 349639.70221,
+          "target_local_cl": 1.105464,
+          "avl_local_cl": 0.81404,
+          "avl_to_target_cl_ratio": 0.736378,
+          "target_circulation_norm": 0.628301,
+          "avl_circulation_norm": 0.405118,
+          "avl_to_target_circulation_ratio": 0.644784
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.761311,
+          "chord_m": 0.726002,
+          "reynolds": 299001.154456,
+          "target_local_cl": 0.956823,
+          "avl_local_cl": 0.67748,
+          "avl_to_target_cl_ratio": 0.708052,
+          "target_circulation_norm": 0.465058,
+          "avl_circulation_norm": 0.287372,
+          "avl_to_target_circulation_ratio": 0.617928
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.103878,
+          "chord_m": 0.627386,
+          "reynolds": 258386.531015,
+          "target_local_cl": 0.782153,
+          "avl_local_cl": 0.604078,
+          "avl_to_target_cl_ratio": 0.772327,
+          "target_circulation_norm": 0.328522,
+          "avl_circulation_norm": 0.218417,
+          "avl_to_target_circulation_ratio": 0.664846
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.942982,
+          "chord_m": 0.500881,
+          "reynolds": 206285.929302,
+          "target_local_cl": 0.661333,
+          "avl_local_cl": 0.543511,
+          "avl_to_target_cl_ratio": 0.821841,
+          "target_circulation_norm": 0.221765,
+          "avl_circulation_norm": 0.163602,
+          "avl_to_target_circulation_ratio": 0.737728
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.666321,
+        "min_outer_circulation_ratio": 0.617928,
+        "mean_abs_outer_circulation_ratio_error": 0.333679,
+        "mean_outer_cl_ratio": 0.759649,
+        "min_outer_cl_ratio": 0.708052,
+        "mean_abs_outer_cl_gap": 0.216666
+      }
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae31",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.110934,
+        "trim_aoa_deg": -0.92064,
+        "trim_cl": 1.11093,
+        "trim_cd_induced": 0.012852,
+        "avl_e_cdi": 0.898511,
+        "avl_reported_e": 0.8949,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0034_33.564_0.3987_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0034_33.564_0.3987_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.197055,
+        "rms_target_avl_circulation_norm_delta": 0.102267,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.782087,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.028718,
+          "target_minus_avl_circulation_norm": -0.028718
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.747461,
+          "chord_m": 0.848957,
+          "reynolds": 349639.70221,
+          "target_local_cl": 1.105464,
+          "avl_local_cl": 0.853655,
+          "avl_to_target_cl_ratio": 0.772214,
+          "target_circulation_norm": 0.628301,
+          "avl_circulation_norm": 0.431246,
+          "avl_to_target_circulation_ratio": 0.686369
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.761311,
+          "chord_m": 0.726002,
+          "reynolds": 299001.154456,
+          "target_local_cl": 0.956823,
+          "avl_local_cl": 0.726158,
+          "avl_to_target_cl_ratio": 0.758926,
+          "target_circulation_norm": 0.465058,
+          "avl_circulation_norm": 0.31267,
+          "avl_to_target_circulation_ratio": 0.672324
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.103878,
+          "chord_m": 0.627386,
+          "reynolds": 258386.531015,
+          "target_local_cl": 0.782153,
+          "avl_local_cl": 0.652849,
+          "avl_to_target_cl_ratio": 0.834682,
+          "target_circulation_norm": 0.328522,
+          "avl_circulation_norm": 0.239614,
+          "avl_to_target_circulation_ratio": 0.72937
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.942982,
+          "chord_m": 0.500881,
+          "reynolds": 206285.929302,
+          "target_local_cl": 0.661333,
+          "avl_local_cl": 0.590479,
+          "avl_to_target_cl_ratio": 0.892862,
+          "target_circulation_norm": 0.221765,
+          "avl_circulation_norm": 0.180423,
+          "avl_to_target_circulation_ratio": 0.813578
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.72541,
+        "min_outer_circulation_ratio": 0.672324,
+        "mean_abs_outer_circulation_ratio_error": 0.27459,
+        "mean_outer_cl_ratio": 0.814671,
+        "min_outer_cl_ratio": 0.758926,
+        "mean_abs_outer_cl_gap": 0.170658
+      }
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae41",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae41.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.110934,
+        "trim_aoa_deg": 0.11841,
+        "trim_cl": 1.11093,
+        "trim_cd_induced": 0.015242,
+        "avl_e_cdi": 0.757613,
+        "avl_reported_e": 0.7564,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae41_sample_0034_33.564_0.3987_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae41_sample_0034_33.564_0.3987_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.322086,
+        "rms_target_avl_circulation_norm_delta": 0.174521,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.782087,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.014747,
+          "target_minus_avl_circulation_norm": -0.014747
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.747461,
+          "chord_m": 0.848957,
+          "reynolds": 349639.70221,
+          "target_local_cl": 1.105464,
+          "avl_local_cl": 0.652675,
+          "avl_to_target_cl_ratio": 0.590409,
+          "target_circulation_norm": 0.628301,
+          "avl_circulation_norm": 0.306216,
+          "avl_to_target_circulation_ratio": 0.487371
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.761311,
+          "chord_m": 0.726002,
+          "reynolds": 299001.154456,
+          "target_local_cl": 0.956823,
+          "avl_local_cl": 0.477647,
+          "avl_to_target_cl_ratio": 0.499201,
+          "target_circulation_norm": 0.465058,
+          "avl_circulation_norm": 0.191007,
+          "avl_to_target_circulation_ratio": 0.410716
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.103878,
+          "chord_m": 0.627386,
+          "reynolds": 258386.531015,
+          "target_local_cl": 0.782153,
+          "avl_local_cl": 0.403493,
+          "avl_to_target_cl_ratio": 0.515874,
+          "target_circulation_norm": 0.328522,
+          "avl_circulation_norm": 0.137538,
+          "avl_to_target_circulation_ratio": 0.418656
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.942982,
+          "chord_m": 0.500881,
+          "reynolds": 206285.929302,
+          "target_local_cl": 0.661333,
+          "avl_local_cl": 0.35037,
+          "avl_to_target_cl_ratio": 0.529793,
+          "target_circulation_norm": 0.221765,
+          "avl_circulation_norm": 0.099426,
+          "avl_to_target_circulation_ratio": 0.448341
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.441271,
+        "min_outer_circulation_ratio": 0.410716,
+        "mean_abs_outer_circulation_ratio_error": 0.558729,
+        "mean_outer_cl_ratio": 0.533819,
+        "min_outer_cl_ratio": 0.499201,
+        "mean_abs_outer_cl_gap": 0.405397
+      }
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "clarkysm",
+      "airfoil_role": "existing_reference_mid2_tip",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/data/airfoils/clarkysm.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.227404,
+        "trim_aoa_deg": 0.87879,
+        "trim_cl": 1.2274,
+        "trim_cd_induced": 0.015866,
+        "avl_e_cdi": 0.824355,
+        "avl_reported_e": 0.8174,
+        "avl_file_path": "output/birdman_outer_loading_diagnostic_smoke/avl_cases/valid_design_cruise_same_mass_hard_gates_passed_33.150_0.3915_opt_0055_0009/concept_wing.avl",
+        "avl_case_dir": "output/birdman_outer_loading_diagnostic_smoke/avl_cases/valid_design_cruise_same_mass_hard_gates_passed_33.150_0.3915_opt_0055_0009"
+      },
+      "avl_match_metrics": {
+        "max_delta_station": {
+          "avl_circulation_norm": 0.020719,
+          "eta": 1.0,
+          "target_circulation_norm": 0.0,
+          "target_minus_avl_circulation_norm": -0.020719,
+          "y_m": 16.574958
+        },
+        "max_target_avl_circulation_norm_delta": 0.25922,
+        "rms_target_avl_circulation_norm_delta": 0.149556,
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.602471,
+          "chord_m": 0.795703,
+          "reynolds": 327707.398865,
+          "target_local_cl": 1.153957,
+          "avl_local_cl": 0.788187,
+          "avl_to_target_cl_ratio": 0.68303,
+          "target_circulation_norm": 0.58941,
+          "avl_circulation_norm": 0.33019,
+          "avl_to_target_circulation_ratio": 0.560204
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.591466,
+          "chord_m": 0.706263,
+          "reynolds": 290871.733348,
+          "target_local_cl": 0.990773,
+          "avl_local_cl": 0.623088,
+          "avl_to_target_cl_ratio": 0.628891,
+          "target_circulation_norm": 0.449177,
+          "avl_circulation_norm": 0.230849,
+          "avl_to_target_circulation_ratio": 0.513938
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 14.917462,
+          "chord_m": 0.614967,
+          "reynolds": 253271.919575,
+          "target_local_cl": 0.842454,
+          "avl_local_cl": 0.555878,
+          "avl_to_target_cl_ratio": 0.659832,
+          "target_circulation_norm": 0.332564,
+          "avl_circulation_norm": 0.177355,
+          "avl_to_target_circulation_ratio": 0.533296
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.74621,
+          "chord_m": 0.494051,
+          "reynolds": 203472.851308,
+          "target_local_cl": 0.740929,
+          "avl_local_cl": 0.501822,
+          "avl_to_target_cl_ratio": 0.677288,
+          "target_circulation_norm": 0.234977,
+          "avl_circulation_norm": 0.134038,
+          "avl_to_target_circulation_ratio": 0.57043
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.544467,
+        "min_outer_circulation_ratio": 0.513938,
+        "mean_abs_outer_circulation_ratio_error": 0.455533,
+        "mean_outer_cl_ratio": 0.66226,
+        "min_outer_cl_ratio": 0.628891,
+        "mean_abs_outer_cl_gap": 0.314784
+      }
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae11",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae11.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.227404,
+        "trim_aoa_deg": 0.29749,
+        "trim_cl": 1.2274,
+        "trim_cd_induced": 0.014666,
+        "avl_e_cdi": 0.891835,
+        "avl_reported_e": 0.8831,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae11_sample_0055_33.150_0.3915_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae11_sample_0055_33.150_0.3915_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.199421,
+        "rms_target_avl_circulation_norm_delta": 0.116316,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.574958,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.026739,
+          "target_minus_avl_circulation_norm": -0.026739
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.602471,
+          "chord_m": 0.795703,
+          "reynolds": 327707.24544,
+          "target_local_cl": 1.153957,
+          "avl_local_cl": 0.896478,
+          "avl_to_target_cl_ratio": 0.776873,
+          "target_circulation_norm": 0.58941,
+          "avl_circulation_norm": 0.38999,
+          "avl_to_target_circulation_ratio": 0.661661
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.591466,
+          "chord_m": 0.706263,
+          "reynolds": 290871.722598,
+          "target_local_cl": 0.990773,
+          "avl_local_cl": 0.755128,
+          "avl_to_target_cl_ratio": 0.76216,
+          "target_circulation_norm": 0.449177,
+          "avl_circulation_norm": 0.29052,
+          "avl_to_target_circulation_ratio": 0.646783
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 14.917462,
+          "chord_m": 0.614967,
+          "reynolds": 253271.813235,
+          "target_local_cl": 0.842456,
+          "avl_local_cl": 0.688149,
+          "avl_to_target_cl_ratio": 0.816837,
+          "target_circulation_norm": 0.332565,
+          "avl_circulation_norm": 0.227995,
+          "avl_to_target_circulation_ratio": 0.685565
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.74621,
+          "chord_m": 0.494051,
+          "reynolds": 203473.019854,
+          "target_local_cl": 0.74093,
+          "avl_local_cl": 0.628983,
+          "avl_to_target_cl_ratio": 0.84891,
+          "target_circulation_norm": 0.234977,
+          "avl_circulation_norm": 0.17446,
+          "avl_to_target_circulation_ratio": 0.742454
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.684116,
+        "min_outer_circulation_ratio": 0.646783,
+        "mean_abs_outer_circulation_ratio_error": 0.315884,
+        "mean_outer_cl_ratio": 0.801195,
+        "min_outer_cl_ratio": 0.76216,
+        "mean_abs_outer_cl_gap": 0.189845
+      }
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae21",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae21.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.227404,
+        "trim_aoa_deg": 0.25077,
+        "trim_cl": 1.2274,
+        "trim_cd_induced": 0.014585,
+        "avl_e_cdi": 0.896794,
+        "avl_reported_e": 0.8879,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae21_sample_0055_33.150_0.3915_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae21_sample_0055_33.150_0.3915_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.19439,
+        "rms_target_avl_circulation_norm_delta": 0.113685,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.574958,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.02739,
+          "target_minus_avl_circulation_norm": -0.02739
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.602471,
+          "chord_m": 0.795703,
+          "reynolds": 327707.24544,
+          "target_local_cl": 1.153957,
+          "avl_local_cl": 0.905282,
+          "avl_to_target_cl_ratio": 0.784502,
+          "target_circulation_norm": 0.58941,
+          "avl_circulation_norm": 0.395021,
+          "avl_to_target_circulation_ratio": 0.670196
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.591466,
+          "chord_m": 0.706263,
+          "reynolds": 290871.722598,
+          "target_local_cl": 0.990773,
+          "avl_local_cl": 0.76572,
+          "avl_to_target_cl_ratio": 0.772851,
+          "target_circulation_norm": 0.449177,
+          "avl_circulation_norm": 0.295494,
+          "avl_to_target_circulation_ratio": 0.657857
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 14.917462,
+          "chord_m": 0.614967,
+          "reynolds": 253271.813235,
+          "target_local_cl": 0.842456,
+          "avl_local_cl": 0.698792,
+          "avl_to_target_cl_ratio": 0.82947,
+          "target_circulation_norm": 0.332565,
+          "avl_circulation_norm": 0.232227,
+          "avl_to_target_circulation_ratio": 0.698292
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.74621,
+          "chord_m": 0.494051,
+          "reynolds": 203473.019854,
+          "target_local_cl": 0.74093,
+          "avl_local_cl": 0.639166,
+          "avl_to_target_cl_ratio": 0.862653,
+          "target_circulation_norm": 0.234977,
+          "avl_circulation_norm": 0.177825,
+          "avl_to_target_circulation_ratio": 0.756776
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.69578,
+        "min_outer_circulation_ratio": 0.657857,
+        "mean_abs_outer_circulation_ratio_error": 0.30422,
+        "mean_outer_cl_ratio": 0.812369,
+        "min_outer_cl_ratio": 0.772851,
+        "mean_abs_outer_cl_gap": 0.179789
+      }
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae31",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.227404,
+        "trim_aoa_deg": 0.03903,
+        "trim_cl": 1.2274,
+        "trim_cd_induced": 0.014248,
+        "avl_e_cdi": 0.918006,
+        "avl_reported_e": 0.9084,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0055_33.150_0.3915_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0055_33.150_0.3915_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.171107,
+        "rms_target_avl_circulation_norm_delta": 0.101819,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.574958,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.030562,
+          "target_minus_avl_circulation_norm": -0.030562
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.602471,
+          "chord_m": 0.795703,
+          "reynolds": 327707.24544,
+          "target_local_cl": 1.153957,
+          "avl_local_cl": 0.945147,
+          "avl_to_target_cl_ratio": 0.819048,
+          "target_circulation_norm": 0.58941,
+          "avl_circulation_norm": 0.418303,
+          "avl_to_target_circulation_ratio": 0.709698
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.591466,
+          "chord_m": 0.706263,
+          "reynolds": 290871.722598,
+          "target_local_cl": 0.990773,
+          "avl_local_cl": 0.813805,
+          "avl_to_target_cl_ratio": 0.821384,
+          "target_circulation_norm": 0.449177,
+          "avl_circulation_norm": 0.318534,
+          "avl_to_target_circulation_ratio": 0.709149
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 14.917462,
+          "chord_m": 0.614967,
+          "reynolds": 253271.813235,
+          "target_local_cl": 0.842456,
+          "avl_local_cl": 0.746849,
+          "avl_to_target_cl_ratio": 0.886514,
+          "target_circulation_norm": 0.332565,
+          "avl_circulation_norm": 0.251741,
+          "avl_to_target_circulation_ratio": 0.756969
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.74621,
+          "chord_m": 0.494051,
+          "reynolds": 203473.019854,
+          "target_local_cl": 0.74093,
+          "avl_local_cl": 0.685488,
+          "avl_to_target_cl_ratio": 0.925172,
+          "target_circulation_norm": 0.234977,
+          "avl_circulation_norm": 0.193435,
+          "avl_to_target_circulation_ratio": 0.823208
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.749756,
+        "min_outer_circulation_ratio": 0.709149,
+        "mean_abs_outer_circulation_ratio_error": 0.250244,
+        "mean_outer_cl_ratio": 0.86303,
+        "min_outer_cl_ratio": 0.819048,
+        "mean_abs_outer_cl_gap": 0.134207
+      }
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae41",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae41.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.227404,
+        "trim_aoa_deg": 1.12107,
+        "trim_cl": 1.2274,
+        "trim_cd_induced": 0.016473,
+        "avl_e_cdi": 0.793984,
+        "avl_reported_e": 0.7878,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae41_sample_0055_33.150_0.3915_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae41_sample_0055_33.150_0.3915_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.282896,
+        "rms_target_avl_circulation_norm_delta": 0.163235,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.574958,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.017555,
+          "target_minus_avl_circulation_norm": -0.017555
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.602471,
+          "chord_m": 0.795703,
+          "reynolds": 327707.24544,
+          "target_local_cl": 1.153957,
+          "avl_local_cl": 0.74297,
+          "avl_to_target_cl_ratio": 0.643845,
+          "target_circulation_norm": 0.58941,
+          "avl_circulation_norm": 0.306514,
+          "avl_to_target_circulation_ratio": 0.520035
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.591466,
+          "chord_m": 0.706263,
+          "reynolds": 290871.722598,
+          "target_local_cl": 0.990773,
+          "avl_local_cl": 0.568318,
+          "avl_to_target_cl_ratio": 0.573611,
+          "target_circulation_norm": 0.449177,
+          "avl_circulation_norm": 0.207355,
+          "avl_to_target_circulation_ratio": 0.461632
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 14.917462,
+          "chord_m": 0.614967,
+          "reynolds": 253271.813235,
+          "target_local_cl": 0.842456,
+          "avl_local_cl": 0.501007,
+          "avl_to_target_cl_ratio": 0.594698,
+          "target_circulation_norm": 0.332565,
+          "avl_circulation_norm": 0.157417,
+          "avl_to_target_circulation_ratio": 0.473343
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.74621,
+          "chord_m": 0.494051,
+          "reynolds": 203473.019854,
+          "target_local_cl": 0.74093,
+          "avl_local_cl": 0.44898,
+          "avl_to_target_cl_ratio": 0.605967,
+          "target_circulation_norm": 0.234977,
+          "avl_circulation_norm": 0.1181,
+          "avl_to_target_circulation_ratio": 0.502601
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.489403,
+        "min_outer_circulation_ratio": 0.461632,
+        "mean_abs_outer_circulation_ratio_error": 0.510597,
+        "mean_outer_cl_ratio": 0.60453,
+        "min_outer_cl_ratio": 0.573611,
+        "mean_abs_outer_cl_gap": 0.366711
+      }
+    }
+  ],
+  "summary_rows": [
+    {
+      "sample_index": 59,
+      "outer_airfoil": "clarkysm",
+      "status": "ok",
+      "e_CDi": 0.813432,
+      "CDi": 0.01391,
+      "trim_alpha_deg": -0.12135,
+      "match_rms_delta": 0.193273,
+      "match_max_delta": 0.334178,
+      "outer_mean_circ_ratio": 0.472532,
+      "outer_min_circ_ratio": 0.444545,
+      "outer_mean_cl_ratio": 0.610438,
+      "eta70_cl": 0.732792,
+      "eta82_cl": 0.578968,
+      "eta90_cl": 0.523781,
+      "eta95_cl": 0.482869
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae11",
+      "status": "ok",
+      "e_CDi": 0.886652,
+      "CDi": 0.012761,
+      "trim_alpha_deg": -0.69568,
+      "match_rms_delta": 0.159045,
+      "match_max_delta": 0.269504,
+      "outer_mean_circ_ratio": 0.604457,
+      "outer_min_circ_ratio": 0.569761,
+      "outer_mean_cl_ratio": 0.750181,
+      "eta70_cl": 0.842384,
+      "eta82_cl": 0.713131,
+      "eta90_cl": 0.660395,
+      "eta95_cl": 0.617336
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae21",
+      "status": "ok",
+      "e_CDi": 0.892084,
+      "CDi": 0.012684,
+      "trim_alpha_deg": -0.74175,
+      "match_rms_delta": 0.156286,
+      "match_max_delta": 0.264035,
+      "outer_mean_circ_ratio": 0.615486,
+      "outer_min_circ_ratio": 0.580193,
+      "outer_mean_cl_ratio": 0.761365,
+      "eta70_cl": 0.851287,
+      "eta82_cl": 0.723824,
+      "eta90_cl": 0.671295,
+      "eta95_cl": 0.628073
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae31",
+      "status": "ok",
+      "e_CDi": 0.91541,
+      "CDi": 0.01236,
+      "trim_alpha_deg": -0.95086,
+      "match_rms_delta": 0.14377,
+      "match_max_delta": 0.238765,
+      "outer_mean_circ_ratio": 0.666546,
+      "outer_min_circ_ratio": 0.628661,
+      "outer_mean_cl_ratio": 0.812214,
+      "eta70_cl": 0.891652,
+      "eta82_cl": 0.772647,
+      "eta90_cl": 0.720838,
+      "eta95_cl": 0.676813
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae41",
+      "status": "ok",
+      "e_CDi": 0.780878,
+      "CDi": 0.01449,
+      "trim_alpha_deg": 0.11763,
+      "match_rms_delta": 0.207181,
+      "match_max_delta": 0.359654,
+      "outer_mean_circ_ratio": 0.420791,
+      "outer_min_circ_ratio": 0.395467,
+      "outer_mean_cl_ratio": 0.552516,
+      "eta70_cl": 0.687125,
+      "eta82_cl": 0.523398,
+      "eta90_cl": 0.467281,
+      "eta95_cl": 0.427155
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "clarkysm",
+      "status": "ok",
+      "e_CDi": 0.791019,
+      "CDi": 0.014599,
+      "trim_alpha_deg": -0.11423,
+      "match_rms_delta": 0.158888,
+      "match_max_delta": 0.295726,
+      "outer_mean_circ_ratio": 0.501153,
+      "outer_min_circ_ratio": 0.46577,
+      "outer_mean_cl_ratio": 0.59655,
+      "eta70_cl": 0.697593,
+      "eta82_cl": 0.533063,
+      "eta90_cl": 0.459164,
+      "eta95_cl": 0.404067
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae11",
+      "status": "ok",
+      "e_CDi": 0.867541,
+      "CDi": 0.013311,
+      "trim_alpha_deg": -0.67248,
+      "match_rms_delta": 0.119938,
+      "match_max_delta": 0.228833,
+      "outer_mean_circ_ratio": 0.653554,
+      "outer_min_circ_ratio": 0.606212,
+      "outer_mean_cl_ratio": 0.747517,
+      "eta70_cl": 0.805286,
+      "eta82_cl": 0.666788,
+      "eta90_cl": 0.593335,
+      "eta95_cl": 0.533128
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae21",
+      "status": "ok",
+      "e_CDi": 0.873348,
+      "CDi": 0.013222,
+      "trim_alpha_deg": -0.71733,
+      "match_rms_delta": 0.11676,
+      "match_max_delta": 0.223183,
+      "outer_mean_circ_ratio": 0.666321,
+      "outer_min_circ_ratio": 0.617928,
+      "outer_mean_cl_ratio": 0.759649,
+      "eta70_cl": 0.81404,
+      "eta82_cl": 0.67748,
+      "eta90_cl": 0.604078,
+      "eta95_cl": 0.543511
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae31",
+      "status": "ok",
+      "e_CDi": 0.898511,
+      "CDi": 0.012852,
+      "trim_alpha_deg": -0.92064,
+      "match_rms_delta": 0.102267,
+      "match_max_delta": 0.197055,
+      "outer_mean_circ_ratio": 0.72541,
+      "outer_min_circ_ratio": 0.672324,
+      "outer_mean_cl_ratio": 0.814671,
+      "eta70_cl": 0.853655,
+      "eta82_cl": 0.726158,
+      "eta90_cl": 0.652849,
+      "eta95_cl": 0.590479
+    },
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae41",
+      "status": "ok",
+      "e_CDi": 0.757613,
+      "CDi": 0.015242,
+      "trim_alpha_deg": 0.11841,
+      "match_rms_delta": 0.174521,
+      "match_max_delta": 0.322086,
+      "outer_mean_circ_ratio": 0.441271,
+      "outer_min_circ_ratio": 0.410716,
+      "outer_mean_cl_ratio": 0.533819,
+      "eta70_cl": 0.652675,
+      "eta82_cl": 0.477647,
+      "eta90_cl": 0.403493,
+      "eta95_cl": 0.35037
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "clarkysm",
+      "status": "ok",
+      "e_CDi": 0.824355,
+      "CDi": 0.015866,
+      "trim_alpha_deg": 0.87879,
+      "match_rms_delta": 0.149556,
+      "match_max_delta": 0.25922,
+      "outer_mean_circ_ratio": 0.544467,
+      "outer_min_circ_ratio": 0.513938,
+      "outer_mean_cl_ratio": 0.66226,
+      "eta70_cl": 0.788187,
+      "eta82_cl": 0.623088,
+      "eta90_cl": 0.555878,
+      "eta95_cl": 0.501822
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae11",
+      "status": "ok",
+      "e_CDi": 0.891835,
+      "CDi": 0.014666,
+      "trim_alpha_deg": 0.29749,
+      "match_rms_delta": 0.116316,
+      "match_max_delta": 0.199421,
+      "outer_mean_circ_ratio": 0.684116,
+      "outer_min_circ_ratio": 0.646783,
+      "outer_mean_cl_ratio": 0.801195,
+      "eta70_cl": 0.896478,
+      "eta82_cl": 0.755128,
+      "eta90_cl": 0.688149,
+      "eta95_cl": 0.628983
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae21",
+      "status": "ok",
+      "e_CDi": 0.896794,
+      "CDi": 0.014585,
+      "trim_alpha_deg": 0.25077,
+      "match_rms_delta": 0.113685,
+      "match_max_delta": 0.19439,
+      "outer_mean_circ_ratio": 0.69578,
+      "outer_min_circ_ratio": 0.657857,
+      "outer_mean_cl_ratio": 0.812369,
+      "eta70_cl": 0.905282,
+      "eta82_cl": 0.76572,
+      "eta90_cl": 0.698792,
+      "eta95_cl": 0.639166
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae31",
+      "status": "ok",
+      "e_CDi": 0.918006,
+      "CDi": 0.014248,
+      "trim_alpha_deg": 0.03903,
+      "match_rms_delta": 0.101819,
+      "match_max_delta": 0.171107,
+      "outer_mean_circ_ratio": 0.749756,
+      "outer_min_circ_ratio": 0.709149,
+      "outer_mean_cl_ratio": 0.86303,
+      "eta70_cl": 0.945147,
+      "eta82_cl": 0.813805,
+      "eta90_cl": 0.746849,
+      "eta95_cl": 0.685488
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae41",
+      "status": "ok",
+      "e_CDi": 0.793984,
+      "CDi": 0.016473,
+      "trim_alpha_deg": 1.12107,
+      "match_rms_delta": 0.163235,
+      "match_max_delta": 0.282896,
+      "outer_mean_circ_ratio": 0.489403,
+      "outer_min_circ_ratio": 0.461632,
+      "outer_mean_cl_ratio": 0.60453,
+      "eta70_cl": 0.74297,
+      "eta82_cl": 0.568318,
+      "eta90_cl": 0.501007,
+      "eta95_cl": 0.44898
+    }
+  ],
+  "best_dae_per_sample": [
+    {
+      "sample_index": 34,
+      "outer_airfoil": "dae31",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.110934,
+        "trim_aoa_deg": -0.92064,
+        "trim_cl": 1.11093,
+        "trim_cd_induced": 0.012852,
+        "avl_e_cdi": 0.898511,
+        "avl_reported_e": 0.8949,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0034_33.564_0.3987_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0034_33.564_0.3987_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.197055,
+        "rms_target_avl_circulation_norm_delta": 0.102267,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.782087,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.028718,
+          "target_minus_avl_circulation_norm": -0.028718
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.747461,
+          "chord_m": 0.848957,
+          "reynolds": 349639.70221,
+          "target_local_cl": 1.105464,
+          "avl_local_cl": 0.853655,
+          "avl_to_target_cl_ratio": 0.772214,
+          "target_circulation_norm": 0.628301,
+          "avl_circulation_norm": 0.431246,
+          "avl_to_target_circulation_ratio": 0.686369
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.761311,
+          "chord_m": 0.726002,
+          "reynolds": 299001.154456,
+          "target_local_cl": 0.956823,
+          "avl_local_cl": 0.726158,
+          "avl_to_target_cl_ratio": 0.758926,
+          "target_circulation_norm": 0.465058,
+          "avl_circulation_norm": 0.31267,
+          "avl_to_target_circulation_ratio": 0.672324
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.103878,
+          "chord_m": 0.627386,
+          "reynolds": 258386.531015,
+          "target_local_cl": 0.782153,
+          "avl_local_cl": 0.652849,
+          "avl_to_target_cl_ratio": 0.834682,
+          "target_circulation_norm": 0.328522,
+          "avl_circulation_norm": 0.239614,
+          "avl_to_target_circulation_ratio": 0.72937
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.942982,
+          "chord_m": 0.500881,
+          "reynolds": 206285.929302,
+          "target_local_cl": 0.661333,
+          "avl_local_cl": 0.590479,
+          "avl_to_target_cl_ratio": 0.892862,
+          "target_circulation_norm": 0.221765,
+          "avl_circulation_norm": 0.180423,
+          "avl_to_target_circulation_ratio": 0.813578
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.72541,
+        "min_outer_circulation_ratio": 0.672324,
+        "mean_abs_outer_circulation_ratio_error": 0.27459,
+        "mean_outer_cl_ratio": 0.814671,
+        "min_outer_cl_ratio": 0.758926,
+        "mean_abs_outer_cl_gap": 0.170658
+      }
+    },
+    {
+      "sample_index": 55,
+      "outer_airfoil": "dae31",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.227404,
+        "trim_aoa_deg": 0.03903,
+        "trim_cl": 1.2274,
+        "trim_cd_induced": 0.014248,
+        "avl_e_cdi": 0.918006,
+        "avl_reported_e": 0.9084,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0055_33.150_0.3915_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0055_33.150_0.3915_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.171107,
+        "rms_target_avl_circulation_norm_delta": 0.101819,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 16.574958,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.030562,
+          "target_minus_avl_circulation_norm": -0.030562
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 11.602471,
+          "chord_m": 0.795703,
+          "reynolds": 327707.24544,
+          "target_local_cl": 1.153957,
+          "avl_local_cl": 0.945147,
+          "avl_to_target_cl_ratio": 0.819048,
+          "target_circulation_norm": 0.58941,
+          "avl_circulation_norm": 0.418303,
+          "avl_to_target_circulation_ratio": 0.709698
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 13.591466,
+          "chord_m": 0.706263,
+          "reynolds": 290871.722598,
+          "target_local_cl": 0.990773,
+          "avl_local_cl": 0.813805,
+          "avl_to_target_cl_ratio": 0.821384,
+          "target_circulation_norm": 0.449177,
+          "avl_circulation_norm": 0.318534,
+          "avl_to_target_circulation_ratio": 0.709149
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 14.917462,
+          "chord_m": 0.614967,
+          "reynolds": 253271.813235,
+          "target_local_cl": 0.842456,
+          "avl_local_cl": 0.746849,
+          "avl_to_target_cl_ratio": 0.886514,
+          "target_circulation_norm": 0.332565,
+          "avl_circulation_norm": 0.251741,
+          "avl_to_target_circulation_ratio": 0.756969
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 15.74621,
+          "chord_m": 0.494051,
+          "reynolds": 203473.019854,
+          "target_local_cl": 0.74093,
+          "avl_local_cl": 0.685488,
+          "avl_to_target_cl_ratio": 0.925172,
+          "target_circulation_norm": 0.234977,
+          "avl_circulation_norm": 0.193435,
+          "avl_to_target_circulation_ratio": 0.823208
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.749756,
+        "min_outer_circulation_ratio": 0.709149,
+        "mean_abs_outer_circulation_ratio_error": 0.250244,
+        "mean_outer_cl_ratio": 0.86303,
+        "min_outer_cl_ratio": 0.819048,
+        "mean_abs_outer_cl_gap": 0.134207
+      }
+    },
+    {
+      "sample_index": 59,
+      "outer_airfoil": "dae31",
+      "airfoil_role": "dae_mid2_tip_with_fx76mp140_root_mid1",
+      "airfoil_path": "/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat",
+      "status": "ok",
+      "avl_reference_case": {
+        "cl_required": 1.172715,
+        "trim_aoa_deg": -0.95086,
+        "trim_cl": 1.17272,
+        "trim_cd_induced": 0.01236,
+        "avl_e_cdi": 0.91541,
+        "avl_reported_e": 0.901,
+        "avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0059_34.838_0.3335_mid2_tip/concept_wing.avl",
+        "avl_case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/dae_outer_airfoil_avl_match/avl_cases/dae_outer_dae31_sample_0059_34.838_0.3335_mid2_tip"
+      },
+      "avl_match_metrics": {
+        "max_target_avl_circulation_norm_delta": 0.238765,
+        "rms_target_avl_circulation_norm_delta": 0.14377,
+        "max_delta_station": {
+          "eta": 1.0,
+          "y_m": 17.419112,
+          "target_circulation_norm": 0.0,
+          "avl_circulation_norm": 0.029253,
+          "target_minus_avl_circulation_norm": -0.029253
+        },
+        "target_avl_delta_success": false,
+        "target_avl_rms_delta_preferred": false
+      },
+      "outer_samples": {
+        "0.70": {
+          "station_eta": 0.7,
+          "y_m": 12.193378,
+          "chord_m": 0.820287,
+          "reynolds": 337832.072068,
+          "target_local_cl": 1.134465,
+          "avl_local_cl": 0.891652,
+          "avl_to_target_cl_ratio": 0.785967,
+          "target_circulation_norm": 0.663865,
+          "avl_circulation_norm": 0.4251,
+          "avl_to_target_circulation_ratio": 0.640341
+        },
+        "0.82": {
+          "station_eta": 0.82,
+          "y_m": 14.283672,
+          "chord_m": 0.696985,
+          "reynolds": 287050.613688,
+          "target_local_cl": 0.998017,
+          "avl_local_cl": 0.772647,
+          "avl_to_target_cl_ratio": 0.774182,
+          "target_circulation_norm": 0.496232,
+          "avl_circulation_norm": 0.311962,
+          "avl_to_target_circulation_ratio": 0.628661
+        },
+        "0.90": {
+          "station_eta": 0.9,
+          "y_m": 15.677201,
+          "chord_m": 0.565371,
+          "reynolds": 232845.889813,
+          "target_local_cl": 0.871815,
+          "avl_local_cl": 0.720838,
+          "avl_to_target_cl_ratio": 0.826824,
+          "target_circulation_norm": 0.351626,
+          "avl_circulation_norm": 0.234195,
+          "avl_to_target_circulation_ratio": 0.666033
+        },
+        "0.95": {
+          "station_eta": 0.95,
+          "y_m": 16.548156,
+          "chord_m": 0.423522,
+          "reynolds": 174425.920228,
+          "target_local_cl": 0.785272,
+          "avl_local_cl": 0.676813,
+          "avl_to_target_cl_ratio": 0.861883,
+          "target_circulation_norm": 0.237257,
+          "avl_circulation_norm": 0.17347,
+          "avl_to_target_circulation_ratio": 0.731149
+        }
+      },
+      "outer_summary": {
+        "mean_outer_circulation_ratio": 0.666546,
+        "min_outer_circulation_ratio": 0.628661,
+        "mean_abs_outer_circulation_ratio_error": 0.333454,
+        "mean_outer_cl_ratio": 0.812214,
+        "min_outer_cl_ratio": 0.774182,
+        "mean_abs_outer_cl_gap": 0.181905
+      }
+    }
+  ],
+  "target_vs_best_cl_rows": [
+    {
+      "sample_index": 34,
+      "eta": "0.70",
+      "target_cl": 1.105464,
+      "clarkysm_cl": 0.697593,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.853655,
+      "best_dae_cl_ratio": 0.772214,
+      "best_dae_gamma_ratio": 0.686369
+    },
+    {
+      "sample_index": 34,
+      "eta": "0.82",
+      "target_cl": 0.956823,
+      "clarkysm_cl": 0.533063,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.726158,
+      "best_dae_cl_ratio": 0.758926,
+      "best_dae_gamma_ratio": 0.672324
+    },
+    {
+      "sample_index": 34,
+      "eta": "0.90",
+      "target_cl": 0.782153,
+      "clarkysm_cl": 0.459164,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.652849,
+      "best_dae_cl_ratio": 0.834682,
+      "best_dae_gamma_ratio": 0.72937
+    },
+    {
+      "sample_index": 34,
+      "eta": "0.95",
+      "target_cl": 0.661332,
+      "clarkysm_cl": 0.404067,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.590479,
+      "best_dae_cl_ratio": 0.892862,
+      "best_dae_gamma_ratio": 0.813578
+    },
+    {
+      "sample_index": 55,
+      "eta": "0.70",
+      "target_cl": 1.153957,
+      "clarkysm_cl": 0.788187,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.945147,
+      "best_dae_cl_ratio": 0.819048,
+      "best_dae_gamma_ratio": 0.709698
+    },
+    {
+      "sample_index": 55,
+      "eta": "0.82",
+      "target_cl": 0.990773,
+      "clarkysm_cl": 0.623088,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.813805,
+      "best_dae_cl_ratio": 0.821384,
+      "best_dae_gamma_ratio": 0.709149
+    },
+    {
+      "sample_index": 55,
+      "eta": "0.90",
+      "target_cl": 0.842454,
+      "clarkysm_cl": 0.555878,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.746849,
+      "best_dae_cl_ratio": 0.886514,
+      "best_dae_gamma_ratio": 0.756969
+    },
+    {
+      "sample_index": 55,
+      "eta": "0.95",
+      "target_cl": 0.740929,
+      "clarkysm_cl": 0.501822,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.685488,
+      "best_dae_cl_ratio": 0.925172,
+      "best_dae_gamma_ratio": 0.823208
+    },
+    {
+      "sample_index": 59,
+      "eta": "0.70",
+      "target_cl": 1.134466,
+      "clarkysm_cl": 0.732792,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.891652,
+      "best_dae_cl_ratio": 0.785967,
+      "best_dae_gamma_ratio": 0.640341
+    },
+    {
+      "sample_index": 59,
+      "eta": "0.82",
+      "target_cl": 0.998018,
+      "clarkysm_cl": 0.578968,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.772647,
+      "best_dae_cl_ratio": 0.774182,
+      "best_dae_gamma_ratio": 0.628661
+    },
+    {
+      "sample_index": 59,
+      "eta": "0.90",
+      "target_cl": 0.871816,
+      "clarkysm_cl": 0.523781,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.720838,
+      "best_dae_cl_ratio": 0.826824,
+      "best_dae_gamma_ratio": 0.666033
+    },
+    {
+      "sample_index": 59,
+      "eta": "0.95",
+      "target_cl": 0.785271,
+      "clarkysm_cl": 0.482869,
+      "best_dae": "dae31",
+      "best_dae_cl": 0.676813,
+      "best_dae_cl_ratio": 0.861883,
+      "best_dae_gamma_ratio": 0.731149
+    }
+  ],
+  "engineering_read": {
+    "dae_avl_cases_run": 12,
+    "dae_avl_cases_ok": 12,
+    "best_dae_by_fixed_geometry_match": [
+      {
+        "sample_index": 34,
+        "outer_airfoil": "dae31"
+      },
+      {
+        "sample_index": 55,
+        "outer_airfoil": "dae31"
+      },
+      {
+        "sample_index": 59,
+        "outer_airfoil": "dae31"
+      }
+    ],
+    "all_best_dae_are_dae31": true,
+    "improvements_vs_clarkysm": [
+      {
+        "sample_index": 34,
+        "best_dae": "dae31",
+        "e_CDi_ratio_vs_clarkysm": 1.135891,
+        "absolute_e_CDi_gain": 0.107492,
+        "rms_delta_change": -0.056621,
+        "outer_mean_gamma_ratio_gain": 0.224257,
+        "spanload_delta_success": false,
+        "rms_delta_preferred": false,
+        "e_CDi_clears_0p85": true
+      },
+      {
+        "sample_index": 55,
+        "best_dae": "dae31",
+        "e_CDi_ratio_vs_clarkysm": 1.113605,
+        "absolute_e_CDi_gain": 0.093651,
+        "rms_delta_change": -0.047737,
+        "outer_mean_gamma_ratio_gain": 0.205289,
+        "spanload_delta_success": false,
+        "rms_delta_preferred": false,
+        "e_CDi_clears_0p85": true
+      },
+      {
+        "sample_index": 59,
+        "best_dae": "dae31",
+        "e_CDi_ratio_vs_clarkysm": 1.125368,
+        "absolute_e_CDi_gain": 0.101978,
+        "rms_delta_change": -0.049503,
+        "outer_mean_gamma_ratio_gain": 0.194014,
+        "spanload_delta_success": false,
+        "rms_delta_preferred": false,
+        "e_CDi_clears_0p85": true
+      }
+    ],
+    "engineering_conclusion": "DAE31 is the best MIT DAE outer seed in this fixed-geometry AVL check, and it clears the prior e_CDi gate for all three candidates. It still does not truly match the Fourier target: the best outer circulation ratios remain about 0.67-0.75 and every best case still fails the max-delta target-avl success threshold."
+  },
+  "limitations": [
+    "AVL uses the airfoil camberline effect but does not validate 2D viscous polar, Clmax, laminar bucket, or low-Re separation margin.",
+    "The geometry and twist are fixed to the prior diagnostic candidates; this is not a re-optimization around the DAE sections."
+  ]
+}
