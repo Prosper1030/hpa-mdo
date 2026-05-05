@@ -568,8 +568,9 @@ def _quadratic_polar_points(
 def _lookup_record(record: AirfoilRecord, query: AirfoilQuery) -> AirfoilQueryResult:
     if not record.polar_points:
         raise ValueError(f"Airfoil {record.airfoil_id} has no polar points.")
-    re_values = sorted({float(point.Re) for point in record.polar_points})
-    warnings: list[str] = []
+    points, roughness_warnings = _points_for_roughness(record, query.roughness_mode)
+    re_values = sorted({float(point.Re) for point in points})
+    warnings: list[str] = list(roughness_warnings)
     extrapolated = False
     re_low, re_high, re_outside = _bracket(
         re_values,
@@ -581,7 +582,7 @@ def _lookup_record(record: AirfoilRecord, query: AirfoilQuery) -> AirfoilQueryRe
         warnings.append("re_outside_polar_envelope")
 
     low_values, low_interp, low_extra, low_warnings = _interpolate_at_re(
-        record,
+        points,
         re_low,
         float(query.cl),
         allow_extrapolation=bool(query.allow_extrapolation),
@@ -593,7 +594,7 @@ def _lookup_record(record: AirfoilRecord, query: AirfoilQuery) -> AirfoilQueryRe
         interpolated = low_interp
     else:
         high_values, high_interp, high_extra, high_warnings = _interpolate_at_re(
-            record,
+            points,
             re_high,
             float(query.cl),
             allow_extrapolation=bool(query.allow_extrapolation),
@@ -629,14 +630,14 @@ def _lookup_record(record: AirfoilRecord, query: AirfoilQuery) -> AirfoilQueryRe
 
 
 def _interpolate_at_re(
-    record: AirfoilRecord,
+    polar_points: Sequence[AirfoilPolarPoint],
     re_value: float,
     cl: float,
     *,
     allow_extrapolation: bool,
 ) -> tuple[dict[str, float], bool, bool, list[str]]:
     points = sorted(
-        (point for point in record.polar_points if abs(float(point.Re) - float(re_value)) <= 1.0e-9),
+        (point for point in polar_points if abs(float(point.Re) - float(re_value)) <= 1.0e-9),
         key=lambda point: float(point.cl),
     )
     cl_values = [float(point.cl) for point in points]
@@ -661,6 +662,27 @@ def _interpolate_at_re(
         "cm": _lerp(float(low.cm), float(high.cm), fraction),
         "alpha_deg": _lerp(float(low.alpha_deg), float(high.alpha_deg), fraction),
     }, True, cl_outside, warnings
+
+
+def _points_for_roughness(
+    record: AirfoilRecord,
+    roughness_mode: str | None,
+) -> tuple[tuple[AirfoilPolarPoint, ...], tuple[str, ...]]:
+    if roughness_mode is not None:
+        requested = str(roughness_mode)
+        matching = tuple(
+            point for point in record.polar_points if point.roughness_mode == requested
+        )
+        if matching:
+            return matching, tuple()
+        clean = tuple(point for point in record.polar_points if point.roughness_mode == "clean")
+        if clean:
+            return clean, ("roughness_mode_unavailable_clean_fallback",)
+        return tuple(record.polar_points), ("roughness_mode_unavailable_all_points_fallback",)
+    clean = tuple(point for point in record.polar_points if point.roughness_mode == "clean")
+    if clean:
+        return clean, tuple()
+    return tuple(record.polar_points), tuple()
 
 
 def _bracket(

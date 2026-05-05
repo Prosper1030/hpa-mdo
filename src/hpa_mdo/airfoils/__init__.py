@@ -20,6 +20,15 @@ from hpa_mdo.airfoils.sidecar import (
     query_zone_airfoil_topk,
     zone_envelopes_to_rows,
 )
+from hpa_mdo.airfoils.polar_builder import (
+    PolarBuildConfig,
+    PolarBuildResult,
+    SeedAirfoilSpec,
+    build_seed_airfoil_database,
+    load_airfoil_database_artifact,
+    seed_airfoil_specs,
+    write_polar_build_artifacts,
+)
 
 __all__ = [
     "AirfoilDatabase",
@@ -40,4 +49,11 @@ __all__ = [
     "generate_airfoil_sidecar_combinations",
     "query_zone_airfoil_topk",
     "zone_envelopes_to_rows",
+    "PolarBuildConfig",
+    "PolarBuildResult",
+    "SeedAirfoilSpec",
+    "build_seed_airfoil_database",
+    "load_airfoil_database_artifact",
+    "seed_airfoil_specs",
+    "write_polar_build_artifacts",
 ]

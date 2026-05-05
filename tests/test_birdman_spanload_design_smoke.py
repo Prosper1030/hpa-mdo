@@ -9,6 +9,12 @@ from hpa_mdo.airfoils.database import (
     AirfoilPolarPoint,
     AirfoilRecord,
 )
+from hpa_mdo.airfoils.polar_builder import (
+    PolarBuildConfig,
+    build_seed_airfoil_database,
+    seed_airfoil_specs,
+    write_polar_build_artifacts,
+)
 from hpa_mdo.concept.config import load_concept_config
 from hpa_mdo.concept.geometry import GeometryConcept, build_linear_wing_stations
 
@@ -880,6 +886,66 @@ def test_airfoil_sidecar_attach_preserves_ranking_inputs(
     assert record["sidecar_best_source_quality"] == "not_mission_grade_sidecar"
     compact = smoke._stage1_compact_record(record)
     assert compact["sidecar_best_profile_cd"] == pytest.approx(0.012)
+
+
+def test_sidecar_prefers_seed_polar_database_artifact(tmp_path: Path) -> None:
+    result = build_seed_airfoil_database(
+        config=PolarBuildConfig(
+            re_grid=(200_000.0,),
+            cl_grid=(0.4, 0.8, 1.2),
+            roughness_modes=("clean",),
+            re_robustness_factors=(1.0,),
+            xfoil_max_iter=40,
+            panel_count=96,
+            timeout_s=15.0,
+            convergence_pass_rate_threshold=0.80,
+        ),
+        airfoil_specs={"clarkysm": seed_airfoil_specs()["clarkysm"]},
+        backend="worker",
+        worker=_sidecar_test_worker(),
+        cache_dir=tmp_path / "cache",
+    )
+    paths = write_polar_build_artifacts(result, tmp_path / "seed_airfoils")
+
+    database, metadata = smoke._sidecar_airfoil_database(paths["airfoil_database_json"])
+
+    assert metadata["airfoil_database_loaded"] is True
+    assert database.records["clarkysm"].source_quality == "xfoil_generated_clean_only"
+    assert "not_mission_grade" in database.records["fx76mp140"].source_quality
+
+
+def _sidecar_test_worker():
+    class _Worker:
+        backend_name = "julia_xfoil"
+
+        def run_queries(self, queries):
+            results = []
+            for query in queries:
+                results.append(
+                    {
+                        "template_id": query.template_id,
+                        "reynolds": query.reynolds,
+                        "cl_samples": list(query.cl_samples),
+                        "roughness_mode": query.roughness_mode,
+                        "geometry_hash": query.geometry_hash,
+                        "analysis_mode": query.analysis_mode,
+                        "analysis_stage": query.analysis_stage,
+                        "status": "ok",
+                        "polar_points": [
+                            {
+                                "alpha_deg": -2.0 + 8.0 * float(cl),
+                                "cl": float(cl),
+                                "cd": 0.010 + 0.002 * abs(float(cl) - 0.7),
+                                "cm": -0.05,
+                                "converged": True,
+                            }
+                            for cl in query.cl_samples
+                        ],
+                    }
+                )
+            return results
+
+    return _Worker()
 
 
 def test_mission_contract_shadow_attach_preserves_record_order_and_rank_inputs() -> None:

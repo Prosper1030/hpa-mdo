@@ -24,12 +24,14 @@ from hpa_mdo.aero.fourier_target import (
     compare_fourier_target_to_avl,
 )
 from hpa_mdo.airfoils.database import (
+    AirfoilDatabase,
     ProfileDragIntegrationResult,
     ZoneAirfoilAssignment,
     default_airfoil_database,
     fixed_seed_zone_airfoil_assignments,
     integrate_profile_drag_from_avl,
 )
+from hpa_mdo.airfoils.polar_builder import load_airfoil_database_artifact
 from hpa_mdo.airfoils.sidecar import (
     assignment_label,
     assignment_to_dicts,
@@ -134,6 +136,7 @@ STAGE0_SAMPLE_DIMENSIONS = 9
 DEFAULT_MISSION_SCREENER_SUMMARY_PATH = Path("output/mission_design_space/summary.json")
 DEFAULT_MISSION_OPTIMIZER_HANDOFF_PATH = Path("output/mission_design_space/optimizer_handoff.json")
 DEFAULT_MISSION_DRAG_BUDGET_CONFIG_PATH = Path("configs/mission_drag_budget_example.yaml")
+DEFAULT_SEED_AIRFOIL_DATABASE_ARTIFACT = Path("output/airfoil_polars/seed_airfoils/airfoil_database.json")
 MISSION_FOURIER_TARGET_ETA_GRID = tuple(float(value) for value in np.linspace(0.0, 1.0, 81))
 MISSION_FOURIER_SHADOW_FIELDS = (
     "mission_fourier_e_target",
@@ -1537,6 +1540,36 @@ def _sidecar_source_quality(source_quality: str | None) -> str:
     return "not_mission_grade_sidecar"
 
 
+def _sidecar_airfoil_database(
+    airfoil_database_artifact: Path | None,
+) -> tuple[AirfoilDatabase, dict[str, Any]]:
+    fallback = default_airfoil_database()
+    if airfoil_database_artifact is None:
+        return fallback, {
+            "airfoil_database_source": "manual_fixtures_not_mission_grade",
+            "airfoil_database_artifact": None,
+            "airfoil_database_loaded": False,
+        }
+    artifact_path = Path(airfoil_database_artifact)
+    if not artifact_path.is_file():
+        return fallback, {
+            "airfoil_database_source": "manual_fixtures_not_mission_grade",
+            "airfoil_database_artifact": str(artifact_path),
+            "airfoil_database_loaded": False,
+        }
+    database = load_airfoil_database_artifact(
+        artifact_path,
+        fallback_database=fallback,
+    )
+    quality_counts = Counter(record.source_quality for record in database.records.values())
+    return database, {
+        "airfoil_database_source": "seed_airfoil_polar_artifact_with_fallback",
+        "airfoil_database_artifact": str(artifact_path),
+        "airfoil_database_loaded": True,
+        "airfoil_database_source_quality_counts": dict(quality_counts),
+    }
+
+
 def _evaluate_airfoil_sidecar_combination(
     *,
     cfg: BirdmanConceptConfig,
@@ -1698,8 +1731,9 @@ def _attach_airfoil_sidecar_shadow_fields(
     design_speed_mps: float,
     avl_binary: str | None,
     max_airfoil_combinations: int = 8,
+    airfoil_database_artifact: Path | None = None,
 ) -> None:
-    database = default_airfoil_database()
+    database, database_metadata = _sidecar_airfoil_database(airfoil_database_artifact)
     baseline = fixed_seed_zone_airfoil_assignments()
     available_airfoils = _sidecar_available_airfoil_ids()
     for record in records:
@@ -1761,6 +1795,7 @@ def _attach_airfoil_sidecar_shadow_fields(
                 "max_airfoil_combinations": int(max_airfoil_combinations),
                 "available_airfoil_ids": list(available_airfoils),
                 "combination_count": len(results),
+                **database_metadata,
             }
             record["airfoil_sidecar_combinations"] = results
             record["airfoil_sidecar_best"] = best or {
@@ -1802,6 +1837,7 @@ def _attach_airfoil_sidecar_shadow_fields(
                 "source": "zone_airfoil_sidecar_avl_rerun_shadow_v1",
                 "source_mode": "shadow_no_ranking_gate",
                 "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+                **database_metadata,
                 "error": f"{type(exc).__name__}: {exc}",
             }
             record["airfoil_sidecar_combinations"] = []
@@ -5336,6 +5372,15 @@ def parse_args() -> argparse.Namespace:
         default=8,
         help="Maximum zone-level airfoil assignment combinations to rerun in the Phase 4 sidecar.",
     )
+    parser.add_argument(
+        "--airfoil-database-artifact",
+        type=Path,
+        default=DEFAULT_SEED_AIRFOIL_DATABASE_ARTIFACT,
+        help=(
+            "Optional seed-airfoil polar database artifact. If present, the Phase 4 "
+            "sidecar merges it over manual placeholder fixtures."
+        ),
+    )
     parser.add_argument("--avl-binary", default=None)
     return parser.parse_args()
 
@@ -5493,6 +5538,7 @@ def main() -> None:
         design_speed_mps=design_speed_mps,
         avl_binary=args.avl_binary,
         max_airfoil_combinations=int(args.max_airfoil_sidecar_combinations),
+        airfoil_database_artifact=args.airfoil_database_artifact,
     )
     export_artifacts = _export_top_candidates(
         cfg=cfg,
@@ -5601,6 +5647,7 @@ def main() -> None:
             "source_mode": "shadow_no_ranking_gate",
             "source": "zone_airfoil_sidecar_avl_rerun_shadow_v1",
             "database": "manual_fixtures_not_mission_grade_sidecar",
+            "preferred_airfoil_database_artifact": str(args.airfoil_database_artifact),
             "zone_assignment_baseline": [
                 assignment.to_dict() for assignment in fixed_seed_zone_airfoil_assignments()
             ],

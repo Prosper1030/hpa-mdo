@@ -256,6 +256,48 @@ top-candidate bundle 會輸出：
 loaded-shape AVL / profile-drag 變化；目前仍是 shadow-only，不新增 hard gate，
 也不進入 ranking sort key。
 
+## Seed Airfoil Polar Builder
+
+Phase 5 新增 `hpa_mdo.airfoils.polar_builder` 與
+`scripts/build_seed_airfoil_polars.py`，目標是先把既有 seed airfoils 建成
+可審核的 polar database，再讓 Phase 4 sidecar 選擇性讀取：
+
+- `FX 76-MP-140`
+- `ClarkY smoothed`
+- `DAE11`
+- `DAE21`
+- `DAE31`
+- `DAE41`
+
+CLI 預設會使用 Julia/XFoil worker；CI 或快速檢查可用 `--backend dry-run`：
+
+```
+PYTHONPATH=src ./.venv/bin/python scripts/build_seed_airfoil_polars.py \
+  --backend dry-run \
+  --output-dir output/airfoil_polars/seed_airfoils
+```
+
+輸出包含：
+
+- `airfoil_database.json`
+- `airfoil_database.csv`
+- 每個 seed airfoil 的 `*_polar.csv`
+- `build_report.json`
+- `build_report.md`
+
+品質規則只作用在 polar build artifact，不會變成 optimizer hard gate。
+只有 real worker 輸出且通過 convergence/pass-rate、finite positive Cd、
+work-point coverage、usable Clmax 與 source metadata 檢查時，record 才能標成
+`xfoil_mission_grade_candidate` 或 `xfoil_generated_clean_only`。dry-run、
+failed、sparse 或 nonphysical polar 都保持
+`xfoil_incomplete_not_mission_grade`。
+
+`birdman_spanload_design_smoke.py` 會透過 `--airfoil-database-artifact`
+選擇性讀取這個 artifact，並與 placeholder fixture database 合併。若 artifact
+不存在，Phase 4 sidecar 仍回到既有 placeholder fixture，並維持
+`not_mission_grade_sidecar`。這個連接仍是 shadow-only；不改 ranking、
+objective、hard gate 或 rejection。
+
 ## Loaded Shape / Jig Feasibility Shadow Diagnostics
 
 新增 loaded-shape shadow adapter 後，route 會把目前 candidate 的
