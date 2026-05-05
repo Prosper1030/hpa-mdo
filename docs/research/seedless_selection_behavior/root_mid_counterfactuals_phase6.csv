@@ -1,0 +1,17 @@
+scenario,root_pass_count,mid1_pass_count,mid2_pass_count,tip_pass_count,interpretation
+A utilization <= 0.75,0,0,0,3,Threshold-only sweep on historical reference set.
+A utilization <= 0.80,0,0,0,4,Threshold-only sweep on historical reference set.
+A utilization <= 0.85,0,0,1,4,Threshold-only sweep on historical reference set.
+A utilization <= 0.90,0,0,3,5,Threshold-only sweep on historical reference set.
+B clean-only clmax,0,0,0,4,Checks whether rough-mode robust min is the blocker.
+B rough-only clmax,0,0,0,3,Checks whether rough-mode robust min is the blocker.
+"B min(clean,rough) clmax",0,0,0,3,Checks whether rough-mode robust min is the blocker.
+B 70/30 clean/rough clmax,0,0,0,4,Checks whether rough-mode robust min is the blocker.
+C mean zone cl,0,0,0,5,Checks whether a high local station dominates the zone representative demand.
+C 75% quantile zone cl,0,0,0,4,Checks whether a high local station dominates the zone representative demand.
+C max station cl,0,0,0,3,Checks whether a high local station dominates the zone representative demand.
+C scoring-weighted zone cl,0,0,0,4,Checks whether a high local station dominates the zone representative demand.
+D cruise speed +5%,0,0,1,4,Demand-only approximation: cl_target scales with W/V^2; XFOIL clmax was not rerun at the scaled Reynolds.
+D cruise speed +10%,1,0,3,5,Demand-only approximation: cl_target scales with W/V^2; XFOIL clmax was not rerun at the scaled Reynolds.
+D weight -5%,0,0,0,4,Demand-only approximation: cl_target scales with W/V^2; XFOIL clmax was not rerun at the scaled Reynolds.
+D weight +5%,0,0,0,1,Demand-only approximation: cl_target scales with W/V^2; XFOIL clmax was not rerun at the scaled Reynolds.
