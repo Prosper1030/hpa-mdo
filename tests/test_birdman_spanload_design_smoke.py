@@ -244,6 +244,7 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     record = {
         "sample_index": 8,
         "geometry": metric["geometry"],
+        "spanload_fourier": metric["spanload_fourier"],
         "station_table": [
             {
                 "eta": row["eta"],
@@ -263,8 +264,34 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
         "mission_CDA_nonwing_boundary_m2": 0.16,
         "mission_power_margin_required_w": 5.0,
         "mission_contract_source": "unit_test_context",
-        "mission_contract": {"mission_contract_source": "unit_test_context"},
+        "mission_contract": {
+            "speed_mps": 6.8,
+            "span_m": metric["geometry"]["span_m"],
+            "aspect_ratio": metric["geometry"]["aspect_ratio"],
+            "wing_area_m2": metric["geometry"]["wing_area_m2"],
+            "mass_kg": 98.5,
+            "weight_n": 98.5 * 9.80665,
+            "rho": 1.14,
+            "CL_req": 1.18,
+            "target_range_km": 42.195,
+            "required_time_min": 42.195 * 1000.0 / 6.8 / 60.0,
+            "eta_prop": 0.88,
+            "eta_trans": 0.96,
+            "pilot_power_hot_w": 205.0,
+            "power_margin_required_w": 5.0,
+            "CD0_total_target": 0.017,
+            "CD0_total_boundary": 0.018,
+            "CD0_total_rescue": 0.020,
+            "CD_wing_profile_target": 0.0128,
+            "CD_wing_profile_boundary": 0.0135,
+            "CDA_nonwing_target_m2": 0.13,
+            "CDA_nonwing_boundary_m2": 0.16,
+            "CLmax_effective_assumption": 1.55,
+            "mission_contract_source": "unit_test_context",
+            "source_mode": "shadow_no_ranking_gate",
+        },
     }
+    smoke._attach_mission_fourier_shadow_fields([record])
     avl_file = tmp_path / "avl_case" / "concept_wing.avl"
     avl_file.parent.mkdir(parents=True)
     avl_file.write_text("SECTION\nAFILE\n", encoding="utf-8")
@@ -280,16 +307,102 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
     assert Path(artifacts["station_table_csv_path"]).is_file()
     assert Path(artifacts["mission_contract_json_path"]).is_file()
     assert Path(artifacts["mission_contract_csv_path"]).is_file()
+    assert Path(artifacts["fourier_target_json_path"]).is_file()
+    assert Path(artifacts["fourier_target_csv_path"]).is_file()
     assert "target_circulation" in Path(artifacts["station_table_csv_path"]).read_text(encoding="utf-8").splitlines()[0]
     mission_contract = Path(artifacts["mission_contract_json_path"]).read_text(encoding="utf-8")
     assert "mission_CL_req" in mission_contract
     assert "mission_CD_wing_profile_target" in mission_contract
     assert "mission_contract_source" in Path(artifacts["mission_contract_csv_path"]).read_text(encoding="utf-8").splitlines()[0]
+    fourier_target_csv_header = Path(artifacts["fourier_target_csv_path"]).read_text(
+        encoding="utf-8"
+    ).splitlines()[0]
+    assert "gamma_target" in fourier_target_csv_header
+    assert "cl_target" in fourier_target_csv_header
     metadata = Path(artifacts["vsp_metadata_path"]).read_text(encoding="utf-8")
     script = Path(artifacts["vsp_script_path"]).read_text(encoding="utf-8")
     assert "selected_cst_dat_files" in metadata
     assert "ReadFileAirfoil" in script
     assert "NACA 0012" not in script
+
+
+def test_mission_fourier_shadow_attach_preserves_ranking_inputs() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    metric, rejection = smoke._build_inverse_chord_stage0_metric(
+        cfg=cfg,
+        sample_index=9,
+        span_m=34.0,
+        tail_volume_coefficient=0.40,
+        a3=-0.05,
+        a5=0.01,
+        cl_controls=(1.16, 1.26, 0.96, 0.58),
+        design_speed_mps=6.8,
+    )
+    assert rejection is None
+    assert metric is not None
+    records = [
+        {
+            "sample_index": 9,
+            "geometry": metric["geometry"],
+            "spanload_fourier": metric["spanload_fourier"],
+            "station_table": [
+                {
+                    **row,
+                    "avl_circulation_proxy": row["target_circulation_proxy"],
+                    "avl_local_cl": row["target_local_cl"],
+                }
+                for row in metric["station_table"]
+            ],
+            "mission_contract": {
+                "speed_mps": 6.8,
+                "span_m": metric["geometry"]["span_m"],
+                "aspect_ratio": metric["geometry"]["aspect_ratio"],
+                "wing_area_m2": metric["geometry"]["wing_area_m2"],
+                "mass_kg": 98.5,
+                "weight_n": 98.5 * 9.80665,
+                "rho": 1.14,
+                "CL_req": 1.18,
+                "target_range_km": 42.195,
+                "required_time_min": 42.195 * 1000.0 / 6.8 / 60.0,
+                "eta_prop": 0.88,
+                "eta_trans": 0.96,
+                "pilot_power_hot_w": 205.0,
+                "power_margin_required_w": 5.0,
+                "CD0_total_target": 0.017,
+                "CD0_total_boundary": 0.018,
+                "CD0_total_rescue": 0.020,
+                "CD_wing_profile_target": 0.0128,
+                "CD_wing_profile_boundary": 0.0135,
+                "CDA_nonwing_target_m2": 0.13,
+                "CDA_nonwing_boundary_m2": 0.16,
+                "CLmax_effective_assumption": 1.55,
+                "mission_contract_source": "unit_test_context",
+                "source_mode": "shadow_no_ranking_gate",
+            },
+            "objective_value": 3.5,
+        },
+    ]
+    before_order = [record["sample_index"] for record in records]
+    before_objectives = [record["objective_value"] for record in records]
+
+    smoke._attach_mission_fourier_shadow_fields(records)
+
+    assert [record["sample_index"] for record in records] == before_order
+    assert [record["objective_value"] for record in records] == before_objectives
+    record = records[0]
+    assert record["mission_fourier_e_target"] < 1.0
+    assert record["mission_fourier_r3"] == pytest.approx(-0.05)
+    assert record["mission_fourier_r5"] == pytest.approx(0.01)
+    assert record["mission_fourier_cl_max"] > 0.0
+    assert record["mission_fourier_outer_lift_ratio"] > 0.0
+    assert record["mission_fourier_root_bending_proxy"] > 0.0
+    assert record["target_vs_avl_rms_delta"] is not None
+    assert record["target_vs_avl_max_delta"] is not None
+    compact = smoke._stage1_compact_record(record)
+    assert compact["mission_fourier_e_target"] == pytest.approx(
+        record["mission_fourier_e_target"]
+    )
+    assert "target_vs_avl_rms_delta" in compact
 
 
 def test_mission_contract_shadow_attach_preserves_record_order_and_rank_inputs() -> None:

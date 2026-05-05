@@ -151,6 +151,34 @@ CD_wing_profile_boundary = CD0_total_boundary - CDA_nonwing_boundary / S
 top-k → AVL actual Cl → profile drag」閉環的資料契約入口；Phase 1 只
 暴露欄位與來源，不讓它成為 optimizer driver。
 
+## FourierTarget v2 Shadow Diagnostics
+
+`hpa_mdo.aero.fourier_target.FourierTarget` 是 Phase 2 的 mission-aware
+spanload reference。它使用 `MissionContract` 的 `CL_req`、`AR`、`span_m`、
+`speed_mps`、`rho` 與 `weight_n` 建立目標循環分布：
+
+```
+A1 = CL_req / (pi * AR)
+Gamma(theta) = 2 * b * V * A1 * [sin(theta) + r3 sin(3 theta) + r5 sin(5 theta)]
+cl_target = 2 * Gamma / (V * chord_ref)
+e_theory = 1 / (1 + 3*r3^2 + 5*r5^2)
+```
+
+目前 `inverse_chord_then_residual_twist_no_cst_no_xfoil` 路線只在 shadow mode
+使用它：
+
+- 不改變 Stage-1 ranking、objective、hard gates 或 rejection 行為。
+- 不做 station-by-station airfoil 選擇，也不啟動 airfoil database / XFOIL loop。
+- 用 AVL actual loading 和 FourierTarget 做 normalized half-span loading
+  shape comparison，輸出 `target_vs_avl_rms_delta`、`target_vs_avl_max_delta`
+  與 `target_vs_avl_outer_delta`。
+- top-candidate bundle 會額外輸出 `fourier_target.json` 與
+  `fourier_target.csv`，欄位包含 `eta`、`y`、`chord_ref`、
+  `gamma_target`、`lprime_target`、`cl_target`。
+
+這些欄位是後續「equivalent incidence / physical twist reconstruction」與
+「AVL actual Cl 回查 airfoil database」的診斷基準，不是目前的淘汰條件。
+
 ---
 
 ## 這只是早期設計預算，不取代高精度分析

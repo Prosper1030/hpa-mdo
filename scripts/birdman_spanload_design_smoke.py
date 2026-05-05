@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import csv
-from dataclasses import replace
+from dataclasses import fields, replace
 import json
 import math
 from pathlib import Path
@@ -18,6 +18,11 @@ from scipy.stats import qmc
 import yaml
 
 from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
+from hpa_mdo.aero.fourier_target import (
+    FourierTarget,
+    build_fourier_target,
+    compare_fourier_target_to_avl,
+)
 from hpa_mdo.concept.aero_proxies import misc_cd_proxy
 from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.avl_loader import (
@@ -45,6 +50,7 @@ from hpa_mdo.concept.pipeline import _sizing_diagnostics
 from hpa_mdo.concept.vsp_export import write_concept_openvsp_handoff
 from hpa_mdo.mission.contract import (
     MISSION_CONTRACT_SHADOW_FIELDS,
+    MissionContract,
     build_mission_contract,
 )
 from hpa_mdo.mission.objective import build_rider_power_curve
@@ -107,6 +113,18 @@ STAGE0_SAMPLE_DIMENSIONS = 9
 DEFAULT_MISSION_SCREENER_SUMMARY_PATH = Path("output/mission_design_space/summary.json")
 DEFAULT_MISSION_OPTIMIZER_HANDOFF_PATH = Path("output/mission_design_space/optimizer_handoff.json")
 DEFAULT_MISSION_DRAG_BUDGET_CONFIG_PATH = Path("configs/mission_drag_budget_example.yaml")
+MISSION_FOURIER_TARGET_ETA_GRID = tuple(float(value) for value in np.linspace(0.0, 1.0, 81))
+MISSION_FOURIER_SHADOW_FIELDS = (
+    "mission_fourier_e_target",
+    "mission_fourier_r3",
+    "mission_fourier_r5",
+    "mission_fourier_cl_max",
+    "mission_fourier_outer_lift_ratio",
+    "mission_fourier_root_bending_proxy",
+    "target_vs_avl_rms_delta",
+    "target_vs_avl_max_delta",
+    "target_vs_avl_outer_delta",
+)
 
 
 def _round(value: Any, digits: int = 6) -> Any:
@@ -870,6 +888,109 @@ def _attach_mission_contract_shadow_fields(
             continue
         record["mission_contract"] = contract.to_dict()
         record.update(contract.to_shadow_fields())
+
+
+def _attach_mission_fourier_shadow_fields(records: list[dict[str, Any]]) -> None:
+    for record in records:
+        try:
+            contract = _mission_contract_from_record(record)
+            if contract is None:
+                raise ValueError("mission_contract is unavailable")
+            r3 = float(record.get("spanload_fourier", {}).get("a3_over_a1", 0.0))
+            r5 = float(record.get("spanload_fourier", {}).get("a5_over_a1", 0.0))
+            target = build_fourier_target(
+                contract,
+                _mission_fourier_chord_ref(record, MISSION_FOURIER_TARGET_ETA_GRID),
+                MISSION_FOURIER_TARGET_ETA_GRID,
+                r3=r3,
+                r5=r5,
+            )
+            comparison = compare_fourier_target_to_avl(target, record.get("station_table") or [])
+        except Exception as exc:  # noqa: BLE001 - shadow diagnostics must not gate the route.
+            record["mission_fourier_target"] = {
+                "source": "mission_contract_fourier_target_v2_shadow_no_ranking_gate",
+                "source_mode": "shadow_no_ranking_gate",
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            record["mission_fourier_comparison"] = {
+                "target_vs_avl_compare_success": False,
+                "target_vs_avl_compare_reason": "mission_fourier_target_failed",
+                "target_vs_avl_error": f"{type(exc).__name__}: {exc}",
+            }
+            for field in MISSION_FOURIER_SHADOW_FIELDS:
+                record[field] = None
+            continue
+
+        record["mission_fourier_target"] = target.to_dict()
+        record["mission_fourier_comparison"] = comparison
+        record.update(
+            {
+                "mission_fourier_e_target": float(target.e_theory),
+                "mission_fourier_r3": float(target.r3),
+                "mission_fourier_r5": float(target.r5),
+                "mission_fourier_cl_max": float(target.cl_max),
+                "mission_fourier_outer_lift_ratio": float(
+                    target.outer_lift_ratio_vs_ellipse
+                ),
+                "mission_fourier_root_bending_proxy": float(target.root_bending_proxy),
+                "target_vs_avl_rms_delta": comparison.get("target_vs_avl_rms_delta"),
+                "target_vs_avl_max_delta": comparison.get("target_vs_avl_max_delta"),
+                "target_vs_avl_outer_delta": comparison.get("target_vs_avl_outer_delta"),
+            }
+        )
+
+
+def _mission_contract_from_record(record: dict[str, Any]) -> MissionContract | None:
+    payload = record.get("mission_contract")
+    if not isinstance(payload, dict) or payload.get("error") is not None:
+        return None
+    contract_field_names = {field.name for field in fields(MissionContract)}
+    contract_payload = {
+        key: value for key, value in payload.items() if key in contract_field_names
+    }
+    return MissionContract(**contract_payload)
+
+
+def _mission_fourier_chord_ref(
+    record: dict[str, Any],
+    eta_grid: tuple[float, ...],
+) -> tuple[float, ...]:
+    station_points: list[tuple[float, float]] = []
+    for row in record.get("station_table") or []:
+        eta = _float_or_none(row.get("eta"))
+        chord = _float_or_none(row.get("chord_m"))
+        if eta is None or chord is None or chord <= 0.0:
+            continue
+        station_points.append((min(max(float(eta), 0.0), 1.0), float(chord)))
+    if len(station_points) >= 2:
+        station_points.sort(key=lambda point: point[0])
+        unique_points: dict[float, float] = {}
+        for eta, chord in station_points:
+            unique_points[eta] = chord
+        station_eta = np.asarray(tuple(unique_points.keys()), dtype=float)
+        station_chord = np.asarray(tuple(unique_points.values()), dtype=float)
+        chord_ref = np.interp(np.asarray(eta_grid, dtype=float), station_eta, station_chord)
+        return tuple(float(max(chord, 1.0e-6)) for chord in chord_ref)
+
+    geometry = record.get("geometry", {})
+    root_chord = _float_or_none(geometry.get("root_chord_m"))
+    tip_chord = _float_or_none(geometry.get("tip_chord_m"))
+    if root_chord is None or tip_chord is None or root_chord <= 0.0 or tip_chord <= 0.0:
+        raise ValueError("station_table or geometry root/tip chord is required")
+    return tuple(
+        float((1.0 - float(eta)) * root_chord + float(eta) * tip_chord)
+        for eta in eta_grid
+    )
+
+
+def _float_or_none(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _scale_range(bounds: tuple[float, float], unit_value: float) -> float:
@@ -1965,6 +2086,17 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
         "mission_CDA_nonwing_boundary_m2": record.get("mission_CDA_nonwing_boundary_m2"),
         "mission_power_margin_required_w": record.get("mission_power_margin_required_w"),
         "mission_contract_source": record.get("mission_contract_source"),
+        "mission_fourier_e_target": record.get("mission_fourier_e_target"),
+        "mission_fourier_r3": record.get("mission_fourier_r3"),
+        "mission_fourier_r5": record.get("mission_fourier_r5"),
+        "mission_fourier_cl_max": record.get("mission_fourier_cl_max"),
+        "mission_fourier_outer_lift_ratio": record.get("mission_fourier_outer_lift_ratio"),
+        "mission_fourier_root_bending_proxy": record.get(
+            "mission_fourier_root_bending_proxy"
+        ),
+        "target_vs_avl_rms_delta": record.get("target_vs_avl_rms_delta"),
+        "target_vs_avl_max_delta": record.get("target_vs_avl_max_delta"),
+        "target_vs_avl_outer_delta": record.get("target_vs_avl_outer_delta"),
         "outer_loading_diagnostics": record.get("outer_loading_diagnostics", {}),
         "objective_value": record.get("objective_value"),
     }
@@ -2056,6 +2188,23 @@ def _station_rows_for_export(record: dict[str, Any]) -> list[dict[str, Any]]:
     return export_rows
 
 
+def _fourier_target_rows_for_export(record: dict[str, Any]) -> list[dict[str, Any]]:
+    target = record.get("mission_fourier_target") or {}
+    if isinstance(target, FourierTarget):
+        return target.to_rows()
+    if not isinstance(target, dict):
+        return []
+    required = ("eta", "y", "chord_ref", "gamma_target", "lprime_target", "cl_target")
+    arrays = [target.get(key) for key in required]
+    if not all(isinstance(values, list | tuple) for values in arrays):
+        return []
+    row_count = min(len(values) for values in arrays)
+    rows: list[dict[str, Any]] = []
+    for index in range(row_count):
+        rows.append({key: target[key][index] for key in required})
+    return rows
+
+
 def _export_top_candidate_artifacts(
     *,
     cfg: BirdmanConceptConfig,
@@ -2116,6 +2265,30 @@ def _export_top_candidate_artifacts(
                 for field in MISSION_CONTRACT_SHADOW_FIELDS
             }
         )
+    fourier_target_payload = {
+        **{field: record.get(field) for field in MISSION_FOURIER_SHADOW_FIELDS},
+        "mission_fourier_target": record.get("mission_fourier_target", {}),
+        "mission_fourier_comparison": record.get("mission_fourier_comparison", {}),
+    }
+    fourier_target_json_path = bundle_dir / "fourier_target.json"
+    fourier_target_json_path.write_text(
+        json.dumps(_round(fourier_target_payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    fourier_rows = _fourier_target_rows_for_export(record)
+    fourier_target_csv_path = bundle_dir / "fourier_target.csv"
+    with fourier_target_csv_path.open("w", encoding="utf-8", newline="") as handle:
+        fieldnames = list(fourier_rows[0].keys()) if fourier_rows else [
+            "eta",
+            "y",
+            "chord_ref",
+            "gamma_target",
+            "lprime_target",
+            "cl_target",
+        ]
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(_round(fourier_rows))
     concept_id = f"birdman_inverse_chord_sample_{sample_index:04d}"
     script_path, metadata_path = write_concept_openvsp_handoff(
         bundle_dir=bundle_dir,
@@ -2145,6 +2318,10 @@ def _export_top_candidate_artifacts(
             "outer_loading_diagnostics": record.get("outer_loading_diagnostics"),
             "mission_contract": record.get("mission_contract", {}),
             **{field: record.get(field) for field in MISSION_CONTRACT_SHADOW_FIELDS},
+            "mission_fourier_target_summary": {
+                field: record.get(field) for field in MISSION_FOURIER_SHADOW_FIELDS
+            },
+            "mission_fourier_comparison": record.get("mission_fourier_comparison", {}),
         },
     )
     return {
@@ -2156,6 +2333,8 @@ def _export_top_candidate_artifacts(
         "station_table_csv_path": str(station_table_csv_path),
         "mission_contract_json_path": str(mission_contract_json_path),
         "mission_contract_csv_path": str(mission_contract_csv_path),
+        "fourier_target_json_path": str(fourier_target_json_path),
+        "fourier_target_csv_path": str(fourier_target_csv_path),
     }
 
 
@@ -3521,6 +3700,18 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"target_fourier_e {_format_float(fourier['target_fourier_e'], 4)}, "
         f"target_fourier_deviation {_format_float(fourier['target_fourier_deviation'], 4)}."
     )
+    if candidate.get("mission_fourier_target") is not None:
+        lines.append(
+            "- Mission FourierTarget v2 shadow: "
+            f"e {_format_float(candidate.get('mission_fourier_e_target'), 4)}, "
+            f"r3/r5 {_format_float(candidate.get('mission_fourier_r3'), 3)}/"
+            f"{_format_float(candidate.get('mission_fourier_r5'), 3)}, "
+            f"cl_max {_format_float(candidate.get('mission_fourier_cl_max'), 3)}, "
+            f"outer ratio {_format_float(candidate.get('mission_fourier_outer_lift_ratio'), 3)}, "
+            f"root bending proxy "
+            f"{_format_float(candidate.get('mission_fourier_root_bending_proxy'), 1)}; "
+            "shadow only, no ranking gate."
+        )
     lines.append(
         "- Gate health: "
         f"local util {_format_float(health['max_local_clmax_utilization'], 3)} / "
@@ -3544,6 +3735,10 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"max normalized delta {_format_float(match.get('max_target_avl_circulation_norm_delta'), 3)} "
         f"RMS {_format_float(match.get('rms_target_avl_circulation_norm_delta'), 3)} "
         f"(goal < {SPANLOAD_DELTA_SUCCESS_LIMIT:.2f}); "
+        f"mission FourierTarget RMS/max/outer "
+        f"{_format_float(candidate.get('target_vs_avl_rms_delta'), 3)}/"
+        f"{_format_float(candidate.get('target_vs_avl_max_delta'), 3)}/"
+        f"{_format_float(candidate.get('target_vs_avl_outer_delta'), 3)}; "
         f"AVL e_CDi goal >= {AVL_E_CDI_SUCCESS_FLOOR:.2f}."
     )
     eta_samples = outer_diag.get("eta_samples", {})
@@ -3634,6 +3829,8 @@ def _leaderboard_candidate_summary(candidate: dict[str, Any]) -> str:
         f"AVL e_CDi {_format_float(avl.get('avl_e_cdi'), 4)}, "
         f"target max/RMS delta {_format_float(match.get('max_target_avl_circulation_norm_delta'), 3)}/"
         f"{_format_float(match.get('rms_target_avl_circulation_norm_delta'), 3)}, "
+        f"mission Fourier RMS/max {_format_float(candidate.get('target_vs_avl_rms_delta'), 3)}/"
+        f"{_format_float(candidate.get('target_vs_avl_max_delta'), 3)}, "
         f"twist pass {twist.get('twist_physical_gates_pass')}, "
         f"outer_underloaded {outer_diag.get('outer_underloaded')}"
     )
@@ -3658,6 +3855,8 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
         f"- Profile drag note: {report['profile_drag_note']}",
         f"- Mission contract shadow: {report.get('mission_contract_shadow', {}).get('mission_contract_source', 'unknown')} "
         f"({report.get('mission_contract_shadow', {}).get('ranking_behavior', 'unchanged')})",
+        f"- FourierTarget v2 shadow: {report.get('mission_fourier_target_shadow', {}).get('source', 'unknown')} "
+        f"({report.get('mission_fourier_target_shadow', {}).get('ranking_behavior', 'unchanged')})",
         "",
         "## Engineering Read",
         "",
@@ -3980,6 +4179,7 @@ def main() -> None:
         design_speed_mps=design_speed_mps,
         context=mission_contract_context,
     )
+    _attach_mission_fourier_shadow_fields(records)
 
     physically_accepted = [
         record
@@ -4110,6 +4310,14 @@ def main() -> None:
             "source_paths": mission_contract_context.get("mission_contract_source_paths", {}),
             "export_fields": list(MISSION_CONTRACT_SHADOW_FIELDS),
             "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+        },
+        "mission_fourier_target_shadow": {
+            "source_mode": "shadow_no_ranking_gate",
+            "source": "mission_contract_fourier_target_v2_shadow_no_ranking_gate",
+            "eta_grid_count": len(MISSION_FOURIER_TARGET_ETA_GRID),
+            "export_fields": list(MISSION_FOURIER_SHADOW_FIELDS),
+            "ranking_behavior": "unchanged_no_rejection_no_sort_key",
+            "comparison": "normalized_half_span_loading_shape_vs_avl_actual",
         },
         "stage0_counts": stage0["counts"],
         "stage1_counts": {

@@ -22,6 +22,11 @@ from hpa_mdo.aero.avl_spanwise import (
     parse_avl_strip_forces,
     write_candidate_avl_spanwise_artifact,
 )
+from hpa_mdo.aero.fourier_target import (
+    FourierTarget,
+    build_fourier_target,
+    compare_fourier_target_to_avl,
+)
 from hpa_mdo.aero.dihedral_load_corrector import (
     build_fixed_alpha_dihedral_corrected_case,
     build_fixed_alpha_dihedral_corrector_artifact,
@@ -65,13 +70,16 @@ __all__ = [
     "VSPBuilder",
     "XFLR5Parser",
     "GmshExternalFlowMeshError",
+    "FourierTarget",
     "build_avl_aero_gate_settings",
     "build_candidate_avl_spanwise_artifact",
     "build_origin_geometry_contract",
     "build_fixed_alpha_dihedral_corrected_case",
     "build_fixed_alpha_dihedral_corrector_artifact",
+    "build_fourier_target",
     "build_spanwise_load_from_avl_strip_forces",
     "build_vspaero_sweep_points",
+    "compare_fourier_target_to_avl",
     "empty_aero_performance",
     "export_aswing",
     "evaluate_aero_performance",
