@@ -16,6 +16,8 @@ DEFAULT_OUTPUT_DIR = Path("output/profile_cd_source_comparison")
 DEFAULT_OUTPUT_ROOT = Path("output")
 RATIO_LOWER_BOUND = 0.8
 RATIO_UPPER_BOUND = 1.2
+WATCHLIST_RATIO_LOWER_BOUND = 0.9
+WATCHLIST_RATIO_UPPER_BOUND = 1.1
 
 
 CSV_FIELDS = [
@@ -34,6 +36,7 @@ CSV_FIELDS = [
     "profile_cd_zone_vs_proxy_ratio",
     "mean_cd_effective",
     "ratio_outside_0p8_1p2",
+    "ratio_outside_0p9_1p1",
     "needs_rerun_for_zone_diagnostic",
     "current_drag_budget_band",
     "estimated_zone_drag_budget_band",
@@ -240,6 +243,13 @@ def _row_from_candidate(
         ratio is not None
         and (float(ratio) < float(ratio_lower_bound) or float(ratio) > float(ratio_upper_bound))
     )
+    ratio_outside_watchlist = (
+        ratio is not None
+        and (
+            float(ratio) < WATCHLIST_RATIO_LOWER_BOUND
+            or float(ratio) > WATCHLIST_RATIO_UPPER_BOUND
+        )
+    )
     return {
         "pool_name": pool_path.parent.name,
         "pool_path": str(pool_path),
@@ -256,6 +266,7 @@ def _row_from_candidate(
         "profile_cd_zone_vs_proxy_ratio": ratio,
         "mean_cd_effective": _get_float(feedback, "mean_cd_effective"),
         "ratio_outside_0p8_1p2": bool(ratio_outside),
+        "ratio_outside_0p9_1p1": bool(ratio_outside_watchlist),
         "needs_rerun_for_zone_diagnostic": not zone_available,
         "current_drag_budget_band": current_band,
         "estimated_zone_drag_budget_band": estimated_band,
@@ -336,6 +347,9 @@ def _summarize_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "ratio_outlier_count": sum(
             1 for row in rows if bool(row.get("ratio_outside_0p8_1p2"))
         ),
+        "ratio_outlier_0p9_1p1_count": sum(
+            1 for row in rows if bool(row.get("ratio_outside_0p9_1p1"))
+        ),
         "drag_budget_band_change_counts": band_counts,
         "drag_budget_band_preliminary_judgment": band_judgment,
         "needs_rerun_for_zone_diagnostic": any(
@@ -371,6 +385,7 @@ def _build_markdown(
     pool_summaries: list[dict[str, Any]],
     overall_summary: dict[str, Any],
     ratio_outliers: list[dict[str, Any]],
+    ratio_outliers_0p9_1p1: list[dict[str, Any]],
     ratio_lower_bound: float,
     ratio_upper_bound: float,
 ) -> str:
@@ -388,6 +403,7 @@ def _build_markdown(
         f"- zone profile CD min / median / max: {_fmt_stats(overall_summary, 'profile_cd_zone')}",
         f"- zone/proxy ratio min / median / max: {_fmt_stats(overall_summary, 'zone_proxy_ratio')}",
         f"- ratio outliers outside {_fmt(ratio_lower_bound)}~{_fmt(ratio_upper_bound)}: {_fmt(overall_summary.get('ratio_outlier_count'))}",
+        f"- ratio watchlist outside {WATCHLIST_RATIO_LOWER_BOUND}~{WATCHLIST_RATIO_UPPER_BOUND}: {_fmt(overall_summary.get('ratio_outlier_0p9_1p1_count'))}",
         f"- preliminary drag_budget_band judgment if zone CD were used: {overall_summary.get('drag_budget_band_preliminary_judgment')}",
         "",
         "## Per Ranked Pool",
@@ -427,6 +443,33 @@ def _build_markdown(
         lines.append("| none | none | n/a | n/a | n/a | n/a | n/a | n/a |")
     else:
         for row in ratio_outliers:
+            lines.append(
+                "| "
+                f"{row['pool_name']} | "
+                f"{row['candidate_id']} | "
+                f"{_fmt(row.get('profile_cd_proxy'))} | "
+                f"{_fmt(row.get('profile_cd_zone_chord_weighted'))} | "
+                f"{_fmt(row.get('profile_cd_zone_vs_proxy_delta'))} | "
+                f"{_fmt(row.get('profile_cd_zone_vs_proxy_ratio'))} | "
+                f"{row.get('profile_cd_proxy_quality')} | "
+                f"{row.get('profile_cd_zone_quality')} |"
+            )
+
+    lines.extend(
+        [
+            "",
+            f"## Ratio Watchlist {WATCHLIST_RATIO_LOWER_BOUND}~{WATCHLIST_RATIO_UPPER_BOUND}",
+            "",
+            "Candidates outside the tighter diagnostic watch band:",
+            "",
+            "| ranked pool | candidate_id | proxy_cd | zone_cd | delta | zone/proxy | proxy_quality | zone_quality |",
+            "| --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
+        ]
+    )
+    if not ratio_outliers_0p9_1p1:
+        lines.append("| none | none | n/a | n/a | n/a | n/a | n/a | n/a |")
+    else:
+        for row in ratio_outliers_0p9_1p1:
             lines.append(
                 "| "
                 f"{row['pool_name']} | "
@@ -501,7 +544,16 @@ def run_comparison(
     ratio_outliers = [
         row for row in rows if bool(row.get("ratio_outside_0p8_1p2"))
     ]
+    ratio_outliers_0p9_1p1 = [
+        row for row in rows if bool(row.get("ratio_outside_0p9_1p1"))
+    ]
     ratio_outliers.sort(
+        key=lambda row: (
+            str(row.get("pool_name")),
+            str(row.get("candidate_id")),
+        )
+    )
+    ratio_outliers_0p9_1p1.sort(
         key=lambda row: (
             str(row.get("pool_name")),
             str(row.get("candidate_id")),
@@ -516,6 +568,7 @@ def run_comparison(
             pool_summaries=pool_summaries,
             overall_summary=overall_summary,
             ratio_outliers=ratio_outliers,
+            ratio_outliers_0p9_1p1=ratio_outliers_0p9_1p1,
             ratio_lower_bound=ratio_lower_bound,
             ratio_upper_bound=ratio_upper_bound,
         ),
@@ -528,6 +581,7 @@ def run_comparison(
         "overall": overall_summary,
         "pools": pool_summaries,
         "ratio_outliers": ratio_outliers,
+        "ratio_outliers_0p9_1p1": ratio_outliers_0p9_1p1,
     }
 
 
@@ -572,6 +626,7 @@ def main() -> None:
         f"{_fmt_stats(overall, 'zone_proxy_ratio')}"
     )
     print(f"ratio outliers = {overall['ratio_outlier_count']}")
+    print(f"ratio watchlist outside 0.9~1.1 = {overall['ratio_outlier_0p9_1p1_count']}")
 
 
 if __name__ == "__main__":

@@ -161,6 +161,43 @@ def test_comparison_reports_ratio_outliers(tmp_path: Path) -> None:
     assert "outlier-2" in report
 
 
+def test_comparison_reports_ratio_watchlist_outside_0p9_1p1(tmp_path: Path) -> None:
+    module = _load_script_module()
+    pool_path = _write_ranked_pool(
+        tmp_path / "watchlist_run" / "concept_ranked_pool.json",
+        [
+            _candidate("watch-1", proxy_cd=0.010, zone_cd=0.0085),
+            _candidate("watch-2", proxy_cd=0.010, zone_cd=0.0102),
+            _candidate("watch-3", proxy_cd=0.010, zone_cd=0.0115),
+        ],
+    )
+
+    summary = module.run_comparison(
+        ranked_pool_paths=[pool_path],
+        output_dir=tmp_path / "comparison",
+    )
+
+    assert summary["overall"]["ratio_outlier_count"] == 0
+    assert summary["overall"]["ratio_outlier_0p9_1p1_count"] == 2
+    assert [row["candidate_id"] for row in summary["ratio_outliers_0p9_1p1"]] == [
+        "watch-1",
+        "watch-3",
+    ]
+
+    csv_path = tmp_path / "comparison" / "profile_cd_source_comparison.csv"
+    rows = list(csv.DictReader(csv_path.open(newline="", encoding="utf-8")))
+    assert rows[0]["ratio_outside_0p9_1p1"] == "True"
+    assert rows[1]["ratio_outside_0p9_1p1"] == "False"
+    assert rows[2]["ratio_outside_0p9_1p1"] == "True"
+
+    report = (tmp_path / "comparison" / "profile_cd_source_comparison.md").read_text(
+        encoding="utf-8"
+    )
+    assert "Ratio Watchlist 0.9~1.1" in report
+    assert "watch-1" in report
+    assert "watch-3" in report
+
+
 def test_comparison_cli_discovers_ranked_pools_and_writes_outputs(tmp_path: Path) -> None:
     module = _load_script_module()
     output_root = tmp_path / "output"
