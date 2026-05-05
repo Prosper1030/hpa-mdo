@@ -462,3 +462,100 @@ def test_shadow_summary_with_all_stub_candidates(tmp_path: Path) -> None:
     assert summary["evaluated_candidates"] == 0           # none are "ok"
     assert summary["count_not_mission_grade_profile_cd"] == 5
     assert summary["profile_cd_quality_counts"].get("not_mission_grade", 0) == 5
+
+
+def test_shadow_summary_counts_zone_profile_diagnostics(tmp_path: Path) -> None:
+    """Summary and CSV include zone profile diagnostic availability and ratio stats."""
+    c_available = _make_candidate("c-zone", profile_cd_proxy=0.010)
+    c_available["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STATION
+    c_available["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_MISSION
+    c_available["mission"]["profile_cd_zone_chord_weighted"] = 0.012
+    c_available["mission"]["profile_cd_zone_source"] = "zone_chord_weighted_seed_library"
+    c_available["mission"]["profile_cd_zone_quality"] = "diagnostic_seed_library_estimate"
+    c_available["mission"]["profile_cd_zone_vs_proxy_delta"] = 0.002
+    c_available["mission"]["profile_cd_zone_vs_proxy_ratio"] = 1.2
+
+    c_unavailable = _make_candidate("c-unavailable", profile_cd_proxy=0.020)
+    c_unavailable["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STUB
+    c_unavailable["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_NOT_MISSION
+    c_unavailable["mission"]["profile_cd_zone_chord_weighted"] = None
+    c_unavailable["mission"]["profile_cd_zone_source"] = "zone_chord_weighted_unavailable"
+    c_unavailable["mission"]["profile_cd_zone_quality"] = "unavailable"
+    c_unavailable["mission"]["profile_cd_zone_vs_proxy_delta"] = None
+    c_unavailable["mission"]["profile_cd_zone_vs_proxy_ratio"] = None
+
+    pool = {"config_path": None, "ranked_pool": [c_available, c_unavailable]}
+    pool_path = tmp_path / "concept_ranked_pool.json"
+    pool_path.write_text(json.dumps(pool), encoding="utf-8")
+
+    summary = run_shadow_on_ranked_pool_json(
+        ranked_pool_json_path=pool_path,
+        budget_config_path=_BUDGET_YAML,
+        output_dir=tmp_path,
+        rider_curve=None,
+        auto_load_rider_curve=False,
+    )
+
+    assert summary["profile_cd_source_counts"].get(_PROFILE_CD_SOURCE_STATION, 0) == 1
+    assert summary["profile_cd_quality_counts"].get(_PROFILE_CD_QUALITY_MISSION, 0) == 1
+    assert summary["profile_cd_zone_source_counts"].get(
+        "zone_chord_weighted_seed_library", 0
+    ) == 1
+    assert summary["profile_cd_zone_quality_counts"].get(
+        "diagnostic_seed_library_estimate", 0
+    ) == 1
+    assert summary["profile_cd_zone_quality_counts"].get("unavailable", 0) == 1
+    assert summary["count_zone_profile_available"] == 1
+    assert summary["count_zone_profile_unavailable"] == 1
+    assert summary["profile_cd_zone_vs_proxy_ratio_min"] == pytest.approx(1.2)
+    assert summary["profile_cd_zone_vs_proxy_ratio_median"] == pytest.approx(1.2)
+    assert summary["profile_cd_zone_vs_proxy_ratio_max"] == pytest.approx(1.2)
+
+    header = (tmp_path / SHADOW_CSV_FILENAME).read_text(encoding="utf-8").splitlines()[0]
+    assert "profile_cd_zone_chord_weighted" in header
+    assert "profile_cd_zone_source" in header
+    assert "profile_cd_zone_quality" in header
+    assert "profile_cd_zone_vs_proxy_ratio" in header
+
+    comparison_report = tmp_path / "mission_profile_cd_comparison.md"
+    assert comparison_report.exists()
+    report_text = comparison_report.read_text(encoding="utf-8")
+    assert "# Mission Profile CD Comparison" in report_text
+    assert "top 10 largest absolute delta candidates" in report_text.lower()
+    assert "c-zone" in report_text
+
+
+def test_shadow_backward_compatible_when_zone_diagnostics_missing(tmp_path: Path) -> None:
+    """Old ranked pools without zone diagnostic fields still evaluate and count unknowns."""
+    candidate = _make_candidate("old-00", profile_cd_proxy=0.011)
+    candidate["mission"]["profile_cd_proxy_source"] = _PROFILE_CD_SOURCE_STATION
+    candidate["mission"]["profile_cd_proxy_quality"] = _PROFILE_CD_QUALITY_MISSION
+
+    row = evaluate_shadow_candidate(
+        candidate=candidate,
+        budget=_budget(),
+        air_density=1.1357,
+        rider_curve=None,
+        thermal_derate_factor=1.0,
+        target_range_km=42.195,
+    )
+    assert row.profile_cd_zone_chord_weighted is None
+    assert row.profile_cd_zone_quality == "unknown"
+
+    pool_path = tmp_path / "concept_ranked_pool.json"
+    pool_path.write_text(
+        json.dumps({"config_path": None, "ranked_pool": [candidate]}),
+        encoding="utf-8",
+    )
+
+    summary = run_shadow_on_ranked_pool_json(
+        ranked_pool_json_path=pool_path,
+        budget_config_path=_BUDGET_YAML,
+        output_dir=tmp_path,
+        rider_curve=None,
+        auto_load_rider_curve=False,
+    )
+
+    assert summary["profile_cd_zone_quality_counts"].get("unknown", 0) == 1
+    assert summary["count_zone_profile_available"] == 0
+    assert summary["count_zone_profile_unavailable"] == 1

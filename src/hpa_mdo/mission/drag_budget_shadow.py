@@ -15,6 +15,7 @@ import json
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
+from statistics import median
 from typing import Any, Optional
 
 from .drag_budget import (
@@ -31,6 +32,7 @@ RiderCurve = FakeAnchorCurve | CsvPowerCurve
 
 SHADOW_CSV_FILENAME = "mission_drag_budget_shadow.csv"
 SHADOW_SUMMARY_JSON_FILENAME = "mission_drag_budget_shadow_summary.json"
+PROFILE_CD_COMPARISON_MD_FILENAME = "mission_profile_cd_comparison.md"
 
 _FALLBACK_CL_MAX = 1.55
 _FALLBACK_AIR_DENSITY = 1.1357
@@ -54,6 +56,11 @@ class ShadowRow:
     cd0_wing_profile: Optional[float] = None
     profile_cd_proxy_source: Optional[str] = None
     profile_cd_proxy_quality: Optional[str] = None
+    profile_cd_zone_chord_weighted: Optional[float] = None
+    profile_cd_zone_source: Optional[str] = None
+    profile_cd_zone_quality: Optional[str] = None
+    profile_cd_zone_vs_proxy_delta: Optional[float] = None
+    profile_cd_zone_vs_proxy_ratio: Optional[float] = None
     cda_nonwing_m2: Optional[float] = None
     cd0_nonwing_equivalent: Optional[float] = None
     cd0_total_est: Optional[float] = None
@@ -318,6 +325,30 @@ def _extract_shadow_inputs(
     return inputs, quality_status, notes, profile_cd_source, profile_cd_quality
 
 
+def _extract_zone_profile_diagnostics(
+    candidate: dict[str, Any],
+) -> dict[str, float | str | None]:
+    mission = candidate.get("mission", {})
+    if not isinstance(mission, dict):
+        mission = {}
+    profile_cd_proxy = _get_float(mission, "profile_cd_proxy")
+    zone_cd = _get_float(mission, "profile_cd_zone_chord_weighted")
+    delta = _get_float(mission, "profile_cd_zone_vs_proxy_delta")
+    ratio = _get_float(mission, "profile_cd_zone_vs_proxy_ratio")
+    if zone_cd is not None and profile_cd_proxy is not None:
+        if delta is None:
+            delta = float(zone_cd - profile_cd_proxy)
+        if ratio is None and profile_cd_proxy != 0.0:
+            ratio = float(zone_cd / profile_cd_proxy)
+    return {
+        "profile_cd_zone_chord_weighted": zone_cd,
+        "profile_cd_zone_source": str(mission.get("profile_cd_zone_source") or "unknown"),
+        "profile_cd_zone_quality": str(mission.get("profile_cd_zone_quality") or "unknown"),
+        "profile_cd_zone_vs_proxy_delta": delta,
+        "profile_cd_zone_vs_proxy_ratio": ratio,
+    }
+
+
 def evaluate_shadow_candidate(
     candidate: dict[str, Any],
     budget: MissionDragBudget,
@@ -338,6 +369,7 @@ def evaluate_shadow_candidate(
         thermal_derate_factor=thermal_derate_factor,
         target_range_km=target_range_km,
     )
+    zone_diagnostic = _extract_zone_profile_diagnostics(candidate)
 
     row = ShadowRow(
         candidate_id=candidate_id,
@@ -346,6 +378,17 @@ def evaluate_shadow_candidate(
         aspect_ratio=_get_float(candidate, "aspect_ratio"),
         profile_cd_proxy_source=profile_cd_source,
         profile_cd_proxy_quality=profile_cd_quality,
+        profile_cd_zone_chord_weighted=zone_diagnostic[
+            "profile_cd_zone_chord_weighted"
+        ],
+        profile_cd_zone_source=zone_diagnostic["profile_cd_zone_source"],
+        profile_cd_zone_quality=zone_diagnostic["profile_cd_zone_quality"],
+        profile_cd_zone_vs_proxy_delta=zone_diagnostic[
+            "profile_cd_zone_vs_proxy_delta"
+        ],
+        profile_cd_zone_vs_proxy_ratio=zone_diagnostic[
+            "profile_cd_zone_vs_proxy_ratio"
+        ],
         notes="; ".join(notes),
     )
 
@@ -384,6 +427,17 @@ def evaluate_shadow_candidate(
             cd0_wing_profile=result.cd0_wing_profile,
             profile_cd_proxy_source=profile_cd_source,
             profile_cd_proxy_quality=profile_cd_quality,
+            profile_cd_zone_chord_weighted=zone_diagnostic[
+                "profile_cd_zone_chord_weighted"
+            ],
+            profile_cd_zone_source=zone_diagnostic["profile_cd_zone_source"],
+            profile_cd_zone_quality=zone_diagnostic["profile_cd_zone_quality"],
+            profile_cd_zone_vs_proxy_delta=zone_diagnostic[
+                "profile_cd_zone_vs_proxy_delta"
+            ],
+            profile_cd_zone_vs_proxy_ratio=zone_diagnostic[
+                "profile_cd_zone_vs_proxy_ratio"
+            ],
             cda_nonwing_m2=result.cda_nonwing_m2,
             cd0_nonwing_equivalent=result.cd0_nonwing_equivalent,
             cd0_total_est=result.cd0_total_est,
@@ -410,6 +464,17 @@ def evaluate_shadow_candidate(
             cd0_wing_profile=inputs.cd0_wing_profile,
             profile_cd_proxy_source=profile_cd_source,
             profile_cd_proxy_quality=profile_cd_quality,
+            profile_cd_zone_chord_weighted=zone_diagnostic[
+                "profile_cd_zone_chord_weighted"
+            ],
+            profile_cd_zone_source=zone_diagnostic["profile_cd_zone_source"],
+            profile_cd_zone_quality=zone_diagnostic["profile_cd_zone_quality"],
+            profile_cd_zone_vs_proxy_delta=zone_diagnostic[
+                "profile_cd_zone_vs_proxy_delta"
+            ],
+            profile_cd_zone_vs_proxy_ratio=zone_diagnostic[
+                "profile_cd_zone_vs_proxy_ratio"
+            ],
             notes=f"exception: {exc}; " + "; ".join(notes),
         )
 
@@ -519,6 +584,11 @@ def run_shadow_on_ranked_pool_json(
         json.dumps(summary, indent=2, sort_keys=True, ensure_ascii=False),
         encoding="utf-8",
     )
+    comparison_report_path = output_dir / PROFILE_CD_COMPARISON_MD_FILENAME
+    comparison_report_path.write_text(
+        _build_profile_cd_comparison_markdown(rows=rows, summary=summary),
+        encoding="utf-8",
+    )
     return summary
 
 
@@ -533,6 +603,11 @@ def _write_shadow_csv(rows: list[ShadowRow], path: Path) -> None:
         "cd0_wing_profile",
         "profile_cd_proxy_source",
         "profile_cd_proxy_quality",
+        "profile_cd_zone_chord_weighted",
+        "profile_cd_zone_source",
+        "profile_cd_zone_quality",
+        "profile_cd_zone_vs_proxy_delta",
+        "profile_cd_zone_vs_proxy_ratio",
         "cda_nonwing_m2",
         "cd0_nonwing_equivalent",
         "cd0_total_est",
@@ -566,6 +641,17 @@ def _write_shadow_csv(rows: list[ShadowRow], path: Path) -> None:
                     "cd0_wing_profile": _fmt(row.cd0_wing_profile),
                     "profile_cd_proxy_source": row.profile_cd_proxy_source or "",
                     "profile_cd_proxy_quality": row.profile_cd_proxy_quality or "",
+                    "profile_cd_zone_chord_weighted": _fmt(
+                        row.profile_cd_zone_chord_weighted
+                    ),
+                    "profile_cd_zone_source": row.profile_cd_zone_source or "",
+                    "profile_cd_zone_quality": row.profile_cd_zone_quality or "",
+                    "profile_cd_zone_vs_proxy_delta": _fmt(
+                        row.profile_cd_zone_vs_proxy_delta
+                    ),
+                    "profile_cd_zone_vs_proxy_ratio": _fmt(
+                        row.profile_cd_zone_vs_proxy_ratio
+                    ),
                     "cda_nonwing_m2": _fmt(row.cda_nonwing_m2),
                     "cd0_nonwing_equivalent": _fmt(row.cd0_nonwing_equivalent),
                     "cd0_total_est": _fmt(row.cd0_total_est),
@@ -591,6 +677,24 @@ def _write_shadow_csv(rows: list[ShadowRow], path: Path) -> None:
             )
 
 
+def _count_optional_strings(values: list[str | None]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for value in values:
+        key = str(value or "unknown")
+        counts[key] = counts.get(key, 0) + 1
+    return counts
+
+
+def _finite_numbers(values: list[float | None]) -> list[float]:
+    return [float(value) for value in values if value is not None and isfinite(float(value))]
+
+
+def _min_median_max(values: list[float]) -> tuple[float | None, float | None, float | None]:
+    if not values:
+        return None, None, None
+    return float(min(values)), float(median(values)), float(max(values))
+
+
 def _build_shadow_summary(
     rows: list[ShadowRow],
     config_paths: dict[str, str],
@@ -614,11 +718,24 @@ def _build_shadow_summary(
         band = str(row.drag_budget_band or "unknown")
         band_counts[band] = band_counts.get(band, 0) + 1
 
-    # Profile CD quality counts across ALL rows
-    quality_counts: dict[str, int] = {}
-    for row in rows:
-        q = row.profile_cd_proxy_quality or "unknown"
-        quality_counts[q] = quality_counts.get(q, 0) + 1
+    # Profile CD source/quality counts across ALL rows
+    source_counts = _count_optional_strings([row.profile_cd_proxy_source for row in rows])
+    quality_counts = _count_optional_strings([row.profile_cd_proxy_quality for row in rows])
+    zone_source_counts = _count_optional_strings(
+        [row.profile_cd_zone_source for row in rows]
+    )
+    zone_quality_counts = _count_optional_strings(
+        [row.profile_cd_zone_quality for row in rows]
+    )
+    zone_available = [
+        row
+        for row in rows
+        if row.profile_cd_zone_chord_weighted is not None
+        and isfinite(float(row.profile_cd_zone_chord_weighted))
+    ]
+    ratio_min, ratio_median, ratio_max = _min_median_max(
+        _finite_numbers([row.profile_cd_zone_vs_proxy_ratio for row in rows])
+    )
 
     power_passed_count = sum(1 for r in evaluated if r.power_passed is True)
     robust_passed_count = sum(1 for r in evaluated if r.robust_passed is True)
@@ -658,7 +775,15 @@ def _build_shadow_summary(
         ),
         "missing_input_candidates": len(missing_input),
         "missing_input_statuses": [r.evaluation_status for r in missing_input],
+        "profile_cd_source_counts": source_counts,
         "profile_cd_quality_counts": quality_counts,
+        "profile_cd_zone_source_counts": zone_source_counts,
+        "profile_cd_zone_quality_counts": zone_quality_counts,
+        "count_zone_profile_available": len(zone_available),
+        "count_zone_profile_unavailable": total - len(zone_available),
+        "profile_cd_zone_vs_proxy_ratio_min": ratio_min,
+        "profile_cd_zone_vs_proxy_ratio_median": ratio_median,
+        "profile_cd_zone_vs_proxy_ratio_max": ratio_max,
         "count_by_drag_budget_band": band_counts,
         "count_power_passed": power_passed_count,
         "count_robust_passed": robust_passed_count,
@@ -679,6 +804,84 @@ def _build_shadow_summary(
         "rider_curve_source": rider_curve_source,
         "config_paths": config_paths,
     }
+
+
+def _fmt_stat(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.6g}"
+
+
+def _format_counts(counts: dict[str, int]) -> str:
+    if not counts:
+        return "{}"
+    return json.dumps(counts, sort_keys=True, ensure_ascii=False)
+
+
+def _build_profile_cd_comparison_markdown(
+    *,
+    rows: list[ShadowRow],
+    summary: dict[str, Any],
+) -> str:
+    proxy_min, proxy_median, proxy_max = _min_median_max(
+        _finite_numbers([row.cd0_wing_profile for row in rows])
+    )
+    zone_min, zone_median, zone_max = _min_median_max(
+        _finite_numbers([row.profile_cd_zone_chord_weighted for row in rows])
+    )
+    ratio_min = summary.get("profile_cd_zone_vs_proxy_ratio_min")
+    ratio_median = summary.get("profile_cd_zone_vs_proxy_ratio_median")
+    ratio_max = summary.get("profile_cd_zone_vs_proxy_ratio_max")
+
+    delta_rows = [
+        row
+        for row in rows
+        if row.profile_cd_zone_vs_proxy_delta is not None
+        and isfinite(float(row.profile_cd_zone_vs_proxy_delta))
+    ]
+    delta_rows.sort(
+        key=lambda row: abs(float(row.profile_cd_zone_vs_proxy_delta or 0.0)),
+        reverse=True,
+    )
+
+    lines = [
+        "# Mission Profile CD Comparison",
+        "",
+        f"- candidate count: {summary.get('total_candidates', len(rows))}",
+        "- profile_cd_proxy source counts: "
+        f"{_format_counts(dict(summary.get('profile_cd_source_counts', {})))}",
+        "- profile_cd_proxy quality counts: "
+        f"{_format_counts(dict(summary.get('profile_cd_quality_counts', {})))}",
+        "- zone profile source counts: "
+        f"{_format_counts(dict(summary.get('profile_cd_zone_source_counts', {})))}",
+        "- zone profile quality counts: "
+        f"{_format_counts(dict(summary.get('profile_cd_zone_quality_counts', {})))}",
+        f"- zone profile available count: {summary.get('count_zone_profile_available', 0)}",
+        "- proxy cd min / median / max: "
+        f"{_fmt_stat(proxy_min)} / {_fmt_stat(proxy_median)} / {_fmt_stat(proxy_max)}",
+        "- zone cd min / median / max: "
+        f"{_fmt_stat(zone_min)} / {_fmt_stat(zone_median)} / {_fmt_stat(zone_max)}",
+        "- zone/proxy ratio min / median / max: "
+        f"{_fmt_stat(ratio_min)} / {_fmt_stat(ratio_median)} / {_fmt_stat(ratio_max)}",
+        "",
+        "## Top 10 Largest Absolute Delta Candidates",
+        "",
+        "| candidate_id | proxy_cd | zone_cd | delta | zone/proxy | proxy_quality | zone_quality |",
+        "| --- | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    if not delta_rows:
+        lines.append("| n/a | n/a | n/a | n/a | n/a | n/a | n/a |")
+    else:
+        for row in delta_rows[:10]:
+            lines.append(
+                "| "
+                f"{row.candidate_id} | "
+                f"{_fmt_stat(row.cd0_wing_profile)} | "
+                f"{_fmt_stat(row.profile_cd_zone_chord_weighted)} | "
+                f"{_fmt_stat(row.profile_cd_zone_vs_proxy_delta)} | "
+                f"{_fmt_stat(row.profile_cd_zone_vs_proxy_ratio)} | "
+                f"{row.profile_cd_proxy_quality or 'unknown'} | "
+                f"{row.profile_cd_zone_quality or 'unknown'} |"
+            )
+    return "\n".join(lines) + "\n"
 
 
 def _fmt(val: float | None) -> str:

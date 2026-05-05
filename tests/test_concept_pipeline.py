@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 import shutil
 import subprocess
+from types import SimpleNamespace
 
 import yaml
 import pytest
@@ -20,6 +21,7 @@ from hpa_mdo.concept.airfoil_worker import (
 from hpa_mdo.concept.atmosphere import air_properties_from_environment
 from hpa_mdo.concept.geometry import GeometryConcept, build_segment_plan
 from hpa_mdo.concept.pipeline import run_birdman_concept_pipeline
+from hpa_mdo.concept.ranking import CandidateConceptResult
 
 
 def _first_ranked_record(summary: dict[str, object]) -> dict[str, object]:
@@ -193,6 +195,362 @@ def _write_fast_test_config(tmp_path: Path, *, filename: str = "fast_concept.yam
     config_path = tmp_path / filename
     config_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
     return config_path
+
+
+def _diagnostic_test_concept() -> GeometryConcept:
+    return GeometryConcept(
+        span_m=32.0,
+        wing_area_m2=32.0,
+        root_chord_m=1.0,
+        tip_chord_m=1.0,
+        twist_root_deg=2.0,
+        twist_tip_deg=-1.0,
+        tail_area_m2=4.0,
+        cg_xc=0.30,
+        segment_lengths_m=(8.0, 8.0),
+    )
+
+
+def _diagnostic_station_points() -> list[dict[str, float]]:
+    return [
+        {
+            "station_y_m": 4.0,
+            "chord_m": 1.2,
+            "weight": 2.0,
+            "cl_target": 0.60,
+            "cm_target": -0.05,
+            "cd_effective": 0.011,
+            "cl_max_safe": 1.55,
+            "cl_max_safe_source": "airfoil_safe_observed",
+            "case_label": "reference_avl_case",
+            "evaluation_speed_mps": 8.0,
+            "evaluation_gross_mass_kg": 98.5,
+            "reference_speed_mps": 8.0,
+            "reference_gross_mass_kg": 98.5,
+        },
+        {
+            "station_y_m": 12.0,
+            "chord_m": 0.8,
+            "weight": 1.0,
+            "cl_target": 0.52,
+            "cm_target": -0.04,
+            "cd_effective": 0.013,
+            "cl_max_safe": 1.55,
+            "cl_max_safe_source": "airfoil_safe_observed",
+            "case_label": "reference_avl_case",
+            "evaluation_speed_mps": 8.0,
+            "evaluation_gross_mass_kg": 98.5,
+            "reference_speed_mps": 8.0,
+            "reference_gross_mass_kg": 98.5,
+        },
+    ]
+
+
+def _diagnostic_zone_requirements() -> dict[str, dict[str, object]]:
+    return {
+        "root": {
+            "source": "test_avl",
+            "reference_speed_mps": 8.0,
+            "reference_gross_mass_kg": 98.5,
+            "points": [
+                {
+                    "reynolds": 350000.0,
+                    "chord_m": 1.2,
+                    "cl_target": 0.60,
+                    "cm_target": -0.05,
+                    "weight": 1.0,
+                }
+            ],
+        },
+        "tip": {
+            "source": "test_avl",
+            "reference_speed_mps": 8.0,
+            "reference_gross_mass_kg": 98.5,
+            "points": [
+                {
+                    "reynolds": 220000.0,
+                    "chord_m": 0.8,
+                    "cl_target": 0.52,
+                    "cm_target": -0.04,
+                    "weight": 1.0,
+                }
+            ],
+        },
+    }
+
+
+def test_zone_chord_weighted_profile_cd_diagnostic_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hpa_mdo.concept import zone_airfoil_picker
+
+    calls: list[str] = []
+
+    def fake_select_zone_airfoils_from_library(*, zone_requirements):
+        calls.append("select")
+        assert set(zone_requirements) == {"root", "tip"}
+        return {"root": object(), "tip": object()}
+
+    def fake_estimate_zone_profile_cd(*, selected, zone_requirements):
+        calls.append("estimate")
+        assert set(selected) == {"root", "tip"}
+        assert set(zone_requirements) == {"root", "tip"}
+        return {
+            "root": {
+                "cd_profile": 0.010,
+                "cl_used": 0.60,
+                "reynolds_used": 350000.0,
+                "chord_m_used": 1.2,
+            },
+            "tip": {
+                "cd_profile": 0.014,
+                "cl_used": 0.52,
+                "reynolds_used": 220000.0,
+                "chord_m_used": 0.8,
+            },
+        }
+
+    def fake_chord_weighted_profile_cd(*, zone_profile):
+        calls.append("weight")
+        assert set(zone_profile) == {"root", "tip"}
+        return 0.0116
+
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "select_zone_airfoils_from_library",
+        fake_select_zone_airfoils_from_library,
+    )
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "estimate_zone_profile_cd",
+        fake_estimate_zone_profile_cd,
+    )
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "chord_weighted_profile_cd",
+        fake_chord_weighted_profile_cd,
+    )
+
+    diagnostic = concept_pipeline._try_zone_chord_weighted_profile_cd(
+        _diagnostic_zone_requirements()
+    )
+
+    assert calls == ["select", "estimate", "weight"]
+    assert diagnostic["profile_cd_zone_chord_weighted"] == pytest.approx(0.0116)
+    assert diagnostic["profile_cd_zone_source"] == "zone_chord_weighted_seed_library"
+    assert diagnostic["profile_cd_zone_quality"] == "diagnostic_seed_library_estimate"
+    assert diagnostic["profile_cd_zone_error"] is None
+    assert diagnostic["profile_cd_zone_details"]["zone_names"] == ["root", "tip"]
+    assert set(diagnostic["profile_cd_zone_details"]["zones"]) == {"root", "tip"}
+
+
+def test_zone_chord_weighted_profile_cd_diagnostic_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hpa_mdo.concept import zone_airfoil_picker
+
+    def fail_select_zone_airfoils_from_library(*, zone_requirements):
+        raise RuntimeError("seed library unavailable")
+
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "select_zone_airfoils_from_library",
+        fail_select_zone_airfoils_from_library,
+    )
+
+    diagnostic = concept_pipeline._try_zone_chord_weighted_profile_cd(
+        _diagnostic_zone_requirements()
+    )
+
+    assert diagnostic["profile_cd_zone_chord_weighted"] is None
+    assert diagnostic["profile_cd_zone_source"] == "zone_chord_weighted_unavailable"
+    assert diagnostic["profile_cd_zone_quality"] == "unavailable"
+    assert "seed library unavailable" in diagnostic["profile_cd_zone_error"]
+    assert diagnostic["profile_cd_zone_details"] is None
+
+
+def test_mission_summary_keeps_profile_cd_proxy_primary_when_zone_diagnostic_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hpa_mdo.concept import zone_airfoil_picker
+
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    cfg.rigging_drag.enabled = False
+    concept = _diagnostic_test_concept()
+    station_points = _diagnostic_station_points()
+
+    baseline = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+    )
+
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "select_zone_airfoils_from_library",
+        lambda *, zone_requirements: {"root": object(), "tip": object()},
+    )
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "estimate_zone_profile_cd",
+        lambda *, selected, zone_requirements: {
+            "root": {
+                "cd_profile": 0.030,
+                "cl_used": 0.60,
+                "reynolds_used": 350000.0,
+                "chord_m_used": 1.2,
+            },
+            "tip": {
+                "cd_profile": 0.036,
+                "cl_used": 0.52,
+                "reynolds_used": 220000.0,
+                "chord_m_used": 0.8,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "chord_weighted_profile_cd",
+        lambda *, zone_profile: 0.033,
+    )
+
+    with_zone = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=station_points,
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+        zone_requirements=_diagnostic_zone_requirements(),
+    )
+
+    expected_proxy = (0.011 * 2.0 + 0.013 * 1.0) / 3.0
+    assert baseline["profile_cd_proxy"] == pytest.approx(expected_proxy)
+    assert with_zone["profile_cd_proxy"] == pytest.approx(baseline["profile_cd_proxy"])
+    assert with_zone["misc_cd_proxy"] == pytest.approx(baseline["misc_cd_proxy"])
+    assert with_zone["mission_feasible"] is baseline["mission_feasible"]
+    assert with_zone["mission_score"] == pytest.approx(baseline["mission_score"])
+    assert with_zone["profile_cd_zone_chord_weighted"] == pytest.approx(0.033)
+    assert with_zone["profile_cd_zone_vs_proxy_delta"] == pytest.approx(
+        0.033 - baseline["profile_cd_proxy"]
+    )
+    assert with_zone["profile_cd_zone_vs_proxy_ratio"] == pytest.approx(
+        0.033 / baseline["profile_cd_proxy"]
+    )
+
+
+def test_ranked_pool_mission_dict_contains_zone_diagnostic_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hpa_mdo.concept import zone_airfoil_picker
+
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    concept = _diagnostic_test_concept()
+
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "select_zone_airfoils_from_library",
+        lambda *, zone_requirements: {"root": object(), "tip": object()},
+    )
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "estimate_zone_profile_cd",
+        lambda *, selected, zone_requirements: {
+            "root": {
+                "cd_profile": 0.010,
+                "cl_used": 0.60,
+                "reynolds_used": 350000.0,
+                "chord_m_used": 1.2,
+            },
+            "tip": {
+                "cd_profile": 0.014,
+                "cl_used": 0.52,
+                "reynolds_used": 220000.0,
+                "chord_m_used": 0.8,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        zone_airfoil_picker,
+        "chord_weighted_profile_cd",
+        lambda *, zone_profile: 0.0116,
+    )
+
+    mission_summary = concept_pipeline._build_concept_mission_summary(
+        cfg=cfg,
+        concept=concept,
+        station_points=_diagnostic_station_points(),
+        airfoil_feedback={},
+        trim_summary={"tail_cl_required": 0.0},
+        air_density_kg_per_m3=1.15,
+        zone_requirements=_diagnostic_zone_requirements(),
+    )
+    ranking_input = CandidateConceptResult(
+        concept_id="diagnostic-00",
+        launch_feasible=True,
+        turn_feasible=True,
+        trim_feasible=True,
+        mission_feasible=bool(mission_summary["mission_feasible"]),
+        safety_margin=0.3,
+        mission_objective_mode=str(mission_summary["mission_objective_mode"]),
+        mission_score=float(mission_summary["mission_score"]),
+        best_range_m=float(mission_summary["best_range_m"]),
+        assembly_penalty=0.0,
+        local_stall_feasible=True,
+        mission_margin_m=float(mission_summary["target_range_margin_m"]),
+    )
+    record = concept_pipeline._EvaluatedConcept(
+        evaluation_id="diagnostic-00",
+        enumeration_index=0,
+        concept=concept,
+        stations=(),
+        zone_requirements=_diagnostic_zone_requirements(),
+        selected_by_zone={},
+        airfoil_templates={},
+        screening_worker_results=[],
+        worker_results=[],
+        worker_backend="test_stub",
+        screening_airfoil_feedback={},
+        airfoil_feedback={},
+        launch_summary={"stall_utilization": 0.2, "stall_utilization_limit": 1.0},
+        turn_summary={"stall_utilization": 0.2, "stall_utilization_limit": 1.0},
+        trim_summary={"margin_deg": 5.0, "required_trim_margin_deg": 1.0},
+        local_stall_summary={"stall_utilization": 0.2, "stall_utilization_limit": 1.0},
+        mission_summary=mission_summary,
+        ranking_input=ranking_input,
+    )
+    ranked_record = concept_pipeline._build_ranked_concept_record(
+        cfg=cfg,
+        record=record,
+        ranked=SimpleNamespace(
+            score=1.0,
+            selection_status="selected",
+            why_not_higher=(),
+            failed_gate_count=0,
+            combined_feasibility_margin=0.3,
+            safety_feasible=True,
+            fully_feasible=True,
+        ),
+        rank=1,
+        overall_rank=1,
+        bundle_dir=None,
+    )
+
+    mission = ranked_record["mission"]
+    for field in (
+        "profile_cd_zone_chord_weighted",
+        "profile_cd_zone_source",
+        "profile_cd_zone_quality",
+        "profile_cd_zone_vs_proxy_delta",
+        "profile_cd_zone_vs_proxy_ratio",
+    ):
+        assert field in mission
+    assert mission["profile_cd_zone_chord_weighted"] == pytest.approx(0.0116)
+    assert mission["profile_cd_zone_source"] == "zone_chord_weighted_seed_library"
+    assert mission["profile_cd_zone_quality"] == "diagnostic_seed_library_estimate"
 
 
 @pytest.mark.slow

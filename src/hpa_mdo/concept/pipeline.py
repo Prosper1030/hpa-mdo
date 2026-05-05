@@ -8,7 +8,7 @@ import math
 from pathlib import Path
 import sys
 import time
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
 from hpa_mdo.concept.aero_proxies import (
     misc_cd_proxy,
@@ -1905,6 +1905,77 @@ _PROFILE_CD_SOURCE_STUB = "hardcoded_stub_fallback_0p020"
 _PROFILE_CD_QUALITY_MISSION = "mission_budget_candidate"
 _PROFILE_CD_QUALITY_FALLBACK = "fallback_not_cd0_budget_grade"
 _PROFILE_CD_QUALITY_NOT_MISSION = "not_mission_grade"
+_PROFILE_CD_ZONE_SOURCE_SEED_LIBRARY = "zone_chord_weighted_seed_library"
+_PROFILE_CD_ZONE_SOURCE_UNAVAILABLE = "zone_chord_weighted_unavailable"
+_PROFILE_CD_ZONE_QUALITY_DIAGNOSTIC = "diagnostic_seed_library_estimate"
+_PROFILE_CD_ZONE_QUALITY_UNAVAILABLE = "unavailable"
+
+
+def _profile_cd_zone_unavailable(error: str) -> dict[str, Any]:
+    return {
+        "profile_cd_zone_chord_weighted": None,
+        "profile_cd_zone_source": _PROFILE_CD_ZONE_SOURCE_UNAVAILABLE,
+        "profile_cd_zone_quality": _PROFILE_CD_ZONE_QUALITY_UNAVAILABLE,
+        "profile_cd_zone_details": None,
+        "profile_cd_zone_error": str(error)[:240],
+    }
+
+
+def _profile_cd_zone_details_summary(
+    zone_profile: Mapping[str, Mapping[str, Any]],
+) -> dict[str, Any]:
+    zones: dict[str, dict[str, float | None]] = {}
+    for raw_zone_name, info in sorted(zone_profile.items(), key=lambda item: str(item[0])):
+        zone_name = str(raw_zone_name)
+        zones[zone_name] = {
+            "cd_profile": _numeric_value(info.get("cd_profile")),
+            "cl_used": _numeric_value(info.get("cl_used")),
+            "reynolds_used": _numeric_value(info.get("reynolds_used")),
+            "chord_m_used": _numeric_value(info.get("chord_m_used")),
+        }
+    return {
+        "zone_names": sorted(zones),
+        "zones": zones,
+    }
+
+
+def _try_zone_chord_weighted_profile_cd(
+    zone_requirements: Mapping[str, dict[str, Any]] | None,
+) -> dict[str, Any]:
+    """Return a diagnostic zone/chord-weighted profile CD estimate if available."""
+    if not zone_requirements:
+        return _profile_cd_zone_unavailable("zone_requirements unavailable")
+    if not any(zone_data.get("points") for zone_data in zone_requirements.values()):
+        return _profile_cd_zone_unavailable("zone_requirements has no points")
+
+    try:
+        from hpa_mdo.concept.zone_airfoil_picker import (
+            chord_weighted_profile_cd,
+            estimate_zone_profile_cd,
+            select_zone_airfoils_from_library,
+        )
+
+        selected = select_zone_airfoils_from_library(
+            zone_requirements=zone_requirements
+        )
+        zone_profile = estimate_zone_profile_cd(
+            selected=selected,
+            zone_requirements=zone_requirements,
+        )
+        cd = _numeric_value(chord_weighted_profile_cd(zone_profile=zone_profile))
+        if cd is None or cd <= 0.0:
+            return _profile_cd_zone_unavailable(
+                "zone chord-weighted profile cd unavailable or non-positive"
+            )
+        return {
+            "profile_cd_zone_chord_weighted": float(cd),
+            "profile_cd_zone_source": _PROFILE_CD_ZONE_SOURCE_SEED_LIBRARY,
+            "profile_cd_zone_quality": _PROFILE_CD_ZONE_QUALITY_DIAGNOSTIC,
+            "profile_cd_zone_details": _profile_cd_zone_details_summary(zone_profile),
+            "profile_cd_zone_error": None,
+        }
+    except Exception as exc:  # noqa: BLE001 - diagnostic path must not stop pipeline.
+        return _profile_cd_zone_unavailable(str(exc))
 
 
 def _mean_effective_cd_with_source(
@@ -2236,6 +2307,7 @@ def _build_concept_mission_summary(
     airfoil_feedback: dict[str, Any],
     trim_summary: dict[str, Any],
     air_density_kg_per_m3: float,
+    zone_requirements: Mapping[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     speed_sweep_mps = _speed_sweep_mps(cfg)
     cruise_station_points = _station_points_for_case_label(
@@ -2246,6 +2318,16 @@ def _build_concept_mission_summary(
         cruise_station_points or station_points,
         airfoil_feedback,
     )
+    zone_profile_diagnostic = _try_zone_chord_weighted_profile_cd(zone_requirements)
+    profile_cd_zone_chord_weighted = _numeric_value(
+        zone_profile_diagnostic.get("profile_cd_zone_chord_weighted")
+    )
+    if profile_cd_zone_chord_weighted is None or profile_cd is None or profile_cd == 0.0:
+        profile_cd_zone_vs_proxy_delta = None
+        profile_cd_zone_vs_proxy_ratio = None
+    else:
+        profile_cd_zone_vs_proxy_delta = float(profile_cd_zone_chord_weighted - profile_cd)
+        profile_cd_zone_vs_proxy_ratio = float(profile_cd_zone_chord_weighted / profile_cd)
     aspect_ratio = concept.span_m**2 / max(concept.wing_area_m2, 1.0e-9)
     oswald_efficiency_summary = spanload_efficiency_proxy(
         concept=concept,
@@ -2748,6 +2830,15 @@ def _build_concept_mission_summary(
         "profile_cd_proxy": profile_cd,
         "profile_cd_proxy_source": profile_cd_source,
         "profile_cd_proxy_quality": profile_cd_quality,
+        "profile_cd_zone_chord_weighted": profile_cd_zone_chord_weighted,
+        "profile_cd_zone_source": str(zone_profile_diagnostic["profile_cd_zone_source"]),
+        "profile_cd_zone_quality": str(
+            zone_profile_diagnostic["profile_cd_zone_quality"]
+        ),
+        "profile_cd_zone_error": zone_profile_diagnostic["profile_cd_zone_error"],
+        "profile_cd_zone_vs_proxy_delta": profile_cd_zone_vs_proxy_delta,
+        "profile_cd_zone_vs_proxy_ratio": profile_cd_zone_vs_proxy_ratio,
+        "profile_cd_zone_details": zone_profile_diagnostic["profile_cd_zone_details"],
         "misc_cd_proxy": misc_cd,
         "trim_drag_cd_proxy": tail_trim_drag_cd,
         "rigging_cda_m2": float(rigging_cda_m2),
@@ -3238,6 +3329,7 @@ def _evaluate_selected_airfoils_for_concept(
         airfoil_feedback=airfoil_feedback,
         trim_summary=trim_summary,
         air_density_kg_per_m3=air_density_kg_per_m3,
+        zone_requirements=zone_requirements,
     )
     local_stall_summary = _summarize_local_stall(
         cfg=cfg,

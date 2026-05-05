@@ -158,8 +158,30 @@ def chord_weighted_profile_cd(*, zone_profile) -> float:
     """
 ```
 
-**目前使用狀況**：僅在 `scripts/birdman_mit_like_closed_loop_search.py` 中使用，  
-**主流程 `pipeline.py` 未呼叫**。
+**原始審計時使用狀況**：僅在 `scripts/birdman_mit_like_closed_loop_search.py` 中使用。
+**2026-05-05 後狀態**：主流程 `pipeline.py` 已接入 diagnostic 呼叫，但尚未作為
+primary `profile_cd_proxy` 來源。
+
+### 5.1.1 2026-05-05 補充：diagnostic 接入狀態
+
+`zone_airfoil_picker.estimate_zone_profile_cd()` 與
+`chord_weighted_profile_cd()` 現已透過
+`pipeline._try_zone_chord_weighted_profile_cd()` 接入 concept pipeline 的
+diagnostic metadata。
+
+目前行為：
+
+- `profile_cd_proxy` 仍維持既有 `_mean_effective_cd_with_source()` 路徑。
+- zone estimator 不會取代 primary `profile_cd_proxy`。
+- zone estimator 不會改變 `misc_cd_proxy`、`total_cd`、`mission_feasible`、
+  objective、ranking 或 reject/gate 行為。
+- ranked pool 的 `candidate.mission` 會額外輸出
+  `profile_cd_zone_chord_weighted`、source/quality、error、delta 與 ratio。
+- Shadow summary 會統計 zone diagnostic profile CD 的 source/quality、
+  available/unavailable count，以及 zone/proxy ratio min/median/max。
+
+這代表目前已有足夠欄位做 engineering comparison，但尚未把 zone source
+升級成 mission primary source。
 
 ### 5.2 各方法比較
 
