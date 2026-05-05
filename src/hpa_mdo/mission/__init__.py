@@ -47,6 +47,11 @@ from hpa_mdo.mission.drag_budget import (
     estimate_cd0_total_from_wing_budget,
     evaluate_drag_budget_candidate,
 )
+from hpa_mdo.mission.contract import (
+    MISSION_CONTRACT_SHADOW_FIELDS,
+    MissionContract,
+    build_mission_contract,
+)
 
 __all__ = [
     "CsvPowerCurve",
@@ -88,4 +93,7 @@ __all__ = [
     "load_mission_drag_budget",
     "estimate_cd0_total_from_wing_budget",
     "evaluate_drag_budget_candidate",
+    "MISSION_CONTRACT_SHADOW_FIELDS",
+    "MissionContract",
+    "build_mission_contract",
 ]

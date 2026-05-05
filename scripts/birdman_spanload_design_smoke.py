@@ -15,6 +15,7 @@ import numpy as np
 from scipy.interpolate import PchipInterpolator
 from scipy.optimize import minimize
 from scipy.stats import qmc
+import yaml
 
 from hpa_mdo.aero.avl_spanwise import build_spanwise_load_from_avl_strip_forces
 from hpa_mdo.concept.aero_proxies import misc_cd_proxy
@@ -42,6 +43,10 @@ from hpa_mdo.concept.outer_loading import (
 )
 from hpa_mdo.concept.pipeline import _sizing_diagnostics
 from hpa_mdo.concept.vsp_export import write_concept_openvsp_handoff
+from hpa_mdo.mission.contract import (
+    MISSION_CONTRACT_SHADOW_FIELDS,
+    build_mission_contract,
+)
 from hpa_mdo.mission.objective import build_rider_power_curve
 
 
@@ -99,6 +104,9 @@ manufacturing gates in their existing thresholds.
 """
 
 STAGE0_SAMPLE_DIMENSIONS = 9
+DEFAULT_MISSION_SCREENER_SUMMARY_PATH = Path("output/mission_design_space/summary.json")
+DEFAULT_MISSION_OPTIMIZER_HANDOFF_PATH = Path("output/mission_design_space/optimizer_handoff.json")
+DEFAULT_MISSION_DRAG_BUDGET_CONFIG_PATH = Path("configs/mission_drag_budget_example.yaml")
 
 
 def _round(value: Any, digits: int = 6) -> Any:
@@ -737,6 +745,131 @@ def _power_proxy_from_cdi(
         "rigging_cd": float(rigging_cd),
         "total_cd": float(total_cd),
     }
+
+
+def _merge_context(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in incoming.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_context(dict(merged[key]), value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _read_mapping_file(path: Path) -> dict[str, Any] | None:
+    if path is None or not Path(path).is_file():
+        return None
+    try:
+        if Path(path).suffix.lower() in {".yaml", ".yml"}:
+            loaded = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+        else:
+            loaded = json.loads(Path(path).read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
+def _mission_contract_shadow_context(
+    *,
+    cfg: BirdmanConceptConfig,
+    summary_path: Path | None,
+    optimizer_handoff_path: Path | None,
+    drag_budget_config_path: Path | None,
+) -> dict[str, Any]:
+    context: dict[str, Any] = {
+        "mission_context": {
+            "target_range_km": float(cfg.mission.target_distance_km),
+            "target_environment": {
+                "temperature_c": float(cfg.environment.temperature_c),
+                "relative_humidity_percent": float(cfg.environment.relative_humidity),
+            },
+        },
+        "mission_gate": {
+            "robust_power_margin_crank_w_min": 5.0,
+        },
+        "propulsion_budget": {
+            "eta_prop_target": float(cfg.prop.efficiency_model.design_efficiency),
+            "eta_trans": float(cfg.drivetrain.efficiency),
+        },
+    }
+    source_parts = ["concept_config"]
+    path_records: dict[str, str] = {}
+    for source_name, path in (
+        ("summary_json", summary_path),
+        ("optimizer_handoff_json", optimizer_handoff_path),
+        ("mission_drag_budget_yaml", drag_budget_config_path),
+    ):
+        if path is None:
+            continue
+        loaded = _read_mapping_file(Path(path))
+        if loaded is None:
+            continue
+        context = _merge_context(context, loaded)
+        source_parts.append(source_name)
+        path_records[source_name] = str(path)
+    context["mission_contract_source"] = "+".join(source_parts)
+    context["mission_contract_source_paths"] = path_records
+    return context
+
+
+def _mission_contract_seed_row(
+    *,
+    record: dict[str, Any],
+    cfg: BirdmanConceptConfig,
+    design_speed_mps: float,
+) -> dict[str, Any]:
+    geometry = record.get("geometry", {})
+    power = record.get("avl_cdi_power_proxy") or record.get("target_fourier_power_proxy") or {}
+    air = _air_properties(cfg)
+    spanload_cfg = cfg.geometry_family.spanload_design
+    return {
+        "speed_mps": power.get("speed_mps", design_speed_mps),
+        "span_m": geometry.get("span_m"),
+        "aspect_ratio": geometry.get("aspect_ratio"),
+        "mass_kg": power.get("mass_kg", cfg.mass.design_gross_mass_kg),
+        "rho": float(air.density_kg_per_m3),
+        "eta_prop": float(cfg.prop.efficiency_model.design_efficiency),
+        "eta_trans": float(cfg.drivetrain.efficiency),
+        "pilot_power_hot_w": power.get("available_power_w"),
+        "CLmax_effective_assumption": float(spanload_cfg.local_clmax_safe_floor),
+    }
+
+
+def _attach_mission_contract_shadow_fields(
+    records: list[dict[str, Any]],
+    *,
+    cfg: BirdmanConceptConfig,
+    design_speed_mps: float,
+    context: dict[str, Any],
+) -> None:
+    for record in records:
+        try:
+            contract = build_mission_contract(
+                _mission_contract_seed_row(
+                    record=record,
+                    cfg=cfg,
+                    design_speed_mps=design_speed_mps,
+                ),
+                context,
+            )
+        except Exception as exc:  # noqa: BLE001 - keep smoke route non-gating.
+            record["mission_contract"] = {
+                "source_mode": "shadow_no_ranking_gate",
+                "mission_contract_source": str(
+                    context.get("mission_contract_source", "unknown")
+                ),
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+            for field in MISSION_CONTRACT_SHADOW_FIELDS:
+                record[field] = (
+                    record["mission_contract"]["mission_contract_source"]
+                    if field == "mission_contract_source"
+                    else None
+                )
+            continue
+        record["mission_contract"] = contract.to_dict()
+        record.update(contract.to_shadow_fields())
 
 
 def _scale_range(bounds: tuple[float, float], unit_value: float) -> float:
@@ -1825,6 +1958,13 @@ def _stage1_compact_record(record: dict[str, Any]) -> dict[str, Any]:
             "power_required_w"
         ),
         "avl_cdi_power_margin_w": record.get("avl_cdi_power_proxy", {}).get("power_margin_w"),
+        "mission_CL_req": record.get("mission_CL_req"),
+        "mission_CD_wing_profile_target": record.get("mission_CD_wing_profile_target"),
+        "mission_CD_wing_profile_boundary": record.get("mission_CD_wing_profile_boundary"),
+        "mission_CDA_nonwing_target_m2": record.get("mission_CDA_nonwing_target_m2"),
+        "mission_CDA_nonwing_boundary_m2": record.get("mission_CDA_nonwing_boundary_m2"),
+        "mission_power_margin_required_w": record.get("mission_power_margin_required_w"),
+        "mission_contract_source": record.get("mission_contract_source"),
         "outer_loading_diagnostics": record.get("outer_loading_diagnostics", {}),
         "objective_value": record.get("objective_value"),
     }
@@ -1957,6 +2097,25 @@ def _export_top_candidate_artifacts(
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(_round(station_rows))
+    mission_contract_payload = {
+        **{field: record.get(field) for field in MISSION_CONTRACT_SHADOW_FIELDS},
+        "mission_contract": record.get("mission_contract", {}),
+    }
+    mission_contract_json_path = bundle_dir / "mission_contract.json"
+    mission_contract_json_path.write_text(
+        json.dumps(_round(mission_contract_payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    mission_contract_csv_path = bundle_dir / "mission_contract.csv"
+    with mission_contract_csv_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(MISSION_CONTRACT_SHADOW_FIELDS))
+        writer.writeheader()
+        writer.writerow(
+            {
+                field: "" if record.get(field) is None else _round(record.get(field))
+                for field in MISSION_CONTRACT_SHADOW_FIELDS
+            }
+        )
     concept_id = f"birdman_inverse_chord_sample_{sample_index:04d}"
     script_path, metadata_path = write_concept_openvsp_handoff(
         bundle_dir=bundle_dir,
@@ -1984,6 +2143,8 @@ def _export_top_candidate_artifacts(
             "outer_chord_bump_amp": record.get("outer_chord_bump_amp"),
             "outer_chord_redistribution": record.get("outer_chord_redistribution"),
             "outer_loading_diagnostics": record.get("outer_loading_diagnostics"),
+            "mission_contract": record.get("mission_contract", {}),
+            **{field: record.get(field) for field in MISSION_CONTRACT_SHADOW_FIELDS},
         },
     )
     return {
@@ -1993,6 +2154,8 @@ def _export_top_candidate_artifacts(
         "vsp_metadata_path": str(metadata_path),
         "station_table_path": str(station_table_path),
         "station_table_csv_path": str(station_table_csv_path),
+        "mission_contract_json_path": str(mission_contract_json_path),
+        "mission_contract_csv_path": str(mission_contract_csv_path),
     }
 
 
@@ -3339,6 +3502,18 @@ def _markdown_candidate(candidate: dict[str, Any]) -> list[str]:
         f"margin {_format_float(avl_power['power_margin_w'], 1)} W). "
         f"{avl_power.get('profile_drag_note')}."
     )
+    if candidate.get("mission_contract") is not None:
+        lines.append(
+            "- Mission contract shadow: "
+            f"CL_req {_format_float(candidate.get('mission_CL_req'), 3)}, "
+            f"wing profile CD target/boundary "
+            f"{_format_float(candidate.get('mission_CD_wing_profile_target'), 5)}/"
+            f"{_format_float(candidate.get('mission_CD_wing_profile_boundary'), 5)}, "
+            f"non-wing CDA target/boundary "
+            f"{_format_float(candidate.get('mission_CDA_nonwing_target_m2'), 3)}/"
+            f"{_format_float(candidate.get('mission_CDA_nonwing_boundary_m2'), 3)} m2; "
+            "shadow only, no ranking gate."
+        )
     lines.append(
         "- Fourier: "
         f"a3 {_format_float(fourier['a3_over_a1'], 3)}, "
@@ -3481,6 +3656,8 @@ def _write_markdown_report(report: dict[str, Any], path: Path) -> None:
         f"- Design cruise smoke case: {report['design_cruise_case']['speed_mps']} m/s, {report['design_cruise_case']['mass_kg']} kg",
         f"- Candidate selection: {report['candidate_selection_rule']}",
         f"- Profile drag note: {report['profile_drag_note']}",
+        f"- Mission contract shadow: {report.get('mission_contract_shadow', {}).get('mission_contract_source', 'unknown')} "
+        f"({report.get('mission_contract_shadow', {}).get('ranking_behavior', 'unchanged')})",
         "",
         "## Engineering Read",
         "",
@@ -3695,6 +3872,24 @@ def parse_args() -> argparse.Namespace:
         choices=(SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE, SPANLOAD_TO_GEOMETRY_LINEAR_MODE),
         default=SPANLOAD_TO_GEOMETRY_INVERSE_CHORD_MODE,
     )
+    parser.add_argument(
+        "--mission-screener-summary",
+        type=Path,
+        default=DEFAULT_MISSION_SCREENER_SUMMARY_PATH,
+        help="Stage-0 mission screener summary.json for shadow MissionContract fields.",
+    )
+    parser.add_argument(
+        "--mission-optimizer-handoff",
+        type=Path,
+        default=DEFAULT_MISSION_OPTIMIZER_HANDOFF_PATH,
+        help="Stage-0 optimizer_handoff.json for shadow MissionContract fields.",
+    )
+    parser.add_argument(
+        "--mission-drag-budget-config",
+        type=Path,
+        default=DEFAULT_MISSION_DRAG_BUDGET_CONFIG_PATH,
+        help="Mission drag budget YAML used by the shadow MissionContract adapter.",
+    )
     parser.add_argument("--avl-binary", default=None)
     return parser.parse_args()
 
@@ -3772,6 +3967,19 @@ def main() -> None:
                 "optimizer_error": str(exc),
             }
         records.append(record)
+
+    mission_contract_context = _mission_contract_shadow_context(
+        cfg=cfg,
+        summary_path=args.mission_screener_summary,
+        optimizer_handoff_path=args.mission_optimizer_handoff,
+        drag_budget_config_path=args.mission_drag_budget_config,
+    )
+    _attach_mission_contract_shadow_fields(
+        records,
+        cfg=cfg,
+        design_speed_mps=design_speed_mps,
+        context=mission_contract_context,
+    )
 
     physically_accepted = [
         record
@@ -3893,6 +4101,15 @@ def main() -> None:
                 float(cfg.mission.speed_sweep_min_mps),
                 float(cfg.mission.speed_sweep_max_mps),
             ],
+        },
+        "mission_contract_shadow": {
+            "source_mode": "shadow_no_ranking_gate",
+            "mission_contract_source": str(
+                mission_contract_context.get("mission_contract_source", "unknown")
+            ),
+            "source_paths": mission_contract_context.get("mission_contract_source_paths", {}),
+            "export_fields": list(MISSION_CONTRACT_SHADOW_FIELDS),
+            "ranking_behavior": "unchanged_no_rejection_no_sort_key",
         },
         "stage0_counts": stage0["counts"],
         "stage1_counts": {

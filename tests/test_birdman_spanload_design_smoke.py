@@ -256,6 +256,14 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
             for row in metric["station_table"]
         ],
         "avl_reference_case": {"avl_case_dir": str(tmp_path / "avl_case")},
+        "mission_CL_req": 1.18,
+        "mission_CD_wing_profile_target": 0.0128,
+        "mission_CD_wing_profile_boundary": 0.0135,
+        "mission_CDA_nonwing_target_m2": 0.13,
+        "mission_CDA_nonwing_boundary_m2": 0.16,
+        "mission_power_margin_required_w": 5.0,
+        "mission_contract_source": "unit_test_context",
+        "mission_contract": {"mission_contract_source": "unit_test_context"},
     }
     avl_file = tmp_path / "avl_case" / "concept_wing.avl"
     avl_file.parent.mkdir(parents=True)
@@ -270,12 +278,82 @@ def test_top_candidate_export_uses_seed_airfoil_files_not_naca_fallback(tmp_path
 
     assert Path(artifacts["avl_file_path"]).is_file()
     assert Path(artifacts["station_table_csv_path"]).is_file()
+    assert Path(artifacts["mission_contract_json_path"]).is_file()
+    assert Path(artifacts["mission_contract_csv_path"]).is_file()
     assert "target_circulation" in Path(artifacts["station_table_csv_path"]).read_text(encoding="utf-8").splitlines()[0]
+    mission_contract = Path(artifacts["mission_contract_json_path"]).read_text(encoding="utf-8")
+    assert "mission_CL_req" in mission_contract
+    assert "mission_CD_wing_profile_target" in mission_contract
+    assert "mission_contract_source" in Path(artifacts["mission_contract_csv_path"]).read_text(encoding="utf-8").splitlines()[0]
     metadata = Path(artifacts["vsp_metadata_path"]).read_text(encoding="utf-8")
     script = Path(artifacts["vsp_script_path"]).read_text(encoding="utf-8")
     assert "selected_cst_dat_files" in metadata
     assert "ReadFileAirfoil" in script
     assert "NACA 0012" not in script
+
+
+def test_mission_contract_shadow_attach_preserves_record_order_and_rank_inputs() -> None:
+    cfg = load_concept_config(Path("configs/birdman_upstream_concept_baseline.yaml"))
+    records = [
+        {
+            "sample_index": 2,
+            "geometry": {"span_m": 35.0, "aspect_ratio": 38.0},
+            "avl_cdi_power_proxy": {
+                "speed_mps": 6.6,
+                "mass_kg": 98.5,
+                "available_power_w": 204.0,
+                "power_margin_w": -10.0,
+            },
+            "objective_value": 3.5,
+        },
+        {
+            "sample_index": 1,
+            "geometry": {"span_m": 34.0, "aspect_ratio": 37.0},
+            "avl_cdi_power_proxy": {
+                "speed_mps": 6.8,
+                "mass_kg": 98.5,
+                "available_power_w": 203.0,
+                "power_margin_w": -9.0,
+            },
+            "objective_value": 2.5,
+        },
+    ]
+    context = {
+        "mission_contract_source": "unit_test_context",
+        "mission_context": {"target_range_km": 42.195},
+        "mission_gate": {"robust_power_margin_crank_w_min": 5.0},
+        "total_drag_budget": {
+            "cd0_total_target": 0.017,
+            "cd0_total_boundary": 0.018,
+            "cd0_total_rescue": 0.020,
+        },
+        "nonwing_reserve": {
+            "cda_target_m2": 0.13,
+            "cda_boundary_m2": 0.16,
+        },
+        "propulsion_budget": {
+            "eta_prop_target": 0.88,
+            "eta_trans": 0.96,
+        },
+    }
+    before_order = [record["sample_index"] for record in records]
+    before_objectives = [record["objective_value"] for record in records]
+
+    smoke._attach_mission_contract_shadow_fields(
+        records,
+        cfg=cfg,
+        design_speed_mps=6.6,
+        context=context,
+    )
+
+    assert [record["sample_index"] for record in records] == before_order
+    assert [record["objective_value"] for record in records] == before_objectives
+    for record in records:
+        assert record["mission_CL_req"] > 0.0
+        assert record["mission_CD_wing_profile_target"] > 0.0
+        assert record["mission_CDA_nonwing_target_m2"] == pytest.approx(0.13)
+        assert record["mission_contract_source"] == "unit_test_context"
+        assert record["mission_contract"]["source_mode"] == "shadow_no_ranking_gate"
 
 
 def test_outer_loading_diagnostics_flags_underloaded_outer_stations() -> None:

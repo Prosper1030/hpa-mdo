@@ -121,6 +121,38 @@ print(f"power_margin      = {result.mission_power_margin_crank_w:.1f} W")
 
 ---
 
+## MissionContract Shadow Adapter
+
+`hpa_mdo.mission.contract.MissionContract` 是把 Stage-0 mission screener
+seed row、`optimizer_handoff.json`、`summary.json` 與 drag-budget YAML 合併成
+主翼 optimizer 可讀合約的第一層 adapter。
+
+目前 `scripts/birdman_spanload_design_smoke.py` 只在 shadow mode 連接它：
+
+- 不改變 `inverse_chord_then_residual_twist_no_cst_no_xfoil` 的排序。
+- 不新增 hard gate，也不拒絕候選。
+- 在 report JSON、compact candidate records、top-candidate bundle 的
+  `mission_contract.json` / `mission_contract.csv` 輸出下列欄位：
+  `mission_CL_req`、`mission_CD_wing_profile_target`、
+  `mission_CD_wing_profile_boundary`、`mission_CDA_nonwing_target_m2`、
+  `mission_CDA_nonwing_boundary_m2`、`mission_power_margin_required_w`、
+  `mission_contract_source`。
+
+合約中的核心公式是：
+
+```
+S = span_m^2 / aspect_ratio
+CL_req = W / (0.5 * rho * V^2 * S)
+CD_wing_profile_target = CD0_total_target - CDA_nonwing_target / S
+CD_wing_profile_boundary = CD0_total_boundary - CDA_nonwing_boundary / S
+```
+
+這是後續「mission screener → FourierTarget v2 → zone-level airfoil
+top-k → AVL actual Cl → profile drag」閉環的資料契約入口；Phase 1 只
+暴露欄位與來源，不讓它成為 optimizer driver。
+
+---
+
 ## 這只是早期設計預算，不取代高精度分析
 
 本模組的 `CD0_total_est` 是**概念設計階段的快速估計工具**，具有以下限制：
