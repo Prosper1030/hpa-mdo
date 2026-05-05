@@ -93,7 +93,9 @@ def _zone_envelope_path(tmp_path: Path) -> Path:
 
 def _small_config(**overrides) -> CSTZoneSearchConfig:
     values = {
-        "sample_count_per_zone": 4,
+        "population_size_per_zone": 4,
+        "generations": 1,
+        "nsga_parent_count": 2,
         "coarse_score_count": 2,
         "robust_score_count": 1,
         "top_k_per_zone": 1,
@@ -129,7 +131,7 @@ def test_cst_builder_writes_quality_labeled_database_and_lookup(tmp_path: Path) 
     assert result.paths["airfoil_database_json"].is_file()
     assert result.paths["per_zone_top_k_csv"].is_file()
     assert result.paths["coverage_report_csv"].is_file()
-    assert result.report["zones"]["tip"]["generated_candidate_count"] == 4
+    assert result.report["zones"]["tip"]["initial_population_count"] == 4
     assert result.report["zones"]["tip"]["xfoil_evaluated_candidate_count"] >= 1
 
     record = next(iter(result.airfoil_database.records.values()))
@@ -164,3 +166,21 @@ def test_dry_run_cst_worker_never_upgrades_to_mission_grade(tmp_path: Path) -> N
     qualities = {record.source_quality for record in result.airfoil_database.records.values()}
     assert "cst_xfoil_mission_grade_candidate" not in qualities
     assert qualities == {"cst_xfoil_candidate_not_mission_grade"}
+
+
+def test_nsga_generations_create_offspring_after_sobol_initial_population(tmp_path: Path) -> None:
+    result = build_cst_zone_airfoil_database(
+        zone_envelope_path=_zone_envelope_path(tmp_path),
+        output_dir=tmp_path / "build",
+        config=_small_config(generations=2, nsga_parent_count=2),
+        worker=_FakeWorker(),
+    )
+
+    zone_report = result.report["zones"]["tip"]
+    assert zone_report["search_mode"] == "nsga2_seedless_sobol_initial_population"
+    assert len(zone_report["generation_summaries"]) == 2
+    assert zone_report["evaluated_candidate_count"] >= 5
+    assert any(
+        "nsga2_g01_child" in airfoil_id
+        for airfoil_id in result.airfoil_database.records
+    )

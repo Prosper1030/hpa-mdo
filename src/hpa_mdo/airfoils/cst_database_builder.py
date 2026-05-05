@@ -1,9 +1,9 @@
-"""Offline CST/XFOIL airfoil database builder for zone sidecar studies.
+"""Offline CST/NSGA/XFOIL airfoil database builder for sidecar studies.
 
-This module intentionally stays outside the main optimizer route.  It samples
-zone-level CST candidates, evaluates a capped subset with the existing XFOIL
-worker, writes checkpointed database artifacts, and keeps every result
-quality-labeled for later sidecar use.
+The builder is deliberately outside the aircraft ranking route.  It uses
+Sobol only to create the first seedless CST population, then runs an
+NSGA2-style constrained Pareto loop with the existing CST variation operators
+and XFOIL worker.  Every exported record remains quality-labeled.
 """
 
 from __future__ import annotations
@@ -30,6 +30,12 @@ from hpa_mdo.concept.airfoil_cst import (
     sample_feasible_seedless_cst_sobol,
     validate_seedless_cst_template,
 )
+from hpa_mdo.concept.airfoil_nsga import generate_seedless_nsga2_offspring
+from hpa_mdo.concept.airfoil_pareto import (
+    AirfoilParetoCandidate,
+    rank_constrained_pareto_candidates,
+    select_nsga2_survivors,
+)
 from hpa_mdo.concept.airfoil_selection import (
     _default_seedless_cst_bounds,
     _seedless_constraints_for_zone,
@@ -37,13 +43,17 @@ from hpa_mdo.concept.airfoil_selection import (
 from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordinates
 
 
-CST_DATABASE_SOURCE = "offline_cst_zone_xfoil_database_builder_v1"
+CST_DATABASE_SOURCE = "offline_cst_zone_nsga_xfoil_database_builder_v1"
 _ZONE_ORDER = ("root", "mid1", "mid2", "tip")
 
 
 @dataclass(frozen=True)
 class CSTZoneSearchConfig:
-    sample_count_per_zone: int = 512
+    population_size_per_zone: int = 128
+    generations: int = 8
+    nsga_parent_count: int = 64
+    mutation_scale: float = 0.06
+    sample_count_per_zone: int | None = None
     coarse_score_count: int = 96
     robust_score_count: int = 24
     top_k_per_zone: int = 8
@@ -68,13 +78,13 @@ class CSTZoneSearchResult:
 
 def load_zone_envelopes_from_artifact(path: Path) -> tuple[ZoneEnvelope, ...]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    rows: Any
     if isinstance(payload, list):
         rows = payload
     elif isinstance(payload, Mapping):
         rows = payload.get("zone_envelope", payload.get("zone_envelopes", []))
     else:
         raise ValueError("zone envelope artifact must be a JSON object or list.")
+
     envelopes: list[ZoneEnvelope] = []
     for item in rows:
         if not isinstance(item, Mapping):
@@ -96,22 +106,27 @@ def load_zone_envelopes_from_artifact(path: Path) -> tuple[ZoneEnvelope, ...]:
                 cl_p90=_finite_float(item.get("cl_p90")),
                 max_avl_actual_cl=_finite_float(item.get("max_avl_actual_cl")),
                 max_fourier_target_cl=_finite_float(item.get("max_fourier_target_cl")),
-                target_vs_actual_cl_delta=_finite_float(
-                    item.get("target_vs_actual_cl_delta")
-                ),
+                target_vs_actual_cl_delta=_finite_float(item.get("target_vs_actual_cl_delta")),
                 current_airfoil_id=(
                     None
                     if item.get("current_airfoil_id") is None
                     else str(item.get("current_airfoil_id"))
                 ),
                 current_stall_margin=_finite_float(item.get("current_stall_margin")),
-                current_profile_cd_estimate=_finite_float(
-                    item.get("current_profile_cd_estimate")
-                ),
+                current_profile_cd_estimate=_finite_float(item.get("current_profile_cd_estimate")),
                 source=str(item.get("source", "loaded_dihedral_avl")),
             )
         )
-    return tuple(sorted(envelopes, key=lambda envelope: _ZONE_ORDER.index(envelope.zone_name) if envelope.zone_name in _ZONE_ORDER else 99))
+    return tuple(
+        sorted(
+            envelopes,
+            key=lambda envelope: (
+                _ZONE_ORDER.index(envelope.zone_name)
+                if envelope.zone_name in _ZONE_ORDER
+                else 99
+            ),
+        )
+    )
 
 
 def zone_work_points_from_envelope(envelope: ZoneEnvelope) -> tuple[dict[str, Any], ...]:
@@ -121,12 +136,7 @@ def zone_work_points_from_envelope(envelope: ZoneEnvelope) -> tuple[dict[str, An
     cl_min = _first_finite(envelope.cl_min, envelope.cl_p50, envelope.cl_max, 0.5)
     cl_p50 = _first_finite(envelope.cl_p50, envelope.cl_min, envelope.cl_max, 0.7)
     cl_p90 = _first_finite(envelope.cl_p90, envelope.cl_max, envelope.cl_p50, 0.9)
-    cl_max = _first_finite(
-        envelope.cl_max,
-        envelope.max_avl_actual_cl,
-        envelope.cl_p90,
-        1.0,
-    )
+    cl_max = _first_finite(envelope.cl_max, envelope.max_avl_actual_cl, envelope.cl_p90, 1.0)
     raw = (
         ("min", re_min, cl_min, 0.8),
         ("p50", re_p50, cl_p50, 1.0),
@@ -159,6 +169,7 @@ def build_cst_zone_airfoil_database(
     output_dir: Path,
     config: CSTZoneSearchConfig,
     worker: Any,
+    progress_callback: Any | None = None,
 ) -> CSTZoneSearchResult:
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -177,72 +188,123 @@ def build_cst_zone_airfoil_database(
     coverage_rows: list[dict[str, Any]] = []
     report_zones: dict[str, Any] = {}
 
-    _write_run_metadata(
-        output,
-        config=config,
-        zone_envelope_path=zone_envelope_path,
-        status="running",
-    )
+    _write_run_metadata(output, config=config, zone_envelope_path=zone_envelope_path, status="running")
     for zone_index, envelope in enumerate(envelopes):
         zone_name = str(envelope.zone_name)
+        _emit_progress(progress_callback, "zone_start", zone_name=zone_name, zone_index=zone_index)
         work_points = zone_work_points_from_envelope(envelope)
-        candidates, rejections = _generate_zone_candidates(
+        population_size = _population_size(config)
+        generation_count = _generation_count(config)
+        initial_population, rejections = _generate_initial_population(
             zone_name=zone_name,
             config=config,
             zone_index=zone_index,
+            candidate_count=population_size,
         )
         geometry_rejection_rows.extend(rejections)
-        coarse_candidates = _select_geometry_prescreen(
-            zone_name=zone_name,
-            candidates=candidates,
-            envelope=envelope,
-            limit=config.coarse_score_count,
-        )
-        coarse_results = _evaluate_candidates(
-            zone_name=zone_name,
-            candidates=coarse_candidates,
-            envelope=envelope,
-            work_points=work_points,
-            config=config,
-            worker=worker,
-            backend_name=str(getattr(worker, "backend_name", "unknown_worker")),
-            stage="coarse",
-            robust=False,
-        )
-        robust_candidates = tuple(
-            item["template"]
-            for item in sorted(
-                coarse_results,
-                key=lambda item: (
-                    float(item.get("score", float("inf"))),
-                    str(item["template"].candidate_role),
-                ),
-            )[: max(0, int(config.robust_score_count))]
-        )
-        robust_results = _evaluate_candidates(
-            zone_name=zone_name,
-            candidates=robust_candidates,
-            envelope=envelope,
-            work_points=work_points,
-            config=config,
-            worker=worker,
-            backend_name=str(getattr(worker, "backend_name", "unknown_worker")),
-            stage="robust",
-            robust=True,
-        )
-        robust_results = sorted(
-            robust_results,
-            key=lambda item: (
-                str(item.get("source_quality")) != "cst_xfoil_mission_grade_candidate",
-                float(item.get("score", float("inf"))),
-                str(item["template"].candidate_role),
-            ),
-        )
-        for rank, item in enumerate(robust_results, start=1):
-            record = _record_from_candidate_result(
-                item,
-                coordinate_dir=coordinate_dir,
+
+        current_population = tuple(initial_population)
+        zone_results: list[dict[str, Any]] = []
+        generation_summaries: list[dict[str, Any]] = []
+        final_generation_index = -1
+        for generation_index in range(generation_count):
+            final_generation_index = generation_index
+            _emit_progress(
+                progress_callback,
+                "generation_start",
+                zone_name=zone_name,
+                generation_index=generation_index,
+                population_count=len(current_population),
             )
+            generation_results = _evaluate_candidates(
+                zone_name=zone_name,
+                candidates=current_population,
+                envelope=envelope,
+                work_points=work_points,
+                config=config,
+                worker=worker,
+                backend_name=str(getattr(worker, "backend_name", "unknown_worker")),
+                stage=f"nsga_generation_{generation_index}",
+            )
+            zone_results.extend(generation_results)
+            generation_summaries.append(_generation_summary(generation_index, generation_results))
+            ranked_results = _rank_zone_results(zone_results)
+            _write_partial_checkpoint(
+                output,
+                config=config,
+                zone_envelope_path=zone_envelope_path,
+                coordinate_dir=coordinate_dir,
+                completed_records=records,
+                completed_polar_rows=all_polar_rows,
+                completed_per_zone_rows=per_zone_rows,
+                completed_top_k_rows=top_k_rows,
+                completed_failed_rows=failed_rows,
+                completed_coverage_rows=coverage_rows,
+                geometry_rejection_rows=geometry_rejection_rows,
+                envelopes=envelopes,
+                report_zones={
+                    **report_zones,
+                    zone_name: _zone_report(
+                        envelope=envelope,
+                        initial_population_count=len(initial_population),
+                        evaluated_results=ranked_results,
+                        rejections=rejections,
+                        generation_summaries=generation_summaries,
+                        work_points=work_points,
+                        generation_count=generation_count,
+                    ),
+                },
+                zone_results=ranked_results,
+                status="partial",
+            )
+            _emit_progress(
+                progress_callback,
+                "generation_done",
+                zone_name=zone_name,
+                generation_index=generation_index,
+                evaluated_candidate_count=len(generation_results),
+                total_zone_evaluated_count=len(zone_results),
+                mission_grade_count=generation_summaries[-1]["mission_grade_candidate_count"],
+            )
+            if generation_index >= generation_count - 1:
+                break
+            survivors = _select_survivor_templates(
+                ranked_results,
+                survivor_count=min(max(2, int(config.nsga_parent_count)), len(ranked_results)),
+            )
+            if len(survivors) < 2:
+                _emit_progress(
+                    progress_callback,
+                    "nsga_offspring_blocked",
+                    zone_name=zone_name,
+                    generation_index=generation_index,
+                    reason="fewer_than_two_survivors",
+                )
+                break
+            current_population = _generate_nsga_offspring(
+                zone_name=zone_name,
+                parents=survivors,
+                config=config,
+                zone_index=zone_index,
+                generation_index=generation_index + 1,
+                offspring_count=population_size,
+            )
+            if not current_population:
+                _emit_progress(
+                    progress_callback,
+                    "nsga_offspring_blocked",
+                    zone_name=zone_name,
+                    generation_index=generation_index,
+                    reason="offspring_generation_failed",
+                )
+                break
+
+        ranked_zone_results = _rank_zone_results(zone_results)
+        zone_records = [
+            _record_from_candidate_result(item, coordinate_dir=coordinate_dir)
+            for item in ranked_zone_results
+        ]
+        for rank, (record, item) in enumerate(zip(zone_records, ranked_zone_results, strict=True), start=1):
             records.append(record)
             all_polar_rows.extend(_polar_rows_for_record(record, item))
             row = _summary_row(record, item, rank=rank)
@@ -250,28 +312,17 @@ def build_cst_zone_airfoil_database(
             coverage_rows.append(_coverage_row(record, item))
             if record.source_quality == "cst_xfoil_failed_not_mission_grade":
                 failed_rows.append(row)
-        top_k_rows.extend(
-            row for row in per_zone_rows if row["zone_name"] == zone_name
+            if rank <= int(config.top_k_per_zone):
+                top_k_rows.append(row)
+        report_zones[zone_name] = _zone_report(
+            envelope=envelope,
+            initial_population_count=len(initial_population),
+            evaluated_results=ranked_zone_results,
+            rejections=rejections,
+            generation_summaries=generation_summaries,
+            work_points=work_points,
+            generation_count=final_generation_index + 1,
         )
-        top_k_rows = [
-            row
-            for row in top_k_rows
-            if int(row["rank_in_zone"]) <= int(config.top_k_per_zone)
-        ]
-        report_zones[zone_name] = {
-            "source": envelope.source,
-            "generated_candidate_count": int(config.sample_count_per_zone),
-            "geometry_valid_candidate_count": len(candidates),
-            "geometry_rejection_count": len(rejections),
-            "coarse_evaluated_candidate_count": len(coarse_candidates),
-            "xfoil_evaluated_candidate_count": len(robust_results),
-            "mission_grade_candidate_count": sum(
-                1
-                for item in robust_results
-                if item.get("source_quality") == "cst_xfoil_mission_grade_candidate"
-            ),
-            "work_points": list(work_points),
-        }
         database = AirfoilDatabase.from_records(records)
         report = _build_report(
             config=config,
@@ -280,7 +331,7 @@ def build_cst_zone_airfoil_database(
             records=records,
             status="partial",
         )
-        paths = _write_artifacts(
+        _write_artifacts(
             output,
             database=database,
             report=report,
@@ -297,6 +348,13 @@ def build_cst_zone_airfoil_database(
             zone_envelope_path=zone_envelope_path,
             status="partial",
             extra={"completed_zones": list(report_zones)},
+        )
+        _emit_progress(
+            progress_callback,
+            "zone_done",
+            zone_name=zone_name,
+            evaluated_candidate_count=len(ranked_zone_results),
+            mission_grade_count=report_zones[zone_name]["mission_grade_candidate_count"],
         )
 
     database = AirfoilDatabase.from_records(records)
@@ -325,23 +383,114 @@ def build_cst_zone_airfoil_database(
         status="complete",
         extra={"completed_zones": list(report_zones), "paths": _stringify_paths(paths)},
     )
+    _emit_progress(progress_callback, "build_done", record_count=len(records))
     return CSTZoneSearchResult(airfoil_database=database, report=report, paths=paths)
 
 
-def _generate_zone_candidates(
+def _write_partial_checkpoint(
+    output: Path,
+    *,
+    config: CSTZoneSearchConfig,
+    zone_envelope_path: Path,
+    coordinate_dir: Path,
+    completed_records: Sequence[AirfoilRecord],
+    completed_polar_rows: Sequence[Mapping[str, Any]],
+    completed_per_zone_rows: Sequence[Mapping[str, Any]],
+    completed_top_k_rows: Sequence[Mapping[str, Any]],
+    completed_failed_rows: Sequence[Mapping[str, Any]],
+    completed_coverage_rows: Sequence[Mapping[str, Any]],
+    geometry_rejection_rows: Sequence[Mapping[str, Any]],
+    envelopes: Sequence[ZoneEnvelope],
+    report_zones: Mapping[str, Any],
+    zone_results: Sequence[Mapping[str, Any]],
+    status: str,
+) -> None:
+    zone_records = [
+        _record_from_candidate_result(item, coordinate_dir=coordinate_dir)
+        for item in zone_results
+    ]
+    zone_summary_rows = [
+        _summary_row(record, item, rank=rank)
+        for rank, (record, item) in enumerate(zip(zone_records, zone_results, strict=True), start=1)
+    ]
+    zone_polar_rows = [
+        row
+        for record, item in zip(zone_records, zone_results, strict=True)
+        for row in _polar_rows_for_record(record, item)
+    ]
+    zone_coverage_rows = [
+        _coverage_row(record, item)
+        for record, item in zip(zone_records, zone_results, strict=True)
+    ]
+    database = AirfoilDatabase.from_records((*completed_records, *zone_records))
+    report = _build_report(
+        config=config,
+        envelopes=envelopes,
+        report_zones=report_zones,
+        records=database.records.values(),
+        status=status,
+    )
+    _write_artifacts(
+        output,
+        database=database,
+        report=report,
+        polar_rows=[*completed_polar_rows, *zone_polar_rows],
+        per_zone_rows=[*completed_per_zone_rows, *zone_summary_rows],
+        top_k_rows=[
+            *completed_top_k_rows,
+            *[
+                row
+                for row in zone_summary_rows
+                if int(row["rank_in_zone"]) <= int(config.top_k_per_zone)
+            ],
+        ],
+        failed_rows=[
+            *completed_failed_rows,
+            *[
+                row
+                for row in zone_summary_rows
+                if row["source_quality"] == "cst_xfoil_failed_not_mission_grade"
+            ],
+        ],
+        geometry_rejection_rows=geometry_rejection_rows,
+        coverage_rows=[*completed_coverage_rows, *zone_coverage_rows],
+    )
+    active_zone = next(reversed(report_zones)) if report_zones else None
+    active_report = report_zones.get(active_zone, {}) if active_zone else {}
+    generation_summaries = active_report.get("generation_summaries", [])
+    active_generation = (
+        generation_summaries[-1].get("generation_index")
+        if isinstance(generation_summaries, list) and generation_summaries
+        else None
+    )
+    _write_run_metadata(
+        output,
+        config=config,
+        zone_envelope_path=zone_envelope_path,
+        status=status,
+        extra={
+            "completed_zones": [
+                zone
+                for zone, item in report_zones.items()
+                if zone != active_zone or item.get("status") == "complete"
+            ],
+            "active_zone": active_zone,
+            "active_generation": active_generation,
+        },
+    )
+
+
+def _generate_initial_population(
     *,
     zone_name: str,
     config: CSTZoneSearchConfig,
     zone_index: int,
+    candidate_count: int,
 ) -> tuple[tuple[CSTAirfoilTemplate, ...], list[dict[str, Any]]]:
-    zone_min_tc = _zone_min_thickness_ratio(zone_name)
-    constraints = _seedless_constraints_for_zone(
-        zone_min_tc,
-        seedless_te_thickness_min=0.0010,
-    )
+    constraints = _zone_constraints(zone_name)
     raw = sample_feasible_seedless_cst_sobol(
         zone_name=zone_name,
-        sample_count=int(config.sample_count_per_zone),
+        sample_count=int(candidate_count),
         bounds=_default_seedless_cst_bounds(zone_name),
         constraints=constraints,
         random_seed=None if config.random_seed is None else int(config.random_seed) + 101 * zone_index,
@@ -364,36 +513,6 @@ def _generate_zone_candidates(
     return tuple(valid), rejections
 
 
-def _select_geometry_prescreen(
-    *,
-    zone_name: str,
-    candidates: Sequence[CSTAirfoilTemplate],
-    envelope: ZoneEnvelope,
-    limit: int,
-) -> tuple[CSTAirfoilTemplate, ...]:
-    scored: list[tuple[float, CSTAirfoilTemplate]] = []
-    target_tc = _zone_target_thickness_ratio(zone_name)
-    target_cl = _first_finite(envelope.cl_max, envelope.max_avl_actual_cl, envelope.cl_p90, 1.0)
-    for candidate in candidates:
-        try:
-            metrics = analyze_cst_geometry(candidate)
-        except ValueError:
-            continue
-        score = (
-            abs(metrics.max_thickness_ratio - target_tc)
-            + 0.006 * float(metrics.curvature_reversal_count)
-            + 0.20 * max(0.0, float(target_cl) - 1.15)
-            + 0.15 * metrics.max_camber_ratio
-        )
-        if zone_name in {"root", "mid1"}:
-            score -= 0.35 * metrics.max_thickness_ratio
-        else:
-            score += 0.18 * abs(metrics.max_thickness_ratio - target_tc)
-        scored.append((float(score), candidate))
-    scored.sort(key=lambda item: (item[0], item[1].candidate_role))
-    return tuple(candidate for _, candidate in scored[: max(0, int(limit))])
-
-
 def _evaluate_candidates(
     *,
     zone_name: str,
@@ -404,32 +523,30 @@ def _evaluate_candidates(
     worker: Any,
     backend_name: str,
     stage: str,
-    robust: bool,
 ) -> list[dict[str, Any]]:
     queries: list[PolarQuery] = []
     query_to_candidate: dict[str, CSTAirfoilTemplate] = {}
-    factors = tuple(config.re_robustness_factors) if robust else (1.0,)
-    roughness_modes = tuple(config.roughness_modes) if robust else ("clean",)
     base_re = _first_finite(envelope.re_p50, envelope.re_min, envelope.re_max, 250_000.0)
     cl_samples = _cl_samples_for_envelope(envelope, config=config)
     for candidate in candidates:
         coordinates = generate_cst_coordinates(candidate)
         geometry_hash = geometry_hash_from_coordinates(coordinates)
         airfoil_id = _airfoil_id(zone_name, candidate, geometry_hash)
-        for factor in factors:
-            for roughness_mode in roughness_modes:
-                template_id = f"{airfoil_id}__{stage}__re{factor:.3f}__{roughness_mode}"
-                query = PolarQuery(
-                    template_id=template_id,
-                    reynolds=float(base_re) * float(factor),
-                    cl_samples=cl_samples,
-                    roughness_mode=str(roughness_mode),
-                    geometry_hash=geometry_hash,
-                    coordinates=coordinates,
-                    analysis_mode="screening_target_cl",
-                    analysis_stage=f"cst_zone_{stage}",
+        for factor in config.re_robustness_factors:
+            for roughness_mode in config.roughness_modes:
+                template_id = f"{airfoil_id}__{stage}__re{float(factor):.3f}__{roughness_mode}"
+                queries.append(
+                    PolarQuery(
+                        template_id=template_id,
+                        reynolds=float(base_re) * float(factor),
+                        cl_samples=cl_samples,
+                        roughness_mode=str(roughness_mode),
+                        geometry_hash=geometry_hash,
+                        coordinates=coordinates,
+                        analysis_mode="screening_target_cl",
+                        analysis_stage=f"cst_zone_{stage}",
+                    )
                 )
-                queries.append(query)
                 query_to_candidate[template_id] = candidate
     if not queries:
         return []
@@ -444,26 +561,23 @@ def _evaluate_candidates(
         airfoil_id = template_id.split("__", 1)[0]
         grouped.setdefault(airfoil_id, []).append(dict(result))
         template_by_airfoil_id[airfoil_id] = candidate
+
     evaluated: list[dict[str, Any]] = []
     for airfoil_id, results in grouped.items():
-        candidate = template_by_airfoil_id[airfoil_id]
         evaluated.append(
             _candidate_result(
                 airfoil_id=airfoil_id,
                 zone_name=zone_name,
-                template=candidate,
+                template=template_by_airfoil_id[airfoil_id],
                 envelope=envelope,
                 work_points=work_points,
                 worker_results=results,
                 expected_query_count=sum(
-                    1
-                    for query in queries
-                    if query.template_id.startswith(f"{airfoil_id}__")
+                    1 for query in queries if query.template_id.startswith(f"{airfoil_id}__")
                 ),
                 backend_name=backend_name,
                 config=config,
                 stage=stage,
-                robust=robust,
             )
         )
     return evaluated
@@ -481,11 +595,8 @@ def _candidate_result(
     backend_name: str,
     config: CSTZoneSearchConfig,
     stage: str,
-    robust: bool,
 ) -> dict[str, Any]:
     polar_points: list[AirfoilPolarPoint] = []
-    raw_rows: list[dict[str, Any]] = []
-    warnings: list[str] = []
     success_results = 0
     for result in worker_results:
         status = str(result.get("status", "unknown"))
@@ -501,29 +612,7 @@ def _candidate_result(
             cm = _finite_float(point.get("cm"))
             alpha = _finite_float(point.get("alpha_deg"))
             converged = bool(point.get("converged", status in {"ok", "mini_sweep_fallback", "stubbed_ok"}))
-            row = {
-                "airfoil_id": airfoil_id,
-                "zone_name": zone_name,
-                "candidate_role": template.candidate_role,
-                "stage": stage,
-                "Re": re_value,
-                "roughness_mode": roughness_mode,
-                "alpha_deg": alpha,
-                "cl": cl,
-                "cd": cd,
-                "cm": cm,
-                "converged": converged,
-                "status": status,
-            }
-            raw_rows.append(row)
-            if (
-                re_value is None
-                or cl is None
-                or cd is None
-                or cm is None
-                or alpha is None
-                or not converged
-            ):
+            if re_value is None or cl is None or cd is None or cm is None or alpha is None or not converged:
                 continue
             polar_points.append(
                 AirfoilPolarPoint(
@@ -535,18 +624,25 @@ def _candidate_result(
                     roughness_mode=roughness_mode,
                 )
             )
+
     finite_positive = [
         point
         for point in polar_points
         if math.isfinite(point.cd) and point.cd > 0.0 and math.isfinite(point.cl)
     ]
-    total_expected_points = max(1, int(expected_query_count) * len(_cl_samples_for_envelope(envelope, config=config)))
+    total_expected_points = max(
+        1,
+        int(expected_query_count) * len(_cl_samples_for_envelope(envelope, config=config)),
+    )
     pass_rate = len(finite_positive) / total_expected_points
     usable_clmax = max((point.cl for point in finite_positive), default=float("nan"))
     safe_clmax = 0.90 * usable_clmax - 0.05 if math.isfinite(usable_clmax) else float("nan")
     required_cl = _first_finite(envelope.cl_max, envelope.max_avl_actual_cl, envelope.cl_p90, 0.0)
+    coverage_failed = not _coverage_passes(finite_positive, work_points)
     cd_values = [point.cd for point in finite_positive]
     cm_values = [point.cm for point in finite_positive if math.isfinite(point.cm)]
+    alpha_l0, cl_alpha = _linear_lift_curve_estimate(finite_positive)
+
     issues: list[str] = []
     if pass_rate < float(config.convergence_pass_rate_threshold):
         issues.append("convergence_pass_rate_below_threshold")
@@ -556,56 +652,56 @@ def _candidate_result(
         issues.append("usable_clmax_nonfinite")
     if safe_clmax < float(required_cl) + float(config.required_stall_margin_cl):
         issues.append("required_cl_stall_margin_not_met")
-    if not _coverage_passes(finite_positive, work_points):
+    if coverage_failed:
         issues.append("zone_envelope_coverage_not_met")
     if len(worker_results) < int(expected_query_count):
         issues.append("missing_worker_conditions")
+
     real_xfoil_backend = str(backend_name) not in {
         "dry_run",
         "dry_run_xfoil_surrogate",
         "stub",
         "stubbed",
     }
-    if any("cd_nonfinite_or_nonpositive" == issue for issue in issues):
+    if "cd_nonfinite_or_nonpositive" in issues or not finite_positive:
         source_quality = "cst_xfoil_failed_not_mission_grade"
-    elif not finite_positive:
-        source_quality = "cst_xfoil_failed_not_mission_grade"
-    elif not real_xfoil_backend:
-        source_quality = "cst_xfoil_candidate_not_mission_grade"
-    elif issues:
+    elif not real_xfoil_backend or issues:
         source_quality = "cst_xfoil_candidate_not_mission_grade"
     else:
         source_quality = "cst_xfoil_mission_grade_candidate"
+
     mean_cd = float(np.mean(cd_values)) if cd_values else float("inf")
     cd_p90 = float(np.percentile(np.asarray(cd_values, dtype=float), 90.0)) if cd_values else float("inf")
     mean_cm = float(np.mean(cm_values)) if cm_values else 0.0
-    rough_sensitivity = _roughness_sensitivity(finite_positive)
+    roughness_sensitivity = _roughness_sensitivity(finite_positive)
+    stall_margin_cl = safe_clmax - float(required_cl) if math.isfinite(safe_clmax) else float("nan")
     score = (
         mean_cd
         + 0.35 * max(0.0, cd_p90 - mean_cd)
         + 0.006 * abs(mean_cm)
-        + 0.02 * max(0.0, float(required_cl) - safe_clmax)
+        + 0.02 * max(0.0, -stall_margin_cl)
         + 0.10 * max(0.0, 1.0 - pass_rate)
-        + 0.25 * rough_sensitivity
+        + 0.25 * roughness_sensitivity
+        + 0.003 * max(0.0, abs(alpha_l0) - 6.0)
     )
     if source_quality != "cst_xfoil_mission_grade_candidate":
         score += 0.05
+
     try:
         geometry_metrics = asdict(analyze_cst_geometry(template))
     except ValueError as exc:
         geometry_metrics = {"error": str(exc)}
-        warnings.append("geometry_metrics_unavailable")
+
     return {
         "airfoil_id": airfoil_id,
         "zone_name": zone_name,
         "template": template,
-        "worker_results": [dict(item) for item in worker_results],
-        "raw_rows": raw_rows,
         "polar_points": tuple(finite_positive),
         "source_quality": source_quality,
         "issues": issues,
-        "warnings": warnings,
         "pass_rate": pass_rate,
+        "pass_rate_threshold": float(config.convergence_pass_rate_threshold),
+        "coverage_failed": bool(coverage_failed),
         "worker_success_count": success_results,
         "worker_condition_count": expected_query_count,
         "mean_cd": mean_cd,
@@ -614,27 +710,23 @@ def _candidate_result(
         "usable_clmax": usable_clmax,
         "safe_clmax": safe_clmax,
         "required_cl": required_cl,
-        "stall_margin_cl": safe_clmax - float(required_cl) if math.isfinite(safe_clmax) else float("nan"),
-        "roughness_sensitivity": rough_sensitivity,
+        "stall_margin_cl": stall_margin_cl,
+        "roughness_sensitivity": roughness_sensitivity,
+        "alpha_L0_deg": alpha_l0,
+        "cl_alpha_per_rad": cl_alpha,
         "score": score,
         "geometry_metrics": geometry_metrics,
         "stage": stage,
         "backend_name": backend_name,
-        "robust": robust,
     }
 
 
-def _record_from_candidate_result(
-    item: Mapping[str, Any],
-    *,
-    coordinate_dir: Path,
-) -> AirfoilRecord:
+def _record_from_candidate_result(item: Mapping[str, Any], *, coordinate_dir: Path) -> AirfoilRecord:
     template = item["template"]
     coordinates = generate_cst_coordinates(template)
     coordinate_path = coordinate_dir / f"{item['airfoil_id']}.dat"
     _write_airfoil_dat(coordinate_path, name=str(item["airfoil_id"]), coordinates=coordinates)
     polar_points = tuple(item.get("polar_points", ()))
-    alpha_l0, cl_alpha = _linear_lift_curve_estimate(polar_points)
     return AirfoilRecord(
         airfoil_id=str(item["airfoil_id"]),
         name=str(item["airfoil_id"]),
@@ -643,17 +735,109 @@ def _record_from_candidate_result(
         zone_hint=str(item.get("zone_name")),
         thickness_ratio=float(item.get("geometry_metrics", {}).get("max_thickness_ratio", 0.0)),
         max_camber=float(item.get("geometry_metrics", {}).get("max_camber_ratio", 0.0)),
-        alpha_L0_deg=float(alpha_l0),
-        cl_alpha_per_rad=float(cl_alpha),
+        alpha_L0_deg=float(item.get("alpha_L0_deg", -2.0)),
+        cl_alpha_per_rad=float(item.get("cl_alpha_per_rad", 2.0 * math.pi)),
         cm_design=float(item.get("mean_cm", 0.0)),
-        safe_clmax=float(item.get("safe_clmax", 0.0)) if math.isfinite(float(item.get("safe_clmax", 0.0))) else 0.0,
-        usable_clmax=float(item.get("usable_clmax", 0.0)) if math.isfinite(float(item.get("usable_clmax", 0.0))) else 0.0,
+        safe_clmax=_finite_or_zero(item.get("safe_clmax")),
+        usable_clmax=_finite_or_zero(item.get("usable_clmax")),
         polar_points=polar_points,
-        notes=(
-            f"Offline CST zone candidate; issues={item.get('issues', [])}; "
-            f"warnings={item.get('warnings', [])}."
+        notes=f"Offline CST/NSGA zone candidate; issues={item.get('issues', [])}.",
+    )
+
+
+def _rank_zone_results(results: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    by_airfoil_id = {str(item["airfoil_id"]): dict(item) for item in results}
+    pareto_candidates = tuple(
+        _pareto_candidate_from_result(item) for item in by_airfoil_id.values()
+    )
+    ranked = rank_constrained_pareto_candidates(pareto_candidates)
+    rank_by_id = {entry.candidate.candidate_role: entry for entry in ranked}
+    return sorted(
+        by_airfoil_id.values(),
+        key=lambda item: (
+            rank_by_id[str(item["airfoil_id"])].rank,
+            -rank_by_id[str(item["airfoil_id"])].crowding_distance,
+            rank_by_id[str(item["airfoil_id"])].total_constraint_violation,
+            float(item.get("score", float("inf"))),
+            str(item["airfoil_id"]),
         ),
     )
+
+
+def _pareto_candidate_from_result(item: Mapping[str, Any]) -> AirfoilParetoCandidate:
+    alpha_l0 = _finite_float(item.get("alpha_L0_deg"))
+    alpha_l0_penalty = 0.0 if alpha_l0 is None else max(0.0, abs(alpha_l0) - 6.0)
+    return AirfoilParetoCandidate(
+        candidate_role=str(item["airfoil_id"]),
+        objectives={
+            "mean_cd": float(item.get("mean_cd", float("inf"))),
+            "cd_p90": float(item.get("cd_p90", float("inf"))),
+            "negative_stall_margin": -float(item.get("stall_margin_cl", -float("inf"))),
+            "roughness_sensitivity": float(item.get("roughness_sensitivity", float("inf"))),
+            "abs_cm": abs(float(item.get("mean_cm", 0.0))),
+            "alpha_l0_penalty": float(alpha_l0_penalty),
+            "convergence_gap": max(0.0, 1.0 - float(item.get("pass_rate", 0.0))),
+        },
+        constraint_violations={
+            "quality": 0.0
+            if item.get("source_quality") == "cst_xfoil_mission_grade_candidate"
+            else 1.0,
+            "pass_rate": max(
+                0.0,
+                float(item.get("pass_rate_threshold", 0.0)) - float(item.get("pass_rate", 0.0)),
+            ),
+            "stall_margin": max(0.0, -float(item.get("stall_margin_cl", -1.0))),
+            "coverage": 1.0 if item.get("coverage_failed") else 0.0,
+        },
+    )
+
+
+def _select_survivor_templates(
+    ranked_results: Sequence[Mapping[str, Any]], *, survivor_count: int
+) -> tuple[CSTAirfoilTemplate, ...]:
+    result_by_id = {str(item["airfoil_id"]): item for item in ranked_results}
+    survivors = select_nsga2_survivors(
+        tuple(_pareto_candidate_from_result(item) for item in ranked_results),
+        survivor_count=int(survivor_count),
+    )
+    templates: list[CSTAirfoilTemplate] = []
+    for survivor in survivors:
+        template = result_by_id.get(survivor.candidate_role, {}).get("template")
+        if isinstance(template, CSTAirfoilTemplate):
+            templates.append(template)
+    return tuple(templates)
+
+
+def _generate_nsga_offspring(
+    *,
+    zone_name: str,
+    parents: tuple[CSTAirfoilTemplate, ...],
+    config: CSTZoneSearchConfig,
+    zone_index: int,
+    generation_index: int,
+    offspring_count: int,
+) -> tuple[CSTAirfoilTemplate, ...]:
+    count = int(offspring_count)
+    while count > 0:
+        try:
+            return generate_seedless_nsga2_offspring(
+                zone_name=zone_name,
+                parents=parents,
+                bounds=_default_seedless_cst_bounds(zone_name),
+                constraints=_zone_constraints(zone_name),
+                offspring_count=count,
+                generation_index=generation_index,
+                random_seed=(
+                    None
+                    if config.random_seed is None
+                    else int(config.random_seed) + 1009 * int(generation_index) + 37 * int(zone_index)
+                ),
+                mutation_scale=float(config.mutation_scale),
+                max_attempts_per_child=120,
+            )
+        except ValueError:
+            count //= 2
+    return ()
 
 
 def _write_artifacts(
@@ -679,8 +863,8 @@ def _write_artifacts(
         "geometry_rejections_csv": output / "geometry_rejections.csv",
         "coverage_report_csv": output / "coverage_report.csv",
     }
-    db_payload = {
-        "schema_version": "airfoil_database_cst_zone_xfoil_v1",
+    payload = {
+        "schema_version": "airfoil_database_cst_zone_nsga_xfoil_v1",
         "source": CST_DATABASE_SOURCE,
         "build_report": report,
         "records": [
@@ -689,7 +873,7 @@ def _write_artifacts(
         ],
     }
     paths["airfoil_database_json"].write_text(
-        json.dumps(_json_ready(db_payload), indent=2, sort_keys=True) + "\n",
+        json.dumps(_json_ready(payload), indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     _write_csv(paths["airfoil_database_csv"], polar_rows, default_fields=_polar_fields())
@@ -719,7 +903,7 @@ def _build_report(
     status: str,
 ) -> dict[str, Any]:
     return {
-        "schema_version": "cst_zone_xfoil_build_report_v1",
+        "schema_version": "cst_zone_nsga_xfoil_build_report_v1",
         "source": CST_DATABASE_SOURCE,
         "status": status,
         "config": asdict(config),
@@ -727,6 +911,41 @@ def _build_report(
         "record_count": len(records),
         "source_quality_counts": _source_quality_counts(records),
         "zones": dict(report_zones),
+    }
+
+
+def _zone_report(
+    *,
+    envelope: ZoneEnvelope,
+    initial_population_count: int,
+    evaluated_results: Sequence[Mapping[str, Any]],
+    rejections: Sequence[Mapping[str, Any]],
+    generation_summaries: Sequence[Mapping[str, Any]],
+    work_points: Sequence[Mapping[str, Any]],
+    generation_count: int,
+) -> dict[str, Any]:
+    return {
+        "status": "complete"
+        if int(generation_count) >= len(generation_summaries)
+        else "partial",
+        "source": envelope.source,
+        "search_mode": "nsga2_seedless_sobol_initial_population",
+        "initial_population_count": int(initial_population_count),
+        "population_size_per_zone": int(initial_population_count),
+        "generation_count": int(generation_count),
+        "evaluated_candidate_count": len(evaluated_results),
+        "generated_candidate_count": int(initial_population_count),
+        "geometry_valid_candidate_count": int(initial_population_count),
+        "geometry_rejection_count": len(rejections),
+        "coarse_evaluated_candidate_count": len(evaluated_results),
+        "xfoil_evaluated_candidate_count": len(evaluated_results),
+        "mission_grade_candidate_count": sum(
+            1
+            for item in evaluated_results
+            if item.get("source_quality") == "cst_xfoil_mission_grade_candidate"
+        ),
+        "generation_summaries": list(generation_summaries),
+        "work_points": list(work_points),
     }
 
 
@@ -743,6 +962,7 @@ def _summary_row(record: AirfoilRecord, item: Mapping[str, Any], *, rank: int) -
         "usable_clmax": item.get("usable_clmax"),
         "stall_margin_cl": item.get("stall_margin_cl"),
         "mean_cm": item.get("mean_cm"),
+        "alpha_L0_deg": item.get("alpha_L0_deg"),
         "roughness_sensitivity": item.get("roughness_sensitivity"),
         "convergence_pass_rate": item.get("pass_rate"),
         "issue_count": len(item.get("issues", [])),
@@ -762,47 +982,63 @@ def _coverage_row(record: AirfoilRecord, item: Mapping[str, Any]) -> dict[str, A
         "convergence_pass_rate": item.get("pass_rate"),
         "worker_success_count": item.get("worker_success_count"),
         "worker_condition_count": item.get("worker_condition_count"),
+        "coverage_failed": item.get("coverage_failed"),
         "issues": ";".join(str(issue) for issue in item.get("issues", [])),
     }
 
 
 def _polar_rows_for_record(record: AirfoilRecord, item: Mapping[str, Any]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for point in record.polar_points:
-        rows.append(
-            {
-                "airfoil_id": record.airfoil_id,
-                "zone_name": item.get("zone_name"),
-                "source_quality": record.source_quality,
-                "Re": point.Re,
-                "roughness_mode": point.roughness_mode,
-                "alpha_deg": point.alpha_deg,
-                "cl": point.cl,
-                "cd": point.cd,
-                "cm": point.cm,
-            }
-        )
-    return rows
+    return [
+        {
+            "airfoil_id": record.airfoil_id,
+            "zone_name": item.get("zone_name"),
+            "source_quality": record.source_quality,
+            "Re": point.Re,
+            "roughness_mode": point.roughness_mode,
+            "alpha_deg": point.alpha_deg,
+            "cl": point.cl,
+            "cd": point.cd,
+            "cm": point.cm,
+        }
+        for point in record.polar_points
+    ]
 
 
-def _coverage_passes(
-    points: Sequence[AirfoilPolarPoint],
-    work_points: Sequence[Mapping[str, Any]],
-) -> bool:
+def _generation_summary(generation_index: int, results: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    return {
+        "generation_index": int(generation_index),
+        "evaluated_candidate_count": len(results),
+        "mission_grade_candidate_count": sum(
+            1
+            for item in results
+            if item.get("source_quality") == "cst_xfoil_mission_grade_candidate"
+        ),
+        "not_mission_grade_candidate_count": sum(
+            1
+            for item in results
+            if item.get("source_quality") == "cst_xfoil_candidate_not_mission_grade"
+        ),
+        "failed_candidate_count": sum(
+            1
+            for item in results
+            if item.get("source_quality") == "cst_xfoil_failed_not_mission_grade"
+        ),
+    }
+
+
+def _coverage_passes(points: Sequence[AirfoilPolarPoint], work_points: Sequence[Mapping[str, Any]]) -> bool:
     if not points:
         return False
     observed_re = [point.Re for point in points]
     observed_cl = [point.cl for point in points]
-    if not observed_re or not observed_cl:
-        return False
     for work_point in work_points:
         re_value = _finite_float(work_point.get("reynolds"))
         cl_value = _finite_float(work_point.get("cl_target"))
         if re_value is None or cl_value is None:
             continue
-        re_span_ok = min(observed_re) <= float(re_value) * 1.02 and max(observed_re) >= float(re_value) * 0.98
-        cl_span_ok = min(observed_cl) <= float(cl_value) + 0.02 and max(observed_cl) >= float(cl_value) - 0.02
-        if not (re_span_ok and cl_span_ok):
+        if min(observed_re) > float(re_value) * 1.02 or max(observed_re) < float(re_value) * 0.98:
+            return False
+        if min(observed_cl) > float(cl_value) + 0.02 or max(observed_cl) < float(cl_value) - 0.02:
             return False
     return True
 
@@ -815,11 +1051,7 @@ def _roughness_sensitivity(points: Sequence[AirfoilPolarPoint]) -> float:
     return max(0.0, float(np.mean(rough)) - float(np.mean(clean)))
 
 
-def _cl_samples_for_envelope(
-    envelope: ZoneEnvelope,
-    *,
-    config: CSTZoneSearchConfig,
-) -> tuple[float, ...]:
+def _cl_samples_for_envelope(envelope: ZoneEnvelope, *, config: CSTZoneSearchConfig) -> tuple[float, ...]:
     values = [
         _first_finite(envelope.cl_min, envelope.cl_p50, 0.4),
         _first_finite(envelope.cl_p50, envelope.cl_min, 0.7),
@@ -829,38 +1061,13 @@ def _cl_samples_for_envelope(
     high = max(values) + float(config.cl_coverage_margin)
     low = max(0.05, min(values) - 0.05)
     grid = {round(float(value), 2) for value in values}
-    step_count = max(1, int(math.ceil((high - low) / 0.10)))
-    for index in range(step_count + 1):
+    for index in range(max(1, int(math.ceil((high - low) / 0.10))) + 1):
         grid.add(round(low + 0.10 * index, 2))
     grid.add(round(high, 2))
     return tuple(sorted(value for value in grid if math.isfinite(value) and value > 0.0))
 
 
-def _airfoil_id(zone_name: str, candidate: CSTAirfoilTemplate, geometry_hash: str) -> str:
-    return f"cst_{zone_name}_{candidate.candidate_role}_{geometry_hash[:8]}"
-
-
-def _zone_min_thickness_ratio(zone_name: str) -> float:
-    return {
-        "root": 0.14,
-        "mid1": 0.13,
-        "mid2": 0.11,
-        "tip": 0.10,
-    }.get(zone_name, 0.11)
-
-
-def _zone_target_thickness_ratio(zone_name: str) -> float:
-    return {
-        "root": 0.155,
-        "mid1": 0.140,
-        "mid2": 0.120,
-        "tip": 0.108,
-    }.get(zone_name, 0.12)
-
-
-def _linear_lift_curve_estimate(
-    points: Sequence[AirfoilPolarPoint],
-) -> tuple[float, float]:
+def _linear_lift_curve_estimate(points: Sequence[AirfoilPolarPoint]) -> tuple[float, float]:
     clean = [point for point in points if point.roughness_mode == "clean"]
     if len(clean) < 2:
         clean = list(points)
@@ -874,23 +1081,38 @@ def _linear_lift_curve_estimate(
     return -float(intercept) / float(slope_per_deg), float(slope_per_deg) * 180.0 / math.pi
 
 
-def _write_airfoil_dat(
-    path: Path,
-    *,
-    name: str,
-    coordinates: Sequence[tuple[float, float]],
-) -> None:
+def _zone_constraints(zone_name: str):
+    return _seedless_constraints_for_zone(
+        _zone_min_thickness_ratio(zone_name),
+        seedless_te_thickness_min=0.0010,
+    )
+
+
+def _population_size(config: CSTZoneSearchConfig) -> int:
+    if config.sample_count_per_zone is not None:
+        return max(1, int(config.sample_count_per_zone))
+    return max(1, int(config.population_size_per_zone))
+
+
+def _generation_count(config: CSTZoneSearchConfig) -> int:
+    return max(1, int(config.generations))
+
+
+def _airfoil_id(zone_name: str, candidate: CSTAirfoilTemplate, geometry_hash: str) -> str:
+    return f"cst_{zone_name}_{candidate.candidate_role}_{geometry_hash[:8]}"
+
+
+def _zone_min_thickness_ratio(zone_name: str) -> float:
+    return {"root": 0.14, "mid1": 0.13, "mid2": 0.11, "tip": 0.10}.get(zone_name, 0.11)
+
+
+def _write_airfoil_dat(path: Path, *, name: str, coordinates: Sequence[tuple[float, float]]) -> None:
     lines = [str(name)]
     lines.extend(f"{float(x): .8f} {float(y): .8f}" for x, y in coordinates)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _write_csv(
-    path: Path,
-    rows: Sequence[Mapping[str, Any]],
-    *,
-    default_fields: Sequence[str],
-) -> None:
+def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]], *, default_fields: Sequence[str]) -> None:
     fields = list(rows[0].keys()) if rows else list(default_fields)
     with Path(path).open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -921,9 +1143,14 @@ def _write_run_metadata(
     )
 
 
+def _emit_progress(callback: Any | None, event: str, **payload: Any) -> None:
+    if callback is not None:
+        callback({"event": event, **payload})
+
+
 def _build_report_md(report: Mapping[str, Any]) -> str:
     lines = [
-        "# CST Zone Airfoil Database Build Report",
+        "# CST Zone NSGA/XFOIL Airfoil Database Build Report",
         "",
         f"- Status: {report.get('status')}",
         f"- Source: {report.get('source')}",
@@ -940,8 +1167,8 @@ def _build_report_md(report: Mapping[str, Any]) -> str:
                 continue
             lines.append(
                 "- "
-                f"{zone_name}: generated {item.get('generated_candidate_count')}, "
-                f"geometry-valid {item.get('geometry_valid_candidate_count')}, "
+                f"{zone_name}: initial {item.get('initial_population_count')}, "
+                f"generations {item.get('generation_count')}, "
                 f"XFOIL-evaluated {item.get('xfoil_evaluated_candidate_count')}, "
                 f"mission-grade {item.get('mission_grade_candidate_count')}"
             )
@@ -975,6 +1202,7 @@ def _summary_fields() -> tuple[str, ...]:
         "usable_clmax",
         "stall_margin_cl",
         "mean_cm",
+        "alpha_L0_deg",
         "roughness_sensitivity",
         "convergence_pass_rate",
         "issue_count",
@@ -983,17 +1211,7 @@ def _summary_fields() -> tuple[str, ...]:
 
 
 def _polar_fields() -> tuple[str, ...]:
-    return (
-        "airfoil_id",
-        "zone_name",
-        "source_quality",
-        "Re",
-        "roughness_mode",
-        "alpha_deg",
-        "cl",
-        "cd",
-        "cm",
-    )
+    return ("airfoil_id", "zone_name", "source_quality", "Re", "roughness_mode", "alpha_deg", "cl", "cd", "cm")
 
 
 def _coverage_fields() -> tuple[str, ...]:
@@ -1008,6 +1226,7 @@ def _coverage_fields() -> tuple[str, ...]:
         "convergence_pass_rate",
         "worker_success_count",
         "worker_condition_count",
+        "coverage_failed",
         "issues",
     )
 
@@ -1031,6 +1250,11 @@ def _finite_float(value: Any) -> float | None:
         parsed = float(value)
         return parsed if math.isfinite(parsed) else None
     return None
+
+
+def _finite_or_zero(value: Any) -> float:
+    parsed = _finite_float(value)
+    return float(parsed) if parsed is not None else 0.0
 
 
 def _json_ready(value: Any) -> Any:

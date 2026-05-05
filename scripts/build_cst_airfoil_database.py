@@ -81,7 +81,16 @@ def parse_args() -> argparse.Namespace:
         default=REPO_ROOT / "output" / "airfoil_db" / "overnight_cst_zone_search",
     )
     parser.add_argument("--backend", choices=("julia", "dry-run"), default="julia")
-    parser.add_argument("--sample-count-per-zone", type=int, default=512)
+    parser.add_argument("--population-size-per-zone", type=int, default=128)
+    parser.add_argument("--generations", type=int, default=8)
+    parser.add_argument("--nsga-parent-count", type=int, default=64)
+    parser.add_argument("--mutation-scale", type=float, default=0.06)
+    parser.add_argument(
+        "--sample-count-per-zone",
+        type=int,
+        default=None,
+        help="Deprecated alias for --population-size-per-zone.",
+    )
     parser.add_argument("--coarse-score-count", type=int, default=96)
     parser.add_argument("--robust-score-count", type=int, default=24)
     parser.add_argument("--top-k-per-zone", type=int, default=8)
@@ -103,7 +112,13 @@ def main() -> None:
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     config = CSTZoneSearchConfig(
-        sample_count_per_zone=int(args.sample_count_per_zone),
+        population_size_per_zone=int(args.population_size_per_zone),
+        generations=int(args.generations),
+        nsga_parent_count=int(args.nsga_parent_count),
+        mutation_scale=float(args.mutation_scale),
+        sample_count_per_zone=(
+            None if args.sample_count_per_zone is None else int(args.sample_count_per_zone)
+        ),
         coarse_score_count=int(args.coarse_score_count),
         robust_score_count=int(args.robust_score_count),
         top_k_per_zone=int(args.top_k_per_zone),
@@ -129,11 +144,15 @@ def main() -> None:
             xfoil_panel_count=int(config.panel_count),
         )
     try:
+        def progress(event: dict[str, object]) -> None:
+            print(json.dumps(event, sort_keys=True), flush=True)
+
         result = build_cst_zone_airfoil_database(
             zone_envelope_path=Path(args.zone_envelope_json),
             output_dir=output_dir,
             config=config,
             worker=worker,
+            progress_callback=progress,
         )
     finally:
         close = getattr(worker, "close", None)
