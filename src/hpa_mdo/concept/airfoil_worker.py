@@ -12,7 +12,7 @@ import select
 import subprocess
 from uuid import uuid4
 
-_CACHE_SCHEMA_VERSION = 3
+_CACHE_SCHEMA_VERSION = 4
 _SUCCESS_STATUSES = frozenset({"ok", "stubbed_ok", "mini_sweep_fallback"})
 _NEGATIVE_CACHE_STATUSES = frozenset({"analysis_failed"})
 _CACHEABLE_STATUSES = _SUCCESS_STATUSES | _NEGATIVE_CACHE_STATUSES
@@ -30,6 +30,7 @@ class PolarQuery:
     coordinates: tuple[tuple[float, float], ...]
     analysis_mode: str = "full_alpha_sweep"
     analysis_stage: str = "screening"
+    alpha_samples: tuple[float, ...] = ()
 
 
 def _normalize_coordinates(
@@ -102,6 +103,7 @@ class JuliaXFoilWorker:
             "cache_schema_version": _CACHE_SCHEMA_VERSION,
             "reynolds": query.reynolds,
             "cl_samples": list(query.cl_samples),
+            "alpha_samples": list(query.alpha_samples),
             "roughness_mode": query.roughness_mode,
             "geometry_hash": self._validated_geometry_hash(query),
             "analysis_mode": query.analysis_mode,
@@ -149,16 +151,26 @@ class JuliaXFoilWorker:
             / f"{self.cache_key(query)}.json"
         )
 
-    def _normalize_cl_samples(self, cl_samples: object) -> tuple[float, ...]:
-        if not isinstance(cl_samples, list | tuple):
-            raise RuntimeError("Julia XFoil worker identity requires cl_samples as a JSON array.")
+    def _normalize_float_samples(self, samples: object, *, field_name: str) -> tuple[float, ...]:
+        if not isinstance(samples, list | tuple):
+            raise RuntimeError(
+                f"Julia XFoil worker identity requires {field_name} as a JSON array."
+            )
 
         normalized_samples: list[float] = []
-        for value in cl_samples:
+        for value in samples:
             if not isinstance(value, int | float):
-                raise RuntimeError("Julia XFoil worker cl_samples entries must be numeric.")
+                raise RuntimeError(
+                    f"Julia XFoil worker {field_name} entries must be numeric."
+                )
             normalized_samples.append(float(value))
         return tuple(normalized_samples)
+
+    def _normalize_cl_samples(self, cl_samples: object) -> tuple[float, ...]:
+        return self._normalize_float_samples(cl_samples, field_name="cl_samples")
+
+    def _normalize_alpha_samples(self, alpha_samples: object) -> tuple[float, ...]:
+        return self._normalize_float_samples(alpha_samples, field_name="alpha_samples")
 
     def _validated_geometry_hash(self, query: PolarQuery) -> str:
         derived_hash = geometry_hash_from_coordinates(query.coordinates)
@@ -171,7 +183,7 @@ class JuliaXFoilWorker:
     def _query_identity(
         self,
         query: PolarQuery,
-    ) -> tuple[str, float, tuple[float, ...], str, str, str, str]:
+    ) -> tuple[str, float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
         return (
             query.template_id,
             *self._physical_query_identity(query),
@@ -180,10 +192,11 @@ class JuliaXFoilWorker:
     def _physical_query_identity(
         self,
         query: PolarQuery,
-    ) -> tuple[float, tuple[float, ...], str, str, str, str]:
+    ) -> tuple[float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
         return (
             float(query.reynolds),
             tuple(float(value) for value in query.cl_samples),
+            tuple(float(value) for value in query.alpha_samples),
             query.roughness_mode,
             self._validated_geometry_hash(query),
             query.analysis_mode,
@@ -193,7 +206,7 @@ class JuliaXFoilWorker:
     def _result_identity(
         self,
         result: dict[str, object],
-    ) -> tuple[str, float, tuple[float, ...], str, str, str, str]:
+    ) -> tuple[str, float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
         return (
             self._result_template_id(result),
             *self._physical_result_identity(result),
@@ -217,9 +230,10 @@ class JuliaXFoilWorker:
     def _physical_result_identity(
         self,
         result: dict[str, object],
-    ) -> tuple[float, tuple[float, ...], str, str, str, str]:
+    ) -> tuple[float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
         reynolds = result.get("reynolds")
         cl_samples = result.get("cl_samples")
+        alpha_samples = result.get("alpha_samples", [])
         roughness_mode = result.get("roughness_mode")
         geometry_hash = result.get("geometry_hash")
         analysis_mode = result.get("analysis_mode", "full_alpha_sweep")
@@ -237,6 +251,7 @@ class JuliaXFoilWorker:
         return (
             float(reynolds),
             self._normalize_cl_samples(cl_samples),
+            self._normalize_alpha_samples(alpha_samples),
             roughness_mode,
             geometry_hash,
             analysis_mode,
@@ -296,6 +311,10 @@ class JuliaXFoilWorker:
         materialized["template_id"] = query.template_id
         materialized["reynolds"] = float(query.reynolds)
         materialized["cl_samples"] = list(float(value) for value in query.cl_samples)
+        if query.alpha_samples:
+            materialized["alpha_samples"] = list(float(value) for value in query.alpha_samples)
+        else:
+            materialized.pop("alpha_samples", None)
         materialized["roughness_mode"] = query.roughness_mode
         materialized["geometry_hash"] = self._validated_geometry_hash(query)
         materialized["analysis_mode"] = query.analysis_mode
@@ -387,6 +406,7 @@ class JuliaXFoilWorker:
                 "template_id": query.template_id,
                 "reynolds": float(query.reynolds),
                 "cl_samples": list(float(value) for value in query.cl_samples),
+                "alpha_samples": list(float(value) for value in query.alpha_samples),
                 "roughness_mode": query.roughness_mode,
                 "geometry_hash": self._validated_geometry_hash(query),
                 "analysis_mode": query.analysis_mode,

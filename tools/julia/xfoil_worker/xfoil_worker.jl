@@ -431,6 +431,33 @@ function build_polar_points(alpha_deg, cl, cd, cdp, cm, converged, cl_samples)
 end
 
 
+function build_full_polar_points(alpha_deg, cl, cd, cdp, cm, converged)
+    points = Any[]
+    for index in eachindex(alpha_deg)
+        push!(points, Dict(
+            "alpha_deg" => Float64(alpha_deg[index]),
+            "cl" => Float64(cl[index]),
+            "cd" => Float64(cd[index]),
+            "cdp" => Float64(cdp[index]),
+            "cm" => Float64(cm[index]),
+            "converged" => Bool(converged[index]),
+        ))
+    end
+    return points
+end
+
+
+function query_alpha_grid(query, cl_samples::Vector{Float64})
+    if haskey(query, "alpha_samples")
+        samples = Float64[Float64(value) for value in query["alpha_samples"]]
+        if !isempty(samples)
+            return sort(unique(samples))
+        end
+    end
+    return alpha_grid(cl_samples)
+end
+
+
 function build_sweep_summary(alpha_deg, cl, cd, cdp, cm, converged)
     alpha_count = length(alpha_deg)
     converged_indices = findall(converged)
@@ -534,12 +561,15 @@ function analyze_query_full_sweep(query)
     roughness_mode = String(query["roughness_mode"])
     geometry_hash = String(query["geometry_hash"])
     cl_samples = Float64[Float64(value) for value in query["cl_samples"]]
+    requested_alpha_samples = haskey(query, "alpha_samples") ?
+        Float64[Float64(value) for value in query["alpha_samples"]] :
+        Float64[]
     analysis_mode = String(get(query, "analysis_mode", "full_alpha_sweep"))
     analysis_stage = String(get(query, "analysis_stage", "screening"))
     xfoil_max_iter = Int(get(query, "xfoil_max_iter", 60))
     xfoil_panel_count = Int(get(query, "xfoil_panel_count", 120))
     x, y = parse_coordinates(query["coordinates"])
-    alpha = alpha_grid(cl_samples)
+    alpha = query_alpha_grid(query, cl_samples)
     controls = roughness_controls(roughness_mode)
 
     cl, cd, cdp, cm, converged = Xfoil.alpha_sweep(
@@ -561,19 +591,23 @@ function analyze_query_full_sweep(query)
     )
 
     polar_points = build_polar_points(alpha, cl, cd, cdp, cm, converged, cl_samples)
+    full_polar_points = build_full_polar_points(alpha, cl, cd, cdp, cm, converged)
     sweep_summary = build_sweep_summary(alpha, cl, cd, cdp, cm, converged)
-    status = isempty(polar_points) ? "analysis_failed" : "ok"
+    status = any(Bool(point["converged"]) for point in full_polar_points) ? "ok" : "analysis_failed"
 
     return Dict(
         "template_id" => template_id,
         "reynolds" => reynolds,
         "cl_samples" => cl_samples,
+        "alpha_samples" => requested_alpha_samples,
+        "sweep_alpha_samples" => alpha,
         "roughness_mode" => roughness_mode,
         "geometry_hash" => geometry_hash,
         "analysis_mode" => analysis_mode,
         "analysis_stage" => analysis_stage,
         "status" => status,
         "polar_points" => polar_points,
+        "full_polar_points" => full_polar_points,
         "sweep_summary" => sweep_summary,
     )
 end

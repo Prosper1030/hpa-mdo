@@ -540,6 +540,23 @@ def test_worker_cache_key_separates_screening_and_full_sweep(tmp_path):
     assert worker.cache_key(screening) != worker.cache_key(finalist)
 
 
+def test_worker_cache_key_separates_explicit_alpha_sweep_grid(tmp_path):
+    worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+
+    coarse = _sample_query(
+        analysis_mode="full_alpha_sweep",
+        analysis_stage="phase6_full_polar",
+        alpha_samples=(-6.0, -5.5, -5.0),
+    )
+    refined = _sample_query(
+        analysis_mode="full_alpha_sweep",
+        analysis_stage="phase6_full_polar",
+        alpha_samples=(-6.0, -5.75, -5.5, -5.25, -5.0),
+    )
+
+    assert worker.cache_key(coarse) != worker.cache_key(refined)
+
+
 def test_worker_cache_key_ignores_template_id_for_physically_identical_query(tmp_path):
     worker = JuliaXFoilWorker(
         project_dir=tmp_path / "repo",
