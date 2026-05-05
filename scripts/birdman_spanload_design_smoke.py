@@ -27,6 +27,7 @@ from hpa_mdo.airfoils.database import (
     AirfoilDatabase,
     ProfileDragIntegrationResult,
     ZoneAirfoilAssignment,
+    airfoil_coordinate_path_from_record,
     default_airfoil_database,
     fixed_seed_zone_airfoil_assignments,
     integrate_profile_drag_from_avl,
@@ -1377,24 +1378,49 @@ def _airfoil_geometry_path(airfoil_id: str) -> Path | None:
     return resolved if resolved.is_file() else None
 
 
+def _sidecar_airfoil_geometry_path(
+    airfoil_id: str,
+    *,
+    database: AirfoilDatabase | None = None,
+) -> Path | None:
+    seed_path = _airfoil_geometry_path(airfoil_id)
+    if seed_path is not None:
+        return seed_path
+    if database is None:
+        return None
+    record = database.records.get(str(airfoil_id))
+    if record is None:
+        return None
+    return airfoil_coordinate_path_from_record(record)
+
+
 def _zone_airfoil_paths_from_assignment(
     assignments: tuple[ZoneAirfoilAssignment, ...],
+    *,
+    database: AirfoilDatabase | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     for assignment in assignments:
-        path = _airfoil_geometry_path(assignment.airfoil_id)
+        path = _sidecar_airfoil_geometry_path(assignment.airfoil_id, database=database)
         if path is None:
             raise FileNotFoundError(f"Missing airfoil geometry for {assignment.airfoil_id}")
         paths[str(assignment.zone_name)] = path
     return paths
 
 
-def _sidecar_available_airfoil_ids() -> tuple[str, ...]:
-    return tuple(
+def _sidecar_available_airfoil_ids(
+    database: AirfoilDatabase | None = None,
+) -> tuple[str, ...]:
+    available = {
         airfoil_id
         for airfoil_id in ("fx76mp140", "clarkysm", "dae11", "dae21", "dae31", "dae41")
         if _airfoil_geometry_path(airfoil_id) is not None
-    )
+    }
+    if database is not None:
+        for airfoil_id in database.records:
+            if _sidecar_airfoil_geometry_path(airfoil_id, database=database) is not None:
+                available.add(str(airfoil_id))
+    return tuple(sorted(available))
 
 
 def _sidecar_stations_from_record(record: dict[str, Any]) -> tuple[WingStation, ...]:
@@ -1597,6 +1623,10 @@ def _evaluate_airfoil_sidecar_combination(
             raise ValueError("mission_contract is unavailable")
         stations = _sidecar_stations_from_record(record)
         concept = _sidecar_concept_from_record(cfg=cfg, record=record, stations=stations)
+        zone_airfoil_paths = _zone_airfoil_paths_from_assignment(
+            combination,
+            database=database,
+        )
         avl = _run_reference_avl_case(
             cfg=cfg,
             concept=concept,
@@ -1607,7 +1637,7 @@ def _evaluate_airfoil_sidecar_combination(
             status_for_ranking="airfoil_sidecar_shadow",
             avl_binary=avl_binary,
             case_tag=f"sample_{int(record.get('sample_index') or 0):04d}_combo_{combination_index:02d}",
-            zone_airfoil_paths=_zone_airfoil_paths_from_assignment(combination),
+            zone_airfoil_paths=zone_airfoil_paths,
         )
         if avl.get("status") != "ok":
             raise RuntimeError(str(avl.get("error", "sidecar AVL rerun failed")))
@@ -1662,6 +1692,17 @@ def _evaluate_airfoil_sidecar_combination(
             "min_stall_margin_airfoil_db": profile.min_stall_margin_deg,
             "max_station_cl_utilization_airfoil_db": profile.max_station_cl_utilization,
             "source_quality": source_quality,
+            "selected_airfoil_paths": {
+                zone_name: str(path) for zone_name, path in zone_airfoil_paths.items()
+            },
+            "selected_airfoil_source_quality": {
+                assignment.zone_name: str(
+                    database.records[assignment.airfoil_id].source_quality
+                    if assignment.airfoil_id in database.records
+                    else "seed_airfoil_geometry"
+                )
+                for assignment in combination
+            },
             "profile_drag_station_warning_count": int(profile.station_warning_count),
             "profile_drag_cl_source_shape_mode": profile.profile_drag_cl_source_shape_mode,
             "profile_drag_cl_source_loaded_shape": bool(
@@ -1735,7 +1776,7 @@ def _attach_airfoil_sidecar_shadow_fields(
 ) -> None:
     database, database_metadata = _sidecar_airfoil_database(airfoil_database_artifact)
     baseline = fixed_seed_zone_airfoil_assignments()
-    available_airfoils = _sidecar_available_airfoil_ids()
+    available_airfoils = _sidecar_available_airfoil_ids(database)
     for record in records:
         for field in AIRFOIL_SIDECAR_SHADOW_FIELDS:
             record.setdefault(field, None)
@@ -1752,7 +1793,11 @@ def _attach_airfoil_sidecar_shadow_fields(
                 zone_definitions=baseline,
                 current_profile_drag_rows=profile_rows,
             )
-            topk = query_zone_airfoil_topk(envelopes, database, top_k=2)
+            topk = query_zone_airfoil_topk(
+                envelopes,
+                database,
+                top_k=max(2, min(5, int(max_airfoil_combinations))),
+            )
             combinations = generate_airfoil_sidecar_combinations(
                 baseline,
                 topk,
@@ -5369,7 +5414,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-airfoil-sidecar-combinations",
         type=int,
-        default=8,
+        default=16,
         help="Maximum zone-level airfoil assignment combinations to rerun in the Phase 4 sidecar.",
     )
     parser.add_argument(

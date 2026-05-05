@@ -678,6 +678,9 @@ def _record_from_payload(payload: Mapping[str, Any]) -> AirfoilRecord:
         usable_clmax=float(payload.get("usable_clmax", 0.0)),
         polar_points=polar_points,
         notes=str(payload.get("notes", "")),
+        coordinate_path=(
+            None if payload.get("coordinate_path") is None else str(payload.get("coordinate_path"))
+        ),
     )
 
 

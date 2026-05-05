@@ -255,6 +255,9 @@ def _airfoil_record_from_dict(item: Mapping[str, Any]) -> AirfoilRecord:
         usable_clmax=float(item.get("usable_clmax", float("nan"))),
         polar_points=polar_points,
         notes=str(item.get("notes", "")),
+        coordinate_path=(
+            None if item.get("coordinate_path") is None else str(item.get("coordinate_path"))
+        ),
     )
 
 
@@ -913,6 +916,7 @@ def _record_from_candidate_result(item: Mapping[str, Any], *, coordinate_dir: Pa
         usable_clmax=_finite_or_zero(item.get("usable_clmax")),
         polar_points=polar_points,
         notes=f"Offline CST/NSGA zone candidate; issues={item.get('issues', [])}.",
+        coordinate_path=str(coordinate_path),
     )
 
 

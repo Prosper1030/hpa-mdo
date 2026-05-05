@@ -9,6 +9,7 @@ from hpa_mdo.airfoils.database import (
     AirfoilPolarPoint,
     AirfoilRecord,
     ZoneAirfoilAssignment,
+    ZoneEnvelope,
     fixed_seed_zone_airfoil_assignments,
 )
 from hpa_mdo.airfoils.sidecar import (
@@ -156,6 +157,61 @@ def test_topk_query_returns_zone_level_candidates_not_station_picks() -> None:
     assert all(candidate["zone_name"] == "root" for candidate in topk["root"])
     assert all("station_index" not in candidate for candidate in topk["root"])
     assert all(candidate["source_quality"] == "not_mission_grade_sidecar" for candidate in topk["root"])
+
+
+def test_cst_topk_keeps_candidates_in_their_origin_zone() -> None:
+    def record(airfoil_id: str, zone_hint: str, cd: float) -> AirfoilRecord:
+        points = tuple(
+            AirfoilPolarPoint(
+                Re=re_value,
+                cl=cl_value,
+                cd=cd,
+                cm=-0.04,
+                alpha_deg=cl_value * 8.0,
+            )
+            for re_value in (250_000.0, 350_000.0)
+            for cl_value in (0.2, 0.5, 0.8, 1.0)
+        )
+        return AirfoilRecord(
+            airfoil_id=airfoil_id,
+            name=airfoil_id,
+            source="offline_cst_zone_nsga_xfoil_database_builder_v1:/tmp/unused.dat",
+            source_quality="cst_xfoil_mission_grade_candidate",
+            zone_hint=zone_hint,
+            thickness_ratio=0.12,
+            max_camber=0.03,
+            alpha_L0_deg=-2.0,
+            cl_alpha_per_rad=2.0 * math.pi,
+            cm_design=-0.04,
+            safe_clmax=1.2,
+            usable_clmax=1.4,
+            polar_points=points,
+            notes="unit test fixture",
+        )
+
+    database = AirfoilDatabase.from_records(
+        (
+            record("cst_mid2_low_cd", "mid2", 0.001),
+            record("cst_tip_real", "tip", 0.012),
+        )
+    )
+    envelope = ZoneEnvelope(
+        zone_name="tip",
+        eta_min=0.8,
+        eta_max=1.0,
+        re_min=250_000.0,
+        re_p50=300_000.0,
+        re_max=350_000.0,
+        cl_min=0.2,
+        cl_p50=0.5,
+        cl_p90=0.8,
+        cl_max=0.8,
+        max_fourier_target_cl=0.8,
+    )
+
+    topk = query_zone_airfoil_topk((envelope,), database, top_k=2)
+
+    assert [candidate["airfoil_id"] for candidate in topk["tip"]] == ["cst_tip_real"]
 
 
 def test_sidecar_combination_cap_and_baseline_first() -> None:

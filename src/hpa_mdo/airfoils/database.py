@@ -52,6 +52,7 @@ class AirfoilRecord:
     usable_clmax: float
     polar_points: tuple[AirfoilPolarPoint, ...]
     notes: str
+    coordinate_path: str | None = None
 
     @property
     def polar_table(self) -> tuple[AirfoilPolarPoint, ...]:
@@ -200,6 +201,35 @@ class AirfoilDatabase:
         if record is None:
             raise KeyError(f"Unknown airfoil_id: {query.airfoil_id}")
         return _lookup_record(record, query)
+
+
+def airfoil_coordinate_path_from_record(
+    record: AirfoilRecord,
+    *,
+    repo_root: Path | None = None,
+) -> Path | None:
+    """Resolve a database-backed airfoil coordinate file when one is recorded."""
+
+    root = _REPO_ROOT if repo_root is None else Path(repo_root)
+    candidates: list[str] = []
+    if record.coordinate_path:
+        candidates.append(str(record.coordinate_path))
+    source = str(record.source or "")
+    if ":" in source:
+        candidates.append(source.split(":", 1)[1])
+    elif source.endswith(".dat"):
+        candidates.append(source)
+
+    for candidate in candidates:
+        text = str(candidate).strip()
+        if not text:
+            continue
+        path = Path(text).expanduser()
+        if not path.is_absolute():
+            path = root / path
+        if path.is_file():
+            return path.resolve()
+    return None
 
 
 def lookup_airfoil_polar(

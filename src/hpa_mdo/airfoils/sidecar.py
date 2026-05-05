@@ -126,6 +126,8 @@ def query_zone_airfoil_topk(
         candidates: list[dict[str, Any]] = []
         work_points = _zone_work_points(envelope)
         for record in airfoil_database.records.values():
+            if not _record_matches_zone_origin(record, envelope.zone_name):
+                continue
             candidate = _score_airfoil_for_zone(
                 envelope=envelope,
                 airfoil_id=str(record.airfoil_id),
@@ -303,6 +305,23 @@ def _score_airfoil_for_zone(
         "warnings": sorted(set(warnings)),
         "work_point_count": len(work_points),
     }
+
+
+def _record_matches_zone_origin(record: Any, zone_name: str) -> bool:
+    airfoil_id = str(getattr(record, "airfoil_id", ""))
+    source = str(getattr(record, "source", ""))
+    is_generated_cst = airfoil_id.startswith("cst_") or "cst_zone" in source or "cst_" in source
+    if not is_generated_cst:
+        return True
+    zone_hint = str(getattr(record, "zone_hint", "")).strip()
+    if not zone_hint:
+        return True
+    hints = {
+        item.strip()
+        for item in zone_hint.replace(",", "|").split("|")
+        if item.strip()
+    }
+    return str(zone_name) in hints
 
 
 def _sidecar_source_quality(source_quality: str, warning_count: int) -> str:

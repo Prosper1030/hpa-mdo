@@ -8,6 +8,7 @@ from hpa_mdo.airfoils.database import (
     AirfoilDatabase,
     AirfoilPolarPoint,
     AirfoilRecord,
+    ZoneAirfoilAssignment,
 )
 from hpa_mdo.airfoils.polar_builder import (
     PolarBuildConfig,
@@ -912,6 +913,68 @@ def test_sidecar_prefers_seed_polar_database_artifact(tmp_path: Path) -> None:
     assert metadata["airfoil_database_loaded"] is True
     assert database.records["clarkysm"].source_quality == "xfoil_generated_clean_only"
     assert "not_mission_grade" in database.records["fx76mp140"].source_quality
+
+
+def test_sidecar_available_airfoils_include_cst_database_geometry(tmp_path: Path) -> None:
+    cst_path = tmp_path / "cst_tip_demo.dat"
+    cst_path.write_text("cst_tip_demo\n1.0 0.0\n0.0 0.0\n1.0 0.0\n", encoding="utf-8")
+    database = AirfoilDatabase.from_records(
+        [
+            AirfoilRecord(
+                airfoil_id="cst_tip_demo",
+                name="cst_tip_demo",
+                source=f"offline_cst_zone_nsga_xfoil_database_builder_v1:{cst_path}",
+                source_quality="cst_xfoil_mission_grade_candidate",
+                zone_hint="tip",
+                thickness_ratio=0.12,
+                max_camber=0.03,
+                alpha_L0_deg=-2.0,
+                cl_alpha_per_rad=6.0,
+                cm_design=-0.04,
+                safe_clmax=1.2,
+                usable_clmax=1.4,
+                polar_points=(),
+                notes="unit test CST geometry",
+            )
+        ]
+    )
+
+    available = smoke._sidecar_available_airfoil_ids(database)
+
+    assert "cst_tip_demo" in available
+    assert "fx76mp140" in available
+
+
+def test_zone_airfoil_paths_resolve_cst_database_geometry(tmp_path: Path) -> None:
+    cst_path = tmp_path / "cst_mid2_demo.dat"
+    cst_path.write_text("cst_mid2_demo\n1.0 0.0\n0.0 0.0\n1.0 0.0\n", encoding="utf-8")
+    database = AirfoilDatabase.from_records(
+        [
+            AirfoilRecord(
+                airfoil_id="cst_mid2_demo",
+                name="cst_mid2_demo",
+                source=f"offline_cst_zone_nsga_xfoil_database_builder_v1:{cst_path}",
+                source_quality="cst_xfoil_mission_grade_candidate",
+                zone_hint="mid2",
+                thickness_ratio=0.12,
+                max_camber=0.03,
+                alpha_L0_deg=-2.0,
+                cl_alpha_per_rad=6.0,
+                cm_design=-0.04,
+                safe_clmax=1.2,
+                usable_clmax=1.4,
+                polar_points=(),
+                notes="unit test CST geometry",
+            )
+        ]
+    )
+    assignments = (
+        ZoneAirfoilAssignment("mid2", "cst_mid2_demo", 0.55, 0.8),
+    )
+
+    paths = smoke._zone_airfoil_paths_from_assignment(assignments, database=database)
+
+    assert paths["mid2"] == cst_path.resolve()
 
 
 def _sidecar_test_worker():
