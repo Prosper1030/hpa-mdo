@@ -1224,7 +1224,7 @@ def test_select_zone_airfoil_templates_uses_coarse_to_fine_refinement_to_recover
 def test_select_zone_airfoil_templates_for_concepts_reuses_seedless_candidate_pool(
     monkeypatch,
 ) -> None:
-    seedless_calls: list[tuple[str, float, int, int | None, int]] = []
+    seedless_calls: list[tuple[str, float, int, int | None, int, float]] = []
     prescreen_calls: list[float] = []
     template = CSTAirfoilTemplate(
         "root",
@@ -1241,6 +1241,7 @@ def test_select_zone_airfoil_templates_for_concepts_reuses_seedless_candidate_po
         sample_count,
         random_seed,
         max_oversample_factor,
+        seedless_te_thickness_min,
     ):
         seedless_calls.append(
             (
@@ -1249,6 +1250,7 @@ def test_select_zone_airfoil_templates_for_concepts_reuses_seedless_candidate_po
                 sample_count,
                 random_seed,
                 max_oversample_factor,
+                seedless_te_thickness_min,
             )
         )
         return (template,)
@@ -1328,7 +1330,7 @@ def test_select_zone_airfoil_templates_for_concepts_reuses_seedless_candidate_po
     )
 
     assert set(batches) == {"eval-01", "eval-02"}
-    assert seedless_calls == [("root", 0.12, 8, 17, 4)]
+    assert seedless_calls == [("root", 0.12, 8, 17, 4, 0.0)]
     assert prescreen_calls == [0.12]
 
 

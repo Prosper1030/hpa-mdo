@@ -222,11 +222,16 @@ cst_search:
   successive_halving_enabled: true
   successive_halving_rounds: 1
   successive_halving_beam_width: 1
-  seedless_sample_count: 96
+  # Production airfoil search: use >=1024 Sobol samples per zone.
+  # Smoke/CI configs may override this to 96 or 128 to avoid running a full XFOIL campaign.
+  seedless_sample_count: 1024
   seedless_max_oversample_factor: 16
+  # Airfoil coverage search allows near-sharp historical trailing edges.
+  # Manufacturing/build trailing-edge thickness should be checked by a separate build gate.
+  seedless_te_thickness_min: 0.0
   robust_evaluation_enabled: true
   coarse_robust_evaluation_enabled: false
-  robust_reynolds_factors: [1.0]
+  robust_reynolds_factors: [0.85, 1.0, 1.15]
   robust_roughness_modes: ["clean", "rough"]
   robust_min_pass_rate: 0.75
   nsga_generation_count: 0

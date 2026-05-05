@@ -223,13 +223,14 @@ def test_load_concept_config_reads_birdman_baseline():
     assert cfg.cst_search.coarse_thickness_stride == 3
     assert cfg.cst_search.coarse_keep_top_k == 3
     assert cfg.cst_search.search_mode == "seedless_sobol"
-    assert cfg.cst_search.seedless_sample_count == 96
+    assert cfg.cst_search.seedless_sample_count == 1024
     assert cfg.cst_search.seedless_max_oversample_factor == 16
+    assert cfg.cst_search.seedless_te_thickness_min == pytest.approx(0.0)
     assert cfg.cst_search.coarse_robust_evaluation_enabled is False
     assert cfg.cst_search.successive_halving_enabled is True
     assert cfg.cst_search.successive_halving_rounds == 1
     assert cfg.cst_search.successive_halving_beam_width == 1
-    assert cfg.cst_search.robust_reynolds_factors == pytest.approx((1.0,))
+    assert cfg.cst_search.robust_reynolds_factors == pytest.approx((0.85, 1.0, 1.15))
     assert cfg.cst_search.cma_es_enabled is False
     assert cfg.cst_search.cma_es_knee_count == 0
     assert cfg.cst_search.cma_es_iterations == 0
@@ -675,6 +676,7 @@ def test_load_concept_config_accepts_seedless_cst_search_mode():
                 "seedless_sample_count": 8,
                 "seedless_random_seed": 123,
                 "seedless_max_oversample_factor": 4,
+                "seedless_te_thickness_min": 0.0002,
                 "nsga_generation_count": 1,
                 "nsga_offspring_count": 4,
                 "nsga_parent_count": 4,
@@ -690,6 +692,7 @@ def test_load_concept_config_accepts_seedless_cst_search_mode():
     assert cfg.cst_search.seedless_sample_count == 8
     assert cfg.cst_search.seedless_random_seed == 123
     assert cfg.cst_search.seedless_max_oversample_factor == 4
+    assert cfg.cst_search.seedless_te_thickness_min == pytest.approx(0.0002)
     assert cfg.cst_search.nsga_generation_count == 1
     assert cfg.cst_search.nsga_offspring_count == 4
     assert cfg.cst_search.nsga_parent_count == 4

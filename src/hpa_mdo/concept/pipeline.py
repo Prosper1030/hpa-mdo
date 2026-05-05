@@ -4345,6 +4345,7 @@ def run_birdman_concept_pipeline(
                 seedless_sample_count=cfg.cst_search.seedless_sample_count,
                 seedless_random_seed=cfg.cst_search.seedless_random_seed,
                 seedless_max_oversample_factor=cfg.cst_search.seedless_max_oversample_factor,
+                seedless_te_thickness_min=cfg.cst_search.seedless_te_thickness_min,
                 robust_evaluation_enabled=cfg.cst_search.robust_evaluation_enabled,
                 coarse_robust_evaluation_enabled=cfg.cst_search.coarse_robust_evaluation_enabled,
                 robust_reynolds_factors=cfg.cst_search.robust_reynolds_factors,

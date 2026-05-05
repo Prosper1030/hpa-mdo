@@ -20,6 +20,8 @@ CLASS_N1 = 0.5
 CLASS_N2 = 1.0
 DEGREES = (4, 5, 6, 7)
 REPORT_DIR = Path("docs/research/historical_airfoil_cst_coverage")
+ROOT_COVERAGE_AIRFOILS = ("FX 76-MP-140", "DAE11", "DAE21")
+OUTBOARD_COVERAGE_AIRFOILS = ("DAE21", "DAE31", "DAE41")
 
 
 @dataclass(frozen=True)
@@ -270,63 +272,6 @@ def _format_fits(value: bool | None) -> str:
     return "Yes" if value else "No"
 
 
-def _proposed_bounds_patch(results: Sequence[dict[str, object]], *, margin: float = 0.01) -> str:
-    n6_results = [row for row in results if row["degree"] == 6]
-    upper_rows = [row["upper_coefficients"] for row in n6_results]
-    lower_rows = [row["lower_coefficients"] for row in n6_results]
-    te_values = [float(row["te_thickness"]) for row in n6_results]
-
-    def merged_min(current: Sequence[float], fitted_rows: Sequence[Sequence[float]]) -> tuple[float, ...]:
-        return tuple(
-            min(float(current[index]), min(float(row[index]) for row in fitted_rows) - margin)
-            for index in range(len(current))
-        )
-
-    def merged_max(current: Sequence[float], fitted_rows: Sequence[Sequence[float]]) -> tuple[float, ...]:
-        return tuple(
-            max(float(current[index]), max(float(row[index]) for row in fitted_rows) + margin)
-            for index in range(len(current))
-        )
-
-    root_upper_min = merged_min(_ROOT_SEEDLESS_CST_BOUNDS.upper_min, upper_rows)
-    root_upper_max = merged_max(_ROOT_SEEDLESS_CST_BOUNDS.upper_max, upper_rows)
-    root_lower_min = merged_min(_ROOT_SEEDLESS_CST_BOUNDS.lower_min, lower_rows)
-    root_lower_max = merged_max(_ROOT_SEEDLESS_CST_BOUNDS.lower_max, lower_rows)
-    out_upper_min = merged_min(_OUTBOARD_SEEDLESS_CST_BOUNDS.upper_min, upper_rows)
-    out_upper_max = merged_max(_OUTBOARD_SEEDLESS_CST_BOUNDS.upper_max, upper_rows)
-    out_lower_min = merged_min(_OUTBOARD_SEEDLESS_CST_BOUNDS.lower_min, lower_rows)
-    out_lower_max = merged_max(_OUTBOARD_SEEDLESS_CST_BOUNDS.lower_max, lower_rows)
-    te_min = min(0.0, min(te_values))
-
-    def tuple_literal(values: Sequence[float]) -> str:
-        return "(" + ", ".join(f"{value:.6f}" for value in values) + ")"
-
-    return "\n".join(
-        (
-            "```diff",
-            "- _ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(...)",
-            "+ _ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(",
-            f"+     upper_min={tuple_literal(root_upper_min)},",
-            f"+     upper_max={tuple_literal(root_upper_max)},",
-            f"+     lower_min={tuple_literal(root_lower_min)},",
-            f"+     lower_max={tuple_literal(root_lower_max)},",
-            f"+     te_thickness_min={te_min:.6f},",
-            f"+     te_thickness_max={_ROOT_SEEDLESS_CST_BOUNDS.te_thickness_max:.6f},",
-            "+ )",
-            "- _OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(...)",
-            "+ _OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(",
-            f"+     upper_min={tuple_literal(out_upper_min)},",
-            f"+     upper_max={tuple_literal(out_upper_max)},",
-            f"+     lower_min={tuple_literal(out_lower_min)},",
-            f"+     lower_max={tuple_literal(out_lower_max)},",
-            f"+     te_thickness_min={te_min:.6f},",
-            f"+     te_thickness_max={_OUTBOARD_SEEDLESS_CST_BOUNDS.te_thickness_max:.6f},",
-            "+ )",
-            "```",
-        )
-    )
-
-
 def _result_rows() -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for source in AIRFOIL_SOURCES:
@@ -513,20 +458,48 @@ def _write_report(path: Path, rows: Sequence[dict[str, object]]) -> None:
     lines.extend(
         [
             "",
-            "## Proposed Bounds Patch Only",
+            "## Post-audit Bounds Patch",
             "",
-            "Not applied. This widens the existing `n=6` default bounds just enough to contain the fitted historical envelope plus a small 0.01 coefficient margin.",
+            "- Old bounds were too narrow in the aft upper CST coefficients, positive or less-negative lower coefficients, and near-sharp trailing-edge thickness. The old feasible-search `te_thickness_min = 0.001` also rejected several closed or near-closed historical airfoils before aerodynamic scoring.",
+            f"- Root/mid1 coverage target: {', '.join(ROOT_COVERAGE_AIRFOILS)}.",
+            f"- Outboard coverage target: {', '.join(OUTBOARD_COVERAGE_AIRFOILS)}.",
+            "- New bounds use the audited `n=6` coefficients with about `0.01` absolute coefficient margin only where the historical family was blocked or had less than that margin.",
+            "- Root/mid1 widened: `upper_max[1,3,4,5,6]`, `lower_min[4]`, `lower_max[1,3,5,6]`, and `te_thickness_min`.",
+            "- Outboard widened: `upper_max[3,4,5,6]`, `lower_max[1,3,5,6]`, and `te_thickness_min`.",
+            "- `n=7` is not the default because `n=6` already meets the `<0.2%c` geometry gate for all audited FX/DAE cases; `n=7` remains useful as a diagnostic or future margin study.",
+            "- `seedless_sample_count = 96` is now treated as smoke-scale only. A production seedless search should use at least `1024` Sobol samples per zone because the search has 15 dimensions before geometry filtering.",
+            "- Production recommendation: `n = 6`, `seedless_sample_count >= 1024` per zone, and `robust_reynolds_factors = [0.85, 1.0, 1.15]`.",
+            "- Engineering note: airfoil coverage search now allows near-sharp TE via `seedless_te_thickness_min`; any manufacturing trailing-edge thickness requirement should remain a separate build/manufacturing gate, not a search-space coverage gate.",
             "",
-            "Engineering note: a bounds-only patch is not the full production change. The current seedless validation constraint also has `te_thickness_min = 0.001`, so historical near-sharp trailing edges would still need a separate constraint decision before they can survive feasible-candidate filtering.",
+            "Implemented controlled bounds:",
             "",
-            _proposed_bounds_patch(rows),
+            "```python",
+            "_ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(",
+            "    upper_min=(0.05, 0.10, 0.10, 0.06, 0.02, 0.005, 0.003),",
+            "    upper_max=(0.30, 0.422914, 0.40, 0.565449, 0.599002, 0.266423, 0.413292),",
+            "    lower_min=(-0.22, -0.28, -0.25, -0.20, -0.152734, -0.06, -0.020),",
+            "    lower_max=(-0.02, 0.104269, -0.04, 0.242362, 0.02, 0.188743, 0.262677),",
+            "    te_thickness_min=0.0,",
+            "    te_thickness_max=0.0040,",
+            ")",
+            "",
+            "_OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(",
+            "    upper_min=(0.04, 0.08, 0.08, 0.04, 0.02, 0.005, 0.002),",
+            "    upper_max=(0.28, 0.38, 0.36, 0.319223, 0.485202, 0.308715, 0.249342),",
+            "    lower_min=(-0.18, -0.24, -0.22, -0.16, -0.10, -0.05, -0.018),",
+            "    lower_max=(-0.02, 0.143720, -0.03, 0.280414, 0.02, 0.184917, 0.132998),",
+            "    te_thickness_min=0.0,",
+            "    te_thickness_max=0.0035,",
+            ")",
+            "```",
             "",
             "## GPT Discussion Summary",
             "",
             "- Repo already had `data/airfoils/fx76mp140.dat`; DAE11/21/31/41 were absent and were added only as audit reference data under `docs/research/historical_airfoil_cst_coverage/airfoils/` from the MIT Drela HPA airfoil index.",
             "- Using the project CST form (`N1=0.5`, `N2=1.0`) and least-squares fitting, `n=6` is geometrically sufficient for the audited FX/DAE set if max vertical residual below `0.2%c` is the gate.",
-            "- The present `_ROOT_SEEDLESS_CST_BOUNDS` and `_OUTBOARD_SEEDLESS_CST_BOUNDS` are not broad enough to include those historical `n=6` fits, especially TE thickness and several aft/positive lower coefficients.",
-            "- Because coefficients are already out of bounds, this is a bounds-envelope issue before it is a `sample_count=96` issue. If bounds are widened and similar shapes are still not sampled, then the sparse 96-point Sobol draw becomes the next suspect.",
+            "- Phase 3 applies controlled `n=6` bounds widening for the intended root/mid1 and outboard historical families rather than making all zones cover all audited airfoils.",
+            "- Seedless CST search now allows near-sharp TE via `seedless_te_thickness_min`; manufacturing TE thickness should be enforced separately if needed.",
+            "- Formal airfoil selection should use at least `1024` seedless samples per zone plus multipoint Reynolds robustness `[0.85, 1.0, 1.15]`; `96` samples and `[1.0]` are smoke-scale settings only.",
         ]
     )
 

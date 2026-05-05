@@ -31,7 +31,7 @@ from hpa_mdo.concept.airfoil_worker import PolarQuery, geometry_hash_from_coordi
 from hpa_mdo.concept.stall_model import compute_safe_local_clmax
 
 ProgressCallback = Callable[[dict[str, object]], None]
-SeedlessCandidateCacheKey = tuple[str, float, int, int | None, int]
+SeedlessCandidateCacheKey = tuple[str, float, float, int, int | None, int]
 
 
 def _emit_progress(
@@ -59,19 +59,19 @@ _BASE_TEMPLATE_LIBRARY: dict[str, dict[str, object]] = {
 
 _ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
     upper_min=(0.05, 0.10, 0.10, 0.06, 0.02, 0.005, 0.003),
-    upper_max=(0.30, 0.42, 0.40, 0.32, 0.20, 0.12, 0.040),
-    lower_min=(-0.22, -0.28, -0.25, -0.20, -0.12, -0.06, -0.020),
-    lower_max=(-0.02, -0.04, -0.04, -0.02, 0.02, 0.02, 0.005),
-    te_thickness_min=0.0010,
+    upper_max=(0.30, 0.422914, 0.40, 0.565449, 0.599002, 0.266423, 0.413292),
+    lower_min=(-0.22, -0.28, -0.25, -0.20, -0.152734, -0.06, -0.020),
+    lower_max=(-0.02, 0.104269, -0.04, 0.242362, 0.02, 0.188743, 0.262677),
+    te_thickness_min=0.0,
     te_thickness_max=0.0040,
 )
 
 _OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
     upper_min=(0.04, 0.08, 0.08, 0.04, 0.02, 0.005, 0.002),
-    upper_max=(0.28, 0.38, 0.36, 0.28, 0.18, 0.10, 0.035),
+    upper_max=(0.28, 0.38, 0.36, 0.319223, 0.485202, 0.308715, 0.249342),
     lower_min=(-0.18, -0.24, -0.22, -0.16, -0.10, -0.05, -0.018),
-    lower_max=(-0.02, -0.03, -0.03, -0.02, 0.02, 0.02, 0.005),
-    te_thickness_min=0.0010,
+    lower_max=(-0.02, 0.143720, -0.03, 0.280414, 0.02, 0.184917, 0.132998),
+    te_thickness_min=0.0,
     te_thickness_max=0.0035,
 )
 
@@ -775,7 +775,11 @@ def _default_seedless_cst_bounds(zone_name: str) -> SeedlessCSTCoefficientBounds
     return _ROOT_SEEDLESS_CST_BOUNDS if zone_name in {"root", "mid1"} else _OUTBOARD_SEEDLESS_CST_BOUNDS
 
 
-def _seedless_constraints_for_zone(zone_min_tc_ratio: float) -> SeedlessCSTConstraints:
+def _seedless_constraints_for_zone(
+    zone_min_tc_ratio: float,
+    *,
+    seedless_te_thickness_min: float = 0.0,
+) -> SeedlessCSTConstraints:
     min_tc_ratio = float(zone_min_tc_ratio)
     return SeedlessCSTConstraints(
         min_thickness_ratio=min_tc_ratio,
@@ -783,6 +787,7 @@ def _seedless_constraints_for_zone(zone_min_tc_ratio: float) -> SeedlessCSTConst
         max_thickness_x_min=0.25,
         max_thickness_x_max=0.45,
         min_spar_depth_ratio_25_35=max(0.09, 0.75 * min_tc_ratio),
+        te_thickness_min=float(seedless_te_thickness_min),
     )
 
 
@@ -793,12 +798,16 @@ def _seedless_zone_candidates(
     sample_count: int,
     random_seed: int | None,
     max_oversample_factor: int,
+    seedless_te_thickness_min: float = 0.0,
 ) -> tuple[CSTAirfoilTemplate, ...]:
     return sample_feasible_seedless_cst_sobol(
         zone_name=zone_name,
         sample_count=sample_count,
         bounds=_default_seedless_cst_bounds(zone_name),
-        constraints=_seedless_constraints_for_zone(zone_min_tc_ratio),
+        constraints=_seedless_constraints_for_zone(
+            zone_min_tc_ratio,
+            seedless_te_thickness_min=seedless_te_thickness_min,
+        ),
         random_seed=random_seed,
         max_oversample_factor=max_oversample_factor,
     )
@@ -817,6 +826,7 @@ def _prepare_zone_selection_inputs(
     seedless_sample_count: int,
     seedless_random_seed: int | None,
     seedless_max_oversample_factor: int,
+    seedless_te_thickness_min: float,
     seedless_candidate_cache: (
         dict[SeedlessCandidateCacheKey, tuple[CSTAirfoilTemplate, ...]] | None
     ) = None,
@@ -855,6 +865,7 @@ def _prepare_zone_selection_inputs(
             cache_key = (
                 str(zone_name),
                 float(zone_min_tc_ratio),
+                float(seedless_te_thickness_min),
                 int(seedless_sample_count),
                 seedless_random_seed,
                 int(seedless_max_oversample_factor),
@@ -879,6 +890,7 @@ def _prepare_zone_selection_inputs(
                     sample_count=seedless_sample_count,
                     random_seed=seedless_random_seed,
                     max_oversample_factor=seedless_max_oversample_factor,
+                    seedless_te_thickness_min=seedless_te_thickness_min,
                 )
                 if seedless_candidate_cache is not None:
                     seedless_candidate_cache[cache_key] = candidates
@@ -1796,6 +1808,7 @@ def select_zone_airfoil_templates(
     seedless_sample_count: int = 32,
     seedless_random_seed: int | None = 0,
     seedless_max_oversample_factor: int = 8,
+    seedless_te_thickness_min: float = 0.0,
     robust_evaluation_enabled: bool = False,
     coarse_robust_evaluation_enabled: bool = False,
     robust_reynolds_factors: tuple[float, ...] = (1.0,),
@@ -1849,6 +1862,7 @@ def select_zone_airfoil_templates(
         seedless_sample_count=seedless_sample_count,
         seedless_random_seed=seedless_random_seed,
         seedless_max_oversample_factor=seedless_max_oversample_factor,
+        seedless_te_thickness_min=seedless_te_thickness_min,
         robust_evaluation_enabled=robust_evaluation_enabled,
         coarse_robust_evaluation_enabled=coarse_robust_evaluation_enabled,
         robust_reynolds_factors=robust_reynolds_factors,
@@ -1913,6 +1927,7 @@ def select_zone_airfoil_templates_for_concepts(
     seedless_sample_count: int = 32,
     seedless_random_seed: int | None = 0,
     seedless_max_oversample_factor: int = 8,
+    seedless_te_thickness_min: float = 0.0,
     robust_evaluation_enabled: bool = False,
     coarse_robust_evaluation_enabled: bool = False,
     robust_reynolds_factors: tuple[float, ...] = (1.0,),
@@ -2020,6 +2035,7 @@ def select_zone_airfoil_templates_for_concepts(
             seedless_sample_count=seedless_sample_count,
             seedless_random_seed=seedless_random_seed,
             seedless_max_oversample_factor=seedless_max_oversample_factor,
+            seedless_te_thickness_min=seedless_te_thickness_min,
             seedless_candidate_cache=seedless_candidate_cache,
             seedless_prescreen_cache=seedless_prescreen_cache,
             progress_callback=progress_callback,
@@ -2113,7 +2129,10 @@ def select_zone_airfoil_templates_for_concepts(
                     zone_name=zone_name,
                     parents=parents,
                     bounds=_default_seedless_cst_bounds(zone_name),
-                    constraints=_seedless_constraints_for_zone(zone_min_tc_ratio),
+                    constraints=_seedless_constraints_for_zone(
+                        zone_min_tc_ratio,
+                        seedless_te_thickness_min=seedless_te_thickness_min,
+                    ),
                     offspring_count=int(nsga_offspring_count),
                     generation_index=generation_index,
                     random_seed=_seed_for_generation(
@@ -2223,7 +2242,10 @@ def select_zone_airfoil_templates_for_concepts(
                     children = sample_cma_es_offspring(
                         state=state,
                         bounds=_default_seedless_cst_bounds(state.zone_name),
-                        constraints=_seedless_constraints_for_zone(zone_min_tc_ratio),
+                        constraints=_seedless_constraints_for_zone(
+                            zone_min_tc_ratio,
+                            seedless_te_thickness_min=seedless_te_thickness_min,
+                        ),
                         population_lambda=int(cma_es_population_lambda),
                         random_seed=seed,
                     )

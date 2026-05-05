@@ -832,6 +832,7 @@ class CSTSearchConfig(ConceptBaseModel):
     seedless_sample_count: int = Field(32, ge=1)
     seedless_random_seed: int | None = 0
     seedless_max_oversample_factor: int = Field(8, ge=1)
+    seedless_te_thickness_min: float = Field(0.0, ge=0.0)
     robust_evaluation_enabled: bool = False
     coarse_robust_evaluation_enabled: bool = False
     robust_reynolds_factors: tuple[float, ...] = (0.85, 1.0, 1.15)

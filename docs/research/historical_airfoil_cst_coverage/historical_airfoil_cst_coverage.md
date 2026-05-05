@@ -26,23 +26,23 @@ Read-only audit of current seedless CST coverage for historical low-Reynolds air
 | ------- | - | ------------ | ------------ | ----------------- | --------------------- | --------------------------------- |
 | FX 76-MP-140 | 4 | 0.0853 | 0.1878 | N/A | N/A | root: degree_mismatch: fit has 5 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 5 coefficients, bounds have 7 |
 | FX 76-MP-140 | 5 | 0.0384 | 0.0900 | N/A | N/A | root: degree_mismatch: fit has 6 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 6 coefficients, bounds have 7 |
-| FX 76-MP-140 | 6 | 0.0336 | 0.0880 | No | No | root: upper[3]=0.331897 > 0.320000; upper[4]=0.589002 > 0.200000; upper[5]=0.249189 > 0.120000; upper[6]=0.403292 > 0.040000; lower[1]=0.036463 > -0.040000; lower[3]=0.112067 > -0.020000; lower[5]=0.082112 > 0.020000; lower[6]=0.252677 > 0.005000<br>outboard: upper[1]=0.394489 > 0.380000; upper[3]=0.331897 > 0.280000; upper[4]=0.589002 > 0.180000; upper[5]=0.249189 > 0.100000; upper[6]=0.403292 > 0.035000; lower[1]=0.036463 > -0.030000; lower[3]=0.112067 > -0.020000; lower[5]=0.082112 > 0.020000; lower[6]=0.252677 > 0.005000 |
+| FX 76-MP-140 | 6 | 0.0336 | 0.0880 | Yes | No | outboard: upper[1]=0.394489 > 0.380000; upper[3]=0.331897 > 0.319223; upper[4]=0.589002 > 0.485202; upper[6]=0.403292 > 0.249342; lower[6]=0.252677 > 0.132998 |
 | FX 76-MP-140 | 7 | 0.0187 | 0.0504 | N/A | N/A | root: degree_mismatch: fit has 8 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 8 coefficients, bounds have 7 |
 | DAE11 | 4 | 0.1072 | 0.2814 | N/A | N/A | root: degree_mismatch: fit has 5 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 5 coefficients, bounds have 7 |
 | DAE11 | 5 | 0.0706 | 0.2359 | N/A | N/A | root: degree_mismatch: fit has 6 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 6 coefficients, bounds have 7 |
-| DAE11 | 6 | 0.0552 | 0.1979 | No | No | root: upper[3]=0.555449 > 0.320000; upper[4]=0.281998 > 0.200000; upper[5]=0.256423 > 0.120000; upper[6]=0.143946 > 0.040000; lower[1]=0.086571 > -0.040000; lower[3]=0.232362 > -0.020000; lower[4]=-0.142734 < -0.120000; lower[5]=0.178743 > 0.020000; lower[6]=0.005850 > 0.005000; te_thickness=0.000112 < 0.001000<br>outboard: upper[1]=0.412914 > 0.380000; upper[3]=0.555449 > 0.280000; upper[4]=0.281998 > 0.180000; upper[5]=0.256423 > 0.100000; upper[6]=0.143946 > 0.035000; lower[1]=0.086571 > -0.030000; lower[3]=0.232362 > -0.020000; lower[4]=-0.142734 < -0.100000; lower[5]=0.178743 > 0.020000; lower[6]=0.005850 > 0.005000; te_thickness=0.000112 < 0.001000 |
+| DAE11 | 6 | 0.0552 | 0.1979 | Yes | No | outboard: upper[1]=0.412914 > 0.380000; upper[3]=0.555449 > 0.319223; lower[4]=-0.142734 < -0.100000 |
 | DAE11 | 7 | 0.0526 | 0.1953 | N/A | N/A | root: degree_mismatch: fit has 8 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 8 coefficients, bounds have 7 |
 | DAE21 | 4 | 0.0848 | 0.2392 | N/A | N/A | root: degree_mismatch: fit has 5 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 5 coefficients, bounds have 7 |
 | DAE21 | 5 | 0.0538 | 0.1706 | N/A | N/A | root: degree_mismatch: fit has 6 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 6 coefficients, bounds have 7 |
-| DAE21 | 6 | 0.0478 | 0.1451 | No | No | root: upper[4]=0.475202 > 0.200000; upper[5]=0.167789 > 0.120000; upper[6]=0.239342 > 0.040000; lower[1]=0.094269 > -0.040000; lower[3]=0.182120 > -0.020000; lower[5]=0.107973 > 0.020000; lower[6]=0.122998 > 0.005000; te_thickness=0.000000 < 0.001000<br>outboard: upper[3]=0.298144 > 0.280000; upper[4]=0.475202 > 0.180000; upper[5]=0.167789 > 0.100000; upper[6]=0.239342 > 0.035000; lower[1]=0.094269 > -0.030000; lower[3]=0.182120 > -0.020000; lower[5]=0.107973 > 0.020000; lower[6]=0.122998 > 0.005000; te_thickness=0.000000 < 0.001000 |
+| DAE21 | 6 | 0.0478 | 0.1451 | Yes | Yes | - |
 | DAE21 | 7 | 0.0392 | 0.1535 | N/A | N/A | root: degree_mismatch: fit has 8 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 8 coefficients, bounds have 7 |
 | DAE31 | 4 | 0.0879 | 0.3007 | N/A | N/A | root: degree_mismatch: fit has 5 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 5 coefficients, bounds have 7 |
 | DAE31 | 5 | 0.0615 | 0.2233 | N/A | N/A | root: degree_mismatch: fit has 6 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 6 coefficients, bounds have 7 |
-| DAE31 | 6 | 0.0511 | 0.1802 | No | No | root: upper[4]=0.423764 > 0.200000; upper[5]=0.298715 > 0.120000; upper[6]=0.230621 > 0.040000; lower[1]=0.133720 > -0.040000; lower[3]=0.270414 > -0.020000; lower[5]=0.174917 > 0.020000; lower[6]=0.097008 > 0.005000; te_thickness=0.000000 < 0.001000<br>outboard: upper[3]=0.309223 > 0.280000; upper[4]=0.423764 > 0.180000; upper[5]=0.298715 > 0.100000; upper[6]=0.230621 > 0.035000; lower[1]=0.133720 > -0.030000; lower[3]=0.270414 > -0.020000; lower[5]=0.174917 > 0.020000; lower[6]=0.097008 > 0.005000; te_thickness=0.000000 < 0.001000 |
+| DAE31 | 6 | 0.0511 | 0.1802 | No | Yes | root: upper[5]=0.298715 > 0.266423; lower[1]=0.133720 > 0.104269; lower[3]=0.270414 > 0.242362 |
 | DAE31 | 7 | 0.0385 | 0.1415 | N/A | N/A | root: degree_mismatch: fit has 8 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 8 coefficients, bounds have 7 |
 | DAE41 | 4 | 0.0306 | 0.1045 | N/A | N/A | root: degree_mismatch: fit has 5 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 5 coefficients, bounds have 7 |
 | DAE41 | 5 | 0.0199 | 0.0734 | N/A | N/A | root: degree_mismatch: fit has 6 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 6 coefficients, bounds have 7 |
-| DAE41 | 6 | 0.0174 | 0.0600 | No | No | root: upper[4]=0.253830 > 0.200000; upper[5]=0.191304 > 0.120000; upper[6]=0.129841 > 0.040000; lower[3]=-0.001383 > -0.020000; lower[6]=0.011098 > 0.005000; te_thickness=0.000000 < 0.001000<br>outboard: upper[4]=0.253830 > 0.180000; upper[5]=0.191304 > 0.100000; upper[6]=0.129841 > 0.035000; lower[3]=-0.001383 > -0.020000; lower[6]=0.011098 > 0.005000; te_thickness=0.000000 < 0.001000 |
+| DAE41 | 6 | 0.0174 | 0.0600 | Yes | Yes | - |
 | DAE41 | 7 | 0.0129 | 0.0427 | N/A | N/A | root: degree_mismatch: fit has 8 coefficients, bounds have 7<br>outboard: degree_mismatch: fit has 8 coefficients, bounds have 7 |
 
 ## Coefficient Details
@@ -76,36 +76,45 @@ Read-only audit of current seedless CST coverage for historical low-Reynolds air
 - Current seedless bounds are too narrow for the historical set after `n=6` fitting.
 - Repeated exceedance pattern: trailing-edge minimum is above the fitted near-sharp historical TE; upper aft coefficients and lower aft/positive-camber coefficients also exceed the current envelope.
 
-## Proposed Bounds Patch Only
+## Post-audit Bounds Patch
 
-Not applied. This widens the existing `n=6` default bounds just enough to contain the fitted historical envelope plus a small 0.01 coefficient margin.
+- Old bounds were too narrow in the aft upper CST coefficients, positive or less-negative lower coefficients, and near-sharp trailing-edge thickness. The old feasible-search `te_thickness_min = 0.001` also rejected several closed or near-closed historical airfoils before aerodynamic scoring.
+- Root/mid1 coverage target: FX 76-MP-140, DAE11, DAE21.
+- Outboard coverage target: DAE21, DAE31, DAE41.
+- New bounds use the audited `n=6` coefficients with about `0.01` absolute coefficient margin only where the historical family was blocked or had less than that margin.
+- Root/mid1 widened: `upper_max[1,3,4,5,6]`, `lower_min[4]`, `lower_max[1,3,5,6]`, and `te_thickness_min`.
+- Outboard widened: `upper_max[3,4,5,6]`, `lower_max[1,3,5,6]`, and `te_thickness_min`.
+- `n=7` is not the default because `n=6` already meets the `<0.2%c` geometry gate for all audited FX/DAE cases; `n=7` remains useful as a diagnostic or future margin study.
+- `seedless_sample_count = 96` is now treated as smoke-scale only. A production seedless search should use at least `1024` Sobol samples per zone because the search has 15 dimensions before geometry filtering.
+- Production recommendation: `n = 6`, `seedless_sample_count >= 1024` per zone, and `robust_reynolds_factors = [0.85, 1.0, 1.15]`.
+- Engineering note: airfoil coverage search now allows near-sharp TE via `seedless_te_thickness_min`; any manufacturing trailing-edge thickness requirement should remain a separate build/manufacturing gate, not a search-space coverage gate.
 
-Engineering note: a bounds-only patch is not the full production change. The current seedless validation constraint also has `te_thickness_min = 0.001`, so historical near-sharp trailing edges would still need a separate constraint decision before they can survive feasible-candidate filtering.
+Implemented controlled bounds:
 
-```diff
-- _ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(...)
-+ _ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
-+     upper_min=(0.050000, 0.100000, 0.100000, 0.060000, 0.020000, 0.005000, 0.003000),
-+     upper_max=(0.300000, 0.422914, 0.400000, 0.565449, 0.599002, 0.308715, 0.413292),
-+     lower_min=(-0.220000, -0.280000, -0.250000, -0.200000, -0.152734, -0.060000, -0.020000),
-+     lower_max=(-0.020000, 0.143720, -0.040000, 0.280414, 0.020000, 0.188743, 0.262677),
-+     te_thickness_min=0.000000,
-+     te_thickness_max=0.004000,
-+ )
-- _OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(...)
-+ _OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
-+     upper_min=(0.040000, 0.080000, 0.080000, 0.040000, 0.020000, 0.005000, 0.002000),
-+     upper_max=(0.280000, 0.422914, 0.360000, 0.565449, 0.599002, 0.308715, 0.413292),
-+     lower_min=(-0.180000, -0.240000, -0.220000, -0.160000, -0.152734, -0.050000, -0.018000),
-+     lower_max=(-0.020000, 0.143720, -0.030000, 0.280414, 0.020000, 0.188743, 0.262677),
-+     te_thickness_min=0.000000,
-+     te_thickness_max=0.003500,
-+ )
+```python
+_ROOT_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
+    upper_min=(0.05, 0.10, 0.10, 0.06, 0.02, 0.005, 0.003),
+    upper_max=(0.30, 0.422914, 0.40, 0.565449, 0.599002, 0.266423, 0.413292),
+    lower_min=(-0.22, -0.28, -0.25, -0.20, -0.152734, -0.06, -0.020),
+    lower_max=(-0.02, 0.104269, -0.04, 0.242362, 0.02, 0.188743, 0.262677),
+    te_thickness_min=0.0,
+    te_thickness_max=0.0040,
+)
+
+_OUTBOARD_SEEDLESS_CST_BOUNDS = SeedlessCSTCoefficientBounds(
+    upper_min=(0.04, 0.08, 0.08, 0.04, 0.02, 0.005, 0.002),
+    upper_max=(0.28, 0.38, 0.36, 0.319223, 0.485202, 0.308715, 0.249342),
+    lower_min=(-0.18, -0.24, -0.22, -0.16, -0.10, -0.05, -0.018),
+    lower_max=(-0.02, 0.143720, -0.03, 0.280414, 0.02, 0.184917, 0.132998),
+    te_thickness_min=0.0,
+    te_thickness_max=0.0035,
+)
 ```
 
 ## GPT Discussion Summary
 
 - Repo already had `data/airfoils/fx76mp140.dat`; DAE11/21/31/41 were absent and were added only as audit reference data under `docs/research/historical_airfoil_cst_coverage/airfoils/` from the MIT Drela HPA airfoil index.
 - Using the project CST form (`N1=0.5`, `N2=1.0`) and least-squares fitting, `n=6` is geometrically sufficient for the audited FX/DAE set if max vertical residual below `0.2%c` is the gate.
-- The present `_ROOT_SEEDLESS_CST_BOUNDS` and `_OUTBOARD_SEEDLESS_CST_BOUNDS` are not broad enough to include those historical `n=6` fits, especially TE thickness and several aft/positive lower coefficients.
-- Because coefficients are already out of bounds, this is a bounds-envelope issue before it is a `sample_count=96` issue. If bounds are widened and similar shapes are still not sampled, then the sparse 96-point Sobol draw becomes the next suspect.
+- Phase 3 applies controlled `n=6` bounds widening for the intended root/mid1 and outboard historical families rather than making all zones cover all audited airfoils.
+- Seedless CST search now allows near-sharp TE via `seedless_te_thickness_min`; manufacturing TE thickness should be enforced separately if needed.
+- Formal airfoil selection should use at least `1024` seedless samples per zone plus multipoint Reynolds robustness `[0.85, 1.0, 1.15]`; `96` samples and `[1.0]` are smoke-scale settings only.

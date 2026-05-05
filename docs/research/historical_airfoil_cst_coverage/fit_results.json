@@ -71,7 +71,7 @@
     "airfoil": "FX 76-MP-140",
     "degree": 6,
     "fits_outboard_bounds": false,
-    "fits_root_bounds": false,
+    "fits_root_bounds": true,
     "found_in_repo": true,
     "lower_coefficients": [
       -0.14754597303720343,
@@ -85,26 +85,13 @@
     "max_error_percent_chord": 0.08802525645934395,
     "outboard_exceedances": [
       "upper[1]=0.394489 > 0.380000",
-      "upper[3]=0.331897 > 0.280000",
-      "upper[4]=0.589002 > 0.180000",
-      "upper[5]=0.249189 > 0.100000",
-      "upper[6]=0.403292 > 0.035000",
-      "lower[1]=0.036463 > -0.030000",
-      "lower[3]=0.112067 > -0.020000",
-      "lower[5]=0.082112 > 0.020000",
-      "lower[6]=0.252677 > 0.005000"
+      "upper[3]=0.331897 > 0.319223",
+      "upper[4]=0.589002 > 0.485202",
+      "upper[6]=0.403292 > 0.249342",
+      "lower[6]=0.252677 > 0.132998"
     ],
     "rms_error_percent_chord": 0.03355277952486586,
-    "root_exceedances": [
-      "upper[3]=0.331897 > 0.320000",
-      "upper[4]=0.589002 > 0.200000",
-      "upper[5]=0.249189 > 0.120000",
-      "upper[6]=0.403292 > 0.040000",
-      "lower[1]=0.036463 > -0.040000",
-      "lower[3]=0.112067 > -0.020000",
-      "lower[5]=0.082112 > 0.020000",
-      "lower[6]=0.252677 > 0.005000"
-    ],
+    "root_exceedances": [],
     "source": "repo:data/airfoils/fx76mp140.dat",
     "source_path": "data/airfoils/fx76mp140.dat",
     "source_url": null,
@@ -230,7 +217,7 @@
     "airfoil": "DAE11",
     "degree": 6,
     "fits_outboard_bounds": false,
-    "fits_root_bounds": false,
+    "fits_root_bounds": true,
     "found_in_repo": false,
     "lower_coefficients": [
       -0.13107216336757468,
@@ -244,30 +231,11 @@
     "max_error_percent_chord": 0.19791403385378245,
     "outboard_exceedances": [
       "upper[1]=0.412914 > 0.380000",
-      "upper[3]=0.555449 > 0.280000",
-      "upper[4]=0.281998 > 0.180000",
-      "upper[5]=0.256423 > 0.100000",
-      "upper[6]=0.143946 > 0.035000",
-      "lower[1]=0.086571 > -0.030000",
-      "lower[3]=0.232362 > -0.020000",
-      "lower[4]=-0.142734 < -0.100000",
-      "lower[5]=0.178743 > 0.020000",
-      "lower[6]=0.005850 > 0.005000",
-      "te_thickness=0.000112 < 0.001000"
+      "upper[3]=0.555449 > 0.319223",
+      "lower[4]=-0.142734 < -0.100000"
     ],
     "rms_error_percent_chord": 0.05523531291817223,
-    "root_exceedances": [
-      "upper[3]=0.555449 > 0.320000",
-      "upper[4]=0.281998 > 0.200000",
-      "upper[5]=0.256423 > 0.120000",
-      "upper[6]=0.143946 > 0.040000",
-      "lower[1]=0.086571 > -0.040000",
-      "lower[3]=0.232362 > -0.020000",
-      "lower[4]=-0.142734 < -0.120000",
-      "lower[5]=0.178743 > 0.020000",
-      "lower[6]=0.005850 > 0.005000",
-      "te_thickness=0.000112 < 0.001000"
-    ],
+    "root_exceedances": [],
     "source": "MIT Drela HPA airfoil index",
     "source_path": "docs/research/historical_airfoil_cst_coverage/airfoils/dae11.dat",
     "source_url": "https://web.mit.edu/drela/Public/web/hpa/airfoils/dae11.dat",
@@ -392,8 +360,8 @@
   {
     "airfoil": "DAE21",
     "degree": 6,
-    "fits_outboard_bounds": false,
-    "fits_root_bounds": false,
+    "fits_outboard_bounds": true,
+    "fits_root_bounds": true,
     "found_in_repo": false,
     "lower_coefficients": [
       -0.11835146045971207,
@@ -405,28 +373,9 @@
       0.12299842533740454
     ],
     "max_error_percent_chord": 0.14510885163995002,
-    "outboard_exceedances": [
-      "upper[3]=0.298144 > 0.280000",
-      "upper[4]=0.475202 > 0.180000",
-      "upper[5]=0.167789 > 0.100000",
-      "upper[6]=0.239342 > 0.035000",
-      "lower[1]=0.094269 > -0.030000",
-      "lower[3]=0.182120 > -0.020000",
-      "lower[5]=0.107973 > 0.020000",
-      "lower[6]=0.122998 > 0.005000",
-      "te_thickness=0.000000 < 0.001000"
-    ],
+    "outboard_exceedances": [],
     "rms_error_percent_chord": 0.04778033929876175,
-    "root_exceedances": [
-      "upper[4]=0.475202 > 0.200000",
-      "upper[5]=0.167789 > 0.120000",
-      "upper[6]=0.239342 > 0.040000",
-      "lower[1]=0.094269 > -0.040000",
-      "lower[3]=0.182120 > -0.020000",
-      "lower[5]=0.107973 > 0.020000",
-      "lower[6]=0.122998 > 0.005000",
-      "te_thickness=0.000000 < 0.001000"
-    ],
+    "root_exceedances": [],
     "source": "MIT Drela HPA airfoil index",
     "source_path": "docs/research/historical_airfoil_cst_coverage/airfoils/dae21.dat",
     "source_url": "https://web.mit.edu/drela/Public/web/hpa/airfoils/dae21.dat",
@@ -551,7 +500,7 @@
   {
     "airfoil": "DAE31",
     "degree": 6,
-    "fits_outboard_bounds": false,
+    "fits_outboard_bounds": true,
     "fits_root_bounds": false,
     "found_in_repo": false,
     "lower_coefficients": [
@@ -564,27 +513,12 @@
       0.0970084114975011
     ],
     "max_error_percent_chord": 0.1801842663268661,
-    "outboard_exceedances": [
-      "upper[3]=0.309223 > 0.280000",
-      "upper[4]=0.423764 > 0.180000",
-      "upper[5]=0.298715 > 0.100000",
-      "upper[6]=0.230621 > 0.035000",
-      "lower[1]=0.133720 > -0.030000",
-      "lower[3]=0.270414 > -0.020000",
-      "lower[5]=0.174917 > 0.020000",
-      "lower[6]=0.097008 > 0.005000",
-      "te_thickness=0.000000 < 0.001000"
-    ],
+    "outboard_exceedances": [],
     "rms_error_percent_chord": 0.05113323191780763,
     "root_exceedances": [
-      "upper[4]=0.423764 > 0.200000",
-      "upper[5]=0.298715 > 0.120000",
-      "upper[6]=0.230621 > 0.040000",
-      "lower[1]=0.133720 > -0.040000",
-      "lower[3]=0.270414 > -0.020000",
-      "lower[5]=0.174917 > 0.020000",
-      "lower[6]=0.097008 > 0.005000",
-      "te_thickness=0.000000 < 0.001000"
+      "upper[5]=0.298715 > 0.266423",
+      "lower[1]=0.133720 > 0.104269",
+      "lower[3]=0.270414 > 0.242362"
     ],
     "source": "MIT Drela HPA airfoil index",
     "source_path": "docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat",
@@ -710,8 +644,8 @@
   {
     "airfoil": "DAE41",
     "degree": 6,
-    "fits_outboard_bounds": false,
-    "fits_root_bounds": false,
+    "fits_outboard_bounds": true,
+    "fits_root_bounds": true,
     "found_in_repo": false,
     "lower_coefficients": [
       -0.13199268782645926,
@@ -723,23 +657,9 @@
       0.011098229884994105
     ],
     "max_error_percent_chord": 0.05998775575436644,
-    "outboard_exceedances": [
-      "upper[4]=0.253830 > 0.180000",
-      "upper[5]=0.191304 > 0.100000",
-      "upper[6]=0.129841 > 0.035000",
-      "lower[3]=-0.001383 > -0.020000",
-      "lower[6]=0.011098 > 0.005000",
-      "te_thickness=0.000000 < 0.001000"
-    ],
+    "outboard_exceedances": [],
     "rms_error_percent_chord": 0.017410554921685972,
-    "root_exceedances": [
-      "upper[4]=0.253830 > 0.200000",
-      "upper[5]=0.191304 > 0.120000",
-      "upper[6]=0.129841 > 0.040000",
-      "lower[3]=-0.001383 > -0.020000",
-      "lower[6]=0.011098 > 0.005000",
-      "te_thickness=0.000000 < 0.001000"
-    ],
+    "root_exceedances": [],
     "source": "MIT Drela HPA airfoil index",
     "source_path": "docs/research/historical_airfoil_cst_coverage/airfoils/dae41.dat",
     "source_url": "https://web.mit.edu/drela/Public/web/hpa/airfoils/dae41.dat",
