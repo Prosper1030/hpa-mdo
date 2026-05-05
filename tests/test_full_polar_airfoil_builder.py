@@ -95,7 +95,8 @@ def test_full_polar_builder_dry_run_creates_archive(tmp_path: Path) -> None:
     assert "full_polar_build_report" in result.stdout
 
     report = json.loads((output_dir / "full_polar_build_report.json").read_text(encoding="utf-8"))
-    assert report["record_count"] == 1
-    assert report["source_quality_counts"]["full_polar_candidate_not_mission_grade"] == 1
+    assert report["record_count"] == 7
+    assert report["source_quality_counts"]["full_polar_candidate_not_mission_grade"] == 7
     assert report["records"]["cst_tip_demo"]["mission_grade_allowed"] is False
+    assert report["records"]["fx76mp140"]["screening_quality"] == "seed_reference_pending_full_polar"
     assert "prestall" in (output_dir / "polar_points.csv").read_text(encoding="utf-8")

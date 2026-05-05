@@ -270,26 +270,25 @@ def _select_shortlist(
         record = database.records.get(airfoil_id)
         if record is not None:
             coordinate_path = airfoil_coordinate_path_from_record(record, repo_root=_REPO_ROOT)
-            if coordinate_path is None:
-                continue
-            zone_origin = zone_by_airfoil.get(airfoil_id) or _first_zone(record.zone_hint) or _infer_zone_from_id(airfoil_id)
-            candidates.append(
-                Candidate(
-                    airfoil_id=record.airfoil_id,
-                    name=record.name,
-                    zone_origin=zone_origin,
-                    coordinate_path=coordinate_path,
-                    screening_source_quality=_screening_quality(record.source_quality),
-                    source=record.source,
-                    thickness_ratio=record.thickness_ratio,
-                    max_camber=record.max_camber,
-                    cm_design=record.cm_design,
-                    safe_clmax_screening=record.safe_clmax,
-                    usable_clmax_screening=record.usable_clmax,
-                    original_record=record,
+            if coordinate_path is not None:
+                zone_origin = zone_by_airfoil.get(airfoil_id) or _first_zone(record.zone_hint) or _infer_zone_from_id(airfoil_id)
+                candidates.append(
+                    Candidate(
+                        airfoil_id=record.airfoil_id,
+                        name=record.name,
+                        zone_origin=zone_origin,
+                        coordinate_path=coordinate_path,
+                        screening_source_quality=_screening_quality(record.source_quality),
+                        source=record.source,
+                        thickness_ratio=record.thickness_ratio,
+                        max_camber=record.max_camber,
+                        cm_design=record.cm_design,
+                        safe_clmax_screening=record.safe_clmax,
+                        usable_clmax_screening=record.usable_clmax,
+                        original_record=record,
+                    )
                 )
-            )
-            continue
+                continue
         spec = seed_specs.get(airfoil_id)
         if spec is None or not spec.coordinate_path.is_file():
             continue
