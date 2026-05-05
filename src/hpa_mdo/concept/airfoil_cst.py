@@ -284,7 +284,12 @@ def validate_seedless_cst_template(
     coordinate_validation = validate_cst_candidate_coordinates(coordinates)
     if not coordinate_validation.valid:
         return coordinate_validation
-    metrics = analyze_cst_geometry(template)
+    try:
+        metrics = analyze_cst_geometry(template)
+    except ValueError as exc:
+        message = str(exc)
+        reason = message.rsplit(":", 1)[-1].strip() if ":" in message else message
+        return CSTValidationResult(valid=False, reason=reason)
     if metrics.max_thickness_ratio < constraints.min_thickness_ratio:
         return CSTValidationResult(valid=False, reason="max_thickness_below_min")
     if metrics.max_thickness_ratio > constraints.max_thickness_ratio:

@@ -170,6 +170,37 @@ def test_validate_seedless_cst_template_rejects_unbuildable_geometry() -> None:
     assert outcome.reason == "max_thickness_below_min"
 
 
+def test_validate_seedless_cst_template_returns_invalid_for_high_resolution_self_intersection() -> None:
+    template = CSTAirfoilTemplate(
+        zone_name="mid2",
+        upper_coefficients=(
+            0.14608827389776707,
+            0.31662274200469254,
+            0.2670808409526944,
+            0.2338538182524061,
+            0.09547389090799169,
+            0.10715972091003322,
+            0.035616273034673185,
+        ),
+        lower_coefficients=(
+            -0.05266490444540978,
+            0.12822013805430377,
+            -0.0958580852393061,
+            0.23750671248227354,
+            -0.036064939536154264,
+            0.03092455722218658,
+            0.09249738380541837,
+        ),
+        te_thickness_m=0.0010785854724235833,
+        candidate_role="seedless_sobol_2026",
+    )
+
+    outcome = validate_seedless_cst_template(template)
+
+    assert outcome.valid is False
+    assert outcome.reason == "non_positive_thickness"
+
+
 def test_sample_seedless_cst_latin_hypercube_returns_seed_free_candidates() -> None:
     bounds = SeedlessCSTCoefficientBounds(
         upper_min=(0.12, 0.16, 0.14, 0.10, 0.06, 0.03, 0.01),
