@@ -29,6 +29,13 @@ from hpa_mdo.airfoils.polar_builder import (
     seed_airfoil_specs,
     write_polar_build_artifacts,
 )
+from hpa_mdo.airfoils.cst_database_builder import (
+    CSTZoneSearchConfig,
+    CSTZoneSearchResult,
+    build_cst_zone_airfoil_database,
+    load_zone_envelopes_from_artifact,
+    zone_work_points_from_envelope,
+)
 
 __all__ = [
     "AirfoilDatabase",
@@ -52,8 +59,13 @@ __all__ = [
     "PolarBuildConfig",
     "PolarBuildResult",
     "SeedAirfoilSpec",
+    "CSTZoneSearchConfig",
+    "CSTZoneSearchResult",
     "build_seed_airfoil_database",
+    "build_cst_zone_airfoil_database",
     "load_airfoil_database_artifact",
+    "load_zone_envelopes_from_artifact",
     "seed_airfoil_specs",
     "write_polar_build_artifacts",
+    "zone_work_points_from_envelope",
 ]
