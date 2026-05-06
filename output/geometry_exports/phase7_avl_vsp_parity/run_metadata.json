@@ -1,0 +1,122 @@
+{
+  "CL_req": 1.168531,
+  "cases": {
+    "policy_A_performance_candidate": {
+      "AVL_base": {
+        "alpha_at_cl_req": 4.840133479430222,
+        "cdi_at_cl_req": 0.01251268164159777,
+        "cdtot_at_cl_req": 0.01251268164159777
+      },
+      "VSPAERO_base": {
+        "alpha_at_cl_req": 5.110167565339105,
+        "cdi_at_cl_req": 0.013093653967364585,
+        "cdtot_at_cl_req": 0.033977016287955866
+      },
+      "aspect_ratio": 35.269413145467595,
+      "chord_metrics": {
+        "base": {
+          "area_m2": 33.42005846896623,
+          "max_abs_second_difference_m": 0.18318419799999996,
+          "max_positive_chord_jump_m": 0.025487022999999942,
+          "positive_chord_jump_count": 2,
+          "positive_chord_jump_sum_m": 0.035728724000000045,
+          "section_count": 9,
+          "violation_pairs": "3->4:+0.010242;4->5:+0.025487"
+        },
+        "monotone": {
+          "area_m2": 33.420058469,
+          "max_abs_second_difference_m": 0.1829204897848753,
+          "max_positive_chord_jump_m": 0.0,
+          "positive_chord_jump_count": 0,
+          "positive_chord_jump_sum_m": 0.0,
+          "section_count": 9,
+          "violation_pairs": ""
+        }
+      },
+      "cruise_normalized": {
+        "AVL_alpha0_CDi_after_offset": 0.01239,
+        "AVL_alpha0_CL_after_offset": 1.16857,
+        "AVL_vs_VSPAERO_offset_delta_deg": 0.47706533590888345,
+        "VSPAERO_alpha0_CDi_after_offset": 0.01203179148,
+        "VSPAERO_alpha0_CL_after_offset": 1.120565801008,
+        "VSPAERO_base_offset_to_hit_CL_req_deg": 5.110167565339105,
+        "airfoil_assignment_preserved": true,
+        "case_name": "policy_A_performance_candidate",
+        "chord_preserved": true,
+        "cruise_avl": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/policy_A_performance_candidate_cruise_normalized.avl",
+        "cruise_vsp3": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/policy_A_performance_candidate_cruise_normalized.vsp3",
+        "incidence_offset_deg_added_to_all_sections": 4.6331022294302215,
+        "incidence_offset_source": "AVL_alpha0_calibrated_to_CL_req",
+        "loaded_z_preserved": true,
+        "relative_twist_preserved": true
+      },
+      "refs": {
+        "bref": 34.332285818,
+        "cref": 0.985105727,
+        "sref": 33.420058469,
+        "xcg": 0.246276432,
+        "ycg": 0.0,
+        "zcg": 0.0
+      }
+    },
+    "policy_C_conservative_baseline": {
+      "AVL_base": {
+        "alpha_at_cl_req": 4.422814711452208,
+        "cdi_at_cl_req": 0.012527507923851293,
+        "cdtot_at_cl_req": 0.012527507923851293
+      },
+      "VSPAERO_base": {
+        "alpha_at_cl_req": 4.974091388787308,
+        "cdi_at_cl_req": 0.013084312533209639,
+        "cdtot_at_cl_req": 0.033989462828117864
+      },
+      "aspect_ratio": 35.269413145467595,
+      "chord_metrics": {
+        "base": {
+          "area_m2": 33.42005846896623,
+          "max_abs_second_difference_m": 0.18318419799999996,
+          "max_positive_chord_jump_m": 0.025487022999999942,
+          "positive_chord_jump_count": 2,
+          "positive_chord_jump_sum_m": 0.035728724000000045,
+          "section_count": 9,
+          "violation_pairs": "3->4:+0.010242;4->5:+0.025487"
+        },
+        "monotone": {
+          "area_m2": 33.420058469,
+          "max_abs_second_difference_m": 0.1829204897848753,
+          "max_positive_chord_jump_m": 0.0,
+          "positive_chord_jump_count": 0,
+          "positive_chord_jump_sum_m": 0.0,
+          "section_count": 9,
+          "violation_pairs": ""
+        }
+      },
+      "cruise_normalized": {
+        "AVL_alpha0_CDi_after_offset": 0.01241,
+        "AVL_alpha0_CL_after_offset": 1.16876,
+        "AVL_vs_VSPAERO_offset_delta_deg": 0.7489329273350993,
+        "VSPAERO_alpha0_CDi_after_offset": 0.011451157519,
+        "VSPAERO_alpha0_CL_after_offset": 1.093316143422,
+        "VSPAERO_base_offset_to_hit_CL_req_deg": 4.974091388787308,
+        "airfoil_assignment_preserved": true,
+        "case_name": "policy_C_conservative_baseline",
+        "chord_preserved": true,
+        "cruise_avl": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_C_conservative_baseline/policy_C_conservative_baseline_cruise_normalized.avl",
+        "cruise_vsp3": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_C_conservative_baseline/policy_C_conservative_baseline_cruise_normalized.vsp3",
+        "incidence_offset_deg_added_to_all_sections": 4.225158461452208,
+        "incidence_offset_source": "AVL_alpha0_calibrated_to_CL_req",
+        "loaded_z_preserved": true,
+        "relative_twist_preserved": true
+      },
+      "refs": {
+        "bref": 34.332285818,
+        "cref": 0.985105727,
+        "sref": 33.420058469,
+        "xcg": 0.246276432,
+        "ycg": 0.0,
+        "zcg": 0.0
+      }
+    }
+  },
+  "created_at": "2026-05-06T09:48:21.248585+00:00"
+}

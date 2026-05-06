@@ -1,0 +1,61 @@
+Birdman concept wing-only AVL
+#Mach
+0.000000
+#IYsym  iZsym  Zsym
+1  0  0.000000
+#Sref  Cref  Bref
+33.420058469  0.985105727  34.332285818
+#Xref  Yref  Zref
+0.246276432  0.000000000  0.000000000
+#CDp
+0.000000
+#
+SURFACE
+Wing
+16  1.0  32  1.0
+#
+SECTION
+0.000000000  0.000000000  0.000000000  1.258584550  6.633102229
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/dae11.dat
+#
+SECTION
+0.000000000  2.746582865  0.067125039  1.090553601  6.958807951
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/dae11.dat
+#
+SECTION
+0.000000000  6.008150018  0.196697710  0.976171912  7.061825201
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/dae11.dat
+#
+SECTION
+0.000000000  8.926394313  0.358575623  0.934043334  6.670354904
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/dae11.dat
+#
+SECTION
+0.000000000  12.016300036  0.577352682  0.944285035  5.843204735
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/clarkysm.dat
+#
+SECTION
+0.000000000  14.076237185  0.750330437  0.969772058  5.245455190
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/clarkysm.dat
+#
+SECTION
+0.000000000  15.449528618  0.877726832  0.848780446  4.927585399
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/clarkysm.dat
+#
+SECTION
+0.000000000  16.307835763  0.962262707  0.655765051  4.728916780
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/clarkysm.dat
+#
+SECTION
+0.000000000  17.166142909  1.050581633  0.645933854  4.649449332
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/cruise_normalized/policy_A_performance_candidate/airfoils/clarkysm.dat
+#

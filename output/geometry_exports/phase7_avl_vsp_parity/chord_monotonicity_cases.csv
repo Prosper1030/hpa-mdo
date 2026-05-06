@@ -1,0 +1,5 @@
+case_name,variant,section_count,area_m2,max_positive_chord_jump_m,positive_chord_jump_count,positive_chord_jump_sum_m,max_abs_second_difference_m,violation_pairs
+policy_A_performance_candidate,base_body_axis,9,33.42005846896623,0.025487022999999942,2,0.035728724000000045,0.18318419799999996,3->4:+0.010242;4->5:+0.025487
+policy_A_performance_candidate,monotone_chord_area_scaled_pava,9,33.420058469,0.0,0,0.0,0.1829204897848753,
+policy_C_conservative_baseline,base_body_axis,9,33.42005846896623,0.025487022999999942,2,0.035728724000000045,0.18318419799999996,3->4:+0.010242;4->5:+0.025487
+policy_C_conservative_baseline,monotone_chord_area_scaled_pava,9,33.420058469,0.0,0,0.0,0.1829204897848753,
