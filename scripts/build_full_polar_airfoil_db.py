@@ -75,6 +75,7 @@ class Candidate:
     safe_clmax_screening: float
     usable_clmax_screening: float
     original_record: AirfoilRecord | None = None
+    manifest_metadata: dict[str, Any] | None = None
 
 
 @dataclass
@@ -106,6 +107,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         top_k_per_zone=int(args.top_k_per_zone),
         pareto_per_zone=int(args.pareto_per_zone),
         include_seed_airfoils=not args.no_seed_airfoils,
+        candidate_manifest_csv=Path(args.candidate_manifest_csv) if args.candidate_manifest_csv else None,
+        manifest_tier_flag=str(args.manifest_tier_flag),
     )
 
     alpha_samples = _float_range(float(args.alpha_min_deg), float(args.alpha_max_deg), float(args.alpha_step_deg))
@@ -133,6 +136,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         "backend": backend,
         "candidate_count": len(candidates),
         "candidate_airfoil_ids": [candidate.airfoil_id for candidate in candidates],
+        "candidate_manifest_csv": str(args.candidate_manifest_csv or ""),
+        "manifest_tier_flag": str(args.manifest_tier_flag),
+        "resume": bool(args.resume),
         "roughness_modes": roughness_modes,
         "alpha_samples": alpha_samples,
         "args": vars(args),
@@ -142,26 +148,42 @@ def main(argv: Sequence[str] | None = None) -> int:
         encoding="utf-8",
     )
 
-    state = BuildState([], [], [], [], [], {})
+    state = _load_existing_state(output_dir) if args.resume else BuildState([], [], [], [], [], {})
+    completed_airfoil_ids = {record.airfoil_id for record in state.records}
     try:
         for index, candidate in enumerate(candidates, start=1):
+            if args.resume and candidate.airfoil_id in completed_airfoil_ids:
+                print(f"[full-polar] skipping completed {candidate.airfoil_id}", flush=True)
+                continue
             print(
                 f"[full-polar] {index}/{len(candidates)} {candidate.airfoil_id} "
                 f"zone={candidate.zone_origin}",
                 flush=True,
             )
-            _evaluate_candidate(
-                candidate=candidate,
-                zone_envelopes=zone_envelopes,
-                roughness_modes=roughness_modes,
-                alpha_samples=alpha_samples,
-                backend=backend,
-                worker=worker,
-                xfoil_max_iter=int(args.xfoil_max_iter),
-                panel_count=int(args.panel_count),
-                convergence_threshold=float(args.convergence_pass_rate_threshold),
-                state=state,
-            )
+            try:
+                _evaluate_candidate(
+                    candidate=candidate,
+                    zone_envelopes=zone_envelopes,
+                    roughness_modes=roughness_modes,
+                    alpha_samples=alpha_samples,
+                    backend=backend,
+                    worker=worker,
+                    xfoil_max_iter=int(args.xfoil_max_iter),
+                    panel_count=int(args.panel_count),
+                    convergence_threshold=float(args.convergence_pass_rate_threshold),
+                    state=state,
+                )
+            except Exception as exc:  # noqa: BLE001 - long batch builds must mark-and-continue.
+                _mark_candidate_failed(
+                    candidate=candidate,
+                    exc=exc,
+                    roughness_modes=roughness_modes,
+                    alpha_samples=alpha_samples,
+                    xfoil_max_iter=int(args.xfoil_max_iter),
+                    panel_count=int(args.panel_count),
+                    state=state,
+                )
+            completed_airfoil_ids.add(candidate.airfoil_id)
             _write_artifacts(state=state, output_dir=output_dir, args=args, zone_envelopes=zone_envelopes)
     finally:
         if worker is not None:
@@ -187,6 +209,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--phase6-sidecar-dir", default="")
     parser.add_argument("--zone-envelope-json", required=True)
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--candidate-manifest-csv", default="")
+    parser.add_argument("--manifest-tier-flag", default="tier2_recommended_reusable")
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--backend", default="julia", choices=("julia", "dry_run"))
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--top-k-per-zone", type=int, default=5)
@@ -201,6 +226,38 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--convergence-pass-rate-threshold", type=float, default=0.80)
     parser.add_argument("--no-seed-airfoils", action="store_true")
     return parser.parse_args(argv)
+
+
+def _load_existing_state(output_dir: Path) -> BuildState:
+    records: list[AirfoilRecord] = []
+    records_path = output_dir / "airfoil_records.json"
+    if records_path.is_file():
+        database = load_airfoil_database_artifact(records_path)
+        records = list(database.records.values())
+
+    polar_rows = _read_csv_rows(output_dir / "polar_points.csv")
+    quality_rows = _read_csv_rows(output_dir / "quality_report.csv")
+    coverage_rows = _read_csv_rows(output_dir / "coverage_report.csv")
+    gap_rows = _read_csv_rows(output_dir / "gap_report.csv")
+    record_reports: dict[str, dict[str, Any]] = {}
+    report_path = output_dir / "full_polar_build_report.json"
+    if not report_path.is_file():
+        report_path = output_dir / "build_report.json"
+    if report_path.is_file():
+        payload = json.loads(report_path.read_text(encoding="utf-8"))
+        records_payload = payload.get("records", {})
+        if isinstance(records_payload, Mapping):
+            for airfoil_id, item in records_payload.items():
+                if isinstance(item, Mapping):
+                    record_reports[str(airfoil_id)] = dict(item)
+    return BuildState(records, polar_rows, quality_rows, coverage_rows, gap_rows, record_reports)
+
+
+def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    with path.open(encoding="utf-8", newline="") as handle:
+        return [dict(row) for row in csv.DictReader(handle)]
 
 
 def _load_zone_envelopes(path: Path) -> dict[str, dict[str, Any]]:
@@ -235,30 +292,43 @@ def _select_shortlist(
     top_k_per_zone: int,
     pareto_per_zone: int,
     include_seed_airfoils: bool,
+    candidate_manifest_csv: Path | None,
+    manifest_tier_flag: str,
 ) -> list[Candidate]:
     reasons: dict[str, str] = {}
     zone_by_airfoil: dict[str, str] = {}
+    manifest_by_airfoil: dict[str, dict[str, Any]] = {}
 
-    for zone, airfoil_id in _read_ranked_airfoil_rows(
-        screening_dir / "per_zone_top_k.csv",
-        limit_per_zone=max(0, top_k_per_zone),
-    ):
-        reasons.setdefault(airfoil_id, "per_zone_top_k")
-        zone_by_airfoil.setdefault(airfoil_id, zone)
-
-    if pareto_per_zone > 0:
+    if candidate_manifest_csv is not None:
+        for row in _read_manifest_tier_rows(candidate_manifest_csv, manifest_tier_flag):
+            airfoil_id = str(row.get("airfoil_id") or "").strip()
+            if not airfoil_id:
+                continue
+            manifest_by_airfoil.setdefault(airfoil_id, dict(row))
+            reasons.setdefault(airfoil_id, str(row.get("inclusion_reason") or "phase8_manifest_tier"))
+            zone = _first_zone(str(row.get("zone") or "")) or _infer_zone_from_id(airfoil_id)
+            zone_by_airfoil.setdefault(airfoil_id, zone)
+    else:
         for zone, airfoil_id in _read_ranked_airfoil_rows(
-            screening_dir / "per_zone_pareto.csv",
-            limit_per_zone=pareto_per_zone,
+            screening_dir / "per_zone_top_k.csv",
+            limit_per_zone=max(0, top_k_per_zone),
         ):
-            reasons.setdefault(airfoil_id, "per_zone_pareto")
+            reasons.setdefault(airfoil_id, "per_zone_top_k")
             zone_by_airfoil.setdefault(airfoil_id, zone)
 
-    if phase6_sidecar_dir is not None:
-        for zone, airfoil_id in _read_sidecar_assignment_airfoils(phase6_sidecar_dir / "sidecar_combinations.csv"):
-            if airfoil_id.startswith("cst_"):
-                reasons.setdefault(airfoil_id, "phase6_sidecar_combination")
+        if pareto_per_zone > 0:
+            for zone, airfoil_id in _read_ranked_airfoil_rows(
+                screening_dir / "per_zone_pareto.csv",
+                limit_per_zone=pareto_per_zone,
+            ):
+                reasons.setdefault(airfoil_id, "per_zone_pareto")
                 zone_by_airfoil.setdefault(airfoil_id, zone)
+
+        if phase6_sidecar_dir is not None:
+            for zone, airfoil_id in _read_sidecar_assignment_airfoils(phase6_sidecar_dir / "sidecar_combinations.csv"):
+                if airfoil_id.startswith("cst_"):
+                    reasons.setdefault(airfoil_id, "phase6_sidecar_combination")
+                    zone_by_airfoil.setdefault(airfoil_id, zone)
 
     if include_seed_airfoils:
         for airfoil_id in DEFAULT_SEED_IDS:
@@ -267,9 +337,14 @@ def _select_shortlist(
     candidates: list[Candidate] = []
     seed_specs = seed_airfoil_specs()
     for airfoil_id in reasons:
+        manifest_metadata = {
+            **manifest_by_airfoil.get(airfoil_id, {}),
+            "inclusion_reason": manifest_by_airfoil.get(airfoil_id, {}).get("inclusion_reason")
+            or reasons.get(airfoil_id, ""),
+        }
         record = database.records.get(airfoil_id)
         if record is not None:
-            coordinate_path = airfoil_coordinate_path_from_record(record, repo_root=_REPO_ROOT)
+            coordinate_path = _coordinate_path_from_manifest_or_record(manifest_metadata, record)
             if coordinate_path is not None:
                 zone_origin = zone_by_airfoil.get(airfoil_id) or _first_zone(record.zone_hint) or _infer_zone_from_id(airfoil_id)
                 candidates.append(
@@ -278,7 +353,10 @@ def _select_shortlist(
                         name=record.name,
                         zone_origin=zone_origin,
                         coordinate_path=coordinate_path,
-                        screening_source_quality=_screening_quality(record.source_quality),
+                        screening_source_quality=str(
+                            manifest_metadata.get("screening_quality")
+                            or _screening_quality(record.source_quality)
+                        ),
                         source=record.source,
                         thickness_ratio=record.thickness_ratio,
                         max_camber=record.max_camber,
@@ -286,6 +364,7 @@ def _select_shortlist(
                         safe_clmax_screening=record.safe_clmax,
                         usable_clmax_screening=record.usable_clmax,
                         original_record=record,
+                        manifest_metadata=manifest_metadata,
                     )
                 )
                 continue
@@ -306,6 +385,7 @@ def _select_shortlist(
                 safe_clmax_screening=0.0,
                 usable_clmax_screening=0.0,
                 original_record=None,
+                manifest_metadata=manifest_metadata,
             )
         )
 
@@ -314,6 +394,36 @@ def _select_shortlist(
         return (zone_order.get(candidate.zone_origin, 99), candidate.airfoil_id)
 
     return sorted(_dedupe_candidates(candidates), key=sort_key)
+
+
+def _read_manifest_tier_rows(path: Path, tier_flag: str) -> list[dict[str, Any]]:
+    if not path.is_file():
+        raise FileNotFoundError(f"Candidate manifest not found: {path}")
+    rows: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            if _truthy(row.get(tier_flag)):
+                rows.append(dict(row))
+    return rows
+
+
+def _truthy(value: Any) -> bool:
+    return str(value).strip().lower() in {"1", "true", "t", "yes", "y"}
+
+
+def _coordinate_path_from_manifest_or_record(
+    manifest_metadata: Mapping[str, Any],
+    record: AirfoilRecord,
+) -> Path | None:
+    manifest_path = str(manifest_metadata.get("coordinate_path") or "").strip()
+    if manifest_path:
+        path = Path(manifest_path).expanduser()
+        if not path.is_absolute():
+            path = (_REPO_ROOT / path).resolve()
+        if path.is_file():
+            return path
+    return airfoil_coordinate_path_from_record(record, repo_root=_REPO_ROOT)
 
 
 def _read_ranked_airfoil_rows(path: Path, *, limit_per_zone: int) -> list[tuple[str, str]]:
@@ -440,7 +550,7 @@ def _evaluate_candidate(
     state.polar_rows = [row for row in state.polar_rows if row.get("airfoil_id") != candidate.airfoil_id]
     state.polar_rows.extend(rows)
     state.quality_rows = [row for row in state.quality_rows if row.get("airfoil_id") != candidate.airfoil_id]
-    state.quality_rows.append({**quality, "airfoil_id": candidate.airfoil_id})
+    state.quality_rows.append({**quality, **_candidate_report_metadata(candidate), "airfoil_id": candidate.airfoil_id})
     state.coverage_rows = [
         row for row in state.coverage_rows if row.get("airfoil_id") != candidate.airfoil_id
     ]
@@ -449,13 +559,111 @@ def _evaluate_candidate(
     state.gap_rows.extend(_gap_rows(candidate, quality))
     state.record_reports[candidate.airfoil_id] = {
         **quality,
+        **_candidate_report_metadata(candidate),
         "zone_origin": candidate.zone_origin,
         "coordinate_path": str(candidate.coordinate_path),
-        "screening_quality": candidate.screening_source_quality,
         "query_count": len(queries),
         "re_grid": re_grid,
         "cl_work_points": cl_samples,
         "roughness_modes": list(roughness_modes),
+        "xfoil_max_iter": int(xfoil_max_iter),
+        "panel_count": int(panel_count),
+    }
+
+
+def _mark_candidate_failed(
+    *,
+    candidate: Candidate,
+    exc: Exception,
+    roughness_modes: Sequence[str],
+    alpha_samples: Sequence[float],
+    xfoil_max_iter: int,
+    panel_count: int,
+    state: BuildState,
+) -> None:
+    message = f"{type(exc).__name__}: {exc}"
+    print(f"[full-polar] failed {candidate.airfoil_id}: {message}", flush=True)
+    quality = {
+        "source_quality": "full_polar_failed_not_mission_grade",
+        "quality_passed": False,
+        "mission_grade_allowed": False,
+        "issues": "worker_exception",
+        "issue_count": 1,
+        "convergence_pass_rate": 0.0,
+        "converged_point_count": 0,
+        "total_point_count": 0,
+        "roughness_modes_observed": "",
+        "usable_clmax": None,
+        "safe_clmax": None,
+        "cd_min": None,
+        "cd_p90": None,
+        "mean_cd": None,
+        "re_min_observed": None,
+        "re_max_observed": None,
+        "alpha_min_observed": None,
+        "alpha_max_observed": None,
+        "roughness_sensitivity": None,
+        "exception_message": message,
+    }
+    record = AirfoilRecord(
+        airfoil_id=candidate.airfoil_id,
+        name=candidate.name,
+        source=f"{SOURCE}:failed:{candidate.coordinate_path}",
+        source_quality=str(quality["source_quality"]),
+        zone_hint=candidate.zone_origin,
+        thickness_ratio=float(candidate.thickness_ratio),
+        max_camber=float(candidate.max_camber),
+        alpha_L0_deg=-2.0,
+        cl_alpha_per_rad=2.0 * math.pi,
+        cm_design=float(candidate.cm_design),
+        safe_clmax=0.0,
+        usable_clmax=0.0,
+        polar_points=(),
+        notes=(
+            f"Full-polar build failed and was marked null-safe. "
+            f"screening_quality={candidate.screening_source_quality}; exception={message}"
+        ),
+        coordinate_path=str(candidate.coordinate_path),
+    )
+    state.records = [item for item in state.records if item.airfoil_id != record.airfoil_id]
+    state.records.append(record)
+    state.polar_rows = [row for row in state.polar_rows if row.get("airfoil_id") != candidate.airfoil_id]
+    state.quality_rows = [row for row in state.quality_rows if row.get("airfoil_id") != candidate.airfoil_id]
+    state.quality_rows.append({**quality, **_candidate_report_metadata(candidate), "airfoil_id": candidate.airfoil_id})
+    state.coverage_rows = [
+        row for row in state.coverage_rows if row.get("airfoil_id") != candidate.airfoil_id
+    ]
+    state.coverage_rows.append(
+        {
+            "airfoil_id": candidate.airfoil_id,
+            "zone_name": candidate.zone_origin,
+            "coverage_passed": False,
+            "source_quality": quality["source_quality"],
+            "gap": "worker_exception",
+            **_candidate_report_metadata(candidate),
+        }
+    )
+    state.gap_rows = [row for row in state.gap_rows if row.get("airfoil_id") != candidate.airfoil_id]
+    state.gap_rows.append(
+        {
+            "airfoil_id": candidate.airfoil_id,
+            "zone_name": candidate.zone_origin,
+            "gap": "worker_exception",
+            "source_quality": quality["source_quality"],
+            "exception_message": message,
+            **_candidate_report_metadata(candidate),
+        }
+    )
+    state.record_reports[candidate.airfoil_id] = {
+        **quality,
+        **_candidate_report_metadata(candidate),
+        "zone_origin": candidate.zone_origin,
+        "coordinate_path": str(candidate.coordinate_path),
+        "query_count": 0,
+        "re_grid": [],
+        "cl_work_points": [],
+        "roughness_modes": list(roughness_modes),
+        "alpha_samples": list(alpha_samples),
         "xfoil_max_iter": int(xfoil_max_iter),
         "panel_count": int(panel_count),
     }
@@ -533,21 +741,51 @@ def _polar_rows_from_results(
             row = {
                 "airfoil_id": candidate.airfoil_id,
                 "zone_origin": candidate.zone_origin,
+                "zone": candidate.zone_origin,
                 "Re": re_value,
                 "roughness_mode": roughness_mode,
                 "alpha_deg": _finite_float(point.get("alpha_deg")),
                 "cl": _finite_float(point.get("cl")),
                 "cd": _finite_float(point.get("cd")),
                 "cm": _finite_float(point.get("cm")),
+                "Cl": _finite_float(point.get("cl")),
+                "Cd": _finite_float(point.get("cd")),
+                "Cm": _finite_float(point.get("cm")),
                 "converged": bool(point.get("converged", status in {"ok", "dry_run_ok"})),
                 "status": status,
                 "backend": backend_name,
                 "warning_flags": ";".join(_point_warnings(point, status)),
                 "branch_label": "unknown",
                 "screening_quality": candidate.screening_source_quality,
+                **_candidate_polar_metadata(candidate),
             }
             rows.append(row)
     return _label_prestall_branches(rows)
+
+
+def _candidate_report_metadata(candidate: Candidate) -> dict[str, Any]:
+    metadata = dict(candidate.manifest_metadata or {})
+    return {
+        "screening_quality": candidate.screening_source_quality,
+        "archive_source_quality": metadata.get("archive_source_quality", ""),
+        "actual_sidecar_query_quality": metadata.get("actual_sidecar_query_quality", ""),
+        "repaired_archive_source_quality": metadata.get("repaired_archive_source_quality", ""),
+        "repaired_actual_sidecar_query_quality": metadata.get("repaired_actual_sidecar_query_quality", ""),
+        "repair_worthy_flag": metadata.get("repair_worthy_flag", ""),
+        "inclusion_reason": metadata.get("inclusion_reason", ""),
+        "source_category": metadata.get("source_category", ""),
+        "candidate_role": metadata.get("candidate_role", ""),
+        "generation_index": metadata.get("generation_index", ""),
+    }
+
+
+def _candidate_polar_metadata(candidate: Candidate) -> dict[str, Any]:
+    metadata = dict(candidate.manifest_metadata or {})
+    return {
+        "archive_source_quality": metadata.get("archive_source_quality", ""),
+        "actual_sidecar_query_quality": metadata.get("actual_sidecar_query_quality", ""),
+        "inclusion_reason": metadata.get("inclusion_reason", ""),
+    }
 
 
 def _quality_for_candidate(
@@ -670,10 +908,12 @@ def _write_artifacts(
     records_payload = []
     for record in records_sorted:
         payload = record.to_dict(include_polar_points=True)
-        payload["screening_quality"] = state.record_reports.get(record.airfoil_id, {}).get(
-            "screening_quality"
-        )
-        payload["full_polar_quality"] = state.record_reports.get(record.airfoil_id, {})
+        report = state.record_reports.get(record.airfoil_id, {})
+        payload["screening_quality"] = report.get("screening_quality")
+        payload["archive_source_quality"] = report.get("archive_source_quality")
+        payload["actual_sidecar_query_quality"] = report.get("actual_sidecar_query_quality")
+        payload["inclusion_reason"] = report.get("inclusion_reason")
+        payload["full_polar_quality"] = report
         records_payload.append(payload)
     db_payload = {
         "schema_version": "full_polar_airfoil_database_v1",
@@ -693,8 +933,14 @@ def _write_artifacts(
     _write_csv(output_dir / "quality_report.csv", state.quality_rows)
     _write_csv(output_dir / "coverage_report.csv", state.coverage_rows)
     _write_csv(output_dir / "gap_report.csv", state.gap_rows)
+    _write_csv(output_dir / "failed_candidates.csv", _failed_candidate_rows(state.quality_rows))
 
-    top_k_rows, pareto_rows = _rank_records_by_zone(database, state.polar_rows, zone_envelopes)
+    top_k_rows, pareto_rows = _rank_records_by_zone(
+        database,
+        state.polar_rows,
+        zone_envelopes,
+        state.record_reports,
+    )
     _write_csv(output_dir / "per_zone_top_k.csv", top_k_rows)
     _write_csv(output_dir / "per_zone_pareto.csv", pareto_rows)
 
@@ -715,11 +961,17 @@ def _write_artifacts(
     )
     report_md = output_dir / "full_polar_build_report.md"
     report_md.write_text(_build_report_markdown(report), encoding="utf-8")
+    build_report_json = output_dir / "build_report.json"
+    build_report_json.write_text(report_json.read_text(encoding="utf-8"), encoding="utf-8")
+    build_report_md = output_dir / "build_report.md"
+    build_report_md.write_text(report_md.read_text(encoding="utf-8"), encoding="utf-8")
     return {
         "airfoil_records_json": airfoil_records_json,
         "airfoil_database_json": airfoil_database_json,
         "full_polar_build_report_json": report_json,
         "full_polar_build_report_md": report_md,
+        "build_report_json": build_report_json,
+        "build_report_md": build_report_md,
     }
 
 
@@ -727,6 +979,7 @@ def _rank_records_by_zone(
     database: AirfoilDatabase,
     polar_rows: Sequence[Mapping[str, Any]],
     zone_envelopes: Mapping[str, Mapping[str, Any]],
+    reports: Mapping[str, Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     top_rows: list[dict[str, Any]] = []
     pareto_rows: list[dict[str, Any]] = []
@@ -754,11 +1007,16 @@ def _rank_records_by_zone(
             scored.append((score, record, rows))
         for rank, (score, record, rows) in enumerate(sorted(scored, key=lambda item: item[0]), start=1):
             cds = [float(row["cd"]) for row in rows if _finite_float(row.get("cd")) is not None]
+            report = reports.get(record.airfoil_id, {})
             row = {
                 "zone_name": zone,
                 "rank_in_zone": rank,
                 "airfoil_id": record.airfoil_id,
                 "source_quality": record.source_quality,
+                "screening_quality": report.get("screening_quality", ""),
+                "archive_source_quality": report.get("archive_source_quality", ""),
+                "actual_sidecar_query_quality": report.get("actual_sidecar_query_quality", ""),
+                "inclusion_reason": report.get("inclusion_reason", ""),
                 "score": score,
                 "mean_cd": float(np.mean(cds)) if cds else None,
                 "cd_p90": float(np.percentile(cds, 90)) if cds else None,
@@ -787,6 +1045,15 @@ def _record_csv_rows(
                 "zone_origin": record.zone_hint,
                 "source_quality": record.source_quality,
                 "screening_quality": report.get("screening_quality"),
+                "archive_source_quality": report.get("archive_source_quality"),
+                "actual_sidecar_query_quality": report.get("actual_sidecar_query_quality"),
+                "repaired_archive_source_quality": report.get("repaired_archive_source_quality"),
+                "repaired_actual_sidecar_query_quality": report.get("repaired_actual_sidecar_query_quality"),
+                "repair_worthy_flag": report.get("repair_worthy_flag"),
+                "inclusion_reason": report.get("inclusion_reason"),
+                "source_category": report.get("source_category"),
+                "candidate_role": report.get("candidate_role"),
+                "generation_index": report.get("generation_index"),
                 "thickness_ratio": record.thickness_ratio,
                 "max_camber": record.max_camber,
                 "alpha_L0_deg": record.alpha_L0_deg,
@@ -801,6 +1068,16 @@ def _record_csv_rows(
             }
         )
     return rows
+
+
+def _failed_candidate_rows(rows: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    failed: list[dict[str, Any]] = []
+    for row in rows:
+        source_quality = str(row.get("source_quality") or "")
+        issues = str(row.get("issues") or "")
+        if source_quality == "full_polar_failed_not_mission_grade" or "worker_exception" in issues:
+            failed.append(dict(row))
+    return failed
 
 
 def _coverage_rows(
@@ -830,6 +1107,7 @@ def _coverage_rows(
                 "safe_clmax": quality.get("safe_clmax"),
                 "coverage_passed": "insufficient" not in str(quality.get("issues", "")),
                 "source_quality": quality.get("source_quality"),
+                **_candidate_report_metadata(candidate),
             }
         )
     return output
@@ -843,6 +1121,7 @@ def _gap_rows(candidate: Candidate, quality: Mapping[str, Any]) -> list[dict[str
             "zone_name": candidate.zone_origin,
             "gap": issue,
             "source_quality": quality.get("source_quality"),
+            **_candidate_report_metadata(candidate),
         }
         for issue in issues
         if "insufficient" in issue or "coverage" in issue
@@ -921,7 +1200,8 @@ def _split_zone_hint(text: str | None) -> list[str]:
     if not text:
         return []
     expanded: list[str] = []
-    for token in str(text).replace("/", ",").split(","):
+    normalized = str(text).replace("/", ",").replace(";", ",")
+    for token in normalized.split(","):
         zone = token.strip()
         if zone == "mid":
             expanded.extend(["mid1", "mid2"])
