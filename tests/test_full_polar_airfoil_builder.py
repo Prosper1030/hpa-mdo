@@ -4,6 +4,10 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import importlib.util
+from types import SimpleNamespace
+
+from hpa_mdo.airfoils.database import AirfoilPolarPoint, AirfoilRecord
 
 
 def test_full_polar_builder_dry_run_creates_archive(tmp_path: Path) -> None:
@@ -269,6 +273,89 @@ def test_full_polar_builder_resume_skips_completed_manifest_candidate(tmp_path: 
     assert second.stdout.count("[full-polar] skipping completed cst_tip_resume") == 1
 
 
+def test_lightweight_checkpoint_is_resume_safe_without_heavy_rank_outputs(
+    tmp_path: Path,
+) -> None:
+    module = _load_full_polar_builder_module()
+    output_dir = tmp_path / "checkpoint"
+    record = AirfoilRecord(
+        airfoil_id="cst_tip_checkpoint",
+        name="cst_tip_checkpoint",
+        source="unit-test",
+        source_quality="full_polar_mission_grade_candidate",
+        zone_hint="tip",
+        thickness_ratio=0.12,
+        max_camber=0.03,
+        alpha_L0_deg=-2.0,
+        cl_alpha_per_rad=6.0,
+        cm_design=-0.04,
+        safe_clmax=1.2,
+        usable_clmax=1.4,
+        polar_points=(
+            AirfoilPolarPoint(
+                Re=300000.0,
+                cl=0.5,
+                cd=0.01,
+                cm=-0.04,
+                alpha_deg=2.0,
+                roughness_mode="clean",
+            ),
+        ),
+        notes="checkpoint test",
+        coordinate_path="airfoils/cst_tip_checkpoint.dat",
+    )
+    polar_row = {
+        "airfoil_id": "cst_tip_checkpoint",
+        "Re": 300000.0,
+        "cl": 0.5,
+        "cd": 0.01,
+        "cm": -0.04,
+        "alpha_deg": 2.0,
+        "roughness_mode": "clean",
+        "converged": True,
+        "branch_label": "prestall",
+    }
+    state = module.BuildState(
+        records=[record],
+        polar_rows=[polar_row],
+        quality_rows=[
+            {
+                "airfoil_id": "cst_tip_checkpoint",
+                "source_quality": "full_polar_mission_grade_candidate",
+                "issues": "",
+            }
+        ],
+        coverage_rows=[],
+        gap_rows=[],
+        record_reports={
+            "cst_tip_checkpoint": {
+                "source_quality": "full_polar_mission_grade_candidate",
+                "screening_quality": "target_cl_screening_pass",
+            }
+        },
+    )
+    args = SimpleNamespace(dry_run=False, backend="julia")
+
+    module._write_checkpoint_artifacts(
+        state=state,
+        output_dir=output_dir,
+        args=args,
+    )
+
+    records_payload = json.loads((output_dir / "airfoil_records.json").read_text(encoding="utf-8"))
+    assert records_payload["records"][0]["polar_points"] == {"count": 1}
+    assert (output_dir / "polar_points.csv").is_file()
+    assert not (output_dir / "per_zone_pareto.csv").exists()
+    report = json.loads((output_dir / "build_report.json").read_text(encoding="utf-8"))
+    assert report["checkpoint_artifact_mode"] == "resume_safe_lightweight"
+    assert report["record_count"] == 1
+
+    reloaded = module._load_existing_state(output_dir)
+    assert [record.airfoil_id for record in reloaded.records] == ["cst_tip_checkpoint"]
+    assert len(reloaded.records[0].polar_points) == 1
+    assert reloaded.record_reports["cst_tip_checkpoint"]["screening_quality"] == "target_cl_screening_pass"
+
+
 def _write_tip_envelope(screening_dir: Path) -> Path:
     envelope_payload = {
         "zone_envelope": [
@@ -288,3 +375,14 @@ def _write_tip_envelope(screening_dir: Path) -> Path:
     envelope_path = screening_dir / "zone_envelope.json"
     envelope_path.write_text(json.dumps(envelope_payload), encoding="utf-8")
     return envelope_path
+
+
+def _load_full_polar_builder_module():
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "build_full_polar_airfoil_db.py"
+    spec = importlib.util.spec_from_file_location("build_full_polar_airfoil_db", script_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module

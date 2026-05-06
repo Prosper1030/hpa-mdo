@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
 import math
 from pathlib import Path
@@ -187,7 +187,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             completed_airfoil_ids.add(candidate.airfoil_id)
             if index % checkpoint_every == 0 or index == len(candidates):
-                _write_artifacts(state=state, output_dir=output_dir, args=args, zone_envelopes=zone_envelopes)
+                _write_checkpoint_artifacts(state=state, output_dir=output_dir, args=args)
     finally:
         if worker is not None:
             worker.close()
@@ -240,6 +240,7 @@ def _load_existing_state(output_dir: Path) -> BuildState:
         records = list(database.records.values())
 
     polar_rows = _read_csv_rows(output_dir / "polar_points.csv")
+    records = _attach_polar_rows_to_records(records, polar_rows)
     quality_rows = _read_csv_rows(output_dir / "quality_report.csv")
     coverage_rows = _read_csv_rows(output_dir / "coverage_report.csv")
     gap_rows = _read_csv_rows(output_dir / "gap_report.csv")
@@ -255,6 +256,55 @@ def _load_existing_state(output_dir: Path) -> BuildState:
                 if isinstance(item, Mapping):
                     record_reports[str(airfoil_id)] = dict(item)
     return BuildState(records, polar_rows, quality_rows, coverage_rows, gap_rows, record_reports)
+
+
+def _attach_polar_rows_to_records(
+    records: Sequence[AirfoilRecord],
+    polar_rows: Sequence[Mapping[str, Any]],
+) -> list[AirfoilRecord]:
+    rows_by_airfoil: dict[str, list[Mapping[str, Any]]] = {}
+    for row in polar_rows:
+        airfoil_id = str(row.get("airfoil_id") or "")
+        if airfoil_id:
+            rows_by_airfoil.setdefault(airfoil_id, []).append(row)
+
+    rebuilt: list[AirfoilRecord] = []
+    for record in records:
+        if record.polar_points:
+            rebuilt.append(record)
+            continue
+        polar_points = tuple(_polar_points_from_checkpoint_rows(rows_by_airfoil.get(record.airfoil_id, ())))
+        rebuilt.append(replace(record, polar_points=polar_points))
+    return rebuilt
+
+
+def _polar_points_from_checkpoint_rows(
+    rows: Sequence[Mapping[str, Any]],
+) -> list[AirfoilPolarPoint]:
+    points: list[AirfoilPolarPoint] = []
+    for row in rows:
+        if not _row_is_finite_converged(row):
+            continue
+        if str(row.get("branch_label") or "prestall") != "prestall":
+            continue
+        re_value = _finite_float(row.get("Re"))
+        cl_value = _finite_float(row.get("cl"))
+        cd_value = _finite_float(row.get("cd"))
+        cm_value = _finite_float(row.get("cm"))
+        alpha_value = _finite_float(row.get("alpha_deg"))
+        if None in (re_value, cl_value, cd_value, cm_value, alpha_value):
+            continue
+        points.append(
+            AirfoilPolarPoint(
+                Re=float(re_value),
+                cl=float(cl_value),
+                cd=float(cd_value),
+                cm=float(cm_value),
+                alpha_deg=float(alpha_value),
+                roughness_mode=str(row.get("roughness_mode") or "clean"),
+            )
+        )
+    return points
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
@@ -979,6 +1029,123 @@ def _write_artifacts(
     }
 
 
+def _write_checkpoint_artifacts(
+    *,
+    state: BuildState,
+    output_dir: Path,
+    args: argparse.Namespace,
+) -> dict[str, Path]:
+    """Write resume-safe checkpoint artifacts without expensive reranking.
+
+    The full Tier 2 build has millions of polar rows. Rewriting the full JSON
+    database and recomputing per-zone top-k/pareto every checkpoint turns into
+    a pure-Python bottleneck. Checkpoints only need enough data to resume
+    without rerunning completed airfoils; final artifacts are still written by
+    ``_write_artifacts`` after the batch completes.
+    """
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    records_sorted = sorted(state.records, key=lambda record: record.airfoil_id)
+    records_payload = []
+    for record in records_sorted:
+        payload = record.to_dict(include_polar_points=False)
+        report = state.record_reports.get(record.airfoil_id, {})
+        payload["screening_quality"] = report.get("screening_quality")
+        payload["archive_source_quality"] = report.get("archive_source_quality")
+        payload["actual_sidecar_query_quality"] = report.get("actual_sidecar_query_quality")
+        payload["inclusion_reason"] = report.get("inclusion_reason")
+        payload["full_polar_quality"] = report
+        records_payload.append(payload)
+
+    db_payload = {
+        "schema_version": "full_polar_airfoil_database_v1",
+        "source": SOURCE,
+        "checkpoint_artifact_mode": "resume_safe_lightweight",
+        "records": records_payload,
+    }
+    airfoil_records_json = output_dir / "airfoil_records.json"
+    airfoil_records_json.write_text(
+        json.dumps(_json_ready(db_payload), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    airfoil_database_json = output_dir / "airfoil_database.json"
+    airfoil_database_json.write_text(
+        airfoil_records_json.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+
+    _write_csv(output_dir / "airfoil_records.csv", _record_csv_rows(records_sorted, state.record_reports))
+    _write_csv(output_dir / "polar_points.csv", state.polar_rows)
+    _write_csv(output_dir / "quality_report.csv", state.quality_rows)
+    _write_csv(output_dir / "coverage_report.csv", state.coverage_rows)
+    _write_csv(output_dir / "gap_report.csv", state.gap_rows)
+    _write_csv(output_dir / "failed_candidates.csv", _failed_candidate_rows(state.quality_rows))
+
+    report = {
+        "schema_version": "full_polar_build_report_v1",
+        "source": SOURCE,
+        "checkpoint_artifact_mode": "resume_safe_lightweight",
+        "backend": "dry_run" if args.dry_run else args.backend,
+        "record_count": len(records_sorted),
+        "polar_point_count": len(state.polar_rows),
+        "source_quality_counts": _source_quality_counts(records_sorted),
+        "records": state.record_reports,
+        "args": vars(args),
+    }
+    report_json = output_dir / "full_polar_build_report.json"
+    report_json.write_text(
+        json.dumps(_json_ready(report), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    build_report_json = output_dir / "build_report.json"
+    build_report_json.write_text(report_json.read_text(encoding="utf-8"), encoding="utf-8")
+
+    report_md = output_dir / "full_polar_build_report.md"
+    report_md.write_text(
+        "\n".join(
+            [
+                "# Full-Polar Build Checkpoint",
+                "",
+                "This is a resume-safe lightweight checkpoint. Final top-k, pareto, and full JSON database artifacts are regenerated when the build completes.",
+                "",
+                f"- record_count: {len(records_sorted)}",
+                f"- polar_point_count: {len(state.polar_rows)}",
+                f"- backend: {'dry_run' if args.dry_run else args.backend}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    build_report_md = output_dir / "build_report.md"
+    build_report_md.write_text(report_md.read_text(encoding="utf-8"), encoding="utf-8")
+    checkpoint_status = output_dir / "checkpoint_status.json"
+    checkpoint_status.write_text(
+        json.dumps(
+            _json_ready(
+                {
+                    "checkpoint_artifact_mode": "resume_safe_lightweight",
+                    "record_count": len(records_sorted),
+                    "polar_point_count": len(state.polar_rows),
+                    "final_rank_outputs_current": False,
+                }
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "airfoil_records_json": airfoil_records_json,
+        "airfoil_database_json": airfoil_database_json,
+        "full_polar_build_report_json": report_json,
+        "full_polar_build_report_md": report_md,
+        "build_report_json": build_report_json,
+        "build_report_md": build_report_md,
+        "checkpoint_status_json": checkpoint_status,
+    }
+
+
 def _rank_records_by_zone(
     database: AirfoilDatabase,
     polar_rows: Sequence[Mapping[str, Any]],
@@ -987,24 +1154,24 @@ def _rank_records_by_zone(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     top_rows: list[dict[str, Any]] = []
     pareto_rows: list[dict[str, Any]] = []
+    rows_by_airfoil = _polar_rows_by_airfoil(polar_rows)
     for zone in ZONE_NAMES:
         envelope = zone_envelopes.get(zone, {})
         scored = []
         for record in database.records.values():
             if not _record_matches_zone(record, zone):
                 continue
+            candidate_rows = rows_by_airfoil.get(record.airfoil_id, ())
             rows = [
                 row
-                for row in polar_rows
-                if row.get("airfoil_id") == record.airfoil_id
-                and _row_is_finite_converged(row)
-                and _row_in_envelope(row, envelope)
+                for row in candidate_rows
+                if _row_is_finite_converged(row) and _row_in_envelope(row, envelope)
             ]
             if not rows:
                 rows = [
                     row
-                    for row in polar_rows
-                    if row.get("airfoil_id") == record.airfoil_id and _row_is_finite_converged(row)
+                    for row in candidate_rows
+                    if _row_is_finite_converged(row)
                 ]
             cds = [float(row["cd"]) for row in rows]
             score = _quality_penalty(record.source_quality) + (float(np.mean(cds)) if cds else 99.0)
@@ -1033,6 +1200,17 @@ def _rank_records_by_zone(
             if rank <= 16:
                 top_rows.append(row)
     return top_rows, pareto_rows
+
+
+def _polar_rows_by_airfoil(
+    polar_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, list[Mapping[str, Any]]]:
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    for row in polar_rows:
+        airfoil_id = str(row.get("airfoil_id") or "")
+        if airfoil_id:
+            grouped.setdefault(airfoil_id, []).append(row)
+    return grouped
 
 
 def _record_csv_rows(
