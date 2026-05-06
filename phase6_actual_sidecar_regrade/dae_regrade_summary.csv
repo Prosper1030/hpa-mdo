@@ -1,0 +1,11 @@
+zone_name,airfoil_id,candidate_family,archive_source_quality,archive_issues,actual_grade_pass_count,actual_grade_eval_count,actual_grade_all_policies_pass,min_actual_Cl_max_margin,best_weighted_mean_cd_at_actual_work_points,worst_weighted_mean_cd_at_actual_work_points,actual_fail_reasons_union,evaluated_policy_ids
+mid1,dae11,DAE,full_polar_candidate_not_mission_grade,insufficient_safe_clmax_margin,5,5,True,0.109396221,0.0119513813,0.011983999,,A;B;C;D;E
+mid1,dae21,DAE,full_polar_candidate_not_mission_grade,insufficient_safe_clmax_margin,5,5,True,0.0651991093,0.010852924,0.0110037874,,A;B;C;D;E
+mid1,fx76mp140,seed_fx76mp140,full_polar_candidate_not_mission_grade,insufficient_safe_clmax_margin,5,5,True,0.109189666,0.0111212488,0.0111772073,,A;B;C;D;E
+mid2,clarkysm,seed_clarky,full_polar_mission_grade_candidate,,5,5,True,0.167269472,0.00960192218,0.0134858044,,A;B;C;D;E
+mid2,dae31,DAE,full_polar_mission_grade_candidate,,5,5,True,0.3614071,0.00898761293,0.00932101504,,A;B;C;D;E
+root,dae11,DAE,full_polar_candidate_not_mission_grade,insufficient_safe_clmax_margin,5,5,True,0.118627517,0.0104345919,0.0105041076,,A;B;C;D;E
+root,fx76mp140,seed_fx76mp140,full_polar_candidate_not_mission_grade,insufficient_safe_clmax_margin,5,5,True,0.118420962,0.0098217071,0.00998757869,,A;B;C;D;E
+tip,clarkysm,seed_clarky,full_polar_mission_grade_candidate,,5,5,True,0.4097024,0.00934974355,0.0100217348,,A;B;C;D;E
+tip,dae31,DAE,full_polar_mission_grade_candidate,,0,5,False,0.603840029,0.0172953509,0.0185042866,Cl_coverage,A;B;C;D;E
+tip,dae41,DAE,full_polar_candidate_not_mission_grade,discontinuous_cd,0,5,False,0.362984728,0.00934153367,0.00985388761,cd_discontinuity,A;B;C;D;E
