@@ -4,13 +4,19 @@
 This is a diagnostic/export utility only.  It reuses the loaded-shape AVL
 section geometry from the archived sidecar artifacts and swaps only the
 zone-level airfoil assignment for already studied Phase 7 policies.
+
+Two export modes are intentionally separate:
+
+* ``avl_parity`` preserves the exact sidecar AVL/body-axis geometry.
+* ``production_inspection`` produces a monotone-chord, cruise-normalized copy
+  for OpenVSP/SolidWorks/manual layout inspection.
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 import json
 import math
@@ -48,6 +54,24 @@ FULL_POLAR_REPORT_JSON = (
 )
 SCREENING_COORD_DIR = _REPO_ROOT / "output" / "airfoil_db" / "overnight_cst_zone_search" / "coordinates"
 DEFAULT_OUTPUT_DIR = _REPO_ROOT / "output" / "geometry_exports" / "phase7_sidecar_vsp"
+CRUISE_NORMALIZED_EXPORTS_CSV = (
+    _REPO_ROOT
+    / "output"
+    / "geometry_exports"
+    / "phase7_avl_vsp_parity"
+    / "cruise_normalized_exports.csv"
+)
+EXPORT_MODES = ("avl_parity", "production_inspection")
+EXPORT_MODE_WARNINGS = {
+    "avl_parity": (
+        "This file is for AVL/VSP parity only. Alpha=0 is not necessarily cruise. "
+        "Do not use directly for production layout."
+    ),
+    "production_inspection": (
+        "This file is cruise-normalized and monotone-chord. Use this for "
+        "VSP/SolidWorks/fairing/manual geometry inspection."
+    ),
+}
 
 ZONE_BOUNDS = {
     "root": (0.00, 0.25),
@@ -157,16 +181,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             phase7_rows=phase7_rows,
             airfoil_paths=airfoil_paths,
             build_vsp=not args.no_vsp,
+            export_mode=str(args.export_mode),
+            incidence_offset_deg=args.incidence_offset_deg,
         )
         reports.append(report)
 
     summary_path = output_root / "export_summary.json"
     summary_path.write_text(
-        json.dumps({"schema_version": "phase7_sidecar_vsp_export_summary_v1", "cases": reports}, indent=2)
+        json.dumps(
+            {
+                "schema_version": "phase7_sidecar_vsp_export_summary_v2",
+                "export_mode": str(args.export_mode),
+                "cases": reports,
+            },
+            indent=2,
+        )
         + "\n",
         encoding="utf-8",
     )
-    print(json.dumps({"output_root": str(output_root), "case_count": len(reports)}, sort_keys=True))
+    print(
+        json.dumps(
+            {"output_root": str(output_root), "case_count": len(reports), "export_mode": str(args.export_mode)},
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -179,7 +217,100 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         help="Also export the optional CST-only and no-ClarkY diagnostic cases.",
     )
     parser.add_argument("--no-vsp", action="store_true", help="Write AVL/tables only; skip .vsp3 build.")
+    parser.add_argument(
+        "--export-mode",
+        choices=EXPORT_MODES,
+        default="production_inspection",
+        help=(
+            "VSP geometry mode. production_inspection is the user-facing default; "
+            "use avl_parity explicitly for AVL/VSP parity debugging."
+        ),
+    )
+    parser.add_argument(
+        "--incidence-offset-deg",
+        type=float,
+        default=None,
+        help=(
+            "Optional uniform incidence override for production_inspection. "
+            "By default, known Phase 7 case offsets are read from the parity audit."
+        ),
+    )
     return parser.parse_args(argv)
+
+
+def _normalize_export_mode(export_mode: str) -> str:
+    mode = str(export_mode or "production_inspection").strip()
+    if mode not in EXPORT_MODES:
+        raise ValueError(f"export_mode must be one of {EXPORT_MODES}: {export_mode!r}")
+    return mode
+
+
+def _resolve_incidence_offset_deg(
+    *,
+    case_name: str,
+    export_mode: str,
+    explicit_offset_deg: float | None,
+) -> dict[str, Any]:
+    if export_mode == "avl_parity":
+        return {
+            "incidence_offset_deg_added_to_all_sections": 0.0,
+            "incidence_offset_source": "avl_body_axis_no_offset",
+            "vsp_alpha0_is_cruise": False,
+        }
+    if explicit_offset_deg is not None:
+        return {
+            "incidence_offset_deg_added_to_all_sections": float(explicit_offset_deg),
+            "incidence_offset_source": "explicit_override",
+            "vsp_alpha0_is_cruise": True,
+        }
+    offset = _load_phase7_cruise_incidence_offset(case_name)
+    if offset is not None:
+        return {
+            "incidence_offset_deg_added_to_all_sections": float(offset),
+            "incidence_offset_source": "phase7_avl_alpha0_calibrated_to_CL_req",
+            "vsp_alpha0_is_cruise": True,
+        }
+    raise ValueError(
+        f"No cruise-alpha-zero incidence offset is available for {case_name!r}. "
+        "Pass --incidence-offset-deg explicitly, or use --export-mode avl_parity."
+    )
+
+
+def _load_phase7_cruise_incidence_offset(case_name: str) -> float | None:
+    if not CRUISE_NORMALIZED_EXPORTS_CSV.is_file():
+        return None
+    with CRUISE_NORMALIZED_EXPORTS_CSV.open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            if str(row.get("case_name") or "") != case_name:
+                continue
+            value = _finite_float(row.get("incidence_offset_deg_added_to_all_sections"))
+            if value is not None:
+                return value
+    return None
+
+
+def _export_mode_metadata(export_mode: str, incidence: Mapping[str, Any]) -> dict[str, Any]:
+    if export_mode == "avl_parity":
+        chord_mode = "original_inverse_chord"
+        incidence_mode = "avl_body_axis"
+        chord_enforced = False
+    else:
+        chord_mode = "monotone_normalized"
+        incidence_mode = "cruise_alpha_zero"
+        chord_enforced = True
+    return {
+        "export_mode": export_mode,
+        "chord_mode": chord_mode,
+        "incidence_mode": incidence_mode,
+        "source_geometry": "sidecar_avl_loaded_shape",
+        "vsp_alpha0_is_cruise": bool(incidence.get("vsp_alpha0_is_cruise")),
+        "chord_monotonicity_enforced": chord_enforced,
+        "incidence_offset_deg_added_to_all_sections": float(
+            incidence.get("incidence_offset_deg_added_to_all_sections") or 0.0
+        ),
+        "incidence_offset_source": str(incidence.get("incidence_offset_source") or ""),
+        "export_mode_warning": EXPORT_MODE_WARNINGS[export_mode],
+    }
 
 
 def export_case(
@@ -190,8 +321,16 @@ def export_case(
     phase7_rows: Mapping[str, Mapping[str, str]],
     airfoil_paths: Mapping[str, Path],
     build_vsp: bool = True,
+    export_mode: str = "production_inspection",
+    incidence_offset_deg: float | None = None,
 ) -> dict[str, Any]:
-    case_dir = output_root / case_name
+    mode = _normalize_export_mode(export_mode)
+    incidence = _resolve_incidence_offset_deg(
+        case_name=case_name,
+        export_mode=mode,
+        explicit_offset_deg=incidence_offset_deg,
+    )
+    case_dir = output_root / mode / case_name
     airfoil_dir = case_dir / "airfoils"
     case_dir.mkdir(parents=True, exist_ok=True)
     airfoil_dir.mkdir(parents=True, exist_ok=True)
@@ -214,6 +353,12 @@ def export_case(
         quality_by_zone=quality_by_zone,
         staged_airfoils=staged_airfoils,
     )
+    exported_sections = _apply_export_mode_to_sections(
+        exported_sections,
+        source_geometry=source_geometry,
+        export_mode=mode,
+        incidence_offset_deg=incidence["incidence_offset_deg_added_to_all_sections"],
+    )
     avl_path = case_dir / f"{case_name}.avl"
     write_avl(source_geometry, exported_sections, avl_path)
     section_csv = case_dir / "section_table.csv"
@@ -235,9 +380,11 @@ def export_case(
     )
     computed_area = _computed_area_m2(exported_sections)
     computed_span = 2.0 * max(section.y_m for section in exported_sections)
+    mode_metadata = _export_mode_metadata(mode, incidence)
     manifest = {
-        "schema_version": "phase7_sidecar_vsp_geometry_manifest_v1",
+        "schema_version": "phase7_sidecar_vsp_geometry_manifest_v2",
         "case_name": case_name,
+        **mode_metadata,
         "source_sidecar_report_path": str(Path(definition["source_sidecar_report"])),
         "source_avl_file_path": str(source_avl),
         "Sref": source_geometry.sref_m2,
@@ -254,6 +401,7 @@ def export_case(
             "Main wing planform, twist, and loaded z are reconstructed from the sidecar AVL sections.",
             "OpenVSP wing sections are driven by span/chord/dihedral/twist; exact CST/DAE/ClarkY airfoil import status is recorded in vsp_export.",
             "Reference empennage/fuselage geometry is not included because the sidecar AVL source is wing-only.",
+            EXPORT_MODE_WARNINGS[mode],
         ],
         "vsp_export": vsp_report,
         "parity_checks": parity,
@@ -276,6 +424,7 @@ def export_case(
         "export_report_md": str(report_path),
         "parity_status": _overall_parity_status(parity),
         "vsp_status": vsp_report.get("status"),
+        "export_mode": mode,
     }
 
 
@@ -574,6 +723,77 @@ def _assigned_sections(
     return tuple(sections)
 
 
+def _apply_export_mode_to_sections(
+    sections: Sequence[ExportedSection],
+    *,
+    source_geometry: AvlGeometry,
+    export_mode: str,
+    incidence_offset_deg: float,
+) -> tuple[ExportedSection, ...]:
+    if export_mode == "avl_parity":
+        return tuple(sections)
+
+    monotone_chords = _monotone_area_scaled_chords(
+        sections,
+        target_area_m2=source_geometry.sref_m2,
+    )
+    return tuple(
+        replace(
+            section,
+            chord_m=chord,
+            twist_deg=float(section.twist_deg) + float(incidence_offset_deg),
+        )
+        for section, chord in zip(sections, monotone_chords)
+    )
+
+
+def _monotone_area_scaled_chords(
+    sections: Sequence[ExportedSection],
+    *,
+    target_area_m2: float,
+) -> tuple[float, ...]:
+    if not sections:
+        return ()
+    chords = [max(float(section.chord_m), 1.0e-9) for section in sections]
+    fitted = _pava_nonincreasing(chords)
+    fitted_area = _area_from_y_chords(
+        [float(section.y_m) for section in sections],
+        fitted,
+    )
+    if fitted_area > 1.0e-12 and math.isfinite(float(target_area_m2)):
+        scale = float(target_area_m2) / fitted_area
+        fitted = [max(float(chord) * scale, 1.0e-9) for chord in fitted]
+    return tuple(fitted)
+
+
+def _pava_nonincreasing(values: Sequence[float]) -> list[float]:
+    blocks: list[dict[str, float]] = []
+    for value in values:
+        blocks.append({"level": float(value), "weight": 1.0, "count": 1.0})
+        while len(blocks) >= 2 and blocks[-2]["level"] < blocks[-1]["level"]:
+            left = blocks.pop(-2)
+            right = blocks.pop(-1)
+            weight = left["weight"] + right["weight"]
+            level = (left["level"] * left["weight"] + right["level"] * right["weight"]) / weight
+            blocks.append({"level": level, "weight": weight, "count": left["count"] + right["count"]})
+    output: list[float] = []
+    for block in blocks:
+        output.extend([block["level"]] * int(block["count"]))
+    return output
+
+
+def _area_from_y_chords(y_values: Sequence[float], chords: Sequence[float]) -> float:
+    half_area = 0.0
+    for y_left, y_right, chord_left, chord_right in zip(
+        y_values[:-1],
+        y_values[1:],
+        chords[:-1],
+        chords[1:],
+    ):
+        half_area += 0.5 * (float(chord_left) + float(chord_right)) * (float(y_right) - float(y_left))
+    return 2.0 * half_area
+
+
 def _parity_checks(
     *,
     source_geometry: AvlGeometry,
@@ -738,6 +958,16 @@ def _float_values(line: str, *, expected: int) -> tuple[float, ...]:
     return values
 
 
+def _finite_float(value: Any) -> float | None:
+    try:
+        output = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(output):
+        return None
+    return output
+
+
 def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
     fieldnames: list[str] = []
     for row in rows:
@@ -763,9 +993,19 @@ def _export_report_markdown(
         "",
         "Diagnostic OpenVSP export from previously evaluated Phase 6/7 sidecar geometry.",
         "",
+        f"**Export mode:** `{manifest.get('export_mode')}`",
+        "",
+        f"**Warning:** {manifest.get('export_mode_warning')}",
+        "",
         f"- Source AVL: `{manifest.get('source_avl_file_path')}`",
         f"- Source report: `{manifest.get('source_sidecar_report_path')}`",
         f"- Assignment: `{_assignment_label(manifest.get('airfoil_assignment', {}))}`",
+        f"- Chord mode: `{manifest.get('chord_mode')}`",
+        f"- Incidence mode: `{manifest.get('incidence_mode')}`",
+        f"- VSP alpha=0 is cruise: `{manifest.get('vsp_alpha0_is_cruise')}`",
+        f"- Chord monotonicity enforced: `{manifest.get('chord_monotonicity_enforced')}`",
+        f"- Incidence offset: {manifest.get('incidence_offset_deg_added_to_all_sections'):.9f} deg "
+        f"({manifest.get('incidence_offset_source')})",
         f"- Sref / Bref / Cref: {manifest.get('Sref'):.9f} / {manifest.get('Bref'):.9f} / {manifest.get('Cref'):.9f}",
         f"- Computed area / span: {manifest.get('computed_wing_area_m2'):.9f} / {manifest.get('computed_span_m'):.9f}",
         f"- Loaded tip z: {manifest.get('loaded_tip_z_m'):.9f} m",
