@@ -1,0 +1,43 @@
+{
+  "airfoil_database": "/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/full_polar_archive/airfoil_database.json",
+  "cases": {
+    "policy_A_performance_candidate": {
+      "assignment": {
+        "mid1": "dae11",
+        "mid2": "clarkysm",
+        "root": "dae11",
+        "tip": "clarkysm"
+      },
+      "label": "performance candidate",
+      "monotone": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/monotone_chord/policy_A_performance_candidate/policy_A_performance_candidate_monotone_chord.avl",
+      "monotone_section": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/monotone_chord/policy_A_performance_candidate/section_table.csv",
+      "original": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_A_performance_candidate/policy_A_performance_candidate.avl",
+      "original_section": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_A_performance_candidate/section_table.csv",
+      "policy": "Policy A"
+    },
+    "policy_C_conservative_baseline": {
+      "assignment": {
+        "mid1": "cst_mid1_nsga2_g06_child_0001_a86879e2",
+        "mid2": "clarkysm",
+        "root": "cst_root_nsga2_g05_child_0019_00cc4dca",
+        "tip": "clarkysm"
+      },
+      "label": "conservative baseline",
+      "monotone": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/monotone_chord/policy_C_conservative_baseline/policy_C_conservative_baseline_monotone_chord.avl",
+      "monotone_section": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/monotone_chord/policy_C_conservative_baseline/section_table.csv",
+      "original": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/policy_C_conservative_baseline.avl",
+      "original_section": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/section_table.csv",
+      "policy": "Policy C"
+    }
+  },
+  "fourier_target": "/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/full_polar_archive/phase6_full_polar_sidecar/top_candidate_exports/rank_01_sample_0007/fourier_target.csv",
+  "generated_at_utc": "2026-05-06T11:14:53.926557+00:00",
+  "mission_contract": "/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/full_polar_archive/phase6_full_polar_sidecar/top_candidate_exports/rank_01_sample_0007/mission_contract.json",
+  "notes": [
+    "VSPAERO CL/CDi values are reused from the Phase 7 AVL/VSP parity audit.",
+    "VSPAERO CDo/CDtot are not used for mission profile drag.",
+    "Profile drag is re-integrated from existing full-polar archive lookup on fresh AVL strip forces."
+  ],
+  "scope": "diagnostic_only_no_ranking_no_hard_gates",
+  "vsp_parity_source": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/monotone_chord_comparison.csv"
+}

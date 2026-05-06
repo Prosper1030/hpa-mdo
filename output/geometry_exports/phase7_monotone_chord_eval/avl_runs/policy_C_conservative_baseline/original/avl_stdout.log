@@ -1,0 +1,329 @@
+
+ ===================================================
+  Athena Vortex Lattice  Program      Version  3.40
+  Copyright (C) 2002   Mark Drela, Harold Youngren
+
+  This software comes with ABSOLUTELY NO WARRANTY,
+    subject to the GNU General Public License.
+
+  Caveat computor
+ ===================================================
+
+ Reading file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/policy_C_conservative_baseline.avl  ...
+
+ Configuration: Birdman concept wing-only AVL                               
+
+   Building surface: Wing                                    
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/cst_root_nsga2_g05_child_0019_00cc4dca.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/cst_root_nsga2_g05_child_0019_00cc4dca.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/cst_mid1_nsga2_g06_child_0001_a86879e2.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/cst_mid1_nsga2_g06_child_0001_a86879e2.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/clarkysm.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/clarkysm.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/clarkysm.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/clarkysm.dat
+     Reading airfoil from file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/airfoils/clarkysm.dat
+
+ Mach =    0.0000  (default)
+
+    0 Bodies
+    1 Solid surfaces
+   32 Strips
+  512 Vortices
+
+    0 Control variables
+    0 Design parameters
+
+ Y Symmetry: Wall plane   at Ysym =    0.0000
+
+ ---------------------------------------------------------------
+ Trying to read file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/policy_C_conservative_baseline.mass  ...
+
+ Mass file  /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/policy_C_conservative_baseline.mass  open error
+ Internal mass defaults used
+
+ ---------------------------------------------------------------
+ Trying to read file: /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/policy_C_conservative_baseline.run  ...
+
+ Run case file  /Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_sidecar_vsp/policy_C_conservative_baseline/policy_C_conservative_baseline.run  open error
+ Internal run case defaults used
+
+ Initializing run cases...
+
+ ==========================================================
+   Quit    Exit program
+
+  .OPER    Compute operating-point run cases
+  .MODE    Eigenvalue analysis of run cases
+  .TIME    Time-domain calculations
+
+   LOAD f  Read configuration input file
+   MASS f  Read mass distribution file
+   CASE f  Read run case file
+
+   CINI    Clear and initialize run cases
+   MSET i  Apply mass file data to stored run case(s)
+
+  .PLOP    Plotting options
+   NAME s  Specify new configuration name
+
+ AVL   c>  
+ Operation of run case 1/1:   -unnamed-                              
+ ==========================================================
+
+  variable          constraint              
+  ------------      ------------------------
+  A lpha        ->  alpha       =   0.000         
+  B eta         ->  beta        =   0.000         
+  R oll  rate   ->  pb/2V       =   0.000         
+  P itch rate   ->  qc/2V       =   0.000         
+  Y aw   rate   ->  rb/2V       =   0.000         
+  ------------      ------------------------
+
+  C1  set level or banked  horizontal flight constraints
+  C2  set steady pitch rate (looping) flight constraints
+  M odify parameters                                    
+
+ "#" select  run case          L ist defined run cases   
+  +  add new run case          S ave run cases to file   
+  -  delete  run case          F etch run cases from file
+  N ame current run case       W rite forces to file     
+
+ eX ecute run case             I nitialize variables     
+
+  G eometry plot               T refftz Plane plot       
+
+  ST  stability derivatives    FT  total   forces        
+  SB  body-axis derivatives    FN  surface forces        
+  RE  reference quantities     FS  strip   forces        
+  DE  design changes           FE  element forces        
+  O ptions                     FB  body forces           
+                               HM  hinge moments         
+                               VM  strip shear,moment    
+  MRF  machine-readable format CPOM OML surface pressures
+
+ .OPER (case 1/1)   c>  
+     .. setting new turn radius for run case  1
+     .. setting new load factor for run case  1
+
+     Setup of trimmed run case 1/1:   -unnamed-                              
+     (level or banked horizontal flight)
+     =================================================
+      B  bank angle =  0.000      deg
+      C  CL         =  0.000       
+      V  velocity   =  0.000      Lunit/Tunit
+      M  mass       =  1.000      Munit
+      D  air dens.  =  1.000      Munit/Lunit^3
+      G  grav.acc.  =  1.000      Lunit/Tunit^2
+         turn rad.  =  0.000      Lunit
+         load fac.  =  1.000       
+      X  X_cg       = 0.2463      Lunit
+      Y  Y_cg       =  0.000      Lunit
+      Z  Z_cg       =  0.000      Lunit
+
+     Enter parameter, value  (or  # - + N )   c>       .. setting new velocity for run case  1
+     .. setting new turn radius for run case  1
+     .. setting new load factor for run case  1
+
+     Setup of trimmed run case 1/1:   -unnamed-                              
+     (level or banked horizontal flight)
+     =================================================
+      B  bank angle =  0.000      deg
+      C  CL         =  1.169       
+      V  velocity   = 0.2263      Lunit/Tunit
+      M  mass       =  1.000      Munit
+      D  air dens.  =  1.000      Munit/Lunit^3
+      G  grav.acc.  =  1.000      Lunit/Tunit^2
+         turn rad.  =  0.000      Lunit
+         load fac.  =  1.000       
+      X  X_cg       = 0.2463      Lunit
+      Y  Y_cg       =  0.000      Lunit
+      Z  Z_cg       =  0.000      Lunit
+
+     Enter parameter, value  (or  # - + N )   c>  
+ Operation of run case 1/1:   -unnamed-                              
+ ==========================================================
+
+  variable          constraint              
+  ------------      ------------------------
+  A lpha        ->  CL          =   1.169         
+  B eta         ->  beta        =   0.000         
+  R oll  rate   ->  pb/2V       =   0.000         
+  P itch rate   ->  qc/2V       =   0.000         
+  Y aw   rate   ->  rb/2V       =   0.000         
+  ------------      ------------------------
+
+  C1  set level or banked  horizontal flight constraints
+  C2  set steady pitch rate (looping) flight constraints
+  M odify parameters                                    
+
+ "#" select  run case          L ist defined run cases   
+  +  add new run case          S ave run cases to file   
+  -  delete  run case          F etch run cases from file
+  N ame current run case       W rite forces to file     
+
+ eX ecute run case             I nitialize variables     
+
+  G eometry plot               T refftz Plane plot       
+
+  ST  stability derivatives    FT  total   forces        
+  SB  body-axis derivatives    FN  surface forces        
+  RE  reference quantities     FS  strip   forces        
+  DE  design changes           FE  element forces        
+  O ptions                     FB  body forces           
+                               HM  hinge moments         
+                               VM  strip shear,moment    
+  MRF  machine-readable format CPOM OML surface pressures
+
+ .OPER (case 1/1)   c>    Building normalwash AIC matrix...
+  Factoring normalwash AIC matrix...
+  Building source+doublet strength AIC matrix...
+  Building source+doublet velocity AIC matrix...
+  Building bound-vortex velocity matrix...
+
+ iter d(alpha)   d(beta)    d(pb/2V)   d(qc/2V)   d(rb/2V)  
+   1  0.439E+01 -0.000E+00  0.000E+00 -0.000E+00 -0.000E+00
+   2  0.291E-01 -0.000E+00  0.000E+00 -0.000E+00 -0.000E+00
+   3  0.178E-05 -0.000E+00  0.000E+00 -0.000E+00 -0.000E+00
+ ---------------------------------------------------------------
+ Vortex Lattice Output -- Total Forces
+
+ Configuration: Birdman concept wing-only AVL                               
+     # Surfaces =   1
+     # Strips   =  32
+     # Vortices = 512
+ Y Symmetry: Wall plane   at Ysym =    0.0000
+
+  Sref =  33.420       Cref = 0.98511       Bref =  34.332    
+  Xref = 0.24628       Yref =  0.0000       Zref =  0.0000    
+
+ Standard axis orientation,  X fwd, Z down         
+
+ Run case:  -unnamed-                              
+
+  Alpha =   4.42230     pb/2V =  -0.00000     p'b/2V =  -0.00000
+  Beta  =   0.00000     qc/2V =   0.00000
+  Mach  =     0.000     rb/2V =  -0.00000     r'b/2V =  -0.00000
+
+  CXtot =   0.07764     Cltot =  -0.00000     Cl'tot =  -0.00000
+  CYtot =   0.00000     Cmtot =  -0.15897
+  CZtot =  -1.16602     Cntot =  -0.00000     Cn'tot =  -0.00000
+
+  CLtot =   1.16853
+  CDtot =   0.01250
+  CDvis =   0.00000     CDind = 0.0125035
+  CLff  =   1.16793     CDff  = 0.0124927    | Trefftz
+  CYff  =   0.00000         e =    0.9854    | Plane  
+
+
+ ---------------------------------------------------------------
+
+ Operation of run case 1/1:   -unnamed-                              
+ ==========================================================
+
+  variable          constraint              
+  ------------      ------------------------
+  A lpha        ->  CL          =   1.169         
+  B eta         ->  beta        =   0.000         
+  R oll  rate   ->  pb/2V       =   0.000         
+  P itch rate   ->  qc/2V       =   0.000         
+  Y aw   rate   ->  rb/2V       =   0.000         
+  ------------      ------------------------
+
+  C1  set level or banked  horizontal flight constraints
+  C2  set steady pitch rate (looping) flight constraints
+  M odify parameters                                    
+
+ "#" select  run case          L ist defined run cases   
+  +  add new run case          S ave run cases to file   
+  -  delete  run case          F etch run cases from file
+  N ame current run case       W rite forces to file     
+
+ eX ecute run case             I nitialize variables     
+
+  G eometry plot               T refftz Plane plot       
+
+  ST  stability derivatives    FT  total   forces        
+  SB  body-axis derivatives    FN  surface forces        
+  RE  reference quantities     FS  strip   forces        
+  DE  design changes           FE  element forces        
+  O ptions                     FB  body forces           
+                               HM  hinge moments         
+                               VM  strip shear,moment    
+  MRF  machine-readable format CPOM OML surface pressures
+
+ .OPER (case 1/1)   c>  
+Enter filename, or <return> for screen output   s>   Y Symmetry: Wall plane   at Ysym =    0.0000
+
+ Operation of run case 1/1:   -unnamed-                              
+ ==========================================================
+
+  variable          constraint              
+  ------------      ------------------------
+  A lpha        ->  CL          =   1.169         
+  B eta         ->  beta        =   0.000         
+  R oll  rate   ->  pb/2V       =   0.000         
+  P itch rate   ->  qc/2V       =   0.000         
+  Y aw   rate   ->  rb/2V       =   0.000         
+  ------------      ------------------------
+
+  C1  set level or banked  horizontal flight constraints
+  C2  set steady pitch rate (looping) flight constraints
+  M odify parameters                                    
+
+ "#" select  run case          L ist defined run cases   
+  +  add new run case          S ave run cases to file   
+  -  delete  run case          F etch run cases from file
+  N ame current run case       W rite forces to file     
+
+ eX ecute run case             I nitialize variables     
+
+  G eometry plot               T refftz Plane plot       
+
+  ST  stability derivatives    FT  total   forces        
+  SB  body-axis derivatives    FN  surface forces        
+  RE  reference quantities     FS  strip   forces        
+  DE  design changes           FE  element forces        
+  O ptions                     FB  body forces           
+                               HM  hinge moments         
+                               VM  strip shear,moment    
+  MRF  machine-readable format CPOM OML surface pressures
+
+ .OPER (case 1/1)   c>  
+Enter filename, or <return> for screen output   s>  
+ Operation of run case 1/1:   -unnamed-                              
+ ==========================================================
+
+  variable          constraint              
+  ------------      ------------------------
+  A lpha        ->  CL          =   1.169         
+  B eta         ->  beta        =   0.000         
+  R oll  rate   ->  pb/2V       =   0.000         
+  P itch rate   ->  qc/2V       =   0.000         
+  Y aw   rate   ->  rb/2V       =   0.000         
+  ------------      ------------------------
+
+  C1  set level or banked  horizontal flight constraints
+  C2  set steady pitch rate (looping) flight constraints
+  M odify parameters                                    
+
+ "#" select  run case          L ist defined run cases   
+  +  add new run case          S ave run cases to file   
+  -  delete  run case          F etch run cases from file
+  N ame current run case       W rite forces to file     
+
+ eX ecute run case             I nitialize variables     
+
+  G eometry plot               T refftz Plane plot       
+
+  ST  stability derivatives    FT  total   forces        
+  SB  body-axis derivatives    FN  surface forces        
+  RE  reference quantities     FS  strip   forces        
+  DE  design changes           FE  element forces        
+  O ptions                     FB  body forces           
+                               HM  hinge moments         
+                               VM  strip shear,moment    
+  MRF  machine-readable format CPOM OML surface pressures
+
+ .OPER (case 1/1)   c>  
+ AVL   c>  
