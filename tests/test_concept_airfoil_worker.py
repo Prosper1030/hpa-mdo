@@ -628,6 +628,23 @@ def test_worker_cache_key_separates_explicit_alpha_sweep_grid(tmp_path):
     assert worker.cache_key(coarse) != worker.cache_key(refined)
 
 
+def test_worker_cache_key_separates_full_sweep_stop_policy(tmp_path):
+    worker = JuliaXFoilWorker(project_dir=tmp_path, cache_dir=tmp_path / "cache")
+
+    full_tail = _sample_query(
+        analysis_mode="full_alpha_sweep",
+        analysis_stage="phase6_full_polar",
+        stop_after_clmax=False,
+    )
+    prestall_stop = _sample_query(
+        analysis_mode="full_alpha_sweep",
+        analysis_stage="phase6_full_polar",
+        stop_after_clmax=True,
+    )
+
+    assert worker.cache_key(full_tail) != worker.cache_key(prestall_stop)
+
+
 def test_worker_cache_key_ignores_template_id_for_physically_identical_query(tmp_path):
     worker = JuliaXFoilWorker(
         project_dir=tmp_path / "repo",
@@ -982,6 +999,8 @@ def test_worker_resolves_worker_path_from_repo_root_or_worker_dir(
             "geometry_hash": query.geometry_hash,
             "analysis_mode": "full_alpha_sweep",
             "analysis_stage": "screening",
+            "stop_after_clmax": False,
+            "stop_after_clmin": False,
             "status": "ok",
             "polar_points": [
                 {

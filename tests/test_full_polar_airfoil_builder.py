@@ -273,6 +273,69 @@ def test_full_polar_builder_resume_skips_completed_manifest_candidate(tmp_path: 
     assert second.stdout.count("[full-polar] skipping completed cst_tip_resume") == 1
 
 
+def test_real_full_polar_queries_stop_after_clmax_to_avoid_poststall_grind(
+    tmp_path: Path,
+) -> None:
+    module = _load_full_polar_builder_module()
+    coordinate_path = tmp_path / "cst_tip_fast_stop.dat"
+    coordinate_path.write_text("cst_tip_fast_stop\n1.0 0.0\n0.0 0.0\n1.0 0.0\n", encoding="utf-8")
+    candidate = module.Candidate(
+        airfoil_id="cst_tip_fast_stop",
+        name="cst_tip_fast_stop",
+        zone_origin="tip",
+        coordinate_path=coordinate_path,
+        screening_source_quality="target_cl_screening_pass",
+        source="unit-test",
+        thickness_ratio=0.12,
+        max_camber=0.03,
+        cm_design=-0.04,
+        safe_clmax_screening=1.2,
+        usable_clmax_screening=1.4,
+    )
+    state = module.BuildState(
+        records=[],
+        polar_rows=[],
+        quality_rows=[],
+        coverage_rows=[],
+        gap_rows=[],
+        record_reports={},
+    )
+    captured_queries = []
+
+    class CapturingWorker:
+        backend_name = "julia_xfoil_test_double"
+
+        def run_queries(self, queries):
+            captured_queries.extend(queries)
+            return [module._dry_run_full_polar_result(query) for query in queries]
+
+    module._evaluate_candidate(
+        candidate=candidate,
+        zone_envelopes={
+            "tip": {
+                "re_min": 250000.0,
+                "re_p50": 300000.0,
+                "re_max": 350000.0,
+                "cl_min": 0.2,
+                "cl_p50": 0.5,
+                "cl_p90": 0.8,
+                "cl_max": 0.8,
+            }
+        },
+        roughness_modes=("clean",),
+        alpha_samples=(-6.0, -5.5, -5.0),
+        backend="julia",
+        worker=CapturingWorker(),
+        xfoil_max_iter=40,
+        panel_count=96,
+        convergence_threshold=0.8,
+        state=state,
+    )
+
+    assert captured_queries
+    assert all(getattr(query, "stop_after_clmax", None) is True for query in captured_queries)
+
+
 def test_lightweight_checkpoint_is_resume_safe_without_heavy_rank_outputs(
     tmp_path: Path,
 ) -> None:

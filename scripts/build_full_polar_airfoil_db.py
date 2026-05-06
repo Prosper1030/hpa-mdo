@@ -543,6 +543,7 @@ def _evaluate_candidate(
             analysis_mode="full_alpha_sweep",
             analysis_stage="phase6_full_polar",
             alpha_samples=tuple(alpha_samples),
+            stop_after_clmax=True,
         )
         for roughness_mode in roughness_modes
         for re_value in re_grid
@@ -620,6 +621,8 @@ def _evaluate_candidate(
         "re_grid": re_grid,
         "cl_work_points": cl_samples,
         "roughness_modes": list(roughness_modes),
+        "full_alpha_stop_after_clmax": True,
+        "full_alpha_stop_after_clmin": False,
         "xfoil_max_iter": int(xfoil_max_iter),
         "panel_count": int(panel_count),
     }
@@ -762,6 +765,8 @@ def _dry_run_full_polar_result(query: PolarQuery) -> dict[str, Any]:
         "geometry_hash": query.geometry_hash,
         "analysis_mode": query.analysis_mode,
         "analysis_stage": query.analysis_stage,
+        "stop_after_clmax": bool(query.stop_after_clmax),
+        "stop_after_clmin": bool(query.stop_after_clmin),
         "status": "dry_run_ok",
         "polar_points": polar_points,
         "full_polar_points": full_points,

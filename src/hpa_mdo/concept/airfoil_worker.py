@@ -12,7 +12,7 @@ import select
 import subprocess
 from uuid import uuid4
 
-_CACHE_SCHEMA_VERSION = 5
+_CACHE_SCHEMA_VERSION = 6
 _SUCCESS_STATUSES = frozenset({"ok", "stubbed_ok", "mini_sweep_fallback"})
 _NEGATIVE_CACHE_STATUSES = frozenset({"analysis_failed"})
 _CACHEABLE_STATUSES = _SUCCESS_STATUSES | _NEGATIVE_CACHE_STATUSES
@@ -31,6 +31,8 @@ class PolarQuery:
     analysis_mode: str = "full_alpha_sweep"
     analysis_stage: str = "screening"
     alpha_samples: tuple[float, ...] = ()
+    stop_after_clmax: bool = False
+    stop_after_clmin: bool = False
 
 
 def _normalize_coordinates(
@@ -108,6 +110,8 @@ class JuliaXFoilWorker:
             "geometry_hash": self._validated_geometry_hash(query),
             "analysis_mode": query.analysis_mode,
             "analysis_stage": query.analysis_stage,
+            "stop_after_clmax": bool(query.stop_after_clmax),
+            "stop_after_clmin": bool(query.stop_after_clmin),
             "xfoil_max_iter": self._xfoil_max_iter,
             "xfoil_panel_count": self._xfoil_panel_count,
         }
@@ -183,7 +187,7 @@ class JuliaXFoilWorker:
     def _query_identity(
         self,
         query: PolarQuery,
-    ) -> tuple[str, float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
+    ) -> tuple[object, ...]:
         return (
             query.template_id,
             *self._physical_query_identity(query),
@@ -192,7 +196,7 @@ class JuliaXFoilWorker:
     def _physical_query_identity(
         self,
         query: PolarQuery,
-    ) -> tuple[float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
+    ) -> tuple[object, ...]:
         return (
             float(query.reynolds),
             tuple(float(value) for value in query.cl_samples),
@@ -201,12 +205,14 @@ class JuliaXFoilWorker:
             self._validated_geometry_hash(query),
             query.analysis_mode,
             query.analysis_stage,
+            bool(query.stop_after_clmax),
+            bool(query.stop_after_clmin),
         )
 
     def _result_identity(
         self,
         result: dict[str, object],
-    ) -> tuple[str, float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
+    ) -> tuple[object, ...]:
         return (
             self._result_template_id(result),
             *self._physical_result_identity(result),
@@ -230,7 +236,7 @@ class JuliaXFoilWorker:
     def _physical_result_identity(
         self,
         result: dict[str, object],
-    ) -> tuple[float, tuple[float, ...], tuple[float, ...], str, str, str, str]:
+    ) -> tuple[object, ...]:
         reynolds = result.get("reynolds")
         cl_samples = result.get("cl_samples")
         alpha_samples = result.get("alpha_samples", [])
@@ -238,6 +244,8 @@ class JuliaXFoilWorker:
         geometry_hash = result.get("geometry_hash")
         analysis_mode = result.get("analysis_mode", "full_alpha_sweep")
         analysis_stage = result.get("analysis_stage", "screening")
+        stop_after_clmax = result.get("stop_after_clmax", False)
+        stop_after_clmin = result.get("stop_after_clmin", False)
         if not isinstance(roughness_mode, str):
             raise RuntimeError("Julia XFoil worker response is missing a valid roughness_mode.")
         if not isinstance(geometry_hash, str):
@@ -256,6 +264,8 @@ class JuliaXFoilWorker:
             geometry_hash,
             analysis_mode,
             analysis_stage,
+            bool(stop_after_clmax),
+            bool(stop_after_clmin),
         )
 
     def _load_cached_result(self, query: PolarQuery) -> dict[str, object] | None:
@@ -319,6 +329,8 @@ class JuliaXFoilWorker:
         materialized["geometry_hash"] = self._validated_geometry_hash(query)
         materialized["analysis_mode"] = query.analysis_mode
         materialized["analysis_stage"] = query.analysis_stage
+        materialized["stop_after_clmax"] = bool(query.stop_after_clmax)
+        materialized["stop_after_clmin"] = bool(query.stop_after_clmin)
         return materialized
 
     def _build_scratch_paths(self) -> tuple[Path, Path]:
@@ -411,6 +423,8 @@ class JuliaXFoilWorker:
                 "geometry_hash": self._validated_geometry_hash(query),
                 "analysis_mode": query.analysis_mode,
                 "analysis_stage": query.analysis_stage,
+                "stop_after_clmax": bool(query.stop_after_clmax),
+                "stop_after_clmin": bool(query.stop_after_clmin),
                 "status": "analysis_failed",
                 "polar_points": [],
                 "error": error,

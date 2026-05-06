@@ -517,6 +517,50 @@ function build_sweep_summary(alpha_deg, cl, cd, cdp, cm, converged)
 end
 
 
+function trim_clmax_stopped_tail(alpha_deg, cl, cd, cdp, cm, converged; stop_after_clmax::Bool)
+    summary = Dict(
+        "stopped_after_clmax" => false,
+        "skipped_poststall_alpha_count" => 0,
+    )
+    if !stop_after_clmax
+        return alpha_deg, cl, cd, cdp, cm, converged, summary
+    end
+
+    converged_indices = findall(converged)
+    if length(converged_indices) < 4
+        return alpha_deg, cl, cd, cdp, cm, converged, summary
+    end
+
+    last_converged_index = converged_indices[end]
+    if last_converged_index == lastindex(alpha_deg)
+        return alpha_deg, cl, cd, cdp, cm, converged, summary
+    end
+
+    clconv = Float64[Float64(cl[index]) for index in converged_indices]
+    likely_clmax_stop =
+        isfinite(clconv[end]) &&
+        isfinite(clconv[end - 1]) &&
+        isfinite(clconv[end - 2]) &&
+        clconv[end] < clconv[end - 1] &&
+        clconv[end - 1] < clconv[end - 2]
+    if !likely_clmax_stop
+        return alpha_deg, cl, cd, cdp, cm, converged, summary
+    end
+
+    summary["stopped_after_clmax"] = true
+    summary["skipped_poststall_alpha_count"] = Int(length(alpha_deg) - last_converged_index)
+    return (
+        alpha_deg[1:last_converged_index],
+        cl[1:last_converged_index],
+        cd[1:last_converged_index],
+        cdp[1:last_converged_index],
+        cm[1:last_converged_index],
+        converged[1:last_converged_index],
+        summary,
+    )
+end
+
+
 function analyze_query_target_cl(query)
     template_id = String(query["template_id"])
     reynolds = Float64(query["reynolds"])
@@ -527,6 +571,8 @@ function analyze_query_target_cl(query)
     analysis_stage = String(get(query, "analysis_stage", "screening"))
     xfoil_max_iter = Int(get(query, "xfoil_max_iter", 60))
     xfoil_panel_count = Int(get(query, "xfoil_panel_count", 120))
+    stop_after_clmax = Bool(get(query, "stop_after_clmax", false))
+    stop_after_clmin = Bool(get(query, "stop_after_clmin", false))
     x, y = parse_coordinates(query["coordinates"])
     controls = roughness_controls(roughness_mode)
 
@@ -558,6 +604,8 @@ function analyze_query_target_cl(query)
         "geometry_hash" => geometry_hash,
         "analysis_mode" => analysis_mode,
         "analysis_stage" => analysis_stage,
+        "stop_after_clmax" => stop_after_clmax,
+        "stop_after_clmin" => stop_after_clmin,
         "status" => status,
         "polar_points" => target_points,
         "screening_summary" => screening_result_summary,
@@ -579,14 +627,16 @@ function analyze_query_full_sweep(query)
     analysis_stage = String(get(query, "analysis_stage", "screening"))
     xfoil_max_iter = Int(get(query, "xfoil_max_iter", 60))
     xfoil_panel_count = Int(get(query, "xfoil_panel_count", 120))
+    stop_after_clmax = Bool(get(query, "stop_after_clmax", false))
+    stop_after_clmin = Bool(get(query, "stop_after_clmin", false))
     x, y = parse_coordinates(query["coordinates"])
-    alpha = query_alpha_grid(query, cl_samples)
+    requested_alpha = query_alpha_grid(query, cl_samples)
     controls = roughness_controls(roughness_mode)
 
     cl, cd, cdp, cm, converged = Xfoil.alpha_sweep(
         x,
         y,
-        alpha,
+        requested_alpha,
         reynolds;
         mach = 0.0,
         iter = xfoil_max_iter,
@@ -595,15 +645,30 @@ function analyze_query_full_sweep(query)
         percussive_maintenance = true,
         printdata = false,
         zeroinit = true,
-        clmaxstop = false,
-        clminstop = false,
+        clmaxstop = stop_after_clmax,
+        clminstop = stop_after_clmin,
         ncrit = controls.ncrit,
         xtrip = controls.xtrip,
     )
 
+    alpha, cl, cd, cdp, cm, converged, stop_summary = trim_clmax_stopped_tail(
+        requested_alpha,
+        cl,
+        cd,
+        cdp,
+        cm,
+        converged;
+        stop_after_clmax = stop_after_clmax,
+    )
     polar_points = build_polar_points(alpha, cl, cd, cdp, cm, converged, cl_samples)
     full_polar_points = build_full_polar_points(alpha, cl, cd, cdp, cm, converged)
     sweep_summary = build_sweep_summary(alpha, cl, cd, cdp, cm, converged)
+    sweep_summary["requested_alpha_count"] = Int(length(requested_alpha))
+    sweep_summary["evaluated_alpha_count"] = Int(length(alpha))
+    sweep_summary["stop_after_clmax"] = stop_after_clmax
+    sweep_summary["stop_after_clmin"] = stop_after_clmin
+    sweep_summary["stopped_after_clmax"] = Bool(stop_summary["stopped_after_clmax"])
+    sweep_summary["skipped_poststall_alpha_count"] = Int(stop_summary["skipped_poststall_alpha_count"])
     status = any(Bool(point["converged"]) for point in full_polar_points) ? "ok" : "analysis_failed"
 
     return Dict(
@@ -612,10 +677,13 @@ function analyze_query_full_sweep(query)
         "cl_samples" => cl_samples,
         "alpha_samples" => requested_alpha_samples,
         "sweep_alpha_samples" => alpha,
+        "requested_sweep_alpha_samples" => requested_alpha,
         "roughness_mode" => roughness_mode,
         "geometry_hash" => geometry_hash,
         "analysis_mode" => analysis_mode,
         "analysis_stage" => analysis_stage,
+        "stop_after_clmax" => stop_after_clmax,
+        "stop_after_clmin" => stop_after_clmin,
         "status" => status,
         "polar_points" => polar_points,
         "full_polar_points" => full_polar_points,
