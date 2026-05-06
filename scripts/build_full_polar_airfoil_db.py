@@ -113,6 +113,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     alpha_samples = _float_range(float(args.alpha_min_deg), float(args.alpha_max_deg), float(args.alpha_step_deg))
     roughness_modes = _parse_csv_arg(args.roughness_modes)
+    checkpoint_every = max(1, int(args.checkpoint_every))
     backend = "dry_run" if args.dry_run else str(args.backend)
     worker: JuliaXFoilWorker | None = None
     if backend == "julia":
@@ -139,6 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "candidate_manifest_csv": str(args.candidate_manifest_csv or ""),
         "manifest_tier_flag": str(args.manifest_tier_flag),
         "resume": bool(args.resume),
+        "checkpoint_every": checkpoint_every,
         "roughness_modes": roughness_modes,
         "alpha_samples": alpha_samples,
         "args": vars(args),
@@ -184,7 +186,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     state=state,
                 )
             completed_airfoil_ids.add(candidate.airfoil_id)
-            _write_artifacts(state=state, output_dir=output_dir, args=args, zone_envelopes=zone_envelopes)
+            if index % checkpoint_every == 0 or index == len(candidates):
+                _write_artifacts(state=state, output_dir=output_dir, args=args, zone_envelopes=zone_envelopes)
     finally:
         if worker is not None:
             worker.close()
@@ -224,6 +227,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--panel-count", type=int, default=96)
     parser.add_argument("--julia-worker-count", type=int, default=4)
     parser.add_argument("--convergence-pass-rate-threshold", type=float, default=0.80)
+    parser.add_argument("--checkpoint-every", type=int, default=1)
     parser.add_argument("--no-seed-airfoils", action="store_true")
     return parser.parse_args(argv)
 
