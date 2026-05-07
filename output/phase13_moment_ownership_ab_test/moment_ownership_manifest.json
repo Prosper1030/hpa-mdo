@@ -1,0 +1,12 @@
+{
+  "generated_by": "/Volumes/Samsung SSD/hpa-mdo/scripts/phase13_moment_ownership_ab_test.py",
+  "target_z_m": 2.0,
+  "target_recipe_id": "4a5b3187fd18",
+  "target_recipe_signature": "baseline_uniform|1.000000,1.000000,1.000000,1.000000,0.005000",
+  "outputs": {
+    "moment_ownership_modes": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_ownership_ab_test/moment_ownership_modes.csv",
+    "moment_axis_breakdown": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_ownership_ab_test/moment_axis_breakdown.csv",
+    "torque_ownership_diagnosis": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_ownership_ab_test/torque_ownership_diagnosis.md",
+    "recommended_moment_closure_definition": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_ownership_ab_test/recommended_moment_closure_definition.md"
+  }
+}
