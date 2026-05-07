@@ -10,6 +10,9 @@
 
 ## 已完成任務
 
+### Phase 14 — CalculiX structural parity
+- `phase14_calculix_parity_round3_goal.md` ✅ B2/B4/B5 structural diagnosis and trust-policy update (`dd8f3ba` / `b570603` / `0b93503` / `bddb736` / `5dbf0b4`)
+
 ### Milestone 4（Design Fidelity）
 - `F10_lift_wire_compression.md` ✅ `0dd1275` wire precompression, angle=11.3°
 - `F11_discrete_od_postprocessing.md` ✅ `fe64842` tube_catalog 12–120mm, snap-up
@@ -24,7 +27,7 @@
 
 | 順序 | 任務 | 預估工時 | 前置條件 |
 |-----|------|---------|---------|
-| 0 | `phase14_calculix_parity_round3_goal.md`: Mac-local CalculiX beam parity Round 3（B2/B4/B5 結構診斷） | 1–4 h | Phase 14 CalculiX MVP |
+| 0 | `phase14_calculix_b2_b5_solution_hunt_goal.md`: B2/B5 solution-hunt（taper truth route + torque observable） | 2–4 h | Phase 14 Round 3 |
 | 1 | M4-4f: dual-spar adequacy spot-check（非 gate） | 2–4 h | 4e PASS |
 | 2 | 多工況 4G 雙重計算修正 | 2 h | 無 |
 | 3 | II-2: tube_catalog 強化 | 3–4 h | 無 |
