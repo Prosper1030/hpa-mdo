@@ -1,0 +1,40 @@
+{
+  "case_id": "policy_C_conservative_baseline",
+  "display_name": "Policy C / E conservative baseline",
+  "fit": {
+    "area_error_pct": 0.0,
+    "fit_method": "smooth_area_matching_power_law",
+    "fitted_area_m2": 33.42005846896623,
+    "power_law_exponent": 0.8602519771769082,
+    "root_chord_preserved": true,
+    "target_area_m2": 33.42005846896623,
+    "tip_chord_preserved": true
+  },
+  "generated_at": "2026-05-07T03:46:39.787365Z",
+  "known_limitations": [
+    "Smooth planform is a sidecar production study only.",
+    "No production ranking or hard gate was changed.",
+    "Power-law fit preserves root/tip chords and area; MAC delta is reported separately."
+  ],
+  "preserved": {
+    "airfoil_zone_assignment": true,
+    "loaded_z_distribution": true,
+    "relative_twist_distribution": true,
+    "span": true
+  },
+  "schema_version": "phase9_smooth_monotone_geometry_manifest_v1",
+  "section_table": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_structure_jig_smooth_planform/VSP_exports/policy_C_conservative_baseline/smooth_monotone/section_table.csv",
+  "smooth_avl": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_structure_jig_smooth_planform/VSP_exports/policy_C_conservative_baseline/smooth_monotone/policy_C_conservative_baseline_smooth_monotone.avl",
+  "smooth_vsp3": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_structure_jig_smooth_planform/VSP_exports/policy_C_conservative_baseline/smooth_monotone/policy_C_conservative_baseline_smooth_monotone.vsp3",
+  "source_avl": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/monotone_chord/policy_C_conservative_baseline/policy_C_conservative_baseline_monotone_chord.avl",
+  "source_section_table": "/Volumes/Samsung SSD/hpa-mdo/output/geometry_exports/phase7_avl_vsp_parity/monotone_chord/policy_C_conservative_baseline/section_table.csv",
+  "variant": "smooth_monotone",
+  "vsp_export": {
+    "airfoil_errors": [],
+    "airfoil_import_mode": "file_airfoil_imported",
+    "status": "vsp3_written",
+    "vsp3_path": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_structure_jig_smooth_planform/VSP_exports/policy_C_conservative_baseline/smooth_monotone/policy_C_conservative_baseline_smooth_monotone.vsp3",
+    "vsp_uses_airfoil_shapes": true,
+    "vspscript_path": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_structure_jig_smooth_planform/VSP_exports/policy_C_conservative_baseline/smooth_monotone/policy_C_conservative_baseline_smooth_monotone.vspscript"
+  }
+}

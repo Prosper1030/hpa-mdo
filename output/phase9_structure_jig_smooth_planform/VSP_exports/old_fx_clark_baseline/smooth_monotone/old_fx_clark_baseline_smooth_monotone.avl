@@ -1,0 +1,46 @@
+Black Cat 004 Phase9 smooth monotone Phase9 smooth monotone
+#Mach
+0.000000
+#IYsym  iZsym  Zsym
+1  0  0.000000
+#Sref  Cref  Bref
+35.175000000  1.107387333  33.000000000
+#Xref  Yref  Zref
+0.282547441  0.000000000  0.000000000
+#CDp
+0.000000
+#
+SURFACE
+Wing
+16  1.0  24  1.0
+#
+SECTION
+0.000000000  0.000000000  0.000000000  1.300000000  3.000000000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+#
+SECTION
+0.000000000  4.500000000  0.078535829  1.216770998  3.000000000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+#
+SECTION
+0.000000000  7.500000000  0.183234319  1.148491032  3.000000000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+#
+SECTION
+0.000000000  10.500000000  0.340242188  1.062259353  3.000000000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+#
+SECTION
+0.000000000  13.500000000  0.549511609  0.938285868  3.000000000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+#
+SECTION
+0.000000000  16.500000000  0.810978837  0.435000000  3.000000000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/data/airfoils/clarkysm.dat
+#

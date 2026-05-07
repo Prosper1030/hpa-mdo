@@ -1,0 +1,7 @@
+section_index,eta,y_m,z_m,chord_m,twist_deg,dihedral_local_z_slope,dihedral_local_deg,airfoil_id,airfoil_source_quality,airfoil_dat_path
+0,0.0,0.0,0.0,1.3,3.0,,,fx76mp140,unknown,/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+1,0.272727273,4.5,0.078535829,1.2167709975649337,3.0,0.017452406,0.999847726,fx76mp140,unknown,/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+2,0.454545455,7.5,0.183234319,1.148491031855769,3.0,0.034899497,1.998782641,fx76mp140,unknown,/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+3,0.636363636,10.5,0.340242188,1.0622593527444393,3.0,0.052335956,2.995896104,fx76mp140,unknown,/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+4,0.818181818,13.5,0.549511609,0.9382858684436239,3.0,0.069756474,3.990287711,fx76mp140,unknown,/Volumes/Samsung SSD/hpa-mdo/data/airfoils/fx76mp140.dat
+5,1.0,16.5,0.810978837,0.435,3.0,0.087155743,4.981069389,clarkysm,unknown,/Volumes/Samsung SSD/hpa-mdo/data/airfoils/clarkysm.dat

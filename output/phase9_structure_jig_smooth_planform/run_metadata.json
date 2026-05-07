@@ -1,0 +1,23 @@
+{
+  "cases": [
+    "raw_best_tier2",
+    "conservative_best_tier2",
+    "policy_A_performance_candidate",
+    "policy_C_conservative_baseline",
+    "old_fx_clark_baseline"
+  ],
+  "generated_at": "2026-05-07T03:47:01.466025Z",
+  "notes": [
+    "Diagnostic sidecar only; no production ranking or hard gates changed.",
+    "Smooth monotone VSP/AVL files are written under VSP_exports.",
+    "Structure/jig and carbon tube rows are proxy estimates and are not structure-grade."
+  ],
+  "output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_structure_jig_smooth_planform",
+  "schema_version": "phase9_structure_jig_smooth_planform_v1",
+  "variant_count": 15,
+  "verification_targets": [
+    "CSVs parse",
+    "smooth_monotone VSP files exist when OpenVSP is available",
+    "production ranking and hard gates unchanged"
+  ]
+}
