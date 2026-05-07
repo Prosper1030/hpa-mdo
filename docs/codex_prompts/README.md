@@ -24,6 +24,7 @@
 
 | 順序 | 任務 | 預估工時 | 前置條件 |
 |-----|------|---------|---------|
+| 0 | `phase14_calculix_parity_round3_goal.md`: Mac-local CalculiX beam parity Round 3（B2/B4/B5 結構診斷） | 1–4 h | Phase 14 CalculiX MVP |
 | 1 | M4-4f: dual-spar adequacy spot-check（非 gate） | 2–4 h | 4e PASS |
 | 2 | 多工況 4G 雙重計算修正 | 2 h | 無 |
 | 3 | II-2: tube_catalog 強化 | 3–4 h | 無 |
