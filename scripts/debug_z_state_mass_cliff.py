@@ -75,6 +75,91 @@ def _join(values: Iterable[Any]) -> str:
     return "|".join(str(value) for value in values)
 
 
+def _get_attr_path(obj: Any, path: tuple[str, ...], default: Any = "") -> Any:
+    current = obj
+    for name in path:
+        if current is None:
+            return default
+        current = getattr(current, name, default)
+        if current is default:
+            return default
+    return current
+
+
+def _bool_or_none(value: Any) -> bool | None:
+    if value == "":
+        return None
+    if value is None:
+        return None
+    return bool(value)
+
+
+def feasibility_labels_from_candidate(candidate: Any) -> dict[str, bool]:
+    """Return explicit Phase-13 feasibility labels for one inverse-design candidate.
+
+    `candidate.overall_feasible` is the inverse-jig feasibility signal in the
+    current workflow.  It must not be read as production structural feasibility
+    because production numerical consistency, wire validity, and moment closure
+    live on the dual-beam production result.
+    """
+
+    inverse_feasible = bool(getattr(candidate, "overall_feasible", False))
+    inverse_result = getattr(candidate, "inverse_result", None)
+    production_result = getattr(candidate, "production_result", None)
+
+    clearance_from_inverse = _bool_or_none(
+        _get_attr_path(inverse_result, ("feasibility", "ground_clearance_passed"))
+    )
+    if clearance_from_inverse is None:
+        clearance_from_inverse = _bool_or_none(_get_attr_path(inverse_result, ("ground_clearance", "passed")))
+    if clearance_from_inverse is None:
+        clearance_from_inverse = bool(float(getattr(candidate, "jig_ground_clearance_margin_m", -math.inf)) >= 0.0)
+
+    geometry_from_inverse = _bool_or_none(
+        _get_attr_path(inverse_result, ("feasibility", "geometry_validity_passed"))
+    )
+    geometry_from_candidate = bool(getattr(candidate, "geometry_validity_succeeded", False))
+    geometry_validity = geometry_from_candidate if geometry_from_inverse is None else bool(
+        geometry_from_candidate and geometry_from_inverse
+    )
+
+    wire_feasible = _bool_or_none(
+        _get_attr_path(production_result, ("feasibility", "wire_support_validity_passed"))
+    )
+    if wire_feasible is None:
+        wire_tension_only = _bool_or_none(
+            _get_attr_path(production_result, ("recovery", "wire_tension_only_passed"))
+        )
+        wire_tension_limit = _bool_or_none(
+            _get_attr_path(production_result, ("recovery", "wire_tension_limit_passed"))
+        )
+        wire_feasible = bool(wire_tension_only and wire_tension_limit)
+
+    moment_closure_feasible = _bool_or_none(
+        _get_attr_path(
+            production_result,
+            ("optimizer", "numerical_consistency", "moment_closure_passed"),
+        )
+    )
+    if moment_closure_feasible is None:
+        moment_closure_feasible = False
+
+    production_hard_feasible = bool(
+        clearance_from_inverse
+        and wire_feasible
+        and moment_closure_feasible
+        and geometry_validity
+    )
+    return {
+        "inverse_feasible": bool(inverse_feasible),
+        "clearance_feasible": bool(clearance_from_inverse),
+        "wire_feasible": bool(wire_feasible),
+        "moment_closure_feasible": bool(moment_closure_feasible),
+        "geometry_validity": bool(geometry_validity),
+        "production_hard_feasible": bool(production_hard_feasible),
+    }
+
+
 def _tube_section_metrics(radius_m: np.ndarray, wall_m: np.ndarray, *, e_pa: float, g_pa: float) -> dict[str, Any]:
     outer = np.asarray(radius_m, dtype=float)
     wall = np.asarray(wall_m, dtype=float)
@@ -155,6 +240,7 @@ def _candidate_row(
     signature = _signature_for_candidate(candidate)
     reported_signature = _signature_for_candidate(reported_selected)
     best_after_probe_signature = "" if best_after_probes is None else _signature_for_candidate(best_after_probes)
+    feasibility_labels = feasibility_labels_from_candidate(candidate)
     main = _tube_section_metrics(
         candidate.main_r_seg_m,
         candidate.main_t_seg_m,
@@ -264,6 +350,7 @@ def _candidate_row(
         "moment_closure_status": moment_closure_status,
         "moment_closure_residual_nm": _float_or_blank(moment_closure_residual_nm),
         "moment_closure_passed": moment_closure_passed if moment_closure_passed == "" else bool(moment_closure_passed),
+        **feasibility_labels,
         "production_overall_hard_feasible": (
             production_overall_hard_feasible
             if production_overall_hard_feasible == ""
@@ -281,7 +368,7 @@ def _candidate_row(
             else bool(wire_support_validity_passed)
         ),
         "eligible_if_production_hard_failures_counted": bool(
-            candidate.overall_feasible and production_overall_hard_feasible is True
+            feasibility_labels["inverse_feasible"] and feasibility_labels["production_hard_feasible"]
         ),
         "geometry_validity_status": geometry_validity_status,
         "analysis_succeeded": bool(candidate.analysis_succeeded),
@@ -326,7 +413,7 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
                 keys.append(key)
                 seen.add(key)
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=keys)
+        writer = csv.DictWriter(handle, fieldnames=keys, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
@@ -338,6 +425,7 @@ def _load_case_setup(
     candidate_artifact: Path,
     target_shape_z_scale: float,
     dihedral_exponent: float,
+    contract_output_root: Path | None = None,
 ) -> dict[str, Any]:
     cfg = load_config(config_path)
     specimen_metrics = parse_baseline_metrics(design_report)
@@ -352,7 +440,7 @@ def _load_case_setup(
     aero_cases, cruise_case, mapped_loads, aero_contract = inv._resolve_outer_loop_candidate_aero(
         cfg=cfg,
         aircraft=aircraft,
-        output_dir=DEFAULT_OUTPUT_DIR / "tmp_aero_contract" / candidate_artifact.stem,
+        output_dir=(contract_output_root or (DEFAULT_OUTPUT_DIR / "tmp_aero_contract")) / candidate_artifact.stem,
         target_shape_z_scale=target_shape_z_scale,
         dihedral_exponent=dihedral_exponent,
         aero_source_mode=inv.CANDIDATE_AVL_SPANWISE_AERO_SOURCE_MODE,

@@ -1,0 +1,22 @@
+{
+  "generated_by": "/Volumes/Samsung SSD/hpa-mdo/scripts/phase13_structure_selector_fix.py",
+  "z_values_m": [
+    1.8,
+    1.9,
+    2.0,
+    2.025,
+    2.05,
+    2.1,
+    2.2,
+    2.4,
+    2.7
+  ],
+  "recipe_vector_count": 226,
+  "outputs": {
+    "feasibility_logic_report": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_structure_selector_fix/feasibility_logic_report.md",
+    "recipe_grid_gap_report": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_structure_selector_fix/recipe_grid_gap_report.csv",
+    "refined_z_sweep": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_structure_selector_fix/refined_z_sweep.csv",
+    "selected_recipe_trace": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_structure_selector_fix/selected_recipe_trace.csv",
+    "recommended_next_action": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_structure_selector_fix/recommended_next_action.md"
+  }
+}
