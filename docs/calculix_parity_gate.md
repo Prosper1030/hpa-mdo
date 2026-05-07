@@ -60,12 +60,29 @@ Current Mac-local evidence from the CalculiX beam parity runner:
 - B4 vertical-wire now has trustworthy corrected reaction bookkeeping for the current APDL-style `UZ = 0` surrogate: the missing force was the rear linked wire-station node carried through the MPC, and the corrected root/wire reactions close equilibrium once constrained-node loads are added back. This does not make it a tension-only cable truth model; it makes it a defensible linear surrogate for this rung.
 - B5 is no longer blocked by lack of a CalculiX torque observable. The round-4 solution hunt shows that `*EL FILE, SECTION FORCES` cleanly exposes direct `main_beam_my_about_main_spar` beam-axis torque ownership, while the `front_rear_vertical_couple` case still behaves like a separate bending/shear surrogate in this linked dual-beam topology. So B5 remains warning-level as one blended parity gate, but direct `MY` is now auditable through section forces.
 
+## Phase 14 Mac-Local Shell Hardening Readout
+
+Current hardening artifacts are under `output/phase14_dual_beam_calibration/maclocal_fem_hardening/`.
+
+- Constant tube shell bending is stable but warning-grade, not a strict truth gate. The fine structured-S4 tip-load case gives `UZ = -0.911266 m` versus closed-form `-0.982509 m` (`7.251%` error); the fine uniform-load case gives `UZ = -0.346407 m` versus `-0.368441 m` (`5.980%` error).
+- Constant tube shell torsion is also warning-grade. The fine structured-S4 ring-torque case gives `theta = 0.0434057 rad` versus `T L / GJ = 0.0467920 rad` (`7.237%` error), with tight mesh movement but a persistent stiffness bias.
+- B5 shell torsion is improved but still diagnostic: the legacy Gmsh triangular shell route remains bad at about `76.849%` theta error, while the structured-S4 end-ring tangential route is about `7.237%` error on the fine mesh.
+- B2 tapered shell is now useful as a bounded diagnostic. The structured-S4 root-ring/tributary-load fine mesh gives `tip UZ = -0.171790 m`, `4.424%` from the internal beam value and `7.069%` from the B32R PIPE value. This does not retire APDL because the constant tube shell ladder did not meet the strict 5% closed-form threshold.
+
+Trust categories for this shell line:
+
+- trusted daily gate: existing CalculiX beam parity and B5 direct-MY section-force torque ownership
+- directional diagnostic: constant shell WARN rows, improved B5 structured-S4 shell torsion, and B2 structured-S4 tapered shell comparison
+- not trustworthy yet: legacy Gmsh triangular B5 shell torsion and any shell value used without mesh/convergence context
+- APDL-required: final B2 tapered truth, final B5 twist/GJ truth, and root-cap/reference-node coupling claims
+
 ## Practical Use
 
 Run:
 
 ```bash
 ./.venv/bin/python -m pytest tests/test_hifi_calculix_runner.py tests/test_phase14_calculix_solution_hunt.py tests/test_phase14_calculix_beam_export.py tests/test_phase14_calculix_beam_benchmarks.py -q
+./.venv/bin/python scripts/phase14_maclocal_fem_package.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration --task hardening
 ./.venv/bin/python scripts/phase14_calculix_beam_benchmarks.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration/round4_benchmarks
 ./.venv/bin/python scripts/phase14_calculix_solution_hunt.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration --task b2
 ./.venv/bin/python scripts/phase14_calculix_solution_hunt.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration --task b5
@@ -90,6 +107,11 @@ Expected artifacts:
 - `output/phase14_dual_beam_calibration/b5_single_beam_torsion_probe.md`
 - `output/phase14_dual_beam_calibration/b5_solution_hunt.csv`
 - `output/phase14_dual_beam_calibration/b5_solution_hunt.md`
+- `output/phase14_dual_beam_calibration/maclocal_fem_hardening/constant_tube_bending.csv`
+- `output/phase14_dual_beam_calibration/maclocal_fem_hardening/constant_tube_torsion.csv`
+- `output/phase14_dual_beam_calibration/maclocal_fem_hardening/b5_shell_torsion_hardening.csv`
+- `output/phase14_dual_beam_calibration/maclocal_fem_hardening/b2_tapered_shell_hardening.csv`
+- `output/phase14_dual_beam_calibration/maclocal_fem_hardening/overnight_summary.md`
 - `output/phase14_dual_beam_calibration/apdl_truth_decks/*.apdl`
 - `output/phase14_dual_beam_calibration/round4_solution_hunt_summary.md`
 
