@@ -1,0 +1,21 @@
+{
+  "case_ids": [
+    "raw_best_tier2",
+    "conservative_best_tier2",
+    "policy_A_performance_candidate",
+    "policy_C_conservative_baseline"
+  ],
+  "combo_rows": 240,
+  "combos_per_case": 60,
+  "generated_at": "2026-05-07T04:48:40.991061Z",
+  "max_combos_total": 240,
+  "notes": [
+    "Diagnostic sidecar only.",
+    "No CST/NSGA rerun.",
+    "No production hard gates or main ranking changed.",
+    "Phase 9 outputs are read-only inputs and are not deleted."
+  ],
+  "ok_combo_rows": 240,
+  "output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_smooth_geometry_combo_reoptimization",
+  "schema_version": "phase9_smooth_geometry_combo_reoptimization_v1"
+}
