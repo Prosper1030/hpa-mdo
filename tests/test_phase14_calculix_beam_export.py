@@ -41,7 +41,7 @@ def test_write_single_pipe_cantilever_includes_pipe_sections_boundary_and_loads(
     deck = write_calculix_beam_inp(spec, tmp_path / "b1_tip_load.inp")
     text = deck.inp_path.read_text(encoding="utf-8")
 
-    assert "*ELEMENT, TYPE=B31" in text
+    assert "*ELEMENT, TYPE=B32R" in text
     assert "*MATERIAL, NAME=MAIN" in text
     assert "*BEAM SECTION,ELSET=MAIN_E1,MATERIAL=MAIN,SECTION=PIPE" in text
     assert "*BOUNDARY" in text
@@ -50,7 +50,7 @@ def test_write_single_pipe_cantilever_includes_pipe_sections_boundary_and_loads(
     assert f"{deck.node_sets['TIP_MAIN'][0]}, 3, -100" in text
     assert "*NODE PRINT, NSET=HPA_SUPPORT_ALL, TOTALS=ONLY" in text
     assert deck.node_sets["ROOT_MAIN"] == (1,)
-    assert deck.node_sets["TIP_MAIN"] == (len(y_nodes_m),)
+    assert deck.node_sets["TIP_MAIN"] == (2 * len(y_nodes_m) - 1,)
 
 
 def test_write_dual_pipe_deck_includes_link_equations_and_wire_vertical_support(
@@ -98,7 +98,7 @@ def test_write_dual_pipe_deck_includes_link_equations_and_wire_vertical_support(
     deck = write_calculix_beam_inp(spec, tmp_path / "b4_vertical_wire.inp")
     text = deck.inp_path.read_text(encoding="utf-8")
 
-    assert "*ELEMENT, TYPE=B31" in text
+    assert "*ELEMENT, TYPE=B32R" in text
     assert "*BEAM SECTION,ELSET=MAIN_E1,MATERIAL=MAIN,SECTION=PIPE" in text
     assert "*BEAM SECTION,ELSET=REAR_E1,MATERIAL=REAR,SECTION=PIPE" in text
     assert "*EQUATION" in text
@@ -106,9 +106,11 @@ def test_write_dual_pipe_deck_includes_link_equations_and_wire_vertical_support(
     assert "*NODE PRINT, NSET=HPA_SUPPORT_WIRE, TOTALS=ONLY" in text
     wire_node = deck.node_sets["WIRE_MAIN"][0]
     assert f"{wire_node}, 3, 3, 0.0" in text
+    rear_wire_node = deck.node_sets["ROOT_REAR"][0] + 2 * 4
+    assert f"{rear_wire_node}, 3, 1.0, {wire_node}, 3, -1.0" in text
     assert "HPA_SUPPORT_ALL" in deck.node_sets
     assert deck.node_sets["ROOT_MAIN"] == (1,)
-    assert deck.node_sets["ROOT_REAR"] == (len(y_nodes_m) + 1,)
+    assert deck.node_sets["ROOT_REAR"] == (2 * len(y_nodes_m),)
 
 
 def test_parse_total_force_from_dat_reads_named_set_totals(tmp_path: Path) -> None:

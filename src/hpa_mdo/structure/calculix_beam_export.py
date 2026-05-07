@@ -201,12 +201,20 @@ def _single_beam_text(
     spec: SinglePipeCantileverSpec,
 ) -> tuple[str, dict[str, tuple[int, ...]]]:
     nn = spec.y_nodes_m.size
+    main_topology = _quadratic_chain_topology(
+        x_nodes_m=np.zeros(nn, dtype=float),
+        y_nodes_m=spec.y_nodes_m,
+        z_nodes_m=np.zeros(nn, dtype=float),
+        start_node_id=1,
+    )
     node_sets: dict[str, tuple[int, ...]] = {
-        "ROOT_MAIN": (1,),
-        "TIP_MAIN": (nn,),
+        "ROOT_MAIN": (main_topology.endpoint_node_ids[0],),
+        "TIP_MAIN": (main_topology.endpoint_node_ids[-1],),
     }
     if spec.wire_node_indices:
-        node_sets["WIRE_MAIN"] = tuple(idx + 1 for idx in spec.wire_node_indices)
+        node_sets["WIRE_MAIN"] = tuple(
+            main_topology.endpoint_node_ids[int(idx)] for idx in spec.wire_node_indices
+        )
     node_sets["HPA_SUPPORT_ROOT"] = node_sets["ROOT_MAIN"]
     node_sets["HPA_SUPPORT_ALL"] = tuple(
         sorted({*node_sets["ROOT_MAIN"], *node_sets.get("WIRE_MAIN", ())})
@@ -218,16 +226,13 @@ def _single_beam_text(
         f"** Phase 14 beam deck: {spec.name}",
         "*NODE",
     ]
-    for idx, y_coord_m in enumerate(spec.y_nodes_m, start=1):
-        lines.append(f"{idx}, 0.0, {y_coord_m:.9g}, 0.0")
+    lines.extend(main_topology.node_lines)
 
-    for elem_index in range(nn - 1):
-        node_i = elem_index + 1
-        node_j = elem_index + 2
+    for elem_index, (node_i, node_mid, node_j) in enumerate(main_topology.element_connectivity, start=1):
         lines.extend(
             [
-                f"*ELEMENT, TYPE=B31, ELSET=MAIN_E{elem_index + 1}",
-                f"{elem_index + 1}, {node_i}, {node_j}",
+                f"*ELEMENT, TYPE=B32R, ELSET=MAIN_E{elem_index}",
+                f"{elem_index}, {node_i}, {node_mid}, {node_j}",
             ]
         )
 
@@ -246,29 +251,30 @@ def _single_beam_text(
         )
 
     lines.append("*BOUNDARY")
-    lines.append("1, 1, 6")
+    lines.append(f"{node_sets['ROOT_MAIN'][0]}, 1, 6")
     for node_id in node_sets.get("WIRE_MAIN", ()):
         lines.append(f"{node_id}, 3, 3, 0.0")
 
     lines.extend(
         [
-            "*STEP, NAME=static",
+            "*STEP",
             "*STATIC",
             "1.0, 1.0",
             "*CLOAD",
         ]
     )
-    for node_id, fz_n in enumerate(spec.nodal_fz_n, start=1):
+    for node_id, fz_n in zip(main_topology.endpoint_node_ids, spec.nodal_fz_n, strict=True):
         if abs(float(fz_n)) > 0.0:
             lines.append(f"{node_id}, 3, {float(fz_n):.9g}")
-        my_nm = float(spec.nodal_my_nm[node_id - 1])
+        station_index = main_topology.endpoint_node_ids.index(node_id)
+        my_nm = float(spec.nodal_my_nm[station_index])
         if abs(my_nm) > 0.0:
             lines.append(f"{node_id}, 5, {my_nm:.9g}")
 
     lines.extend(_reaction_output_block(node_sets))
     lines.extend(
         [
-            "*NODE FILE, OUTPUT=3D",
+            "*NODE FILE, OUTPUT=2D",
             "U",
             "*END STEP",
             "",
@@ -281,15 +287,28 @@ def _dual_beam_text(
     spec: DualPipeBenchmarkSpec,
 ) -> tuple[str, dict[str, tuple[int, ...]]]:
     nn = spec.y_nodes_m.size
-    rear_offset = nn
+    main_topology = _quadratic_chain_topology(
+        x_nodes_m=spec.main_x_m,
+        y_nodes_m=spec.y_nodes_m,
+        z_nodes_m=spec.main_z_m,
+        start_node_id=1,
+    )
+    rear_topology = _quadratic_chain_topology(
+        x_nodes_m=spec.rear_x_m,
+        y_nodes_m=spec.y_nodes_m,
+        z_nodes_m=spec.rear_z_m,
+        start_node_id=main_topology.last_node_id + 1,
+    )
     node_sets: dict[str, tuple[int, ...]] = {
-        "ROOT_MAIN": (1,),
-        "TIP_MAIN": (nn,),
-        "ROOT_REAR": (rear_offset + 1,),
-        "TIP_REAR": (rear_offset + nn,),
+        "ROOT_MAIN": (main_topology.endpoint_node_ids[0],),
+        "TIP_MAIN": (main_topology.endpoint_node_ids[-1],),
+        "ROOT_REAR": (rear_topology.endpoint_node_ids[0],),
+        "TIP_REAR": (rear_topology.endpoint_node_ids[-1],),
     }
     if spec.wire_node_indices:
-        node_sets["WIRE_MAIN"] = tuple(idx + 1 for idx in spec.wire_node_indices)
+        node_sets["WIRE_MAIN"] = tuple(
+            main_topology.endpoint_node_ids[int(idx)] for idx in spec.wire_node_indices
+        )
     node_sets["HPA_SUPPORT_ROOT"] = tuple(sorted({*node_sets["ROOT_MAIN"], *node_sets["ROOT_REAR"]}))
     node_sets["HPA_SUPPORT_ALL"] = tuple(
         sorted({*node_sets["HPA_SUPPORT_ROOT"], *node_sets.get("WIRE_MAIN", ())})
@@ -301,33 +320,23 @@ def _dual_beam_text(
         f"** Phase 14 beam deck: {spec.name}",
         "*NODE",
     ]
-    for idx, (x_m, y_m, z_m) in enumerate(
-        zip(spec.main_x_m, spec.y_nodes_m, spec.main_z_m, strict=True),
-        start=1,
-    ):
-        lines.append(f"{idx}, {x_m:.9g}, {y_m:.9g}, {z_m:.9g}")
-    for idx, (x_m, y_m, z_m) in enumerate(
-        zip(spec.rear_x_m, spec.y_nodes_m, spec.rear_z_m, strict=True),
-        start=rear_offset + 1,
-    ):
-        lines.append(f"{idx}, {x_m:.9g}, {y_m:.9g}, {z_m:.9g}")
+    lines.extend(main_topology.node_lines)
+    lines.extend(rear_topology.node_lines)
 
     element_id = 1
-    for elem_index in range(nn - 1):
+    for elem_index, (node_i, node_mid, node_j) in enumerate(main_topology.element_connectivity, start=1):
         lines.extend(
             [
-                f"*ELEMENT, TYPE=B31, ELSET=MAIN_E{elem_index + 1}",
-                f"{element_id}, {elem_index + 1}, {elem_index + 2}",
+                f"*ELEMENT, TYPE=B32R, ELSET=MAIN_E{elem_index}",
+                f"{element_id}, {node_i}, {node_mid}, {node_j}",
             ]
         )
         element_id += 1
-    for elem_index in range(nn - 1):
-        node_i = rear_offset + elem_index + 1
-        node_j = rear_offset + elem_index + 2
+    for elem_index, (node_i, node_mid, node_j) in enumerate(rear_topology.element_connectivity, start=1):
         lines.extend(
             [
-                f"*ELEMENT, TYPE=B31, ELSET=REAR_E{elem_index + 1}",
-                f"{element_id}, {node_i}, {node_j}",
+                f"*ELEMENT, TYPE=B32R, ELSET=REAR_E{elem_index}",
+                f"{element_id}, {node_i}, {node_mid}, {node_j}",
             ]
         )
         element_id += 1
@@ -358,35 +367,40 @@ def _dual_beam_text(
             ]
         )
 
+    wire_node_index_set = {int(idx) for idx in spec.wire_node_indices}
     for node_index in spec.joint_node_indices:
-        main_node = int(node_index) + 1
-        rear_node = rear_offset + int(node_index) + 1
+        main_node = main_topology.endpoint_node_ids[int(node_index)]
+        rear_node = rear_topology.endpoint_node_ids[int(node_index)]
         for dof in range(1, 7):
+            if dof == 3 and int(node_index) in wire_node_index_set:
+                equation_terms = f"{rear_node}, {dof}, 1.0, {main_node}, {dof}, -1.0"
+            else:
+                equation_terms = f"{main_node}, {dof}, 1.0, {rear_node}, {dof}, -1.0"
             lines.extend(
                 [
                     "*EQUATION",
                     "2",
-                    f"{main_node}, {dof}, 1.0, {rear_node}, {dof}, -1.0",
+                    equation_terms,
                 ]
             )
 
     lines.append("*BOUNDARY")
-    lines.append("1, 1, 6")
-    lines.append(f"{rear_offset + 1}, 1, 6")
+    lines.append(f"{node_sets['ROOT_MAIN'][0]}, 1, 6")
+    lines.append(f"{node_sets['ROOT_REAR'][0]}, 1, 6")
     for node_id in node_sets.get("WIRE_MAIN", ()):
         lines.append(f"{node_id}, 3, 3, 0.0")
 
     lines.extend(
         [
-            "*STEP, NAME=static",
+            "*STEP",
             "*STATIC",
             "1.0, 1.0",
             "*CLOAD",
         ]
     )
     for node_index in range(nn):
-        main_node = node_index + 1
-        rear_node = rear_offset + node_index + 1
+        main_node = main_topology.endpoint_node_ids[node_index]
+        rear_node = rear_topology.endpoint_node_ids[node_index]
 
         main_fz_n = float(spec.main_nodal_fz_n[node_index])
         if abs(main_fz_n) > 0.0:
@@ -405,7 +419,7 @@ def _dual_beam_text(
     lines.extend(_reaction_output_block(node_sets))
     lines.extend(
         [
-            "*NODE FILE, OUTPUT=3D",
+            "*NODE FILE, OUTPUT=2D",
             "U",
             "*END STEP",
             "",
@@ -420,6 +434,64 @@ def _format_node_sets(node_sets: dict[str, tuple[int, ...]]) -> list[str]:
         lines.append(f"*NSET, NSET={name}")
         lines.append(", ".join(str(int(node_id)) for node_id in node_ids))
     return lines
+
+
+@dataclass(frozen=True)
+class _QuadraticChainTopology:
+    node_lines: tuple[str, ...]
+    endpoint_node_ids: tuple[int, ...]
+    element_connectivity: tuple[tuple[int, int, int], ...]
+    last_node_id: int
+
+
+def _quadratic_chain_topology(
+    *,
+    x_nodes_m: np.ndarray,
+    y_nodes_m: np.ndarray,
+    z_nodes_m: np.ndarray,
+    start_node_id: int,
+) -> _QuadraticChainTopology:
+    endpoint_node_ids = [int(start_node_id)]
+    node_lines = [
+        _node_line(
+            int(start_node_id),
+            float(x_nodes_m[0]),
+            float(y_nodes_m[0]),
+            float(z_nodes_m[0]),
+        )
+    ]
+    element_connectivity: list[tuple[int, int, int]] = []
+    current_endpoint = int(start_node_id)
+
+    for elem_index in range(y_nodes_m.size - 1):
+        next_endpoint = current_endpoint + 2
+        midpoint_id = current_endpoint + 1
+        x_mid = 0.5 * (float(x_nodes_m[elem_index]) + float(x_nodes_m[elem_index + 1]))
+        y_mid = 0.5 * (float(y_nodes_m[elem_index]) + float(y_nodes_m[elem_index + 1]))
+        z_mid = 0.5 * (float(z_nodes_m[elem_index]) + float(z_nodes_m[elem_index + 1]))
+        node_lines.append(_node_line(midpoint_id, x_mid, y_mid, z_mid))
+        node_lines.append(
+            _node_line(
+                next_endpoint,
+                float(x_nodes_m[elem_index + 1]),
+                float(y_nodes_m[elem_index + 1]),
+                float(z_nodes_m[elem_index + 1]),
+            )
+        )
+        element_connectivity.append((current_endpoint, midpoint_id, next_endpoint))
+        endpoint_node_ids.append(next_endpoint)
+        current_endpoint = next_endpoint
+
+    return _QuadraticChainTopology(
+        node_lines=tuple(node_lines),
+        endpoint_node_ids=tuple(endpoint_node_ids),
+        element_connectivity=tuple(element_connectivity),
+        last_node_id=current_endpoint,
+    )
+
+
+def _node_line(node_id: int, x_m: float, y_m: float, z_m: float) -> str:
+    return f"{node_id}, {x_m:.9g}, {y_m:.9g}, {z_m:.9g}"
 
 
 def _material_block(material: BeamMaterial) -> list[str]:
