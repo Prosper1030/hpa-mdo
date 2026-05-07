@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import csv
 
@@ -11,12 +12,28 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "configs" / "blackcat_004.yaml"
 
 
-def test_discover_solver_paths_uses_local_path_overlay() -> None:
+def test_discover_solver_paths_delegates_to_configured_discovery_helpers(
+    monkeypatch,
+) -> None:
+    fake_cfg = SimpleNamespace()
+    monkeypatch.setattr(phase14_bench, "load_config", lambda _path: fake_cfg)
+    monkeypatch.setattr(
+        phase14_bench,
+        "find_ccx",
+        lambda cfg: "/tmp/fake-solvers/ccx_2.23" if cfg is fake_cfg else None,
+    )
+    monkeypatch.setattr(
+        phase14_bench,
+        "find_gmsh",
+        lambda cfg: "/tmp/fake-solvers/gmsh" if cfg is fake_cfg else None,
+    )
+
     solver_paths = phase14_bench.discover_solver_paths(CONFIG_PATH)
 
     assert solver_paths.ccx_path is not None
     assert solver_paths.gmsh_path is not None
     assert Path(solver_paths.ccx_path).name == "ccx_2.23"
+    assert Path(solver_paths.gmsh_path).name == "gmsh"
 
 
 def test_runner_writes_skip_report_when_ccx_unavailable(tmp_path: Path, monkeypatch) -> None:
