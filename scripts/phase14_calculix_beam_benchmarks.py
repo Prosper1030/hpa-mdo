@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import re
 from typing import Any
@@ -81,6 +81,7 @@ class BenchmarkCaseResult:
     fem_reaction_total_fz_n: float | None
     reaction_error_pct: float | None
     note: str
+    extra_metrics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -194,6 +195,7 @@ def run_phase14_calculix_beam_benchmarks(
                     fem_reaction_total_fz_n=None,
                     reaction_error_pct=None,
                     note="CalculiX not available through load_config/find_ccx; deck generated only.",
+                    extra_metrics={"status_reason": "calculix_unavailable"},
                 )
             )
             continue
@@ -221,6 +223,7 @@ def run_phase14_calculix_beam_benchmarks(
                     fem_reaction_total_fz_n=None,
                     reaction_error_pct=None,
                     note=f"CalculiX run failed: {run_payload['error']}",
+                    extra_metrics={"status_reason": "calculix_run_failed"},
                 )
             )
             continue
@@ -254,6 +257,12 @@ def run_phase14_calculix_beam_benchmarks(
             cases=cases,
         )
         _write_b4_wire_reaction_diagnosis(
+            phase14_dir=phase14_dir,
+            benchmark_dir=benchmark_dir,
+            cfg=cfg,
+            cases=cases,
+        )
+        _write_b5_torque_parity_diagnosis(
             phase14_dir=phase14_dir,
             benchmark_dir=benchmark_dir,
             cfg=cfg,
@@ -663,8 +672,12 @@ def _solve_dual_beam_internal(spec: DualPipeBenchmarkSpec) -> dict[str, float]:
     reactions = reaction_vector.reshape((2 * nn, 6))
     root_reaction_fz_n = float(reactions[0, 2] + reactions[nn, 2])
     wire_reaction_fz_n = float(sum(reactions[int(idx), 2] for idx in spec.wire_node_indices))
-    chordwise_spacing_m = max(float(spec.rear_x_m[-1] - spec.main_x_m[-1]), 1.0e-12)
-    twist_proxy_rad = float((disp_rear[-1, 2] - disp_main[-1, 2]) / chordwise_spacing_m)
+    chordwise_spacing_m = float(spec.rear_x_m[-1] - spec.main_x_m[-1])
+    twist_proxy_rad = _twist_proxy_from_tip_displacements(
+        main_tip_uz_m=float(disp_main[-1, 2]),
+        rear_tip_uz_m=float(disp_rear[-1, 2]),
+        chordwise_spacing_m=chordwise_spacing_m,
+    )
     return {
         "tip_main_m": float(disp_main[-1, 2]),
         "tip_rear_m": float(disp_rear[-1, 2]),
@@ -774,6 +787,7 @@ def _build_case_result(
     tip_main_id = node_sets["TIP_MAIN"][0]
     fem_tip_main_m = _nodal_uz(disp, tip_main_id)
     fem_tip_rear_m = None
+    extra_metrics: dict[str, Any] = {}
     if "TIP_REAR" in node_sets:
         fem_tip_rear_m = _nodal_uz(disp, node_sets["TIP_REAR"][0])
 
@@ -806,6 +820,60 @@ def _build_case_result(
             abs(case.internal_metrics["reaction_total_fz_n"]),
         )
 
+    if isinstance(case.spec, DualPipeBenchmarkSpec):
+        chordwise_spacing_m = float(case.spec.rear_x_m[-1] - case.spec.main_x_m[-1])
+        fem_twist_proxy_rad = (
+            None
+            if fem_tip_rear_m is None
+            else _twist_proxy_from_tip_displacements(
+                main_tip_uz_m=fem_tip_main_m,
+                rear_tip_uz_m=fem_tip_rear_m,
+                chordwise_spacing_m=chordwise_spacing_m,
+            )
+        )
+        internal_twist_proxy_rad = case.internal_metrics.get("twist_proxy_rad")
+        twist_error_pct = None
+        if fem_twist_proxy_rad is not None and internal_twist_proxy_rad is not None:
+            twist_error_pct = _pct_error(fem_twist_proxy_rad, internal_twist_proxy_rad)
+        root_raw = _set_force_component(dat_path, "HPA_SUPPORT_ROOT")
+        wire_raw = _set_force_component(dat_path, "HPA_SUPPORT_WIRE")
+        applied_root = _applied_fz_on_node_ids(case.spec, node_sets.get("HPA_SUPPORT_ROOT", ()))
+        applied_wire = _applied_fz_on_node_ids(case.spec, node_sets.get("HPA_SUPPORT_WIRE", ()))
+        root_corrected = None if root_raw is None else abs(root_raw - applied_root)
+        wire_corrected = None if wire_raw is None else abs(wire_raw - applied_wire)
+        reaction_residual_n = None
+        if fem_reaction_total_fz_n is not None:
+            reaction_residual_n = float(
+                fem_reaction_total_fz_n + np.sum(case.spec.main_nodal_fz_n) + np.sum(case.spec.rear_nodal_fz_n)
+            )
+        extra_metrics.update(
+            {
+                "status_reason": _status_reason_for_case(
+                    case=case,
+                    twist_error_pct=twist_error_pct,
+                    fem_twist_proxy_rad=fem_twist_proxy_rad,
+                    internal_twist_proxy_rad=internal_twist_proxy_rad,
+                ),
+                "root_reaction_fz_internal_n": case.internal_metrics.get("root_reaction_fz_n"),
+                "root_reaction_fz_calculix_n": root_corrected,
+                "wire_reaction_fz_internal_n": case.internal_metrics.get("wire_reaction_fz_n"),
+                "wire_reaction_fz_calculix_n": wire_corrected,
+                "total_reaction_fz_raw_n": None if total_force is None else float(total_force[2]),
+                "total_reaction_fz_corrected_n": fem_reaction_total_fz_n,
+                "reaction_residual_n": reaction_residual_n,
+                "twist_proxy_internal_rad": internal_twist_proxy_rad,
+                "twist_proxy_calculix_rad": fem_twist_proxy_rad,
+                "twist_proxy_error_pct": twist_error_pct,
+            }
+        )
+    else:
+        extra_metrics["status_reason"] = _status_reason_for_case(
+            case=case,
+            twist_error_pct=None,
+            fem_twist_proxy_rad=None,
+            internal_twist_proxy_rad=None,
+        )
+
     status, note = _evaluate_case_status(
         case=case,
         closed_form_error_pct=closed_form_error_pct,
@@ -833,6 +901,7 @@ def _build_case_result(
         fem_reaction_total_fz_n=fem_reaction_total_fz_n,
         reaction_error_pct=reaction_error_pct,
         note=note,
+        extra_metrics=extra_metrics,
     )
 
 
@@ -899,6 +968,35 @@ def _evaluate_case_status(
     return "WARN", _join_notes(note_parts) or "B5 is report-only until torque ownership is frozen."
 
 
+def _status_reason_for_case(
+    *,
+    case: BenchmarkCase,
+    twist_error_pct: float | None,
+    fem_twist_proxy_rad: float | None,
+    internal_twist_proxy_rad: float | None,
+) -> str:
+    if case.benchmark_id == "B1":
+        return "closed_form_and_internal_parity"
+    if case.benchmark_id == "B2":
+        return "tapered_pipe_b32r_mismatch"
+    if case.benchmark_id == "B3":
+        return "dual_beam_displacement_parity"
+    if case.benchmark_id == "B4":
+        return "corrected_root_wire_reactions_close"
+    if case.variant_id == "cm_off_control":
+        return "zero_torque_control_baseline"
+    if case.variant_id == "main_beam_my_about_main_spar":
+        return "my_load_applied_but_current_outputs_do_not_observe_rotation"
+    if (
+        twist_error_pct is not None
+        and fem_twist_proxy_rad is not None
+        and internal_twist_proxy_rad is not None
+        and np.sign(fem_twist_proxy_rad) != np.sign(internal_twist_proxy_rad)
+    ):
+        return "torque_mode_changes_twist_but_sign_disagrees"
+    return "torque_mode_requires_twist_based_review"
+
+
 def _join_notes(notes: list[str]) -> str:
     cleaned = [note.strip() for note in notes if note and note.strip()]
     return " ".join(cleaned)
@@ -920,6 +1018,15 @@ def _support_applied_fz(
 
 def _pct_error(actual: float, reference: float) -> float:
     return 100.0 * abs(float(actual) - float(reference)) / max(abs(float(reference)), 1.0e-12)
+
+
+def _twist_proxy_from_tip_displacements(
+    *,
+    main_tip_uz_m: float,
+    rear_tip_uz_m: float,
+    chordwise_spacing_m: float,
+) -> float:
+    return float(rear_tip_uz_m - main_tip_uz_m) / max(float(chordwise_spacing_m), 1.0e-12)
 
 
 def _node_tributary_lengths(y_nodes_m: np.ndarray) -> np.ndarray:
@@ -1446,6 +1553,118 @@ def _write_b4_wire_reaction_diagnosis(
     (phase14_dir / "b4_wire_reaction_diagnosis.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _write_b5_torque_parity_diagnosis(
+    *,
+    phase14_dir: Path,
+    benchmark_dir: Path,
+    cfg,
+    cases: list[BenchmarkCase],
+) -> None:
+    b5_cases = [case for case in cases if case.benchmark_id == "B5"]
+    diagnosis_dir = benchmark_dir / "b5_diagnosis"
+    diagnosis_dir.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "case_id",
+        "torque_mode",
+        "main_tip_uz_m",
+        "rear_tip_uz_m",
+        "rear_minus_main_tip_uz_m",
+        "chordwise_spar_spacing_m",
+        "twist_proxy_rad",
+        "twist_proxy_deg",
+        "root_reaction_fz_n",
+        "wire_reaction_fz_n",
+        "moment_or_couple_diagnostic_n_m",
+        "internal_twist_proxy_rad",
+        "calculix_twist_proxy_rad",
+        "twist_error_pct",
+        "engineering_note",
+    ]
+    rows: list[dict[str, object]] = []
+    for case in b5_cases:
+        if not isinstance(case.spec, DualPipeBenchmarkSpec):
+            raise TypeError("B5 diagnosis expects dual-beam specs.")
+        result = _run_dual_beam_diagnostic_case(
+            cfg=cfg,
+            diagnosis_dir=diagnosis_dir,
+            spec=case.spec,
+        )
+        chordwise_spacing_m = float(case.spec.rear_x_m[-1] - case.spec.main_x_m[-1])
+        internal_twist = case.internal_metrics.get("twist_proxy_rad")
+        fem_twist = result.fem_twist_proxy_rad
+        twist_error_pct = None
+        if internal_twist is not None:
+            twist_error_pct = _pct_error(fem_twist, internal_twist)
+        note_parts = []
+        if case.variant_id == "cm_off_control":
+            note_parts.append("Zero-torque control baseline.")
+        elif case.variant_id == "main_beam_my_about_main_spar":
+            note_parts.append(
+                "Applied MY torque is nonzero, but current FRD/DAT outputs only expose translational/two-force metrics, so centerline twist proxy cannot prove beam-axis rotation ownership."
+            )
+        else:
+            note_parts.append(
+                "Front/rear force couple creates an observable twist-proxy response, but its magnitude still differs materially from the internal beam model."
+            )
+        rows.append(
+            {
+                "case_id": "B5",
+                "torque_mode": case.variant_id,
+                "main_tip_uz_m": result.fem_tip_main_m,
+                "rear_tip_uz_m": result.fem_tip_rear_m,
+                "rear_minus_main_tip_uz_m": result.fem_tip_rear_m - result.fem_tip_main_m,
+                "chordwise_spar_spacing_m": chordwise_spacing_m,
+                "twist_proxy_rad": fem_twist,
+                "twist_proxy_deg": np.degrees(fem_twist),
+                "root_reaction_fz_n": result.root_reaction_fz_corrected_n,
+                "wire_reaction_fz_n": result.wire_reaction_fz_corrected_n,
+                "moment_or_couple_diagnostic_n_m": result.applied_spanwise_moment_n_m,
+                "internal_twist_proxy_rad": internal_twist,
+                "calculix_twist_proxy_rad": fem_twist,
+                "twist_error_pct": twist_error_pct,
+                "engineering_note": " ".join(note_parts),
+            }
+        )
+
+    csv_path = phase14_dir / "b5_torque_parity_diagnosis.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    my_row = next(row for row in rows if row["torque_mode"] == "main_beam_my_about_main_spar")
+    couple_row = next(row for row in rows if row["torque_mode"] == "front_rear_vertical_couple")
+    control_row = next(row for row in rows if row["torque_mode"] == "cm_off_control")
+    lines = [
+        "# B5 Torque Parity Diagnosis",
+        "",
+        "## Torque Modes",
+        "",
+        "| Mode | Applied moment/couple [N m] | Main tip [m] | Rear tip [m] | Twist proxy [rad] | Twist proxy [deg] | Twist error [%] |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row['torque_mode']} | {float(row['moment_or_couple_diagnostic_n_m']):.3f} | "
+            f"{float(row['main_tip_uz_m']):.6f} | {float(row['rear_tip_uz_m']):.6f} | "
+            f"{float(row['twist_proxy_rad']):.6f} | {float(row['twist_proxy_deg']):.3f} | "
+            f"{_fmt_number(row['twist_error_pct'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Engineering Interpretation",
+            "",
+            f"- The `cm_off_control` row is the zero-torque baseline: applied spanwise moment = {float(control_row['moment_or_couple_diagnostic_n_m']):.3f} N m and twist proxy = {float(control_row['twist_proxy_rad']):.6f} rad.",
+            f"- The `main_beam_my_about_main_spar` row still carries {float(my_row['moment_or_couple_diagnostic_n_m']):.3f} N m of applied MY, but its centerline twist proxy is numerically indistinguishable from the control. That means the current Mac-local output route is still blind to this torque mode; it should remain report-only until a rotation or moment output is added.",
+            f"- The `front_rear_vertical_couple` row also carries {float(couple_row['moment_or_couple_diagnostic_n_m']):.3f} N m, and it does change the sign/magnitude of the twist proxy relative to control. This mode is observable, but the CalculiX vs internal twist mismatch is still {float(couple_row['twist_error_pct']):.3f}%, so B5 is not yet a parity-pass gate.",
+            "- In engineering terms: the deck can represent a force couple that moves the front/rear centerlines, but the present report still cannot certify beam-axis MY ownership from UZ-only metrics.",
+        ]
+    )
+    (phase14_dir / "b5_torque_parity_diagnosis.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def _run_dual_beam_diagnostic_case(
     *,
     cfg,
@@ -1462,8 +1681,12 @@ def _run_dual_beam_diagnostic_case(
     disp = parse_displacement(frd_path)
     fem_tip_main_m = _nodal_uz(disp, deck.node_sets["TIP_MAIN"][0])
     fem_tip_rear_m = _nodal_uz(disp, deck.node_sets["TIP_REAR"][0])
-    chordwise_spacing_m = max(float(spec.rear_x_m[-1] - spec.main_x_m[-1]), 1.0e-12)
-    fem_twist_proxy_rad = float((fem_tip_rear_m - fem_tip_main_m) / chordwise_spacing_m)
+    chordwise_spacing_m = float(spec.rear_x_m[-1] - spec.main_x_m[-1])
+    fem_twist_proxy_rad = _twist_proxy_from_tip_displacements(
+        main_tip_uz_m=fem_tip_main_m,
+        rear_tip_uz_m=fem_tip_rear_m,
+        chordwise_spacing_m=chordwise_spacing_m,
+    )
     applied_total_fz_n = float(np.sum(spec.main_nodal_fz_n) + np.sum(spec.rear_nodal_fz_n))
     applied_fz_on_root_nodes_n = _applied_fz_on_node_ids(spec, deck.node_sets["HPA_SUPPORT_ROOT"])
     applied_fz_on_wire_nodes_n = _applied_fz_on_node_ids(
@@ -1574,9 +1797,11 @@ def _fmt_number(value: object | None) -> str:
 def _write_comparison_csv(path: Path, case_results: list[BenchmarkCaseResult]) -> None:
     fieldnames = [
         "benchmark_id",
+        "case_name",
         "variant_id",
         "display_name",
         "status",
+        "status_reason",
         "deck_path",
         "frd_path",
         "dat_path",
@@ -1591,6 +1816,17 @@ def _write_comparison_csv(path: Path, case_results: list[BenchmarkCaseResult]) -
         "internal_reaction_total_fz_n",
         "fem_reaction_total_fz_n",
         "reaction_error_pct",
+        "root_reaction_fz_internal_n",
+        "root_reaction_fz_calculix_n",
+        "wire_reaction_fz_internal_n",
+        "wire_reaction_fz_calculix_n",
+        "total_reaction_fz_raw_n",
+        "total_reaction_fz_corrected_n",
+        "reaction_residual_n",
+        "twist_proxy_internal_rad",
+        "twist_proxy_calculix_rad",
+        "twist_proxy_error_pct",
+        "engineering_interpretation",
         "note",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -1600,9 +1836,11 @@ def _write_comparison_csv(path: Path, case_results: list[BenchmarkCaseResult]) -
             writer.writerow(
                 {
                     "benchmark_id": result.benchmark_id,
+                    "case_name": result.display_name,
                     "variant_id": result.variant_id,
                     "display_name": result.display_name,
                     "status": result.status,
+                    "status_reason": result.extra_metrics.get("status_reason", ""),
                     "deck_path": str(result.deck_path),
                     "frd_path": "" if result.frd_path is None else str(result.frd_path),
                     "dat_path": "" if result.dat_path is None else str(result.dat_path),
@@ -1617,6 +1855,17 @@ def _write_comparison_csv(path: Path, case_results: list[BenchmarkCaseResult]) -
                     "internal_reaction_total_fz_n": result.internal_reaction_total_fz_n,
                     "fem_reaction_total_fz_n": result.fem_reaction_total_fz_n,
                     "reaction_error_pct": result.reaction_error_pct,
+                    "root_reaction_fz_internal_n": result.extra_metrics.get("root_reaction_fz_internal_n"),
+                    "root_reaction_fz_calculix_n": result.extra_metrics.get("root_reaction_fz_calculix_n"),
+                    "wire_reaction_fz_internal_n": result.extra_metrics.get("wire_reaction_fz_internal_n"),
+                    "wire_reaction_fz_calculix_n": result.extra_metrics.get("wire_reaction_fz_calculix_n"),
+                    "total_reaction_fz_raw_n": result.extra_metrics.get("total_reaction_fz_raw_n"),
+                    "total_reaction_fz_corrected_n": result.extra_metrics.get("total_reaction_fz_corrected_n"),
+                    "reaction_residual_n": result.extra_metrics.get("reaction_residual_n"),
+                    "twist_proxy_internal_rad": result.extra_metrics.get("twist_proxy_internal_rad"),
+                    "twist_proxy_calculix_rad": result.extra_metrics.get("twist_proxy_calculix_rad"),
+                    "twist_proxy_error_pct": result.extra_metrics.get("twist_proxy_error_pct"),
+                    "engineering_interpretation": result.note,
                     "note": result.note,
                 }
             )
@@ -1667,16 +1916,45 @@ def _write_summary_md(
             f"{_fmt(result.reaction_error_pct)} |"
         )
     lines.append("")
+    lines.extend(
+        [
+            "## Status meaning",
+            "",
+            "- PASS = trusted for the metric named in the row.",
+            "- WARN = case ran, but the current metric still needs engineering caution or a missing observable.",
+            "- FAIL = parity target missed for a metric that should already be comparable.",
+            "- SKIP = solver or case unavailable.",
+            "",
+        ]
+    )
     lines.append("## Notes")
     lines.append("")
     for result in case_results:
-        lines.append(f"- `{result.benchmark_id}/{result.variant_id}`: {result.note}")
+        lines.append(f"- `{result.benchmark_id}/{result.variant_id}`: {_summary_note(result)}")
     lines.append("")
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _fmt(value: float | None) -> str:
     return "—" if value is None else f"{value:.3f}"
+
+
+def _summary_note(result: BenchmarkCaseResult) -> str:
+    if result.benchmark_id == "B4":
+        return (
+            "Displacement parity is inside the current trust band, and corrected root/wire reactions now close equilibrium after including the rear linked wire node plus constrained-node load correction."
+        )
+    if result.benchmark_id == "B5" and result.variant_id == "main_beam_my_about_main_spar":
+        return (
+            "Applied MY exists, but the current Mac-local outputs still do not expose a rotation/moment observable that can prove beam-axis torque ownership; keep this mode report-only."
+        )
+    if result.benchmark_id == "B5" and result.variant_id == "front_rear_vertical_couple":
+        return (
+            "The front/rear force couple changes the twist proxy relative to control, but the CalculiX vs internal twist mismatch is still too large for parity-pass use."
+        )
+    if result.benchmark_id == "B5" and result.variant_id == "cm_off_control":
+        return "Zero-torque control baseline for the B5 twist-proxy comparison."
+    return result.note
 
 
 def _single_beam_station_index(node_id: int) -> int:

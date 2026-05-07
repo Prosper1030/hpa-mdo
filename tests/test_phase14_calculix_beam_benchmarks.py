@@ -64,6 +64,20 @@ def test_runner_writes_skip_report_when_ccx_unavailable(tmp_path: Path, monkeypa
     assert rows
     assert {row["status"] for row in rows} == {"SKIP"}
     assert {row["benchmark_id"] for row in rows} >= {"B1", "B2", "B3", "B4", "B5"}
+    assert {
+        "status_reason",
+        "root_reaction_fz_internal_n",
+        "root_reaction_fz_calculix_n",
+        "wire_reaction_fz_internal_n",
+        "wire_reaction_fz_calculix_n",
+        "total_reaction_fz_raw_n",
+        "total_reaction_fz_corrected_n",
+        "reaction_residual_n",
+        "twist_proxy_internal_rad",
+        "twist_proxy_calculix_rad",
+        "twist_proxy_error_pct",
+        "engineering_interpretation",
+    }.issubset(rows[0].keys())
 
 
 def test_piecewise_uniform_load_reference_matches_closed_form_for_constant_section() -> None:
@@ -87,3 +101,11 @@ def test_piecewise_uniform_load_reference_matches_closed_form_for_constant_secti
     )
 
     assert abs(reference_tip_m - closed_form_tip_m) / closed_form_tip_m < 5.0e-4
+
+
+def test_twist_proxy_from_tip_displacements_uses_rear_minus_main_over_spacing() -> None:
+    assert phase14_bench._twist_proxy_from_tip_displacements(
+        main_tip_uz_m=-0.0045,
+        rear_tip_uz_m=-0.0038,
+        chordwise_spacing_m=0.35,
+    ) == (-0.0038 + 0.0045) / 0.35
