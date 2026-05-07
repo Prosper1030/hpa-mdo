@@ -7,6 +7,9 @@ import re
 import numpy as np
 
 
+NUMBER_RE = r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[EeDd][-+]?\d+)?"
+
+
 def parse_displacement(frd_path: str | Path, *, node_set: str = "ALL") -> np.ndarray:
     """Parse the last CalculiX ``DISP`` block into ``[nid, ux, uy, uz]`` rows."""
 
@@ -110,11 +113,40 @@ def parse_buckle_eigenvalues(dat_path: str | Path) -> list[float]:
     return eigenvalues
 
 
+def parse_total_force_from_dat(
+    dat_path: str | Path,
+    set_name: str,
+) -> tuple[float, float, float] | None:
+    """Parse ``total force (fx,fy,fz)`` for one named set from a CalculiX ``.dat``."""
+
+    lines = Path(dat_path).read_text(encoding="utf-8", errors="ignore").splitlines()
+    header = re.compile(
+        rf"total force \(fx,fy,fz\) for set\s+{re.escape(set_name)}\s+and time",
+        flags=re.IGNORECASE,
+    )
+    values = re.compile(
+        rf"^\s*({NUMBER_RE})\s+({NUMBER_RE})\s+({NUMBER_RE})\s*$",
+        flags=re.IGNORECASE,
+    )
+    for idx, raw in enumerate(lines):
+        if not header.search(raw):
+            continue
+        for candidate in lines[idx + 1 : idx + 6]:
+            match = values.match(candidate)
+            if match:
+                return tuple(
+                    float(match.group(group).replace("D", "E"))
+                    for group in range(1, 4)
+                )
+        return None
+    return None
+
+
 def _numeric_tokens(line: str) -> list[float]:
     return [
         float(token.replace("D", "E"))
         for token in re.findall(
-            r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[EeDd][-+]?\d+)?",
+            NUMBER_RE,
             line,
         )
     ]
