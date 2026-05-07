@@ -1,0 +1,58 @@
+{
+  "case_id": "smooth_tier2_production_baseline",
+  "workflow": "structure_budgeted_z_state_search_mvp",
+  "canonical_entrypoint": "/Volumes/Samsung SSD/hpa-mdo/scripts/direct_dual_beam_inverse_design.py",
+  "section_table": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/section_table.csv",
+  "avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/smooth_tier2_production_baseline.avl",
+  "avl_run_dir": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/avl_runs/smooth_tier2_production_baseline",
+  "aero_summary_csv": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/aerodynamic_summary.csv",
+  "design_report": "/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/ansys/crossval_report.txt",
+  "config": {
+    "config_path": "/Volumes/Samsung SSD/hpa-mdo/output/phase11_structure_budgeted_z_state_search_mvp/smooth_tier2_canonical_config.yaml",
+    "half_span_m": 17.166143,
+    "span_m": 34.332286,
+    "section_count": 9,
+    "root_chord_m": 1.256773096,
+    "tip_chord_m": 0.64500409,
+    "root_airfoil": "dae31",
+    "tip_airfoil": "cst_tip_nsga2_g06_child_0056_b3f9b7c4",
+    "spar_segments_m": [
+      1.5,
+      3.0,
+      3.0,
+      3.0,
+      3.0,
+      3.6661430000000017
+    ],
+    "source_vsp_production_inspection": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/smooth_tier2_production_baseline.vsp3",
+    "source_avl_production_inspection": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/smooth_tier2_production_baseline.avl",
+    "legacy_vspaero_lod_for_structural_state_owner": "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.lod",
+    "legacy_vspaero_polar_for_structural_state_owner": "/Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat 004 wing only_VSPGeom.polar",
+    "airfoil_dir": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/airfoils"
+  },
+  "semi_span_m": 17.166143,
+  "base_main_tip_z_m": 1.0650033980757752,
+  "spar_tube_mass_target_kg": 11.5,
+  "healthy_clearance_m": 0.02,
+  "loaded_shape_error_tol_m": 0.005,
+  "effective_dihedral_targets_deg": [
+    5.0,
+    6.0,
+    7.0,
+    8.0,
+    8.5,
+    9.0
+  ],
+  "target_main_tip_z_targets_m": [
+    2.65,
+    2.675,
+    2.7
+  ],
+  "include_old_x4_equivalent": true,
+  "refresh_steps": 0,
+  "notes": [
+    "No aerodynamic ranking or hard gates are changed by this diagnostic.",
+    "Canonical inverse command is recorded per case in canonical_command_used and command.txt.",
+    "The CSV effective_dihedral_deg column is a beam-line target_main_tip_z_m proxy."
+  ]
+}
