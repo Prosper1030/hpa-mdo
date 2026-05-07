@@ -239,7 +239,13 @@ class ANSYSExporter:
             self.R_rear_elem = 0.5 * (R_rear_default[:-1] + R_rear_default[1:])
 
         # Dihedral Z
-        self.z_dih = _dihedral_z(self.y, wing.dihedral_deg)
+        explicit_loaded_z = getattr(wing, "loaded_z_m", None)
+        if explicit_loaded_z is None:
+            self.z_dih = _dihedral_z(self.y, wing.dihedral_deg)
+        else:
+            self.z_dih = np.asarray(explicit_loaded_z, dtype=float)
+            if self.z_dih.shape != self.y.shape:
+                raise ValueError("wing.loaded_z_m must have the same shape as wing.y.")
 
         # Spar X and Z coordinates (physical, in metres)
         self.x_main = wing.main_spar_xc * wing.chord

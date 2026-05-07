@@ -217,7 +217,13 @@ def build_dual_beam_mainline_model(
             scale=1.0,
         )
 
-    z_dihedral_m = _dihedral_z(y_nodes_m, np.asarray(wing.dihedral_deg, dtype=float))
+    explicit_loaded_z = getattr(wing, "loaded_z_m", None)
+    if explicit_loaded_z is None:
+        z_dihedral_m = _dihedral_z(y_nodes_m, np.asarray(wing.dihedral_deg, dtype=float))
+    else:
+        z_dihedral_m = np.asarray(explicit_loaded_z, dtype=float)
+        if z_dihedral_m.shape != y_nodes_m.shape:
+            raise ValueError("wing.loaded_z_m must have the same shape as wing.y.")
     nodes_main_m = np.column_stack(
         (
             wing.main_spar_xc * np.asarray(wing.chord, dtype=float),

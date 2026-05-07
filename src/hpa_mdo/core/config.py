@@ -107,12 +107,27 @@ class WingConfig(BaseModel):
     span: float
     root_chord: float
     tip_chord: float
+    chord_schedule: Optional[List[List[float]]] = Field(
+        None,
+        description=(
+            "Optional half-wing chord schedule as [[y_m, chord_m], ...]. "
+            "When provided, runtime aircraft geometry uses this piecewise-linear "
+            "distribution instead of the legacy root/tip taper."
+        ),
+    )
     dihedral_schedule: Optional[List[List[float]]] = Field(
         None,
         description=(
             "Optional half-wing dihedral schedule as [[y_m, z_m], ...]. "
             "When provided, VSP builders reconstruct segment dihedral from this "
             "piecewise-linear z(y) curve instead of the legacy root/tip ramp."
+        ),
+    )
+    twist_schedule: Optional[List[List[float]]] = Field(
+        None,
+        description=(
+            "Optional half-wing twist schedule as [[y_m, twist_deg], ...]. "
+            "Runtime aircraft geometry interpolates this curve directly."
         ),
     )
     dihedral_root_deg: float = 0.0
@@ -136,28 +151,43 @@ class WingConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_dihedral_schedule(self) -> WingConfig:
-        if not self.dihedral_schedule:
-            return self
-
+    def validate_spanwise_schedules(self) -> WingConfig:
         half_span = 0.5 * float(self.span)
-        prev_y = -math.inf
-        for idx, pair in enumerate(self.dihedral_schedule):
-            if len(pair) != 2:
-                raise ValueError("wing.dihedral_schedule entries must be [y_m, z_m].")
-            y_m = float(pair[0])
-            if y_m < prev_y - 1.0e-9:
-                raise ValueError("wing.dihedral_schedule y stations must be non-decreasing.")
-            if y_m < -1.0e-9 or y_m > half_span + 1.0e-9:
-                raise ValueError(
-                    f"wing.dihedral_schedule y={y_m:.6f} lies outside [0, span/2={half_span:.6f}]."
-                )
-            if idx == 0 and abs(y_m) > 1.0e-9:
-                raise ValueError("wing.dihedral_schedule must start at y=0.0.")
-            prev_y = y_m
 
-        if abs(float(self.dihedral_schedule[-1][0]) - half_span) > 1.0e-6:
-            raise ValueError("wing.dihedral_schedule must end at wing.span/2.")
+        def _validate_schedule(
+            field_name: str,
+            schedule: Optional[List[List[float]]],
+            value_label: str,
+            require_positive_value: bool = False,
+        ) -> None:
+            if not schedule:
+                return
+
+            prev_y = -math.inf
+            for idx, pair in enumerate(schedule):
+                if len(pair) != 2:
+                    raise ValueError(f"wing.{field_name} entries must be [y_m, {value_label}].")
+                y_m = float(pair[0])
+                value = float(pair[1])
+                if y_m < prev_y - 1.0e-9:
+                    raise ValueError(f"wing.{field_name} y stations must be non-decreasing.")
+                if y_m < -1.0e-9 or y_m > half_span + 1.0e-9:
+                    raise ValueError(
+                        f"wing.{field_name} y={y_m:.6f} lies outside "
+                        f"[0, span/2={half_span:.6f}]."
+                    )
+                if idx == 0 and abs(y_m) > 1.0e-9:
+                    raise ValueError(f"wing.{field_name} must start at y=0.0.")
+                if require_positive_value and value <= 0.0:
+                    raise ValueError(f"wing.{field_name} {value_label} values must be positive.")
+                prev_y = y_m
+
+            if abs(float(schedule[-1][0]) - half_span) > 1.0e-6:
+                raise ValueError(f"wing.{field_name} must end at wing.span/2.")
+
+        _validate_schedule("chord_schedule", self.chord_schedule, "chord_m", True)
+        _validate_schedule("dihedral_schedule", self.dihedral_schedule, "z_m")
+        _validate_schedule("twist_schedule", self.twist_schedule, "twist_deg")
 
         return self
 

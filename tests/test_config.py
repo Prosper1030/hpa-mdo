@@ -238,6 +238,70 @@ def test_blackcat_loaded_shape_tolerances_loaded_from_solver_config():
     assert cfg.solver.loaded_shape_twist_tol_deg == pytest.approx(0.15)
 
 
+def test_aircraft_from_config_uses_wing_chord_dihedral_and_twist_schedules(tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    config_path = repo_root / "configs" / "blackcat_004.yaml"
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    data["io"]["airfoil_dir"] = None
+    data["wing"]["span"] = 33.0
+    data["wing"]["root_chord"] = 1.2
+    data["wing"]["tip_chord"] = 0.6
+    data["wing"]["chord_schedule"] = [
+        [0.0, 1.2],
+        [8.25, 1.0],
+        [16.5, 0.6],
+    ]
+    data["wing"]["dihedral_schedule"] = [
+        [0.0, 0.0],
+        [8.25, 0.4],
+        [16.5, 1.0],
+    ]
+    data["wing"]["twist_schedule"] = [
+        [0.0, 2.0],
+        [16.5, 0.0],
+    ]
+
+    cfg_path = tmp_path / "scheduled_wing.yaml"
+    cfg_path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    cfg = load_config(cfg_path)
+    aircraft = Aircraft.from_config(cfg)
+
+    mid_idx = int(np.argmin(np.abs(aircraft.wing.y - 8.25)))
+    expected_mid_chord = np.interp(
+        aircraft.wing.y[mid_idx],
+        [0.0, 8.25, 16.5],
+        [1.2, 1.0, 0.6],
+    )
+    assert aircraft.wing.chord[mid_idx] == pytest.approx(expected_mid_chord)
+    assert aircraft.wing.loaded_z_m is not None
+    expected_mid_z = np.interp(
+        aircraft.wing.y[mid_idx],
+        [0.0, 8.25, 16.5],
+        [0.0, 0.4, 1.0],
+    )
+    assert aircraft.wing.loaded_z_m[mid_idx] == pytest.approx(expected_mid_z)
+    assert aircraft.wing.loaded_z_m[-1] == pytest.approx(1.0)
+    assert aircraft.wing.twist_deg[0] == pytest.approx(2.0)
+    assert aircraft.wing.twist_deg[-1] == pytest.approx(0.0)
+    assert aircraft.wing.dihedral_deg[0] == pytest.approx(
+        np.degrees(np.arctan2(0.4, 8.25)),
+        abs=0.2,
+    )
+    assert aircraft.wing.dihedral_deg[-1] == pytest.approx(
+        np.degrees(np.arctan2(0.6, 8.25)),
+        abs=0.2,
+    )
+
+    spar_dx_tip = (
+        cfg.rear_spar.location_xc - cfg.main_spar.location_xc
+    ) * aircraft.wing.chord[-1]
+    expected_rear_offset_tip = spar_dx_tip * np.tan(np.radians(-2.0))
+    assert aircraft.wing.rear_spar_z_camber[-1] == pytest.approx(
+        expected_rear_offset_tip
+    )
+
+
 def test_blackcat_spar_layup_defaults_loaded_from_config():
     repo_root = Path(__file__).resolve().parents[1]
     config_path = repo_root / "configs" / "blackcat_004.yaml"

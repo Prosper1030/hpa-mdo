@@ -93,6 +93,7 @@ class WingGeometry:
     # Z-offsets of spar tubes within the airfoil section [m]
     main_spar_z_camber: np.ndarray
     rear_spar_z_camber: np.ndarray
+    loaded_z_m: np.ndarray | None = None
 
     @property
     def n_stations(self) -> int:
@@ -164,10 +165,21 @@ class Aircraft:
         y = np.linspace(0, half_span, n)
         eta = y / half_span
 
-        chord = cfg.wing.root_chord + eta * (cfg.wing.tip_chord - cfg.wing.root_chord)
-        dihedral = cfg.wing.dihedral_root_deg + eta * (
+        legacy_chord = cfg.wing.root_chord + eta * (
+            cfg.wing.tip_chord - cfg.wing.root_chord
+        )
+        chord = _interp_spanwise_schedule(y, cfg.wing.chord_schedule, legacy_chord)
+
+        legacy_dihedral = cfg.wing.dihedral_root_deg + eta * (
             cfg.wing.dihedral_tip_deg - cfg.wing.dihedral_root_deg)
-        twist = np.zeros(n)
+        loaded_z_m = _interp_spanwise_schedule(y, cfg.wing.dihedral_schedule, None)
+        dihedral = _dihedral_from_z_schedule(
+            y,
+            cfg.wing.dihedral_schedule,
+            legacy_dihedral,
+        )
+
+        twist = _interp_spanwise_schedule(y, cfg.wing.twist_schedule, np.zeros(n))
 
         tc_root = cfg.wing.airfoil_root_tc
         tc_tip = cfg.wing.airfoil_tip_tc
@@ -203,6 +215,11 @@ class Aircraft:
         main_z *= chord
         rear_z *= chord
 
+        if cfg.wing.twist_schedule:
+            twist_relative = twist - float(twist[0])
+            rear_spar_dx = (rear_xc - main_xc) * chord
+            rear_z += rear_spar_dx * np.tan(np.radians(twist_relative))
+
         wing = WingGeometry(
             y=y, chord=chord, twist_deg=twist,
             dihedral_deg=dihedral,
@@ -211,6 +228,7 @@ class Aircraft:
             rear_spar_xc=rear_xc,
             main_spar_z_camber=main_z,
             rear_spar_z_camber=rear_z,
+            loaded_z_m=loaded_z_m,
         )
 
         flight = FlightCondition(
@@ -230,6 +248,34 @@ class Aircraft:
             horizontal_tail=horizontal_tail,
             vertical_fin=vertical_fin,
         )
+
+
+def _interp_spanwise_schedule(
+    y: np.ndarray,
+    schedule: list[list[float]] | None,
+    fallback: np.ndarray | None,
+) -> np.ndarray | None:
+    if not schedule:
+        if fallback is None:
+            return None
+        return np.asarray(fallback, dtype=float)
+    stations = np.asarray(schedule, dtype=float)
+    return np.interp(y, stations[:, 0], stations[:, 1])
+
+
+def _dihedral_from_z_schedule(
+    y: np.ndarray,
+    z_schedule: list[list[float]] | None,
+    fallback_deg: np.ndarray,
+) -> np.ndarray:
+    if not z_schedule:
+        return np.asarray(fallback_deg, dtype=float)
+
+    stations = np.asarray(z_schedule, dtype=float)
+    z_at_nodes = np.interp(y, stations[:, 0], stations[:, 1])
+    edge_order = 2 if y.size > 2 else 1
+    dz_dy = np.gradient(z_at_nodes, y, edge_order=edge_order)
+    return np.degrees(np.arctan(dz_dy))
 
 
 def _try_load_airfoil(directory: Path, name: str) -> Optional[AirfoilData]:
