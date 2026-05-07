@@ -4,8 +4,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import csv
+import numpy as np
 
 import scripts.phase14_calculix_beam_benchmarks as phase14_bench
+from hpa_mdo.structure.calculix_beam_export import cantilever_tip_deflection_uniform_load
+from hpa_mdo.structure.spar_model import tube_Ixx
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -61,3 +64,26 @@ def test_runner_writes_skip_report_when_ccx_unavailable(tmp_path: Path, monkeypa
     assert rows
     assert {row["status"] for row in rows} == {"SKIP"}
     assert {row["benchmark_id"] for row in rows} >= {"B1", "B2", "B3", "B4", "B5"}
+
+
+def test_piecewise_uniform_load_reference_matches_closed_form_for_constant_section() -> None:
+    y_nodes_m = np.linspace(0.0, 10.0, 21)
+    outer_radius_m = np.full(y_nodes_m.size - 1, 0.03)
+    thickness_m = np.full(y_nodes_m.size - 1, 0.0015)
+    uniform_load_npm = 8.0
+
+    reference_tip_m = phase14_bench._piecewise_uniform_load_reference_tip_deflection(
+        y_nodes_m=y_nodes_m,
+        outer_radius_m=outer_radius_m,
+        thickness_m=thickness_m,
+        young_pa=135.0e9,
+        uniform_load_npm=uniform_load_npm,
+    )
+    closed_form_tip_m = cantilever_tip_deflection_uniform_load(
+        uniform_load_npm=uniform_load_npm,
+        span_m=float(y_nodes_m[-1] - y_nodes_m[0]),
+        young_pa=135.0e9,
+        second_moment_m4=float(tube_Ixx(outer_radius_m[:1], thickness_m[:1])[0]),
+    )
+
+    assert abs(reference_tip_m - closed_form_tip_m) / closed_form_tip_m < 5.0e-4

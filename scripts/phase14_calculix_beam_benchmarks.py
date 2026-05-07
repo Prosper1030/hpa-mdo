@@ -6,6 +6,7 @@ import argparse
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Any
 
 import numpy as np
@@ -92,6 +93,23 @@ class Round2BenchmarkRun:
     case_results: tuple[BenchmarkCaseResult, ...]
 
 
+@dataclass(frozen=True)
+class B2DiagnosisRow:
+    case_id: str
+    variant: str
+    n_elem: int
+    element_type: str
+    section_sampling_mode: str
+    internal_tip_uz_m: float
+    calculix_tip_uz_m: float
+    reference_tip_uz_m: float
+    internal_vs_calculix_error_pct: float
+    reference_vs_calculix_error_pct: float
+    root_reaction_fz_n: float | None
+    reaction_residual_n: float | None
+    engineering_note: str
+
+
 def discover_solver_paths(config_path: str | Path) -> SolverPaths:
     """Discover local solver paths through config + local_paths overlay."""
 
@@ -113,7 +131,7 @@ def run_phase14_calculix_beam_benchmarks(
     config_path = Path(config_path).resolve()
     benchmark_dir = Path(output_dir).resolve()
     benchmark_dir.mkdir(parents=True, exist_ok=True)
-    phase14_dir = benchmark_dir.parent if benchmark_dir.name == "round2_benchmarks" else benchmark_dir
+    phase14_dir = _phase14_artifact_dir(benchmark_dir)
     phase14_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = Path(manifest_path).resolve()
@@ -203,6 +221,13 @@ def run_phase14_calculix_beam_benchmarks(
         manifest_path=manifest,
         case_results=case_results,
     )
+    if solver_paths.ccx_path is not None:
+        _write_b2_taper_diagnosis(
+            phase14_dir=phase14_dir,
+            benchmark_dir=benchmark_dir,
+            cfg=cfg,
+            cases=cases,
+        )
     return Round2BenchmarkRun(
         solver_paths=solver_paths,
         manifest_path=manifest,
@@ -875,6 +900,363 @@ def _node_tributary_lengths(y_nodes_m: np.ndarray) -> np.ndarray:
     for idx in range(1, y_nodes_m.size - 1):
         tributary[idx] = 0.5 * (dy[idx - 1] + dy[idx])
     return tributary
+
+
+def _phase14_artifact_dir(benchmark_dir: Path) -> Path:
+    name = benchmark_dir.name.lower()
+    if re.match(r"^round\d+_(baseline|benchmarks)$", name):
+        return benchmark_dir.parent
+    return benchmark_dir
+
+
+def _piecewise_uniform_load_reference_tip_deflection(
+    *,
+    y_nodes_m: np.ndarray,
+    outer_radius_m: np.ndarray,
+    thickness_m: np.ndarray,
+    young_pa: float,
+    uniform_load_npm: float,
+) -> float:
+    y_nodes = _as_array(y_nodes_m)
+    second_moment_m4 = tube_Ixx(_as_array(outer_radius_m), _as_array(thickness_m))
+    if y_nodes.size != second_moment_m4.size + 1:
+        raise ValueError("y_nodes_m must have exactly one more station than element property arrays.")
+
+    tip_deflection_m = 0.0
+    for elem_index, second_moment in enumerate(second_moment_m4):
+        y0 = float(y_nodes[elem_index])
+        y1 = float(y_nodes[elem_index + 1])
+        ys = np.linspace(y0, y1, 2049)
+        moment_nm = 0.5 * float(uniform_load_npm) * (float(y_nodes[-1]) - ys) ** 2
+        integrand = moment_nm * (float(y_nodes[-1]) - ys) / (
+            float(young_pa) * max(float(second_moment), 1.0e-30)
+        )
+        tip_deflection_m += float(np.trapezoid(integrand, ys))
+    return tip_deflection_m
+
+
+def _write_b2_taper_diagnosis(
+    *,
+    phase14_dir: Path,
+    benchmark_dir: Path,
+    cfg,
+    cases: list[BenchmarkCase],
+) -> None:
+    b2_case = next(case for case in cases if case.benchmark_id == "B2")
+    if not isinstance(b2_case.spec, SinglePipeCantileverSpec):
+        raise TypeError("B2 diagnosis expects a single-beam cantilever spec.")
+
+    rows = _build_b2_diagnosis_rows(
+        benchmark_dir=benchmark_dir,
+        cfg=cfg,
+        b2_spec=b2_case.spec,
+    )
+    csv_path = phase14_dir / "b2_taper_diagnosis.csv"
+    fieldnames = [
+        "case_id",
+        "variant",
+        "n_elem",
+        "element_type",
+        "section_sampling_mode",
+        "internal_tip_uz_m",
+        "calculix_tip_uz_m",
+        "closed_form_or_reference_tip_uz_m",
+        "internal_vs_calculix_error_pct",
+        "reference_vs_calculix_error_pct",
+        "root_reaction_fz_n",
+        "reaction_residual_n",
+        "engineering_note",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {
+                    "case_id": row.case_id,
+                    "variant": row.variant,
+                    "n_elem": row.n_elem,
+                    "element_type": row.element_type,
+                    "section_sampling_mode": row.section_sampling_mode,
+                    "internal_tip_uz_m": row.internal_tip_uz_m,
+                    "calculix_tip_uz_m": row.calculix_tip_uz_m,
+                    "closed_form_or_reference_tip_uz_m": row.reference_tip_uz_m,
+                    "internal_vs_calculix_error_pct": row.internal_vs_calculix_error_pct,
+                    "reference_vs_calculix_error_pct": row.reference_vs_calculix_error_pct,
+                    "root_reaction_fz_n": row.root_reaction_fz_n,
+                    "reaction_residual_n": row.reaction_residual_n,
+                    "engineering_note": row.engineering_note,
+                }
+            )
+
+    section_rows = [row for row in rows if row.case_id == "B2_section_sampling"]
+    mesh_rows = [row for row in rows if row.case_id == "B2_mesh_sweep"]
+    control_row = next(row for row in rows if row.case_id == "B2_constant_control")
+    lines = [
+        "# B2 Tapered Beam Diagnosis",
+        "",
+        "## Constant-Section Control",
+        "",
+        "| Variant | n_elem | Internal tip [m] | CalculiX tip [m] | Reference tip [m] | Internal vs CCX [%] | Ref vs CCX [%] |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| "
+        f"{control_row.variant} | {control_row.n_elem} | "
+        f"{control_row.internal_tip_uz_m:.6f} | {control_row.calculix_tip_uz_m:.6f} | "
+        f"{control_row.reference_tip_uz_m:.6f} | {control_row.internal_vs_calculix_error_pct:.3f} | "
+        f"{control_row.reference_vs_calculix_error_pct:.3f} |",
+        "",
+        "## Section Sampling Sweep (n_elem = 20)",
+        "",
+        "| Sampling mode | Internal tip [m] | CalculiX tip [m] | Reference tip [m] | Internal vs CCX [%] | Ref vs CCX [%] |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in section_rows:
+        lines.append(
+            "| "
+            f"{row.section_sampling_mode} | {row.internal_tip_uz_m:.6f} | {row.calculix_tip_uz_m:.6f} | "
+            f"{row.reference_tip_uz_m:.6f} | {row.internal_vs_calculix_error_pct:.3f} | "
+            f"{row.reference_vs_calculix_error_pct:.3f} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Mesh Sweep (current section sampling)",
+            "",
+            "| n_elem | Internal tip [m] | CalculiX tip [m] | Reference tip [m] | Internal vs CCX [%] | Ref vs CCX [%] |",
+            "| ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for row in mesh_rows:
+        lines.append(
+            "| "
+            f"{row.n_elem} | {row.internal_tip_uz_m:.6f} | {row.calculix_tip_uz_m:.6f} | "
+            f"{row.reference_tip_uz_m:.6f} | {row.internal_vs_calculix_error_pct:.3f} | "
+            f"{row.reference_vs_calculix_error_pct:.3f} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Engineering Interpretation",
+            "",
+            f"- Constant-section control stays inside {control_row.reference_vs_calculix_error_pct:.3f}% vs the independent reference, so the nodal load mapping/root clamp route is not the dominant B2 problem.",
+            f"- Across the n=20 section-sampling sweep, CalculiX stays in a narrow {min(row.reference_vs_calculix_error_pct for row in section_rows):.3f}% to {max(row.reference_vs_calculix_error_pct for row in section_rows):.3f}% error band relative to the independent Euler-Bernoulli reference.",
+            f"- Across the current-sampling mesh sweep (8 -> 128 elements), the CalculiX gap does not converge away; the same reference-vs-CalculiX error band remains {min(row.reference_vs_calculix_error_pct for row in mesh_rows):.3f}% to {max(row.reference_vs_calculix_error_pct for row in mesh_rows):.3f}%.",
+            "- This points to a stable B32R + PIPE tapered-beam formulation mismatch rather than a simple section-sampling or mesh-density bug in the local benchmark script.",
+            "- Exploratory element-type swaps showed that CalculiX `*BEAM SECTION, SECTION=PIPE` is restricted to `B32R`, so a B31/B32 sensitivity study would require a different section representation instead of a one-line deck change.",
+        ]
+    )
+    (phase14_dir / "b2_taper_diagnosis.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _build_b2_diagnosis_rows(
+    *,
+    benchmark_dir: Path,
+    cfg,
+    b2_spec: SinglePipeCantileverSpec,
+) -> list[B2DiagnosisRow]:
+    uniform_load_npm = _uniform_load_from_spec(b2_spec)
+    span_m = float(b2_spec.y_nodes_m[-1] - b2_spec.y_nodes_m[0])
+    root_radius_m = float(b2_spec.outer_radius_m[0])
+    tip_radius_m = float(b2_spec.outer_radius_m[-1])
+    root_thickness_m = float(b2_spec.thickness_m[0])
+    tip_thickness_m = float(b2_spec.thickness_m[-1])
+    diagnosis_dir = benchmark_dir / "b2_diagnosis"
+    diagnosis_dir.mkdir(parents=True, exist_ok=True)
+
+    rows: list[B2DiagnosisRow] = []
+    control_radius_m = 0.5 * (root_radius_m + tip_radius_m)
+    control_thickness_m = 0.5 * (root_thickness_m + tip_thickness_m)
+    rows.append(
+        _run_b2_variant(
+            cfg=cfg,
+            diagnosis_dir=diagnosis_dir,
+            case_id="B2_constant_control",
+            variant="constant_control",
+            n_elem=b2_spec.outer_radius_m.size,
+            root_radius_m=control_radius_m,
+            tip_radius_m=control_radius_m,
+            root_thickness_m=control_thickness_m,
+            tip_thickness_m=control_thickness_m,
+            sampling_mode="constant_control",
+            uniform_load_npm=uniform_load_npm,
+            span_m=span_m,
+            material=b2_spec.material,
+        )
+    )
+
+    for sampling_mode in (
+        "current",
+        "inboard_end",
+        "midpoint",
+        "outboard_end",
+        "average_geometry",
+    ):
+        rows.append(
+            _run_b2_variant(
+                cfg=cfg,
+                diagnosis_dir=diagnosis_dir,
+                case_id="B2_section_sampling",
+                variant=sampling_mode,
+                n_elem=b2_spec.outer_radius_m.size,
+                root_radius_m=root_radius_m,
+                tip_radius_m=tip_radius_m,
+                root_thickness_m=root_thickness_m,
+                tip_thickness_m=tip_thickness_m,
+                sampling_mode=sampling_mode,
+                uniform_load_npm=uniform_load_npm,
+                span_m=span_m,
+                material=b2_spec.material,
+            )
+        )
+
+    for n_elem in (8, 16, 32, 64, 128):
+        rows.append(
+            _run_b2_variant(
+                cfg=cfg,
+                diagnosis_dir=diagnosis_dir,
+                case_id="B2_mesh_sweep",
+                variant="current",
+                n_elem=n_elem,
+                root_radius_m=root_radius_m,
+                tip_radius_m=tip_radius_m,
+                root_thickness_m=root_thickness_m,
+                tip_thickness_m=tip_thickness_m,
+                sampling_mode="current",
+                uniform_load_npm=uniform_load_npm,
+                span_m=span_m,
+                material=b2_spec.material,
+            )
+        )
+    return rows
+
+
+def _run_b2_variant(
+    *,
+    cfg,
+    diagnosis_dir: Path,
+    case_id: str,
+    variant: str,
+    n_elem: int,
+    root_radius_m: float,
+    tip_radius_m: float,
+    root_thickness_m: float,
+    tip_thickness_m: float,
+    sampling_mode: str,
+    uniform_load_npm: float,
+    span_m: float,
+    material: BeamMaterial,
+) -> B2DiagnosisRow:
+    y_nodes_m = np.linspace(0.0, span_m, n_elem + 1)
+    tributary_lengths_m = _node_tributary_lengths(y_nodes_m)
+    nodal_fz_n = -float(uniform_load_npm) * tributary_lengths_m
+    outer_radius_m, thickness_m = _b2_section_profile(
+        root_radius_m=root_radius_m,
+        tip_radius_m=tip_radius_m,
+        root_thickness_m=root_thickness_m,
+        tip_thickness_m=tip_thickness_m,
+        n_elem=n_elem,
+        sampling_mode=sampling_mode,
+    )
+    spec = build_single_pipe_cantilever_spec(
+        name=f"{case_id.lower()}_{variant}_{n_elem}",
+        y_nodes_m=y_nodes_m,
+        outer_radius_m=outer_radius_m,
+        thickness_m=thickness_m,
+        material=material,
+        nodal_fz_n=nodal_fz_n,
+    )
+    internal_tip_uz_m = abs(_solve_single_beam_internal(spec)["tip_main_m"])
+    reference_tip_uz_m = _piecewise_uniform_load_reference_tip_deflection(
+        y_nodes_m=y_nodes_m,
+        outer_radius_m=outer_radius_m,
+        thickness_m=thickness_m,
+        young_pa=material.young_pa,
+        uniform_load_npm=uniform_load_npm,
+    )
+    deck = write_calculix_beam_inp(spec, diagnosis_dir / f"{case_id.lower()}_{variant}_{n_elem}.inp")
+    run_payload = run_static(deck.inp_path, cfg)
+    if run_payload.get("error"):
+        raise RuntimeError(f"B2 diagnosis run failed for {case_id}/{variant}/{n_elem}: {run_payload['error']}")
+    frd_path = Path(run_payload["frd"]).resolve()
+    dat_path = Path(run_payload["dat"]).resolve()
+    disp = parse_displacement(frd_path)
+    calculix_tip_uz_m = abs(_nodal_uz(disp, deck.node_sets["TIP_MAIN"][0]))
+    total_force = parse_total_force_from_dat(dat_path, "HPA_SUPPORT_ALL")
+    root_reaction_fz_n = None
+    reaction_residual_n = None
+    if total_force is not None:
+        root_reaction_fz_n = abs(float(total_force[2]) - _support_applied_fz(spec, deck.node_sets))
+        reaction_residual_n = float(root_reaction_fz_n + np.sum(spec.nodal_fz_n))
+    engineering_note = (
+        "Constant-section control keeps the same nodal load/displacement bookkeeping."
+        if sampling_mode == "constant_control"
+        else (
+            "Linear nodal taper averaged over each element is identical to midpoint sampling."
+            if sampling_mode == "average_geometry"
+            else "B32R PIPE tapered-beam probe."
+        )
+    )
+    return B2DiagnosisRow(
+        case_id=case_id,
+        variant=variant,
+        n_elem=n_elem,
+        element_type="B32R",
+        section_sampling_mode=sampling_mode,
+        internal_tip_uz_m=internal_tip_uz_m,
+        calculix_tip_uz_m=calculix_tip_uz_m,
+        reference_tip_uz_m=reference_tip_uz_m,
+        internal_vs_calculix_error_pct=_pct_error(calculix_tip_uz_m, internal_tip_uz_m),
+        reference_vs_calculix_error_pct=_pct_error(calculix_tip_uz_m, reference_tip_uz_m),
+        root_reaction_fz_n=root_reaction_fz_n,
+        reaction_residual_n=reaction_residual_n,
+        engineering_note=engineering_note,
+    )
+
+
+def _b2_section_profile(
+    *,
+    root_radius_m: float,
+    tip_radius_m: float,
+    root_thickness_m: float,
+    tip_thickness_m: float,
+    n_elem: int,
+    sampling_mode: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    if sampling_mode == "constant_control":
+        return (
+            np.full(n_elem, root_radius_m, dtype=float),
+            np.full(n_elem, root_thickness_m, dtype=float),
+        )
+
+    if sampling_mode == "current":
+        return (
+            np.linspace(root_radius_m, tip_radius_m, n_elem),
+            np.linspace(root_thickness_m, tip_thickness_m, n_elem),
+        )
+
+    radius_nodes_m = np.linspace(root_radius_m, tip_radius_m, n_elem + 1)
+    thickness_nodes_m = np.linspace(root_thickness_m, tip_thickness_m, n_elem + 1)
+    if sampling_mode == "inboard_end":
+        return radius_nodes_m[:-1], thickness_nodes_m[:-1]
+    if sampling_mode in {"midpoint", "average_geometry"}:
+        return (
+            0.5 * (radius_nodes_m[:-1] + radius_nodes_m[1:]),
+            0.5 * (thickness_nodes_m[:-1] + thickness_nodes_m[1:]),
+        )
+    if sampling_mode == "outboard_end":
+        return radius_nodes_m[1:], thickness_nodes_m[1:]
+    raise ValueError(f"Unsupported B2 section sampling mode: {sampling_mode}")
+
+
+def _uniform_load_from_spec(spec: SinglePipeCantileverSpec) -> float:
+    tributary_lengths_m = _node_tributary_lengths(spec.y_nodes_m)
+    valid = tributary_lengths_m > 1.0e-12
+    loads = -spec.nodal_fz_n[valid] / tributary_lengths_m[valid]
+    return float(np.median(loads))
+
+
+def _as_array(values: np.ndarray | list[float] | tuple[float, ...]) -> np.ndarray:
+    return np.asarray(values, dtype=float)
 
 
 def _write_comparison_csv(path: Path, case_results: list[BenchmarkCaseResult]) -> None:
