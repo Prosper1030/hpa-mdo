@@ -1,0 +1,4 @@
+torque_mode,applied_spanwise_moment_n_m,centerline_twist_proxy_rad,main_section_torque_root_n_m,main_section_torque_max_abs_n_m,rear_section_torque_max_abs_n_m,expected_main_root_section_torque_n_m,root_torque_error_pct,engineering_note
+main_beam_my_about_main_spar,39.99999999999999,0.0013428285714285715,38.3337,38.3337,1.27541e-09,38.333333333333336,0.0009565217391251161,Direct MY route is now observable through main-beam section torque.
+front_rear_vertical_couple,40.0,-0.003145400000000001,-2.3286e-09,2.34236e-09,6.85051e-10,0.0,,Force-couple route changes centerline displacement but does not create a meaningful beam-axis section-torque signal.
+cm_off_control,0.0,0.0013428285714285715,-2.45571e-09,2.46974e-09,1.27554e-09,0.0,,Zero-torque control establishes the section-force baseline for the dual-beam topology.

@@ -1,0 +1,3 @@
+case_id,applied_tip_my_nm,tip_uz_abs_m,section_force_torque_root_nm,section_force_torque_tip_nm,max_abs_section_force_torque_nm,engineering_note
+single_tip_my_100nm,100.0,3.21182e-10,99.9994,100.12,100.12,SECTION FORCES exposes beam-axis torque even when centerline UZ is nearly zero.
+single_control_0nm,0.0,0.0,0.0,0.0,0.0,Zero-torque control establishes the section-force noise floor.

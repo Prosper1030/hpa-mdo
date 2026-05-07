@@ -1,6 +1,7 @@
 """Parsers for small pieces of CalculiX ASCII output."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import re
 
@@ -8,6 +9,15 @@ import numpy as np
 
 
 NUMBER_RE = r"[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[EeDd][-+]?\d+)?"
+
+
+@dataclass(frozen=True)
+class FRDFieldBlock:
+    """One named FRD result block with component labels and nodal rows."""
+
+    name: str
+    labels: tuple[str, ...]
+    rows: np.ndarray
 
 
 def parse_displacement(frd_path: str | Path, *, node_set: str = "ALL") -> np.ndarray:
@@ -76,6 +86,65 @@ def parse_nodal_coordinates(frd_path: str | Path) -> np.ndarray:
     if not rows:
         return np.empty((0, 4), dtype=float)
     return np.asarray(rows, dtype=float)
+
+
+def parse_last_field_block(frd_path: str | Path, field_name: str) -> FRDFieldBlock | None:
+    """Parse the last matching FRD ``-4`` result block for one field name."""
+
+    target = str(field_name).strip().upper()
+    labels: list[str] = []
+    rows: list[list[float]] = []
+    current_labels: list[str] = []
+    current_rows: list[list[float]] = []
+    in_field = False
+
+    for raw in Path(frd_path).read_text(encoding="utf-8", errors="ignore").splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        upper = stripped.upper()
+
+        if upper.startswith("-4"):
+            if in_field and current_labels and current_rows:
+                labels = current_labels
+                rows = current_rows
+            in_field = target in upper
+            current_labels = []
+            current_rows = []
+            continue
+
+        if not in_field:
+            continue
+
+        if stripped.startswith("-5"):
+            parts = stripped.split()
+            if len(parts) >= 2:
+                current_labels.append(parts[1])
+            continue
+
+        if stripped.startswith("-1"):
+            values = _numeric_tokens(stripped)
+            if len(values) >= 2 + len(current_labels):
+                current_rows.append([values[1], *values[2 : 2 + len(current_labels)]])
+            continue
+
+        if stripped.startswith("-3"):
+            if current_labels and current_rows:
+                labels = current_labels
+                rows = current_rows
+            in_field = False
+
+    if in_field and current_labels and current_rows:
+        labels = current_labels
+        rows = current_rows
+
+    if not labels or not rows:
+        return None
+    return FRDFieldBlock(
+        name=target,
+        labels=tuple(labels),
+        rows=np.asarray(rows, dtype=float),
+    )
 
 
 def parse_buckle_eigenvalues(dat_path: str | Path) -> list[float]:

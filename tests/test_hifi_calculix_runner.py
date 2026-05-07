@@ -16,7 +16,7 @@ from hpa_mdo.hifi.calculix_runner import (
     run_static,
     tip_node_from_mesh,
 )
-from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues, parse_displacement
+from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues, parse_displacement, parse_last_field_block
 from hpa_mdo.hifi.frd_parser import parse_nodal_coordinates
 
 
@@ -395,6 +395,41 @@ def test_parse_nodal_coordinates_reads_first_coordinate_block(tmp_path: Path) ->
             [
                 [101.0, 1.0, 2.0, 3.0],
                 [102.0, 4.0, 5.0, 6.0],
+            ]
+        ),
+    )
+
+
+def test_parse_last_field_block_reads_last_matching_result_block(tmp_path: Path) -> None:
+    frd = tmp_path / "case.frd"
+    frd.write_text(
+        """
+ -4  STRESS      6    1
+ -5  SXX         1    4    1    1
+ -5  SXY         1    4    1    2
+ -1         1  1.00000E+01  2.00000E+01
+ -3
+ -4  STRESS      6    2
+ -5  SXX         1    4    1    1
+ -5  SXY         1    4    1    2
+ -1         1  3.00000E+01  4.00000E+01
+ -1         2  5.00000E+01  6.00000E+01
+ -3
+""",
+        encoding="utf-8",
+    )
+
+    block = parse_last_field_block(frd, "STRESS")
+
+    assert block is not None
+    assert block.name == "STRESS"
+    assert block.labels == ("SXX", "SXY")
+    np.testing.assert_allclose(
+        block.rows,
+        np.asarray(
+            [
+                [1.0, 30.0, 40.0],
+                [2.0, 50.0, 60.0],
             ]
         ),
     )
