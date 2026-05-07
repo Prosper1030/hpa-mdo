@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from pathlib import Path
 import subprocess
@@ -151,6 +151,44 @@ class ConstantTubeVerificationRow:
     engineering_note: str
 
 
+@dataclass(frozen=True)
+class B5ShellTorsionHardeningRow:
+    variant: str
+    mesh_id: str
+    n_span: int
+    n_circumference: int
+    applied_torque_n_m: float
+    recovered_torque_n_m: float | None
+    theory_theta_rad: float | None
+    shell_theta_rad: float | None
+    theta_error_pct: float | None
+    mesh_delta_vs_previous_pct: float | None
+    max_von_mises_pa: float | None
+    status: str
+    engineering_note: str
+
+
+@dataclass(frozen=True)
+class B2TaperedShellHardeningRow:
+    variant: str
+    mesh_id: str
+    n_span: int
+    n_circumference: int
+    element_count: int
+    tip_uz_avg_m: float | None
+    tip_uz_min_m: float | None
+    tip_uz_max_m: float | None
+    root_reaction_fz_n: float | None
+    reaction_residual_n: float | None
+    max_von_mises_pa: float | None
+    error_vs_internal_pct: float | None
+    error_vs_b32r_pipe_pct: float | None
+    mesh_delta_vs_previous_pct: float | None
+    mesh_delta_vs_finest_pct: float | None
+    status: str
+    engineering_note: str
+
+
 def tube_second_moment_i(
     *,
     outer_radius_m: float,
@@ -270,6 +308,26 @@ def classify_constant_tube_status(
     if float(error_pct) <= 5.0 and float(mesh_delta_vs_finest_pct or 0.0) <= 5.0:
         return "PASS"
     if float(error_pct) <= 10.0:
+        return "WARN"
+    return "FAIL"
+
+
+def classify_b5_shell_torsion_status(
+    *,
+    applied_torque_n_m: float,
+    recovered_torque_n_m: float | None,
+    theta_error_pct: float | None,
+    mesh_delta_vs_previous_pct: float | None,
+) -> str:
+    if theta_error_pct is None:
+        return "SKIP"
+    if recovered_torque_n_m is not None:
+        torque_error = phase14_bench._pct_error(recovered_torque_n_m, applied_torque_n_m)
+        if torque_error > 1.0:
+            return "FAIL"
+    if float(theta_error_pct) <= 10.0 and float(mesh_delta_vs_previous_pct or 0.0) <= 5.0:
+        return "PASS"
+    if float(theta_error_pct) <= 25.0:
         return "WARN"
     return "FAIL"
 
@@ -999,6 +1057,348 @@ def _add_constant_tube_mesh_deltas(
         )
         if row.fem_value is not None:
             previous_by_case[row.case_id] = row.fem_value
+    return updated
+
+
+def _run_b5_shell_torsion_hardening(
+    *,
+    cfg: Any,
+    hardening_dir: Path,
+    material: BeamMaterial,
+    constant_torsion_rows: list[ConstantTubeVerificationRow],
+) -> list[B5ShellTorsionHardeningRow]:
+    rows: list[B5ShellTorsionHardeningRow] = []
+    for row in constant_torsion_rows:
+        recovered_torque = (
+            None
+            if row.reaction_or_moment_residual is None
+            else row.load_or_torque + row.reaction_or_moment_residual
+        )
+        rows.append(
+            B5ShellTorsionHardeningRow(
+                variant="structured_s4_end_ring_tangential_root_ring",
+                mesh_id=row.mesh_id,
+                n_span=row.n_span,
+                n_circumference=row.n_circumference,
+                applied_torque_n_m=row.load_or_torque,
+                recovered_torque_n_m=recovered_torque,
+                theory_theta_rad=row.theory_value,
+                shell_theta_rad=row.fem_value,
+                theta_error_pct=row.error_pct,
+                mesh_delta_vs_previous_pct=row.mesh_delta_vs_previous_pct,
+                max_von_mises_pa=row.max_von_mises_pa,
+                status=classify_b5_shell_torsion_status(
+                    applied_torque_n_m=row.load_or_torque,
+                    recovered_torque_n_m=recovered_torque,
+                    theta_error_pct=row.error_pct,
+                    mesh_delta_vs_previous_pct=row.mesh_delta_vs_previous_pct,
+                ),
+                engineering_note=(
+                    "Same controlled S4 constant-tube torsion route as A3; this is the "
+                    "physically meaningful replacement for the old single-value shell twist diagnostic."
+                ),
+            )
+        )
+
+    legacy = _run_b5_shell_torsion_case(
+        cfg=cfg,
+        route_dir=hardening_dir / "_b5_legacy_gmsh_tri_runs",
+        material=material,
+        span_m=10.0,
+        outer_radius_m=0.03,
+        thickness_m=0.0015,
+        torque_n_m=100.0,
+        theory_theta=tube_torsion_theta(
+            torque_n_m=100.0,
+            span_m=10.0,
+            young_pa=material.young_pa,
+            poisson_ratio=material.poisson_ratio,
+            outer_radius_m=0.03,
+            thickness_m=0.0015,
+        ),
+    )
+    rows.append(
+        B5ShellTorsionHardeningRow(
+            variant="legacy_gmsh_tri_tip_torque_root_ring",
+            mesh_id="legacy_32x64",
+            n_span=0 if legacy.n_span is None else legacy.n_span,
+            n_circumference=0 if legacy.n_circumference is None else legacy.n_circumference,
+            applied_torque_n_m=legacy.applied_torque_n_m,
+            recovered_torque_n_m=None,
+            theory_theta_rad=legacy.theory_theta_rad,
+            shell_theta_rad=legacy.fem_theta_rad,
+            theta_error_pct=legacy.theta_error_pct,
+            mesh_delta_vs_previous_pct=None,
+            max_von_mises_pa=legacy.max_von_mises_pa,
+            status=classify_b5_shell_torsion_status(
+                applied_torque_n_m=legacy.applied_torque_n_m,
+                recovered_torque_n_m=None,
+                theta_error_pct=legacy.theta_error_pct,
+                mesh_delta_vs_previous_pct=None,
+            ),
+            engineering_note=(
+                "Current Gmsh triangular shell route retained as the diagnosed bad baseline; "
+                "it uses ring twist measurement but remains far too stiff in torsion."
+            ),
+        )
+    )
+    return rows
+
+
+def _run_b2_tapered_shell_hardening(
+    *,
+    cfg: Any,
+    hardening_dir: Path,
+    b2_spec: SinglePipeCantileverSpec,
+) -> list[B2TaperedShellHardeningRow]:
+    route_dir = hardening_dir / "_b2_gmsh_tri_runs"
+    gmsh_rows = _run_b2_shell_route(cfg=cfg, route_dir=route_dir, b2_spec=b2_spec)
+    rows = _convert_b2_shell_rows_to_hardening(
+        variant="gmsh_tri_root_ring_equal_nonroot_load",
+        route_dir=route_dir,
+        source_rows=gmsh_rows,
+        span_m=float(b2_spec.y_nodes_m[-1] - b2_spec.y_nodes_m[0]),
+    )
+    rows.extend(
+        _run_b2_structured_s4_tapered_rows(
+            cfg=cfg,
+            hardening_dir=hardening_dir,
+            b2_spec=b2_spec,
+            internal_tip_uz_m=float(phase14_bench._solve_single_beam_internal(b2_spec)["tip_main_m"]),
+            pipe_tip_uz_m=_run_b2_pipe_reference(
+                cfg=cfg,
+                route_dir=hardening_dir / "_b2_structured_s4_runs",
+                b2_spec=b2_spec,
+            ),
+        )
+    )
+    return _with_b2_hardening_mesh_deltas(rows)
+
+
+def _convert_b2_shell_rows_to_hardening(
+    *,
+    variant: str,
+    route_dir: Path,
+    source_rows: list[B2ShellRunRow],
+    span_m: float,
+) -> list[B2TaperedShellHardeningRow]:
+    out: list[B2TaperedShellHardeningRow] = []
+    previous_tip: float | None = None
+    for row in source_rows:
+        stats = (row.shell_tip_uz_m, row.shell_tip_uz_m, row.shell_tip_uz_m)
+        frd_path = route_dir / "b2_shell" / row.mesh_id / f"{row.mesh_id}_static.frd"
+        if frd_path.exists():
+            try:
+                stats = _tip_uz_stats_at_y(frd_path, span_m)
+            except ValueError:
+                stats = (row.shell_tip_uz_m, row.shell_tip_uz_m, row.shell_tip_uz_m)
+        out.append(
+            B2TaperedShellHardeningRow(
+                variant=variant,
+                mesh_id=row.mesh_id,
+                n_span=row.n_span,
+                n_circumference=row.n_circumference,
+                element_count=row.shell_element_count,
+                tip_uz_avg_m=stats[0],
+                tip_uz_min_m=stats[1],
+                tip_uz_max_m=stats[2],
+                root_reaction_fz_n=row.root_reaction_fz_n,
+                reaction_residual_n=row.reaction_residual_n,
+                max_von_mises_pa=row.max_von_mises_pa,
+                error_vs_internal_pct=row.shell_vs_internal_error_pct,
+                error_vs_b32r_pipe_pct=row.shell_vs_calculix_pipe_error_pct,
+                mesh_delta_vs_previous_pct=_pct_delta(row.shell_tip_uz_m, previous_tip),
+                mesh_delta_vs_finest_pct=row.convergence_to_fine_pct,
+                status=row.status,
+                engineering_note=(
+                    "Existing Gmsh triangular tapered shell route. It preserves the current diagnostic baseline "
+                    "and uses equal load over all non-root shell nodes."
+                ),
+            )
+        )
+        if row.shell_tip_uz_m is not None:
+            previous_tip = row.shell_tip_uz_m
+    return out
+
+
+def _run_b2_structured_s4_tapered_rows(
+    *,
+    cfg: Any,
+    hardening_dir: Path,
+    b2_spec: SinglePipeCantileverSpec,
+    internal_tip_uz_m: float,
+    pipe_tip_uz_m: float | None,
+) -> list[B2TaperedShellHardeningRow]:
+    span_m = float(b2_spec.y_nodes_m[-1] - b2_spec.y_nodes_m[0])
+    total_fz_n = float(np.sum(b2_spec.nodal_fz_n))
+    specs = _hardening_mesh_specs(
+        prefix="b2_structured_s4",
+        span_m=span_m,
+        root_outer_radius_m=float(b2_spec.outer_radius_m[0]),
+        tip_outer_radius_m=float(b2_spec.outer_radius_m[-1]),
+    )
+    rows = [
+        _run_b2_structured_s4_tapered_case(
+            cfg=cfg,
+            hardening_dir=hardening_dir,
+            mesh_spec=spec,
+            b2_spec=b2_spec,
+            internal_tip_uz_m=internal_tip_uz_m,
+            pipe_tip_uz_m=pipe_tip_uz_m,
+            total_fz_n=total_fz_n,
+        )
+        for spec in specs
+    ]
+    return rows
+
+
+def _run_b2_structured_s4_tapered_case(
+    *,
+    cfg: Any,
+    hardening_dir: Path,
+    mesh_spec: TubeShellMeshSpec,
+    b2_spec: SinglePipeCantileverSpec,
+    internal_tip_uz_m: float,
+    pipe_tip_uz_m: float | None,
+    total_fz_n: float,
+) -> B2TaperedShellHardeningRow:
+    nodes, elements = build_structured_tube_shell_mesh(mesh_spec)
+    if find_ccx(cfg) is None:
+        return B2TaperedShellHardeningRow(
+            variant="structured_s4_root_ring_tributary_load",
+            mesh_id=mesh_spec.name,
+            n_span=mesh_spec.n_span,
+            n_circumference=mesh_spec.n_circumference,
+            element_count=len(elements),
+            tip_uz_avg_m=None,
+            tip_uz_min_m=None,
+            tip_uz_max_m=None,
+            root_reaction_fz_n=None,
+            reaction_residual_n=None,
+            max_von_mises_pa=None,
+            error_vs_internal_pct=None,
+            error_vs_b32r_pipe_pct=None,
+            mesh_delta_vs_previous_pct=None,
+            mesh_delta_vs_finest_pct=None,
+            status="SKIP",
+            engineering_note="CalculiX unavailable; structured S4 tapered shell deck was not run.",
+        )
+    root_nodes = _nodes_at_y(nodes, 0.0)
+    loads = _distributed_vertical_loads_by_span_tributary(
+        nodes=nodes,
+        root_nodes=set(root_nodes),
+        total_fz_n=total_fz_n,
+    )
+    case_dir = hardening_dir / "_b2_structured_s4_runs" / "b2_shell" / mesh_spec.name
+    static_inp = case_dir / f"{mesh_spec.name}_static.inp"
+    _write_shell_static_inp(
+        static_inp,
+        nodes=nodes,
+        elements=elements,
+        material=b2_spec.material,
+        root_nodes=root_nodes,
+        loads=loads,
+        span_m=mesh_spec.span_m,
+        root_thickness_m=float(b2_spec.thickness_m[0]),
+        tip_thickness_m=float(b2_spec.thickness_m[-1]),
+        output_stress=True,
+    )
+    payload = run_static(static_inp, cfg)
+    if payload.get("error"):
+        return B2TaperedShellHardeningRow(
+            variant="structured_s4_root_ring_tributary_load",
+            mesh_id=mesh_spec.name,
+            n_span=mesh_spec.n_span,
+            n_circumference=mesh_spec.n_circumference,
+            element_count=len(elements),
+            tip_uz_avg_m=None,
+            tip_uz_min_m=None,
+            tip_uz_max_m=None,
+            root_reaction_fz_n=None,
+            reaction_residual_n=None,
+            max_von_mises_pa=None,
+            error_vs_internal_pct=None,
+            error_vs_b32r_pipe_pct=None,
+            mesh_delta_vs_previous_pct=None,
+            mesh_delta_vs_finest_pct=None,
+            status="WARN",
+            engineering_note=f"Structured S4 tapered shell run failed: {payload['error']}",
+        )
+    frd_path = Path(payload["frd"])
+    dat_path = Path(payload["dat"])
+    tip_avg, tip_min, tip_max = _tip_uz_stats_at_y(frd_path, mesh_spec.span_m)
+    root_force = parse_total_force_from_dat(dat_path, "ROOT")
+    root_reaction_fz_n = None if root_force is None else float(root_force[2])
+    applied_total = float(sum(value for _nid, dof, value in loads if dof == 3))
+    reaction_residual = None if root_reaction_fz_n is None else root_reaction_fz_n + applied_total
+    error_vs_internal = phase14_bench._pct_error(abs(tip_avg), abs(internal_tip_uz_m))
+    error_vs_pipe = None if pipe_tip_uz_m is None else phase14_bench._pct_error(abs(tip_avg), abs(pipe_tip_uz_m))
+    best_error = min(error_vs_internal, float("inf") if error_vs_pipe is None else error_vs_pipe)
+    status = "PASS" if best_error <= 10.0 else "WARN"
+    return B2TaperedShellHardeningRow(
+        variant="structured_s4_root_ring_tributary_load",
+        mesh_id=mesh_spec.name,
+        n_span=mesh_spec.n_span,
+        n_circumference=mesh_spec.n_circumference,
+        element_count=len(elements),
+        tip_uz_avg_m=tip_avg,
+        tip_uz_min_m=tip_min,
+        tip_uz_max_m=tip_max,
+        root_reaction_fz_n=root_reaction_fz_n,
+        reaction_residual_n=reaction_residual,
+        max_von_mises_pa=_max_von_mises_from_frd(frd_path),
+        error_vs_internal_pct=error_vs_internal,
+        error_vs_b32r_pipe_pct=error_vs_pipe,
+        mesh_delta_vs_previous_pct=None,
+        mesh_delta_vs_finest_pct=None,
+        status=status,
+        engineering_note=(
+            "Structured S4 tapered shell route with root-ring clamp and span-tributary vertical load. "
+            "This tests whether the old Gmsh triangular shell result was element/load-form sensitive."
+        ),
+    )
+
+
+def _with_b2_hardening_mesh_deltas(
+    rows: list[B2TaperedShellHardeningRow],
+) -> list[B2TaperedShellHardeningRow]:
+    finest_by_variant: dict[str, float] = {}
+    for row in rows:
+        if row.tip_uz_avg_m is not None:
+            finest_by_variant[row.variant] = row.tip_uz_avg_m
+    previous_by_variant: dict[str, float] = {}
+    updated: list[B2TaperedShellHardeningRow] = []
+    for row in rows:
+        previous = previous_by_variant.get(row.variant)
+        finest = finest_by_variant.get(row.variant)
+        delta_previous = _pct_delta(row.tip_uz_avg_m, previous)
+        delta_finest = _pct_delta(row.tip_uz_avg_m, finest)
+        best_error = min(
+            float("inf") if row.error_vs_internal_pct is None else row.error_vs_internal_pct,
+            float("inf") if row.error_vs_b32r_pipe_pct is None else row.error_vs_b32r_pipe_pct,
+        )
+        reaction_bad = (
+            row.reaction_residual_n is not None
+            and abs(row.reaction_residual_n) > max(1.0e-6, abs(float(row.root_reaction_fz_n or 0.0)) * 1.0e-3)
+        )
+        if row.tip_uz_avg_m is None:
+            status = row.status
+        elif reaction_bad:
+            status = "FAIL"
+        elif delta_finest is not None and delta_finest <= 5.0 and best_error <= 10.0:
+            status = "PASS"
+        else:
+            status = "WARN"
+        updated.append(
+            replace(
+                row,
+                mesh_delta_vs_previous_pct=delta_previous,
+                mesh_delta_vs_finest_pct=delta_finest,
+                status=status,
+            )
+        )
+        if row.tip_uz_avg_m is not None:
+            previous_by_variant[row.variant] = row.tip_uz_avg_m
     return updated
 
 
@@ -2185,6 +2585,20 @@ def write_constant_tube_verification_csv(
     _write_dataclass_csv(Path(path), rows, ConstantTubeVerificationRow)
 
 
+def write_b5_shell_torsion_hardening_csv(
+    path: str | Path,
+    rows: list[B5ShellTorsionHardeningRow],
+) -> None:
+    _write_dataclass_csv(Path(path), rows, B5ShellTorsionHardeningRow)
+
+
+def write_b2_tapered_shell_hardening_csv(
+    path: str | Path,
+    rows: list[B2TaperedShellHardeningRow],
+) -> None:
+    _write_dataclass_csv(Path(path), rows, B2TaperedShellHardeningRow)
+
+
 def write_constant_tube_markdown(
     path: str | Path,
     *,
@@ -2212,6 +2626,196 @@ def write_constant_tube_markdown(
         )
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_b5_shell_torsion_hardening_markdown(
+    path: str | Path,
+    rows: list[B5ShellTorsionHardeningRow],
+    engineering_summary: str | None = None,
+) -> None:
+    best = _best_b5_hardening_row(rows)
+    lines = [
+        "# B5 Shell Torsion Hardening",
+        "",
+        engineering_summary
+        or "Validation tooling only. The old single shell-torsion number is kept as a diagnosed baseline, not a truth source.",
+        "",
+        "| variant | mesh_id | n_span | n_circumference | applied_torque_n_m | recovered_torque_n_m | theory_theta_rad | shell_theta_rad | theta_error_pct | mesh_delta_vs_previous_pct | max_von_mises_pa | status | engineering_note |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row.variant} | {row.mesh_id} | {row.n_span} | {row.n_circumference} | "
+            f"{_fmt(row.applied_torque_n_m)} | {_fmt(row.recovered_torque_n_m)} | "
+            f"{_fmt(row.theory_theta_rad)} | {_fmt(row.shell_theta_rad)} | "
+            f"{_fmt(row.theta_error_pct)} | {_fmt(row.mesh_delta_vs_previous_pct)} | "
+            f"{_fmt(row.max_von_mises_pa)} | {row.status} | {row.engineering_note} |"
+        )
+    lines.extend(["", "## Engineering Readout", ""])
+    if best is None:
+        lines.append("- No B5 shell torsion run produced a usable theta value.")
+    else:
+        lines.append(
+            f"- Best current B5 shell torsion route: `{best.variant}` / `{best.mesh_id}` "
+            f"theta {best.shell_theta_rad:.6e} rad vs theory {best.theory_theta_rad:.6e} rad "
+            f"(error {best.theta_error_pct:.3f}%)."
+        )
+        lines.append(
+            "- This is improved enough for a directional diagnostic, but it is still not a final GJ truth route unless the constant-tube shell bias is accepted explicitly."
+        )
+    lines.append("- Reference-node / root-cap coupling was not promoted here; the controlled root-ring S4 route is the bounded Mac-safe diagnostic.")
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_b2_tapered_shell_hardening_markdown(
+    path: str | Path,
+    rows: list[B2TaperedShellHardeningRow],
+) -> None:
+    best = _best_b2_hardening_row(rows)
+    lines = [
+        "# B2 Tapered Shell Hardening",
+        "",
+        "Validation tooling only. These rows compare shell formulation/load variants against the internal beam and B32R PIPE references without changing production physics.",
+        "",
+        "| variant | mesh_id | n_span | n_circumference | element_count | tip_uz_avg_m | tip_uz_min_m | tip_uz_max_m | root_reaction_fz_n | reaction_residual_n | max_von_mises_pa | error_vs_internal_pct | error_vs_b32r_pipe_pct | mesh_delta_vs_previous_pct | mesh_delta_vs_finest_pct | status | engineering_note |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row.variant} | {row.mesh_id} | {row.n_span} | {row.n_circumference} | "
+            f"{row.element_count} | {_fmt(row.tip_uz_avg_m)} | {_fmt(row.tip_uz_min_m)} | "
+            f"{_fmt(row.tip_uz_max_m)} | {_fmt(row.root_reaction_fz_n)} | "
+            f"{_fmt(row.reaction_residual_n)} | {_fmt(row.max_von_mises_pa)} | "
+            f"{_fmt(row.error_vs_internal_pct)} | {_fmt(row.error_vs_b32r_pipe_pct)} | "
+            f"{_fmt(row.mesh_delta_vs_previous_pct)} | {_fmt(row.mesh_delta_vs_finest_pct)} | "
+            f"{row.status} | {row.engineering_note} |"
+        )
+    lines.extend(["", "## Engineering Readout", ""])
+    if best is None:
+        lines.append("- No B2 tapered shell run produced a usable tip displacement.")
+    else:
+        lines.append(
+            f"- Best current B2 shell row by reference error: `{best.variant}` / `{best.mesh_id}` "
+            f"tip UZ {best.tip_uz_avg_m:.6e} m, error vs internal {_fmt(best.error_vs_internal_pct)}%, "
+            f"error vs B32R {_fmt(best.error_vs_b32r_pipe_pct)}%."
+        )
+        lines.append(
+            "- Treat B2 as shell diagnostic unless the selected variant is both mesh-converged and within the comparison tolerance."
+        )
+    lines.append("- Root-cap/reference-node variants remain an APDL or future equation-coupling follow-up; no calibration factor was introduced.")
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_overnight_hardening_summary(
+    path: str | Path,
+    *,
+    bending_rows: list[ConstantTubeVerificationRow],
+    torsion_rows: list[ConstantTubeVerificationRow],
+    b5_rows: list[B5ShellTorsionHardeningRow],
+    b2_rows: list[B2TaperedShellHardeningRow],
+    apdl_package_dir: Path,
+) -> None:
+    bending_tip = _finest_constant_row(bending_rows, "A1_constant_tube_tip_load")
+    bending_uniform = _finest_constant_row(bending_rows, "A2_constant_tube_uniform_load")
+    torsion = _finest_constant_row(torsion_rows, "A3_constant_tube_tip_torque")
+    b5_best = _best_b5_hardening_row(b5_rows)
+    b2_best = _best_b2_hardening_row(b2_rows)
+    lines = [
+        "# Phase 14 Mac-local FEM Overnight Hardening Summary",
+        "",
+        "This is validation tooling only. It does not change aerodynamic ranking, hard gates, dual_beam_production physics, or calibration factors.",
+        "",
+        "## Direct Answers",
+        "",
+        f"1. Constant tube shell bending: {_constant_answer(bending_tip)} for tip load; {_constant_answer(bending_uniform)} for uniform load.",
+        f"2. Constant tube shell torsion: {_constant_answer(torsion)}.",
+        f"3. B5 shell torsion: {_b5_answer(b5_best)}.",
+        f"4. B2 tapered shell convergence: {_b2_convergence_answer(b2_best)}.",
+        "5. Mac-local FEM does not yet replace APDL for B2 truth; use it as a bounded diagnostic until APDL checks the tapered beam/shell question.",
+        "6. Mac-local FEM supports B5 torque ownership through section forces and now has an improved shell twist diagnostic, but APDL remains the external twist/GJ truth check.",
+        f"7. Tomorrow APDL: run `{apdl_package_dir}/run_all_phase14.mac` on Windows and return `phase14_apdl_results.csv`.",
+        "",
+        "## Trust Policy",
+        "",
+        "- trusted daily gate: CalculiX beam parity for B1/B3 and B5 direct-MY section-force torque ownership.",
+        "- directional diagnostic: Mac-local constant shell WARN rows, improved B5 structured S4 shell torsion, and B2 shell variant comparisons.",
+        "- not trustworthy yet: legacy Gmsh triangular B5 shell torsion and any B2 shell value that remains non-converged or outside reference tolerance.",
+        "- APDL-required: final B2 tapered truth, final B5 twist/GJ truth, and any root-cap/reference-node shell coupling claim.",
+        "",
+        "## Stop-Condition Judgment",
+        "",
+        "- Constant shell benchmarks are stable but not strict PASS against the 5% closed-form threshold; this blocks any claim that Mac-local shell FEM is high-fidelity truth.",
+        "- The useful deliverable is therefore diagnosis plus bounded trust policy, not a forced pass.",
+    ]
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _finest_constant_row(
+    rows: list[ConstantTubeVerificationRow],
+    case_id: str,
+) -> ConstantTubeVerificationRow | None:
+    matches = [row for row in rows if row.case_id == case_id and row.fem_value is not None]
+    return matches[-1] if matches else None
+
+
+def _constant_answer(row: ConstantTubeVerificationRow | None) -> str:
+    if row is None:
+        return "SKIP (no usable run)"
+    return (
+        f"{row.status} at `{row.mesh_id}`: FEM {_fmt(row.fem_value)} vs theory {_fmt(row.theory_value)}, "
+        f"error {_fmt(row.error_pct)}%, mesh-to-finest {_fmt(row.mesh_delta_vs_finest_pct)}%"
+    )
+
+
+def _best_b5_hardening_row(rows: list[B5ShellTorsionHardeningRow]) -> B5ShellTorsionHardeningRow | None:
+    usable = [row for row in rows if row.theta_error_pct is not None and row.variant.startswith("structured_s4")]
+    if not usable:
+        usable = [row for row in rows if row.theta_error_pct is not None]
+    return max(usable, key=lambda row: (row.n_span, row.n_circumference)) if usable else None
+
+
+def _b5_answer(row: B5ShellTorsionHardeningRow | None) -> str:
+    if row is None:
+        return "still bad/no usable shell theta"
+    label = "improved" if row.theta_error_pct is not None and row.theta_error_pct <= 10.0 else "still bad"
+    return (
+        f"{label}: `{row.variant}` theta {_fmt(row.shell_theta_rad)} rad vs theory "
+        f"{_fmt(row.theory_theta_rad)} rad, error {_fmt(row.theta_error_pct)}%"
+    )
+
+
+def _best_b2_hardening_row(rows: list[B2TaperedShellHardeningRow]) -> B2TaperedShellHardeningRow | None:
+    usable = [row for row in rows if row.tip_uz_avg_m is not None]
+    if not usable:
+        return None
+    finest_by_variant: dict[str, B2TaperedShellHardeningRow] = {}
+    for row in usable:
+        current = finest_by_variant.get(row.variant)
+        if current is None or (row.n_span, row.n_circumference) > (current.n_span, current.n_circumference):
+            finest_by_variant[row.variant] = row
+    return min(
+        finest_by_variant.values(),
+        key=lambda row: min(
+            float("inf") if row.error_vs_internal_pct is None else row.error_vs_internal_pct,
+            float("inf") if row.error_vs_b32r_pipe_pct is None else row.error_vs_b32r_pipe_pct,
+        ),
+    )
+
+
+def _b2_convergence_answer(row: B2TaperedShellHardeningRow | None) -> str:
+    if row is None:
+        return "not converged/no usable shell run"
+    label = "converged" if row.mesh_delta_vs_finest_pct is not None and row.mesh_delta_vs_finest_pct <= 5.0 else "not converged"
+    return (
+        f"{label}: `{row.variant}` / `{row.mesh_id}` tip UZ {_fmt(row.tip_uz_avg_m)} m, "
+        f"mesh-to-finest {_fmt(row.mesh_delta_vs_finest_pct)}%, error vs internal "
+        f"{_fmt(row.error_vs_internal_pct)}%, error vs B32R {_fmt(row.error_vs_b32r_pipe_pct)}%"
+    )
 
 
 def _write_route_summary(

@@ -9,19 +9,27 @@ from hpa_mdo.structure.calculix_beam_export import BeamMaterial
 from hpa_mdo.structure.spar_model import tube_J
 from scripts.phase14_maclocal_fem_package import (
     B2ComparisonInputs,
+    B2TaperedShellHardeningRow,
+    B5ShellTorsionHardeningRow,
     ConstantTubeVerificationRow,
     Phase14ExpectedValue,
     TubeShellMeshSpec,
     _build_parser,
     build_structured_tube_shell_mesh,
     classify_b2_shell_agreement,
+    classify_b5_shell_torsion_status,
     classify_constant_tube_status,
+    _distributed_vertical_loads_by_span_tributary,
     estimate_ring_twist_rad,
     tube_bending_tip_load_delta,
     tube_bending_uniform_load_delta,
     tip_torque_loads_for_ring,
     tube_torsion_theta,
     write_apdl_windows_package,
+    write_b5_shell_torsion_hardening_csv,
+    write_b5_shell_torsion_hardening_markdown,
+    write_b2_tapered_shell_hardening_csv,
+    write_b2_tapered_shell_hardening_markdown,
     write_constant_tube_markdown,
     write_constant_tube_verification_csv,
     write_tube_shell_geo,
@@ -152,6 +160,173 @@ def test_write_constant_tube_artifacts_include_required_columns(tmp_path: Path) 
     assert "# Constant Tube Bending" in md_text
     assert "reaction_or_moment_residual" in md_text
     assert "Daily gate candidate." in md_text
+
+
+def test_b5_shell_torsion_hardening_row_has_required_schema() -> None:
+    fields = set(B5ShellTorsionHardeningRow.__dataclass_fields__)
+
+    assert {
+        "variant",
+        "mesh_id",
+        "n_span",
+        "n_circumference",
+        "applied_torque_n_m",
+        "recovered_torque_n_m",
+        "theory_theta_rad",
+        "shell_theta_rad",
+        "theta_error_pct",
+        "mesh_delta_vs_previous_pct",
+        "max_von_mises_pa",
+        "status",
+        "engineering_note",
+    }.issubset(fields)
+
+
+def test_classify_b5_shell_torsion_status_uses_theta_convergence_and_torque() -> None:
+    assert classify_b5_shell_torsion_status(
+        applied_torque_n_m=100.0,
+        recovered_torque_n_m=100.001,
+        theta_error_pct=7.0,
+        mesh_delta_vs_previous_pct=1.5,
+    ) == "PASS"
+    assert classify_b5_shell_torsion_status(
+        applied_torque_n_m=100.0,
+        recovered_torque_n_m=100.001,
+        theta_error_pct=18.0,
+        mesh_delta_vs_previous_pct=1.5,
+    ) == "WARN"
+    assert classify_b5_shell_torsion_status(
+        applied_torque_n_m=100.0,
+        recovered_torque_n_m=100.001,
+        theta_error_pct=76.0,
+        mesh_delta_vs_previous_pct=1.5,
+    ) == "FAIL"
+    assert classify_b5_shell_torsion_status(
+        applied_torque_n_m=100.0,
+        recovered_torque_n_m=80.0,
+        theta_error_pct=7.0,
+        mesh_delta_vs_previous_pct=1.5,
+    ) == "FAIL"
+
+
+def test_write_b5_shell_torsion_hardening_artifacts(tmp_path: Path) -> None:
+    rows = [
+        B5ShellTorsionHardeningRow(
+            variant="structured_s4_ring_torque",
+            mesh_id="fine",
+            n_span=96,
+            n_circumference=96,
+            applied_torque_n_m=100.0,
+            recovered_torque_n_m=100.0,
+            theory_theta_rad=0.046792,
+            shell_theta_rad=0.043406,
+            theta_error_pct=7.24,
+            mesh_delta_vs_previous_pct=0.18,
+            max_von_mises_pa=2.1e7,
+            status="PASS",
+            engineering_note="ring twist",
+        )
+    ]
+
+    csv_path = tmp_path / "b5_shell_torsion_hardening.csv"
+    md_path = tmp_path / "b5_shell_torsion_hardening.md"
+    write_b5_shell_torsion_hardening_csv(csv_path, rows)
+    write_b5_shell_torsion_hardening_markdown(
+        md_path,
+        rows=rows,
+        engineering_summary="Ring-based torsion route improved the old shell result.",
+    )
+
+    csv_rows = list(csv.DictReader(csv_path.read_text().splitlines()))
+    assert csv_rows[0]["variant"] == "structured_s4_ring_torque"
+    assert csv_rows[0]["theta_error_pct"] == "7.24"
+    md_text = md_path.read_text(encoding="utf-8")
+    assert "# B5 Shell Torsion Hardening" in md_text
+    assert "recovered_torque_n_m" in md_text
+    assert "Ring-based torsion route improved" in md_text
+
+
+def test_b2_tapered_shell_hardening_row_has_required_schema() -> None:
+    fields = set(B2TaperedShellHardeningRow.__dataclass_fields__)
+
+    assert {
+        "variant",
+        "mesh_id",
+        "n_span",
+        "n_circumference",
+        "element_count",
+        "tip_uz_avg_m",
+        "tip_uz_min_m",
+        "tip_uz_max_m",
+        "root_reaction_fz_n",
+        "reaction_residual_n",
+        "max_von_mises_pa",
+        "error_vs_internal_pct",
+        "error_vs_b32r_pipe_pct",
+        "mesh_delta_vs_previous_pct",
+        "mesh_delta_vs_finest_pct",
+        "status",
+        "engineering_note",
+    }.issubset(fields)
+
+
+def test_distributed_vertical_loads_by_span_tributary_preserve_total_load() -> None:
+    spec = TubeShellMeshSpec(
+        name="load_check",
+        span_m=3.0,
+        root_outer_radius_m=0.03,
+        tip_outer_radius_m=0.02,
+        n_span=3,
+        n_circumference=8,
+        mesh_size_m=0.2,
+    )
+    nodes, _elements = build_structured_tube_shell_mesh(spec)
+    root_nodes = set(int(row[0]) for row in nodes if row[2] == 0.0)
+
+    loads = _distributed_vertical_loads_by_span_tributary(
+        nodes=nodes,
+        root_nodes=root_nodes,
+        total_fz_n=-80.0,
+    )
+
+    assert abs(sum(value for _node_id, dof, value in loads if dof == 3) + 80.0) < 1.0e-10
+    assert all(node_id not in root_nodes for node_id, _dof, _value in loads)
+
+
+def test_write_b2_tapered_shell_hardening_artifacts(tmp_path: Path) -> None:
+    rows = [
+        B2TaperedShellHardeningRow(
+            variant="structured_s4_root_ring_tributary_load",
+            mesh_id="fine",
+            n_span=96,
+            n_circumference=96,
+            element_count=9216,
+            tip_uz_avg_m=-0.158,
+            tip_uz_min_m=-0.159,
+            tip_uz_max_m=-0.157,
+            root_reaction_fz_n=80.0,
+            reaction_residual_n=0.0,
+            max_von_mises_pa=2.0e8,
+            error_vs_internal_pct=12.0,
+            error_vs_b32r_pipe_pct=1.5,
+            mesh_delta_vs_previous_pct=1.0,
+            mesh_delta_vs_finest_pct=0.0,
+            status="PASS",
+            engineering_note="structured route",
+        )
+    ]
+
+    csv_path = tmp_path / "b2_tapered_shell_hardening.csv"
+    md_path = tmp_path / "b2_tapered_shell_hardening.md"
+    write_b2_tapered_shell_hardening_csv(csv_path, rows)
+    write_b2_tapered_shell_hardening_markdown(md_path, rows)
+
+    csv_rows = list(csv.DictReader(csv_path.read_text().splitlines()))
+    assert csv_rows[0]["tip_uz_avg_m"] == "-0.158"
+    md_text = md_path.read_text(encoding="utf-8")
+    assert "# B2 Tapered Shell Hardening" in md_text
+    assert "tip_uz_min_m" in md_text
+    assert "structured route" in md_text
 
 
 def test_classify_constant_tube_status_uses_error_convergence_and_equilibrium() -> None:
