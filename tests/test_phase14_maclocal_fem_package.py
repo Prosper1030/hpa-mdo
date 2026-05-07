@@ -9,12 +9,21 @@ from hpa_mdo.structure.calculix_beam_export import BeamMaterial
 from hpa_mdo.structure.spar_model import tube_J
 from scripts.phase14_maclocal_fem_package import (
     B2ComparisonInputs,
+    ConstantTubeVerificationRow,
     Phase14ExpectedValue,
     TubeShellMeshSpec,
+    _build_parser,
+    build_structured_tube_shell_mesh,
     classify_b2_shell_agreement,
+    classify_constant_tube_status,
+    estimate_ring_twist_rad,
+    tube_bending_tip_load_delta,
+    tube_bending_uniform_load_delta,
     tip_torque_loads_for_ring,
     tube_torsion_theta,
     write_apdl_windows_package,
+    write_constant_tube_markdown,
+    write_constant_tube_verification_csv,
     write_tube_shell_geo,
 )
 
@@ -36,6 +45,142 @@ def test_tube_torsion_theta_matches_closed_form() -> None:
     assert theta == expected
 
 
+def test_tube_bending_helpers_match_closed_form() -> None:
+    tip = tube_bending_tip_load_delta(
+        force_n=-80.0,
+        span_m=10.0,
+        young_pa=135.0e9,
+        outer_radius_m=0.03,
+        thickness_m=0.0015,
+    )
+    uniform = tube_bending_uniform_load_delta(
+        q_n_per_m=-8.0,
+        span_m=10.0,
+        young_pa=135.0e9,
+        outer_radius_m=0.03,
+        thickness_m=0.0015,
+    )
+    second_moment = np.pi / 4.0 * (0.03**4 - (0.03 - 0.0015) ** 4)
+
+    assert tip == -80.0 * 10.0**3 / (3.0 * 135.0e9 * second_moment)
+    assert uniform == -8.0 * 10.0**4 / (8.0 * 135.0e9 * second_moment)
+
+
+def test_build_structured_tube_shell_mesh_builds_quad_shell_elements() -> None:
+    spec = TubeShellMeshSpec(
+        name="constant_quad",
+        span_m=2.0,
+        root_outer_radius_m=0.03,
+        tip_outer_radius_m=0.03,
+        n_span=3,
+        n_circumference=8,
+        mesh_size_m=0.2,
+    )
+
+    nodes, elements = build_structured_tube_shell_mesh(spec)
+
+    assert nodes.shape == (32, 4)
+    assert len(elements) == 24
+    assert {element.element_type for element in elements} == {"S4"}
+    assert elements[0].node_ids == (1, 9, 10, 2)
+    assert elements[-1].node_ids == (24, 32, 25, 17)
+
+
+def test_constant_tube_verification_row_has_required_schema() -> None:
+    fields = set(ConstantTubeVerificationRow.__dataclass_fields__)
+
+    assert {
+        "case_id",
+        "mesh_id",
+        "n_span",
+        "n_circumference",
+        "element_count",
+        "load_or_torque",
+        "theory_value",
+        "fem_value",
+        "error_pct",
+        "reaction_or_moment_residual",
+        "mesh_delta_vs_previous_pct",
+        "mesh_delta_vs_finest_pct",
+        "max_von_mises_pa",
+        "status",
+        "engineering_note",
+    }.issubset(fields)
+
+
+def test_build_parser_accepts_hardening_task() -> None:
+    args = _build_parser().parse_args(["--task", "hardening"])
+
+    assert args.task == "hardening"
+
+
+def test_write_constant_tube_artifacts_include_required_columns(tmp_path: Path) -> None:
+    rows = [
+        ConstantTubeVerificationRow(
+            case_id="A1_constant_tube_tip_load",
+            mesh_id="coarse",
+            n_span=32,
+            n_circumference=32,
+            element_count=1024,
+            load_or_torque=-80.0,
+            theory_value=-0.1,
+            fem_value=-0.102,
+            error_pct=2.0,
+            reaction_or_moment_residual=0.0,
+            mesh_delta_vs_previous_pct=None,
+            mesh_delta_vs_finest_pct=1.0,
+            max_von_mises_pa=1000.0,
+            status="PASS",
+            engineering_note="closed form agreement",
+        )
+    ]
+
+    csv_path = tmp_path / "constant_tube_bending.csv"
+    md_path = tmp_path / "constant_tube_bending.md"
+    write_constant_tube_verification_csv(csv_path, rows)
+    write_constant_tube_markdown(
+        md_path,
+        title="Constant Tube Bending",
+        rows=rows,
+        engineering_summary="Daily gate candidate.",
+    )
+
+    csv_rows = list(csv.DictReader(csv_path.read_text().splitlines()))
+    assert csv_rows[0]["case_id"] == "A1_constant_tube_tip_load"
+    assert csv_rows[0]["mesh_delta_vs_finest_pct"] == "1.0"
+    md_text = md_path.read_text(encoding="utf-8")
+    assert "# Constant Tube Bending" in md_text
+    assert "reaction_or_moment_residual" in md_text
+    assert "Daily gate candidate." in md_text
+
+
+def test_classify_constant_tube_status_uses_error_convergence_and_equilibrium() -> None:
+    assert classify_constant_tube_status(
+        theory_value=1.0,
+        fem_value=1.03,
+        error_pct=3.0,
+        mesh_delta_vs_finest_pct=4.0,
+        reaction_or_moment_residual=1.0e-5,
+        load_or_torque=100.0,
+    ) == "PASS"
+    assert classify_constant_tube_status(
+        theory_value=1.0,
+        fem_value=1.08,
+        error_pct=8.0,
+        mesh_delta_vs_finest_pct=12.0,
+        reaction_or_moment_residual=1.0e-5,
+        load_or_torque=100.0,
+    ) == "WARN"
+    assert classify_constant_tube_status(
+        theory_value=1.0,
+        fem_value=-0.2,
+        error_pct=120.0,
+        mesh_delta_vs_finest_pct=50.0,
+        reaction_or_moment_residual=20.0,
+        load_or_torque=100.0,
+    ) == "FAIL"
+
+
 def test_tip_torque_loads_for_ring_are_self_equilibrated() -> None:
     theta = np.linspace(0.0, 2.0 * np.pi, 16, endpoint=False)
     nodes = np.column_stack(
@@ -53,6 +198,81 @@ def test_tip_torque_loads_for_ring_are_self_equilibrated() -> None:
     assert abs(sum(load.force_z_n for load in loads)) < 1.0e-12
     torque = sum(load.z_m * load.force_x_n - load.x_m * load.force_z_n for load in loads)
     assert abs(torque - 42.0) < 1.0e-10
+
+
+def test_estimate_ring_twist_rad_recovers_known_rotation() -> None:
+    angles = np.linspace(0.0, 2.0 * np.pi, 32, endpoint=False)
+    radius = 0.03
+    theta = 0.017
+    nodes = np.column_stack(
+        (
+            np.arange(1, angles.size + 1, dtype=float),
+            radius * np.cos(angles),
+            np.full(angles.size, 10.0),
+            radius * np.sin(angles),
+        )
+    )
+    deformed_x = nodes[:, 1] * np.cos(theta) + nodes[:, 3] * np.sin(theta)
+    deformed_z = -nodes[:, 1] * np.sin(theta) + nodes[:, 3] * np.cos(theta)
+    displacements = np.column_stack(
+        (
+            nodes[:, 0],
+            deformed_x - nodes[:, 1],
+            np.zeros(angles.size),
+            deformed_z - nodes[:, 3],
+        )
+    )
+
+    assert abs(estimate_ring_twist_rad(nodes=nodes, displacements=displacements) - theta) < 1.0e-8
+
+
+def test_estimate_ring_twist_rad_ignores_pure_translation() -> None:
+    angles = np.linspace(0.0, 2.0 * np.pi, 24, endpoint=False)
+    nodes = np.column_stack(
+        (
+            np.arange(1, angles.size + 1, dtype=float),
+            0.03 * np.cos(angles),
+            np.full(angles.size, 10.0),
+            0.03 * np.sin(angles),
+        )
+    )
+    displacements = np.column_stack(
+        (
+            nodes[:, 0],
+            np.full(angles.size, 0.002),
+            np.full(angles.size, -0.001),
+            np.full(angles.size, -0.003),
+        )
+    )
+
+    assert abs(estimate_ring_twist_rad(nodes=nodes, displacements=displacements)) < 1.0e-10
+
+
+def test_estimate_ring_twist_rad_is_stable_with_small_noise() -> None:
+    rng = np.random.default_rng(14)
+    angles = np.linspace(0.0, 2.0 * np.pi, 64, endpoint=False)
+    radius = 0.03
+    theta = 0.012
+    nodes = np.column_stack(
+        (
+            np.arange(1, angles.size + 1, dtype=float),
+            radius * np.cos(angles),
+            np.full(angles.size, 10.0),
+            radius * np.sin(angles),
+        )
+    )
+    deformed_x = nodes[:, 1] * np.cos(theta) + nodes[:, 3] * np.sin(theta)
+    deformed_z = -nodes[:, 1] * np.sin(theta) + nodes[:, 3] * np.cos(theta)
+    displacements = np.column_stack(
+        (
+            nodes[:, 0],
+            deformed_x - nodes[:, 1] + rng.normal(0.0, 2.0e-6, angles.size),
+            rng.normal(0.0, 2.0e-6, angles.size),
+            deformed_z - nodes[:, 3] + rng.normal(0.0, 2.0e-6, angles.size),
+        )
+    )
+
+    assert abs(estimate_ring_twist_rad(nodes=nodes, displacements=displacements) - theta) < 2.5e-4
 
 
 def test_classify_b2_shell_agreement_chooses_nearest_reference() -> None:

@@ -132,6 +132,64 @@ class B5TorsionRunRow:
     note: str
 
 
+@dataclass(frozen=True)
+class ConstantTubeVerificationRow:
+    case_id: str
+    mesh_id: str
+    n_span: int
+    n_circumference: int
+    element_count: int
+    load_or_torque: float
+    theory_value: float | None
+    fem_value: float | None
+    error_pct: float | None
+    reaction_or_moment_residual: float | None
+    mesh_delta_vs_previous_pct: float | None
+    mesh_delta_vs_finest_pct: float | None
+    max_von_mises_pa: float | None
+    status: str
+    engineering_note: str
+
+
+def tube_second_moment_i(
+    *,
+    outer_radius_m: float,
+    thickness_m: float,
+) -> float:
+    inner_radius_m = max(float(outer_radius_m) - float(thickness_m), 0.0)
+    return math.pi / 4.0 * (float(outer_radius_m) ** 4 - inner_radius_m**4)
+
+
+def tube_bending_tip_load_delta(
+    *,
+    force_n: float,
+    span_m: float,
+    young_pa: float,
+    outer_radius_m: float,
+    thickness_m: float,
+) -> float:
+    inertia_m4 = tube_second_moment_i(
+        outer_radius_m=outer_radius_m,
+        thickness_m=thickness_m,
+    )
+    return float(force_n) * float(span_m) ** 3 / (3.0 * float(young_pa) * inertia_m4)
+
+
+def tube_bending_uniform_load_delta(
+    *,
+    q_n_per_m: float,
+    span_m: float,
+    young_pa: float,
+    outer_radius_m: float,
+    thickness_m: float,
+) -> float:
+    inertia_m4 = tube_second_moment_i(
+        outer_radius_m=outer_radius_m,
+        thickness_m=thickness_m,
+    )
+    return float(q_n_per_m) * float(span_m) ** 4 / (8.0 * float(young_pa) * inertia_m4)
+
+
 def tube_torsion_theta(
     *,
     torque_n_m: float,
@@ -144,6 +202,181 @@ def tube_torsion_theta(
     shear_pa = float(young_pa) / (2.0 * (1.0 + float(poisson_ratio)))
     polar_m4 = float(tube_J(np.asarray([outer_radius_m]), np.asarray([thickness_m]))[0])
     return float(torque_n_m) * float(span_m) / (shear_pa * polar_m4)
+
+
+def build_structured_tube_shell_mesh(
+    spec: TubeShellMeshSpec,
+) -> tuple[np.ndarray, list[ShellElement]]:
+    """Build a structured quad shell tube mesh with shared ring nodes."""
+
+    if spec.n_span < 1:
+        raise ValueError("n_span must be >= 1.")
+    if spec.n_circumference < 6:
+        raise ValueError("n_circumference must be >= 6.")
+
+    nodes: list[tuple[float, float, float, float]] = []
+    node_ids: dict[tuple[int, int], int] = {}
+    node_id = 1
+    for i_span in range(spec.n_span + 1):
+        eta = i_span / spec.n_span
+        y_m = eta * spec.span_m
+        radius_m = (1.0 - eta) * spec.root_outer_radius_m + eta * spec.tip_outer_radius_m
+        for i_circ in range(spec.n_circumference):
+            theta = 2.0 * math.pi * i_circ / spec.n_circumference
+            x_m = radius_m * math.cos(theta)
+            z_m = radius_m * math.sin(theta)
+            node_ids[(i_span, i_circ)] = node_id
+            nodes.append((float(node_id), x_m, y_m, z_m))
+            node_id += 1
+
+    elements: list[ShellElement] = []
+    element_id = 1
+    for i_span in range(spec.n_span):
+        for i_circ in range(spec.n_circumference):
+            j_next = (i_circ + 1) % spec.n_circumference
+            elements.append(
+                ShellElement(
+                    element_id=element_id,
+                    element_type="S4",
+                    node_ids=(
+                        node_ids[(i_span, i_circ)],
+                        node_ids[(i_span + 1, i_circ)],
+                        node_ids[(i_span + 1, j_next)],
+                        node_ids[(i_span, j_next)],
+                    ),
+                )
+            )
+            element_id += 1
+    return np.asarray(nodes, dtype=float), elements
+
+
+def classify_constant_tube_status(
+    *,
+    theory_value: float | None,
+    fem_value: float | None,
+    error_pct: float | None,
+    mesh_delta_vs_finest_pct: float | None,
+    reaction_or_moment_residual: float | None,
+    load_or_torque: float,
+) -> str:
+    if theory_value is None or fem_value is None or error_pct is None:
+        return "SKIP"
+    if float(theory_value) * float(fem_value) < 0.0:
+        return "FAIL"
+    residual = abs(float(reaction_or_moment_residual or 0.0))
+    residual_limit = max(1.0e-6, abs(float(load_or_torque)) * 1.0e-3)
+    if residual > residual_limit:
+        return "FAIL"
+    if float(error_pct) <= 5.0 and float(mesh_delta_vs_finest_pct or 0.0) <= 5.0:
+        return "PASS"
+    if float(error_pct) <= 10.0:
+        return "WARN"
+    return "FAIL"
+
+
+def recovered_torque_y_from_tip_loads(loads: Iterable[TipTorqueLoad]) -> float:
+    return float(sum(load.z_m * load.force_x_n - load.x_m * load.force_z_n for load in loads))
+
+
+def _hardening_mesh_specs(
+    *,
+    prefix: str,
+    span_m: float,
+    root_outer_radius_m: float,
+    tip_outer_radius_m: float,
+) -> list[TubeShellMeshSpec]:
+    return [
+        TubeShellMeshSpec(
+            name=f"{prefix}_coarse",
+            span_m=span_m,
+            root_outer_radius_m=root_outer_radius_m,
+            tip_outer_radius_m=tip_outer_radius_m,
+            n_span=32,
+            n_circumference=32,
+            mesh_size_m=0.20,
+        ),
+        TubeShellMeshSpec(
+            name=f"{prefix}_medium",
+            span_m=span_m,
+            root_outer_radius_m=root_outer_radius_m,
+            tip_outer_radius_m=tip_outer_radius_m,
+            n_span=64,
+            n_circumference=64,
+            mesh_size_m=0.10,
+        ),
+        TubeShellMeshSpec(
+            name=f"{prefix}_fine",
+            span_m=span_m,
+            root_outer_radius_m=root_outer_radius_m,
+            tip_outer_radius_m=tip_outer_radius_m,
+            n_span=96,
+            n_circumference=96,
+            mesh_size_m=0.07,
+        ),
+    ]
+
+
+def _vertical_tip_ring_loads(
+    *,
+    nodes: np.ndarray,
+    tip_nodes: Iterable[int],
+    total_fz_n: float,
+) -> list[tuple[int, int, float]]:
+    node_ids = [int(node_id) for node_id in tip_nodes]
+    if not node_ids:
+        raise ValueError("Tip-ring load requires at least one tip node.")
+    per_node = float(total_fz_n) / len(node_ids)
+    return [(node_id, 3, per_node) for node_id in node_ids]
+
+
+def _distributed_vertical_loads_by_span_tributary(
+    *,
+    nodes: np.ndarray,
+    root_nodes: set[int],
+    total_fz_n: float,
+) -> list[tuple[int, int, float]]:
+    y_values = sorted({round(float(row[2]), 12) for row in nodes})
+    if len(y_values) < 2:
+        raise ValueError("Distributed shell loading requires at least two spanwise rings.")
+    ring_weights: dict[float, float] = {}
+    for idx, y_m in enumerate(y_values):
+        if idx == 0:
+            width = 0.5 * (y_values[1] - y_values[0])
+        elif idx == len(y_values) - 1:
+            width = 0.5 * (y_values[-1] - y_values[-2])
+        else:
+            width = 0.5 * (y_values[idx + 1] - y_values[idx - 1])
+        ring_weights[y_m] = width
+    non_root_rows = [row for row in nodes if int(row[0]) not in root_nodes]
+    active_weight = sum(ring_weights[round(float(row[2]), 12)] for row in non_root_rows)
+    if active_weight <= 0.0:
+        raise ValueError("No non-root shell nodes available for tributary loading.")
+    scale = float(total_fz_n) / active_weight
+    return [
+        (int(row[0]), 3, scale * ring_weights[round(float(row[2]), 12)])
+        for row in non_root_rows
+    ]
+
+
+def _tip_uz_stats_at_y(frd_path: Path, y_m: float) -> tuple[float, float, float]:
+    coordinates = parse_nodal_coordinates(frd_path)
+    displacements = parse_displacement(frd_path)
+    if coordinates.size == 0 or displacements.size == 0:
+        raise ValueError(f"No coordinate/displacement output available in {frd_path}.")
+    disp_map = {int(row[0]): row for row in displacements}
+    offsets = np.abs(coordinates[:, 2] - float(y_m))
+    tolerance = max(1.0e-8, float(np.min(offsets)) + 1.0e-8)
+    values = [float(disp_map[int(row[0])][3]) for row in coordinates[offsets <= tolerance] if int(row[0]) in disp_map]
+    if not values:
+        raise ValueError(f"No tip-ring UZ rows found near y={y_m:g} in {frd_path}.")
+    return float(np.mean(values)), float(np.min(values)), float(np.max(values))
+
+
+def _pct_delta(current: float | None, previous: float | None) -> float | None:
+    if current is None or previous is None:
+        return None
+    denom = max(abs(float(previous)), 1.0e-12)
+    return abs(float(current) - float(previous)) / denom * 100.0
 
 
 def tip_torque_loads_for_ring(nodes: np.ndarray, *, torque_n_m: float) -> list[TipTorqueLoad]:
@@ -334,6 +567,439 @@ def run_phase14_maclocal_fem_route(
         "expected_values_csv": package.directory / "expected_values.csv",
         "apdl_runner": package.directory / "run_all_phase14.mac",
     }
+
+
+def run_phase14_maclocal_fem_hardening(
+    *,
+    config_path: str | Path,
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    manifest_path: str | Path = DEFAULT_MANIFEST,
+) -> dict[str, Path]:
+    """Run the Phase 14 Mac-local shell FEM hardening workflow."""
+
+    cfg = phase14_bench.load_config(Path(config_path).resolve())
+    output_root = Path(output_dir).resolve()
+    output_root.mkdir(parents=True, exist_ok=True)
+    hardening_dir = output_root / "maclocal_fem_hardening"
+    hardening_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_rows = phase14_bench._load_manifest_rows(Path(manifest_path).resolve())
+    cases = phase14_bench._build_benchmark_cases(cfg=cfg, manifest_rows=manifest_rows)
+    b2_case = next(case for case in cases if case.benchmark_id == "B2")
+    if not isinstance(b2_case.spec, SinglePipeCantileverSpec):
+        raise TypeError("Phase 14 hardening expects B2 to be a single pipe benchmark.")
+    material = b2_case.spec.material
+
+    bending_rows = _run_constant_tube_bending_verification(
+        cfg=cfg,
+        hardening_dir=hardening_dir,
+        material=material,
+    )
+    torsion_rows = _run_constant_tube_torsion_verification(
+        cfg=cfg,
+        hardening_dir=hardening_dir,
+        material=material,
+    )
+    b5_rows = _run_b5_shell_torsion_hardening(
+        cfg=cfg,
+        hardening_dir=hardening_dir,
+        material=material,
+        constant_torsion_rows=torsion_rows,
+    )
+    b2_rows = _run_b2_tapered_shell_hardening(
+        cfg=cfg,
+        hardening_dir=hardening_dir,
+        b2_spec=b2_case.spec,
+    )
+
+    bending_csv = hardening_dir / "constant_tube_bending.csv"
+    bending_md = hardening_dir / "constant_tube_bending.md"
+    torsion_csv = hardening_dir / "constant_tube_torsion.csv"
+    torsion_md = hardening_dir / "constant_tube_torsion.md"
+    b5_csv = hardening_dir / "b5_shell_torsion_hardening.csv"
+    b5_md = hardening_dir / "b5_shell_torsion_hardening.md"
+    b2_csv = hardening_dir / "b2_tapered_shell_hardening.csv"
+    b2_md = hardening_dir / "b2_tapered_shell_hardening.md"
+    overnight_md = hardening_dir / "overnight_summary.md"
+    write_constant_tube_verification_csv(bending_csv, bending_rows)
+    write_constant_tube_markdown(
+        bending_md,
+        title="Phase 14 Constant Tube Shell Bending Verification",
+        rows=bending_rows,
+        engineering_summary=(
+            "Constant circular tube shell bending benchmark using the Phase 14 material scale. "
+            "Closed-form comparisons use cantilever beam formulas and root reaction closure."
+        ),
+    )
+    write_constant_tube_verification_csv(torsion_csv, torsion_rows)
+    write_constant_tube_markdown(
+        torsion_md,
+        title="Phase 14 Constant Tube Shell Torsion Verification",
+        rows=torsion_rows,
+        engineering_summary=(
+            "Constant circular tube shell torsion benchmark using theta = T L / GJ. "
+            "The residual column records applied torque reconstruction from the nodal force ring."
+        ),
+    )
+    _write_dataclass_csv(b5_csv, b5_rows, B5ShellTorsionHardeningRow)
+    write_b5_shell_torsion_hardening_markdown(b5_md, b5_rows)
+    _write_dataclass_csv(b2_csv, b2_rows, B2TaperedShellHardeningRow)
+    write_b2_tapered_shell_hardening_markdown(b2_md, b2_rows)
+    write_overnight_hardening_summary(
+        overnight_md,
+        bending_rows=bending_rows,
+        torsion_rows=torsion_rows,
+        b5_rows=b5_rows,
+        b2_rows=b2_rows,
+        apdl_package_dir=output_root / "apdl_windows_package",
+    )
+    return {
+        "constant_tube_bending_csv": bending_csv,
+        "constant_tube_bending_md": bending_md,
+        "constant_tube_torsion_csv": torsion_csv,
+        "constant_tube_torsion_md": torsion_md,
+        "b5_shell_torsion_hardening_csv": b5_csv,
+        "b5_shell_torsion_hardening_md": b5_md,
+        "b2_tapered_shell_hardening_csv": b2_csv,
+        "b2_tapered_shell_hardening_md": b2_md,
+        "overnight_summary_md": overnight_md,
+    }
+
+
+def _constant_tube_mesh_specs() -> list[tuple[str, int, int]]:
+    return [
+        ("coarse", 32, 32),
+        ("medium", 64, 64),
+        ("fine", 96, 96),
+    ]
+
+
+def _run_constant_tube_bending_verification(
+    *,
+    cfg: Any,
+    hardening_dir: Path,
+    material: BeamMaterial,
+) -> list[ConstantTubeVerificationRow]:
+    span_m = 10.0
+    outer_radius_m = 0.03
+    thickness_m = 0.0015
+    tip_load_n = -80.0
+    q_n_per_m = -8.0
+    rows: list[ConstantTubeVerificationRow] = []
+    for mesh_id, n_span, n_circ in _constant_tube_mesh_specs():
+        spec = TubeShellMeshSpec(
+            name=f"constant_tube_{mesh_id}",
+            span_m=span_m,
+            root_outer_radius_m=outer_radius_m,
+            tip_outer_radius_m=outer_radius_m,
+            n_span=n_span,
+            n_circumference=n_circ,
+            mesh_size_m=span_m / n_span,
+        )
+        rows.append(
+            _run_constant_tube_shell_case(
+                cfg=cfg,
+                case_dir=hardening_dir / "constant_tube_bending" / "tip_load" / mesh_id,
+                case_id="A1_constant_tube_tip_load",
+                mesh_id=mesh_id,
+                mesh_spec=spec,
+                material=material,
+                root_thickness_m=thickness_m,
+                tip_thickness_m=thickness_m,
+                loads_builder=lambda nodes, root_nodes, tip_nodes, total=tip_load_n: [
+                    (node_id, 3, total / len(tip_nodes)) for node_id in tip_nodes
+                ],
+                theory_value=tube_bending_tip_load_delta(
+                    force_n=tip_load_n,
+                    span_m=span_m,
+                    young_pa=material.young_pa,
+                    outer_radius_m=outer_radius_m,
+                    thickness_m=thickness_m,
+                ),
+                load_or_torque=tip_load_n,
+                result_kind="tip_uz",
+                engineering_note="Tip-ring load distributed equally over all free-end ring nodes.",
+            )
+        )
+    for mesh_id, n_span, n_circ in _constant_tube_mesh_specs():
+        spec = TubeShellMeshSpec(
+            name=f"constant_tube_uniform_{mesh_id}",
+            span_m=span_m,
+            root_outer_radius_m=outer_radius_m,
+            tip_outer_radius_m=outer_radius_m,
+            n_span=n_span,
+            n_circumference=n_circ,
+            mesh_size_m=span_m / n_span,
+        )
+        rows.append(
+            _run_constant_tube_shell_case(
+                cfg=cfg,
+                case_dir=hardening_dir / "constant_tube_bending" / "uniform_load" / mesh_id,
+                case_id="A2_constant_tube_uniform_load",
+                mesh_id=mesh_id,
+                mesh_spec=spec,
+                material=material,
+                root_thickness_m=thickness_m,
+                tip_thickness_m=thickness_m,
+                loads_builder=lambda nodes, root_nodes, tip_nodes, total=q_n_per_m * span_m: (
+                    _distributed_vertical_loads_for_shell_nodes(
+                        nodes=nodes,
+                        root_nodes=set(root_nodes),
+                        total_fz_n=total,
+                    )
+                ),
+                theory_value=tube_bending_uniform_load_delta(
+                    q_n_per_m=q_n_per_m,
+                    span_m=span_m,
+                    young_pa=material.young_pa,
+                    outer_radius_m=outer_radius_m,
+                    thickness_m=thickness_m,
+                ),
+                load_or_torque=q_n_per_m * span_m,
+                result_kind="tip_uz",
+                engineering_note=(
+                    "Uniform span load represented by equivalent nodal vertical loads on non-root shell nodes."
+                ),
+            )
+        )
+    return _add_constant_tube_mesh_deltas(rows)
+
+
+def _run_constant_tube_torsion_verification(
+    *,
+    cfg: Any,
+    hardening_dir: Path,
+    material: BeamMaterial,
+) -> list[ConstantTubeVerificationRow]:
+    span_m = 10.0
+    outer_radius_m = 0.03
+    thickness_m = 0.0015
+    torque_n_m = 100.0
+    rows: list[ConstantTubeVerificationRow] = []
+    for mesh_id, n_span, n_circ in _constant_tube_mesh_specs():
+        spec = TubeShellMeshSpec(
+            name=f"constant_tube_torsion_{mesh_id}",
+            span_m=span_m,
+            root_outer_radius_m=outer_radius_m,
+            tip_outer_radius_m=outer_radius_m,
+            n_span=n_span,
+            n_circumference=n_circ,
+            mesh_size_m=span_m / n_span,
+        )
+
+        def build_torque_loads(
+            nodes: np.ndarray,
+            root_nodes: list[int],
+            tip_nodes: list[int],
+            *,
+            torque: float = torque_n_m,
+        ) -> list[tuple[int, int, float]]:
+            _ = root_nodes
+            ring_loads = tip_torque_loads_for_ring(_rows_for_node_ids(nodes, tip_nodes), torque_n_m=torque)
+            loads: list[tuple[int, int, float]] = []
+            for load in ring_loads:
+                loads.append((load.node_id, 1, load.force_x_n))
+                loads.append((load.node_id, 3, load.force_z_n))
+            return loads
+
+        rows.append(
+            _run_constant_tube_shell_case(
+                cfg=cfg,
+                case_dir=hardening_dir / "constant_tube_torsion" / mesh_id,
+                case_id="A3_constant_tube_tip_torque",
+                mesh_id=mesh_id,
+                mesh_spec=spec,
+                material=material,
+                root_thickness_m=thickness_m,
+                tip_thickness_m=thickness_m,
+                loads_builder=build_torque_loads,
+                theory_value=tube_torsion_theta(
+                    torque_n_m=torque_n_m,
+                    span_m=span_m,
+                    young_pa=material.young_pa,
+                    poisson_ratio=material.poisson_ratio,
+                    outer_radius_m=outer_radius_m,
+                    thickness_m=thickness_m,
+                ),
+                load_or_torque=torque_n_m,
+                result_kind="tip_twist",
+                engineering_note=(
+                    "Tip torque applied as self-equilibrated tangential force ring; twist uses all tip-ring nodes."
+                ),
+            )
+        )
+    return _add_constant_tube_mesh_deltas(rows)
+
+
+def _run_constant_tube_shell_case(
+    *,
+    cfg: Any,
+    case_dir: Path,
+    case_id: str,
+    mesh_id: str,
+    mesh_spec: TubeShellMeshSpec,
+    material: BeamMaterial,
+    root_thickness_m: float,
+    tip_thickness_m: float,
+    loads_builder: Any,
+    theory_value: float,
+    load_or_torque: float,
+    result_kind: str,
+    engineering_note: str,
+) -> ConstantTubeVerificationRow:
+    nodes, elements = build_structured_tube_shell_mesh(mesh_spec)
+    if find_ccx(cfg) is None:
+        return ConstantTubeVerificationRow(
+            case_id=case_id,
+            mesh_id=mesh_id,
+            n_span=mesh_spec.n_span,
+            n_circumference=mesh_spec.n_circumference,
+            element_count=len(elements),
+            load_or_torque=load_or_torque,
+            theory_value=theory_value,
+            fem_value=None,
+            error_pct=None,
+            reaction_or_moment_residual=None,
+            mesh_delta_vs_previous_pct=None,
+            mesh_delta_vs_finest_pct=None,
+            max_von_mises_pa=None,
+            status="SKIP",
+            engineering_note="CalculiX unavailable; structured shell deck was not run.",
+        )
+
+    root_nodes = _nodes_at_y(nodes, 0.0)
+    tip_nodes = _nodes_at_y(nodes, mesh_spec.span_m)
+    loads = list(loads_builder(nodes, root_nodes, tip_nodes))
+    static_inp = case_dir / f"{case_id}_{mesh_id}.inp"
+    _write_shell_static_inp(
+        static_inp,
+        nodes=nodes,
+        elements=elements,
+        material=material,
+        root_nodes=root_nodes,
+        loads=loads,
+        span_m=mesh_spec.span_m,
+        root_thickness_m=root_thickness_m,
+        tip_thickness_m=tip_thickness_m,
+        output_stress=True,
+    )
+    payload = run_static(static_inp, cfg)
+    if payload.get("error"):
+        return ConstantTubeVerificationRow(
+            case_id=case_id,
+            mesh_id=mesh_id,
+            n_span=mesh_spec.n_span,
+            n_circumference=mesh_spec.n_circumference,
+            element_count=len(elements),
+            load_or_torque=load_or_torque,
+            theory_value=theory_value,
+            fem_value=None,
+            error_pct=None,
+            reaction_or_moment_residual=None,
+            mesh_delta_vs_previous_pct=None,
+            mesh_delta_vs_finest_pct=None,
+            max_von_mises_pa=None,
+            status="WARN",
+            engineering_note=f"{engineering_note} Solver failed: {payload['error']}",
+        )
+
+    frd_path = Path(payload["frd"])
+    dat_path = Path(payload["dat"])
+    if result_kind == "tip_uz":
+        fem_value = _average_uz_at_y(frd_path, mesh_spec.span_m)
+        root_force = parse_total_force_from_dat(dat_path, "ROOT")
+        root_reaction_fz_n = None if root_force is None else float(root_force[2])
+        applied_total = float(sum(value for _node_id, dof, value in loads if dof == 3))
+        residual = None if root_reaction_fz_n is None else root_reaction_fz_n + applied_total
+    elif result_kind == "tip_twist":
+        fem_value = _tip_ring_twist_from_frd(frd_path, span_m=mesh_spec.span_m)
+        tip_force_rows = {
+            (node_id, dof): value
+            for node_id, dof, value in loads
+            if dof in {1, 3}
+        }
+        tip_rows = _rows_for_node_ids(nodes, tip_nodes)
+        recovered_torque = 0.0
+        for node_id, x_m, _y_m, z_m in tip_rows:
+            fx = float(tip_force_rows.get((int(node_id), 1), 0.0))
+            fz = float(tip_force_rows.get((int(node_id), 3), 0.0))
+            recovered_torque += float(z_m) * fx - float(x_m) * fz
+        residual = recovered_torque - load_or_torque
+    else:
+        raise ValueError(f"Unsupported constant tube result kind: {result_kind}")
+
+    error_pct = phase14_bench._pct_error(abs(fem_value), abs(theory_value))
+    status = classify_constant_tube_status(
+        theory_value=theory_value,
+        fem_value=fem_value,
+        error_pct=error_pct,
+        mesh_delta_vs_finest_pct=None,
+        reaction_or_moment_residual=residual,
+        load_or_torque=load_or_torque,
+    )
+    return ConstantTubeVerificationRow(
+        case_id=case_id,
+        mesh_id=mesh_id,
+        n_span=mesh_spec.n_span,
+        n_circumference=mesh_spec.n_circumference,
+        element_count=len(elements),
+        load_or_torque=load_or_torque,
+        theory_value=theory_value,
+        fem_value=fem_value,
+        error_pct=error_pct,
+        reaction_or_moment_residual=residual,
+        mesh_delta_vs_previous_pct=None,
+        mesh_delta_vs_finest_pct=None,
+        max_von_mises_pa=_max_von_mises_from_frd(frd_path),
+        status=status,
+        engineering_note=engineering_note,
+    )
+
+
+def _add_constant_tube_mesh_deltas(
+    rows: list[ConstantTubeVerificationRow],
+) -> list[ConstantTubeVerificationRow]:
+    finest_by_case: dict[str, float] = {}
+    for row in rows:
+        if row.fem_value is not None:
+            finest_by_case[row.case_id] = row.fem_value
+
+    previous_by_case: dict[str, float] = {}
+    updated: list[ConstantTubeVerificationRow] = []
+    for row in rows:
+        previous = previous_by_case.get(row.case_id)
+        finest = finest_by_case.get(row.case_id)
+        delta_previous = (
+            None
+            if previous is None or row.fem_value is None
+            else phase14_bench._pct_error(abs(row.fem_value), abs(previous))
+        )
+        delta_finest = (
+            None
+            if finest is None or row.fem_value is None
+            else phase14_bench._pct_error(abs(row.fem_value), abs(finest))
+        )
+        status = classify_constant_tube_status(
+            theory_value=row.theory_value,
+            fem_value=row.fem_value,
+            error_pct=row.error_pct,
+            mesh_delta_vs_finest_pct=delta_finest,
+            reaction_or_moment_residual=row.reaction_or_moment_residual,
+            load_or_torque=row.load_or_torque,
+        )
+        updated.append(
+            ConstantTubeVerificationRow(
+                **{
+                    **row.__dict__,
+                    "mesh_delta_vs_previous_pct": delta_previous,
+                    "mesh_delta_vs_finest_pct": delta_finest,
+                    "status": status,
+                }
+            )
+        )
+        if row.fem_value is not None:
+            previous_by_case[row.case_id] = row.fem_value
+    return updated
 
 
 def _run_b2_shell_route(*, cfg: Any, route_dir: Path, b2_spec: SinglePipeCantileverSpec) -> list[B2ShellRunRow]:
@@ -954,25 +1620,43 @@ def _average_uz(displacements: np.ndarray, node_ids: Iterable[int]) -> float:
     return float(np.mean([row[3] for row in rows]))
 
 
+def estimate_ring_twist_rad(*, nodes: np.ndarray, displacements: np.ndarray) -> float:
+    """Estimate rigid twist of an end ring about +Y from all ring nodes.
+
+    The x-z ring centroid is removed before comparing angles, so a pure rigid
+    translation does not masquerade as torsion.
+    """
+
+    reference_rows = np.asarray(nodes, dtype=float)
+    displacement_rows = np.asarray(displacements, dtype=float)
+    disp_map = {int(row[0]): row for row in displacement_rows}
+    matched: list[tuple[float, float, float, float]] = []
+    for node_id, x_m, _y_m, z_m in reference_rows:
+        disp = disp_map.get(int(node_id))
+        if disp is None:
+            continue
+        matched.append((float(x_m), float(z_m), float(x_m + disp[1]), float(z_m + disp[3])))
+    if not matched:
+        raise ValueError("No matching ring nodes/displacements available for twist estimation.")
+
+    values = np.asarray(matched, dtype=float)
+    x0 = values[:, 0] - float(np.mean(values[:, 0]))
+    z0 = values[:, 1] - float(np.mean(values[:, 1]))
+    x1 = values[:, 2] - float(np.mean(values[:, 2]))
+    z1 = values[:, 3] - float(np.mean(values[:, 3]))
+    radius = np.hypot(x0, z0)
+    valid = radius > max(1.0e-12, float(np.max(radius)) * 1.0e-6)
+    if not np.any(valid):
+        raise ValueError("Ring twist estimation requires non-coincident x-z nodes.")
+
+    cross = x0[valid] * z1[valid] - z0[valid] * x1[valid]
+    dot = x0[valid] * x1[valid] + z0[valid] * z1[valid]
+    angles = np.arctan2(-cross, dot)
+    return float(math.atan2(float(np.mean(np.sin(angles))), float(np.mean(np.cos(angles)))))
+
+
 def _tip_ring_twist_from_displacement(*, nodes: np.ndarray, displacements: np.ndarray) -> float:
-    disp_map = {int(row[0]): row for row in displacements}
-    twists: list[float] = []
-    for node_id, x_m, _y_m, z_m in nodes:
-        row = disp_map.get(int(node_id))
-        if row is None:
-            continue
-        radius = math.hypot(float(x_m), float(z_m))
-        if radius <= 0.0:
-            continue
-        sin_theta = float(z_m) / radius
-        cos_theta = float(x_m) / radius
-        tangent_ux = sin_theta
-        tangent_uz = -cos_theta
-        tangential_disp = float(row[1]) * tangent_ux + float(row[3]) * tangent_uz
-        twists.append(tangential_disp / radius)
-    if not twists:
-        raise ValueError("No tip-ring displacements available for torsion twist extraction.")
-    return float(np.mean(twists))
+    return estimate_ring_twist_rad(nodes=nodes, displacements=displacements)
 
 
 def _average_uz_at_y(frd_path: Path, y_m: float) -> float:
@@ -994,23 +1678,13 @@ def _tip_ring_twist_from_frd(frd_path: Path, *, span_m: float) -> float:
     displacements = parse_displacement(frd_path)
     if coordinates.size == 0 or displacements.size == 0:
         raise ValueError(f"No coordinate/displacement output available in {frd_path}.")
-    disp_map = {int(row[0]): row for row in displacements}
     offsets = np.abs(coordinates[:, 2] - float(span_m))
     tolerance = max(1.0e-8, float(np.min(offsets)) + 1.0e-8)
-    tip_rows = [row for row in coordinates[offsets <= tolerance] if int(row[0]) in disp_map]
-    twists: list[float] = []
-    for node_id, x_m, _y_m, z_m in tip_rows:
-        radius = math.hypot(float(x_m), float(z_m))
-        if radius <= 0.0:
-            continue
-        disp = disp_map[int(node_id)]
-        sin_theta = float(z_m) / radius
-        cos_theta = float(x_m) / radius
-        tangential_disp = float(disp[1]) * sin_theta + float(disp[3]) * (-cos_theta)
-        twists.append(tangential_disp / radius)
-    if not twists:
+    disp_map = {int(row[0]): row for row in displacements}
+    tip_rows = np.asarray([row for row in coordinates[offsets <= tolerance] if int(row[0]) in disp_map])
+    if tip_rows.size == 0:
         raise ValueError(f"No tip-ring twist rows found near y={span_m:g} in {frd_path}.")
-    return float(np.mean(twists))
+    return estimate_ring_twist_rad(nodes=tip_rows, displacements=displacements)
 
 
 def _max_von_mises_from_frd(frd_path: Path) -> float | None:
@@ -1504,6 +2178,42 @@ def _write_dataclass_csv(path: Path, rows: list[Any], cls: Any) -> None:
             writer.writerow(row.__dict__)
 
 
+def write_constant_tube_verification_csv(
+    path: str | Path,
+    rows: list[ConstantTubeVerificationRow],
+) -> None:
+    _write_dataclass_csv(Path(path), rows, ConstantTubeVerificationRow)
+
+
+def write_constant_tube_markdown(
+    path: str | Path,
+    *,
+    title: str,
+    rows: list[ConstantTubeVerificationRow],
+    engineering_summary: str,
+) -> None:
+    lines = [
+        f"# {title}",
+        "",
+        engineering_summary,
+        "",
+        "| case_id | mesh_id | n_span | n_circumference | element_count | load_or_torque | theory_value | fem_value | error_pct | reaction_or_moment_residual | mesh_delta_vs_previous_pct | mesh_delta_vs_finest_pct | max_von_mises_pa | status | engineering_note |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row.case_id} | {row.mesh_id} | {row.n_span} | {row.n_circumference} | "
+            f"{row.element_count} | {_fmt(row.load_or_torque)} | {_fmt(row.theory_value)} | "
+            f"{_fmt(row.fem_value)} | {_fmt(row.error_pct)} | "
+            f"{_fmt(row.reaction_or_moment_residual)} | "
+            f"{_fmt(row.mesh_delta_vs_previous_pct)} | {_fmt(row.mesh_delta_vs_finest_pct)} | "
+            f"{_fmt(row.max_von_mises_pa)} | {row.status} | {row.engineering_note} |"
+        )
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def _write_route_summary(
     path: Path,
     *,
@@ -1610,16 +2320,29 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default=str(REPO_ROOT / "configs" / "blackcat_004.yaml"))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
+    parser.add_argument(
+        "--task",
+        choices=("package", "hardening"),
+        default="package",
+        help="Run the original APDL handoff package route or the Mac-local FEM hardening workflow.",
+    )
     return parser
 
 
 def main() -> None:
     args = _build_parser().parse_args()
-    artifacts = run_phase14_maclocal_fem_route(
-        config_path=args.config,
-        output_dir=args.output_dir,
-        manifest_path=args.manifest,
-    )
+    if args.task == "hardening":
+        artifacts = run_phase14_maclocal_fem_hardening(
+            config_path=args.config,
+            output_dir=args.output_dir,
+            manifest_path=args.manifest,
+        )
+    else:
+        artifacts = run_phase14_maclocal_fem_route(
+            config_path=args.config,
+            output_dir=args.output_dir,
+            manifest_path=args.manifest,
+        )
     for name, path in artifacts.items():
         print(f"{name}: {path}")
 
