@@ -1,0 +1,8 @@
+candidate_id,route_family,status,element_type,section_sampling_mode,n_elem,supported_in_ccx,solver_returncode,calculix_tip_uz_m,reference_tip_uz_m,reference_vs_calculix_error_pct,engineering_note
+current_b32r_pipe,legal_ccx_pipe,WARN,B32R,current,20,True,0,0.160448,0.17951413956239698,10.620968135922134,Current production-like CalculiX route. Stable tapered-beam underprediction remains.
+midpoint_b32r_pipe,legal_ccx_pipe,WARN,B32R,midpoint,20,True,0,0.16363,0.18307712863198256,10.622369258955732,Midpoint section sampling does not materially reduce the tapered-pipe gap.
+average_geometry_b32r_pipe,legal_ccx_pipe,WARN,B32R,average_geometry,20,True,0,0.16363,0.18307712863198256,10.622369258955732,Average-geometry sampling collapses to the same result as midpoint sampling for a linear taper.
+b31r_pipe_probe,illegal_ccx_pipe_swap,REJECTED,B31R,current,20,False,201,,,,*BEAM SECTION of type PIPE can only be used for B32R elements.
+b31_pipe_probe,illegal_ccx_pipe_swap,REJECTED,B31,current,20,False,201,,,,*BEAM SECTION of type PIPE can only be used for B32R elements.
+b32_pipe_probe,illegal_ccx_pipe_swap,REJECTED,B32,current,20,False,201,,,,*BEAM SECTION of type PIPE can only be used for B32R elements.
+apdl_truth_deck,apdl_truth,TRUTH_DECK_PREPARED,BEAM188,current,20,False,,,,,Prepared an ANSYS APDL BEAM188/CTUBE deck because no legal CalculiX pipe alternative improved the warning-grade tapered result.
