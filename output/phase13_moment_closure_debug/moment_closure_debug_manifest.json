@@ -1,0 +1,13 @@
+{
+  "generated_by": "/Volumes/Samsung SSD/hpa-mdo/scripts/debug_phase13_moment_closure.py",
+  "target_z_m": 2.0,
+  "target_recipe_id": "4a5b3187fd18",
+  "target_recipe_signature": "baseline_uniform|1.000000,1.000000,1.000000,1.000000,0.005000",
+  "outputs": {
+    "moment_closure_breakdown": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_closure_debug/moment_closure_breakdown.csv",
+    "moment_closure_variants": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_closure_debug/moment_closure_variants.csv",
+    "moment_closure_diagnosis": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_closure_debug/moment_closure_diagnosis.md",
+    "suspected_wiring_bugs": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_closure_debug/suspected_wiring_bugs.md",
+    "recommended_fix_or_next_test": "/Volumes/Samsung SSD/hpa-mdo/output/phase13_moment_closure_debug/recommended_fix_or_next_test.md"
+  }
+}
