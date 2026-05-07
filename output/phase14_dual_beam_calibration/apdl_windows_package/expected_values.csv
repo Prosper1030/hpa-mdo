@@ -1,0 +1,10 @@
+case_id,metric,value,source,tolerance_pct,note
+B2_TAPERED_TUBE,tip_uz_m,-0.17974141995394777,mac_internal_beam,10.0,Primary beam-theory reference for the APDL BEAM188 deck.
+B2_TAPERED_TUBE,tip_uz_m,-0.160448,mac_calculix_b32r_pipe,10.0,CalculiX PIPE beam reference from the Mac-local route.
+B2_TAPERED_TUBE,tip_uz_m,-0.13971700000000004,mac_shell_fem_fine_sanity,20.0,Shell FEM sanity reference; not calibration truth.
+B2_TAPERED_TUBE,root_reaction_fz_n,79.99998,mac_shell_fem_fine,2.0,Sign convention should close against applied FZ.
+B5_SINGLE_TORSION,theta_rad,0.046792010256783714,theta_equals_tl_over_gj,10.0,Primary torsion reference for APDL BEAM188.
+B5_SINGLE_TORSION,theta_rad,0.010833385637749025,mac_shell_fem_tip_torque_sanity,25.0,Observed shell FEM twist; warning-grade versus closed form.
+B5_SINGLE_TORSION,root_torque_n_m,99.9994,mac_calculix_b32r_section_forces,2.0,Root section-force torque should recover applied torque.
+B5_DUAL_DIRECT_MY,root_torque_n_m,40.0,deck_applied_load,10.0,Simplified dual-beam direct moment case.
+B5_DUAL_FORCE_COUPLE,root_torque_n_m,40.0,deck_applied_load,10.0,Force couple has same external moment but is only a surrogate load path.

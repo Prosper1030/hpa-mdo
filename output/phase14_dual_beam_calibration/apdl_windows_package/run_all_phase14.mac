@@ -1,0 +1,14 @@
+! Phase 14 Windows APDL runner.
+! Open ANSYS Mechanical APDL, set the working directory to this folder, then run:
+! /INPUT,run_all_phase14,mac
+/CLEAR,NOSTART
+HEADER='case_id,route,status,tip_uz_m,theta_rad,root_reaction_fz_n,root_torque_n_m,max_stress_pa,note'
+*CFOPEN,phase14_apdl_results,csv
+*VWRITE,HEADER
+(A)
+*CFCLOS
+/INPUT,phase14_b2_tapered_tube,mac
+/INPUT,phase14_b5_single_torsion,mac
+/INPUT,phase14_b5_dual_direct_my,mac
+/INPUT,phase14_b5_dual_force_couple,mac
+FINISH
