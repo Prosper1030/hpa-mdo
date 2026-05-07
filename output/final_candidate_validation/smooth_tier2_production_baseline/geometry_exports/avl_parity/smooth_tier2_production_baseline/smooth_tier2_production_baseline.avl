@@ -1,0 +1,61 @@
+Smooth Tier2 production-facing baseline from Birdman concept wing-only AVL Phase9 smooth monotone Phase9 smooth monotone
+#Mach
+0.000000
+#IYsym  iZsym  Zsym
+1  0  0.000000
+#Sref  Cref  Bref
+33.420059598  1.003721543  34.332286000
+#Xref  Yref  Zref
+0.246276512  0.000000000  0.000000000
+#CDp
+0.000000
+#
+SURFACE
+Wing
+16  1.0  32  1.0
+#
+SECTION
+0.000000000  0.000000000  0.000000000  1.256773096  5.633710000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/dae31.dat
+#
+SECTION
+0.000000000  2.746583000  0.067125043  1.171564829  5.959416000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/dae31.dat
+#
+SECTION
+0.000000000  6.008150000  0.196697708  1.067327906  6.062433000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/dae31.dat
+#
+SECTION
+0.000000000  8.926394000  0.358575604  0.970371624  5.670963000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/dae31.dat
+#
+SECTION
+0.000000000  12.016300000  0.577352682  0.862163835  4.843813000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/dae31.dat
+#
+SECTION
+0.000000000  14.076237000  0.750330425  0.784941307  4.246063000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/cst_tip_nsga2_g06_child_0056_b3f9b7c4.dat
+#
+SECTION
+0.000000000  15.449529000  0.877726872  0.729402473  3.928193000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/cst_tip_nsga2_g06_child_0056_b3f9b7c4.dat
+#
+SECTION
+0.000000000  16.307836000  0.962262733  0.691495432  3.729525000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/cst_tip_nsga2_g06_child_0056_b3f9b7c4.dat
+#
+SECTION
+0.000000000  17.166143000  1.050581644  0.645004090  3.650057000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/airfoils/cst_tip_nsga2_g06_child_0056_b3f9b7c4.dat
+#

@@ -1,0 +1,37 @@
+{
+  "airfoil_assignment": {
+    "mid1": "dae31",
+    "mid2": "dae31",
+    "root": "dae31",
+    "tip": "cst_tip_nsga2_g06_child_0056_b3f9b7c4"
+  },
+  "avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/smooth_tier2_production_baseline.avl",
+  "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline",
+  "case_id": "smooth_tier2_production_baseline",
+  "chord_mode": "phase9_smooth_monotone_preserved",
+  "computed_span_m": 34.332286,
+  "computed_wing_area_m2": 33.4200595978741,
+  "display_name": "Smooth Tier2 production-facing baseline",
+  "export_mode": "avl_parity",
+  "generated_at": "2026-05-07T05:23:41.798202Z",
+  "incidence_convention": "source_smooth_geometry_preserved_no_second_incidence_offset",
+  "known_limitations": [
+    "Final-candidate validation package only; no production ranking or hard gates changed.",
+    "The smooth-monotone planform and loaded z are preserved from Phase 9.",
+    "The production_inspection export intentionally does not re-PAVA or re-offset the already smooth/cruise-normalized source geometry."
+  ],
+  "loaded_tip_z_m": 1.050581644,
+  "loaded_z_distribution": "phase9_smooth_monotone_preserved",
+  "schema_version": "smooth_tier2_production_baseline_geometry_manifest_v1",
+  "section_table_csv": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/section_table.csv",
+  "source_avl": "/Volumes/Samsung SSD/hpa-mdo/output/phase9_smooth_geometry_combo_reoptimization/avl_inputs/conservative_best_tier2/combo_0083/conservative_best_tier2_combo_0083.avl",
+  "source_phase": "phase9_smooth_geometry_combo_reoptimization",
+  "vsp_export": {
+    "airfoil_errors": [],
+    "airfoil_import_mode": "file_airfoil_imported",
+    "status": "vsp3_written",
+    "vsp3_path": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/smooth_tier2_production_baseline.vsp3",
+    "vsp_uses_airfoil_shapes": true,
+    "vspscript_path": "/Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/avl_parity/smooth_tier2_production_baseline/smooth_tier2_production_baseline.vspscript"
+  }
+}
