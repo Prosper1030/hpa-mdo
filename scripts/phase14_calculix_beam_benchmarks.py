@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 import re
 from typing import Any
@@ -108,6 +108,31 @@ class B2DiagnosisRow:
     root_reaction_fz_n: float | None
     reaction_residual_n: float | None
     engineering_note: str
+
+
+@dataclass(frozen=True)
+class DualBeamDiagnosticResult:
+    spec: DualPipeBenchmarkSpec
+    node_sets: dict[str, tuple[int, ...]]
+    deck_path: Path
+    frd_path: Path
+    dat_path: Path
+    internal_metrics: dict[str, float]
+    fem_tip_main_m: float
+    fem_tip_rear_m: float
+    applied_total_fz_n: float
+    applied_fz_on_root_nodes_n: float
+    applied_fz_on_wire_nodes_n: float
+    root_reaction_fz_raw_n: float | None
+    wire_reaction_fz_raw_n: float | None
+    all_support_reaction_fz_raw_n: float | None
+    root_reaction_fz_corrected_n: float | None
+    wire_reaction_fz_corrected_n: float | None
+    all_support_reaction_fz_corrected_n: float | None
+    reaction_residual_raw_n: float | None
+    reaction_residual_corrected_n: float | None
+    fem_twist_proxy_rad: float
+    applied_spanwise_moment_n_m: float
 
 
 def discover_solver_paths(config_path: str | Path) -> SolverPaths:
@@ -223,6 +248,12 @@ def run_phase14_calculix_beam_benchmarks(
     )
     if solver_paths.ccx_path is not None:
         _write_b2_taper_diagnosis(
+            phase14_dir=phase14_dir,
+            benchmark_dir=benchmark_dir,
+            cfg=cfg,
+            cases=cases,
+        )
+        _write_b4_wire_reaction_diagnosis(
             phase14_dir=phase14_dir,
             benchmark_dir=benchmark_dir,
             cfg=cfg,
@@ -615,20 +646,33 @@ def _solve_dual_beam_internal(spec: DualPipeBenchmarkSpec) -> dict[str, float]:
                 penalty=_LINK_PENALTY,
             )
 
+    rhs_reference = rhs.copy()
     constrained_dofs = list(range(0, 6))
     constrained_dofs.extend(range(nn * 6, nn * 6 + 6))
     constrained_dofs.extend(int(idx) * 6 + 2 for idx in spec.wire_node_indices)
+    stiffness_bc = stiffness.copy()
     for dof in constrained_dofs:
-        stiffness[dof, dof] += _BC_PENALTY
+        stiffness_bc[dof, dof] += _BC_PENALTY
         rhs[dof] = 0.0
 
-    state = np.linalg.solve(stiffness, rhs)
+    state = np.linalg.solve(stiffness_bc, rhs)
     disp_main = state[: nn * 6].reshape((nn, 6))
     disp_rear = state[nn * 6 :].reshape((nn, 6))
+    with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+        reaction_vector = stiffness @ state - rhs_reference
+    reactions = reaction_vector.reshape((2 * nn, 6))
+    root_reaction_fz_n = float(reactions[0, 2] + reactions[nn, 2])
+    wire_reaction_fz_n = float(sum(reactions[int(idx), 2] for idx in spec.wire_node_indices))
+    chordwise_spacing_m = max(float(spec.rear_x_m[-1] - spec.main_x_m[-1]), 1.0e-12)
+    twist_proxy_rad = float((disp_rear[-1, 2] - disp_main[-1, 2]) / chordwise_spacing_m)
     return {
         "tip_main_m": float(disp_main[-1, 2]),
         "tip_rear_m": float(disp_rear[-1, 2]),
+        "root_reaction_fz_n": root_reaction_fz_n,
+        "wire_reaction_fz_n": wire_reaction_fz_n,
         "reaction_total_fz_n": float(abs(np.sum(spec.main_nodal_fz_n) + np.sum(spec.rear_nodal_fz_n))),
+        "twist_proxy_rad": twist_proxy_rad,
+        "applied_spanwise_moment_n_m": _applied_spanwise_moment_n_m(spec),
     }
 
 
@@ -871,21 +915,7 @@ def _support_applied_fz(
     spec: SinglePipeCantileverSpec | DualPipeBenchmarkSpec,
     node_sets: dict[str, tuple[int, ...]],
 ) -> float:
-    support_nodes = set(node_sets.get("HPA_SUPPORT_ALL", ()))
-    if isinstance(spec, SinglePipeCantileverSpec):
-        total = 0.0
-        for node_id in support_nodes:
-            total += float(spec.nodal_fz_n[_single_beam_station_index(node_id)])
-        return total
-    nn = spec.y_nodes_m.size
-    main_total_nodes = 2 * nn - 1
-    total = 0.0
-    for node_id in support_nodes:
-        if node_id <= main_total_nodes:
-            total += float(spec.main_nodal_fz_n[_single_beam_station_index(node_id)])
-        else:
-            total += float(spec.rear_nodal_fz_n[_rear_beam_station_index(node_id, nn)])
-    return total
+    return _applied_fz_on_node_ids(spec, node_sets.get("HPA_SUPPORT_ALL", ()))
 
 
 def _pct_error(actual: float, reference: float) -> float:
@@ -1257,6 +1287,288 @@ def _uniform_load_from_spec(spec: SinglePipeCantileverSpec) -> float:
 
 def _as_array(values: np.ndarray | list[float] | tuple[float, ...]) -> np.ndarray:
     return np.asarray(values, dtype=float)
+
+
+def _write_b4_wire_reaction_diagnosis(
+    *,
+    phase14_dir: Path,
+    benchmark_dir: Path,
+    cfg,
+    cases: list[BenchmarkCase],
+) -> None:
+    b4_case = next(case for case in cases if case.benchmark_id == "B4")
+    if not isinstance(b4_case.spec, DualPipeBenchmarkSpec):
+        raise TypeError("B4 diagnosis expects a dual-beam benchmark spec.")
+
+    diagnosis_dir = benchmark_dir / "b4_diagnosis"
+    diagnosis_dir.mkdir(parents=True, exist_ok=True)
+    base_spec = b4_case.spec
+    redistributed_main_fz_n = _redistribute_support_node_loads(base_spec)
+    variants: list[tuple[str, str, DualPipeBenchmarkSpec]] = [
+        (
+            "B4_root_only",
+            "root_fixed_only_no_wire",
+            replace(base_spec, name="b4_root_fixed_only_no_wire", wire_node_indices=()),
+        ),
+        (
+            "B4_wire_no_links",
+            "root_plus_wire_no_rigid_links",
+            replace(base_spec, name="b4_root_plus_wire_no_rigid_links", joint_node_indices=()),
+        ),
+        (
+            "B4_wire_links_current",
+            "root_plus_wire_with_rigid_links",
+            replace(base_spec, name="b4_root_plus_wire_with_rigid_links"),
+        ),
+        (
+            "B4_wire_links_redistributed",
+            "root_plus_wire_load_redistributed_off_support_nodes",
+            replace(
+                base_spec,
+                name="b4_root_plus_wire_load_redistributed",
+                main_nodal_fz_n=redistributed_main_fz_n,
+            ),
+        ),
+    ]
+
+    fieldnames = [
+        "case_id",
+        "variant",
+        "main_tip_uz_m",
+        "rear_tip_uz_m",
+        "max_uz_m",
+        "applied_total_fz_n",
+        "applied_fz_on_root_nodes_n",
+        "applied_fz_on_wire_nodes_n",
+        "root_reaction_fz_raw_n",
+        "wire_reaction_fz_raw_n",
+        "all_support_reaction_fz_raw_n",
+        "all_support_reaction_fz_corrected_n",
+        "reaction_residual_raw_n",
+        "reaction_residual_corrected_n",
+        "internal_wire_reaction_fz_n",
+        "internal_root_reaction_fz_n",
+        "wire_reaction_error_pct",
+        "root_reaction_error_pct",
+        "engineering_note",
+    ]
+    rows: list[dict[str, object]] = []
+    for case_id, variant, spec in variants:
+        result = _run_dual_beam_diagnostic_case(
+            cfg=cfg,
+            diagnosis_dir=diagnosis_dir,
+            spec=spec,
+        )
+        wire_error_pct = None
+        if result.wire_reaction_fz_corrected_n is not None and "wire_reaction_fz_n" in result.internal_metrics:
+            wire_error_pct = _pct_error(
+                result.wire_reaction_fz_corrected_n,
+                abs(result.internal_metrics["wire_reaction_fz_n"]),
+            )
+        root_error_pct = None
+        if result.root_reaction_fz_corrected_n is not None and "root_reaction_fz_n" in result.internal_metrics:
+            root_error_pct = _pct_error(
+                result.root_reaction_fz_corrected_n,
+                abs(result.internal_metrics["root_reaction_fz_n"]),
+            )
+        note_parts = []
+        if "WIRE_REAR_LINK" in result.node_sets:
+            note_parts.append(
+                "Wire reaction cluster includes the rear linked node so MPC-carried support force is not hidden."
+            )
+        if result.reaction_residual_raw_n is not None and abs(result.reaction_residual_raw_n) > 1.0e-6:
+            note_parts.append(
+                "Raw RF does not close because constrained-node applied loads must be added back after the set total."
+            )
+        if variant == "root_plus_wire_load_redistributed_off_support_nodes":
+            note_parts.append(
+                "Redistributed support-node loads show the raw RF convention separately from the hidden rear-link reaction."
+            )
+        rows.append(
+            {
+                "case_id": case_id,
+                "variant": variant,
+                "main_tip_uz_m": result.fem_tip_main_m,
+                "rear_tip_uz_m": result.fem_tip_rear_m,
+                "max_uz_m": max(abs(result.fem_tip_main_m), abs(result.fem_tip_rear_m)),
+                "applied_total_fz_n": result.applied_total_fz_n,
+                "applied_fz_on_root_nodes_n": result.applied_fz_on_root_nodes_n,
+                "applied_fz_on_wire_nodes_n": result.applied_fz_on_wire_nodes_n,
+                "root_reaction_fz_raw_n": result.root_reaction_fz_raw_n,
+                "wire_reaction_fz_raw_n": result.wire_reaction_fz_raw_n,
+                "all_support_reaction_fz_raw_n": result.all_support_reaction_fz_raw_n,
+                "all_support_reaction_fz_corrected_n": result.all_support_reaction_fz_corrected_n,
+                "reaction_residual_raw_n": result.reaction_residual_raw_n,
+                "reaction_residual_corrected_n": result.reaction_residual_corrected_n,
+                "internal_wire_reaction_fz_n": abs(result.internal_metrics.get("wire_reaction_fz_n", np.nan)),
+                "internal_root_reaction_fz_n": abs(result.internal_metrics.get("root_reaction_fz_n", np.nan)),
+                "wire_reaction_error_pct": wire_error_pct,
+                "root_reaction_error_pct": root_error_pct,
+                "engineering_note": " ".join(note_parts).strip(),
+            }
+        )
+
+    csv_path = phase14_dir / "b4_wire_reaction_diagnosis.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    current_row = next(row for row in rows if row["case_id"] == "B4_wire_links_current")
+    redistributed_row = next(row for row in rows if row["case_id"] == "B4_wire_links_redistributed")
+    lines = [
+        "# B4 Wire Reaction Diagnosis",
+        "",
+        "## Variants",
+        "",
+        "| Variant | Main tip [m] | Rear tip [m] | Raw support RF [N] | Corrected support RF [N] | Raw residual [N] | Corrected residual [N] | Root err [%] | Wire err [%] |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row['variant']} | {float(row['main_tip_uz_m']):.6f} | {float(row['rear_tip_uz_m']):.6f} | "
+            f"{_fmt_number(row['all_support_reaction_fz_raw_n'])} | {_fmt_number(row['all_support_reaction_fz_corrected_n'])} | "
+            f"{_fmt_number(row['reaction_residual_raw_n'])} | {_fmt_number(row['reaction_residual_corrected_n'])} | "
+            f"{_fmt_number(row['root_reaction_error_pct'])} | {_fmt_number(row['wire_reaction_error_pct'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Engineering Interpretation",
+            "",
+            f"- In the current rigid-link wire surrogate, the raw support total misses equilibrium by {float(current_row['reaction_residual_raw_n']):.3f} N. That shortfall is exactly the load applied on constrained support nodes, so raw `RF` totals are not yet physical support reactions by themselves.",
+            f"- After adding back constrained-node loads, the corrected support residual closes to {float(current_row['reaction_residual_corrected_n']):.3e} N and the corrected root/wire reactions stay within {float(current_row['root_reaction_error_pct']):.3f}% / {float(current_row['wire_reaction_error_pct']):.3f}% of the internal beam model.",
+            "- The missing reaction channel was the rear linked wire-station node carried through the MPC. Including `WIRE_REAR_LINK` in `HPA_SUPPORT_WIRE`/`HPA_SUPPORT_ALL` recovers that force without changing any production physics.",
+            f"- When support-node loads are redistributed off the constrained root/wire nodes, the raw residual drops from {float(current_row['reaction_residual_raw_n']):.3f} N to {float(redistributed_row['reaction_residual_raw_n']):.3e} N, confirming that the remaining bookkeeping issue was not a structural imbalance.",
+        ]
+    )
+    (phase14_dir / "b4_wire_reaction_diagnosis.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _run_dual_beam_diagnostic_case(
+    *,
+    cfg,
+    diagnosis_dir: Path,
+    spec: DualPipeBenchmarkSpec,
+) -> DualBeamDiagnosticResult:
+    internal_metrics = _solve_dual_beam_internal(spec)
+    deck = write_calculix_beam_inp(spec, diagnosis_dir / f"{spec.name}.inp")
+    run_payload = run_static(deck.inp_path, cfg)
+    if run_payload.get("error"):
+        raise RuntimeError(f"Dual-beam diagnosis run failed for {spec.name}: {run_payload['error']}")
+    frd_path = Path(run_payload["frd"]).resolve()
+    dat_path = Path(run_payload["dat"]).resolve()
+    disp = parse_displacement(frd_path)
+    fem_tip_main_m = _nodal_uz(disp, deck.node_sets["TIP_MAIN"][0])
+    fem_tip_rear_m = _nodal_uz(disp, deck.node_sets["TIP_REAR"][0])
+    chordwise_spacing_m = max(float(spec.rear_x_m[-1] - spec.main_x_m[-1]), 1.0e-12)
+    fem_twist_proxy_rad = float((fem_tip_rear_m - fem_tip_main_m) / chordwise_spacing_m)
+    applied_total_fz_n = float(np.sum(spec.main_nodal_fz_n) + np.sum(spec.rear_nodal_fz_n))
+    applied_fz_on_root_nodes_n = _applied_fz_on_node_ids(spec, deck.node_sets["HPA_SUPPORT_ROOT"])
+    applied_fz_on_wire_nodes_n = _applied_fz_on_node_ids(
+        spec,
+        deck.node_sets.get("HPA_SUPPORT_WIRE", ()),
+    )
+    root_raw = _set_force_component(dat_path, "HPA_SUPPORT_ROOT")
+    wire_raw = _set_force_component(dat_path, "HPA_SUPPORT_WIRE")
+    all_raw = _set_force_component(dat_path, "HPA_SUPPORT_ALL")
+    root_corrected = None if root_raw is None else abs(root_raw - applied_fz_on_root_nodes_n)
+    wire_corrected = None if wire_raw is None else abs(wire_raw - applied_fz_on_wire_nodes_n)
+    all_support_loads_n = applied_fz_on_root_nodes_n + applied_fz_on_wire_nodes_n
+    all_corrected = None if all_raw is None else abs(all_raw - all_support_loads_n)
+    reaction_residual_raw_n = None if all_raw is None else float(all_raw + applied_total_fz_n)
+    reaction_residual_corrected_n = (
+        None if all_corrected is None else float(all_corrected + applied_total_fz_n)
+    )
+    return DualBeamDiagnosticResult(
+        spec=spec,
+        node_sets=deck.node_sets,
+        deck_path=deck.inp_path,
+        frd_path=frd_path,
+        dat_path=dat_path,
+        internal_metrics=internal_metrics,
+        fem_tip_main_m=fem_tip_main_m,
+        fem_tip_rear_m=fem_tip_rear_m,
+        applied_total_fz_n=applied_total_fz_n,
+        applied_fz_on_root_nodes_n=applied_fz_on_root_nodes_n,
+        applied_fz_on_wire_nodes_n=applied_fz_on_wire_nodes_n,
+        root_reaction_fz_raw_n=root_raw,
+        wire_reaction_fz_raw_n=wire_raw,
+        all_support_reaction_fz_raw_n=all_raw,
+        root_reaction_fz_corrected_n=root_corrected,
+        wire_reaction_fz_corrected_n=wire_corrected,
+        all_support_reaction_fz_corrected_n=all_corrected,
+        reaction_residual_raw_n=reaction_residual_raw_n,
+        reaction_residual_corrected_n=reaction_residual_corrected_n,
+        fem_twist_proxy_rad=fem_twist_proxy_rad,
+        applied_spanwise_moment_n_m=_applied_spanwise_moment_n_m(spec),
+    )
+
+
+def _redistribute_support_node_loads(spec: DualPipeBenchmarkSpec) -> np.ndarray:
+    redistributed = np.array(spec.main_nodal_fz_n, dtype=float, copy=True)
+    if redistributed.size < 3:
+        return redistributed
+    redistributed[1] += redistributed[0]
+    redistributed[0] = 0.0
+    for wire_index in spec.wire_node_indices:
+        idx = int(wire_index)
+        load = redistributed[idx]
+        redistributed[idx] = 0.0
+        neighbors: list[int] = []
+        if idx - 1 >= 1:
+            neighbors.append(idx - 1)
+        if idx + 1 < redistributed.size - 1:
+            neighbors.append(idx + 1)
+        if not neighbors:
+            redistributed[idx] = load
+            continue
+        share = load / float(len(neighbors))
+        for neighbor in neighbors:
+            redistributed[neighbor] += share
+    return redistributed
+
+
+def _applied_spanwise_moment_n_m(spec: DualPipeBenchmarkSpec) -> float:
+    main_moment = float(np.sum(spec.main_nodal_my_nm))
+    rear_moment = float(np.sum(spec.rear_nodal_my_nm))
+    force_couple = float(
+        -np.sum(spec.main_x_m * spec.main_nodal_fz_n) - np.sum(spec.rear_x_m * spec.rear_nodal_fz_n)
+    )
+    return main_moment + rear_moment + force_couple
+
+
+def _applied_fz_on_node_ids(
+    spec: SinglePipeCantileverSpec | DualPipeBenchmarkSpec,
+    node_ids: tuple[int, ...],
+) -> float:
+    support_nodes = set(int(node_id) for node_id in node_ids)
+    if isinstance(spec, SinglePipeCantileverSpec):
+        total = 0.0
+        for node_id in support_nodes:
+            total += float(spec.nodal_fz_n[_single_beam_station_index(node_id)])
+        return total
+    nn = spec.y_nodes_m.size
+    main_total_nodes = 2 * nn - 1
+    total = 0.0
+    for node_id in support_nodes:
+        if node_id <= main_total_nodes:
+            total += float(spec.main_nodal_fz_n[_single_beam_station_index(node_id)])
+        else:
+            total += float(spec.rear_nodal_fz_n[_rear_beam_station_index(node_id, nn)])
+    return total
+
+
+def _set_force_component(dat_path: Path, set_name: str) -> float | None:
+    total_force = parse_total_force_from_dat(dat_path, set_name)
+    return None if total_force is None else float(total_force[2])
+
+
+def _fmt_number(value: object | None) -> str:
+    if value is None:
+        return "—"
+    return f"{float(value):.3f}"
 
 
 def _write_comparison_csv(path: Path, case_results: list[BenchmarkCaseResult]) -> None:

@@ -309,12 +309,21 @@ def _dual_beam_text(
         node_sets["WIRE_MAIN"] = tuple(
             main_topology.endpoint_node_ids[int(idx)] for idx in spec.wire_node_indices
         )
+        wire_rear_link_nodes = tuple(
+            rear_topology.endpoint_node_ids[int(idx)]
+            for idx in spec.wire_node_indices
+            if int(idx) in set(spec.joint_node_indices)
+        )
+        if wire_rear_link_nodes:
+            node_sets["WIRE_REAR_LINK"] = wire_rear_link_nodes
     node_sets["HPA_SUPPORT_ROOT"] = tuple(sorted({*node_sets["ROOT_MAIN"], *node_sets["ROOT_REAR"]}))
-    node_sets["HPA_SUPPORT_ALL"] = tuple(
-        sorted({*node_sets["HPA_SUPPORT_ROOT"], *node_sets.get("WIRE_MAIN", ())})
-    )
     if spec.wire_node_indices:
-        node_sets["HPA_SUPPORT_WIRE"] = node_sets["WIRE_MAIN"]
+        node_sets["HPA_SUPPORT_WIRE"] = tuple(
+            sorted({*node_sets["WIRE_MAIN"], *node_sets.get("WIRE_REAR_LINK", ())})
+        )
+    node_sets["HPA_SUPPORT_ALL"] = tuple(
+        sorted({*node_sets["HPA_SUPPORT_ROOT"], *node_sets.get("HPA_SUPPORT_WIRE", ())})
+    )
 
     lines = [
         f"** Phase 14 beam deck: {spec.name}",

@@ -108,7 +108,10 @@ def test_write_dual_pipe_deck_includes_link_equations_and_wire_vertical_support(
     assert f"{wire_node}, 3, 3, 0.0" in text
     rear_wire_node = deck.node_sets["ROOT_REAR"][0] + 2 * 4
     assert f"{rear_wire_node}, 3, 1.0, {wire_node}, 3, -1.0" in text
+    assert deck.node_sets["WIRE_REAR_LINK"] == (rear_wire_node,)
+    assert deck.node_sets["HPA_SUPPORT_WIRE"] == (wire_node, rear_wire_node)
     assert "HPA_SUPPORT_ALL" in deck.node_sets
+    assert rear_wire_node in deck.node_sets["HPA_SUPPORT_ALL"]
     assert deck.node_sets["ROOT_MAIN"] == (1,)
     assert deck.node_sets["ROOT_REAR"] == (2 * len(y_nodes_m),)
 
