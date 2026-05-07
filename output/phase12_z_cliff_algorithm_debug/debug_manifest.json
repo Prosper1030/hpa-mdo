@@ -1,0 +1,200 @@
+{
+  "generated_by": "/Volumes/Samsung SSD/hpa-mdo/scripts/debug_z_state_mass_cliff.py",
+  "z_values_m": [
+    2.0,
+    2.025
+  ],
+  "config": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_structure_validation_cliff_audit/cliff_sweep_run/smooth_tier2_canonical_config.yaml",
+  "design_report": "/Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/ansys/crossval_report.txt",
+  "base_dir": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_structure_validation_cliff_audit/cliff_sweep_run",
+  "outputs": {
+    "candidate_recipe_dump_2p000": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_z_cliff_algorithm_debug/candidate_recipe_dump_2p000.csv",
+    "candidate_recipe_dump_2p025": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_z_cliff_algorithm_debug/candidate_recipe_dump_2p025.csv",
+    "forced_recipe_comparison": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_z_cliff_algorithm_debug/forced_recipe_comparison.csv",
+    "rejection_reason_diff": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_z_cliff_algorithm_debug/rejection_reason_diff.md",
+    "suspected_bug_report": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_z_cliff_algorithm_debug/suspected_bug_report.md",
+    "recommended_fix": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_z_cliff_algorithm_debug/recommended_fix.md"
+  },
+  "case_summaries": [
+    {
+      "target_main_tip_z_m": 2.0,
+      "target_shape_z_scale": 1.8779282804294861,
+      "candidate_artifact": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_structure_validation_cliff_audit/cliff_sweep_run/candidate_avl_artifacts/target_main_tip_z_2p000m.json",
+      "coarse_count": 96,
+      "coarse_feasible_count": 21,
+      "total_candidate_count_after_probes": 101,
+      "total_feasible_count_after_probes": 24,
+      "reported_selected_signature": "baseline_uniform|0.000000,0.000000,0.000000,0.000000,1.000000",
+      "reported_selected_tube_mass_kg": 77.01360725359352,
+      "best_after_probes_signature": "baseline_uniform|0.000000,0.000000,0.000000,0.000000,0.970000",
+      "best_after_probes_tube_mass_kg": 75.51454865068477,
+      "manufacturing_limits": {
+        "manufacturing_limit_source": "baseline_seed x 1.100",
+        "max_jig_vertical_prebend_limit_m": 4.026598944324525,
+        "max_jig_vertical_curvature_limit_per_m": 0.13555113015045775
+      },
+      "active_wall_probes": [
+        {
+          "variable": "wall_thickness_fraction",
+          "selected_z": 1.0,
+          "trial_z": 0.97,
+          "mass_delta_kg": -1.4990586029087467,
+          "clearance_delta_m": 0.0,
+          "failure_delta": -0.00035952062418154185,
+          "buckling_delta": -4.327247447588611e-06,
+          "dominant_blocker": "radius_dominance_margin_min_m",
+          "dominant_blocker_margin": -8.673617379884035e-19,
+          "overall_feasible": true,
+          "target_mass_passed": true,
+          "clearance_risk_score": 0.0
+        },
+        {
+          "variable": "rear_outboard_fraction",
+          "selected_z": 0.0,
+          "trial_z": 0.03,
+          "mass_delta_kg": 0.02367378331699399,
+          "clearance_delta_m": 0.0,
+          "failure_delta": 3.656852332156735e-05,
+          "buckling_delta": 5.457754344018184e-07,
+          "dominant_blocker": "geometry_validity",
+          "dominant_blocker_margin": -8.99999999999998e-05,
+          "overall_feasible": false,
+          "target_mass_passed": true,
+          "clearance_risk_score": 0.0
+        },
+        {
+          "variable": "rear_radius_scale",
+          "selected_z": 0.0,
+          "trial_z": 0.03,
+          "mass_delta_kg": 0.0940355663637149,
+          "clearance_delta_m": 0.0,
+          "failure_delta": 4.1850262168741104e-05,
+          "buckling_delta": 1.1325231716874384e-06,
+          "dominant_blocker": "geometry_validity",
+          "dominant_blocker_margin": -3.405646640552897e-05,
+          "overall_feasible": false,
+          "target_mass_passed": true,
+          "clearance_risk_score": 0.0
+        },
+        {
+          "variable": "main_taper_fill",
+          "selected_z": 0.0,
+          "trial_z": 0.03,
+          "mass_delta_kg": 0.3105873402327859,
+          "clearance_delta_m": 0.0,
+          "failure_delta": 0.00021795195003948553,
+          "buckling_delta": 9.350432301213907e-06,
+          "dominant_blocker": "rear_thickness_ratio_margin_min_m",
+          "dominant_blocker_margin": 0.0,
+          "overall_feasible": true,
+          "target_mass_passed": true,
+          "clearance_risk_score": 0.0
+        },
+        {
+          "variable": "main_plateau_scale",
+          "selected_z": 0.0,
+          "trial_z": 0.03,
+          "mass_delta_kg": 0.33315822014031937,
+          "clearance_delta_m": 0.0,
+          "failure_delta": 5.1978497520699385e-05,
+          "buckling_delta": 2.9813832489455905e-06,
+          "dominant_blocker": "rear_thickness_ratio_margin_min_m",
+          "dominant_blocker_margin": 0.0,
+          "overall_feasible": true,
+          "target_mass_passed": true,
+          "clearance_risk_score": 0.0
+        }
+      ]
+    },
+    {
+      "target_main_tip_z_m": 2.025,
+      "target_shape_z_scale": 1.9014023839348546,
+      "candidate_artifact": "/Volumes/Samsung SSD/hpa-mdo/output/phase12_structure_validation_cliff_audit/cliff_sweep_run/candidate_avl_artifacts/target_main_tip_z_2p025m.json",
+      "coarse_count": 96,
+      "coarse_feasible_count": 24,
+      "total_candidate_count_after_probes": 101,
+      "total_feasible_count_after_probes": 25,
+      "reported_selected_signature": "baseline_uniform|1.000000,1.000000,1.000000,1.000000,0.000000",
+      "reported_selected_tube_mass_kg": 15.518634942853357,
+      "best_after_probes_signature": "baseline_uniform|1.000000,1.000000,1.000000,1.000000,0.000000",
+      "best_after_probes_tube_mass_kg": 15.518634942853357,
+      "manufacturing_limits": {
+        "manufacturing_limit_source": "baseline_seed x 1.100",
+        "max_jig_vertical_prebend_limit_m": 4.026598944324525,
+        "max_jig_vertical_curvature_limit_per_m": 0.13555113015045775
+      },
+      "active_wall_probes": [
+        {
+          "variable": "rear_outboard_fraction",
+          "selected_z": 1.0,
+          "trial_z": 0.97,
+          "mass_delta_kg": -0.09015412623785579,
+          "clearance_delta_m": -0.006800086873314681,
+          "failure_delta": 0.0017761514202814244,
+          "buckling_delta": 0.0005586362300381564,
+          "dominant_blocker": "ground_clearance",
+          "dominant_blocker_margin": -0.006528189482347457,
+          "overall_feasible": false,
+          "target_mass_passed": true,
+          "clearance_risk_score": 2.4007225530097935
+        },
+        {
+          "variable": "main_plateau_scale",
+          "selected_z": 1.0,
+          "trial_z": 0.97,
+          "mass_delta_kg": -0.037831036389409434,
+          "clearance_delta_m": -0.009613499829689509,
+          "failure_delta": 0.002644968881621468,
+          "buckling_delta": 0.000427138671077798,
+          "dominant_blocker": "ground_clearance",
+          "dominant_blocker_margin": -0.009341602438722285,
+          "overall_feasible": false,
+          "target_mass_passed": true,
+          "clearance_risk_score": 3.317107348052299
+        },
+        {
+          "variable": "rear_radius_scale",
+          "selected_z": 1.0,
+          "trial_z": 0.97,
+          "mass_delta_kg": -0.025840312173514235,
+          "clearance_delta_m": -0.0020316863708738087,
+          "failure_delta": 0.00047440113394880967,
+          "buckling_delta": 0.0001459113749338048,
+          "dominant_blocker": "ground_clearance",
+          "dominant_blocker_margin": -0.0017597889799065847,
+          "overall_feasible": false,
+          "target_mass_passed": true,
+          "clearance_risk_score": 1.2108810471752096
+        },
+        {
+          "variable": "main_taper_fill",
+          "selected_z": 1.0,
+          "trial_z": 0.97,
+          "mass_delta_kg": -0.01429457447342486,
+          "clearance_delta_m": -0.0018104264908413992,
+          "failure_delta": 0.00030624511410481947,
+          "buckling_delta": 9.742874961515824e-05,
+          "dominant_blocker": "ground_clearance",
+          "dominant_blocker_margin": -0.0015385290998741752,
+          "overall_feasible": false,
+          "target_mass_passed": true,
+          "clearance_risk_score": 1.162438886869451
+        },
+        {
+          "variable": "wall_thickness_fraction",
+          "selected_z": 0.0,
+          "trial_z": 0.03,
+          "mass_delta_kg": 3.057140684801521,
+          "clearance_delta_m": 0.05535939463968408,
+          "failure_delta": -0.08010414281968437,
+          "buckling_delta": -0.03159864228572273,
+          "dominant_blocker": "rear_thickness_step_margin_min_m",
+          "dominant_blocker_margin": -1.3010426069826053e-18,
+          "overall_feasible": true,
+          "target_mass_passed": true,
+          "clearance_risk_score": 0.0
+        }
+      ]
+    }
+  ]
+}
