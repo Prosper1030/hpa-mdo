@@ -56,40 +56,50 @@ Current Mac-local evidence from the CalculiX beam parity runner:
 
 - B1 tip-load and uniform-load cantilevers pass closed-form and internal-vs-FEM checks. This validates the basic units, `E/I`, pipe-section syntax, load direction, root clamp, and local CalculiX execution path.
 - B3 dual-beam lift-only parity passes the current 5% displacement target. This is the linear no-wire dual-beam baseline.
-- B2 tapered cantilever remains a warning case. The new `b2_taper_diagnosis` sweep shows that the 10-12% gap is insensitive to mesh refinement and section-sampling convention, so it should be treated as a stable tapered-section/B32R PIPE formulation mismatch until a better external reference route is added.
+- B2 tapered cantilever remains a warning case. The `b2_taper_diagnosis` sweep and the round-4 solution hunt both show that the 10-12% gap is insensitive to mesh refinement and legal section-sampling variants, while like-for-like element-type swaps are rejected because `SECTION=PIPE` is restricted to `B32R`. Treat this as a stable tapered-section/B32R PIPE formulation mismatch until the APDL truth deck is checked.
 - B4 vertical-wire now has trustworthy corrected reaction bookkeeping for the current APDL-style `UZ = 0` surrogate: the missing force was the rear linked wire-station node carried through the MPC, and the corrected root/wire reactions close equilibrium once constrained-node loads are added back. This does not make it a tension-only cable truth model; it makes it a defensible linear surrogate for this rung.
-- B5 torque variants are still warning-level / report-only. Torque ownership must be judged from twist/rotation/couple observables, not from `UZ` alone. The current output route can see the front/rear force-couple mode, but it still cannot certify `main_beam_my_about_main_spar` beam-axis torque ownership from translational outputs.
+- B5 is no longer blocked by lack of a CalculiX torque observable. The round-4 solution hunt shows that `*EL FILE, SECTION FORCES` cleanly exposes direct `main_beam_my_about_main_spar` beam-axis torque ownership, while the `front_rear_vertical_couple` case still behaves like a separate bending/shear surrogate in this linked dual-beam topology. So B5 remains warning-level as one blended parity gate, but direct `MY` is now auditable through section forces.
 
 ## Practical Use
 
 Run:
 
 ```bash
-./.venv/bin/python -m pytest tests/test_phase14_calculix_beam_export.py tests/test_phase14_calculix_beam_benchmarks.py -q
-./.venv/bin/python scripts/phase14_calculix_beam_benchmarks.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration/round3_benchmarks
+./.venv/bin/python -m pytest tests/test_hifi_calculix_runner.py tests/test_phase14_calculix_solution_hunt.py tests/test_phase14_calculix_beam_export.py tests/test_phase14_calculix_beam_benchmarks.py -q
+./.venv/bin/python scripts/phase14_calculix_beam_benchmarks.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration/round4_benchmarks
+./.venv/bin/python scripts/phase14_calculix_solution_hunt.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration --task b2
+./.venv/bin/python scripts/phase14_calculix_solution_hunt.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration --task b5
 ```
 
 Expected artifacts:
 
-- `output/phase14_dual_beam_calibration/round3_benchmarks/*.inp`
-- `output/phase14_dual_beam_calibration/round3_benchmarks/*.frd`
-- `output/phase14_dual_beam_calibration/round3_benchmarks/*.dat`
+- `output/phase14_dual_beam_calibration/round4_benchmarks/*.inp`
+- `output/phase14_dual_beam_calibration/round4_benchmarks/*.frd`
+- `output/phase14_dual_beam_calibration/round4_benchmarks/*.dat`
 - `output/phase14_dual_beam_calibration/internal_vs_fem_comparison.csv`
 - `output/phase14_dual_beam_calibration/comparison_summary.md`
 - `output/phase14_dual_beam_calibration/b2_taper_diagnosis.csv`
 - `output/phase14_dual_beam_calibration/b2_taper_diagnosis.md`
+- `output/phase14_dual_beam_calibration/b2_solution_hunt.csv`
+- `output/phase14_dual_beam_calibration/b2_solution_hunt.md`
 - `output/phase14_dual_beam_calibration/b4_wire_reaction_diagnosis.csv`
 - `output/phase14_dual_beam_calibration/b4_wire_reaction_diagnosis.md`
 - `output/phase14_dual_beam_calibration/b5_torque_parity_diagnosis.csv`
 - `output/phase14_dual_beam_calibration/b5_torque_parity_diagnosis.md`
+- `output/phase14_dual_beam_calibration/b5_single_beam_torsion_probe.csv`
+- `output/phase14_dual_beam_calibration/b5_single_beam_torsion_probe.md`
+- `output/phase14_dual_beam_calibration/b5_solution_hunt.csv`
+- `output/phase14_dual_beam_calibration/b5_solution_hunt.md`
+- `output/phase14_dual_beam_calibration/apdl_truth_decks/*.apdl`
+- `output/phase14_dual_beam_calibration/round4_solution_hunt_summary.md`
 
 ## Engineering Interpretation
 
 - Passing B1 means the local CalculiX beam deck, units, section syntax, and cantilever bookkeeping are sane
 - Passing B3 means the explicit front/rear beam split plus rigid-link parity deck is directionally credible
-- B2 should remain a warning case until a tapered-beam reference route is found that explains the persistent 10-12% CalculiX stiffness bias without changing production physics or hiding the gap with tolerances
+- B2 should remain a warning case until the tapered-beam APDL truth deck says otherwise; the current Mac-local evidence does not support hiding the 10-12% CalculiX stiffness bias with tolerances or deck tricks
 - B4 displacement parity is useful, and corrected root/wire reactions are now engineering-meaningful for the APDL-style vertical-wire surrogate. The trust boundary is the surrogate itself, not the bookkeeping any more.
-- B5 is not validated by `UZ` parity. Use twist/rotation/couple metrics; treat `main_beam_my_about_main_spar` as report-only until a rotation or moment observable is available.
+- B5 is not validated by `UZ` parity alone. Use `SECTION FORCES` for direct `MY` torque ownership, and keep the front/rear force-couple route in a separate surrogate bucket unless APDL later proves it is an acceptable truth-equivalent replacement.
 - `NLGEOM` remains deferred until the linear parity route is cleaner
 - `WIRE_MAIN_TRUSS` is still not the first parity target; the first wire rung remains the APDL-style vertical `UZ = 0` surrogate
 - CalculiX is the Mac-local daily cross-check, while ANSYS/APDL remains the final external structural check
