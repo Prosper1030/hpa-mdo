@@ -12,6 +12,21 @@ from hpa_mdo.structure.rib_properties import (
     derive_warping_knockdown,
 )
 
+SURROGATE_TRUST_LEVEL = "surrogate_report_only_not_signoff"
+SURROGATE_ALLOWED_CLAIM = (
+    "Rib-bay surrogate reports nominal spacing, local shape-retention, and robustness ranking signals."
+)
+SURROGATE_BLOCKED_CLAIM = (
+    "Do not claim proven rib load transfer, physical 0.30 m bracing length, rib/spar attachment "
+    "strength, or full-wing buckling/twist signoff from this surrogate."
+)
+SURROGATE_REQUIRED_NEXT_EVIDENCE = (
+    "finite rib stiffness",
+    "rib/spar attach allowables",
+    "braced full-wing or subassembly FEM",
+    "rib shear/cap/bond margin",
+)
+
 
 @dataclass(frozen=True)
 class RibBayMetric:
@@ -43,6 +58,10 @@ class RibBaySurrogateSummary:
     mean_shape_retention_risk: float
     max_shape_retention_risk: float
     dominant_bay_index: int | None
+    trust_level: str = SURROGATE_TRUST_LEVEL
+    allowed_claim: str = SURROGATE_ALLOWED_CLAIM
+    blocked_claim: str = SURROGATE_BLOCKED_CLAIM
+    required_next_evidence: tuple[str, ...] = SURROGATE_REQUIRED_NEXT_EVIDENCE
     bays: tuple[RibBayMetric, ...] = ()
     notes: tuple[str, ...] = ()
 
@@ -110,6 +129,10 @@ def build_rib_bay_surrogate_summary(
             mean_shape_retention_risk=0.0,
             max_shape_retention_risk=0.0,
             dominant_bay_index=None,
+            trust_level=SURROGATE_TRUST_LEVEL,
+            allowed_claim=SURROGATE_ALLOWED_CLAIM,
+            blocked_claim=SURROGATE_BLOCKED_CLAIM,
+            required_next_evidence=SURROGATE_REQUIRED_NEXT_EVIDENCE,
             notes=("rib contract disabled; surrogate not evaluated",),
         )
 
@@ -196,6 +219,10 @@ def build_rib_bay_surrogate_summary(
         ),
         max_shape_retention_risk=max((bay.shape_retention_risk for bay in bays), default=0.0),
         dominant_bay_index=None if dominant_bay is None else int(dominant_bay.bay_index),
+        trust_level=SURROGATE_TRUST_LEVEL,
+        allowed_claim=SURROGATE_ALLOWED_CLAIM,
+        blocked_claim=SURROGATE_BLOCKED_CLAIM,
+        required_next_evidence=SURROGATE_REQUIRED_NEXT_EVIDENCE,
         bays=tuple(bays),
         notes=tuple(notes),
     )

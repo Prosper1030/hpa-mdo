@@ -359,6 +359,10 @@ class InverseDesignTests(unittest.TestCase):
         self.assertAlmostEqual(summary.bays[0].bay_length_m, 0.4)
         self.assertAlmostEqual(summary.bays[0].local_delta_over_chord, 0.04)
         self.assertAlmostEqual(summary.bays[0].shape_retention_risk, 0.032)
+        self.assertEqual(summary.trust_level, "surrogate_report_only_not_signoff")
+        self.assertIn("shape-retention", summary.allowed_claim)
+        self.assertIn("proven rib load transfer", summary.blocked_claim)
+        self.assertIn("finite rib stiffness", summary.required_next_evidence)
 
     def test_candidate_summary_dict_surfaces_rib_bay_surrogate_contract(self) -> None:
         cfg = SimpleNamespace(
@@ -413,6 +417,9 @@ class InverseDesignTests(unittest.TestCase):
         rib_surrogate = summary["rib_bay_surrogate"]
         self.assertIsInstance(rib_surrogate, dict)
         self.assertEqual(rib_surrogate["bay_count"], 3)
+        self.assertEqual(rib_surrogate["trust_level"], "surrogate_report_only_not_signoff")
+        self.assertIn("proven rib load transfer", rib_surrogate["blocked_claim"])
+        self.assertIn("rib/spar attach allowables", rib_surrogate["required_next_evidence"])
         self.assertAlmostEqual(rib_surrogate["max_local_delta_over_chord"], 0.04)
         self.assertEqual(rib_surrogate["dominant_bay_index"], 1)
         self.assertEqual(len(rib_surrogate["bays"]), 3)
