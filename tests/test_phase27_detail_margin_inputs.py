@@ -131,7 +131,21 @@ def test_detail_margin_check_marks_missing_hardware_inputs() -> None:
 
 
 def test_write_detail_margin_input_package_creates_template_and_report(tmp_path: Path) -> None:
-    outputs = write_detail_margin_input_package(tmp_path, _requirements(), hardware_allowables=())
+    outputs = write_detail_margin_input_package(
+        tmp_path,
+        _requirements(),
+        hardware_allowables=(
+            {
+                "key": "wire_termination",
+                "component_id": "termination-a",
+                "allowable_load_n": "6500",
+                "minimum_breaking_load_n": "12000",
+                "allowable_basis": "vendor_mbl_with_swage_efficiency",
+                "termination_efficiency": "0.60",
+                "source": "vendor datasheet placeholder",
+            },
+        ),
+    )
 
     assert {path.name for path in outputs} == {
         "detail_margin_check.csv",
@@ -145,3 +159,5 @@ def test_write_detail_margin_input_package_creates_template_and_report(tmp_path:
     report = (tmp_path / "detail_margin_check.md").read_text(encoding="utf-8")
     assert "hardware input margins" in report
     assert "not FEM signoff" in report
+    assert "vendor_mbl_with_swage_efficiency" in report
+    assert "0.600" in report

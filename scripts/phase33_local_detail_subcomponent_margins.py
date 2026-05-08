@@ -370,8 +370,8 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
         f"- negative-margin subcomponents: `{check.negative_margin_count}`",
         f"- traceability-gap subcomponents: `{check.traceability_gap_count}`",
         "",
-        "| parent | subcomponent | component | status | traceability | load margin N | moment margin N*m | MBL margin N | evidence type | source |",
-        "|---|---|---|---|---|---:|---:|---:|---|---|",
+        "| parent | subcomponent | component | status | traceability | load margin N | moment margin N*m | MBL margin N | allowable basis | evidence type | source |",
+        "|---|---|---|---|---|---:|---:|---:|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
@@ -379,7 +379,8 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
             f"{row.component_id or 'n/a'} | `{row.status}` | "
             f"`{row.traceability_status}` | "
             f"{_fmt(row.load_margin_n)} | {_fmt(row.moment_margin_n_m)} | "
-            f"{_fmt(row.mbl_margin_n)} | {row.evidence_type or 'n/a'} | "
+            f"{_fmt(row.mbl_margin_n)} | {row.allowable_basis or 'n/a'} | "
+            f"{row.evidence_type or 'n/a'} | "
             f"{row.source or 'n/a'} |"
         )
     lines.extend(

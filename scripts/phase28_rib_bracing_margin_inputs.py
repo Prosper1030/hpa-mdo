@@ -314,15 +314,16 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
         f"- required link force: `{check.required_link_force_n:.3f} N`",
         f"- traceability-gap bays: `{check.traceability_gap_count}`",
         "",
-        "| bay | y start m | y end m | status | traceability | required link N | link margin N | shear margin N | bond margin N | evidence type | attachment basis | source |",
-        "|---:|---:|---:|---|---|---:|---:|---:|---:|---|---|---|",
+        "| bay | y start m | y end m | status | traceability | required link N | link margin N | shear margin N | bond margin N | allowable basis | evidence type | attachment basis | source |",
+        "|---:|---:|---:|---|---|---:|---:|---:|---:|---|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.bay_index} | {row.start_y_m:.3f} | {row.end_y_m:.3f} | "
             f"`{row.status}` | `{row.traceability_status}` | {row.required_link_force_n:.3f} | "
             f"{_fmt(row.link_margin_n)} | {_fmt(row.shear_margin_n)} | {_fmt(row.bond_margin_n)} | "
-            f"{row.evidence_type or 'n/a'} | {row.attachment_basis or 'n/a'} | "
+            f"{row.allowable_basis or 'n/a'} | {row.evidence_type or 'n/a'} | "
+            f"{row.attachment_basis or 'n/a'} | "
             f"{row.source or 'n/a'} |"
         )
     lines.extend(

@@ -203,7 +203,17 @@ def test_write_subcomponent_margin_package_creates_template_and_report(tmp_path:
     outputs = write_local_detail_subcomponent_margin_package(
         tmp_path,
         _requirements(),
-        subcomponent_allowables=(),
+        subcomponent_allowables=(
+            {
+                "parent_key": "wire_attach_local_load_path",
+                "subcomponent_key": "attach_ring_or_lug",
+                "component_id": "ring-a",
+                "allowable_load_n": "7200",
+                "allowable_basis": "coupon_limit_load",
+                "evidence_type": "coupon_test",
+                "source": "coupon placeholder",
+            },
+        ),
     )
 
     assert {path.name for path in outputs} == {
@@ -226,3 +236,4 @@ def test_write_subcomponent_margin_package_creates_template_and_report(tmp_path:
     assert "not local FEM signoff" in report
     assert "traceability-gap subcomponents" in report
     assert "traceability" in report
+    assert "coupon_limit_load" in report

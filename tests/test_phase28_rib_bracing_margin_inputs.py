@@ -139,7 +139,19 @@ def test_write_rib_bracing_margin_input_package_creates_template_and_report(tmp_
         tmp_path,
         _spacing_requirements(),
         _bracing_audit(),
-        rib_allowables=(),
+        rib_allowables=(
+            {
+                "bay_index": "0",
+                "rib_family": "balsa_sheet_3mm",
+                "allowable_link_force_n": "1200",
+                "allowable_shear_force_n": "1000",
+                "allowable_bond_force_n": "950",
+                "allowable_basis": "rib_link_coupon_limit_load",
+                "evidence_type": "coupon_test",
+                "attachment_basis": "bonded_spar_cap_shear_test",
+                "source": "coupon placeholder",
+            },
+        ),
     )
 
     assert {path.name for path in outputs} == {
@@ -158,3 +170,4 @@ def test_write_rib_bracing_margin_input_package_creates_template_and_report(tmp_
     assert "not finite-rib FEM signoff" in report
     assert "traceability-gap bays" in report
     assert "traceability" in report
+    assert "rib_link_coupon_limit_load" in report

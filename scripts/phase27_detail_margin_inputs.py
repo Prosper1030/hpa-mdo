@@ -266,15 +266,17 @@ def _write_markdown(path: Path, check: DetailMarginCheck) -> Path:
         "",
         "These are hardware input margins, not FEM signoff.",
         "",
-        "| item | component | status | traceability | load margin N | moment margin N*m | MBL margin N | source |",
-        "|---|---|---|---|---:|---:|---:|---|",
+        "| item | component | status | traceability | load margin N | moment margin N*m | MBL margin N | allowable basis | derate | termination efficiency | source |",
+        "|---|---|---|---|---:|---:|---:|---|---:|---:|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.title} | {row.component_id or 'n/a'} | `{row.status}` | "
             f"`{row.traceability_status}` | "
             f"{_fmt(row.load_margin_n)} | {_fmt(row.moment_margin_n_m)} | "
-            f"{_fmt(row.mbl_margin_n)} | {row.source or 'n/a'} |"
+            f"{_fmt(row.mbl_margin_n)} | {row.allowable_basis or 'n/a'} | "
+            f"{_fmt(row.derate_factor)} | {_fmt(row.termination_efficiency)} | "
+            f"{row.source or 'n/a'} |"
         )
     lines.extend(
         [
