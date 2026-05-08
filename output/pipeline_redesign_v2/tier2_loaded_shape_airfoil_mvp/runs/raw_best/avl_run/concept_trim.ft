@@ -1,0 +1,31 @@
+ ---------------------------------------------------------------
+ Vortex Lattice Output -- Total Forces
+
+ Configuration: Smooth Tier2 production-facing baseline from Birdman concept
+     # Surfaces =   1
+     # Strips   =  32
+     # Vortices = 512
+
+  Sref =  33.420       Cref =  1.0037       Bref =  34.332
+  Xref = 0.24628       Yref =  0.0000       Zref =  0.0000
+
+ Standard axis orientation,  X fwd, Z down
+
+ Run case:  -unnamed-
+
+  Alpha =   0.23903     pb/2V =  -0.00000     p'b/2V =  -0.00000
+  Beta  =   0.00000     qc/2V =   0.00000
+  Mach  =     0.000     rb/2V =  -0.00000     r'b/2V =  -0.00000
+
+  CXtot =  -0.00755     Cltot =  -0.00000     Cl'tot =  -0.00000
+  CYtot =   0.00000     Cmtot =  -0.14858
+  CZtot =  -1.16857     Cntot =  -0.00000     Cn'tot =  -0.00000
+
+  CLtot =   1.16853
+  CDtot =   0.01242
+  CDvis =   0.00000     CDind = 0.0124246
+  CLff  =   1.16256     CDff  = 0.0124362    | Trefftz
+  CYff  =   0.00000         e =    0.9808    | Plane
+
+
+ ---------------------------------------------------------------

@@ -1,0 +1,61 @@
+Smooth Tier2 production-facing baseline from Birdman concept wing-only AVL Phase9 smooth monotone Phase9 smooth monotone
+#Mach
+0.000000
+#IYsym  iZsym  Zsym
+1  0  0.000000
+#Sref  Cref  Bref
+33.420059598  1.003721543  34.332286000
+#Xref  Yref  Zref
+0.246276512  0.000000000  0.000000000
+#CDp
+0.000000
+#
+SURFACE
+Wing
+16  1.0  32  1.0
+#
+SECTION
+0.000000000  0.000000000  0.000000000  1.256773096  5.633710000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat
+#
+SECTION
+0.000000000  2.746583000  0.118431938  1.171564829  5.959416000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat
+#
+SECTION
+0.000000000  6.008150000  0.431220277  1.067327906  6.062433000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat
+#
+SECTION
+0.000000000  8.926394000  0.943894294  0.970371624  5.670963000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/docs/research/historical_airfoil_cst_coverage/airfoils/dae31.dat
+#
+SECTION
+0.000000000  12.016300000  1.804494493  0.862163835  4.843813000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/overnight_cst_zone_search/coordinates/cst_mid2_nsga2_g01_child_0046_9585b968.dat
+#
+SECTION
+0.000000000  14.076237000  2.598697461  0.784941307  4.246063000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/overnight_cst_zone_search/coordinates/cst_tip_nsga2_g01_child_0118_60ecf404.dat
+#
+SECTION
+0.000000000  15.449529000  3.238885874  0.729402473  3.928193000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/overnight_cst_zone_search/coordinates/cst_tip_nsga2_g01_child_0118_60ecf404.dat
+#
+SECTION
+0.000000000  16.307836000  3.688937523  0.691495432  3.729525000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/overnight_cst_zone_search/coordinates/cst_tip_nsga2_g01_child_0118_60ecf404.dat
+#
+SECTION
+0.000000000  17.166143000  4.178560870  0.645004090  3.650057000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/airfoil_db/overnight_cst_zone_search/coordinates/cst_tip_nsga2_g01_child_0118_60ecf404.dat
+#

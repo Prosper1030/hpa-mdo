@@ -1,0 +1,5 @@
+zone_name,eta_min,eta_max,re_min,re_max,re_p50,cl_min,cl_max,cl_p50,cl_p90,max_avl_actual_cl,max_fourier_target_cl,target_vs_actual_cl_delta,current_airfoil_id,current_stall_margin,current_profile_cd_estimate,source
+root,0.0,0.25,507793.15068493143,568130.3036712329,552456.1643835616,1.2402,1.2863,1.25515,1.2827499999999998,1.2863,,,dae31,,,loaded_dihedral_avl
+mid1,0.25,0.55,432390.4109589041,498028.7671232876,468080.1369863014,1.2516,1.2938,1.28465,1.2923,1.2938,,,dae31,,,loaded_dihedral_avl
+mid2,0.55,0.8,371498.63013698626,419913.69863013685,395593.15068493143,1.0184,1.2251,1.1658,1.21414,1.2251,,,dae31,,,loaded_dihedral_avl
+tip,0.8,1.0,291577.191369863,360197.26027397247,308663.01369863003,0.1139,0.9323,0.6723,0.8664,0.9323,,,cst_tip_nsga2_g06_child_0056_b3f9b7c4,,,loaded_dihedral_avl
