@@ -713,6 +713,9 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
     ]
     missing = sum(1 for row in rows if getattr(row, "status", "") == "subcomponent_allowable_missing")
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
+    traceability_gap = sum(
+        1 for row in rows if getattr(row, "status", "") == "subcomponent_traceability_missing"
+    )
     positive = sum(
         1 for row in rows if getattr(row, "status", "") == "margin_positive_input_check_only"
     )
@@ -735,6 +738,8 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
         f"{missing}; "
         "negative margins="
         f"{negative}; "
+        "traceability gaps="
+        f"{traceability_gap}; "
         "positive input rows="
         f"{positive}; "
         "worst margin="

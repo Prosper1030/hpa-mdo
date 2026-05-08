@@ -234,6 +234,14 @@ def _local_detail_subcomponent_check() -> SimpleNamespace:
                 mbl_margin_n=None,
             ),
             SimpleNamespace(
+                parent_key="wire_attach_local_load_path",
+                subcomponent_key="bonded_load_path",
+                status="subcomponent_traceability_missing",
+                load_margin_n=1200.0,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
                 parent_key="root_joint",
                 subcomponent_key="root_fitting_or_clamp",
                 status="subcomponent_allowable_missing",
@@ -499,6 +507,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "required load=6048.2000 N" in by_key["wire_attach_local_load_path"].current_evidence
     assert "hardware status=hardware_allowable_missing" in by_key["wire_attach_local_load_path"].current_evidence
     assert "subcomponents missing=1" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "traceability gaps=1" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
     assert "Phase34" in by_key["wire_attach_local_load_path"].evidence_artifacts
