@@ -1,0 +1,5 @@
+raw_tip_limit_m,effective_tip_limit_m,limit_to_halfspan_ratio,deflection_limit_load_factor,active_first_limiter_with_6kn_wire,engineering_use
+2.5,2.55,0.14854822076222943,3.3049033879762773,tip_deflection,current conservative submission/design gate
+2.75,2.805,0.16340304283845242,3.6353937267739056,tip_deflection,reasonable exploration gate only if loaded-shape/aeroelastic checks are rerun
+3.0,3.06,0.17825786491467535,3.9658840655715335,tip_deflection,reasonable exploration gate only if loaded-shape/aeroelastic checks are rerun
+3.25,3.315,0.19311268699089829,4.2963744043691605,wire_6kn,not recommended without a new aeroelastic/large-deflection validation basis
