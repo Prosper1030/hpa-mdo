@@ -1,0 +1,1218 @@
+index	hash	short_hash	date	author	prefix	category_hint	subject	reachable_from_head_main
+1	70f8255e6a50b966784dbd33c00d37fc77a3703e	70f8255e	2026-04-06T14:11:48+08:00	林禹安	other	other	Initial commit	yes
+2	0bef99aca6dc756ace8402f0928e4cf8f280e6d3	0bef99ac	2026-04-06T20:14:29+08:00	林禹安	v2.0	validation_calculix_fem_apdl	v2.0: OpenMDAO SpatialBeam FEM, dual-spar optimization, full pipeline	yes
+3	15e379142788e225285df8fdc20300cf8acf9809	15e37914	2026-04-06T20:42:32+08:00	林禹安	v2.1	foundation_openmdao_api_ci	v2.1: 外徑設計變數、視覺化修復、繁體中文文件	yes
+4	26f6eca33bfd50884276e89a75de29b7c5b1f68b	26f6eca3	2026-04-06T23:04:21+08:00	Prosper1030	feat	tests_fixes_hardening	feat: Add max 2.5m tip deflection constraint & fix feasible status bugs	yes
+5	64a5beb3afa2016590abde26767f01f2d63f2a84	64a5beb3	2026-04-07T11:00:25+08:00	Prosper1030	feat	other	feat: add cad_exporter script to generate STEP models for SOLIDWORKS	yes
+6	b0f5ccf10010059a8aa9e05a9b78d72bdde53162	b0f5ccf1	2026-04-07T22:39:42+08:00	Prosper1030	WIP	structure_inverse_jig_dual_beam	WIP: fix aerodynamic load factor bug and add cross-platform path support	yes
+7	69ec088040f4c280ae4e16ec4573f8be3ead17cd	69ec0880	2026-04-07T23:49:48+08:00	林禹安	test	tests_fixes_hardening	test: 補強 test_fsi_coupling.py	yes
+8	b1d860ac36d2fb8ef7900ef2e686500524a63cb1	b1d860ac	2026-04-07T23:51:03+08:00	林禹安	test	tests_fixes_hardening	test: 補強 test_load_mapper.py	yes
+9	fb7e2a08768ae892e88497b5a0e1b24010bbebbf	fb7e2a08	2026-04-07T23:59:07+08:00	林禹安	test	aero_avl_vsp_airfoil	test: 新增 test_vspaero_parser.py	yes
+10	1ca7e82b5ff57e4b7f83f4ad2bc763d41bca3e0a	1ca7e82b	2026-04-07T23:59:31+08:00	林禹安	test	foundation_openmdao_api_ci	test: 新增 test_xflr5_parser.py	yes
+11	d5e88887e83138248405ca245b78c244b9ffbd9b	d5e88887	2026-04-07T23:59:40+08:00	林禹安	ci	foundation_openmdao_api_ci	ci: 新增 pre-commit 設定	yes
+12	2ce528e6da03bbca3b8d35e39d115f85f744cb5b	2ce528e6	2026-04-07T23:59:53+08:00	林禹安	test	tests_fixes_hardening	test: 新增 test_materials_db.py	yes
+13	6a418fd4cce6cf2270d929bc93cec0f824b197b6	6a418fd4	2026-04-08T00:00:12+08:00	林禹安	ci	foundation_openmdao_api_ci	ci: 新增 GitHub Actions CI workflow	yes
+14	9cf15bc73b055efad404678443b7ab16223df8e5	9cf15bc7	2026-04-08T00:00:31+08:00	林禹安	build	foundation_openmdao_api_ci	build: 補齊 pytest 與 coverage 設定	yes
+15	70af845e82270460a26c43c2ab823c327e72e2ad	70af845e	2026-04-08T00:02:16+08:00	林禹安	refactor	foundation_openmdao_api_ci	refactor: 將 optimizer.py print 改為 logger	yes
+16	37cc005ece86a348a6770dbe33a2b5a0b2721903	37cc005e	2026-04-08T00:02:39+08:00	林禹安	refactor	aero_avl_vsp_airfoil	refactor: 將 vsp_builder.py print 改為 logger	yes
+17	9dc1fccab3ce9a8a2e8ef17734b50781e32c6175	9dc1fcca	2026-04-08T00:05:13+08:00	林禹安	refactor	foundation_openmdao_api_ci	refactor: 將 load_mapper.py print 改為 logger	yes
+18	a36418854138d0ef10f32fc71308f8d549ac4a3f	a3641885	2026-04-08T00:05:56+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: 新增 core/logging.py	yes
+19	c2dd67e0da8abd2530df747d3ac63bfd8b9b231e	c2dd67e0	2026-04-08T00:06:47+08:00	林禹安	refactor	foundation_openmdao_api_ci	refactor: 將 oas_structural.py print 改為 logger	yes
+20	045caca5dc723bb5ec853f7ab9421107c32d0331	045caca5	2026-04-08T00:13:12+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: P0 修正 — 移除硬編碼、FSI修復、輸入驗證、動態段數	yes
+21	50427cfec166e7cb34829cc55299fccad65f174d	50427cfe	2026-04-08T00:15:44+08:00	林禹安	chore	other	chore: 將 run_optimization_out/ 加入 .gitignore	yes
+22	5d72eb9d782ef36984dd411f47fe36931b24201f	5d72eb9d	2026-04-08T00:18:03+08:00	林禹安	feat	other	feat: 新增 core/errors.py 結構化錯誤碼	yes
+23	088ff8e5331d102e19e8ead3d35940593c010f7f	088ff8e5	2026-04-08T00:18:44+08:00	林禹安	test	tests_fixes_hardening	test: 新增完整 pipeline integration test	yes
+24	2fd88c9906d9a8cc234301ef0974c84ee7ac3b42	2fd88c99	2026-04-08T00:19:11+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: API 回應加入 error_code 欄位	yes
+25	4154fb38d145c7a06df9fd5228ba92ab074d98a3	4154fb38	2026-04-08T00:20:23+08:00	林禹安	refactor	other	refactor: LoadMapper 改用 HPAError	yes
+26	6c72d2a6cbd5fa08a3e994c89535bb59d561d346	6c72d2a6	2026-04-08T00:25:33+08:00	林禹安	test	foundation_openmdao_api_ci	test: 新增 API endpoint tests	yes
+27	c73dd67f97d3bcaae0a20edaafb3ce1e29867396	c73dd67f	2026-04-08T00:36:05+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: MaterialDB 加入 __contains__ 與 keys()	yes
+28	829e3638b468742746eb7e4d29830ac91d8418c4	829e3638	2026-04-08T00:36:36+08:00	林禹安	fix	tests_fixes_hardening	fix: 將棄用的 np.trapz 改為 np.trapezoid	yes
+29	d28b064b81dabf30c0d1f27bc95cd76192a373ba	d28b064b	2026-04-08T00:36:45+08:00	林禹安	chore	tests_fixes_hardening	chore: gitignore 加入 uv.lock 與 pytest_out/	yes
+30	232ce6b2e0bd34ea0a6478f3c02f1683ec591eed	232ce6b2	2026-04-08T00:36:53+08:00	林禹安	build	foundation_openmdao_api_ci	build: 更新 pyproject.toml	yes
+31	27d8f30e90de20317b36348160995fe11b11a951	27d8f30e	2026-04-08T00:38:34+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: VSPAero parser 加入 mtime-based LRU cache	yes
+32	ea7925f98ef7a4d2d74e43afc46643e619e8153c	ea7925f9	2026-04-08T00:39:24+08:00	林禹安	feat	other	feat: Optimizer 加入兩階段計時	yes
+33	e247e4a3a1941610522d73bceb6aa31999fc46ce	e247e4a3	2026-04-08T00:41:26+08:00	林禹安	feat	other	feat: run_optimization.py 改為 argparse CLI	yes
+34	4014e64c2ad993b56df5510760f2e79a4a07018b	4014e64c	2026-04-08T00:41:43+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: __init__.py 補充公開 API exports	yes
+35	a8aed8596173aae1f11f74edf26a6561f18e0363	a8aed859	2026-04-08T00:42:03+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 標記 spar.py 為 deprecated legacy 模組	yes
+36	bfbf71951bce908c0c7cd0c1e80310c947eb3069	bfbf7195	2026-04-08T00:42:16+08:00	林禹安	docs	foundation_openmdao_api_ci	docs: README 加入 OpenMDAO 架構 mermaid 圖	yes
+37	e8d7f0c838f9c8bc844a994f7281b98699584aaa	e8d7f0c8	2026-04-08T10:23:47+08:00	林禹安	test	foundation_openmdao_api_ci	test: 補強 test_api_server.py materials 回傳格式測試	yes
+38	00b1dbfef9cfdcee1746c293f835cc804cce7162	00b1dbfe	2026-04-08T10:32:41+08:00	林禹安	test	foundation_openmdao_api_ci	test: 補強 test_api_server.py optimize 成功回傳契約測試	yes
+39	475e472ff8e992b235065d0729fdce85cf1a7b2c	475e472f	2026-04-08T10:33:10+08:00	林禹安	test	foundation_openmdao_api_ci	test: 補強 test_api_server.py export 錯誤回傳契約測試	yes
+40	57a6ff66d6dd45676d18f89dfbcfc1affc578782	57a6ff66	2026-04-08T11:08:43+08:00	林禹安	docs	foundation_openmdao_api_ci	docs: 更新 codex_tasks.md 進度（P0-P3、P5-P6 完成）	yes
+41	cea8e89dfcfbdcd188301392024c1c8a31e03343	cea8e89d	2026-04-08T11:12:27+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: 修正 OpenMDAO get_val array→scalar DeprecationWarning	yes
+42	c0c788c67e257c2db3a8e07b7443edf2db3e96ba	c0c788c6	2026-04-08T11:13:44+08:00	林禹安	docs	planning_docs_reports	docs: 新增 docs/examples 範例輸出快照	yes
+43	9ca6e337341d1bdd1682513725ad8b62bebc3ca2	9ca6e337	2026-04-08T11:39:57+08:00	林禹安	test	tests_fixes_hardening	test: 新增 LoadMapper clip bug 驗證測試	yes
+44	bb47f2aa14d46f6c542458d1d19915f0f92465cd	bb47f2aa	2026-04-08T11:57:04+08:00	林禹安	fix	tests_fixes_hardening	fix: LoadMapper 超出 aero 範圍時設載荷為 0（修正 total_lift 膨脹）	yes
+45	243f70f60d553e4d3ca11bc8582db6b07bd9eb22	243f70f6	2026-04-08T12:03:49+08:00	林禹安	fix	tests_fixes_hardening	fix: TwistConstraintComp 改用 KS 聚合取全翼展最大 twist	yes
+46	78d3ab4f2ea636301d30a6bf1c50fc22af8a5ba3	78d3ab4f	2026-04-08T12:05:15+08:00	林禹安	fix	tests_fixes_hardening	fix: ExternalLoadsComp 自重離散化改為 element-based lumped mass	yes
+47	689b873a935143f19ccf2c43586a18464234e92b	689b873a	2026-04-08T12:42:23+08:00	林禹安	fix	tests_fixes_hardening	fix: Twist KS 聚合加入無因次化避免節點數偏置	yes
+48	590fd12a9bf34e7cc37229668fee5e032efb73fe	590fd12a	2026-04-08T12:49:02+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: config 加入 shell buckling 參數	yes
+49	7ad08f2d751f58ca9794f9c7e4ca216455cccc08	7ad08f2d	2026-04-08T12:50:24+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 BucklingComp 殼體屈曲約束元件	yes
+50	ea1ed047ee223e7811c6e78d9d305cc33eafff84	ea1ed047	2026-04-08T12:51:30+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 將 BucklingComp 接入 OpenMDAO problem	yes
+51	3e7cb47094180859b82a29052ceffc27031c916b	3e7cb470	2026-04-08T13:00:47+08:00	林禹安	test	structure_inverse_jig_dual_beam	test: 新增 test_buckling.py 屈曲約束測試	yes
+52	59c6b14335b59bfc372820183a0d96af9e7b92e7	59c6b143	2026-04-08T13:42:47+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: LoadMapper 警告訊息與 scale_factor docstring 精修	yes
+53	6136746f9acfd8bdf2ad1373fac3ce17bb37f1a1	6136746f	2026-04-08T13:43:00+08:00	林禹安	chore	foundation_openmdao_api_ci	chore: .gitignore 加入 __main__*_out/ OpenMDAO 暫存輸出目錄	yes
+54	e1dba2a2b7c558e50fdc0faa4298310e24d502ee	e1dba2a2	2026-04-08T13:45:42+08:00	林禹安	docs	planning_docs_reports	docs: 更新 codex_tasks.md 進度與新增 cleanup prompt	yes
+55	0ec457676a5290954146c8f132182e9c1c9cfe8c	0ec45767	2026-04-08T13:52:31+08:00	林禹安	fix	tests_fixes_hardening	fix: optimizer.py 修正 get_val array→scalar DeprecationWarning	yes
+56	bfdb0c3a1d767c99b68655885393a4b5ebfebb1e	bfdb0c3a	2026-04-08T13:53:40+08:00	林禹安	fix	tests_fixes_hardening	fix: 全面改用 np.trapezoid 取代 np.trapz	yes
+57	a307361d5b8a0dba758ed7b07f8c0c52b628501b	a307361d	2026-04-08T14:07:50+08:00	林禹安	refactor	other	refactor: KS aggregation ρ 參數統一從 config.safety 讀取	yes
+58	e6acd3559647085080bb2d60fef0541b1140364d	e6acd355	2026-04-08T14:59:12+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: scipy 優化路徑強制執行 buckling_index 約束（補強 silent failure）	yes
+59	35b05171453f3fa304980beec1e427aeaf7d9e68	35b05171	2026-04-08T14:59:55+08:00	林禹安	test	structure_inverse_jig_dual_beam	test: 新增 test_optimizer_buckling.py 驗證 buckling 整合至 result/eval/summary	yes
+60	0c2df8958c2b6edfe8112287569dc8a846b5db7f	0c2df895	2026-04-08T15:30:10+08:00	林禹安	chore	structure_inverse_jig_dual_beam	chore: 文件與 gitignore 收尾（buckling enforcement 完成後）	yes
+61	fe41ee95f5c7316b41103711196351027cfa6118	fe41ee95	2026-04-08T17:06:21+08:00	林禹安	perf	structure_inverse_jig_dual_beam	perf: DualSparPropertiesComp 改用解析偏導數（對角稀疏 Jacobian）	yes
+62	729068f7bb4ecf9774601613d43a239f1eaedf99	729068f7	2026-04-08T17:30:34+08:00	林禹安	test	structure_inverse_jig_dual_beam	test: 新增 test_spar_properties_partials.py 驗證解析偏導正確性	yes
+63	8de2a4eb2a6fabc03e7c60431f816b548ca2623b	8de2a4eb	2026-04-08T17:43:15+08:00	林禹安	docs	planning_docs_reports	docs: 新對話交接準備（codex_tasks 進度更新 + 5 個新 prompt）	yes
+64	ec47622d1ddb1e7bd2ced3c3ace34f414fa1209d	ec47622d	2026-04-08T18:25:40+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 啟用 SparOptimizer DE 多核心平行運算	yes
+65	7a6ffc673b4559dcab2c3be83bf38c695dce6892	7a6ffc67	2026-04-08T18:31:58+08:00	林禹安	bench	foundation_openmdao_api_ci	bench: 比較 OpenMDAO driver 與 scipy 黑盒路徑（驗證 P3#13 解析偏導實際生效）	yes
+66	0918420a98878cbac0dc7600dfa12f0fc18fa6e1	0918420a	2026-04-08T18:39:11+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: 修正 scipy DE 多核心 workers=-1 的 pickling 崩潰	yes
+67	ad4f37b26ffa6c688fb61b776335ca20bafa64b0	ad4f37b2	2026-04-08T18:56:19+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: remove complex-step unsafe float casts and fix array dtypes in structural FEM	yes
+68	b336135fbf1bf096f724d8df37427d42bd4e1cec	b336135f	2026-04-08T19:09:02+08:00	林禹安	fix	tests_fixes_hardening	fix: 將雙翼梁 warping 扭轉折減係數參數化	yes
+69	4b54dd90c09d235b82e2b859eecbdebf415f299c	4b54dd90	2026-04-08T19:10:02+08:00	林禹安	test	tests_fixes_hardening	test: 新增全模型 check_totals 導數驗證	yes
+70	9c21265d0057aed816357b1a85aa903bba874b94	9c21265d	2026-04-08T19:20:07+08:00	林禹安	feat	planning_docs_reports	feat: auto-sync optimization results to docs/examples for P5#22	yes
+71	7ebcdf53993acebb2c2942dbe35c78486735db10	7ebcdf53	2026-04-08T19:22:44+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: cleanup NumPy scalar deprecation and FEM matmul runtime warnings	yes
+72	f38b324eeefa29e818a12b29ed91b6956a8716fb	f38b324e	2026-04-08T19:23:25+08:00	林禹安	test	structure_inverse_jig_dual_beam	test: mock SparOptimizer in API tests to reduce test execution time	yes
+73	adf5adcbb3590fae64b263a9ab17b3e7b7f96703	adf5adcb	2026-04-08T19:43:08+08:00	林禹安	feat	other	feat: add load case schema and gravity scaling to external loads	yes
+74	57df543650c2a7df290044ce39098ce87eedf491	57df5436	2026-04-08T19:47:19+08:00	林禹安	refactor	other	refactor: branch structural analysis into multiple load cases	yes
+75	3db3a2f3ba09a06625c3d9f1918bae079743257a	3db3a2f3	2026-04-08T19:54:06+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: enable OpenMDAO multi-load-case optimization and update tests	yes
+76	ddc1a6921f62f7d70a4e3c868ce6ad3ce8c3ec02	ddc1a692	2026-04-08T20:15:16+08:00	林禹安	fix	tests_fixes_hardening	fix: resolve inconsistent thickness clipping and ensure ANSYS exporter uses optimized radii (C2, C3)	yes
+77	ca0853e1d664c2515e4c3f6a5a0cc2aa724606ff	ca0853e1	2026-04-08T20:18:46+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: raise AnalysisError on FEM failure and apply aero_scale to external loads (C1, M1)	yes
+78	3157d78a852c8a7cc3d5386b7058c39c2d7f770a	3157d78a	2026-04-08T20:48:18+08:00	林禹安	feat	other	feat: enable STEP file export in optimization script for CAD inspection	yes
+79	fbaa9285f5e4fe84692673e305396c01e57ef363	fbaa9285	2026-04-08T20:50:29+08:00	林禹安	perf	other	perf: implement lightweight evaluator and bound DE memory/workers (H1, H2)	yes
+80	a87f8d4463fed169a91b7f92cafb21edff281d33	a87f8d44	2026-04-08T20:56:22+08:00	林禹安	fix	tests_fixes_hardening	fix: correct local frame projection and decouple hardcoded bounds to config (H3, H4)	yes
+81	9c3707a82562897bd14fa40cf886cf9099d0438d	9c3707a8	2026-04-08T20:57:09+08:00	林禹安	docs	planning_docs_reports	docs: sync codex_tasks.md and create Milestone 1 release notes	yes
+82	6da07d0b9f3d629f5a1794ee491e9cf371bfa356	6da07d0b	2026-04-08T21:32:19+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正可行性判定納入 twist/deflection 並對齊單工況 case 限制	yes
+83	7e632e0c3cca6d3a9c63aad6e02e5c7173cc348a	7e632e0c	2026-04-08T21:33:14+08:00	林禹安	refactor	other	refactor: 清理 Git 追蹤的 output 與 .DS_Store 產出檔	yes
+84	58ce5c31a19c9193f4624fcf3a00d3688aa4b1e5	58ce5c31	2026-04-08T22:13:40+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: enforce main spar dominance in radius and bending stiffness	yes
+85	11ec56e4c295f21d14ec8272f07d97e5ace3af1f	11ec56e4	2026-04-08T22:54:32+08:00	林禹安	refactor	other	refactor: M2 trivial hygiene pack（review finding 1/2/3/4）	yes
+86	800c7ece62683e74197088b7c4349b84df7b6af1	800c7ece	2026-04-08T23:15:10+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 修正 parallel-axis 軸向應力於 stress 與 buckling	yes
+87	35c32fcf1412c1c71df62a4a83d67e42adce8475	35c32fcf	2026-04-08T23:16:36+08:00	林禹安	fix	tests_fixes_hardening	fix: 允許應力改採拉壓最小值	yes
+88	65660d5483a3f352c7d52db57c71ef9712ae65e0	65660d54	2026-04-08T23:18:47+08:00	林禹安	fix	tests_fixes_hardening	fix: 新增段間半徑單調 taper 約束	yes
+89	ffaf1a6e269564151b9be7980a166c8c1b88fcfa	ffaf1a6e	2026-04-08T23:24:37+08:00	林禹安	fix	tests_fixes_hardening	fix: 接入 Iz_equiv 修正 chordwise 剛性	yes
+90	33902a3b47e2cf587776e512b0deb9c9f15d53a6	33902a3b	2026-04-08T23:25:53+08:00	林禹安	fix	tests_fixes_hardening	fix: 將 warping knockdown 預設調整為 0.5	yes
+91	43d802c850903696f65c303e84df7d6ba6da18a9	43d802c8	2026-04-08T23:27:42+08:00	林禹安	"Revert ""fix"	tests_fixes_hardening	"Revert ""fix: 將 warping knockdown 預設調整為 0.5"""	yes
+92	4309174fc9f53b5166f50f48750a3e897a0dd3c4	4309174f	2026-04-08T23:27:45+08:00	林禹安	"Revert ""fix"	tests_fixes_hardening	"Revert ""fix: 允許應力改採拉壓最小值"""	yes
+93	a25ae3ee39ea28cc50c3e79b636a915cc0347e2b	a25ae3ee	2026-04-08T23:41:55+08:00	林禹安	refactor	foundation_openmdao_api_ci	refactor: 抽出 API 共用 helper 至 _shared.py（消除 server/mcp 重複）	yes
+94	1711b753b05722e4851a850f3c09f556378cad12	1711b753	2026-04-08T23:50:02+08:00	林禹安	perf	structure_inverse_jig_dual_beam	perf: FSI 兩向耦合重用 SparOptimizer instance（消除 per-iter setup 開銷）	yes
+95	56f5df8417d743f81d398940de58d2b480e04cf9	56f5df84	2026-04-09T00:02:32+08:00	林禹安	test	tests_fixes_hardening	test: 新增 Black Cat 004 golden value regression 測試	yes
+96	3bc2856f32d9b0d74bc010dba0d71887da78c697	3bc2856f	2026-04-09T00:19:54+08:00	林禹安	refactor	other	refactor: 拆解 oas_structural.py（2191 行）為 7 個模組	yes
+97	045ef73404b5a2cec9022c9c961907f71965c102	045ef734	2026-04-09T01:53:40+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 封鎖 rear spar root 非物理厚壁並加入 inboard EI 次承載上限	yes
+98	814a5709a902b8308fc22312f8a2d78087f60aab	814a5709	2026-04-09T02:21:32+08:00	林禹安	fix	tests_fixes_hardening	fix: 強化 failure-path NaN 與 sentinel 防呆	yes
+99	f02a7703864392c8578ca88a932edee43969f019	f02a7703	2026-04-09T10:11:24+08:00	林禹安	fix	tests_fixes_hardening	fix: 修復 Ruff check 失敗與 E402 匯入順序	yes
+100	6ba3d957e3a3f4d8fa57a5e847fbaff735368cd9	6ba3d957	2026-04-09T10:58:50+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: 修復 CI pytest 的 fastapi 與 slow marker 問題	yes
+101	a06bc1ebc673c2fcac003f68c3f1a05a12c33396	a06bc1eb	2026-04-09T11:12:01+08:00	林禹安	chore	other	chore: clean up solver output artifacts and simplify .gitignore	yes
+102	9901652a77a55f8d0cd664266f72b80316fbd660	9901652a	2026-04-09T11:28:04+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: 修復 test_api_server 的 E402 與 fastapi 缺失跳過	yes
+103	3a270298398c61ed3363816d763787274f09557c	3a270298	2026-04-09T11:50:08+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修復 vspaero cache 測試的 os.stat 汙染	yes
+104	8450fc6152772c1ac81d4e2ddd27ba6cc642a5e2	8450fc61	2026-04-09T12:01:53+08:00	林禹安	test	aero_avl_vsp_airfoil	test: 為 golden 回歸測試加上 requires_vspaero 與資產檢查	yes
+105	78cbd87ed281958a273903e07148db5189d79dd1	78cbd87e	2026-04-09T12:08:25+08:00	林禹安	test	aero_avl_vsp_airfoil	test: 修正 vspaero cache 測試避免 3.11 的 StopIteration	yes
+106	7a9f6fb5636f7b7a5835c717e4ea52b736ea2049	7a9f6fb5	2026-04-09T12:23:00+08:00	林禹安	test	tests_fixes_hardening	test: 補強 test_optimizer_cache.py 快取鍵碰撞測試	yes
+107	ae75ff846005dd54eeef46b4e757cbfba8f38451	ae75ff84	2026-04-09T13:10:38+08:00	林禹安	fix	tests_fixes_hardening	fix: 強化 auto 分支採用完整可行性檢查	yes
+108	111fced9858a99eb2ca0b49d2ed77651789720a0	111fced9	2026-04-09T13:17:14+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: 提升 scipy 快取鍵四捨五入精度	yes
+109	d939a62523b10f899db73be0bf6f4ad49aa8c18b	d939a625	2026-04-09T13:24:07+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: 常駐記錄 scipy evaluator 執行計數器	yes
+110	c9b22aa68cf4feba2c1e92ea29b1f293be23ea72	c9b22aa6	2026-04-09T14:47:44+08:00	林禹安	feat(optimizer)	foundation_openmdao_api_ci	feat(optimizer): switch production path to auto (OpenMDAO) and update baseline	yes
+111	d13c600de6b415630b40343c7c7b1e99ab76a1dd	d13c600d	2026-04-09T14:50:22+08:00	林禹安	fix	foundation_openmdao_api_ci	fix: log scipy SLSQP rejection reason on DE fallback	yes
+112	577eff87c1af639bd7bf5241cb64d1012e117112	577eff87	2026-04-09T15:24:03+08:00	林禹安	fix(structure)	tests_fixes_hardening	fix(structure): use min(tensile, compressive) strength for stress allowable (Finding F13)	yes
+113	9fbee5a962d98d7721f6777cfb9795a9e0931ccc	9fbee5a9	2026-04-09T15:29:19+08:00	林禹安	feat(config)	other	feat(config): reduce warping knockdown to 0.5 for balsa rib realism	yes
+114	a10eb7d1efd915745aaec481d9af72eb2fdf8b2e	a10eb7d1	2026-04-09T16:23:08+08:00	林禹安	docs	planning_docs_reports	docs: add Grand Blueprint and Phase I Milestone 2-3 Codex prompts	yes
+115	2b7f01fad8456e4bd25feadce65ee9fb5bf81ef9	2b7f01fa	2026-04-09T16:38:42+08:00	林禹安	feat(structure)	other	feat(structure): add adjacent-segment thickness smoothness constraint (Finding F6)	yes
+116	12ba9bf1bb3d53a3da8efccde3ac4b6c493374e1	12ba9bf1	2026-04-09T16:39:06+08:00	林禹安	feat(structure)	other	feat(structure): complete main/rear thickness step constraints wiring (Finding F6)	yes
+117	4c4a3b0c71fe7e34c193fc5a91907cd6eacc2cba	4c4a3b0c	2026-04-09T17:13:24+08:00	林禹安	feat	other	feat: 新增 blackcat_004 multi-load-case 範例與 golden 測試	yes
+118	08ac60a2c9e5e4af7303e16e1f6bf3e36d416dcb	08ac60a2	2026-04-09T17:21:41+08:00	林禹安	docs	planning_docs_reports	docs: update optimization_summary.txt from post-F6 production run	yes
+119	0d5442273cfb0c1f2f36f35bcced0feb698d2e94	0d544227	2026-04-09T17:30:53+08:00	林禹安	feat	other	feat: 新增 blackcat_004_fsi one-way FSI production 範例	yes
+120	2db676a126348e3cc8929a0e9e475d54f5039af9	2db676a1	2026-04-09T17:54:56+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 blackcat_004_multi 載荷案例並更新 multi-case golden baseline	yes
+121	84604ad4d0049153bf42fc558d4a19f80fe97ed3	84604ad4	2026-04-09T18:11:34+08:00	林禹安	docs	planning_docs_reports	docs: 註記 multi-case golden 為 4G 等效回歸案例	yes
+122	768ba08cb22bb168717bd742baed5b4a02489ec2	768ba08c	2026-04-09T18:23:39+08:00	林禹安	feat(cad)	other	feat(cad): add deformed-shape STEP export for flight-shape visualization (M3c)	yes
+123	f47b805e6c50272b26ce6f0d0bd5189f3cb3ba88	f47b805e	2026-04-09T18:38:20+08:00	林禹安	docs	planning_docs_reports	docs: update blueprint to Milestone 3 complete + add M4 Codex prompts	yes
+124	ae643e4ddf7ef71f945727a5dc7cf849a1b96735	ae643e4d	2026-04-09T18:41:11+08:00	林禹安	test	tests_fixes_hardening	test: 補強 test_extract_results_finite_guard.py 功能測試	yes
+125	e704aa41247f0c105f17d017726124a0bebee647	e704aa41	2026-04-09T18:48:00+08:00	林禹安	feat	other	feat: 擴充 Phase II 材料庫與載入驗證	yes
+126	0dd127598e9a3c795591db340b2746e0cd37fbec	0dd12759	2026-04-09T18:51:52+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 加入 lift wire 軸向預壓縮分析	yes
+127	bb02d13a1f0850237325bf7ceb32bd0a43e961f1	bb02d13a	2026-04-09T18:54:54+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 加入 rear spar 重力扭矩載重（F12）	yes
+128	fe64842190f7a1eedd0eb2e9d561bcc487bb6267	fe648421	2026-04-09T18:59:54+08:00	林禹安	feat	other	feat: 完成 F11 離散 OD 後處理並同步扭矩符號修正	yes
+129	6a31112f699468dbf5973745e306b151d2ce0586	6a31112f	2026-04-09T19:25:55+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 修正 rear spar 重力扭矩隨實際設計質量變化	yes
+130	7d8b095ee041df9ca6c5814b72b9fafcff26aefd	7d8b095e	2026-04-09T19:26:23+08:00	林禹安	fix	tests_fixes_hardening	fix: 讓 discrete OD 真正重新驗證 snapped 設計	yes
+131	ded904b122395c51896d08b388b5faf3b76f80a0	ded904b1	2026-04-09T19:30:23+08:00	林禹安	fix	tests_fixes_hardening	fix: 避免 discrete OD 超出 catalog 時向下夾縮	yes
+132	f6624ce104b772fff1f2fb88e1623361c5f4abe1	f6624ce1	2026-04-09T21:12:06+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 統一 aero 載重 ownership 並刷新 FSI wire 預壓	yes
+133	033bae6b672bdc290dd0649abbac982b5b5d6c5e	033bae6b	2026-04-09T21:12:51+08:00	林禹安	fix	tests_fixes_hardening	fix: 統一 z_camber 單位並同步 ANSYS 匯出	yes
+134	9200b70d184a520b812e99baed0db3eeb96f4be9	9200b70d	2026-04-09T21:17:29+08:00	林禹安	fix	tests_fixes_hardening	fix: 將 LoadMapper 預設改為線性插值	yes
+135	8e4fa85b706a0c9abd2f79061407c5b337d8f151	8e4fa85b	2026-04-09T22:49:03+08:00	林禹安	fix	tests_fixes_hardening	fix: 擴充碳管 catalog 至 120mm	yes
+136	ff350eae337c074f1d325538cdfb3781fc98ccda	ff350eae	2026-04-09T22:59:04+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 加入扭轉剪力 buckling 交互作用	yes
+137	b463e32b70286692209c5debe23743fed18a67ea	b463e32b	2026-04-09T23:29:27+08:00	林禹安	test	aero_avl_vsp_airfoil	test: 讓 airfoil camber 單位測試不依賴本機路徑	yes
+138	cd6a7b519ca5133400c3962acbbec86e172a2c5e	cd6a7b51	2026-04-09T23:55:57+08:00	林禹安	docs	planning_docs_reports	docs: mark Milestone 4 + II-1 complete, update blueprint to Phase I closing	yes
+139	4edfe257a37bd257ef5b5413227c18ec87844b2f	4edfe257	2026-04-10T00:29:06+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: connect BucklingComp radii in multi-case topology (40.28→11.07 kg)	yes
+140	f01112aed8a64d0939fb56f723ff734e430beddb	f01112ae	2026-04-10T00:30:33+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: add ANSYS cross-validation Codex prompt (M4-4e, Phase I final gate)	yes
+141	62e6edeb7dc2c356fb5a643d941854ff4ba77adc	62e6edeb	2026-04-10T00:55:07+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add ANSYS cross-validation script and report generator (M4-4e)	yes
+142	02361a4dce55061c369355044a480d239ad1ed20	02361a4d	2026-04-10T12:00:31+08:00	林禹安	feat	other	feat: 新增 ANSYS 結果自動比對腳本	yes
+143	e9877c5d90c2ea95ebcbfd67a23227e77d54ce3b	e9877c5d	2026-04-10T12:14:23+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 ANSYS 匯出載重疊加與後處理提取	yes
+144	bf3dfbbbbd496445423d685224c182c184202ba4	bf3dfbbb	2026-04-10T14:03:25+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: remove APDL post warnings and stabilize ANSYS comparison metrics	yes
+145	35486d807a03dca80356b31038d8cc7aa6ac02e4	35486d80	2026-04-10T15:03:19+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add equivalent-beam ANSYS validation mode	yes
+146	fd20c2d633922796e0f72cde2ef8684891ba1f38	fd20c2d6	2026-04-10T15:32:52+08:00	林禹安	fix	tests_fixes_hardening	fix: tolerate missing ANSYS stress results	yes
+147	69878fd586fa84e9852ec067bf55661fc50d5e12	69878fd5	2026-04-10T15:51:24+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: record ANSYS validation and spot-check workflow	yes
+148	2f9a08a5862e7b67d31adb77a699e75fc1c02152	2f9a08a5	2026-04-10T18:53:32+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 internal dual-beam analysis path	yes
+149	cd653621064013311c03dde55d32fc48d886471d	cd653621	2026-04-10T20:24:35+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add rear/main radius guardrail for equivalent-beam optimizer	yes
+150	ed8af4a19009a8fe3264daa9658d2da40a1ad1fc	ed8af4a1	2026-04-10T20:45:33+08:00	林禹安	feat	planning_docs_reports	feat: 新增 structural comparison/report 最小可行工具	yes
+151	6930128650c5779762b875f0a61d398068773e21	69301286	2026-04-10T20:47:32+08:00	林禹安	test	structure_inverse_jig_dual_beam	test: 補強 internal dual-beam regression acceptance 測試	yes
+152	0d339ebdbd2d11a1e8952b8637af54b24d157a86	0d339ebd	2026-04-10T20:57:05+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 dual-beam local refinement 實驗流程	yes
+153	852b724a43cee0ad37235eb7ee23dd8c5a94af65	852b724a	2026-04-10T21:22:08+08:00	林禹安	other	structure_inverse_jig_dual_beam	Merge pull request #1 from Prosper1030/codex/dual-beam-refinement-integration	yes
+154	a86721fcc76f0e4eb3da848d177447b5af8daa83	a86721fc	2026-04-10T22:11:26+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 串接 refined design 到 ANSYS dual-spar export workflow	yes
+155	1d08956ada02a7a47821730249bf26e168595c0d	1d08956a	2026-04-10T22:34:59+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 dual-beam 三路 baseline benchmark script	yes
+156	0a82c9974ce75eed93e06c2b4fe442b822056ce4	0a82c997	2026-04-10T23:16:48+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 direct dual-beam V1 實驗優化器	yes
+157	4b787e0a5cfb90b8f6fa25a4a7153cc55d7f1ad3	4b787e0a	2026-04-10T23:23:36+08:00	林禹安	docs	planning_docs_reports	docs: 更新最佳化範例輸出	yes
+158	89c7dcb414e80ebf9d00283fa0b84dd649d7f708	89c7dcb4	2026-04-10T23:24:11+08:00	林禹安	other	structure_inverse_jig_dual_beam	Merge pull request #2 from Prosper1030/codex/dual-beam-refinement-integration	yes
+159	c9d45ae12e506afa95fd0b8e7575c4b022572149	c9d45ae1	2026-04-10T23:55:01+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 補上 dual-beam V2 主線規格	no
+160	1f42ee27c0303bdb351eb36c99cced2575dceee8	1f42ee27	2026-04-10T23:55:01+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 補上 dual-beam V2 主線規格	yes
+161	76d6788437b7aeff389a2bb32414eed1121af40a	76d67884	2026-04-11T00:35:53+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 補上 dual-beam 主線理論規格	yes
+162	6ac6e3dc9972c8890b8cc0393da3ce89024b8c18	6ac6e3dc	2026-04-11T12:05:14+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 重建 dual-beam production analysis kernel	yes
+163	6839e5e649e9aeb84e8c37c77e022d62f4bad051	6839e5e6	2026-04-11T12:36:29+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 建立 dual-beam production ANSYS 對照 workflow	yes
+164	caa07508740fcdf73ce33a7d7ec062cebc5714d4	caa07508	2026-04-11T13:33:00+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 建立 dual-beam smooth evaluator path	yes
+165	c43c4ee86963e1bd7355ed5d748453e033d5184f	c43c4ee8	2026-04-11T16:08:04+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 direct_dual_beam_v2 smooth optimizer	yes
+166	cc99b50303b231534e657f8a15a446a90449c300	cc99b503	2026-04-11T17:54:31+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 direct_dual_beam_v2 解分析腳本	yes
+167	576ef2623f303f2462c10a9ad10cc69ed2e35b5c	576ef262	2026-04-11T18:47:47+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 direct_dual_beam_v2x reduced map	yes
+168	bcd12e89071e227786d643e3e320983d2ac4618e	bcd12e89	2026-04-11T19:23:32+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 dual-beam manufacturing-aware discrete map	yes
+169	919ea327605f175f6fe1b942a9b11bb5bb5d3b6e	919ea327	2026-04-11T20:02:07+08:00	林禹安	feat	other	feat: 調順 manufacturing-aware discrete catalog ladder	yes
+170	709d861391ce539dd5caf9b78b5e1ab3ecadf11a	709d8613	2026-04-11T21:01:35+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 收斂 V2.m++ discrete cleanup profile	yes
+171	e6a6576df7d78c9f55e4f109e9561174b2a88f38	e6a6576d	2026-04-11T21:28:15+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 接入 V2.m++ 低維 layup/material proxy screening	yes
+172	6b2993298849c8c4277d599d0852c996622abc80	6b299329	2026-04-11T22:33:42+08:00	林禹安	feat	other	feat: 建立 preliminary material package property table	yes
+173	fb9a3d6276cfcc4ed89558a64bf953b5f16433c1	fb9a3d62	2026-04-11T22:41:04+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 dual-beam STEP export 入口	yes
+174	61e2e999f71b215c9a018224e0982b3dc3c34b9f	61e2e999	2026-04-11T23:12:12+08:00	林禹安	feat	other	feat: 升格 joint geometry material discrete search	yes
+175	793f7afc3289ab96edc04c02bc00696cc66280dd	793f7afc	2026-04-12T02:18:43+08:00	林禹安	feat	other	feat: 擴充 joint geometry material search strategy	yes
+176	8113bbe375f3691507515a8262b2a670118b0acd	8113bbe3	2026-04-12T11:04:14+08:00	林禹安	feat	other	feat: 正式化 joint geometry material workflow	yes
+177	6f78c444da7e681236b3d490d081770c92491f01	6f78c444	2026-04-12T11:26:08+08:00	林禹安	feat	other	feat: 小幅擴充 joint workflow ridge search	yes
+178	1a4df2e94f03690ff5b0759778944316d8ca00e9	1a4df2e9	2026-04-12T12:24:04+08:00	林禹安	feat	other	feat: 定義 joint workflow 正式選解規則	yes
+179	e7772611b181ae52eedbde7d3b9ba1c698a3c076	e7772611	2026-04-12T12:36:25+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: 固化 joint workflow decision interface	yes
+180	44032bc68786823eab3104d652c95fad4f188040	44032bc6	2026-04-12T13:07:11+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: 固化 joint decision interface 產品化輸出	yes
+181	06f9f8cabc050a11146d4d29862567c620683c6a	06f9f8ca	2026-04-12T13:52:56+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 固化 dual-beam decision producer 邊界	yes
+182	d90377ece256312b4efcfbf0240b59c7562263a2	d90377ec	2026-04-12T14:54:28+08:00	林禹安	feat	other	feat: 內建最小 autoresearch consumer 入口	yes
+183	4cdab0a7ef7cacaf6b81e3ef8eb779e5f6344258	4cdab0a7	2026-04-12T15:57:03+08:00	林禹安	feat	other	feat: 補上 autoresearch run record 與 summary compare 層	yes
+184	544b20dbac9c103415315d5be6cf14910400ce01	544b20db	2026-04-12T16:23:36+08:00	林禹安	feat	other	feat: 補 input provenance / run fingerprint / experiment governance	yes
+185	493d19f44fa797d847dcb09bdcf7a936ec668b94	493d19f4	2026-04-12T16:41:04+08:00	林禹安	feat	other	feat: 補 input snapshot / archive	yes
+186	2dd0af8631dcbbc0fe343eae89a4e3f1cad12dbf	2dd0af86	2026-04-12T17:04:25+08:00	林禹安	feat	other	feat: 補上 autoresearch campaign batch orchestration	yes
+187	0d474f32d0d8ccad82da8106bbd7d6531298497b	0d474f32	2026-04-12T17:26:48+08:00	林禹安	feat	other	feat: 補上正式 design slot 的 STEP 匯出	yes
+188	f7cde593ce784a0e5282dd8844f76e195953f888	f7cde593	2026-04-12T21:33:32+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 frozen-load aeroelastic inverse design MVP	yes
+189	f778bd5f3617ad3fe8590e5a28f0d27f93b390ba	f778bd5f	2026-04-12T22:01:55+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add inverse-design load refresh refinement	yes
+190	d4c52492007cbe62328882e870d655d5dfd49f5d	d4c52492	2026-04-12T22:24:27+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: refine refreshed inverse-design search	yes
+191	e0e08817c111b771424270bfdae96dbf75b5e82a	e0e08817	2026-04-12T22:53:04+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: engineer inverse-design feasibility sweep	yes
+192	70be7940554bc387dfb8b8cec11e84f033ed5e37	70be7940	2026-04-12T23:53:10+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add low-dimensional inverse-design matching	yes
+193	e1112dbbe4c7a7f79ae3e35fefba301534d28b73	e1112dbb	2026-04-13T02:48:46+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add inverse-design active-wall diagnostics	yes
+194	bec147fc61bb6071eb40dfdf325994f6a36c174d	bec147fc	2026-04-13T10:50:33+08:00	林禹安	feat	other	feat: add dihedral sweep campaign script	yes
+195	963e647b9418cb23a2e0c8da5259ada8fe8401bf	963e647b	2026-04-13T12:01:05+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: upgrade wire material from steel_4130 to dyneema_sk75 (6872N allowable)	yes
+196	b254a149f405e57737e92f5fe724f94da6d9d904	b254a149	2026-04-13T12:27:51+08:00	林禹安	fix	tests_fixes_hardening	fix: collect per-case errors in dihedral sweep instead of aborting	yes
+197	c5ed07251b13f9b9e3281bdfcfa17e5583d3ece0	c5ed0725	2026-04-13T12:28:48+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add full-body AVL model with elevator and fin for Dutch Roll analysis	yes
+198	7851b06c5e4d5c8e32cb553965fa52ab340fc16b	7851b06c	2026-04-13T14:51:26+08:00	林禹安	refactor	candidate_go_mode_closure	refactor: move loaded-shape tolerances from hardcode to config	yes
+199	0c8ce25b5f7f9fdab593f2dc3c27499e64ed206b	0c8ce25b	2026-04-13T14:56:45+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add optional component filter to VSPAeroParser	yes
+200	53f78770fc6813a25f7354bf1fc76fd3ff90a17b	53f78770	2026-04-13T15:05:37+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add VSP3 XML geometry parser and AVL exporter (M8 foundation)	yes
+201	0d4b40c2fe67cbe3f1d28fd8e2a19d6a70ef5141	0d4b40c2	2026-04-13T16:30:19+08:00	林禹安	docs	mission_birdman_concept	docs: update grand blueprint with M7/M8 completion, aero gates plan, ASWING/Daedalus references	yes
+202	242eb3c93cde1e647961dfd09093820c35202cec	242eb3c9	2026-04-13T16:30:54+08:00	林禹安	test	tests_fixes_hardening	test: update dihedral sweep campaign tests for error handling and new imports	yes
+203	ac1d074f437b2b36cfcb0e7ad62f06c3ddcced22	ac1d074f	2026-04-13T16:44:48+08:00	林禹安	feat	other	feat: add aero performance gates (min lift, L/D) to dihedral sweep	yes
+204	82bcb964e58b47a19608d86822bedabae2b7ed30	82bcb964	2026-04-13T17:04:46+08:00	林禹安	chore	other	chore: phase-2 dihedral sweep with full aero gates	yes
+205	630461de10eaef261cac24e8979dcb3c6426df22	630461de	2026-04-13T17:40:12+08:00	林禹安	feat	other	feat: progressive dihedral scaling with span-weighted exponent (Task 7g)	yes
+206	a0d0f3b97d63baf9e2619920744c4f2759f89c29	a0d0f3b9	2026-04-13T18:08:26+08:00	林禹安	feat	other	feat: add loaded shape STEP export and per-node deflection CSV (Task 7h)	yes
+207	acb641b327de2037c097f1dff7e9221632f316d6	acb641b3	2026-04-13T18:09:47+08:00	林禹安	feat	other	feat: add monotonic deflection diagnostic check (Task 7i)	yes
+208	63e0f301c30a247509f030bd14f2a8c836953e45	63e0f301	2026-04-13T18:27:06+08:00	林禹安	docs	planning_docs_reports	docs: 更新 Phase 2 進度與藍圖下一步計劃	yes
+209	eb5b3d5b264d7e9189ed6562d8761f4ad3083069	eb5b3d5b	2026-04-13T19:00:37+08:00	林禹安	docs	planning_docs_reports	docs: 更新 9a fine dihedral sweep 報告與藍圖狀態	yes
+210	b5ff87aa82518a310978fbfc0950678e4b49ee6b	b5ff87aa	2026-04-13T20:07:59+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 9b multi-wire sweep campaign 與報告	yes
+211	4bf555a2fe7e03bb46cc6694ac3c8b7fafa4335d	4bf555a2	2026-04-13T21:58:07+08:00	林禹安	docs	planning_docs_reports	docs: 補充撓度數值與高倍率 probe 結論	yes
+212	6c090ea3d6f4ab58e1be43a667de2ff4a1bba71e	6c090ea3	2026-04-13T22:04:31+08:00	林禹安	docs	planning_docs_reports	docs: 更新倍率極限 probe 邊界與下一步	yes
+213	52f5dbb71597a1c09e9ba3f2dca7c863e144852a	52f5dbb7	2026-04-13T22:11:02+08:00	林禹安	feat	other	feat: 新增 9c Pareto front 腳本與報告	yes
+214	8957f5d3049563efe4fbbdedc0ee1750eda843d9	8957f5d3	2026-04-13T22:32:20+08:00	林禹安	feat	other	feat: 新增 9d vendor-aware tube catalog	yes
+215	a00310dc351e56ac8fd4c72f08390cb2fa3fff8e	a00310dc	2026-04-13T22:37:10+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 9e full wire rigging system	yes
+216	532bbd0ab26df5ebcdd29c78497d00976d4da7e2	532bbd0a	2026-04-13T22:46:33+08:00	林禹安	feat	other	feat: 新增 9f dynamic design space	yes
+217	9e087b876b77a1890b5154bba98a4d4387763390	9e087b87	2026-04-13T22:52:55+08:00	林禹安	feat	other	feat: 新增 9g higher fidelity load coupling	yes
+218	66285b38376fefe1c6a2c7eff2c7da14e8a1a21a	66285b38	2026-04-13T23:22:48+08:00	林禹安	docs	planning_docs_reports	docs: 新增 Phase 3 prompts 與 MIT 控制研究報告	yes
+219	1a0befd578c9120eeabdd113ec0bc0c743a34e29	1a0befd5	2026-04-13T23:27:11+08:00	林禹安	feat	other	feat: add PlyMaterial dataclass and ply-level YAML entries for CLT (M11a)	yes
+220	531fd7c27c8d9d8dbf9b776e79b34654ba2180b4	531fd7c2	2026-04-13T23:31:42+08:00	林禹安	feat	other	feat: add CLT engine with PlyStack and tube equivalent properties (M11b)	yes
+221	6627c0fcb607dcf0d133e624e0c250567eec5c27	6627c0fc	2026-04-13T23:38:43+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add discrete layup catalog and snap-to-stack post-processor (M11c)	yes
+222	b3b73d27e728110d41a85a8b85844aef014f8a65	b3b73d27	2026-04-13T23:54:46+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add AVL beta-sweep trim analysis for sideslip constraint (M12a)	yes
+223	2b71562a96fa6c9bb08f8f9eda6f38d03dfd7c5b	2b71562a	2026-04-13T23:59:38+08:00	林禹安	feat	other	feat: 將 tail/fin 幾何接入 YAML 與 runtime model (M8d)	yes
+224	c670406518fbb2b84c277e7e299c64a48ff432a8	c6704065	2026-04-14T00:20:43+08:00	林禹安	docs	planning_docs_reports	docs: 新增台灣碳纖維管供應商研究資料	yes
+225	31808027da84ec9bc6cb29032b8c98bb8393b60f	31808027	2026-04-14T00:23:47+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add directional stability derivative extraction to AVL beta sweep (M12b)	yes
+226	e64f1249a9a15a87d9eb9a7788eaddf6d54b6240	e64f1249	2026-04-14T00:45:21+08:00	林禹安	feat	other	feat: complete control coupling and spiral stability diagnostics for M12	yes
+227	f1c8156e3d91125b265342db84a1b582fbe1ed15	f1c8156e	2026-04-14T18:01:16+08:00	林禹安	fix(avl)	aero_avl_vsp_airfoil	fix(avl): use IYsym=0 + YDUPLICATE to enable lateral stability derivatives	yes
+228	cd27301af26f28acd16c2065bab26c4f4364afe0	cd27301a	2026-04-14T20:36:07+08:00	林禹安	feat	other	feat: 新增 carbon_t700_proxy ply material	yes
+229	5b4283aca8e876b61ec9651fb3dd10fc25b3d0e0	5b4283ac	2026-04-14T20:36:23+08:00	林禹安	feat	other	feat: 新增 real vendor tube catalog	yes
+230	1a596bb3ce2a7a8617802021a127da79d7f87564	1a596bb3	2026-04-14T20:36:44+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 新增 AVL 官方 manual	yes
+231	717be7c2e0e548b1c28b96083209e1311ca9bdce	717be7c2	2026-04-14T20:37:01+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 MIT Daedalus structure rationale	yes
+232	d4bb70e9a08cf714e924cfa35e42457bf0801084	d4bb70e9	2026-04-14T20:40:20+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 校正 AVL rudder authority audit	yes
+233	6733af08e2e92d7fa557c4a3d35fe898caf0d149	6733af08	2026-04-14T20:45:19+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 Tsai-Wu ply failure 工具	yes
+234	afd4266b916b994bc88a97fe0bbd8de7d441aabb	afd4266b	2026-04-14T21:02:27+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 layup Tsai-Wu 摘要	yes
+235	df4e3cf573da58463f9e55caa1829d19fd3f2945	df4e3cf5	2026-04-14T21:03:36+08:00	林禹安	docs	planning_docs_reports	docs: 更新穩定性與 M11 狀態	yes
+236	7766d4b564e0366e41dd7f2357c350f09286bdbd	7766d4b5	2026-04-14T21:38:57+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 full-aircraft VSP fallback	yes
+237	5923f063a343b870273981865b7090ee1b0c8b23	5923f063	2026-04-14T21:40:09+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 記錄 trim AoA 與 VSP 產物狀態	yes
+238	f7b52bc87a0f48dfc862bfa7443d4abc62928447	f7b52bc8	2026-04-14T21:50:01+08:00	林禹安	feat	other	feat: 加入 optimizer ply-drop 約束	yes
+239	713cfacff4efacfb7b4b6eb53d8b4ac1883d692a	713cfacf	2026-04-14T23:39:52+08:00	林禹安	fix(vsp+avl)	aero_avl_vsp_airfoil	fix(vsp+avl): 修正 OpenVSP XSec 索引並讓 AVL 正確讀入 HPA 翼型	yes
+240	d20e8695d0fe1b5a517b77139f89d5bed2efd123	d20e8695	2026-04-15T02:04:18+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修復 VSP 漸進式上反角分段輸出	yes
+241	d914f14f971ca856ff474ce06a50175103d2ef55	d914f14f	2026-04-15T02:20:13+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 以原始 VSP 分段還原 CFD 外型	yes
+242	9f9edf507164cd2e78d189e2a26fc9288fc6c977	9f9edf50	2026-04-15T02:31:51+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 輸出 strain envelope 與 Tsai-Wu artifact	yes
+243	04be281bc184a2565013ad4d331f7c53410b7a90	04be281b	2026-04-15T02:43:36+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 支援最佳化上反角 VSP 輸出	yes
+244	88d793be5f366d7736b31a58f4f4abb52fd1d9f4	88d793be	2026-04-15T02:51:46+08:00	林禹安	feat	other	feat: 將 ply-drop guard 納入最佳化與報告 gate	yes
+245	9a0146dcb81e8645dacdad71e45d620e8e935155	9a0146dc	2026-04-15T02:56:40+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 增加 inverse layup Tsai-Wu demo	yes
+246	8ed3472a5b893a32173e9f7ce0e46a93aaf1c11a	8ed3472a	2026-04-15T03:05:10+08:00	林禹安	feat	other	feat: 新增 ASWING 幾何產生器	yes
+247	8bbe6b4876364e40120c398527e0fb01750a8022	8bbe6b48	2026-04-15T11:05:09+08:00	林禹安	refactor	other	refactor: 將 ASWING 硬編碼常數搬至 config.aswing	yes
+248	6afeb59b9ab05b5203c9a580f508c429af7b97a7	6afeb59b	2026-04-15T11:05:18+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 scripts/vsp_consistency_check.py	yes
+249	a618db721ddce608f4aceacc27961598805615b0	a618db72	2026-04-15T11:08:11+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 巡航 VSP 產生器與 CFD 匯出腳本	yes
+250	8fb683a79e5d6221a81b87269514eadcbf32180c	8fb683a7	2026-04-15T11:51:18+08:00	林禹安	calib	aero_avl_vsp_airfoil	calib: 以參考 .vsp3 校正 wing extremes、AVL header 與 SECTION 區塊	yes
+251	19c8108003cff5e6a03e6b121f7ca3263f2a9001	19c81080	2026-04-15T11:51:33+08:00	林禹安	docs+blueprint	planning_docs_reports	docs+blueprint: 高保真驗證層介面與管線更新	yes
+252	3737360124ac24733b9c65d41ff8b6f7583bcc5a	37373601	2026-04-15T12:03:29+08:00	林禹安	feat(hifi)	high_fidelity_mesh_su2	feat(hifi): 新增 Gmsh STEP 網格 runner	yes
+253	1c695305a8bf4ef2c3e13ecf822b8a65b629a5db	1c695305	2026-04-15T12:06:10+08:00	林禹安	feat(hifi)	validation_calculix_fem_apdl	feat(hifi): 新增 CalculiX 靜力驗證 runner	yes
+254	20f66fe787a277c8ccaf639a7f659b3fa8b6f4ed	20f66fe7	2026-04-15T12:08:23+08:00	林禹安	feat(hifi)	validation_calculix_fem_apdl	feat(hifi): 新增 CalculiX 挫曲驗證報告	yes
+255	4c1c2fcb9a05a97015ca9251bc47cd18446d319d	4c1c2fcb	2026-04-15T12:09:10+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 在最佳化範例輸出巡航 VSP	yes
+256	e37fe85e439b703bf216650088d56147980d6525	e37fe85e	2026-04-15T15:26:53+08:00	林禹安	chore	aero_avl_vsp_airfoil	chore: 同步 docs/examples 快照（新增巡航 VSP 產物行）	yes
+257	0c71becdec0b92aaa0e8df753facc8d74fac0104	0c71becd	2026-04-15T15:39:06+08:00	林禹安	feat(aero)	aero_avl_vsp_airfoil	feat(aero): Generic VSP intake + 高保真驗證層下一批 Codex prompts	yes
+258	0963af8ffa268d5b5bc01ed5e8375ad5d3e3c362	0963af8f	2026-04-15T16:25:32+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 更新 GRAND_BLUEPRINT 同步 M-HF / M-VSP 並新增 M13 M14 主線	yes
+259	d1efe4435059250a172507153491b5b2c50450da	d1efe443	2026-04-15T19:54:22+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 以研究報告細節強化 Codex prompts + 新增 F-Layup	yes
+260	6a0029287141c8673b61c20f289503d20caee921	6a002928	2026-04-15T19:54:36+08:00	林禹安	docs(reference)	planning_docs_reports	docs(reference): 加入五份高保真工具深度研究報告	yes
+261	20a5d4f1cc9d3a7b23b33b27df4a3ef07c7e78f9	20a5d4f1	2026-04-15T20:20:56+08:00	林禹安	feat(structure)	structure_inverse_jig_dual_beam	feat(structure): F-Layup 離散疊層接進主管線 + summary 印疊層表	yes
+262	725bb4cfb6ec8479e835fc5a570fa3937efa6039	725bb4cf	2026-04-15T20:42:19+08:00	林禹安	feat(hifi)	high_fidelity_mesh_su2	feat(hifi): M-HF5 Gmsh mesh .inp 加命名 NSET（ROOT / TIP / WIRE_N）	yes
+263	ae8880df98e7f4b3c63a7d96b396014a7a80fca2	ae8880df	2026-04-16T00:25:03+08:00	林禹安	feat(mass)	aero_avl_vsp_airfoil	feat(mass): M14 Mass / CG / Inertia 預算系統 + AVL .mass exporter	yes
+264	1edc8054fbeba22da1cb12f3b88936c578d2fbb2	1edc8054	2026-04-16T01:29:08+08:00	林禹安	feat(aero)	aero_avl_vsp_airfoil	feat(aero): M13 AVL 控制導數矩陣 exporter（給控制組）	yes
+265	29a1bf45834bf4832a4e92dba1817adc571ce6d1	29a1bf45	2026-04-16T09:55:09+08:00	林禹安	fix(stability)	tests_fixes_hardening	fix(stability): Option C — 駕駛員 CG 前移 + 尾翼延伸修正縱向穩定性	yes
+266	59aac0f4983474cfc6324e25d9060d50cec70404	59aac0f4	2026-04-16T10:20:46+08:00	林禹安	F13	structure_inverse_jig_dual_beam	F13: add Tsai-Hill and Tsai-Wu composite failure criteria to structural optimizer	yes
+267	4c331368847e1fa4abbf310b16fac38ce3071d07	4c331368	2026-04-16T10:35:58+08:00	林禹安	M-HF4	validation_calculix_fem_apdl	M-HF4: add ParaView pvpython script generator for CalculiX hi-fi results	yes
+268	6daf502f6224057940e8cab90a577c43a5242bf5	6daf502f	2026-04-16T11:23:25+08:00	林禹安	M-ASWING	validation_calculix_fem_apdl	M-ASWING: add nonlinear aeroelastic runner and cross-validation script	yes
+269	609e05d550ee408c1aa44a9062cf55f139441e3a	609e05d5	2026-04-17T00:36:59+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 完成 M-VSP2 Generic VSP intake phase 2	yes
+270	bbac1366578ba1290db2db165000ca22a0f7507e	bbac1366	2026-04-17T01:24:39+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 支援 YAML fallback 的 VSP→AVL 幾何來源	yes
+271	322bb0d1592fba5789c3f4990e3d4c911b8336c7	322bb0d1	2026-04-17T01:32:36+08:00	林禹安	test	tests_fixes_hardening	test: 對齊 blackcat_004 幾何基準測試與範例快照	yes
+272	f5c61803dfcaa69d6d61292d90ddaaa94baaa20b	f5c61803	2026-04-17T01:32:59+08:00	林禹安	test	candidate_go_mode_closure	test: 補強 scipy invalid candidate ranking 測試	yes
+273	6a715c7f85ead1232dd602a2953aa3b9dea951c3	6a715c7f	2026-04-17T01:33:30+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 同步 GRAND_BLUEPRINT 的 M-VSP 狀態	yes
+274	b2c86e91e536c992ed62e8bf9ca50ee1f3f3e2c1	b2c86e91	2026-04-17T01:40:49+08:00	林禹安	docs	planning_docs_reports	docs: 校正藍圖與 backlog 的當前優先序	yes
+275	4d0bedcf30d8bc376af896e684888da51ea0989d	4d0bedcf	2026-04-17T01:53:03+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 串接 generic VSP controls 到 AVL 匯出鏈	yes
+276	6217ee51e19f4690e890099c1b373d84c95d616f	6217ee51	2026-04-17T01:55:07+08:00	林禹安	feat	other	feat: 讓 ASWING seed 保留多個 generic controls	yes
+277	176d45a691ea61044efa7d2804854685be506137	176d45a6	2026-04-17T01:57:21+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 更新藍圖與 backlog 的 VSP controls 進度	yes
+278	87e971d9374c48d3700fd4df9ecc811f94f622e7	87e971d9	2026-04-17T11:39:21+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 補強 dual-beam constraint hygiene 與 rank audit	yes
+279	81da822c62bff75def4eba7046bccc6dd5a86705	81da822c	2026-04-17T11:46:47+08:00	林禹安	refactor	structure_inverse_jig_dual_beam	refactor: 重整 dual-beam feasibility gating 與 legacy reference 分流	yes
+280	9eecfdd721342a28b7395f8a8f80bd2e0605a6fa	9eecfdd7	2026-04-17T11:49:45+08:00	林禹安	refactor	structure_inverse_jig_dual_beam	refactor: 切換 production aero torque 為 main-spar nodal moment	yes
+281	bd136df18d11439b4ea5ce7d00c8a2c98cad9f37	bd136df1	2026-04-17T12:10:58+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 補上 dual-beam wire precompression 與 tension-only gate	yes
+282	bce043c577cc60119b01ea8bc859565b7d155496	bce043c5	2026-04-17T12:21:26+08:00	林禹安	test	candidate_go_mode_closure	test: 補上 dual-beam global closure gating 測試	yes
+283	66f5a7f793219d16400e1edab5234369386f2e33	66f5a7f7	2026-04-17T12:25:49+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 實作 dual-beam axial wire constraint mode	yes
+284	b2f509db3d1f9450255454d789f20cea2bda1963	b2f509db	2026-04-17T12:59:53+08:00	林禹安	docs	planning_docs_reports	docs: 重估 ASWING 與外部氣動彈驗證路線	yes
+285	af07ed5da74603957879a23b80e9962bb7944a11	af07ed5d	2026-04-17T13:00:12+08:00	林禹安	docs	planning_docs_reports	docs: 補齊 ASWING 路線調整 backlog	yes
+286	c350691c1f8a8bea1aae1586bbb50153d3f6190f	c350691c	2026-04-17T13:45:06+08:00	林禹安	feat	other	feat: 新增 hifi structural check 結構驗證入口	yes
+287	b35104ddfd03ba188cbc6a3927bf356cafb06ee0	b35104dd	2026-04-17T13:45:24+08:00	林禹安	feat	other	feat: 補上 hifi structural check runner 與測試	yes
+288	acb1b87728bc1b4b94c461ac971c4f309cff4d83	acb1b877	2026-04-17T13:58:38+08:00	林禹安	feat	other	feat: 補強高保真 structural check 載荷與單位尺度	yes
+289	6c51d90c602a72926a5ea6b89922e459258c69d4	6c51d90c	2026-04-17T14:06:22+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 讓 Gmsh mesh size 自動對齊 STEP 單位	yes
+290	7aff3a7d00d4bcf28c1da87d253b75d29239965a	7aff3a7d	2026-04-17T14:06:46+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 實作 dual-beam explicit wire truss MVP	yes
+291	aab250b73a9402d1f927458e2b04b9cc4b8d4561	aab250b7	2026-04-17T14:17:59+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 讓高保真驗證可跑 partial shell mesh	yes
+292	c8073dedd484bd96218eb2724fbf735d5816c37a	c8073ded	2026-04-17T14:26:44+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 補強高保真結果擷取與 buckling parser	yes
+293	97ca4acf3b5b35c23f7a2ac9e483c55b56c87035	97ca4acf	2026-04-17T14:39:02+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 明確 equivalent_beam 為 legacy parity 路徑	yes
+294	50cf8a219cb2c7069bf5f6cb9528d1007d6ec258	50cf8a21	2026-04-17T14:50:54+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 將高保真預設切到 dual-beam 現行標準	yes
+295	e14e3b9471c8ea0120b45ea66fbf53cf4ccfaea0	e14e3b94	2026-04-17T15:00:23+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 支援 dual-beam wire pretension 配置	yes
+296	1b2aeeb89577ec56094af36326c74ff99fc829f0	1b2aeeb8	2026-04-17T15:02:41+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 補上 dual-beam wire tension limit gate	yes
+297	dcc7261e576d23e04e2708b94c6d5fdd5aac4ca4	dcc7261e	2026-04-17T16:25:05+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 升級 dual-beam nonlinear wire truss 幾何更新	yes
+298	e2034541a2a266f87cb201d3f33e3d043298079d	e2034541	2026-04-17T16:30:11+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 對齊 dual-beam wire recovery 與變形後 cable 幾何	yes
+299	6e026d2d89951f0ff60bf23f2e23d916a60176c5	6e026d2d	2026-04-17T16:33:15+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 對齊 inverse wire rigging 與 explicit truss 幾何	yes
+300	3036f035ff5b182bf847e0a543c89efed47d075b	3036f035	2026-04-17T17:24:07+08:00	林禹安	docs	planning_docs_reports	docs: 重建文件導航層與近期藍圖	yes
+301	256198f3e26aa9adf27fb160c60638312a2cb51b	256198f3	2026-04-17T17:28:48+08:00	林禹安	docs	planning_docs_reports	docs: 對齊補充文件導航與連結	yes
+302	b580224c936098a4f11d72173d3a48a2d44372a1	b580224c	2026-04-17T17:29:43+08:00	林禹安	docs	planning_docs_reports	docs: 對齊歷史 task log 與新 roadmap 定位	yes
+303	573fffcc86df3c056e1cb40d31a266c9d0ed4136	573fffcc	2026-04-17T17:36:42+08:00	林禹安	docs	planning_docs_reports	docs: 對齊範例快照文件導航	yes
+304	ea27ed1f92fba23bf7ad90079cae73a386a2934b	ea27ed1f	2026-04-17T18:15:03+08:00	林禹安	docs	planning_docs_reports	docs: 新增 CURRENT_MAINLINE 主線真相文件	yes
+305	227bde943a6d002472f0eb3d0fa229f867f936ae	227bde94	2026-04-17T18:15:21+08:00	林禹安	docs	planning_docs_reports	docs: 補上 CURRENT_MAINLINE 文件內容	yes
+306	8fde908625dafe18e0cff92ff058d068c97a50fe	8fde9086	2026-04-17T18:18:39+08:00	林禹安	docs	planning_docs_reports	docs: 對齊 GRAND_BLUEPRINT 主線與完成狀態	yes
+307	f80355ce4f942dad386fb6276eaefc7ef123c49c	f80355ce	2026-04-17T19:49:23+08:00	林禹安	docs	planning_docs_reports	docs: 補上多軌近期執行路線圖	yes
+308	71cc0fffbb5faeacdbb606491c174cf9f7f84d1d	71cc0fff	2026-04-17T19:52:04+08:00	林禹安	docs	planning_docs_reports	docs: 對齊高保真驗證現況與路線圖	yes
+309	48f618440abf6a52a2e1c1b236d29d716f3e8aba	48f61844	2026-04-17T20:29:13+08:00	林禹安	docs	planning_docs_reports	docs: 補上多 agent 協作真相檔與 task pack	yes
+310	ad09c9756b4685543f8c95253263a3a2cdb22fe5	ad09c975	2026-04-17T20:34:37+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 補上 inverse design validity summary 輸出	yes
+311	0cf35f992989ea199da5d48874e936c8c4662a16	0cf35f99	2026-04-17T20:49:27+08:00	林禹安	docs	planning_docs_reports	docs: 補上 agent handoff quickstart 模板	yes
+312	bcd6fc6868d68416f462fbc52cb892daf1d59f56	bcd6fc68	2026-04-17T20:51:22+08:00	林禹安	docs	planning_docs_reports	docs: 補上 benchmark basket task pack	yes
+313	4b588ff061a620dc977c24aca21346a3a05c1c0c	4b588ff0	2026-04-17T21:00:06+08:00	林禹安	feat	other	feat: 強化 Mac hifi structural spot-check 診斷輸出	yes
+314	ce2faa6218513abb6c4c7705eccaed28a307b1a8	ce2faa62	2026-04-17T21:07:56+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 補上 discrete layup final design 輸出	yes
+315	5397b6d85b658dfda2c510303d271eb157a2e218	5397b6d8	2026-04-17T21:13:30+08:00	林禹安	docs	planning_docs_reports	docs: 整理 benchmark basket 候選清單	yes
+316	f030894540827f84abd8ff059252436c10601416	f0308945	2026-04-17T21:14:00+08:00	林禹安	docs	planning_docs_reports	docs: 更新 current parallel work 歷史	yes
+317	d06652362fb053d0e01d68db1bff3a4af8ecf6f6	d0665236	2026-04-17T21:35:27+08:00	林禹安	docs	planning_docs_reports	docs: 記錄 fresh Mac hifi benchmark run 結果	yes
+318	d73aa4b3ba2d911857b94c81138e19834d78c3dd	d73aa4b3	2026-04-17T21:43:51+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 修正 hifi root boundary fallback 容差	yes
+319	832d7e89c718955422ab665e598b8a29bdb9bcde	832d7e89	2026-04-17T21:47:13+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強 hifi named point spanwise 匹配	yes
+320	656b3032e1836016b40916c853dce475cb97876b	656b3032	2026-04-17T21:48:50+08:00	林禹安	docs	planning_docs_reports	docs: 更新 Mac hifi benchmark 現況	yes
+321	513b1f124151bff6dd0438a7f9a5532fab47bf29	513b1f12	2026-04-17T22:02:41+08:00	林禹安	fix	tests_fixes_hardening	fix: 去除 hifi analysis 重複 shell facets	yes
+322	7d40fa4b1f7f7054338c1d7600d2faf226086dc1	7d40fa4b	2026-04-17T22:04:25+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: 更新 hifi mesh robustness 現況	yes
+323	ef210e5432549fff5c6da08dec5ded8256c1c782	ef210e54	2026-04-17T22:14:36+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 hifi mesh diagnostics sidecar 與報告	yes
+324	1c3882852fe92b15766f4aea265fb5dcb180260f	1c388285	2026-04-17T22:16:32+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: 更新 hifi mesh diagnostics 與 benchmark 證據	yes
+325	b3792b8aeb4671ea17f24b578d0856a955411da6	b3792b8a	2026-04-17T22:29:10+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補上 gmsh bounded coarse fallback	yes
+326	a819e6ffdacb9896f9d00408eb9201271a22ee65	a819e6ff	2026-04-17T22:31:59+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 放寬 coarse mesh named point 容差	yes
+327	c5a0132a313a458b498e222956b98f9bcc8014a1	c5a0132a	2026-04-17T22:45:32+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補上 gmsh OCC healing wrapper	yes
+328	bdc323e7c46e33853619041520bb8cc0c5014c69	bdc323e7	2026-04-17T22:47:34+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: 更新 gmsh healing 驗證證據	yes
+329	7ce07acabafc42b2fa246e15ab9c34b8e5fd8ed4	7ce07aca	2026-04-17T22:56:20+08:00	林禹安	docs	planning_docs_reports	docs: 補上 agent 自主上網查詢規則	yes
+330	32dc37339f9954853f4f95a92b336f5c90399852	32dc3733	2026-04-17T22:59:09+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 hifi mesh 維度診斷輸出	yes
+331	bd00de46a0b4dc452ddfffd6b85b43fd6647140e	bd00de46	2026-04-17T23:00:42+08:00	林禹安	docs	planning_docs_reports	docs: 對齊 hifi 維度診斷與 benchmark 說法	yes
+332	8cac1211e595abf19c5557738cb14d27881739c6	8cac1211	2026-04-17T23:21:53+08:00	林禹安	fix	tests_fixes_hardening	fix: 補上 hifi shell 法向與 sliver 過濾	yes
+333	2a4a459ed62c51d33f151f2bdb0db1a2e0f0a765	2a4a459e	2026-04-17T23:23:34+08:00	林禹安	docs	planning_docs_reports	docs: 更新 hifi rerun 現況與 blocker	yes
+334	03c1bd53c234cc10ab32fbb7f9c2ef7bee41e6d9	03c1bd53	2026-04-17T23:55:48+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 對齊 hifi spar load replay 到 main rear 幾何座標	yes
+335	ef6f2a934515c4684ae2d1dfd8e587f76c5e4441	ef6f2a93	2026-04-17T23:56:13+08:00	林禹安	docs	planning_docs_reports	docs: 更新 hifi spatial load replay 驗證現況	yes
+336	4408ace18f9132c03351d826e07860533cf948d8	4408ace1	2026-04-17T23:56:32+08:00	林禹安	docs	candidate_go_mode_closure	docs: 補齊 benchmark candidate 剩餘阻塞描述	yes
+337	984ca73000ab70c8215ae735e6a2006abe163d77	984ca730	2026-04-18T00:13:51+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 對齊 hifi summary 與 spar load evidence root	yes
+338	e1ac6b8ca673bf0a65e6a449b3cdaa4c6e68045b	e1ac6b8c	2026-04-18T00:14:08+08:00	林禹安	test	tests_fixes_hardening	test: 補上 hifi summary load 選擇測試	yes
+339	4631ad6c0e558ca6d20754798174b64638b17b34	4631ad6c	2026-04-18T00:15:29+08:00	林禹安	test	tests_fixes_hardening	test: 補齊 hifi load replay 測試參數	yes
+340	e65682f41ffa30fc7349810917347e30e850444a	e65682f4	2026-04-18T00:15:34+08:00	林禹安	docs	planning_docs_reports	docs: 更新 hifi summary 對齊驗證現況	yes
+341	3a02f71b88b3273af760ad5993d1cf6790f459b4	3a02f71b	2026-04-18T00:25:12+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 對齊 hifi wire support 到 main spar 幾何座標	yes
+342	ce1aa0866001bb4187faeac4446378b6b5ba4fe5	ce1aa086	2026-04-18T00:28:52+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 更新 hifi wire-support rerun 驗證現況	yes
+343	3534172e5e15bbb10a71a0888449e32715abedd9	3534172e	2026-04-18T00:35:25+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 補上 hifi wire support 小範圍 cluster 對齊	yes
+344	fea2f9aeb743cb48b37ea39b7a69f962f93f757d	fea2f9ae	2026-04-18T00:36:59+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 更新 hifi wire-support cluster 驗證現況	yes
+345	507c4a9b2abd0e45f9825a384d42c7c0285ba43d	507c4a9b	2026-04-18T00:50:49+08:00	林禹安	feat	other	feat: 補上 hifi support reaction compare 輸出	yes
+346	cb1d72ae53f56796939b6db9c59d9a516789b54c	cb1d72ae	2026-04-18T00:52:39+08:00	林禹安	docs	planning_docs_reports	docs: 更新 hifi support reaction 驗證現況	yes
+347	dd8ab15f6516e0286889ff1558f1ee445f0a7cad	dd8ab15f	2026-04-18T00:52:46+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: 收錄 CalculiX 2.22 manual 參考檔	yes
+348	b94bbcccdae736a858477e25931bf90952d4919b	b94bbccc	2026-04-18T01:24:03+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: 釐清高保真 validation 與 inspection 邊界	yes
+349	04bba3e8c60cd4ab682c9215af9f0abcec3915a0	04bba3e8	2026-04-18T01:39:06+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: surface discrete layup final design in optimization summary	yes
+350	edc72e2ccad8ca1f712f87ea28457f4b47ad0632	edc72e2c	2026-04-18T01:49:55+08:00	林禹安	docs	planning_docs_reports	docs: rotate blueprint to next-wave tracks	yes
+351	23062614fb6bb2f426d46c7d8dda483486a4ad6f	23062614	2026-04-18T02:18:22+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: export drawing-ready baseline package	yes
+352	2e98ed055ac666f772a22da36d80c35c5009c85e	2e98ed05	2026-04-18T02:26:43+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: add drawing-ready package front door	yes
+353	02df56a5b081412189481646669705583dba72cf	02df56a5	2026-04-18T02:28:05+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add drawing handoff pointers	yes
+354	5dae789270f13eda744e016f0e9ec97a6a5f0a15	5dae7892	2026-04-18T10:28:56+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add drawing checklist and station table	yes
+355	d374cc8c3cc36c80a9dd593d9bd770e1f054aca4	d374cc8c	2026-04-18T11:18:21+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add drawing release package summary	yes
+356	621040dbdd1094289730211517a0347b1e1a8781	621040db	2026-04-18T14:26:18+08:00	林禹安	docs	foundation_openmdao_api_ci	docs: add GPT Pro decision packet	yes
+357	bacb6c395e7587f6b88869eb9abf61bfa63b37c6	bacb6c39	2026-04-18T14:34:56+08:00	林禹安	docs	foundation_openmdao_api_ci	docs: rewrite GPT Pro decision packet in Chinese	yes
+358	d52f4dd0fba50b1d99595e459a1fee821423f366	d52f4dd0	2026-04-18T15:39:37+08:00	林禹安	docs	planning_docs_reports	docs: draft minimum viable benchmark contract	yes
+359	784b3391ff614eabd18ef5f82b05ae5a9f1b07a6	784b3391	2026-04-18T15:44:29+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add benchmark contract validation script	yes
+360	3d08b27e98bd381cd830fda214fd18049a1de474	3d08b27e	2026-04-18T15:56:31+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 新增 GPT Pro CFRP layup 決策諮詢包	yes
+361	ced4c80195e4399c86994aaabe9144df5534139c	ced4c801	2026-04-18T16:25:39+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: harden benchmark validation script checks	yes
+362	430e5e2eecec0142cbdcf0c7eb70080f95ef1c1e	430e5e2e	2026-04-18T16:32:47+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: align hifi deck thickness with discrete layup	yes
+363	869aa4e622b33485f437dec1a746ddc6a9f68c35	869aa4e6	2026-04-18T16:42:37+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: require explicit mass contract in benchmark validation	yes
+364	26fd156e4693c5b95588500a7572461cc475c2d2	26fd156e	2026-04-18T17:40:11+08:00	林禹安	docs	candidate_go_mode_closure	docs: add near-term requested-to-realizable closure goal	yes
+365	7574505f7d88d88eb6d710d0ed9992e82effc3d7	7574505f	2026-04-18T18:02:16+08:00	林禹安	docs	planning_docs_reports	docs: add target standard gap map and agent plan	yes
+366	8af921cd1f2a7779249015bc952fab75951b2f2c	8af921cd	2026-04-18T18:17:57+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: formalize recipe library architecture planning	yes
+367	1d6443ac3349a2f491257a51d09085c6062fc922	1d6443ac	2026-04-18T18:21:27+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: add recipe architecture agent launch pack	yes
+368	987d21ece408018ffa809a6f2f3887f0f0495759	987d21ec	2026-04-18T18:33:30+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 建立 recipe library foundation lookup contract	yes
+369	bf279275c9031befa0da6010214bf4bdcbb3e871	bf279275	2026-04-18T18:33:49+08:00	林禹安	feat	other	feat: 補強 discrete final design verdict wiring	yes
+370	81e0a3ec1a10205b1f05a06cacc245df2df8bb6a	81e0a3ec	2026-04-18T18:37:34+08:00	林禹安	docs	planning_docs_reports	docs: add target standard program plan	yes
+371	4c519d955e0efee31faeeb2adb7d51dcd76c3c87	4c519d95	2026-04-18T18:40:06+08:00	林禹安	feat	other	feat: 收斂 outer-loop campaign contract 與 search budget	yes
+372	32cb1312180bb1b58dc1cd2cad4e516fd7c96014	32cb1312	2026-04-18T18:53:31+08:00	林禹安	feat	other	feat: 加入 spanwise DP discrete search	yes
+373	b899f8a741b2514196dc35061cd466bceb59cf23	b899f8a7	2026-04-18T19:31:45+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 導入 zone-dependent discrete layup 規則	yes
+374	1a2b8d5817a43c0929122d3f4727990c9b1d88af	1a2b8d58	2026-04-18T19:54:52+08:00	林禹安	docs	planning_docs_reports	docs: retarget current task pack to rerun-aero outer loop	yes
+375	d18a66b2a2a8f8b7d9a7f1b3cc07ae57fcef72e3	d18a66b2	2026-04-18T20:08:45+08:00	林禹安	feat	other	feat: 建立 rerun-aero outer-loop core contract	yes
+376	10519b8ca23e3898f4ac698fc06367f31cb4d23b	10519b8c	2026-04-18T20:25:48+08:00	林禹安	feat	other	feat: 對接 rerun-aero campaign consumer 與 winner selection	yes
+377	1be7adcc16f9ac5b95d490c6ca867c6f567a6440	1be7adcc	2026-04-18T20:45:53+08:00	林禹安	docs	planning_docs_reports	docs: add rib integration plan and launch pack	yes
+378	e877f6786afbb83e38bccd792e296be652a59fed	e877f678	2026-04-18T21:01:28+08:00	林禹安	feat	other	feat: 建立 rib properties foundation contract	yes
+379	a7d67a80940160a2edabf4c99d5f7c5f8ebc7683	a7d67a80	2026-04-18T21:46:13+08:00	林禹安	feat	other	feat: 補上 passive rib robustness compare mode	yes
+380	edfe3d8bf29ace395045ea1bc1faaaca7eb4d560	edfe3d8b	2026-04-18T21:48:27+08:00	林禹安	feat	other	feat: 補上 rib bay surrogate contract	yes
+381	32e64181c188cd56f72d1bd94505094bb912ef02	32e64181	2026-04-18T22:21:12+08:00	林禹安	feat	candidate_go_mode_closure	feat: 納入 zone-wise rib design candidate contract	yes
+382	e86f1eda8044199a1fb5615afd9feffc0af2bfcf	e86f1eda	2026-04-18T22:39:22+08:00	林禹安	docs	planning_docs_reports	docs: 轉入 rib campaign smoke review 藍圖	yes
+383	66dc4093bc11c132fccacc016e6ffeb84fc6d4fc	66dc4093	2026-04-18T23:24:50+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 切換到 VSPAero parser 修復任務	yes
+384	fe3818df63267404a1bb90baed6f1038517c5a5c	fe3818df	2026-04-18T23:42:38+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修正 VSPAero .lod parser 相容性	yes
+385	949b80facf1bd0fe43d02fea56310152105e3ace	949b80fa	2026-04-18T23:48:51+08:00	林禹安	fix	candidate_go_mode_closure	fix: 限縮 candidate rerun 只吃主翼 component	yes
+386	2d2d7d9c62a2aa5344ecaabf1d2ec43cac25816a	2d2d7d9c	2026-04-19T00:01:19+08:00	林禹安	docs	planning_docs_reports	docs: 切換到多 seed rib smoke 派工階段	yes
+387	f37d2c761b80d6cd2c4681933d3e09c312f4417d	f37d2c76	2026-04-19T00:17:31+08:00	林禹安	docs	planning_docs_reports	docs: 更新 Track R multi-seed rib smoke 報告	yes
+388	ad97b00b86d984f2f8fead4075f7c9be99b3806e	ad97b00b	2026-04-19T00:33:15+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: 切換到 wire truss 收斂解卡階段	yes
+389	bcbe95f734c91f33b8053e9c0031857f61b39900	bcbe95f7	2026-04-19T00:54:59+08:00	林禹安	fix	structure_inverse_jig_dual_beam	fix: 修正 explicit wire truss rerun 收斂停滯	yes
+390	c2d6673783568b467dea69210ed320c5beab009a	c2d66737	2026-04-19T01:19:39+08:00	林禹安	docs	planning_docs_reports	docs: 切換到 Track T ground-clearance recovery 派工	yes
+391	17e7f2e7c89df840e68734f772c2ecdaf015cdef	17e7f2e7	2026-04-19T01:31:10+08:00	林禹安	docs	planning_docs_reports	docs: 新增 GPT Pro ground-clearance 嚴格審查包	yes
+392	b9c1fb5f337318c4d332b84fc23dee4d26d30c1d	b9c1fb5f	2026-04-19T01:43:20+08:00	林禹安	docs	planning_docs_reports	docs: 更新 GPT Pro ground-clearance 審查前提	yes
+393	2272aa2f3a7da3cc850a7b8eb8be878a14224cfb	2272aa2f	2026-04-19T01:53:57+08:00	林禹安	feat	other	feat: 補上 ground-clearance recovery outer loop	yes
+394	3a28b499a25829022e107eb0cd558e19607c567b	3a28b499	2026-04-19T02:16:43+08:00	林禹安	docs	planning_docs_reports	docs: 補上 clearance pass region bounded search report	yes
+395	c138085a5ee44919a0d702f0c055aa274de4bf5b	c138085a	2026-04-19T11:10:42+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: rebaseline outer loop to AVL-first search	yes
+396	2b2de2948fc28dfb08c7c2641e90782fec093251	2b2de294	2026-04-19T11:10:57+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: add AVL-first outer-loop handoff prompt	yes
+397	97f32fbc8e84a7ea8c6ca4515e33834d98424377	97f32fbc	2026-04-19T11:49:44+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add AVL spanwise load adapter	yes
+398	16087a3e6ed2e92abd2ac313264aa13b59e48359	16087a3e	2026-04-19T12:06:49+08:00	林禹安	feat	candidate_go_mode_closure	feat: wire candidate_avl_spanwise into outer-loop search	yes
+399	ad188225f049ef855b537bb4c127d6412470ef1f	ad188225	2026-04-19T12:37:43+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: add AVL spanwise realignment prompt pack	yes
+400	e8f44467441b7836b8116db66eaa59fe44bb31dc	e8f44467	2026-04-19T12:56:54+08:00	林禹安	fix	candidate_go_mode_closure	fix: 修正 candidate_avl_spanwise ownership 與 recovery 漂移	yes
+401	f2f42dc6d8d0e25677b0deafd154fcc814155cf6	f2f42dc6	2026-04-19T13:12:00+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 新增 Track W AVL load-state 對比報告	yes
+402	664b4255d9a4ce21e8e87eaf9465b4978ad849cb	664b4255	2026-04-19T13:49:22+08:00	林禹安	fix	candidate_go_mode_closure	fix: align candidate_avl_spanwise structural load-state	yes
+403	432c32f65e101bb5bc2c84b9e2f00d3b22225079	432c32f6	2026-04-19T14:00:37+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: advance repaired AVL shortlist and rib task pack	yes
+404	52305c69677ac96bd49fbf3205ffd944c59cf311	52305c69	2026-04-19T14:13:36+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 重建 repaired AVL shortlist 報告	yes
+405	8aa4d72923be59ea69e7839075664b7325d9365e	8aa4d729	2026-04-19T14:35:27+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: restore AVL baseline exponent and add Track Z prompt	yes
+406	99ea488f95cd2453ec39f61d217d8b8b67ab11cf	99ea488f	2026-04-19T14:46:28+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 重建 Track Z AVL baseline exponent report	yes
+407	25f8a9a565aa0e7a6f373364efc2fd5cd5f2e3e7	25f8a9a5	2026-04-19T15:23:38+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 補上 AVL old-vs-current regression forensic 報告	yes
+408	1475034ca76c87cab95d53cf29537476238375b8	1475034c	2026-04-19T15:59:39+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修正 blackcat 004 主翼 airfoil mapping 與 baseline AVL	yes
+409	3f2f8164a0f70de2d7517bdae6d1e802d0741be8	3f2f8164	2026-04-19T16:13:07+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修正 AVL aero gate 改用 generated case Sref	yes
+410	7b516cc535c5c703de57925021d8290d26751e0a	7b516cc5	2026-04-19T16:14:46+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 補上 AVL aero gate contract 說明	yes
+411	93980c8406047adf92532af0e74bfb76bb258eb0	93980c84	2026-04-19T16:26:19+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 補上 AVL lift gate 近等值容差	yes
+412	69af9b907b57eadad5b0741895589499a17cd8ee	69af9b90	2026-04-19T16:28:24+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 補上 AVL rerun 與 VSP parser 注意事項	yes
+413	1f78a4c44ffaabd665cb6abcb306467e2dfc2130	1f78a4c4	2026-04-19T16:44:30+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 刷新 repaired AVL-first shortlist 報告	yes
+414	b66db090619660024985baa5d1adbd479123c8a4	b66db090	2026-04-19T16:53:01+08:00	林禹安	docs	planning_docs_reports	docs: advance current pack to Track R rib smoke	yes
+415	89f3fc26385753ee1a1d58bc13e853168522eb69	89f3fc26	2026-04-19T17:07:41+08:00	林禹安	docs	planning_docs_reports	docs: 更新 repaired-shortlist rib smoke report	yes
+416	6a641ff3039428efcc54f96d4467daa0965b50a2	6a641ff3	2026-04-19T17:36:13+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修正 AVL case airfoil dat 檔案解析	yes
+417	a7c0829e372f5b1cc6da7b57e09dc4abceef9b6e	a7c0829e	2026-04-19T17:36:23+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 補上 AVL airfoil runtime contract 說明	yes
+418	bac1586f43099b6707675007bf595f1d41ded10f	bac1586f	2026-04-19T17:48:41+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 支援 VSP 直出 AVL inline airfoil	yes
+419	a6bd200a10062613af5eff150d47f396622930da	a6bd200a	2026-04-19T18:03:11+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 對齊 VSP-first AVL 匯出與 reference 幾何	yes
+420	6dcb720d4bcf19f9c3eda9235d8d28390c192719	6dcb720d	2026-04-19T18:13:33+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 以 raw VSP 重生 blackcat AVL baseline	yes
+421	518a9b65fa0b617f179c88f37f91348f4c9756f1	518a9b65	2026-04-19T18:25:39+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 相容 Main Wing 的 AVL spanwise surface 名稱	yes
+422	1f0b079c92d290173eb076226541e25590264418	1f0b079c	2026-04-19T19:02:45+08:00	林禹安	fix	tests_fixes_hardening	fix: 移除 blackcat 004 主翼基線 Ainc 偏置	yes
+423	c1140b847e6f2d41126770e383471fe88699969d	c1140b84	2026-04-19T19:05:35+08:00	林禹安	fix	tests_fixes_hardening	fix: 還原 blackcat 004 主翼基線 Ainc 設定	yes
+424	5aef93b445a8c26a3795ecf667a5c840823a0c97	5aef93b4	2026-04-19T19:07:07+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 補充 Ainc 與 blackcat VSP 來源依據	yes
+425	074f1c9bdaa8c984d167b9ccd6a451886e0f4a1c	074f1c9b	2026-04-19T20:25:56+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 讓 VSPAERO rerun 支援 VLM 與 Panel 可切	yes
+426	46e941e75724b4d02540fc58832df7d36e82d874	46e941e7	2026-04-19T20:54:51+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 對齊 VSP builder 與 blackcat 004 origin geometry	yes
+427	4bcf20b860fd06ebbe5979aed60ad803792a1a81	4bcf20b8	2026-04-19T21:09:12+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 對齊 VSPAERO reference 與 Reynolds 設定	yes
+428	74ad5c3f13fcd83e74dac6e49ef448238064efbc	74ad5c3f	2026-04-19T21:37:10+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 新增 FX 76-MP-140 在 Re410000 的 XFOIL 極曲線與圖表	yes
+429	2cdea19c3b2ea6bfe8a451eb4bca09e2a95b4a58	2cdea19c	2026-04-19T21:42:20+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 內建 blackcat 004 origin vsp 參考	yes
+430	a65509b03a2ace9d7edef49381d65eb98cb040ca	a65509b0	2026-04-20T01:24:35+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 origin VSP fixed-alpha 上反角修正載荷模式	yes
+431	6edd8ce0198d0d5dadee3f89135b771a3c5191c2	6edd8ce0	2026-04-20T01:26:15+08:00	林禹安	docs	planning_docs_reports	docs: 補充 fixed-alpha hybrid screening contract	yes
+432	45ee8534a8068f8b879904ebe78b3d3c973e9370	45ee8534	2026-04-20T01:50:53+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 Main Wing 上反角倍率套用	yes
+433	3a60ae275946be4a8145a33a3690f1c644574841	3a60ae27	2026-04-20T01:52:43+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 新增 campaign spar tube mass 硬限制	yes
+434	851b9b4a57a981365b05fc1d6f8a0b49f1fae9c5	851b9b4a	2026-04-20T02:13:32+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 mission objective line 設計稿	yes
+435	6d25e1239a040cd69c6ca7058ad399fea321fd6d	6d25e123	2026-04-20T02:24:37+08:00	林禹安	docs	mission_birdman_concept	docs: 補充 mission target range 設定	yes
+436	53e3e741362f9e79632702df586665ab974e2648	53e3e741	2026-04-20T02:36:44+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 first-pass boundary 自動 refine	yes
+437	6a83a6d9368300271270f0fdb02b54055a9630c6	6a83a6d9	2026-04-20T02:46:18+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 mission objective line implementation plan	yes
+438	b1d8f27171a8c191f36bbe858f2fac8017246dd6	b1d8f271	2026-04-20T02:56:50+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 mission objective config	yes
+439	c6e22243128c3b5711e7060c0aa0b06a24fe2888	c6e22243	2026-04-20T02:58:21+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 mission config default factory	yes
+440	ec7361e094828e58ba90abaac42625d831e14899	ec7361e0	2026-04-20T03:02:01+08:00	林禹安	test	mission_birdman_concept	test: 補強 mission config regression 測試	yes
+441	d615fddc6f522bc10b4eb0129690e38ecc18deb1	d615fddc	2026-04-20T03:05:05+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 mission objective evaluator	yes
+442	a5d27363b8b857fdce2b55a08ad3ce36063f62d0	a5d27363	2026-04-20T03:08:53+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 mission objective evaluator 邊界行為	yes
+443	aec2911253c04922b3466e2b70bc57c29b84f804	aec29112	2026-04-20T03:10:56+08:00	林禹安	test	mission_birdman_concept	test: 補強 mission objective evaluator 邊界測試	yes
+444	e466ad1d68538d7f3500317cdae7412dc5cbbdd5	e466ad1d	2026-04-20T03:17:45+08:00	林禹安	feat	mission_birdman_concept	feat: mission objective 接入 dihedral campaign	yes
+445	5e710e0cfa2364b4da190c4134eb751c23349f6b	5e710e0c	2026-04-20T03:27:03+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 dihedral campaign mission ranking	yes
+446	948a01a2211891425cda1942d5cdac5689c8a34d	948a01a2	2026-04-20T03:29:09+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 dihedral campaign winner evidence 對應	yes
+447	e22ec3c1c6bbd29820459ac1e275a792a54b7eb1	e22ec3c1	2026-04-20T03:34:21+08:00	林禹安	feat	mission_birdman_concept	feat: mission objective 接入 feasibility sweep	yes
+448	39c05cb803fae73ef87159db02accc88e9111642	39c05cb8	2026-04-20T03:41:14+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 feasibility sweep mission score contract	yes
+449	1a2ae5e74cc7c92146ee6b6eb2caf3def5c306cb	1a2ae5e7	2026-04-20T03:43:17+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 feasibility sweep mixed mission fallback	yes
+450	a88f99ad54afe1b458fb6bb63822ebc30b83fb41	a88f99ad	2026-04-20T03:45:44+08:00	林禹安	docs	mission_birdman_concept	docs: 對齊 feasibility sweep mission score 契約說明	yes
+451	b0b9dd3f5f5e8b4814c973cd77222396725e9b86	b0b9dd3f	2026-04-20T03:54:37+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 direct inverse mission summary	yes
+452	9b67fa4a2fd8de3cc60c80cf92260afd475c2713	9b67fa4a	2026-04-20T04:00:55+08:00	林禹安	test	mission_birdman_concept	test: 補強 direct inverse mission summary 測試	yes
+453	12950a0572916f89e97221023d76d514d5286d06	12950a05	2026-04-20T04:03:01+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 mission endurance 語意	yes
+454	3d4d5a6d2f33d41636abe2c6341abc4bae3a17b2	3d4d5a6d	2026-04-20T04:13:03+08:00	林禹安	fix	mission_birdman_concept	fix: 補上 mission feasibility selection gate	yes
+455	e3fbc2ffd8ae69ff680f33f9770dfe5c11798a07	e3fbc2ff	2026-04-20T04:15:07+08:00	林禹安	test	tests_fixes_hardening	test: 補強 min_power selection regression	yes
+456	fa32437e313d47daef14834c3e58b617890e9fe3	fa32437e	2026-04-20T04:22:57+08:00	林禹安	fix	mission_birdman_concept	fix: 對齊 dihedral campaign mission fallback	yes
+457	279ec7d27172229165e5787d6b8ff904232aa6ea	279ec7d2	2026-04-20T04:25:30+08:00	林禹安	refactor	other	refactor: 對齊 campaign selection status 命名	yes
+458	cda537092b3cabd7f9d85ad5e70f935186022b33	cda53709	2026-04-20T04:35:33+08:00	林禹安	fix	mission_birdman_concept	fix: 對齊 campaign mission summary 契約	yes
+459	0b47c75145596e93c56cb7bcea6efac00955a12c	0b47c751	2026-04-20T12:56:24+08:00	林禹安	chore	other	chore: ignore local worktrees	yes
+460	df838326964ec7a60c0163a7458f81b8800a4e4e	df838326	2026-04-20T12:58:45+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: add origin aero sweep and su2 integration design	yes
+461	3c7e515a4ff35c98d87bab6facc816b1b79dbde2	3c7e515a	2026-04-20T12:58:56+08:00	林禹安	docs	planning_docs_reports	docs: add origin aero sweep spec	yes
+462	49465a5f52ba4ca877e2f1ad32989e9db7babba4	49465a5f	2026-04-20T13:07:50+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add shared aero sweep parsers for vspaero and su2	yes
+463	187c0cd77ba7eae6307e81abdd8388271d930356	187c0cd7	2026-04-20T13:15:13+08:00	林禹安	feat	other	feat: add origin aero sweep cli and artifact bundle	yes
+464	7deed444021f73dc44802e8b1d65e0003b33ca06	7deed444	2026-04-20T13:35:39+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add origin su2 alpha sweep case preparation	yes
+465	d3089b2bd79d48616bf7daf874c92b921155d496	d3089b2b	2026-04-20T13:41:54+08:00	林禹安	other	high_fidelity_mesh_su2	Merge branch 'codex/origin-vspaero-su2-work'	yes
+466	8952a41fa3894d49423b55c11c90e661f65f1852	8952a41f	2026-04-20T13:56:17+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add origin su2 dry-run and mesh validation	yes
+467	567bcd27f98864dab387d9898c4ec93e41d1b41a	567bcd27	2026-04-20T14:16:45+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add origin su2 auto meshing	yes
+468	f8cd0a89a1c99447c471077f034b7b6a311cad8e	f8cd0a89	2026-04-20T15:02:18+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 修正 origin_su2 使用 SU2 v8 moment origin 參數	yes
+469	74a26366ec129e8d73b21fdc0983df314c2a2609	74a26366	2026-04-20T15:18:59+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: add origin su2 high-quality upgrade design	yes
+470	764718be671e338596e759020714a75c4b8ee2c9	764718be	2026-04-20T15:36:28+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: add origin su2 high-quality implementation plan	yes
+471	87caec79131fa8308dee4747a5d78650a0e09e1c	87caec79	2026-04-20T15:59:43+08:00	林禹安	feat	other	feat: add origin geometry contract artifact	yes
+472	0eff75d58743f35057670ca3a134214041b07e07	0eff75d5	2026-04-20T16:08:39+08:00	林禹安	fix	tests_fixes_hardening	fix: harden origin geometry contract artifact	yes
+473	24df47d613ef5b97980f6c2ace8b0241bf5957a6	24df47d6	2026-04-20T16:15:27+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add origin su2 mesh presets	yes
+474	a427c338a8e9806a117f747fe09936c013d5b02b	a427c338	2026-04-20T16:25:36+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: make origin su2 mesh preset provenance truthful	yes
+475	ca24488da65b3e3016f6b91d072ba37e18a27265	ca24488d	2026-04-20T16:29:46+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: enforce origin su2 mesh preset applicability	yes
+476	6274328dc103cbad534766d7bbeebfff5eb73357	6274328d	2026-04-20T16:37:38+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: prefer step-backed origin su2 meshing	yes
+477	39fc539e8141f2133d536ed38b2cc6616bb15617	39fc539e	2026-04-20T16:47:50+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: harden origin step meshing fallback contract	yes
+478	7275905f52bfc5616dc406bd4e3c7ea73e78c819	7275905f	2026-04-20T16:55:55+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add origin su2 run provenance metadata	yes
+479	7a9c43ec860af9d6bad019c5b1a7c136c17c87d1	7a9c43ec	2026-04-20T17:06:09+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: harden su2 provenance loader compatibility	yes
+480	bc47794a56542d4ef14cae74060663105b0f1967	bc47794a	2026-04-20T17:13:09+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add origin su2 mesh study quality gate	yes
+481	7699196b60a40650e5a203785dc003b4773b4969	7699196b	2026-04-20T17:19:18+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: require real histories for origin mesh study verdict	yes
+482	45eeab1b25bfae48fda4893d76cdbc4e0c55c817	45eeab1b	2026-04-20T17:27:03+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: tighten origin mesh study coverage gate	yes
+483	0ab0a806a2f2cf46278c3046eae9d3d97103a6d8	0ab0a806	2026-04-20T17:32:52+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: enforce origin mesh study comparison contract	yes
+484	5eab8fce914f8eeac58caa1221804fd101c1eb1e	5eab8fce	2026-04-20T17:36:24+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: reject mixed origin mesh alpha coverage	yes
+485	122de61200641a13feac3dacabede481a05d8655	122de612	2026-04-20T18:25:39+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: add thin-surface origin occ mesh route	yes
+486	92f512b67c60fa2a49d12828d29c34a338cd1922	92f512b6	2026-04-20T20:28:27+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: clean duplicate origin occ boundary facets	yes
+487	135624a77b78196b1be108f32ea11563b75d5c81	135624a7	2026-04-20T21:15:13+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 重構 hpa_meshing_package geometry-family-first 核心	no
+488	d7dcde6137e7ab28de5636cd048ed560435d036e	d7dcde61	2026-04-20T21:17:56+08:00	林禹安	docs	planning_docs_reports	docs: add ESP/OpenCSM feasibility spike report	yes
+489	28036abba0f2eabbc0d110551d81e53625e73b07	28036abb	2026-04-20T21:55:12+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 整合 hpa_meshing_package provider-aware 主線	no
+490	11115fd983c789c3f3eafc857fbd9744e1fe0540	11115fd9	2026-04-20T21:55:30+08:00	林禹安	docs	planning_docs_reports	docs: 補上 provider integration mainline 說明	no
+491	7716f582e715d1285dc71f7fab31a77a6a9d9863	7716f582	2026-04-20T22:21:23+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 打通 hpa_meshing_package provider-aware Gmsh backend	no
+492	07d66d0ea661e1c80e45490109eb4d110ff098bf	07d66d0e	2026-04-20T22:39:58+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 統一 hpa_meshing_package 單位正規化契約	no
+493	c78f8a3711fa9c9e5961edaafcdf15175f9195f3	c78f8a37	2026-04-20T22:44:02+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 固化 hpa_meshing_package mesh handoff contract	no
+494	9a0c659cf18cb222d9dc3758804b8d3d29da5fc9	9a0c659c	2026-04-20T23:18:11+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 接上 mesh_handoff package-native SU2 baseline	no
+495	8ec502bfd3214aa4d825bc67683c77684453ce55	8ec502bf	2026-04-20T23:51:37+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補強 hpa_meshing_package reference/force-surface provenance gate	no
+496	5f7091d2654365b5ce2d3680071fd05847933805	5f7091d2	2026-04-21T00:05:04+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 整合 hpa_meshing_package 主線本體	yes
+497	ae9f95e6d99e550bb1675085490e8865bc597765	ae9f95e6	2026-04-21T00:09:38+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: productize hpa_meshing_package front door	yes
+498	b2bca95d05e1015cf8031a7960de2a400d1dfac4	b2bca95d	2026-04-21T00:20:19+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: restore hpa_meshing report writers	yes
+499	31a74b79c3531c4a6bbf93b72d995fd73e499163	31a74b79	2026-04-21T00:27:47+08:00	林禹安	feat	other	feat: add baseline convergence gate contract	yes
+500	978912e47a9bee927b86e5b9078c960207fc3f7e	978912e4	2026-04-21T00:43:57+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 hpa_meshing_package mesh study gate	yes
+501	3fbd51cce83f43e2f8d3c145ee1fef3dbaf5602f	3fbd51cc	2026-04-21T00:44:28+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: 補上 hpa_meshing_package mesh study 合約說明	yes
+502	c96190e9e1325a417a7593432688e4f36fe28156	c96190e9	2026-04-21T01:01:17+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 修正 baseline convergence trend 與 mesh study runtime preset	yes
+503	73a2a471c295640f88c8417afd8c4422af768066	73a2a471	2026-04-21T01:23:36+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 收斂 baseline mesh study 預設 preset	yes
+504	66845e3be8cbec7ad44022263461f4854aa1fe37	66845e3b	2026-04-21T01:23:56+08:00	林禹安	test	high_fidelity_mesh_su2	test: 補強 baseline mesh study preset regression	yes
+505	31d03da3c98882adc429ada98e7bbf8b931288e6	31d03da3	2026-04-21T01:51:23+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: add mesh policy stabilization research note	yes
+506	1474da73d4158799aba50f32bdeda871f2f60e9b	1474da73	2026-04-21T01:59:10+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: stabilize field-driven thin-sheet mesh policy	yes
+507	5fc11a2311c3ffee89093075b0f7b525b6d9dec9	5fc11a23	2026-04-21T02:33:55+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: harden mesh study gate for low-CM cases	yes
+508	0a76db7253c490db3feec500f484e14746717700	0a76db72	2026-04-21T02:37:50+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: keep super-fine as diagnostic mesh-study tier	yes
+509	5ac9f387ebc6c7f63b8e8b59c393f9ae8b35c144	5ac9f387	2026-04-21T09:59:22+08:00	林禹安	merge	high_fidelity_mesh_su2	merge: integrate hpa meshing docs driven fix into main	yes
+510	0743c365021bcabe8c8a89cacb0dd66a42caf286	0743c365	2026-04-21T10:00:41+08:00	林禹安	merge	high_fidelity_mesh_su2	merge: integrate hpa meshing esp spike into main	yes
+511	9c07c90d71ba48646b564eff38d22b93019db92e	9c07c90d	2026-04-21T10:00:44+08:00	林禹安	merge	high_fidelity_mesh_su2	merge: integrate origin su2 high quality fixes into main	yes
+512	ddafe83c4f04dc2bb8654364c9c40d3f1c92f940	ddafe83c	2026-04-21T11:16:50+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 導正 hpa_meshing_package 高保真網格尺寸主線	yes
+513	83e187e3ceffc0e2a5320257afa6f6a2c3b05d79	83e187e3	2026-04-21T11:48:54+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 讓 Gmsh edge sizing 隨 preset 一起縮放	yes
+514	d91bc278b5922d1b16d98643ed5f601d72649eff	d91bc278	2026-04-21T14:33:09+08:00	林禹安	docs	planning_docs_reports	docs: 對齊 esp provider 現況與 enablement 計畫	yes
+515	cb671408f21be6e71ba39a007887b19b399c3550	cb671408	2026-04-21T14:38:27+08:00	林禹安	docs	planning_docs_reports	docs: 補上 esp handoff 與禁止 worktree 說明	yes
+516	94bcad5f7aedc7bc32eb1ca7d4edcdc4dcf34bf6	94bcad5f	2026-04-21T14:59:55+08:00	林禹安	test	tests_fixes_hardening	test: 鎖定 esp runtime discovery 與 fail-loud 診斷	yes
+517	f5f57fd922ebc77a7878071a1d0f84a5455df3be	f5f57fd9	2026-04-21T15:02:34+08:00	林禹安	refactor	other	refactor: 拆出 esp provider materialization pipeline	yes
+518	89f15de53495821cae77c3ccab63d84939d02d8d	89f15de5	2026-04-21T15:05:39+08:00	林禹安	feat	other	feat: 實作 esp rebuilt provider materialization	yes
+519	47b3620aea9653013190382bc6266cc99b1b2b5b	47b3620a	2026-04-21T15:08:19+08:00	林禹安	docs	planning_docs_reports	docs: 對齊 esp provider 實作狀態與 smoke 證據	yes
+520	cf888df9b07f40528dc17d9eaccdfbe04986767f	cf888df9	2026-04-21T15:41:17+08:00	林禹安	fix	tests_fixes_hardening	fix: 放寬 esp batch runtime gate	yes
+521	11e8e7cab3360f1726e53d2fac46446ff7757b45	11e8e7ca	2026-04-21T15:42:30+08:00	林禹安	test	tests_fixes_hardening	test: 隔離 esp CLI 測試的本機 runtime 依賴	yes
+522	020806728c434e9a85be96f6bfc9ebb21bca8d53	02080672	2026-04-21T16:02:53+08:00	林禹安	fix	tests_fixes_hardening	fix: 打通 esp_rebuilt materialize 路徑	yes
+523	649df3262afa3bf317d7fef78c45f1ba00b2d559	649df326	2026-04-21T16:08:24+08:00	林禹安	fix	tests_fixes_hardening	fix: 匯出 ESP assembly 全部 body	yes
+524	4e734e34754732f67a5fab34f0414d03d663cb66	4e734e34	2026-04-21T16:38:29+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 esp step 單位正規化	yes
+525	6568777f7e52924eb260938ae942b0b88daa442c	6568777f	2026-04-21T16:40:59+08:00	林禹安	fix	tests_fixes_hardening	fix: 補完 esp step 單位正規化與拓樸探測	yes
+526	ec0fd64dc616a01cd39105b61923487306c71797	ec0fd64d	2026-04-21T17:40:38+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 將 esp_rebuilt 正規化為 CFD-ready external geometry	yes
+527	c0a9207114899edc659a99363c653e32915ae7b5	c0a92071	2026-04-21T17:41:07+08:00	林禹安	test	high_fidelity_mesh_su2	test: 補強 esp_rebuilt CFD normalization 測試	yes
+528	38d98d6336686e35f72f3d42ee775008192c7637	38d98d63	2026-04-21T17:41:38+08:00	林禹安	fix	tests_fixes_hardening	fix: 讓 clean esp_rebuilt geometry 的 coarse smoke 往後推進	yes
+529	de89b9d307093fdcd3a2f2208d3c9fb9c0beddef	de89b9d3	2026-04-21T18:21:13+08:00	林禹安	feat	other	feat: 新增 esp_rebuilt component 拆分與 STEP 單位縮放修正	yes
+530	808d97764508b8085e14165411bd9179fe1be981	808d9776	2026-04-21T18:30:51+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 esp_rebuilt 外流 meshing 診斷與 lifting-surface route	yes
+531	b55f28e787f725a54a76e9e82431934cfaa36c87	b55f28e7	2026-04-21T18:47:42+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補上本地 CFD 生成物與 manual 複本忽略規則	yes
+532	feaafa1002ab68e7542ee004cf216cab85fee0b0	feaafa10	2026-04-21T19:18:23+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 gmsh PLC 診斷 artifact 與 probe	yes
+533	1adbc8aeb3d77a5ac7821a8a3fb7f80654653e80	1adbc8ae	2026-04-21T19:20:22+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 esp_rebuilt HXT coarse smoke 設定	yes
+534	18476c22f92646e5c2bc65a72be9a23a0ccbfc8b	18476c22	2026-04-21T19:51:58+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 gmsh discrete surface repair fallback	yes
+535	0c2ccce06490f6bd4db91eab3072d39a84b41d86	0c2ccce0	2026-04-21T19:54:12+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 gmsh overlap surface pair 診斷	yes
+536	a7a175c56ef37addc839983d33787cf03e1c523e	a7a175c5	2026-04-21T20:40:49+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 gmsh classify angle probe 診斷	yes
+537	d457878aa526ea52ed98a1ac950b71fe7f953c2f	d457878a	2026-04-21T20:49:47+08:00	林禹安	feat	other	feat: 補強 esp provider wing section diagnostic artifact	yes
+538	dad49df966116326e15df90b52e8347d81c8efb8	dad49df9	2026-04-21T21:38:06+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 gmsh surface repair no-volume guard	yes
+539	837f36e91bd48e0180d7c2d8692d39184985254d	837f36e9	2026-04-21T21:41:36+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 精簡 gmsh no-volume 失敗診斷流程	yes
+540	1bf76000c09f23ef77473aec0365f283c467045a	1bf76000	2026-04-21T22:28:08+08:00	林禹安	feat	other	feat: 改寫 esp_rebuilt 為 native OpenCSM provider	yes
+541	dad975336cb09e79b76f652f3770ec910363cda1	dad97533	2026-04-21T22:56:59+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add gmsh mesh2d watchdog diagnostics	yes
+542	ca6bf503af8daccee2f9d4cfc295f35f522cf1d7	ca6bf503	2026-04-21T23:08:56+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record c1 mesh2d forensics findings	yes
+543	bdcb02dd8cc3be693266c15219cb2f34aba7417f	bdcb02dd	2026-04-21T23:29:02+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 Mesh2D watchdog diagnostics	yes
+544	ed84c51bdddd1510870fb024e64a0e65b61cd011	ed84c51b	2026-04-22T00:06:07+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman 上游概念設計線 spec	yes
+545	82be71f6235a12d4d67935a2a593eaf5cf3b9264	82be71f6	2026-04-22T00:17:44+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: harden esp_rebuilt gmsh meshing policy	yes
+546	7ae1a58903672b5523384c6a3af5fdba6a8b84d8	7ae1a589	2026-04-22T00:43:17+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強 assembly 2D import scale fallback	yes
+547	627059d5ebe26e25e3168802cce98f8985464a9a	627059d5	2026-04-22T00:46:12+08:00	林禹安	fix	tests_fixes_hardening	fix: 明確標記 surface-only probe 並補 3D watchdog artifact	yes
+548	78646f72a9c5d79372173b7cffec08cb83b0621e	78646f72	2026-04-22T01:35:20+08:00	林禹安	feat(gmsh_backend)	high_fidelity_mesh_su2	feat(gmsh_backend): add coarse-first-tetra surface-budget policy for esp_rebuilt	yes
+549	9cee47ee1821b43618d33c6a60c8e9fbb43e46eb	9cee47ee	2026-04-22T02:23:06+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 gmsh 3D burden watchdog 診斷	yes
+550	b5901f71d0f9cd6a917e158fbfd2bdecdedf616d	b5901f71	2026-04-22T02:58:07+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 gmsh HXT 3D watchdog phase 診斷	yes
+551	018abd96a3ed3c104920d997dec586282855fafe	018abd96	2026-04-22T10:42:05+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 拆分 gmsh volume smoke decoupled field	yes
+552	f39a34e0791bf40b02e621eeee8f10e6247ed41b	f39a34e0	2026-04-22T11:01:13+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補上成功 3D mesh 的 burden metrics	yes
+553	1998fee045cb061c46120ad072cf2cd3138881f6	1998fee0	2026-04-22T11:01:25+08:00	林禹安	test	high_fidelity_mesh_su2	test: 補強 gmsh 3D 成功回傳 burden metrics 測試	yes
+554	d5047e872625c25086461e5a276f7a09de001544	d5047e87	2026-04-22T11:22:52+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman 上游概念設計線 implementation plan	yes
+555	efb52f75770418ea5887d5264cba1b926cf3a4bd	efb52f75	2026-04-22T12:07:39+08:00	林禹安	fix	tests_fixes_hardening	fix: 補上 3D tetra quality metrics 與 worst tets 定位	yes
+556	27e5b723f3acdbb58b1896dea3b0c0fbacbdabfa	27e5b723	2026-04-22T12:11:25+08:00	林禹安	fix	tests_fixes_hardening	fix: 補上 3D optimize probe metadata 與 post-optimize hooks	yes
+557	55b694e57bef32ea6843f3176c2810e43c9b8f46	55b694e5	2026-04-22T13:09:38+08:00	林禹安	fix	tests_fixes_hardening	fix: 補上 31/32 hotspot patch forensics artifact	yes
+558	abfffdc3fe0ab7c191b79ce7edcaa0a7197e1b89	abfffdc3	2026-04-22T13:45:06+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補上 31/32 small-family compound meshing probe	yes
+559	db31fc1bc426344ed065afd7b40b713a1520e517	db31fc1b	2026-04-22T13:50:36+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman 概念設計設定模型	no
+560	2cef833ececacd73338f03dc62b46ad57f8c8631	2cef833e	2026-04-22T13:57:10+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念設定輸入驗證	no
+561	8e61649479d02b4234372116e1b0953f87c3d540	8e616494	2026-04-22T14:01:55+08:00	林禹安	fix	mission_birdman_concept	fix: 收緊 Birdman 概念設定掃描邊界	no
+562	c98a42b6b93be8e1706f9ccf0502b42d981a7d99	c98a42b6	2026-04-22T14:08:10+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念設定物理一致性	no
+563	4f8ba984769a2e156be3e8487eba5b853d905092	4f8ba984	2026-04-22T14:36:24+08:00	林禹安	fix	planning_docs_reports	fix: 補上 31/32 local BRep hotspot audit	yes
+564	dbed852742c631390dc357ea1feded5da17261bb	dbed8527	2026-04-22T14:50:05+08:00	林禹安	fix	mission_birdman_concept	fix: 釐清 Birdman 概念重量語意	no
+565	273612ab0f4425ed1b1c8690208de033cf1dea71	273612ab	2026-04-22T14:50:15+08:00	林禹安	fix	planning_docs_reports	fix: 補上 C1 topology lineage report 與 strip classifier	yes
+566	34bf13acaf9c7f5d4cbc22ce841a1335d9574d89	34bf13ac	2026-04-22T14:53:44+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman 概念幾何生成器	no
+567	4ddf9025c6e30468a67427fde5fc194cb91ca4b9	4ddf9025	2026-04-22T15:00:50+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念幾何契約	no
+568	e759ec7eaf37c40273fbaae5aafbafdef6ce4627	e759ec7e	2026-04-22T15:05:49+08:00	林禹安	fix	mission_birdman_concept	fix: 補強 Birdman 概念幾何不可變性	no
+569	fe7c72892151f9c40e0a16cf2cd5707316a370ab	fe7c7289	2026-04-22T15:09:38+08:00	林禹安	fix	mission_birdman_concept	fix: 改善 Birdman 概念站位分配	no
+570	68dedb8f7a332b8d71c32bfa46ec5750fd217b96	68dedb8f	2026-04-22T15:13:14+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增概念設計翼段需求與 CST 模板	no
+571	773406a7088a125b9e40cd3fb06cce05457d171e	773406a7	2026-04-22T15:18:35+08:00	林禹安	fix	tests_fixes_hardening	fix: 抑制 C1 terminal tip strip family	yes
+572	0bdd49d30727bdd49911d022e09e0d81609ee8a2	0bdd49d3	2026-04-22T15:21:01+08:00	林禹安	fix	mission_birdman_concept	fix: 補強 Birdman 翼段需求契約	no
+573	590c4c588023e5f209947136256ec761ed080019	590c4c58	2026-04-22T15:23:41+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 翼段資料驗證	no
+574	bc6eaedd1446c039f55522023ae461f8fc207815	bc6eaedd	2026-04-22T15:25:39+08:00	林禹安	fix	mission_birdman_concept	fix: 固定 Birdman lofting 區段順序	no
+575	1a49905656fc7c46ba21708e47285fa6e3d43ff1	1a499056	2026-04-22T15:27:56+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 Julia XFoil airfoil worker 橋接	no
+576	cb3f2d7cb20a77fa0d8e297343046a30edf8c0d9	cb3f2d7c	2026-04-22T15:31:21+08:00	林禹安	fix	tests_fixes_hardening	fix: 補齊 Julia worker 路徑契約	no
+577	5fbb5fcb30894c5b3ec54698fad03eaea1f886df	5fbb5fcb	2026-04-22T15:47:49+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強 Julia worker cache 與回應驗證	no
+578	da550b0558006365b4277b3bc35e7fc9c9806d57	da550b05	2026-04-22T15:52:03+08:00	林禹安	fix	tests_fixes_hardening	fix: 補齊 Julia worker 查詢識別契約	no
+579	229406c550b466cfc2c5c392089066d3a6e831a8	229406c5	2026-04-22T15:56:17+08:00	林禹安	feat	other	feat: 新增概念設計螺旋槳耦合與安全包絡線	no
+580	c9198e1bb1acb7d8c6cb3b0d3054289e53e61362	c9198e1b	2026-04-22T16:00:55+08:00	林禹安	feat	planning_docs_reports	feat: 新增 tip quality buffer policy 與 winner selector	yes
+581	714f0831eeb10520bc9ab8af13de801e65223071	714f0831	2026-04-22T16:01:36+08:00	林禹安	fix	tests_fixes_hardening	fix: 對齊概念設計安全包絡線契約	no
+582	fb57a24678531d5ff500824ce26e6412ce7bd207	fb57a246	2026-04-22T16:04:28+08:00	林禹安	fix	tests_fixes_hardening	fix: 對齊概念設計安全包絡線契約	no
+583	40eae7c898d7715af3afced07d85aeecf139aa15	40eae7c8	2026-04-22T16:04:56+08:00	林禹安	test	tests_fixes_hardening	test: 補齊概念設計轉彎失敗契約測試	no
+584	0ba5977b6401e2972ca2157da1585c0278bda235	0ba5977b	2026-04-22T16:06:45+08:00	林禹安	feat	other	feat: 新增概念設計排名與主線交接輸出	no
+585	754ed6098c0c42546ca7691263bd812892ec83af	754ed609	2026-04-22T16:06:57+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 讓 tip quality buffer 可下探 MeshSizeMin	yes
+586	164b689b6b4fce76788533521e47ca6db1316d61	164b689b	2026-04-22T16:10:40+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強概念設計交接輸出契約	no
+587	371e5b6384dcdbef5505bd87e6bdeb328c68ddef	371e5b63	2026-04-22T16:14:25+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman 概念設計主流程與 CLI	no
+588	403378429a4d7c6e9cc4b0bbf3ae6a87c16c12a9	40337842	2026-04-22T16:16:45+08:00	林禹安	fix	tests_fixes_hardening	fix: 收斂概念設計套件匯出介面	no
+589	babac88a2b827f2188a0c503613035cf4214e1db	babac88a	2026-04-22T16:20:49+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強概念設計主流程 smoke 契約	no
+590	9d48e45a7f5b7dae031216ddf50601307f3a78d4	9d48e45a	2026-04-22T16:22:38+08:00	林禹安	fix	tests_fixes_hardening	fix: 補齊概念設計 worker provenance 契約	no
+591	f2714e97b081e8e617d19ced955fb19dbbe348c1	f2714e97	2026-04-22T16:26:34+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念設計 MVP 契約	no
+592	b8709221d879e651729d14cdaf4378c54506bcf5	b8709221	2026-04-22T16:34:39+08:00	林禹安	fix	tests_fixes_hardening	fix: 收斂概念設計安全與 worker 狀態契約	no
+593	27eff62ddca27c1d0a8cb8864f131b59bec90529	27eff62d	2026-04-22T16:50:27+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修正 Julia Xfoil worker 套件定義	no
+594	d5b5b2c079fccc152f17955f404c951af6e59cd8	d5b5b2c0	2026-04-22T16:55:38+08:00	林禹安	feat	planning_docs_reports	feat: add sliver cluster diagnostics and volume pocket policy	yes
+595	c80d8a764758a6a72f17642e2699d46de0cf5115	c80d8a76	2026-04-22T17:18:58+08:00	林禹安	fix	tests_fixes_hardening	fix: center sliver cylinder pockets on cluster midpoint	yes
+596	a51a7f6a7566ea2cc410a37ca939c28f8ae383b2	a51a7f6a	2026-04-22T17:41:36+08:00	林禹安	feat	mission_birdman_concept	feat: 擴充 Birdman 上游 concept 設定介面	no
+597	52e1d4d8dac0b1e62177ea2eceb54378a47bbeeb	52e1d4d8	2026-04-22T17:42:18+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman concept 的 OpenVSP handoff 匯出	no
+598	5bcbc9aff0269a514292971484ba18454abf1231	5bcbc9af	2026-04-22T17:45:38+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 concept pipeline 的 YAML 控制與 VSP 匯出	no
+599	c43f0bf4b26347103f34a432aa4f565c922db799	c43f0bf4	2026-04-22T17:52:43+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman concept 安全 gate 接線設計	no
+600	90ca720c6f9296b26431ff498944be7b73ea8314	90ca720c	2026-04-22T18:01:07+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman concept 安全 gate 接線實作計劃	no
+601	751ac4243866bfc91c0f536e56b70b524d1e93d1	751ac424	2026-04-22T18:14:57+08:00	林禹安	fix	mission_birdman_concept	fix: 正規化 Birdman concept launch stall margin	no
+602	7330a9a0bf0263ca72d98c66dd956f36ac2f65f6	7330a9a0	2026-04-22T18:18:59+08:00	林禹安	feat	mission_birdman_concept	feat: 實作 concept safety gate 門檻與 evaluator	no
+603	f634bb2f13e08d7eb5bc3f3b97fa27880466b852	f634bb2f	2026-04-22T18:22:55+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強 launch 門檻驗證	no
+604	65b740dbbcce0f40c3ac0b705a591d941c20a553	65b740db	2026-04-22T18:26:31+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept 安全摘要判定	no
+605	bfec94440928c6904d02779bc649e42cd476bbd4	bfec9444	2026-04-22T18:29:28+08:00	林禹安	fix	tests_fixes_hardening	fix: 限制概念空氣密度高度範圍	no
+606	d44a27589c16728231ae5c0ffa4da5276dc829de	d44a2758	2026-04-22T18:33:08+08:00	林禹安	fix	mission_birdman_concept	fix: 改用 Birdman concept 保守安全代表值	no
+607	08b6310dc27f253aacf970f9735609b2f8e621fc	08b6310d	2026-04-22T18:40:16+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman concept trim 邊界浮點誤判	no
+608	8abd22821628c7a3f1f7f130d33a487277faa540	8abd2282	2026-04-22T18:40:36+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman concept bundle 匯出開關契約	no
+609	3f6e65650e8322bf7b1842370e5c9f2b853273bd	3f6e6565	2026-04-22T18:44:45+08:00	林禹安	feat	tests_fixes_hardening	feat: add autonomous source-section tip topology repair controller	yes
+610	6490c36c4d391e9938b93333e36c3b0ceb7e6aad	6490c36c	2026-04-22T20:40:48+08:00	林禹安	fix	tests_fixes_hardening	fix: 補上 ESP tip TE seam coalesce 並同步更新收尾測試	yes
+611	92c33b7208ef6c947b4f512a8650fe3b4ee5f4b0	92c33b72	2026-04-22T20:48:58+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept 真實 Julia XFoil worker	no
+612	bc8e15bb90265af5ec8fea050c0f6f05eec96e40	bc8e15bb	2026-04-22T21:09:46+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 凍結 shell_v3 quality baseline regression gate	yes
+613	b7398972194589212b3aad910a786d727f8ec21c	b7398972	2026-04-22T21:13:08+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 建立 shell_v3 baseline SU2 coarse CFD route	yes
+614	0f748e3d94f7f3c5ea06cf5c96bcac48afc00c93	0f748e3d	2026-04-22T21:19:57+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman 上游概念設計總體路線圖	no
+615	186ef29d766fdfd518d5e7f44322fe4a7752a78a	186ef29d	2026-04-22T21:50:06+08:00	林禹安	test	mission_birdman_concept	test: 補強 Birdman concept airfoil-derived safety feedback 測試	no
+616	0e6635998f1560c69f9120e63f05717f92893a42	0e663599	2026-04-22T21:50:28+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 加入 Phase-1 airfoil 安全回饋摘要	no
+617	733be820591452168fe09c0055d475e0a9397c20	733be820	2026-04-22T22:00:37+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept airfoil-derived safety feedback	no
+618	087ca80f1bc14b10896694ee060b53669901fd1e	087ca80f	2026-04-22T22:17:16+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 建立 shell_v3 near-wall meshing study route	yes
+619	cba77eaa173891888d9df3fe97fc3a3da1d36a29	cba77eaa	2026-04-22T22:18:50+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept airfoil-aware mission ranking	no
+620	c60865c264d9a447eed3199566afb4a64217f3db	c60865c2	2026-04-22T22:42:06+08:00	林禹安	"Revert ""feat"	high_fidelity_mesh_su2	"Revert ""feat: 建立 shell_v3 near-wall meshing study route"""	yes
+621	359b93990aecee4c8717e5be2875333e1cce3d4c	359b9399	2026-04-22T23:17:37+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept 的 AVL spanwise 載重入口	no
+622	dfca1d5f52d7eec8d060d0ea7b7dff5b4edf7102	dfca1d5f	2026-04-22T23:20:28+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 建立 shell_v3 coarse CFD mesh refinement study	yes
+623	ebaab380c56fee9d9b3f3c4d8d6559df218543ae	ebaab380	2026-04-22T23:30:37+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman mission-aware AVL 載重工況計畫	no
+624	beb31874b1b060e43a9af45e0018f66dfdb948d1	beb31874	2026-04-22T23:39:05+08:00	林禹安	feat	mission_birdman_concept	feat: 讓 Birdman AVL 載重工況跟 mission 目標連動	no
+625	90d86cfef4bbeec41443ce66cf4f234bebe8d3f4	90d86cfe	2026-04-22T23:40:36+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 預設 SU2 與 Gmsh 使用 4 CPU threads	yes
+626	33bb74dd08abf886134e95a247d9cbd068ab250c	33bb74dd	2026-04-22T23:51:59+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman bounded CST inner loop 設計規格	no
+627	8134a70310c4e9b5452d10f8016cc3d5919f96b1	8134a703	2026-04-22T23:58:20+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman bounded CST inner loop 實作計畫	no
+628	4149ad79246a3ce4b655e2e26065272b40daea11	4149ad79	2026-04-23T00:02:33+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman bounded CST 幾何核心	no
+629	c9b6c726f3ade01f0ec417b326b7d09d9f192b15	c9b6c726	2026-04-23T00:10:14+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman CST 幾何核心驗證與候選語義	no
+630	74f1319173c79fecc062a1d2bd617cefb9fdbd36	74f13191	2026-04-23T00:20:32+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman CST 候選選型邏輯	no
+631	47ece8baff17217af36751fee16712308d02d389	47ece8ba	2026-04-23T00:25:13+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman CST 候選結果對應順序	no
+632	51982385ea9bdbfd1993d72c8471eb3e48644fcf	51982385	2026-04-23T00:37:14+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman bounded CST 候選管線	no
+633	73d1aaef1e2ef384c0f067d6f965f0e384f7d80e	73d1aaef	2026-04-23T00:43:56+08:00	林禹安	fix	mission_birdman_concept	fix: 收斂 Birdman CST 管線接線範圍	no
+634	489de6bf0be0eae9cbde3a3d0464a09d9c82f1d5	489de6bf	2026-04-23T00:53:09+08:00	林禹安	fix	mission_birdman_concept	fix: 強化 Birdman CST 選型 adapter 防呆	no
+635	a66aacda563b922950771ce630c8ad8d6c44f13f	a66aacda	2026-04-23T00:53:44+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 支援 SU2 threads mpi 可選啟動模式	yes
+636	dc58b22dd5f3e9819493d58d3b3e7f9284b6feb4	dc58b22d	2026-04-23T01:31:09+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 shell_v4 half-wing BL Mac-safe meshing route	yes
+637	dd60f03217ed33ef60b0464cf188dd498d432b6d	dd60f032	2026-04-23T01:49:09+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman CST zone 選型評分	no
+638	9c51ca3305fb635d83a54ae9cb28f9b989599839	9c51ca33	2026-04-23T02:03:05+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 調整 shell_v4 baseline off-wall volumetric refinement	yes
+639	77c4a946faaec6798a2c9cdb95497ddbb08295d8	77c4a946	2026-04-23T02:25:38+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman station-wise 安全判讀	no
+640	fff139061ec56f1167108876119f75181e9e4703	fff13906	2026-04-23T02:47:58+08:00	林禹安	feat	mission_birdman_concept	feat: 切分 Birdman concept 的可行與不可行候選	no
+641	12b49ce7542c20c6660c22a8786f841d3888529c	12b49ce7	2026-04-23T09:08:54+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 改用 MPI 啟動 shell_v4 Mac-safe 求解	yes
+642	d342e82ec7c44212ec702f2b8d6586e159e8e1ca	d342e82e	2026-04-23T09:26:19+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept safe clmax 與 stall utilization gate	no
+643	4c8f663bf4e00d5f86629ffc042e3c7147891051	4c8f663b	2026-04-23T09:44:44+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman zone airfoil scoring 的功率與結構權衡	no
+644	0eb2f31d6af411fe727519b799da79c146438a13	0eb2f31d	2026-04-23T09:48:25+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補齊 shell_v4 wall diagnostics 輸出契約	yes
+645	2f1607aac85e40c32986e146f4f6b49dace52793	2f1607aa	2026-04-23T09:53:24+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman local stall 多工況 envelope 檢查	no
+646	2cd270c88fc065540f8e1ef361906f6d0a05289a	2cd270c8	2026-04-23T11:10:16+08:00	林禹安	feat	mission_birdman_concept	feat: 擴大 Birdman concept 的 bounded CST 搜尋空間	no
+647	65038f22178c39d828b5ffe70d3d29b1dcd5cd9e	65038f22	2026-04-23T11:54:15+08:00	林禹安	feat	mission_birdman_concept	feat: 讓 Birdman Julia XFoil worker 支援常駐模式	no
+648	30e767d87777d5b210832ce13a1d3b941f3d7cc8	30e767d8	2026-04-23T11:58:05+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 讓 shell_v4 支援真實主翼 section 幾何	yes
+649	0bb9b56591813ad3c2b2c31120ba4fe6d97463ec	0bb9b565	2026-04-23T13:02:39+08:00	林禹安	fix	candidate_go_mode_closure	fix: 改用 BL 生成面關閉真實主翼 root closure	yes
+650	4df43b78cfb3abed67fc6bdfe40488218ce4d66b	4df43b78	2026-04-23T13:07:49+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman airfoil worker 的 physical cache 與 query dedup	no
+651	791693f71fd0825476d47962af6db8bf58f966b2	791693f7	2026-04-23T13:12:05+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 實作 multi-worker persistent Julia/XFoil pool	no
+652	0dfa5bb7afa9dd9cd5a968227e8ec79b57c04e04	0dfa5bb7	2026-04-23T13:15:12+08:00	林禹安	feat	mission_birdman_concept	feat: 加入 Birdman CST 候選的 cheap prescreen	no
+653	94c9538f2f374842842a95e5203473bd59bc9f6d	94c9538f	2026-04-23T13:48:49+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman Target-CL screening 設計規格	no
+654	030ebe07a831e4de84aa9b2c35893ce49805e03b	030ebe07	2026-04-23T13:50:15+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman Target-CL screening 實作計畫	no
+655	8ba9ba0f5e5475418206ef6463d62d89fa3e2d3c	8ba9ba0f	2026-04-23T13:51:10+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 加入真實主翼幾何感知 BL 保護	yes
+656	6cdea7b21452ed6ef57b7ca58f4e3d1033752fae	6cdea7b2	2026-04-23T13:54:34+08:00	林禹安	feat	mission_birdman_concept	feat: 擴充 Birdman worker 的 solver fidelity contract	no
+657	e4f071649c393b2ffb606e4d1421f60e066c6675	e4f07164	2026-04-23T13:55:01+08:00	林禹安	test	mission_birdman_concept	test: 補齊 Birdman solver fidelity contract 測試	no
+658	913d8354b65fdb86aad12621ff0b5bd3b9a3af93	913d8354	2026-04-23T13:55:22+08:00	林禹安	test	mission_birdman_concept	test: 補齊 Birdman worker response metadata 測試	no
+659	a9d582bc8ea105552eef1d74d2abd881b7f092ef	a9d582bc	2026-04-23T14:07:02+08:00	林禹安	feat	mission_birdman_concept	feat: 實作 Birdman Julia Target-CL screening 與 fallback	no
+660	3717d75726e9cf1f6c41d09eae464a7dc611eb85	3717d757	2026-04-23T14:18:46+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman dual-track screening 與 finalist 複評	no
+661	a59ad399c68d17ef06000d383292f671a9ec6e2a	a59ad399	2026-04-23T14:28:28+08:00	林禹安	docs	mission_birdman_concept	docs: 補上 Birdman Target-CL screening benchmark 報告	no
+662	b19fe8f271a60253e808740061ad850e6b9c2dd5	b19fe8f2	2026-04-23T14:33:46+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman worker negative cache 與分層快取	no
+663	4a6ba55f7b6898750c333d4636e25872efd20b9f	4a6ba55f	2026-04-23T14:39:10+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman coarse-to-fine CST refinement	no
+664	de5a36e05d0b3ca8c09810b2c144b6dc82dbf5f5	de5a36e0	2026-04-23T14:42:21+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 補強 real-wing tip-near BL 截斷保護與診斷	yes
+665	78e76eb7cd233fe8ec8e4f07c833366f86ec155b	78e76eb7	2026-04-23T14:43:18+08:00	林禹安	feat	mission_birdman_concept	feat: 改用 Birdman 全 zone 批次 screening 查詢	no
+666	6822d18159c8650acace10208d2c264777997cff	6822d181	2026-04-23T14:47:28+08:00	林禹安	docs	mission_birdman_concept	docs: 補上 Birdman brute-force follow-up benchmark 報告	no
+667	8501a1a8f51db50b6f6f31ba7abd8707dedcb1c1	8501a1a8	2026-04-23T15:26:04+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 跨 concept 全域 screening 批次排程	no
+668	3e3f8fdecf70b314e80a381a09b97403e2710650	3e3f8fde	2026-04-23T15:28:28+08:00	林禹安	docs	mission_birdman_concept	docs: 更新 Birdman brute-force follow-up benchmark 報告	no
+669	813892cf10fc7b2156902ea1883803d65035834f	813892cf	2026-04-23T15:34:08+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強 truncation seam connector band 局部保護	yes
+670	080690ae2695e8b7e8654568ef364a1897f0c028	080690ae	2026-04-23T16:43:10+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman successive-halving 搜尋並擴大解空間	no
+671	d33e3796a87b4341390ee9a52833409f99e496dd	d33e3796	2026-04-23T16:44:11+08:00	林禹安	docs	mission_birdman_concept	docs: 更新 Birdman brute-force follow-up benchmark 報告	no
+672	5c4716318aa35042cf7a0deefe5a19737443efe7	5c471631	2026-04-23T17:17:51+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 多工況 AVL sizing 與 stall 評估	no
+673	a45fe6cf582a8c44928740a39d398022a9df95a8	a45fe6cf	2026-04-23T17:32:02+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 尾翼感知 trim 平衡模型	no
+674	ef4c1deacf9c049889215df850889e7c5abded1c	ef4c1dea	2026-04-23T17:36:25+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 尾翼 trim drag mission 回饋	no
+675	9d300f36d97309000fba62201e2a0f64c3eb8d89	9d300f36	2026-04-23T19:22:52+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman safe clmax 3D 修正模型	no
+676	0f553c438355cc73a43d1a8cb9ede830029df317	0f553c43	2026-04-23T20:04:11+08:00	林禹安	feat	mission_birdman_concept	feat: 對齊 Birdman feasibility-first ranking 與 low-speed sizing policy	no
+677	06f2ca13f8d48815ecad0f03f6ccac5f2b683d48	06f2ca13	2026-04-23T20:12:10+08:00	林禹安	docs	candidate_go_mode_closure	docs: 記錄 shell_v4 truncation seam closure ring handoff	yes
+678	f479727cd20a619e3432559b87a8f44bb79a9c52	f479727c	2026-04-23T20:13:35+08:00	林禹安	feat	mission_birdman_concept	feat: 對齊 Birdman zone airfoil scoring 與 stall gate contract	no
+679	27733c10d52f51866f4133c4f7ff1b60595f442c	27733c10	2026-04-23T20:13:56+08:00	林禹安	feat	mission_birdman_concept	feat: 釐清 Birdman launch 與 turn gate policy 角色	no
+680	aac4c9bd7543381b4e620211392da39c8512ce96	aac4c9bd	2026-04-23T21:02:55+08:00	林禹安	fix	candidate_go_mode_closure	fix: 改寫 shell_v4 closure ring family rebuild contract	yes
+681	d8bcf53b12f43b66ee17253c0600973df5fa6173	d8bcf53b	2026-04-23T21:08:06+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman feasible-speed mission contract	no
+682	77fb6d506d809c407bed2dc4fe2cc2297cb0dfd2	77fb6d50	2026-04-23T21:17:17+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman mission limiter audit	no
+683	4e92fa20f6d25d7357167ef2c8dd2221c8562dfd	4e92fa20	2026-04-23T21:42:29+08:00	林禹安	fix	candidate_go_mode_closure	fix: 補強 shell_v4 triangular end-cap closure fallback	yes
+684	67214a27f3007c849e9be6b65a650333672bcf4f	67214a27	2026-04-23T21:48:59+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman pre-AVL feasible reference case	no
+685	d8419811715fa3f0142038cab2518c9aad2bd2a2	d8419811	2026-04-23T22:00:26+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman reference condition consistency audit	no
+686	f30967a16a424b5687f850f90aac093058b795d5	f30967a1	2026-04-23T22:01:19+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman min-power feasible case selector	no
+687	30ceef588177a3d56e78de1cffc808f043092d65	30ceef58	2026-04-23T22:12:17+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: 整理 shell_v1 到 shell_v4 pipeline 演進	yes
+688	e8c3d42d2805fbb565c342d861d143a62149efff	e8c3d42d	2026-04-23T22:19:05+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman selected airfoil AVL export contract	no
+689	3046917a178c01dd89a0d47d2d2fa959a19390d3	3046917a	2026-04-23T22:27:17+08:00	林禹安	docs	planning_docs_reports	docs: 整理高保真 pipeline 完整發展史	yes
+690	d1514d05192699fb8209bd8a56f5355de68e0d9d	d1514d05	2026-04-23T22:29:37+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman finalist post-airfoil AVL rerun	no
+691	4774d5c3a0bcd1b3cc8e23af68b7845454ec7d36	4774d5c3	2026-04-23T22:52:10+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman iterative post-airfoil AVL rerun	no
+692	cbcf0e65a3aa46058062ef807288a80ef9bece32	cbcf0e65	2026-04-23T23:00:19+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman low-speed envelope audit	no
+693	71a34861eca098d05af8c3d3aa55f639d5ea8f00	71a34861	2026-04-23T23:09:07+08:00	林禹安	feat	other	feat: 新增 topology compiler v1 骨架	yes
+694	bb62d80ab487f6b2b6c165ae6a9a7ed76aa9a064	bb62d80a	2026-04-22T13:50:36+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman 概念設計設定模型	yes
+695	73d770ad77033bf55d345e894f773ee97aea548d	73d770ad	2026-04-22T13:57:10+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念設定輸入驗證	yes
+696	470421f6ecf4f2f9738f8730550674a1fb99d8f7	470421f6	2026-04-22T14:01:55+08:00	林禹安	fix	mission_birdman_concept	fix: 收緊 Birdman 概念設定掃描邊界	yes
+697	0cfb8d1925dd5ac01282a4e918d04f3fbd504783	0cfb8d19	2026-04-22T14:08:10+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念設定物理一致性	yes
+698	2cb36612aca045e1fb5adf20cb3644f015ce27aa	2cb36612	2026-04-22T14:50:05+08:00	林禹安	fix	mission_birdman_concept	fix: 釐清 Birdman 概念重量語意	yes
+699	49872d4c38724cfbf161efcce9a6c28b3d21b972	49872d4c	2026-04-22T14:53:44+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman 概念幾何生成器	yes
+700	7c39c08ce06dcc2308e3ce06fa508f2cd645db06	7c39c08c	2026-04-22T15:00:50+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念幾何契約	yes
+701	284aac0aef0c95d1a880d60a03d167e95f3e28ce	284aac0a	2026-04-22T15:05:49+08:00	林禹安	fix	mission_birdman_concept	fix: 補強 Birdman 概念幾何不可變性	yes
+702	773c2c2eef817688d3282338e4c8d311c814b9c4	773c2c2e	2026-04-22T15:09:38+08:00	林禹安	fix	mission_birdman_concept	fix: 改善 Birdman 概念站位分配	yes
+703	c2b30498318e0f020671f2b77878762d686a7590	c2b30498	2026-04-22T15:13:14+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增概念設計翼段需求與 CST 模板	yes
+704	ab85c1b4291cf7ccc27eb9d3086329f340947be6	ab85c1b4	2026-04-22T15:21:01+08:00	林禹安	fix	mission_birdman_concept	fix: 補強 Birdman 翼段需求契約	yes
+705	22a9c4ac4a9bc385f112466ed5934d61798f3d1e	22a9c4ac	2026-04-22T15:23:41+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 翼段資料驗證	yes
+706	7acca61e8432154840de9872f8132cfc26fe8100	7acca61e	2026-04-22T15:25:39+08:00	林禹安	fix	mission_birdman_concept	fix: 固定 Birdman lofting 區段順序	yes
+707	5c55b4af525e032d25a45164c79b3b276c5cfa3e	5c55b4af	2026-04-22T15:27:56+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 Julia XFoil airfoil worker 橋接	yes
+708	8c2d436a75a524df0de954fd76711e0ba5053c9f	8c2d436a	2026-04-22T15:31:21+08:00	林禹安	fix	tests_fixes_hardening	fix: 補齊 Julia worker 路徑契約	yes
+709	a31dd0cf980734eacde37c367fe503cf9781991d	a31dd0cf	2026-04-22T15:47:49+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強 Julia worker cache 與回應驗證	yes
+710	32116980e09ebd6061d75f71f282958c6baf4bd8	32116980	2026-04-22T15:52:03+08:00	林禹安	fix	tests_fixes_hardening	fix: 補齊 Julia worker 查詢識別契約	yes
+711	b78a47b3ad1a9e80e64df662ab28cc7ea417fa37	b78a47b3	2026-04-22T15:56:17+08:00	林禹安	feat	other	feat: 新增概念設計螺旋槳耦合與安全包絡線	yes
+712	91b59f5aa097f022d96918814ba37f8d62a52653	91b59f5a	2026-04-22T16:01:36+08:00	林禹安	fix	tests_fixes_hardening	fix: 對齊概念設計安全包絡線契約	yes
+713	816d323006c69846f9a060cc4f4d7755c56ea1d8	816d3230	2026-04-22T16:04:28+08:00	林禹安	fix	tests_fixes_hardening	fix: 對齊概念設計安全包絡線契約	yes
+714	26e93270ecea02bc732e644534c837466e4f841e	26e93270	2026-04-22T16:04:56+08:00	林禹安	test	tests_fixes_hardening	test: 補齊概念設計轉彎失敗契約測試	yes
+715	45b1e6713199bb846d3ee8073a1e381a7d23c084	45b1e671	2026-04-22T16:06:45+08:00	林禹安	feat	other	feat: 新增概念設計排名與主線交接輸出	yes
+716	8455098eb81eac323f20bee72861b9302fbaced4	8455098e	2026-04-22T16:10:40+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強概念設計交接輸出契約	yes
+717	ef52203c441c2df12259dff2d4a680038d53e39f	ef52203c	2026-04-22T16:14:25+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman 概念設計主流程與 CLI	yes
+718	81ee4ff507907cf1a1a1c617d93e18d89741f608	81ee4ff5	2026-04-22T16:16:45+08:00	林禹安	fix	tests_fixes_hardening	fix: 收斂概念設計套件匯出介面	yes
+719	5cfab1fafa667c447a577f93033759b63e69518e	5cfab1fa	2026-04-22T16:20:49+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強概念設計主流程 smoke 契約	yes
+720	4e788ec08286ca689b079614895a1088edb5e609	4e788ec0	2026-04-22T16:22:38+08:00	林禹安	fix	tests_fixes_hardening	fix: 補齊概念設計 worker provenance 契約	yes
+721	e146b111a6bce87553bba3c4f1eacf1ed003718c	e146b111	2026-04-22T16:26:34+08:00	林禹安	fix	mission_birdman_concept	fix: 補齊 Birdman 概念設計 MVP 契約	yes
+722	c3e34b849464ab3839abf482347738b3c829d704	c3e34b84	2026-04-22T16:34:39+08:00	林禹安	fix	tests_fixes_hardening	fix: 收斂概念設計安全與 worker 狀態契約	yes
+723	996ddcca5e66b52d80d4fae464d1bac7a7bf6245	996ddcca	2026-04-22T16:50:27+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修正 Julia Xfoil worker 套件定義	yes
+724	daff193ae649f3b81970087ad6f06e2956f70b7b	daff193a	2026-04-22T17:41:36+08:00	林禹安	feat	mission_birdman_concept	feat: 擴充 Birdman 上游 concept 設定介面	yes
+725	14b8c3ab5811684e1c6451af46ed526e2af61a83	14b8c3ab	2026-04-22T17:42:18+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman concept 的 OpenVSP handoff 匯出	yes
+726	83ed4ebd10fef81cc3f0c30301ed7cc76184d8bd	83ed4ebd	2026-04-22T17:45:38+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 concept pipeline 的 YAML 控制與 VSP 匯出	yes
+727	4dc6f5fa72083bad21e10fb5f3c0cb5a6839ee28	4dc6f5fa	2026-04-22T17:52:43+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman concept 安全 gate 接線設計	yes
+728	849aa5498467adebd20446f991e5941d0283b406	849aa549	2026-04-22T18:01:07+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman concept 安全 gate 接線實作計劃	yes
+729	9d3d9fa5f66eaeba6d27bc439625ed7fd3a7e7db	9d3d9fa5	2026-04-22T18:14:57+08:00	林禹安	fix	mission_birdman_concept	fix: 正規化 Birdman concept launch stall margin	yes
+730	adfc2fe216a7f5043239a2ae43fa6f36bcd18cc6	adfc2fe2	2026-04-22T18:18:59+08:00	林禹安	feat	mission_birdman_concept	feat: 實作 concept safety gate 門檻與 evaluator	yes
+731	53ff36325da2d78e991c7e14f4b0a7a5a8c5640e	53ff3632	2026-04-22T18:22:55+08:00	林禹安	fix	tests_fixes_hardening	fix: 補強 launch 門檻驗證	yes
+732	c8b4c8c2f4a4b7dd2899f869e7cfd342d0572e30	c8b4c8c2	2026-04-22T18:26:31+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept 安全摘要判定	yes
+733	c52fc8aa66ee6f3cbfdecb5ab5ce5085054fbcb9	c52fc8aa	2026-04-22T18:29:28+08:00	林禹安	fix	tests_fixes_hardening	fix: 限制概念空氣密度高度範圍	yes
+734	e99a7624ed031f9c22df095f543c04790480d52a	e99a7624	2026-04-22T18:33:08+08:00	林禹安	fix	mission_birdman_concept	fix: 改用 Birdman concept 保守安全代表值	yes
+735	afa7f419bcb884e4cb2d1c9ac8924da1fa798aec	afa7f419	2026-04-22T18:40:16+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman concept trim 邊界浮點誤判	yes
+736	b377f24dd67bfcc74dfc22f227b61e534729ef29	b377f24d	2026-04-22T18:40:36+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman concept bundle 匯出開關契約	yes
+737	c917d48085e17907cd9630d6dbb601f70fe9607f	c917d480	2026-04-22T20:48:58+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept 真實 Julia XFoil worker	yes
+738	d140177106c51f5bf078ebe8313b45a95633bd42	d1401771	2026-04-22T21:19:57+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman 上游概念設計總體路線圖	yes
+739	560b580b3f47904593a451053b5286c64ca9cf07	560b580b	2026-04-22T21:50:06+08:00	林禹安	test	mission_birdman_concept	test: 補強 Birdman concept airfoil-derived safety feedback 測試	yes
+740	7c5d8778bc6fb84efca8d8ed595432d95c4a95cd	7c5d8778	2026-04-22T21:50:28+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 加入 Phase-1 airfoil 安全回饋摘要	yes
+741	0dc656c23b63961c3b3d90a209eb0159b265c676	0dc656c2	2026-04-22T22:00:37+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept airfoil-derived safety feedback	yes
+742	761778cddefad3e8656a81530aed33e4929208bf	761778cd	2026-04-22T22:18:50+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept airfoil-aware mission ranking	yes
+743	05312e25f481c1a38d73e70d656d325acfff12e4	05312e25	2026-04-22T23:17:37+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept 的 AVL spanwise 載重入口	yes
+744	ee99125b026e217ad9acbfba7e2d144baa21d535	ee99125b	2026-04-22T23:30:37+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman mission-aware AVL 載重工況計畫	yes
+745	4cbeef836524e65418169b3a644421f6f75e74fd	4cbeef83	2026-04-22T23:39:05+08:00	林禹安	feat	mission_birdman_concept	feat: 讓 Birdman AVL 載重工況跟 mission 目標連動	yes
+746	1f157ceb63c21a0f970b6d049f119ae08e67f73a	1f157ceb	2026-04-22T23:51:59+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman bounded CST inner loop 設計規格	yes
+747	c614a37f28425546973ec2625f1960de46f4a42f	c614a37f	2026-04-22T23:58:20+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman bounded CST inner loop 實作計畫	yes
+748	cb72740877e890a4fe09bc0de81017565dfce85b	cb727408	2026-04-23T00:02:33+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman bounded CST 幾何核心	yes
+749	432922c1bed1e06712a9dab347169a5549256741	432922c1	2026-04-23T00:10:14+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman CST 幾何核心驗證與候選語義	yes
+750	502f00672d1e65ba6c86f8458c7ca93e482f36db	502f0067	2026-04-23T00:20:32+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman CST 候選選型邏輯	yes
+751	be2682c57b5e006f1cd183aec8ec52b5522d90ec	be2682c5	2026-04-23T00:25:13+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman CST 候選結果對應順序	yes
+752	ceef23d61e01241e8ca0dfc40712324f748ef98c	ceef23d6	2026-04-23T00:37:14+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman bounded CST 候選管線	yes
+753	bcad34163fd11d0357b2eeb9fa74650c9364983b	bcad3416	2026-04-23T00:43:56+08:00	林禹安	fix	mission_birdman_concept	fix: 收斂 Birdman CST 管線接線範圍	yes
+754	269a02e7a40410bfb054299813daf9d92849e2b1	269a02e7	2026-04-23T00:53:09+08:00	林禹安	fix	mission_birdman_concept	fix: 強化 Birdman CST 選型 adapter 防呆	yes
+755	107be05446309b22501a09ef3b5e00d354d27d1c	107be054	2026-04-23T01:49:09+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman CST zone 選型評分	yes
+756	d15a07007b9160edbe840f126dfc078db9030b71	d15a0700	2026-04-23T02:25:38+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman station-wise 安全判讀	yes
+757	051a5a14e2f25e8947f3c5b6746298f9f7203efa	051a5a14	2026-04-23T02:47:58+08:00	林禹安	feat	mission_birdman_concept	feat: 切分 Birdman concept 的可行與不可行候選	yes
+758	3ba2cc75ea16966903b0126df94a537d7aa9690a	3ba2cc75	2026-04-23T09:26:19+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman concept safe clmax 與 stall utilization gate	yes
+759	5e61ccf73c49cd3fdd242d5cbdb75ef79ca8bf78	5e61ccf7	2026-04-23T09:44:44+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman zone airfoil scoring 的功率與結構權衡	yes
+760	1bf19885f8b2e56ea53cf62163e1438de71ffd6f	1bf19885	2026-04-23T09:53:24+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman local stall 多工況 envelope 檢查	yes
+761	be69f5e514ab5612991090c8e8f4c1297a84e8a7	be69f5e5	2026-04-23T11:10:16+08:00	林禹安	feat	mission_birdman_concept	feat: 擴大 Birdman concept 的 bounded CST 搜尋空間	yes
+762	da0997366e9cec5f848dc8a79c1a5748956c3511	da099736	2026-04-23T11:54:15+08:00	林禹安	feat	mission_birdman_concept	feat: 讓 Birdman Julia XFoil worker 支援常駐模式	yes
+763	d1c89d03058a12efc2b5229a4e9c6083413bed54	d1c89d03	2026-04-23T13:07:49+08:00	林禹安	feat	mission_birdman_concept	feat: 強化 Birdman airfoil worker 的 physical cache 與 query dedup	yes
+764	a18da7ea136f51ce291af5f22c71ba0cd071c91f	a18da7ea	2026-04-23T13:12:05+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 實作 multi-worker persistent Julia/XFoil pool	yes
+765	8f1d7c74c7ad7b0497a82883cb3f49738de64499	8f1d7c74	2026-04-23T13:15:12+08:00	林禹安	feat	mission_birdman_concept	feat: 加入 Birdman CST 候選的 cheap prescreen	yes
+766	cf5855fefddca8a927636da5ab673eb13202b8ac	cf5855fe	2026-04-23T13:48:49+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman Target-CL screening 設計規格	yes
+767	d3a3e9484edecc78e92e1a49b2496d5c799a14f3	d3a3e948	2026-04-23T13:50:15+08:00	林禹安	docs	mission_birdman_concept	docs: 新增 Birdman Target-CL screening 實作計畫	yes
+768	39de1e50a0ddb66abee415df16208633df4a7994	39de1e50	2026-04-23T13:54:34+08:00	林禹安	feat	mission_birdman_concept	feat: 擴充 Birdman worker 的 solver fidelity contract	yes
+769	0162cd1856b8ce381eb7f6fc043f959b8ee699a2	0162cd18	2026-04-23T13:55:01+08:00	林禹安	test	mission_birdman_concept	test: 補齊 Birdman solver fidelity contract 測試	yes
+770	c10deffd33b364cdca29fd205cda2b1443dbfdfe	c10deffd	2026-04-23T13:55:22+08:00	林禹安	test	mission_birdman_concept	test: 補齊 Birdman worker response metadata 測試	yes
+771	819f69ddd0c82e474e1327325b11c0cb63ae9a6a	819f69dd	2026-04-23T14:07:02+08:00	林禹安	feat	mission_birdman_concept	feat: 實作 Birdman Julia Target-CL screening 與 fallback	yes
+772	5c7ee86170e9efba491f1667978f1206ddaf1410	5c7ee861	2026-04-23T14:18:46+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman dual-track screening 與 finalist 複評	yes
+773	57cf6fd07546bd24834b30e66b6301c60b22bb7d	57cf6fd0	2026-04-23T14:28:28+08:00	林禹安	docs	mission_birdman_concept	docs: 補上 Birdman Target-CL screening benchmark 報告	yes
+774	2c7c2e1592386c92c8c4d70a921bf3522bdfb88e	2c7c2e15	2026-04-23T14:33:46+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman worker negative cache 與分層快取	yes
+775	332c3f142c6f3d1269bbeb8c3bbacacc7082af11	332c3f14	2026-04-23T14:39:10+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman coarse-to-fine CST refinement	yes
+776	1167c53d9a45183766618890232bf775bfa8019d	1167c53d	2026-04-23T14:43:18+08:00	林禹安	feat	mission_birdman_concept	feat: 改用 Birdman 全 zone 批次 screening 查詢	yes
+777	5a03eef53195c625f221c10154814733764baaea	5a03eef5	2026-04-23T14:47:28+08:00	林禹安	docs	mission_birdman_concept	docs: 補上 Birdman brute-force follow-up benchmark 報告	yes
+778	35e4de06fd9cb9ccac148fb91170f888d1932e6d	35e4de06	2026-04-23T15:26:04+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 跨 concept 全域 screening 批次排程	yes
+779	738f2f02b8751cb09b641ad0c691e89f90488776	738f2f02	2026-04-23T15:28:28+08:00	林禹安	docs	mission_birdman_concept	docs: 更新 Birdman brute-force follow-up benchmark 報告	yes
+780	e050952c50d0e9f9febcdb4314029de66c686f95	e050952c	2026-04-23T16:43:10+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman successive-halving 搜尋並擴大解空間	yes
+781	857a16146169e1ae1e3ccb610077a79feaecb87f	857a1614	2026-04-23T16:44:11+08:00	林禹安	docs	mission_birdman_concept	docs: 更新 Birdman brute-force follow-up benchmark 報告	yes
+782	168f164f5d4cd30e12e83b530ba23cfdf5d95e29	168f164f	2026-04-23T17:17:51+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 多工況 AVL sizing 與 stall 評估	yes
+783	8ccd08ba741dd19de8fd28b7c2a6fe22f8a4e9e3	8ccd08ba	2026-04-23T17:32:02+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 尾翼感知 trim 平衡模型	yes
+784	692a57822d25fed4e7642813203e2f7755eafecb	692a5782	2026-04-23T17:36:25+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 尾翼 trim drag mission 回饋	yes
+785	bd713009af58c449bf1280f6f8358f5973c5c1f0	bd713009	2026-04-23T19:22:52+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman safe clmax 3D 修正模型	yes
+786	605a1855a22ed194a8e6c69b1cefa356f12945f5	605a1855	2026-04-23T20:04:11+08:00	林禹安	feat	mission_birdman_concept	feat: 對齊 Birdman feasibility-first ranking 與 low-speed sizing policy	yes
+787	388b8f8395d464b2ad48be1690687100f701fdb5	388b8f83	2026-04-23T20:13:35+08:00	林禹安	feat	mission_birdman_concept	feat: 對齊 Birdman zone airfoil scoring 與 stall gate contract	yes
+788	9561e6eab4f76affeaeb486268442cf09386918a	9561e6ea	2026-04-23T20:13:56+08:00	林禹安	feat	mission_birdman_concept	feat: 釐清 Birdman launch 與 turn gate policy 角色	yes
+789	fb5ca065ef1bf5b87d0e9167d57f8b1936bd4b8e	fb5ca065	2026-04-23T21:08:06+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman feasible-speed mission contract	yes
+790	be60988672ee0ccf141c7c4e71e26319b6a524e5	be609886	2026-04-23T21:17:17+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman mission limiter audit	yes
+791	e7ec90bd762d9ebb843a0cfcc00aa9d4a96ff4ee	e7ec90bd	2026-04-23T21:48:59+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman pre-AVL feasible reference case	yes
+792	6050cd7b6bc4876f7b288a4c4a952a32405a3d7f	6050cd7b	2026-04-23T22:00:26+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman reference condition consistency audit	yes
+793	7330caf9322f55db6a6f86f27e7d9069aa7cf2d9	7330caf9	2026-04-23T22:01:19+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman min-power feasible case selector	yes
+794	7ae8a8534349b180f54702e78d15ab1c259918e0	7ae8a853	2026-04-23T22:19:05+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman selected airfoil AVL export contract	yes
+795	a1794c6c9ab33eaa85e321a7c30cfc1250a43d50	a1794c6c	2026-04-23T22:29:37+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman finalist post-airfoil AVL rerun	yes
+796	703fbf60659b1e6fe91d2844f3319bb2a88659b9	703fbf60	2026-04-23T22:52:10+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman iterative post-airfoil AVL rerun	yes
+797	c54e37966375a8c667d3f28ed152a2001270c44b	c54e3796	2026-04-23T23:00:19+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman low-speed envelope audit	yes
+798	999b104e9df66488edef78c1aedadbd177e82d83	999b104e	2026-04-23T23:30:53+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 shell_v4 pre-plc reproducer fixture	yes
+799	9611104df4d87d4e71123b32471fa011efa6eb32	9611104d	2026-04-23T23:34:57+08:00	林禹安	feat	planning_docs_reports	feat: 補強 pre_plc audit 證據分級檢查	yes
+800	672782444503833154dc319a6f6b676c62e66502	67278244	2026-04-23T23:46:50+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 shell_v4 topology compiler plan-only gate	yes
+801	c40200ad2520e3016998fe100c8e3d54d46a6540	c40200ad	2026-04-23T23:58:37+08:00	林禹安	feat	mission_birdman_concept	feat: 重構 Birdman upstream 主翼參數化	yes
+802	feb88c8a4a37d9650d1c52ea48048b8503ff1159	feb88c8a	2026-04-24T00:18:36+08:00	林禹安	feat	other	feat: 實作 truncation connector band topology operator	yes
+803	727545011997b496e8f05bca037b071555320982	72754501	2026-04-24T00:45:51+08:00	林禹安	feat	mission_birdman_concept	feat: 接上 Birdman 真實 rider power curve CSV	yes
+804	452719c1c0688169014c85210f83e9bd8d46734b	452719c1	2026-04-24T00:52:04+08:00	林禹安	feat	other	feat: 新增 canonical connector-band post-transition prototype operator	yes
+805	0c5bfac74ecd56d37814948f8322c954eddd5657	0c5bfac7	2026-04-24T00:56:34+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 將 BL compatibility 升級為 planning policy gating	yes
+806	bd031ff4b6ba7fe66bb330edcbab0d215a408517	bd031ff4	2026-04-24T01:17:36+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 Birdman upstream frontier box 分析工具	yes
+807	4daaa53fc94ae5970222b71c04bc3e376dec6309	4daaa53f	2026-04-24T01:18:23+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman upstream frontier 配置與模組	yes
+808	6733d78e4753432824b0265067afd562b7456818	6733d78e	2026-04-24T01:30:08+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 結構化 post-transition boundary recovery error 2 family	yes
+809	d1b6e6b64144f399f93ed729f448f68e29ed18cd	d1b6e6b6	2026-04-24T01:42:59+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 BL sectionwise budgeting planning policy	yes
+810	77ac6e6cbe9139fae28f7d428a808d1c216f6892	77ac6e6c	2026-04-24T02:05:41+08:00	林禹安	docs	mission_birdman_concept	docs: 整理 Birdman upstream low-speed frontier 研究結果	yes
+811	561da269e1018ce0d47fa4b8f0dfb47cd3cf0203	561da269	2026-04-24T02:15:29+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 post-transition boundary recovery bounded operator	yes
+812	3c759da9942b41775d7fb6a0598aa1e896383ae7	3c759da9	2026-04-24T02:26:04+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補強 BL budgeting actionable reporting	yes
+813	585f12096a6c794d63b6436fe65dbc2d9470b3fd	585f1209	2026-04-24T10:18:37+08:00	林禹安	docs	mission_birdman_concept	docs: 補上 Birdman upstream sizing audit	yes
+814	23bd1350ec8eab6f0a2eb205514ee298063a2de0	23bd1350	2026-04-24T10:45:52+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 細分 boundary recovery error 2 residual	yes
+815	6f32314ca2aba8a7910e3baec3ad944ce18f1c0d	6f32314c	2026-04-24T10:51:56+08:00	林禹安	feat	candidate_go_mode_closure	feat: 新增 BL budgeting manual edit candidates	yes
+816	c3fdd918457cb8f65d2f55f71207149aaaceff0c	c3fdd918	2026-04-24T10:55:05+08:00	林禹安	docs	mission_birdman_concept	docs: 彙整 Birdman upstream 模型鏈 audit	yes
+817	d171042efea45eada2e8e1357bda6801c12d929d	d171042e	2026-04-24T12:19:48+08:00	林禹安	feat	other	feat: 加入上游 sizing 診斷報表	yes
+818	3cc1180dc4fc35e15e925eeff29ec9e415ee44cc	3cc1180d	2026-04-24T12:56:56+08:00	林禹安	feat	candidate_go_mode_closure	feat: 讓 upstream sizing 使用 mass-area closure	yes
+819	e55e4ac7c853fa7c27581cdd5f1b37dfa2c30a5a	e55e4ac7	2026-04-24T13:20:44+08:00	林禹安	docs	candidate_go_mode_closure	docs: 記錄 mass closure rerun 結果	yes
+820	c9af7c965ac0fcf8c26f3b97aedb26f0f74c8b27	c9af7c96	2026-04-24T14:10:49+08:00	林禹安	feat	other	feat: add failed-Steiner topology recovery operator	yes
+821	7a969ee9324e40f4510ca2003bd6fa11e5d77cb4	7a969ee9	2026-04-24T14:25:59+08:00	林禹安	feat	planning_docs_reports	feat: add failed-Steiner handoff summary	yes
+822	a1644e7cd61b80cc353631055385c0c35bb56c36	a1644e7c	2026-04-24T14:43:18+08:00	林禹安	feat	candidate_go_mode_closure	feat: add BL stageback candidate comparison	yes
+823	993eaf6afd75bbc397b20073e835d50f3e2c9522	993eaf6a	2026-04-24T15:16:31+08:00	林禹安	feat	candidate_go_mode_closure	feat: add experimental BL candidate apply gate	yes
+824	8fbdc10146357feae0484a0cb8a7575f8b63bf89	8fbdc101	2026-04-24T15:37:04+08:00	林禹安	feat	candidate_go_mode_closure	feat: add focused BL candidate parameter sweep	yes
+825	724f9a7e7d013643a6aef453e470d703d36c8434	724f9a7e	2026-04-24T15:52:08+08:00	林禹安	feat	other	feat: classify stageback layer5 diagnostic failure	yes
+826	8970a603ccb3e5b227996f1e290d2126d2a7fac0	8970a603	2026-04-24T16:16:11+08:00	林禹安	feat	other	feat: add stageback loop continuity diagnostics	yes
+827	a9f1069813b4a60057db497c34205ca2444efc9d	a9f10698	2026-04-24T16:38:14+08:00	林禹安	refactor	mission_birdman_concept	refactor: 重構 Birdman stall margin model	yes
+828	11480fd636a17c02c35c69f6dee16b491c22893e	11480fd6	2026-04-24T16:46:24+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 seedless CST 幾何搜尋基礎	yes
+829	02d486e0eddd7ed667bc55064f83b97ce605fe21	02d486e0	2026-04-24T16:47:53+08:00	林禹安	feat	other	feat: add guarded staged transition apply gate	yes
+830	bcaf1f62c7ede6748b0848791f2a728eb2824267	bcaf1f62	2026-04-24T16:52:14+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 接上 seedless CST 選型入口	yes
+831	b60925f13c12431b7adfa5cb600951084efc2e47	b60925f1	2026-04-24T17:01:48+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 robust airfoil screening 聚合	yes
+832	9ad56c96e2adc79f9879ae466ad9b321eca9b843	9ad56c96	2026-04-24T17:04:28+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 airfoil Pareto survivor selection	yes
+833	f46a814a598906ce57751e7d0eabcab655eabbe4	f46a814a	2026-04-24T17:07:52+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 接上 Pareto airfoil beam selection	yes
+834	1e01ff63ef3f0ba83f059c6ee765a37f79ab193b	1e01ff63	2026-04-24T17:09:53+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 seedless CST NSGA-II offspring generator	yes
+835	39bcbe2bf9681a1c33da46fe3f957faae6607d99	39bcbe2b	2026-04-24T17:13:43+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 接上 seedless airfoil NSGA-II generation loop	yes
+836	17687bfbdc945baa32c7cb7db691f2f23f5f7bdf	17687bfb	2026-04-24T17:37:00+08:00	林禹安	test	tests_fixes_hardening	test: 補強 seedless NSGA CLI smoke	yes
+837	20c44b0cff37d8f8bb762af218c443cc527a5569	20c44b0c	2026-04-24T17:41:09+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: 補充 shell_v4 BL transition route 判決	yes
+838	d32e03cddfa55e090d53c194adabc0ff159a4a7c	d32e03cd	2026-04-24T18:08:38+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 補強 real XFOIL smoke 可觀測性	no
+839	0553d8e06684e5b5c33aa188d9cb631d57ed8399	0553d8e0	2026-04-24T18:10:27+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 shell_v4 BL transition sleeve contract report	no
+840	578539ad2a218361a99ec258429fb646f557ef02	578539ad	2026-04-25T23:38:35+08:00	林禹安	feat	mission_birdman_concept	feat: 落實 Birdman 概念審查 ①-⑦ 改進並接上 sep-CMA-ES knee refinement	yes
+841	12d11cc87e64ba7abaa02e406414e0fa93789ba0	12d11cc8	2026-04-27T16:04:48+08:00	林禹安	perf(xfoil)	aero_avl_vsp_airfoil	perf(xfoil): 共用 coarse polar 並開放 iter/npan 設定	yes
+842	f523cdfedf9bc2639b6dadbc6f6762d75725052d	f523cdfe	2026-04-27T16:07:11+08:00	林禹安	test	tests_fixes_hardening	test: 預設跳過 slow 整合測試以加速本機開發循環	yes
+843	cb41926b119ab7f146958be96d3d4debbfa3985d	cb41926b	2026-04-27T17:02:22+08:00	林禹安	feat(mass)	other	feat(mass): 以薄壁錐管模型推算 tube_system_mass(S, b, OD, wall)	yes
+844	875d8327eb4e496b4f9f5a5a51c50eb8974e9eb8	875d8327	2026-04-27T17:10:16+08:00	林禹安	feat(mission)	mission_birdman_concept	feat(mission): 在概念巡航功率中加入 rigging wire 寄生阻力項	yes
+845	96aa6ea63bc1b8e68296ae08db43c377922431e2	96aa6ea6	2026-04-27T17:15:56+08:00	林禹安	refactor(mission)	mission_birdman_concept	refactor(mission): 將 6 m/s 從 cruise sweep 移到 slow_report_speeds_mps	yes
+846	4cbdfe1cfd7b27eb30975412092a671917f56f62	4cbdfe1c	2026-04-27T22:04:43+08:00	林禹安	feat(concept)	mission_birdman_concept	feat(concept): 加入 jig shape gate 過濾 1g 翼尖撓度過大的概念	yes
+847	9061d7e342bf68634ca741f5ebbcf79c1c54e5e5	9061d7e3	2026-04-28T09:38:56+08:00	林禹安	fix(concept)	mission_birdman_concept	fix(concept): 將 TubeSystemGeometryConfig 預設管徑從 100/50 mm 調為 70/40 mm	yes
+848	429d2d9946650fbc16d87afddb6df8af28e5935a	429d2d99	2026-04-28T12:39:36+08:00	林禹安	refactor(concept)	mission_birdman_concept	refactor(concept): 將 prop 效率魔法數移到 cfg.prop.efficiency_model	yes
+849	209af211277240e18d4e9a3f98b44a41881eb198	209af211	2026-04-28T12:43:49+08:00	林禹安	feat(concept)	mission_birdman_concept	feat(concept): mission_summary 加入 slow_speed_report 區塊	yes
+850	d2d3f9d3db7a772a78cd9ed0a737fffd4c030354	d2d3f9d3	2026-04-28T13:29:24+08:00	林禹安	refactor(concept)	mission_birdman_concept	refactor(concept): 將 misc_cd 與 oswald 魔法數移到 cfg.aero_proxies	yes
+851	12c6a1b4f0700b15f1f045125114719defca334f	12c6a1b4	2026-04-28T13:35:34+08:00	林禹安	feat(concept)	mission_birdman_concept	feat(concept): accepted concepts surface tip_deflection_ratio_at_design_mass	yes
+852	883ef09fb00828e1b146e570a0424cf3cc7d5ec0	883ef09f	2026-04-28T13:39:26+08:00	林禹安	feat(concept)	mission_birdman_concept	feat(concept): 加入 lift_wire_gate 篩除 wire tension 超出 allowable 的概念	yes
+853	be87d5baaa303d56364bfb7dc2f9cb12d4c3d67b	be87d5ba	2026-04-28T16:53:19+08:00	林禹安	feat(concept)	mission_birdman_concept	feat(concept): 加入 BEMT-flavored prop efficiency proxy (D / RPM / B / V_tip)	yes
+854	6c1411dcb9bbceb1d38a908e6c170f49b95868e0	6c1411dc	2026-04-28T17:54:30+08:00	林禹安	feat(concept)	mission_birdman_concept	feat(concept): 加入 cfg.drivetrain.efficiency 把 pedal/shaft 功率拆開	yes
+855	3cc03d3862b9be47727c32ee3723f927d1d17810	3cc03d38	2026-04-29T00:19:45+08:00	git stash	untracked files on codex/shell-v4-bl-transition-sleeve-contract	high_fidelity_mesh_su2	untracked files on codex/shell-v4-bl-transition-sleeve-contract: 0553d8e feat: 新增 shell_v4 BL transition sleeve contract report	no
+856	687a97a1573a025d96aa2a1d4836838f9df8d6e3	687a97a1	2026-04-29T00:19:45+08:00	git stash	index on codex/shell-v4-bl-transition-sleeve-contract	high_fidelity_mesh_su2	index on codex/shell-v4-bl-transition-sleeve-contract: 0553d8e feat: 新增 shell_v4 BL transition sleeve contract report	no
+857	20bc5a3daa2e84957ee2d47c3fec634b18af5468	20bc5a3d	2026-04-29T00:19:45+08:00	git stash	WIP on codex/shell-v4-bl-transition-sleeve-contract	high_fidelity_mesh_su2	WIP on codex/shell-v4-bl-transition-sleeve-contract: 0553d8e feat: 新增 shell_v4 BL transition sleeve contract report	no
+858	9eecfca6aee598127a0908e456fd20e28af7246b	9eecfca6	2026-04-29T00:26:52+08:00	林禹安	refactor(concept)	mission_birdman_concept	refactor(concept): 將 airfoil score 權重移到 cfg.airfoil_selection_score	yes
+859	cc32075edbad9e93db1310e049fc3af46c83d5cf	cc32075e	2026-04-29T00:29:24+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 BL transition descriptor extractor 驗證	no
+860	2f73c1fd50d26666f8e2aa6f4ace827e8bef2bb5	2f73c1fd	2026-04-29T00:57:07+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 序列化 shell_v4 BL transition real evidence	no
+861	3a0cf61c6532d7c2da806d91896c49e045081a7f	3a0cf61c	2026-04-29T01:30:17+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 BL receiver-face evidence extractor	no
+862	8f19483afeea8a8dc018d19710370d0a42540be2	8f19483a	2026-04-29T08:34:04+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 序列化 BL transition ring loop evidence	no
+863	8f463f91e18dd13758e9521cf2fdfccd765ec4d8	8f463f91	2026-04-29T10:51:28+08:00	林禹安	feat	other	feat: 補上 receiver-face polygon evidence materializer	no
+864	5e7ad9ec9de244b184618f005c15e16b99319fab	5e7ad9ec	2026-04-29T11:29:27+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 匯出 BL transition observed geometry evidence	no
+865	de8f78f0cc388ef02ca6c4faefbbd1380f2ef0e1	de8f78f0	2026-04-29T17:01:22+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 BL transition orientation 與 ownership evidence	no
+866	c5ef318c67d0c6433f65c93eb23466395b3c8ba6	c5ef318c	2026-04-29T23:34:36+08:00	林禹安	feat	other	feat: 補上 transition sleeve basis ownership evidence	no
+867	4aaa96c787b95937a7e0ba7b27b7ef831bf2881c	4aaa96c7	2026-04-30T01:10:11+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: 補上 explicit transition sleeve object report	no
+868	dadc19d7632225f5f8df757464081b7e3eb1dd77	dadc19d7	2026-04-30T11:40:40+08:00	林禹安	feat	other	feat: 新增高保真 route readiness 決策層	yes
+869	74041247b576c1f3cbfda811c1003caacfa5932c	74041247	2026-04-30T12:03:30+08:00	林禹安	feat	other	feat: 新增 component-family route smoke matrix	yes
+870	5445edcabead374ac4cb47c961aefbfcf7b12184	5445edca	2026-04-30T12:38:49+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 fairing solid mesh handoff smoke	yes
+871	acfb8bf04733873456479a4992f335c0388a4aea	acfb8bf0	2026-04-30T12:53:08+08:00	林禹安	feat	planning_docs_reports	feat: 補上 fairing solid force marker handoff evidence	yes
+872	6597a0c6b81fdac731597a539840405214c84d92	6597a0c6	2026-04-30T12:59:50+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 支援 fairing solid su2 handoff materialization	yes
+873	3dc73ae86621a97ce738824828484781db5ef695	3dc73ae8	2026-04-30T13:13:09+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 main wing non-bl mesh handoff smoke	yes
+874	51d211622b07c552cc731f73d3c734fdad19b8f7	51d21162	2026-04-30T13:23:35+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 main wing su2 handoff materialization smoke	yes
+875	23daa7b59d919f74d086f44ed58604bbc1a22fe8	23daa7b5	2026-04-30T13:33:47+08:00	林禹安	feat	planning_docs_reports	feat: 補上 main wing component force marker handoff	yes
+876	c10a2c0c26d5be892c8f8c1a9403ec32898c2de2	c10a2c0c	2026-04-30T13:41:08+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 fairing solid su2 handoff materialization smoke	yes
+877	f310eec9495445f2990d5bbaabeb1ba0e5814046	f310eec9	2026-04-30T13:49:48+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 tail wing mesh handoff smoke	yes
+878	1083fb5501b57613ab6a9217bce9030b904e77cf	1083fb55	2026-04-30T13:58:12+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 tail wing su2 handoff materialization	yes
+879	ec5f4549bf5816bfb8d6fb53cdd46fcea51ff033	ec5f4549	2026-04-30T14:03:40+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 tail wing esp subset selection	yes
+880	0a8bc72f2fd63708a2e90b6e48c210c2c1a9af5a	0a8bc72f	2026-04-30T14:12:02+08:00	林禹安	feat	other	feat: 新增 tail wing esp rebuilt geometry smoke	yes
+881	1706d069a3e9ee76a8a9906f2fe8be9b2332ba15	1706d069	2026-04-30T14:20:51+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 tail wing real mesh handoff blocker probe	yes
+882	4f42af7b1abb87c456ae4d24c12e5722f551be49	4f42af7b	2026-04-30T14:32:38+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 tail wing surface mesh probe	yes
+883	bba1e6b134f333908c34237fa15536d201d4b083	bba1e6b1	2026-04-30T14:42:20+08:00	林禹安	feat	other	feat: 新增 tail wing solidification blocker probe	yes
+884	1acbb0ef94d346a2bf57ce5505cff3af4da6412a	1acbb0ef	2026-04-30T14:59:08+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: 新增 tail wing explicit volume route probe	yes
+885	8dd92f2cdd188df28c4c5c7f2a441e974b46cdd8	8dd92f2c	2026-04-30T15:12:43+08:00	林禹安	feat	other	feat: 新增 main wing esp rebuilt geometry smoke	yes
+886	26de63132e08aeee1886d776ccd0b40b0c9f1890	26de6313	2026-04-30T15:26:28+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 main wing real mesh handoff probe	yes
+887	c56623b2785cec31b28cb520a1682c6f19132891	c56623b2	2026-04-30T15:44:48+08:00	林禹安	feat	other	feat: 新增 fairing real geometry smoke	yes
+888	52f83f44c68c0a94df6090dbb4e1a34d5f5979cd	52f83f44	2026-04-30T16:04:56+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 fairing real mesh handoff probe	yes
+889	f68028b02365bda8243fc7d0e2ffa8aa972faace	f68028b0	2026-04-30T16:21:42+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 fairing real su2 handoff probe	yes
+890	df105c18f2db6ee3b52a9c2975bdea64f4f5e5a9	df105c18	2026-04-30T16:37:31+08:00	林禹安	feat	planning_docs_reports	feat: 新增 fairing reference policy probe	yes
+891	3280ff33f40dc124790b32ccd02bf0c8f9f973f1	3280ff33	2026-04-30T16:56:16+08:00	林禹安	feat	planning_docs_reports	feat: 新增 fairing reference override handoff probe	yes
+892	bb95af8245c013e13fee19a975bbd7c8cc1797b8	bb95af82	2026-04-30T19:32:52+08:00	林禹安	feat	other	feat: 固定 HPA 標準流場設定	yes
+893	8aa580ad7d5afde6c5ac3dec701b18133bba4ef0	8aa580ad	2026-04-30T19:41:22+08:00	林禹安	test	high_fidelity_mesh_su2	test: 固定 main wing SU2 handoff 標準流場	yes
+894	cab9543be784169540689f163b8616c4397341e8	cab9543b	2026-04-30T19:43:18+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 強化 SU2 物理量正值 gate	yes
+895	e55eb556aa6f51663d469ce754e7c0a064385cec	e55eb556	2026-04-30T19:47:56+08:00	林禹安	feat	other	feat: 新增 main wing coarse-first 實網格 probe	yes
+896	7e4511012b8ced3cb3f191a1515e67823c953e65	7e451101	2026-04-30T19:53:38+08:00	林禹安	feat	other	feat: 新增 main wing route readiness 報告	yes
+897	632798069dba4bf32aff6c939b7a730af83fa2f5	63279806	2026-04-30T20:12:03+08:00	林禹安	feat	other	feat: 補強 main wing 實網格 timeout 診斷	yes
+898	fddaec01801cf8f93855636c3fb9543769ffa7e9	fddaec01	2026-04-30T20:17:10+08:00	林禹安	feat	other	feat: 支援 main wing 實網格 probe sizing 參數	yes
+899	a0edb98461ad37155050e603a190bbce7bfc8002	a0edb984	2026-04-30T20:20:59+08:00	林禹安	feat	other	feat: 分類 main wing 邊界網格重疊 blocker	yes
+900	59f1ebc4fbc178b59313d6bf34a56d49bde45dec	59f1ebc4	2026-04-30T20:22:29+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 main wing 實網格 probe 相對路徑	yes
+901	8add85f4318380b48f7022aa965d9f5a2bdf7c34	8add85f4	2026-04-30T20:31:57+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 推進 main wing real mesh handoff	yes
+902	a27c9adc76ff1c1cf095609000a500327190c214	a27c9adc	2026-04-30T20:40:05+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 main wing real SU2 handoff probe	yes
+903	2f623d948156681711694a661addee328524b4c8	2f623d94	2026-04-30T20:53:47+08:00	林禹安	feat	other	feat: 新增 main wing real solver smoke probe	yes
+904	5cfacf3530a5037e83f502c65df69fe0c6241b0e	5cfacf35	2026-04-30T20:59:17+08:00	林禹安	feat	other	feat: 新增 main wing reference geometry gate	yes
+905	d8f3d02ad632ecb4f5ac2d8c5ce5c080e02448d1	d8f3d02a	2026-04-30T21:08:17+08:00	林禹安	docs	planning_docs_reports	docs: 更新 main wing route 現況	yes
+906	8786501efd1d76d1d093fff9a3788629c7fb7f7d	8786501e	2026-04-30T21:10:16+08:00	林禹安	docs	planning_docs_reports	docs: 補上 main wing real route contracts	yes
+907	191cac5de93d71c394a35798c4ea585797699620	191cac5d	2026-04-30T21:16:54+08:00	林禹安	feat	other	feat: 支援 main wing solver budget probe 參數	yes
+908	b1fa1f9d8d4b60764c961cbe2d73a7baa0804da9	b1fa1f9d	2026-04-30T21:21:08+08:00	林禹安	feat	other	feat: 新增 main wing 40 iteration solver blocker	yes
+909	6bcd723fbbc5ad538601ad2aceaebad2e6c1797b	6bcd723f	2026-04-30T21:30:03+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 補上 main wing OpenVSP reference provenance	yes
+910	435f22275f5b8be4dde3cea666282d96bfac947a	435f2227	2026-04-30T21:38:33+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 main wing OpenVSP reference handoff probe	yes
+911	3150127f82e1cabcf8fc5aae973a8b62cd78c645	3150127f	2026-04-30T21:43:41+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 main wing OpenVSP reference solver smoke	yes
+912	ee09c8cdb00fb60ad475a502d46a204cb2b40aaf	ee09c8cd	2026-04-30T21:46:50+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 納入 main wing OpenVSP reference readiness	yes
+913	8cd9058135cb8ef15cd25a1211213636787c2534	8cd90581	2026-04-30T21:54:09+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 main wing OpenVSP reference 40 iteration smoke	yes
+914	453cf4cd613ebab79c17f1663be66f516b03c829	453cf4cd	2026-04-30T21:57:38+08:00	林禹安	feat	other	feat: 納入 main wing solver budget readiness	yes
+915	0ba4ef964396976eb1fe4e3435d16cfa97f1cca3	0ba4ef96	2026-04-30T21:59:45+08:00	林禹安	refactor	other	refactor: 自動選取 main wing solver budget probe	yes
+916	3bd5237391f58ff4d0d0ab38d523f35bc670262a	3bd52373	2026-04-30T22:04:25+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 main wing OpenVSP reference 80 iteration smoke	yes
+917	bf5d031ac76e1f682a86a92e295cab21f59d73a4	bf5d031a	2026-04-30T22:05:41+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: 補充 main wing solver mesh quality 判讀	yes
+918	0d8f844ceced94d0fe5fac0aee4f3997560d845d	0d8f844c	2026-04-30T22:08:45+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 解析 SU2 solver mesh quality 指標	yes
+919	819ba818650cf3abb3d78eb466d6423aeb9cf89c	819ba818	2026-04-30T22:11:30+08:00	林禹安	docs	planning_docs_reports	docs: 更新 main wing 80 iteration quality 指標	yes
+920	429ffaf8b5006989cb11117dc6458b3e882dfb53	429ffaf8	2026-04-30T22:15:03+08:00	林禹安	feat	other	feat: 將 main wing solver quality 接入 readiness	yes
+921	b5ae68c16cde6ea9249bf595e0313043fe24562d	b5ae68c1	2026-04-30T22:25:52+08:00	林禹安	feat	other	feat: 新增 main wing solver budget comparison	yes
+922	6b964c83b768869467c20a5600625454762390f1	6b964c83	2026-04-30T22:39:38+08:00	林禹安	feat	other	feat: 揭露 main wing 實網格品質警訊	yes
+923	abdd08ff818e4c3644f70cec8ea7cf50af3bb9db	abdd08ff	2026-04-30T22:55:26+08:00	林禹安	feat	other	feat: 加入 main wing CL 驗收 gate	yes
+924	630884a093dd47fdd44e652b4971c450d534a861	630884a0	2026-04-30T23:06:57+08:00	林禹安	feat	other	feat: 新增 main wing 升力驗收診斷	yes
+925	06bada644b80768d6b26dd729bdab8776168737b	06bada64	2026-04-30T23:10:55+08:00	林禹安	docs	planning_docs_reports	docs: 固定 main wing solver 驗證政策	yes
+926	37ddb6760473fe95673223a01e41aa3d07be46d9	37ddb676	2026-04-30T23:18:12+08:00	林禹安	feat	other	feat: 補上 main wing 幾何迎角 provenance	yes
+927	11e2aeb3c44aa8af9fe5c62b7f6a3fc417cfddc1	11e2aeb3	2026-04-30T23:22:35+08:00	林禹安	feat	other	feat: 串接 main wing readiness 升力驗收	yes
+928	b52bf72c62fc5bce34380afd80f88fda945659c6	b52bf72c	2026-04-30T23:27:50+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 補上 main wing VSPAERO panel 參考證據	yes
+929	81f046b80a8cab4888981ee4466cfe7be24153cf	81f046b8	2026-04-30T23:29:44+08:00	林禹安	feat	other	feat: 納入 main wing panel 參考 readiness	yes
+930	86d4b837623fd1add56575d12bcf889a26bf3fa8	86d4b837	2026-04-30T23:37:39+08:00	林禹安	feat	other	feat: 補強 main wing reference span provenance	yes
+931	4d7ed28b96024916ce542a5a6d3fae729cc3772d	4d7ed28b	2026-04-30T23:41:39+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 納入 main wing OpenVSP reference gate readiness	yes
+932	1508c2c0f72caaade804f01d910e6098018eb33c	1508c2c0	2026-04-30T23:46:26+08:00	林禹安	feat	other	feat: 補強 main wing 升力缺口診斷	yes
+933	574a837a251213b106e31019d44867131a921f9b	574a837a	2026-04-30T23:53:04+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 main wing SU2 force marker audit	yes
+934	8e908279d07b2a59ab094ceb9f59218f8da5f771	8e908279	2026-04-30T23:55:34+08:00	林禹安	feat	other	feat: 納入 main wing force marker readiness	yes
+935	dc7daa7d8b5ba53130298d43facaac3f7d656071	dc7daa7d	2026-05-01T00:06:27+08:00	林禹安	feat	planning_docs_reports	feat: 新增 main wing surface force output audit	yes
+936	29e8946e2289f9b29f1c366ff0ea0f9d57ac0c88	29e8946e	2026-05-01T00:10:51+08:00	林禹安	feat	other	feat: 納入 main wing surface force readiness	yes
+937	38127ddf4db22ba3bf196a85f17b0aec3f2e5e85	38127ddf	2026-05-01T00:14:12+08:00	林禹安	fix	tests_fixes_hardening	fix: 保留 main wing solver surface force outputs	yes
+938	76a50f9cc9f0102890604483ab98d8ca8c5848bc	76a50f9c	2026-05-01T00:23:59+08:00	林禹安	feat	other	feat: 更新 main wing surface force rerun 證據	yes
+939	b1b1196a7746627e48720727dd7d5b2a0e4317eb	b1b1196a	2026-05-01T00:30:02+08:00	林禹安	feat	other	feat: 明確要求 main wing forces breakdown 輸出	yes
+940	ef1039cc134ef8754b8c8d910954c84021b510d4	ef1039cc	2026-05-01T00:36:26+08:00	林禹安	feat	other	feat: 保留 main wing forces breakdown 實證	yes
+941	d4fc6374ae914bb6e96bba5708d70f828b96d1af	d4fc6374	2026-05-01T00:42:25+08:00	林禹安	feat	other	feat: 解析 main wing forces breakdown 升力缺口	yes
+942	d3efd2c66262cb87dbd54269d0d7fb304ddb1875	d3efd2c6	2026-05-01T00:48:47+08:00	林禹安	feat	other	feat: 納入 main wing force breakdown 升力診斷	yes
+943	b77035f0331ce76296ac7bed44802c604eda6008	b77035f0	2026-05-01T00:53:15+08:00	林禹安	feat	planning_docs_reports	feat: 保留 main wing solver handoff provenance	yes
+944	23b529fe801c7db9d974c59a874ebcb00ecf7c7b	23b529fe	2026-05-01T01:01:06+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 main wing panel SU2 升力缺口診斷	yes
+945	b78c18fb20469530d926c9ebd64716173456ab10	b78c18fb	2026-05-01T01:14:04+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 新增 main wing SU2 mesh normal audit	yes
+946	7d026c16c7e4a479ad42a01e0193cea122ff4715	7d026c16	2026-05-01T01:22:30+08:00	林禹安	feat	planning_docs_reports	feat: 補上 main wing panel wake semantics audit	yes
+947	a16ed56d7e0f6c24f0faf341ec82b9a3b051cb23	a16ed56d	2026-05-01T01:31:20+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 main wing SU2 surface topology audit	yes
+948	c141e89cee54ac7311ccb2a3a530f9ba7aa0b409	c141e89c	2026-05-01T01:40:49+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 定位 main wing SU2 topology defects	yes
+949	b8b75dbd64297a05f777179090ce43f13cfc52b1	b8b75dbd	2026-05-01T01:51:53+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 對齊 main wing OpenVSP defect station audit	yes
+950	dad2ea09fe01b2a1228d5dd02164563fbc337605	dad2ea09	2026-05-01T02:02:36+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 追蹤 main wing Gmsh defect entities	yes
+951	1fc6de807b2cdcfaa7457af97c9b470ec361b154	1fc6de80	2026-05-01T02:13:03+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 驗證 main wing Gmsh station curves	yes
+952	3ffe18b0ba28c7d7d5d51197e85b69dbd8011272	3ffe18b0	2026-05-01T02:22:42+08:00	林禹安	feat	tests_fixes_hardening	feat: 建立 main wing station topology fixture	yes
+953	6aaea578d66a6c2967d7650b224608087989a51e	6aaea578	2026-05-01T02:30:01+08:00	林禹安	feat	tests_fixes_hardening	feat: 固定 main wing station seam repair gate	yes
+954	ddce7b056df5f4ed83ab7b0694abda5374a4427c	ddce7b05	2026-05-01T02:49:07+08:00	林禹安	feat	other	feat: 補上 main wing station seam BRep hotspot probe	yes
+955	d15e150257090ecb918f1457861ac8ddfd09e336	d15e1502	2026-05-01T02:58:01+08:00	林禹安	feat	other	feat: 補上 main wing station seam same-parameter feasibility	yes
+956	f314d83cc5e8d5a60b44615814b8b8c4e6ee9485	f314d83c	2026-05-01T03:06:00+08:00	林禹安	docs	planning_docs_reports	docs: 更新 main wing station seam 現況	yes
+957	0f1a7d6460d99a3b361a90d3fe691cee3b676583	0f1a7d64	2026-05-01T03:17:34+08:00	林禹安	feat	tests_fixes_hardening	feat: 補上 main wing station seam ShapeFix feasibility	yes
+958	3697a01aee9834957aac3b553976e62c21835428	3697a01a	2026-05-01T03:34:49+08:00	林禹安	feat	other	feat: 追蹤 main wing station seam export source	yes
+959	f6aae1f765c8f2b0b413a5d3203d39278451d2ab	f6aae1f7	2026-05-01T03:54:00+08:00	林禹安	feat	other	feat: 補上 main wing station seam export strategy probe	yes
+960	bf924f72b54d934d01d119f5c45df13bfda4bdf6	bf924f72	2026-05-01T04:06:07+08:00	林禹安	feat	other	feat: 補上 main wing station seam internal cap probe	yes
+961	13a53b37de1e45b802bb419fc043b03bc6d2a3a7	13a53b37	2026-05-01T04:24:30+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 補上 main wing station seam profile resample strategy probe	yes
+962	2f5610ec82911d479bd40abaa6409b1d0749d4fd	2f5610ec	2026-05-01T04:40:35+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 補上 main wing profile-resample BRep 驗證	yes
+963	9a0a94bf654833bad172254180144bc1c5428ffa	9a0a94bf	2026-05-01T04:50:55+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 補上 main wing profile-resample 修復可行性驗證	yes
+964	b601c1c6a77a8bef4af58a0888f25e2a5240338b	b601c1c6	2026-05-01T05:07:24+08:00	林禹安	fix	tests_fixes_hardening	fix: 修正 main wing panel CLi 語意稽核	yes
+965	d32a1aeacd1373cd254fc942593f5407a7c62774	d32a1aea	2026-05-01T05:25:44+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 main wing mesh quality hotspot audit	yes
+966	9e00509a8132768380ce4826d8d8a48e273c8916	9e00509a	2026-05-01T05:46:40+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 補上 main wing profile parametrization 稽核	yes
+967	92ddc1c3741e7f8dbdb56eaab02570a79d7291dc	92ddc1c3	2026-05-01T06:04:51+08:00	林禹安	feat	other	feat: 補上 main wing side-aware 參數化候選	yes
+968	2a09cddcabbc10481b4c49ba753445f433ca9066	2a09cddc	2026-05-01T06:21:15+08:00	林禹安	feat	other	feat: 補上 main wing side-aware BRep 驗證	yes
+969	1df1cce0228b35a8cf83e15f9c9e0a2d7b8f18a2	1df1cce0	2026-05-01T06:42:10+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: 補上 main wing side-aware PCurve residual 診斷	yes
+970	5ca0dcbe5ea40a7455a72909b52e6eaad3978999	5ca0dcbe	2026-05-01T07:02:34+08:00	林禹安	feat	other	feat: 補上 main wing side-aware metadata 修復探針	yes
+971	56d1c736338c5ec3d940b0174ad5354f7c2ce164	56d1c736	2026-05-01T07:31:28+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: 補上 main wing side-aware PCurve metadata builder 探針	yes
+972	7310fe16e9e0c610a08001d6afe74578df3db4c3	7310fe16	2026-05-01T07:54:16+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: 補上 main wing side-aware projected PCurve builder 探針	yes
+973	09d8c5f83ca5cf69c89b59458bad5324e73b5f75	09d8c5f8	2026-05-01T08:16:41+08:00	林禹安	feat	other	feat: 補上 main wing side-aware export opcode variant 探針	yes
+974	b0aef795ee03041256d71202548673e5a069bec0	b0aef795	2026-05-01T08:29:38+08:00	林禹安	feat	planning_docs_reports	feat: 補上 main wing export metadata source audit	yes
+975	57b91212707c498a09776d3bc5472aaa07994620	57b91212	2026-05-01T08:46:17+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: 補上 main wing export format boundary probe	yes
+976	9e712fc6071c4164854f25449de381f2857c0f34	9e712fc6	2026-05-01T10:16:47+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: add mesh-native route implementation plan	yes
+977	56fbdf335cf3866029da3960c2f4b29fe5c26a38	56fbdf33	2026-05-01T10:19:49+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: register mesh-native lifting surface route	yes
+978	4958ad69f18333ce8aa42749008c65531be4014a	4958ad69	2026-05-01T10:23:00+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native wing surface builder	yes
+979	ce6cff569edb52342620638f762c38bf4941b691	ce6cff56	2026-05-01T10:25:06+08:00	林禹安	test	validation_calculix_fem_apdl	test: add mesh-native topology validation gates	yes
+980	0227a90d1cf3883f4d4127663fd729799cb551ba	0227a90d	2026-05-01T10:27:39+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: load mesh-native wing manifests	yes
+981	4181bb079d81291502ce304957c88235e0eddda5	4181bb07	2026-05-01T10:34:04+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native farfield boundary shell	yes
+982	f42d7bc04b076b79353b4d7e6382c76ae80f2d54	f42d7bc0	2026-05-01T10:35:35+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: serialize mesh-native marker patches	yes
+983	9051c9c60c812bd0e47714f7b9198a4626df5570	9051c9c6	2026-05-01T10:37:41+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: write mesh-native Gmsh surface markers	yes
+984	0b24356d4d45866056c28e600069b2040d15ad8a	0b24356d	2026-05-01T10:47:41+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native SU2 structured smoke writer	yes
+985	be7eab6326451bd404c48668a11238cf2f1b603a	be7eab63	2026-05-01T10:50:17+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native SU2 smoke case writer	yes
+986	a88db3606adb79858b65d3d779a0623c72df1e6c	a88db360	2026-05-01T10:53:57+08:00	林禹安	test	high_fidelity_mesh_su2	test: add mesh-native SU2 solver smoke harness	yes
+987	a064c74c5422d28385bf4426db480fd47a3233cf	a064c74c	2026-05-01T10:57:34+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record mesh-native SU2 smoke evidence	yes
+988	781bcac4c63b55eff1d608f29d89cf5187406bfb	781bcac4	2026-05-01T11:02:09+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native faceted Gmsh volume route	yes
+989	38a8d83d5c125003cffc313ab8615b8d798d1f40	38a8d83d	2026-05-01T11:04:59+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add faceted mesh-native SU2 smoke runner	yes
+990	b389640f53c1637667ac7e1b343c00b607e55cab	b389640f	2026-05-01T11:09:55+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record faceted mesh-native SU2 smoke evidence	yes
+991	f89381afcf877651f82ce02465ba88547f0b4145	f89381af	2026-05-01T11:13:55+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add Black Cat mesh-native AVL bridge	yes
+992	91a195eea4ba3e8b0805d9106f80b74b6616e485	91a195ee	2026-05-01T11:16:00+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add Black Cat mesh-native SU2 smoke runner	yes
+993	6adaaa2be9143c4c583a8a432a0ce10eb956b1b9	6adaaa2b	2026-05-01T11:18:12+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record Black Cat mesh-native SU2 smoke evidence	yes
+994	dd3a240b93e8c65e7daa5ebb8855c9d24061eca6	dd3a240b	2026-05-01T11:19:09+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: clarify mesh-native SU2 smoke caveat	yes
+995	93a5259a70de4b9723e7530b65a0a916b7646773	93a5259a	2026-05-01T11:41:07+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: orient mesh-native boundary surfaces outward	yes
+996	71681fa820884942a78ede2e78a994a714bd13da	71681fa8	2026-05-01T11:46:14+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native faceted refinement ladder	yes
+997	7206a75ed4dfeb580c4e23af1101b500cbad5427	7206a75e	2026-05-01T11:48:02+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add Black Cat mesh-native refinement ladder	yes
+998	66c05e3f13958f4287374fae94c2c3ba086c9dd7	66c05e3f	2026-05-01T11:51:01+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record Black Cat mesh-native refinement ladder	yes
+999	20127eda505bc444741ebbe22da258b6ec3a89b6	20127eda	2026-05-01T11:56:03+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add wing-local faceted mesh sizing	yes
+1000	6f53ef8797c3648a9f12d6c03e280e225c85d74b	6f53ef87	2026-05-01T11:57:46+08:00	林禹安	docs	planning_docs_reports	docs: record Black Cat local refinement ladder	yes
+1001	58c4b746e35d0be994f80a25ea4becb632eb261e	58c4b746	2026-05-01T12:00:44+08:00	林禹安	feat	other	feat: add coupled Black Cat refinement ladder	yes
+1002	0a49a01eb2334dd028dfea5e5a531403fd575afa	0a49a01e	2026-05-01T12:02:08+08:00	林禹安	fix	tests_fixes_hardening	fix: warn on near-zero tet quality	yes
+1003	3b0b0310847d3f542b4eb3ac7330b02ea7effb94	3b0b0310	2026-05-01T12:38:03+08:00	林禹安	feat	other	feat: add Black Cat spanwise station subdivision	yes
+1004	a80941796f545511333682d202b675a27c67b06b	a8094179	2026-05-01T12:39:30+08:00	林禹安	feat	other	feat: add spanwise sweep to coupled Black Cat ladder	yes
+1005	43b8b6264afe92617ded8ac4dbb42df3c5b82cdf	43b8b626	2026-05-01T12:42:51+08:00	林禹安	feat	other	feat: summarize coupled ladder quality warnings	yes
+1006	c4fbed06383ee2559c32769270ca6f388a88244c	c4fbed06	2026-05-01T12:46:33+08:00	林禹安	docs	planning_docs_reports	docs: record Black Cat span chord coupled ladder	yes
+1007	ad07472b97f2ccc7fb21e952daea4acd2377eb48	ad07472b	2026-05-01T12:51:33+08:00	林禹安	feat	other	feat: add wing feature refinement boxes	yes
+1008	e87cb0a485f1ec754568fafc6713abd6bb594b75	e87cb0a4	2026-05-01T12:53:47+08:00	林禹安	feat	other	feat: sweep feature refinement sizes	yes
+1009	daedf700556347ea3c14eedd48d4dda7e850de6c	daedf700	2026-05-01T12:55:18+08:00	林禹安	docs	planning_docs_reports	docs: record Black Cat feature refinement sweep	yes
+1010	296b241e65dbc8a2fd3e580947e1ec2c4ac83420	296b241e	2026-05-01T13:12:31+08:00	林禹安	feat	candidate_go_mode_closure	feat: select quality-safe mesh candidate	yes
+1011	7868802cf661a7f213eeb6268b095d0a7dcbf5e9	7868802c	2026-05-01T13:17:44+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record Black Cat high density mesh probe	yes
+1012	08e0245def113a937485e21f3dc05d42e4e4df2b	08e0245d	2026-05-01T13:20:39+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record high density SU2 smoke	yes
+1013	c13629e7d1476a57849e85f9d02a91be01b4c9a5	c13629e7	2026-05-01T13:22:46+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: select cheapest stable mesh	yes
+1014	af99cc80504283017e19abacc4e4374f88ab22df	af99cc80	2026-05-01T13:24:09+08:00	林禹安	feat	other	feat: infer wing feature extents	yes
+1015	812838b8e16f4067467dea7d44f2e2e1080f2362	812838b8	2026-05-01T13:41:54+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add Black Cat SU2 stability ladder	yes
+1016	82c6a948766347853710865b229f05d55b4deadc	82c6a948	2026-05-01T13:43:18+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: normalize mesh stability moment coefficient	yes
+1017	dded8c0552ef93bf91cdb4f669967e96bf5da992	dded8c05	2026-05-01T13:49:09+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: gate mesh stability selection on successful cases	yes
+1018	f87cc46c3967aeadd7f147f49f3eea4f40dbb576	f87cc46c	2026-05-01T13:54:37+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: require iterative convergence for mesh stability	yes
+1019	aa3443480d8103c44b386abf80fc5ddb68a32c45	aa344348	2026-05-01T14:09:29+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: record Black Cat mesh-native pipeline validation	yes
+1020	f9ae66b5ce9d5b8bbc1d85d33809fec9a6f4596a	f9ae66b5	2026-05-01T14:10:40+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: reject negative drag in mesh stability selection	yes
+1021	41a57899167cceb4d7a2eb62d4e69da31c063bda	41a57899	2026-05-01T14:12:41+08:00	林禹安	docs	planning_docs_reports	docs: record Black Cat force sign probe	yes
+1022	6a63db7552867a552956d323ce417b42a4e14cca	6a63db75	2026-05-01T14:19:18+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add SU2 numerics controls to mesh-native route	yes
+1023	db7daab6185d3cdbea014734e2b2c5a4124a7568	db7daab6	2026-05-01T14:25:12+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: require CFD evidence gate for mesh stability	yes
+1024	bd486fe7b9d1ca374faa4b84f4c342fc555acc17	bd486fe7	2026-05-01T14:28:58+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: block negative drag in case-level CFD assessment	yes
+1025	a093387a4f3ea5670001875e1a657fe2ad6dd9ac	a093387a	2026-05-01T14:57:22+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record Black Cat SU2 CFD evidence probe	yes
+1026	27eb79f2ad13a45d8d5068cbf65ad90c42f59bc9	27eb79f2	2026-05-01T15:02:02+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add solver wall profiles to mesh-native SU2 route	yes
+1027	352ad4ccde287b64903aefdc8ea414071bf9d10b	352ad4cc	2026-05-01T15:38:17+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add VSP-native Black Cat mesh geometry	yes
+1028	c4526a4be57a679434e53031c7f0ba9a6193aabd	c4526a4b	2026-05-01T15:40:17+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: record Black Cat VSP geometry consistency	yes
+1029	fe9b4c2e0a00c174af1a7a0bf556ae9482beb58f	fe9b4c2e	2026-05-01T16:11:30+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record VSP-native Black Cat SU2 smoke	yes
+1030	adcbaccae659a166655bd3d5fb13e9f3613b5fff	adcbacca	2026-05-01T16:55:14+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add HPA CFD mesh advisory controls	yes
+1031	205f5382eb3e1c278c8e160329972435ef11657c	205f5382	2026-05-01T17:02:20+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record VSP-native SU2 iter1000 evidence	yes
+1032	6c3f46bef05f1e66ce67fe03d7b868950ad707e9	6c3f46be	2026-05-01T17:14:58+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: relax shell v4 BL thickness validation	yes
+1033	fe6ffd9529f3fa66904c813532a6d5420cef4ba2	fe6ffd95	2026-05-01T17:17:49+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record shell v4 BL current probe	yes
+1034	3b953e47bf27d9a9a66c74a0f8850bbed6d28373	3b953e47	2026-05-01T17:20:32+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: support VSP-native Black Cat refinement ladders	yes
+1035	402cd3e015d09c5f6b0f0597b06306d6c957dee7	402cd3e0	2026-05-01T17:44:18+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record VSP-native high-density SU2 smoke	yes
+1036	69e0ebf0a9ac59303578b2c29d28bd3a3425b6c8	69e0ebf0	2026-05-01T17:45:19+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: label no-BL SU2 ladder as stability evidence	yes
+1037	a22ba52d3650fe6167e30df9a9e9184bac2bcfb9	a22ba52d	2026-05-01T17:58:35+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: align HPA CFD solver and mesh policy	yes
+1038	1a5a48e4a9be0f98904b53f5f92d38769679b093	1a5a48e4	2026-05-01T18:15:41+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: tune shell v4 SU2 turbulence inputs	yes
+1039	3844fe68a8f6573ced982e6f711d7650ce1501f8	3844fe68	2026-05-01T18:15:55+08:00	林禹安	test	tests_fixes_hardening	test: cover shell v4 turbulence overrides	yes
+1040	673c3a0a5766c95d723332082f61972d0002d787	673c3a0a	2026-05-01T18:31:22+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native boundary-layer volume mesh	yes
+1041	72c432a16ea35b55102a3fed02a4bdbb4d2dcdcd	72c432a1	2026-05-01T18:45:00+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: include boundary-layer prism quality in mesh gate	yes
+1042	cc55cff2456c3d37e7158f8353bec0fdab0e6747	cc55cff2	2026-05-01T18:49:37+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: tolerate mixed core samples in BL mesh gate	yes
+1043	e2c8c7e30f6aa1b9570dcef66368676d489992a2	e2c8c7e3	2026-05-01T19:07:47+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native airfoil BL block topology	yes
+1044	6924e3c64bea10299ba9fd0d25edc1a02591ce75	6924e3c6	2026-05-01T19:09:43+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: connect mesh-native BL blocks spanwise	yes
+1045	1a1d783fcc73c7af022965c100b88984dcaf05de	1a1d783f	2026-05-01T19:12:22+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: classify mesh-native BL block boundaries	yes
+1046	452979d7a8698a6ed20f187e886263de424bea9d	452979d7	2026-05-01T19:14:08+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: write mesh-native BL block SU2 smoke mesh	yes
+1047	301e40302a52f6c3169ceae3486ba6ed21456307	301e4030	2026-05-01T19:16:19+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add BL block SU2 marker smoke case	yes
+1048	7008a4437edd513e38aebac7dbc4fb5d6a83b3b3	7008a443	2026-05-01T19:19:25+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: orient mesh-native BL hexahedra for SU2	yes
+1049	eec79227fe3dc3568acb7dd13ce850dec1cd3082	eec79227	2026-05-01T19:25:09+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: expose mesh-native BL block boundary surface	yes
+1050	a3e8cd961e898a19f514760c01b22c1a9df62ea3	a3e8cd96	2026-05-01T19:31:56+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add BL outer core interface surface	yes
+1051	f4a8dca41d2217d71c11a0fa6e7e1fe34e92a021	f4a8dca4	2026-05-01T19:32:20+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: mesh core outside owned BL envelope	yes
+1052	34946c8789699b276ec42810c42e6a6750285555	34946c87	2026-05-01T19:38:24+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: report BL core interface remeshing	yes
+1053	3a116fc6663924fbd30be6a681e326e271df4c2d	3a116fc6	2026-05-01T19:42:16+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: preserve BL core boundary mesh	yes
+1054	61120b6b239b074801826718ec294f4564dbfebf	61120b6b	2026-05-01T19:47:11+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: preserve BL interface as discrete core boundary	yes
+1055	2425d40838bb3e15a223fced82fe621e03fee462	2425d408	2026-05-01T19:48:29+08:00	林禹安	feat	planning_docs_reports	feat: report mixed core element quality	yes
+1056	3c22e762b2402d08f4bebf8caa1af487c15a823d	3c22e762	2026-05-01T19:51:29+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: diagnose BL core coupling completeness	yes
+1057	a00f5d6dd0be8472989c5610e46d133d900ed4e1	a00f5d6d	2026-05-01T19:57:49+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: avoid sliver ears on BL core span caps	yes
+1058	286dc00614422f6f2853cdce259923d621730ff5	286dc006	2026-05-01T20:03:44+08:00	林禹安	fix	tests_fixes_hardening	fix: orient mixed core quality checks	yes
+1059	3cd6c5ee590cc9efed539571b34214ec8e4ca026	3cd6c5ee	2026-05-01T20:26:04+08:00	林禹安	feat	high_fidelity_mesh_su2	feat: add mesh-native BL SU2 stability route	yes
+1060	cd6f5b9692760d4e1edfa08bad6ae562fa53b1d4	cd6f5b96	2026-05-01T22:19:46+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record mesh-native force marker audit	yes
+1061	7d5f572343f32cd5e01d254572c18ffc21c070d0	7d5f5723	2026-05-01T22:33:44+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: use four threads for mesh-native CFD pipeline	yes
+1062	2bc35e1df624127e0476104ebc7f73891f721100	2bc35e1d	2026-05-01T22:40:33+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: use HXT for mesh-native Gmsh routes	yes
+1063	310c7db4ae8bd55e52ecbafce4658ccef63441fa	310c7db4	2026-05-01T22:52:09+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: record HXT thread profile	yes
+1064	0f89edb3f22bdb4773efb939e908031bd3c611a8	0f89edb3	2026-05-01T23:20:07+08:00	林禹安	docs	high_fidelity_mesh_su2	docs: freeze mesh-native CFD line	yes
+1065	d10edacbc64e1938de62bee26dcac0ffc94148fb	d10edacb	2026-05-01T23:31:37+08:00	林禹安	docs	mission_birdman_concept	docs: 補充 Birdman 上游概念外型線進度	yes
+1066	632ee7dd96fdda5655f661c3011868c65e2e9fe4	632ee7dd	2026-05-02T00:28:32+08:00	林禹安	docs	mission_birdman_concept	docs: 補充 Birdman 上游概念線 GPT Pro 審查包	yes
+1067	c3d401b291275eb5f81db47f24abc5cf3988e7c8	c3d401b2	2026-05-02T01:12:28+08:00	林禹安	docs	planning_docs_reports	docs: 紀錄 GPT Pro 上游概念線審查建議	yes
+1068	fd37d318ef87df96a13292992322984a8bf8a7de	fd37d318	2026-05-02T07:02:30+08:00	林禹安	feat	mission_birdman_concept	feat: 補上 concept artifact trust 標記	yes
+1069	90a118e20aa935227120bb01704bd19cc31f1257	90a118e2	2026-05-02T07:07:26+08:00	林禹安	feat	other	feat: 新增 HPA 歷史基準資料	yes
+1070	f1cff816fafd8d9c79f30aed7ad0afa8e62336ca	f1cff816	2026-05-02T07:23:32+08:00	林禹安	docs	planning_docs_reports	docs: 調整 HPA 歷史基準為參考量級	yes
+1071	ded2b18e933d505da628977883f7c4e8c69edb28	ded2b18e	2026-05-02T07:32:03+08:00	林禹安	feat	other	feat: 新增海平面空氣性質插值表	yes
+1072	addfa714494fd6c1672e5581962e675b7142a661	addfa714	2026-05-02T09:12:36+08:00	林禹安	feat	other	feat: 加入飛行員功率熱濕度修正	yes
+1073	49d9ace247efdc0944efcdcfed2fcdc738ad73b3	49d9ace2	2026-05-02T09:19:32+08:00	林禹安	feat	other	feat: 支援 BREP hotspot 報告讀取	yes
+1074	bf4f8d9b7b483bb4ee0922cef2758fd2f110197d	bf4f8d9b	2026-05-02T10:18:11+08:00	林禹安	feat	other	feat: 更新推進傳動效率初估	yes
+1075	fc37a777c14745c2f7924f38a006b0d77861dff0	fc37a777	2026-05-02T10:53:47+08:00	林禹安	feat	other	feat: 新增給定航程最佳時間任務	yes
+1076	9f4ccf7c6424afba7ee1eba3eb205972396c38b5	9f4ccf7c	2026-05-02T11:35:57+08:00	林禹安	feat	other	feat: 更新35m翼展任務設計邏輯	yes
+1077	fcc3a0678bc610017966bd23567874815793e46e	fcc3a067	2026-05-02T12:01:25+08:00	林禹安	feat	mission_birdman_concept	feat: 抽出Birdman質量設計空間	yes
+1078	d47e2c93d41d876496ab176e34998ec610cfc8e4	d47e2c93	2026-05-02T12:25:58+08:00	林禹安	feat	other	feat: 改用mean chord概念幾何搜尋	yes
+1079	a662b3b37648112fc7cb00842bf3c9191c8baec9	a662b3b3	2026-05-02T12:50:51+08:00	林禹安	feat	mission_birdman_concept	feat: 匯出Birdman概念OpenVSP外型	yes
+1080	e97acad3450bd9474076676f87416b2350ddef43	e97acad3	2026-05-02T13:07:27+08:00	林禹安	feat	other	feat: 加入翼分布與多點扭轉設計變數	yes
+1081	de73ead6b20590e7901ee0c824b2e2f38cc9204d	de73ead6	2026-05-02T13:28:10+08:00	林禹安	feat	other	feat: 加入升力線支撐翼尖撓度估算	yes
+1082	4034d0ae6edc4d3a09fa53bb37149e68b0993367	4034d0ae	2026-05-02T13:54:45+08:00	林禹安	feat	other	feat: 改用尾翼容積係數 sizing	yes
+1083	63bc0e5cce5752d6e51a544ba0881d10269c56f0	63bc0e5c	2026-05-02T17:01:49+08:00	林禹安	perf	mission_birdman_concept	perf: 加速 Birdman CST 篩選流程	yes
+1084	d4c627336de6f00af4867cb2e5913a5d72826543	d4c62733	2026-05-02T18:11:26+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman VSP 翼型與 AVL e 資料流	yes
+1085	c1e0a8565180b4afa9860061db44f5d0bb4a3ba3	c1e0a856	2026-05-02T19:15:01+08:00	林禹安	fix	mission_birdman_concept	fix: 以平均重量作為 Birdman 主設計質量	yes
+1086	7aa8d5b0a83d3c6fd367e6a3361a5658bf127a75	7aa8d5b0	2026-05-02T19:33:25+08:00	林禹安	fix	mission_birdman_concept	fix: 讓 spanload_bias 影響 AVL 幾何	yes
+1087	ef9defada027f3d31cf933fff1ba318a3e8df17b	ef9defad	2026-05-02T20:48:49+08:00	林禹安	fix	mission_birdman_concept	fix: 降低 Birdman CST 粗篩搜尋成本	yes
+1088	63d5c5578f04a65c6534419289b79f82173256ba	63d5c557	2026-05-02T21:51:50+08:00	林禹安	fix	mission_birdman_concept	fix: 收斂 Birdman 互動 robust 搜尋規模	yes
+1089	136c4fe174c72d4e668718fb940c90acc91b1d8d	136c4fe1	2026-05-02T23:20:40+08:00	林禹安	fix	mission_birdman_concept	fix: 補強 Birdman 奧士華 spanload 評分	yes
+1090	ce1c80de224ecf67f58ea047beffe811bb5ff018	ce1c80de	2026-05-02T23:26:14+08:00	林禹安	fix	mission_birdman_concept	fix: 對齊 Birdman spanload 排序規則	yes
+1091	42ec74dc47510ca7ea03f4ea645cda6d1632189a	42ec74dc	2026-05-02T23:45:10+08:00	林禹安	fix	mission_birdman_concept	fix: 加入 Birdman HPA 翼尖幾何保護	yes
+1092	881b99ed7cce532756c511d31190a4a96b8b4c0f	881b99ed	2026-05-03T00:10:57+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman mass authority contract	yes
+1093	2c638f1f2200bbe36390bf6c46f5e48abe177323	2c638f1f	2026-05-03T00:15:19+08:00	林禹安	fix	mission_birdman_concept	fix: 修正 Birdman e authority contract	yes
+1094	77b0f285f2e0b526c0cbcaf792142607213c4667	77b0f285	2026-05-03T00:24:51+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman Fourier spanload design gates	yes
+1095	01f59dd99bb5821030d69ae859acdadecd2d4446	01f59dd9	2026-05-03T00:40:08+08:00	林禹安	test	mission_birdman_concept	test: 新增 Birdman spanload design smoke	yes
+1096	c419bc50adac7b37fca90076186161f13ed25327	c419bc50	2026-05-03T01:03:22+08:00	林禹安	test	mission_birdman_concept	test: 修正 Birdman spanload smoke 榜單與 inverse twist	yes
+1097	ede51fbd3a056602d621c68d35f2983fc1aeeb49	ede51fbd	2026-05-03T10:30:57+08:00	林禹安	feat	mission_birdman_concept	feat: 升級 Birdman spanload twist optimizer smoke	yes
+1098	cddc9ce93d19f2c6c72a1a1b771ed70db06521d3	cddc9ce9	2026-05-03T11:13:15+08:00	林禹安	feat	mission_birdman_concept	feat: 改用 Birdman inverse chord spanload optimizer	yes
+1099	263495ff034764c1322b6c8015099299de89cc92	263495ff	2026-05-03T12:01:11+08:00	林禹安	test	mission_birdman_concept	test: 新增 Birdman AVL e sanity benchmark	yes
+1100	0239b3523ba60bbd074805e6b4b0e33addd3d146	0239b352	2026-05-03T12:05:30+08:00	林禹安	fix	mission_birdman_concept	fix: 補強 Birdman 外翼載荷診斷	yes
+1101	a0928c73901e7c113fea8f1c2304a691de0a08e0	a0928c73	2026-05-03T12:44:40+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman mission-coupled spanload search	yes
+1102	3fbef4063d1bdafe5f5368c125942b6971bef4b5	3fbef406	2026-05-03T17:57:33+08:00	林禹安	feat	mission_birdman_concept	feat: 新增 Birdman outer loading authority 介入掃描	yes
+1103	08331fa5defc84ec9feae1e687e1935d146040d8	08331fa5	2026-05-03T23:21:37+08:00	林禹安	feat	mission_birdman_concept	feat: 把 Birdman outer chord bump 整合進 Stage-1 search	yes
+1104	dccc126d1b20fffe443c2da677b3497383e1f511	dccc126d	2026-05-04T08:44:02+08:00	林禹安	feat	mission_birdman_concept	feat: Birdman Stage-1 改向 MIT-like 高 AR 閉環設計	yes
+1105	507ce4639955c8cd08705fd16c78f2755a066343	507ce463	2026-05-04T16:10:01+08:00	林禹安	feat	mission_birdman_concept	feat: 完成 birdman MIT-like cruise twist oracle 與關聯測試	yes
+1106	f56320a26eba8980a48ab70681c79091152dc111	f56320a2	2026-05-04T16:12:25+08:00	林禹安	fix	high_fidelity_mesh_su2	fix: 忽略 meshing 報告輸出 artifacts 的可重產生檔案	yes
+1107	6e42891b9d85c92a7e0c765d4d70a4d72e4d221e	6e42891b	2026-05-04T16:58:06+08:00	林禹安	feat	mission_birdman_concept	feat: add mission design-space explorer with reusable grid reporting	yes
+1108	6a0508ef8e36515e979f2b389aca62db52f25f13	6a0508ef	2026-05-04T19:16:11+08:00	林禹安	feat	mission_birdman_concept	feat: add mission design space plot outputs and visual report	yes
+1109	a32c20786507c22508be5476c9fa05a6c0b01acf	a32c2078	2026-05-04T21:24:51+08:00	林禹安	feat	mission_birdman_concept	feat: 補強 mission_design_space summary.json 固定輸出	yes
+1110	ba7c964d1bfcc9f429b9aa1adf64209d92039448	ba7c964d	2026-05-04T21:32:32+08:00	林禹安	fix	mission_birdman_concept	fix: 補強 mission design-space summary 語意與建議區域欄位	yes
+1111	efae44b8b7457480df7b7cb80b350d9bc5869b10	efae44b8	2026-05-04T22:07:24+08:00	林禹安	feat	mission_birdman_concept	feat: add optimizer exploration tiers to mission seed handoff	yes
+1112	55cc75e94a759b1e16a04060cb74cb7b4deb20c9	55cc75e9	2026-05-04T23:04:13+08:00	林禹安	feat	mission_birdman_concept	feat: add Mission Drag Budget Contract v1	yes
+1113	07cad931442119e67fb4c17d77e10a7b3e0cfda4	07cad931	2026-05-04T23:12:13+08:00	林禹安	feat	candidate_go_mode_closure	feat: add Mission Drag Budget shadow mode for concept pipeline candidates	yes
+1114	1293b916c8dae7bb6d0f6d963e5470d6f0e85b2c	1293b916	2026-05-04T23:51:24+08:00	林禹安	feat	mission_birdman_concept	feat: tag profile drag proxy quality for mission shadow	yes
+1115	979e765eb565da859f6e14e4081d550c90616b3b	979e765e	2026-05-04T23:54:11+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: clarify profile_cd_proxy_source serialization caveat	yes
+1116	bbf21a266593ee049231b8332395b55cf3eedc62	bbf21a26	2026-05-05T10:00:24+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 接入 profile CD zone diagnostic	yes
+1117	07e13a4d7ba459e608d3118f76a4875517a50c90	07e13a4d	2026-05-05T10:25:52+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 profile CD source 比較報告	yes
+1118	ca997bc8ec760bad7f4f7359025f2fc06cca01d8	ca997bc8	2026-05-05T11:16:57+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 新增 profile CD source sensitivity 分析	yes
+1119	79178886a16fba39d32bdd4ff6d5389c83085ea6	79178886	2026-05-05T11:38:08+08:00	林禹安	test	aero_avl_vsp_airfoil	test: 補強 historical airfoil CST coverage audit	yes
+1120	a9c69e6d8a1624fb4a78cb1f71d08381b544792d	a9c69e6d	2026-05-05T11:59:14+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: 控制放寬 seedless CST bounds	yes
+1121	d6ea5db1d81dc50a29b4e25162ae9f732244a7f4	d6ea5db1	2026-05-05T13:45:05+08:00	林禹安	test	aero_avl_vsp_airfoil	test: 補強 seedless CST selection 行為稽核	yes
+1122	f91efa74a64328374236552ffcdb5f8b7d85d44d	f91efa74	2026-05-05T14:51:31+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: 修正 seedless CST selection funnel	yes
+1123	da51db53c7580329ade32bb635affbb52e8a2ae8	da51db53	2026-05-05T15:25:15+08:00	林禹安	test	tests_fixes_hardening	test: 補強 root/mid 需求合理性稽核	yes
+1124	4c195a37d204976a28e3a7dd624c6798cc8c139f	4c195a37	2026-05-05T16:40:56+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 跑 DAE 外翼 AVL match sweep	yes
+1125	e34a66551f33d8884c06dd041d77acd5e0013131	e34a6655	2026-05-05T18:22:01+08:00	林禹安	feat	mission_birdman_concept	feat: add mission contract shadow adapter	yes
+1126	9eff6f88b2c95c5ee9ceeb44a3311f536408d582	9eff6f88	2026-05-05T18:40:20+08:00	林禹安	feat	mission_birdman_concept	feat: add mission Fourier target shadow diagnostics	yes
+1127	7e319f5f53ba049a63f8ae3c8639a66a5138f649	7e319f5f	2026-05-05T18:52:37+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add airfoil profile drag shadow database	yes
+1128	5f1a4a29325f6a6d0dd2c5a85d8b325dc5182cf6	5f1a4a29	2026-05-05T19:22:01+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add loaded shape jig shadow diagnostics	yes
+1129	f9600bacee0faf2d8e62e18258de512e903f47d7	f9600bac	2026-05-05T19:57:08+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add airfoil zone sidecar shadow reruns	yes
+1130	08f32ae411191288dee926eaaf1ab2d517d59828	08f32ae4	2026-05-05T20:18:23+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add seed airfoil polar builder	yes
+1131	a70c85178b4c0d3116776002fe0d752b8dd9a020	a70c8517	2026-05-05T20:48:48+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add offline CST airfoil database builder	yes
+1132	1eec9fe4157623c472d2074ba953b1355238687a	1eec9fe4	2026-05-05T20:59:57+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: make CST airfoil database search NSGA driven	yes
+1133	a50ba411a4b0a69ebfac0a9e9c46dc443c762fff	a50ba411	2026-05-05T23:32:31+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: harden CST airfoil database resume	yes
+1134	bd2e0b7ac9153a325dc9cfa94ca6307b6e236f88	bd2e0b7a	2026-05-06T00:25:40+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: rescue tip CST coverage grid	yes
+1135	b63ae7624a1440b7a3487b35b19cc89f54030949	b63ae762	2026-05-06T01:32:24+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: plan full-polar airfoil database upgrade	yes
+1136	07a7157f8e7ca298207b5ec6190a2f8375d7b3a3	07a7157f	2026-05-06T01:48:00+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: allow CST airfoils in AVL sidecar reruns	yes
+1137	a4306017895cddac58affbc8e3c932cd26bc15d9	a4306017	2026-05-06T02:05:44+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: build full-polar airfoil shortlist archive	yes
+1138	b8ddf242474b715be3ba9f8285c037b734e296c2	b8ddf242	2026-05-06T02:09:38+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: keep full-polar worker EOF from crashing runs	yes
+1139	001948a59bfb2bbc9c8ee6d34fdec01e4ba33e26	001948a5	2026-05-06T02:13:13+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: write nonfinite XFOIL polar points as null	yes
+1140	73c52e82a92af97dad4a7bc68deba75fdbbaddc7	73c52e82	2026-05-06T02:35:18+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: include seed references in full-polar shortlist	yes
+1141	e31b7d59c2160b99313fd2364b7d9cc0944461f4	e31b7d59	2026-05-06T07:41:22+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: audit full-polar sidecar policy selection	yes
+1142	b696fbfd8fe96c43ed1449a9eafe6e48b20ceb28	b696fbfd	2026-05-06T08:56:11+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: audit DAE11 full-polar rescue	yes
+1143	658dc3d4bebd97c47cc1bd22bd3561d0c55303c1	658dc3d4	2026-05-06T09:34:32+08:00	林禹安	docs	planning_docs_reports	docs: study root mid1 Cl relief	yes
+1144	75806e99b2d80ba54bf1fc803fc764f6e6019241	75806e99	2026-05-06T09:57:44+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: audit AVL geometry envelope consistency	yes
+1145	6b6c9cdec562592b447232efb2bd7cbdedf12f05	6b6c9cde	2026-05-06T10:46:14+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: regrade sidecar airfoil actual envelope	yes
+1146	12452f3aee6da16eb9286fb526e8af5f175a2c64	12452f3a	2026-05-06T11:18:29+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: add phase7 sidecar baseline audit	yes
+1147	5066f636aec651f9038f3374c9790896aee77d16	5066f636	2026-05-06T12:05:04+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: repair phase7 cst polar diagnostics	yes
+1148	db236fa9c298846a6a92ac43643f2bdd8c3fd74b	db236fa9	2026-05-06T13:20:24+08:00	林禹安	docs	candidate_go_mode_closure	docs: analyze nsga convergence candidate tiers	yes
+1149	b57af52038621236d8b8b544bbc1051e38f8b24d	b57af520	2026-05-06T13:49:55+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: support phase8 full-alpha tier builds	yes
+1150	6756191107fe873168d9701f0353782e91c8c1b5	67561911	2026-05-06T13:50:31+08:00	林禹安	feat	foundation_openmdao_api_ci	feat: batch full-alpha build checkpoints	yes
+1151	8e9c5537516a29da5aa0d882a1c338471072c6e6	8e9c5537	2026-05-06T15:44:51+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: export phase7 sidecar vsp geometry	yes
+1152	a7365b805236eeea68e9155c922897cc435a475a	a7365b80	2026-05-06T17:56:04+08:00	林禹安	docs	aero_avl_vsp_airfoil	docs: 新增 Phase 7 AVL/VSP parity 稽核	yes
+1153	04fa8302e9ba9504a1154b763296b8f0f770d4d5	04fa8302	2026-05-06T19:16:26+08:00	林禹安	docs	planning_docs_reports	docs: add Phase 7 monotone chord evaluation	yes
+1154	de5f4fd5831dea5cca8c7d33a91271fd80e7274d	de5f4fd5	2026-05-06T21:06:47+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: make VSP export modes explicit	yes
+1155	0cbf1edac69582929696b5f19a95b77dafe78f23	0cbf1eda	2026-05-06T21:45:46+08:00	林禹安	feat	aero_avl_vsp_airfoil	feat: add old FX Clark baseline comparison hook	yes
+1156	cc51ec95e64c333509acea1ec9991d459717cfe2	cc51ec95	2026-05-06T22:06:31+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: debug old FX Clark CDi reference convention	yes
+1157	f855ccfd78f0fc174c5b76da43047d72aa6fbd59	f855ccfd	2026-05-06T22:47:30+08:00	林禹安	test	aero_avl_vsp_airfoil	test: audit AVL induced drag credibility	yes
+1158	c120fd2a7afdb508276fbeb681d1e8d919fdf294	c120fd2a	2026-05-07T00:45:18+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: speed up full polar checkpoints	yes
+1159	441a86df9761b24204ca3dbdab4fa697f6f81c25	441a86df	2026-05-07T01:00:56+08:00	林禹安	fix	aero_avl_vsp_airfoil	fix: reduce full-polar XFOIL poststall grind	yes
+1160	75bce838402b12f42869f5677f5406b7372b6c4a	75bce838	2026-05-07T11:48:17+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: add phase9 smooth planform jig study	yes
+1161	d43f65bb490b8b3ef1af8b437e6a99c59f409808	d43f65bb	2026-05-07T12:54:40+08:00	林禹安	feat	other	feat: add smooth geometry combo reoptimization	yes
+1162	2796eb8bae6a1ca714f156b1ef40cf03f51b6639	2796eb8b	2026-05-07T13:24:53+08:00	林禹安	feat	other	feat: validate smooth production baseline	yes
+1163	124eaa59345317e61f7594ebe0bf314f8fad4369	124eaa59	2026-05-07T13:52:03+08:00	林禹安	docs	planning_docs_reports	docs: audit phase9 structure model proxy	yes
+1164	641492ca3422a410939dd9bd8c7db269eb3b9a3c	641492ca	2026-05-07T14:20:53+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add dual-beam jig validation sidecar	yes
+1165	77a050dd67de1725bb9625f9ebf2bff6d3a87373	77a050dd	2026-05-07T15:55:08+08:00	林禹安	feat	structure_inverse_jig_dual_beam	feat: run smooth baseline canonical inverse check	yes
+1166	ea292be20c61ce1df63904092aab9db09a85b12f	ea292be2	2026-05-07T16:36:00+08:00	林禹安	test	candidate_go_mode_closure	test: sweep smooth baseline z-state mass threshold	yes
+1167	33a2a7800a0b1cfe96e37e579740a715e830524c	33a2a780	2026-05-07T17:28:51+08:00	林禹安	docs	mission_birdman_concept	docs: redesign Fourier AVL structure-budget pipeline	yes
+1168	b9663d035a66b3542ede10df7c5489275f79d0eb	b9663d03	2026-05-07T17:48:59+08:00	林禹安	feat	candidate_go_mode_closure	feat: add structure-budgeted z-state search MVP	yes
+1169	e5e1feb77c522a5bc287fb09313aa7b6e158d990	e5e1feb7	2026-05-07T19:03:16+08:00	林禹安	docs	mission_birdman_concept	docs: diagnose spanload structure dihedral mass	yes
+1170	95aa924a0910f10be5b72d8f782c6795e0362698	95aa924a	2026-05-07T19:40:16+08:00	林禹安	docs	candidate_go_mode_closure	docs: audit z-state structural mass cliff	yes
+1171	c4fd76078292a551f7c01ecec2ac50519ee976b5	c4fd7607	2026-05-07T20:00:10+08:00	林禹安	test	candidate_go_mode_closure	test: debug z-state mass cliff selection	yes
+1172	52504942544d6b07e647acbf8713b667fa98b639	52504942	2026-05-07T20:24:35+08:00	林禹安	fix	tests_fixes_hardening	fix: split structure selector feasibility labels	yes
+1173	09ff85260e1081b2d3405841d82d8e9e6a469044	09ff8526	2026-05-07T20:47:39+08:00	林禹安	test	candidate_go_mode_closure	test: debug phase13 moment closure channel	yes
+1174	99fd6f50d40b5e065920be2cb38e12ba520f2b35	99fd6f50	2026-05-07T21:03:07+08:00	林禹安	test	tests_fixes_hardening	test: split phase13 moment ownership diagnostics	yes
+1175	310e1e29f2cd259374cd5535564136b0683b575c	310e1e29	2026-05-07T22:06:23+08:00	林禹安	docs	structure_inverse_jig_dual_beam	docs: add dual-beam structural calibration inventory plan	yes
+1176	3603a1822b425207c8d10690d7110073757347c4	3603a182	2026-05-07T22:59:34+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add CalculiX beam deck exporter primitives	yes
+1177	704068f5c2c04a7c86ba76ab84a4c94e8ae7e795	704068f5	2026-05-07T23:20:12+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add calculix beam parity benchmark runner	yes
+1178	f0403193852ce6bdc8a7876277c79ec1024c980b	f0403193	2026-05-07T23:20:37+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: add calculix parity gate contract	yes
+1179	861f2e9378075b83ffa2ade396f5d81d91bcc7e9	861f2e93	2026-05-07T23:55:15+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: add Phase 14 CalculiX parity round3 goal prompt	yes
+1180	dd8f3bafdd2a3573e0c44047bf414cd5f7bca6d4	dd8f3baf	2026-05-08T00:05:29+08:00	林禹安	test	validation_calculix_fem_apdl	test: make CalculiX solver discovery benchmark test portable	yes
+1181	b5706036c4b9ae86035cb396405787f988b2b332	b5706036	2026-05-08T00:11:40+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: diagnose CalculiX tapered beam parity	yes
+1182	0b93503b7218f41d73dce5cd452267ff573c3aff	0b93503b	2026-05-08T00:16:57+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add CalculiX wire reaction diagnostics	yes
+1183	bddb7361fae7a6c9604eb0830d56117fba03cc6c	bddb7361	2026-05-08T00:22:41+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add CalculiX torque ownership diagnostics	yes
+1184	5dbf0b4d4299ea64379ac38066a1e84349c66171	5dbf0b4d	2026-05-08T00:23:34+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: clarify CalculiX parity gate trust policy	yes
+1185	600d719c5afe6fc4839bd3616a0fae2a6e2dd55a	600d719c	2026-05-08T00:41:02+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: add Phase 14 B2 B5 solution-hunt goal prompt	yes
+1186	4fe871c5d6458432ac5a189ee9b1c8828f376c1b	4fe871c5	2026-05-08T01:11:19+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: add CalculiX manual capability audit for phase14 beams	yes
+1187	7399ffc2ff2e0c72061ddfb05b71eae50fb9c322	7399ffc2	2026-05-08T01:25:42+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add B2 tapered beam solution-hunt route	yes
+1188	4c19acb4dba8e307c21d75720f3c985679ac8bb3	4c19acb4	2026-05-08T01:32:50+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add B5 torque ownership solution-hunt route	yes
+1189	296283d7afa0e1c6634bb695f23a1a459c57ff2d	296283d7	2026-05-08T01:34:50+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: update Phase 14 CalculiX solution-hunt trust policy	yes
+1190	faefb5dc7ea79b3be0f3e8e0e11b8304c89fffe0	faefb5dc	2026-05-08T02:08:31+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: 建立 Phase 14 Mac-local FEM 與 APDL package route	yes
+1191	9bbf3cb7a3ee96f5a08dede886ffe3b58332c637	9bbf3cb7	2026-05-08T02:34:23+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: add Phase 14 Mac-local FEM overnight hardening goal	yes
+1192	33d18584ab7f530edead0d262da67f835b648436	33d18584	2026-05-08T02:46:56+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add Phase 14 constant tube shell FEM verification	yes
+1193	8f149769169799dd55a40be84cad279a1e26c0ec	8f149769	2026-05-08T02:55:15+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: harden Phase 14 shell torsion and tapered FEM	yes
+1194	8f09e3ec3a667795ea3bcb2d2fb573198f5158f9	8f09e3ec	2026-05-08T02:56:00+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: clarify Phase 14 Mac-local FEM trust policy	yes
+1195	de3f26c3fdc4b32b1006a70b654d1a8d854dec63	de3f26c3	2026-05-08T10:35:16+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: add Phase 14 FEM fidelity ladder goal	yes
+1196	a9047ed0ff1411128a52bf163488cd02ba3ffbf1	a9047ed0	2026-05-08T10:44:56+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: audit Phase 14 Mac-local FEM route runtime	yes
+1197	5e04c02465980fbf8478492efb0ceb8dd4314aa5	5e04c024	2026-05-08T10:49:33+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: diagnose Phase 14 structured shell FEM stiffness bias	yes
+1198	063ca87721a3bdda26ea2cd202e7d58faff1fa86	063ca877	2026-05-08T10:56:45+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add Phase 14 solid tube FEM probe	yes
+1199	9919b201fb735db9d1323f4475acd8aa9ea56bee	9919b201	2026-05-08T11:03:02+08:00	林禹安	docs	validation_calculix_fem_apdl	docs: define Phase 14 FEM fidelity ladder	yes
+1200	97e6b28c14ccff26098c961d3e66ee187a14cdc0	97e6b28c	2026-05-08T11:10:50+08:00	林禹安	feat	validation_calculix_fem_apdl	feat: add Phase 14 best-route FEM check	yes
+1201	effd66867ae354d61ee5394b5999ba5fa3e5eba1	effd6686	2026-05-08T11:36:59+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: harden Phase 14 APDL handoff package	yes
+1202	9c66ffe5997398ccdcbedcb0cee3c76ff511ef1a	9c66ffe5	2026-05-08T11:44:49+08:00	林禹安	fix	validation_calculix_fem_apdl	fix: avoid Phase 14 APDL stress warnings	yes
+1203	5379f600ed83d6ab4631011754e66c32c8d938cd	5379f600	2026-05-08T12:17:15+08:00	林禹安	docs	planning_docs_reports	docs: rewrite HPA wing pipeline v2 spec	yes
+1204	2711572afb2c1335eca3ee3cfd2641e288156d76	2711572a	2026-05-08T12:48:03+08:00	林禹安	feat	mission_birdman_concept	feat: 建立 Fourier-AVL 校準 MVP	yes
+1205	211afceb758e605979b360e4d752a067db12d634	211afceb	2026-05-08T13:00:56+08:00	林禹安	feat	candidate_go_mode_closure	feat: 建立 structure-budgeted Z-state v2 MVP	yes
+1206	f0dabdcf55ecbf97041dab386de517f540f138d3	f0dabdcf	2026-05-08T13:11:28+08:00	林禹安	feat	candidate_go_mode_closure	feat: 建立 loaded-shape AVL recheck MVP	yes
+1207	5257b999d93d8ecd70c6b68a0f3857b4230760c9	5257b999	2026-05-08T13:26:48+08:00	林禹安	feat	candidate_go_mode_closure	feat: 建立 Tier2 loaded-shape airfoil MVP	yes
+1208	c686e71d1baee78c68365b678c1636265d649d11	c686e71d	2026-05-08T13:33:00+08:00	林禹安	feat	candidate_go_mode_closure	feat: 建立 aero-structure closure MVP	yes
+1209	682c877ed0210c7d01d8d5ca7366306dff384612	682c877e	2026-05-08T14:09:13+08:00	林禹安	docs	candidate_go_mode_closure	docs: add HPA wing Go Mode master plan	yes
+1210	8e01452162418e9103e71c9d8a5b56524aaf6cac	8e014521	2026-05-08T14:38:50+08:00	林禹安	docs	candidate_go_mode_closure	docs: package HPA wing go-mode candidate evidence	yes
+1211	65d39bd787c987e5c18b02485380edd2b034c58c	65d39bd7	2026-05-08T15:22:27+08:00	林禹安	test	validation_calculix_fem_apdl	test: 補強 main-wing closed-loop FEM 驗證包	yes
+1212	26ee05bbdddf67522b1deb2e4d81dfcbb5e8a563	26ee05bb	2026-05-08T16:19:30+08:00	林禹安	fix	candidate_go_mode_closure	fix: repair candidate FEM offset-rigid export	yes
+1213	ffe1065a86853f86d08a5bafcbced7940db6b09d	ffe1065a	2026-05-08T19:46:23+08:00	林禹安	test	candidate_go_mode_closure	test: 補強 phase15 load-factor 結構驗證	yes
+1214	06a068aaa4ca46ebf03904d01acedad5cdc3a3f8	06a068aa	2026-05-08T20:34:52+08:00	林禹安	test	candidate_go_mode_closure	test: 補強 phase15 wire 升級敏感度	yes
+1215	5a8719203376bae9285d3cabfa79a556c5d97006	5a871920	2026-05-08T21:01:10+08:00	林禹安	test	candidate_go_mode_closure	test: 補強 phase16 ccx buckling 與 wire6 載重爬升	yes
+1216	72ffd654457701f57011893b527cef0fe196ac88	72ffd654	2026-05-08T21:37:34+08:00	林禹安	test	candidate_go_mode_closure	test: 補強 candidate shell buckling 與 tip limit review	yes
+1217	0a754030582da89c6271241363d1db112ee6ee22	0a754030	2026-05-08T22:24:55+08:00	林禹安	fix	candidate_go_mode_closure	fix: 修正 candidate shell buckling 載重步驟	yes
