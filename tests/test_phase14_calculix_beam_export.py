@@ -116,6 +116,51 @@ def test_write_dual_pipe_deck_includes_link_equations_and_wire_vertical_support(
     assert deck.node_sets["ROOT_REAR"] == (2 * len(y_nodes_m),)
 
 
+def test_write_dual_pipe_deck_can_export_offset_rigid_link_equations(
+    tmp_path: Path,
+) -> None:
+    material = BeamMaterial(
+        name="CARBON",
+        young_pa=135.0e9,
+        poisson_ratio=0.3,
+        density_kgpm3=1600.0,
+    )
+    y_nodes_m = np.array([0.0, 1.0, 2.0])
+
+    spec = build_dual_pipe_benchmark_spec(
+        name="offset_rigid_joint",
+        y_nodes_m=y_nodes_m,
+        main_x_m=np.zeros_like(y_nodes_m),
+        rear_x_m=np.full_like(y_nodes_m, 0.4),
+        main_z_m=np.zeros_like(y_nodes_m),
+        rear_z_m=np.full_like(y_nodes_m, 0.2),
+        main_outer_radius_m=np.full(2, 0.04),
+        main_thickness_m=np.full(2, 0.002),
+        rear_outer_radius_m=np.full(2, 0.03),
+        rear_thickness_m=np.full(2, 0.0015),
+        material_main=material,
+        material_rear=material,
+        main_nodal_fz_n=np.zeros(3),
+        rear_nodal_fz_n=np.zeros(3),
+        joint_node_indices=(1,),
+        joint_link_mode="offset_rigid",
+    )
+    deck = write_calculix_beam_inp(spec, tmp_path / "offset_rigid_joint.inp")
+    text = deck.inp_path.read_text(encoding="utf-8")
+
+    main_node = 3
+    rear_node = 8
+    assert "joint_link_mode=offset_rigid" in text
+    assert f"{rear_node}, 1, 1.0, {main_node}, 1, -1.0" in text
+    assert f"{main_node}, 5, -0.1" in text
+    assert f"{rear_node}, 5, -0.1" in text
+    assert f"{main_node}, 4, 0.1" in text
+    assert f"{rear_node}, 4, 0.1" in text
+    assert f"{main_node}, 6, -0.2" in text
+    assert f"{rear_node}, 6, -0.2" in text
+    assert f"{rear_node}, 4, 1.0, {main_node}, 4, -1.0" in text
+
+
 def test_parse_total_force_from_dat_reads_named_set_totals(tmp_path: Path) -> None:
     dat_path = tmp_path / "case.dat"
     dat_path.write_text(

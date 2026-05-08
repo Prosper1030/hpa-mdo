@@ -33,7 +33,7 @@ class SinglePipeCantileverSpec:
 
 @dataclass(frozen=True)
 class DualPipeBenchmarkSpec:
-    """Two straight pipe beams with optional equal-DOF links and wire supports."""
+    """Two straight pipe beams with optional rib links and wire supports."""
 
     name: str
     y_nodes_m: np.ndarray
@@ -53,6 +53,7 @@ class DualPipeBenchmarkSpec:
     rear_nodal_my_nm: np.ndarray
     joint_node_indices: tuple[int, ...]
     wire_node_indices: tuple[int, ...]
+    joint_link_mode: str = "equal_dof"
 
 
 @dataclass(frozen=True)
@@ -144,6 +145,7 @@ def build_dual_pipe_benchmark_spec(
     rear_nodal_my_nm: np.ndarray | None = None,
     joint_node_indices: tuple[int, ...] = (),
     wire_node_indices: tuple[int, ...] = (),
+    joint_link_mode: str = "equal_dof",
 ) -> DualPipeBenchmarkSpec:
     """Build one two-beam parity benchmark spec."""
 
@@ -151,6 +153,8 @@ def build_dual_pipe_benchmark_spec(
     ne = y_nodes.size - 1
     if ne < 1:
         raise ValueError("At least two nodes are required for a dual-beam benchmark.")
+    if joint_link_mode not in {"equal_dof", "offset_rigid"}:
+        raise ValueError("joint_link_mode must be 'equal_dof' or 'offset_rigid'.")
     return DualPipeBenchmarkSpec(
         name=name,
         y_nodes_m=y_nodes,
@@ -178,6 +182,7 @@ def build_dual_pipe_benchmark_spec(
         ),
         joint_node_indices=tuple(int(idx) for idx in joint_node_indices),
         wire_node_indices=tuple(int(idx) for idx in wire_node_indices),
+        joint_link_mode=joint_link_mode,
     )
 
 
@@ -327,6 +332,7 @@ def _dual_beam_text(
 
     lines = [
         f"** Phase 14 beam deck: {spec.name}",
+        f"** joint_link_mode={spec.joint_link_mode}",
         "*NODE",
     ]
     lines.extend(main_topology.node_lines)
@@ -380,18 +386,37 @@ def _dual_beam_text(
     for node_index in spec.joint_node_indices:
         main_node = main_topology.endpoint_node_ids[int(node_index)]
         rear_node = rear_topology.endpoint_node_ids[int(node_index)]
-        for dof in range(1, 7):
-            if dof == 3 and int(node_index) in wire_node_index_set:
-                equation_terms = f"{rear_node}, {dof}, 1.0, {main_node}, {dof}, -1.0"
-            else:
-                equation_terms = f"{main_node}, {dof}, 1.0, {rear_node}, {dof}, -1.0"
-            lines.extend(
+        if spec.joint_link_mode == "equal_dof":
+            for dof in range(1, 7):
+                if dof == 3 and int(node_index) in wire_node_index_set:
+                    equation_terms = f"{rear_node}, {dof}, 1.0, {main_node}, {dof}, -1.0"
+                else:
+                    equation_terms = f"{main_node}, {dof}, 1.0, {rear_node}, {dof}, -1.0"
+                lines.extend(
+                    [
+                        "*EQUATION",
+                        "2",
+                        equation_terms,
+                    ]
+                )
+        elif spec.joint_link_mode == "offset_rigid":
+            offset_vector = np.array(
                 [
-                    "*EQUATION",
-                    "2",
-                    equation_terms,
-                ]
+                    float(spec.rear_x_m[int(node_index)] - spec.main_x_m[int(node_index)]),
+                    0.0,
+                    float(spec.rear_z_m[int(node_index)] - spec.main_z_m[int(node_index)]),
+                ],
+                dtype=float,
             )
+            lines.extend(
+                _offset_rigid_equation_lines(
+                    main_node=main_node,
+                    rear_node=rear_node,
+                    offset_vector_m=offset_vector,
+                )
+            )
+        else:
+            raise ValueError(f"Unsupported joint_link_mode: {spec.joint_link_mode}.")
 
     lines.append("*BOUNDARY")
     lines.append(f"{node_sets['ROOT_MAIN'][0]}, 1, 6")
@@ -443,6 +468,68 @@ def _format_node_sets(node_sets: dict[str, tuple[int, ...]]) -> list[str]:
         lines.append(f"*NSET, NSET={name}")
         lines.append(", ".join(str(int(node_id)) for node_id in node_ids))
     return lines
+
+
+def _offset_rigid_equation_lines(
+    *,
+    main_node: int,
+    rear_node: int,
+    offset_vector_m: np.ndarray,
+) -> list[str]:
+    """Return CalculiX equations matching the internal offset-rigid rib row basis."""
+
+    dx, dy, dz = np.asarray(offset_vector_m, dtype=float)
+    skew = np.array(
+        [
+            [0.0, -dz, dy],
+            [dz, 0.0, -dx],
+            [-dy, dx, 0.0],
+        ],
+        dtype=float,
+    )
+    equations: list[list[tuple[int, int, float]]] = []
+    for axis in range(3):
+        terms = [
+            (int(rear_node), axis + 1, 1.0),
+            (int(main_node), axis + 1, -1.0),
+        ]
+        for rot_axis in range(3):
+            coeff = 0.5 * float(skew[axis, rot_axis])
+            if abs(coeff) > 1.0e-14:
+                terms.append((int(main_node), 4 + rot_axis, coeff))
+                terms.append((int(rear_node), 4 + rot_axis, coeff))
+        equations.append(terms)
+    for axis in range(3):
+        equations.append(
+            [
+                (int(rear_node), 4 + axis, 1.0),
+                (int(main_node), 4 + axis, -1.0),
+            ]
+        )
+
+    lines: list[str] = []
+    for terms in equations:
+        lines.extend(["*EQUATION", str(len(terms))])
+        lines.extend(_format_equation_term_lines(terms))
+    return lines
+
+
+def _format_equation_term_lines(terms: list[tuple[int, int, float]]) -> list[str]:
+    lines: list[str] = []
+    for start in range(0, len(terms), 4):
+        chunks: list[str] = []
+        for node_id, dof, coeff in terms[start : start + 4]:
+            chunks.extend([str(int(node_id)), str(int(dof)), _format_float(float(coeff))])
+        lines.append(", ".join(chunks))
+    return lines
+
+
+def _format_float(value: float) -> str:
+    if abs(float(value) - 1.0) <= 1.0e-14:
+        return "1.0"
+    if abs(float(value) + 1.0) <= 1.0e-14:
+        return "-1.0"
+    return f"{float(value):.9g}"
 
 
 @dataclass(frozen=True)

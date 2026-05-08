@@ -126,6 +126,7 @@ def test_build_candidate_fem_spec_from_csv_uses_candidate_geometry_and_scaled_lo
     assert spec.rear_nodal_fz_n.tolist() == pytest.approx([-1.0, -0.5])
     assert spec.joint_node_indices == (0,)
     assert spec.wire_node_indices == (1,)
+    assert spec.joint_link_mode == "offset_rigid"
 
 
 def test_evaluate_fem_support_requires_tip_deflection_scale_agreement() -> None:
@@ -157,6 +158,20 @@ def test_evaluate_fem_support_requires_tip_deflection_scale_agreement() -> None:
     )
     assert blocked.final_code.startswith("C.")
     assert "mismatch" in blocked.confidence_label
+
+    near_blocked = evaluate_fem_support(
+        load_rows,
+        [
+            {
+                "load_factor": 2.0,
+                "calculix_status": "ran",
+                "tip_main_uz_m": 1.30,
+                "tip_rear_uz_m": -1.25,
+            }
+        ],
+    )
+    assert near_blocked.final_code.startswith("C.")
+    assert near_blocked.tip_mismatch_fraction == pytest.approx(0.13333333333333333)
 
     supported = evaluate_fem_support(
         load_rows,

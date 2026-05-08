@@ -221,7 +221,7 @@ def evaluate_fem_support(
     fem_rows: list[dict[str, object]],
     *,
     reference_load_factor: float = REFERENCE_LOAD_FACTOR,
-    tip_tolerance_fraction: float = 0.25,
+    tip_tolerance_fraction: float = 0.10,
 ) -> FemSupportStatus:
     """Classify whether the candidate FEM spot-check supports the internal model scale."""
 
@@ -335,6 +335,7 @@ def build_candidate_fem_spec_from_csv(
         rear_nodal_fz_n=_array(rows, "Rear_FZ_N") * float(load_scale),
         joint_node_indices=_flag_indices(rows, "Is_Joint"),
         wire_node_indices=_flag_indices(rows, "Is_Wire_Attach"),
+        joint_link_mode="offset_rigid",
     )
 
 
