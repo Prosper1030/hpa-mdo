@@ -757,22 +757,32 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
 
 
 def _wire_attach_load_decomposition_summary(decomposition: Any) -> str:
-    rows = {str(row.component_key): row for row in getattr(decomposition, "rows", ())}
-    spanwise = rows.get("spanwise_y")
-    transverse = rows.get("transverse_xz")
-    vertical = rows.get("vertical_z")
+    rows = tuple(getattr(decomposition, "rows", ()))
+    spanwise_design = _component_design_load_max(rows, "spanwise_y")
+    transverse_design = _component_design_load_max(rows, "transverse_xz")
+    vertical_design = _component_design_load_max(rows, "vertical_z")
     return (
         "overall="
         f"{getattr(decomposition, 'overall_status', 'unknown')}; "
         "max resultant design="
         f"{_fmt(getattr(decomposition, 'max_resultant_design_load_n', None))} N; "
         "spanwise design="
-        f"{_fmt(getattr(spanwise, 'design_load_n', None) if spanwise is not None else None)} N; "
+        f"{_fmt(spanwise_design)} N; "
         "transverse design="
-        f"{_fmt(getattr(transverse, 'design_load_n', None) if transverse is not None else None)} N; "
+        f"{_fmt(transverse_design)} N; "
         "vertical design="
-        f"{_fmt(getattr(vertical, 'design_load_n', None) if vertical is not None else None)} N."
+        f"{_fmt(vertical_design)} N."
     )
+
+
+def _component_design_load_max(rows: tuple[Any, ...], component_key: str) -> float | None:
+    values = [
+        _optional_float(getattr(row, "design_load_n", None))
+        for row in rows
+        if str(getattr(row, "component_key", "")) == component_key
+    ]
+    finite_values = [value for value in values if value is not None]
+    return max(finite_values) if finite_values else None
 
 
 def _root_joint_load_envelope_summary(envelope: Any) -> str:

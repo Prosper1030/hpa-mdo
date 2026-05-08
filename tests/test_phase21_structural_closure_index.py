@@ -269,10 +269,22 @@ def _wire_attach_load_decomposition() -> SimpleNamespace:
         max_resultant_design_load_n=6048.0,
         rows=(
             SimpleNamespace(
+                wire_identifier="wire-2",
+                component_key="spanwise_y",
+                service_load_n=3600.0,
+                design_load_n=7200.0,
+            ),
+            SimpleNamespace(
                 wire_identifier="wire-1",
                 component_key="spanwise_y",
                 service_load_n=2919.6,
                 design_load_n=5839.2,
+            ),
+            SimpleNamespace(
+                wire_identifier="wire-2",
+                component_key="transverse_xz",
+                service_load_n=900.0,
+                design_load_n=1800.0,
             ),
             SimpleNamespace(
                 wire_identifier="wire-1",
@@ -534,10 +546,10 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "wire_attach_local_load_path"
     ].current_evidence
     assert "Phase34" in by_key["wire_attach_local_load_path"].evidence_artifacts
-    assert "spanwise design=5839.2000 N" in by_key[
+    assert "spanwise design=7200.0000 N" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
-    assert "transverse design=1576.2000 N" in by_key[
+    assert "transverse design=1800.0000 N" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
     assert "Phase35" in by_key["root_joint"].evidence_artifacts
