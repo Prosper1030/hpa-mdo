@@ -98,6 +98,9 @@ class LocalDetailSubcomponentMarginRow:
     provided_minimum_breaking_load_n: float | None
     mbl_margin_n: float | None
     worst_margin: float | None
+    allowable_basis: str
+    evidence_type: str
+    traceability_status: str
     source: str
     engineering_note: str
 
@@ -109,6 +112,7 @@ class LocalDetailSubcomponentMarginCheck:
     total_subcomponent_count: int
     missing_subcomponent_count: int
     negative_margin_count: int
+    traceability_gap_count: int
     rows: tuple[LocalDetailSubcomponentMarginRow, ...]
 
 
@@ -137,6 +141,9 @@ def build_local_detail_subcomponent_margin_check(
     )
     missing_count = sum(1 for row in rows if row.status == "subcomponent_allowable_missing")
     negative_count = sum(1 for row in rows if row.status == "margin_negative")
+    traceability_gap_count = sum(
+        1 for row in rows if row.status == "subcomponent_traceability_missing"
+    )
     all_positive = rows and all(row.status == "margin_positive_input_check_only" for row in rows)
     return LocalDetailSubcomponentMarginCheck(
         candidate_id=str(detail_requirements.candidate_id),
@@ -148,6 +155,7 @@ def build_local_detail_subcomponent_margin_check(
         total_subcomponent_count=len(rows),
         missing_subcomponent_count=missing_count,
         negative_margin_count=negative_count,
+        traceability_gap_count=traceability_gap_count,
         rows=rows,
     )
 
@@ -205,17 +213,28 @@ def _build_row(
     moment_margin = _margin(provided_moment, required_moment)
     mbl_margin = _margin(provided_mbl, required_mbl)
     margins = [value for value in (load_margin, moment_margin, mbl_margin) if value is not None]
+    component_id = str((allowable or {}).get("component_id", "")).strip()
+    source = str((allowable or {}).get("source", "")).strip()
+    allowable_basis = str((allowable or {}).get("allowable_basis", "")).strip()
+    evidence_type = str((allowable or {}).get("evidence_type", "")).strip()
+    traceability_status = _traceability_status(
+        component_id=component_id,
+        source=source,
+        allowable_basis=allowable_basis,
+        evidence_type=evidence_type,
+    )
     status = _status(
         required_values=(required_load, required_moment, required_mbl),
         provided_values=(provided_load, provided_moment, provided_mbl),
         margins=margins,
+        traceability_status=traceability_status,
     )
     return LocalDetailSubcomponentMarginRow(
         parent_key=parent_key,
         parent_title=str(requirement.title),
         subcomponent_key=subcomponent_key,
         subcomponent_title=subcomponent_title,
-        component_id=str((allowable or {}).get("component_id", "")),
+        component_id=component_id,
         status=status,
         required_allowable_load_n=required_load,
         provided_allowable_load_n=provided_load,
@@ -227,10 +246,13 @@ def _build_row(
         provided_minimum_breaking_load_n=provided_mbl,
         mbl_margin_n=mbl_margin,
         worst_margin=None if not margins else min(margins),
-        source=str((allowable or {}).get("source", "")),
+        allowable_basis=allowable_basis,
+        evidence_type=evidence_type,
+        traceability_status=traceability_status,
+        source=source,
         engineering_note=(
             "Input margin check only; not local FEM signoff and not a substitute for bearing, "
-            "bond, insert, clamp, fatigue, inspection, or manufacturing evidence."
+            "bond, insert, clamp, fatigue, inspection, traceability, or manufacturing evidence."
         ),
     )
 
@@ -240,13 +262,34 @@ def _status(
     required_values: tuple[float | None, ...],
     provided_values: tuple[float | None, ...],
     margins: list[float],
+    traceability_status: str,
 ) -> str:
     required_indices = [idx for idx, value in enumerate(required_values) if value is not None]
     if any(provided_values[idx] is None for idx in required_indices):
         return "subcomponent_allowable_missing"
     if any(value < 0.0 for value in margins):
         return "margin_negative"
+    if traceability_status != "traceable_input":
+        return "subcomponent_traceability_missing"
     return "margin_positive_input_check_only"
+
+
+def _traceability_status(
+    *,
+    component_id: str,
+    source: str,
+    allowable_basis: str,
+    evidence_type: str,
+) -> str:
+    if not component_id:
+        return "component_id_missing"
+    if not source:
+        return "source_missing"
+    if not allowable_basis:
+        return "allowable_basis_missing"
+    if not evidence_type:
+        return "evidence_type_missing"
+    return "traceable_input"
 
 
 def _write_template(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Path:
@@ -261,6 +304,8 @@ def _write_template(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
         "allowable_load_n",
         "allowable_moment_n_m",
         "minimum_breaking_load_n",
+        "allowable_basis",
+        "evidence_type",
         "source",
         "notes",
     ]
@@ -284,6 +329,8 @@ def _write_template(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
                     "allowable_load_n": "",
                     "allowable_moment_n_m": "",
                     "minimum_breaking_load_n": "",
+                    "allowable_basis": "",
+                    "evidence_type": "",
                     "source": "",
                     "notes": "",
                 }
@@ -321,16 +368,19 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
         f"- total subcomponents: `{check.total_subcomponent_count}`",
         f"- missing subcomponents: `{check.missing_subcomponent_count}`",
         f"- negative-margin subcomponents: `{check.negative_margin_count}`",
+        f"- traceability-gap subcomponents: `{check.traceability_gap_count}`",
         "",
-        "| parent | subcomponent | component | status | load margin N | moment margin N*m | MBL margin N | source |",
-        "|---|---|---|---|---:|---:|---:|---|",
+        "| parent | subcomponent | component | status | traceability | load margin N | moment margin N*m | MBL margin N | evidence type | source |",
+        "|---|---|---|---|---|---:|---:|---:|---|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.parent_title} | {row.subcomponent_title} | "
             f"{row.component_id or 'n/a'} | `{row.status}` | "
+            f"`{row.traceability_status}` | "
             f"{_fmt(row.load_margin_n)} | {_fmt(row.moment_margin_n_m)} | "
-            f"{_fmt(row.mbl_margin_n)} | {row.source or 'n/a'} |"
+            f"{_fmt(row.mbl_margin_n)} | {row.evidence_type or 'n/a'} | "
+            f"{row.source or 'n/a'} |"
         )
     lines.extend(
         [
@@ -338,7 +388,8 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
             "## Boundary",
             "",
             "- Positive inputs only mean every required subcomponent allowable exceeds the Phase 23 scalar requirement.",
-            "- This does not close local stress concentration, load introduction, bond peel, fatigue, inspection, or installation quality.",
+            "- A traceable input requires a component id, source, allowable basis, and evidence type for each subcomponent.",
+            "- This does not close local stress concentration, load introduction, bond peel, fatigue, inspection, traceability, or installation quality.",
             "",
         ]
     )
