@@ -1,0 +1,16 @@
+{
+  "schema_version": "loaded_shape_avl_recheck_mvp_v1",
+  "stage2_dir": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp",
+  "output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/loaded_shape_avl_recheck_mvp",
+  "case_count": 1,
+  "geometry_z_basis": "main_beam_loaded_shape_spar_data_root_offset_removed_as_avl_section_z_proxy",
+  "diagnostic_section_cl_limit": 1.2,
+  "dynamic_viscosity_pa_s": 1.7228000000000002e-05,
+  "artifacts": {
+    "loaded_shape_avl_recheck": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/loaded_shape_avl_recheck_mvp/loaded_shape_avl_recheck.csv",
+    "loaded_shape_spanload_comparison": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/loaded_shape_avl_recheck_mvp/loaded_shape_spanload_comparison.csv",
+    "loaded_shape_local_cl_re_envelope": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/loaded_shape_avl_recheck_mvp/loaded_shape_local_cl_re_envelope.csv",
+    "loaded_shape_aero_recheck_report": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/loaded_shape_avl_recheck_mvp/loaded_shape_aero_recheck_report.md",
+    "manifest": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/loaded_shape_avl_recheck_mvp/loaded_shape_avl_recheck_manifest.json"
+  }
+}
