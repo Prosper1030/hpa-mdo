@@ -295,6 +295,10 @@ def _root_joint_load_envelope() -> SimpleNamespace:
                 load_case_key="moment_couple_arm_0p100m",
                 required_couple_force_n=108332.0,
             ),
+            SimpleNamespace(
+                load_case_key="moment_couple_arm_0p050m",
+                required_couple_force_n=216664.0,
+            ),
         ),
     )
 
@@ -540,7 +544,8 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
     assert "subcomponents missing=1" in by_key["root_joint"].current_evidence
     assert "design moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
-    assert "0.10 m couple force=108332.0000 N" in by_key["root_joint"].current_evidence
+    assert "max couple force=216664.0000 N" in by_key["root_joint"].current_evidence
+    assert "max couple case=moment_couple_arm_0p050m" in by_key["root_joint"].current_evidence
     assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
     assert "subcomponents missing=1" in by_key["wire_termination"].current_evidence

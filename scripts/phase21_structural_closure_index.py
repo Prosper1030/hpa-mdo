@@ -776,8 +776,7 @@ def _wire_attach_load_decomposition_summary(decomposition: Any) -> str:
 
 
 def _root_joint_load_envelope_summary(envelope: Any) -> str:
-    rows = {str(row.load_case_key): row for row in getattr(envelope, "rows", ())}
-    couple_010 = rows.get("moment_couple_arm_0p100m")
+    max_couple = _max_root_couple_row(tuple(getattr(envelope, "rows", ())))
     return (
         "overall="
         f"{getattr(envelope, 'overall_status', 'unknown')}; "
@@ -787,9 +786,29 @@ def _root_joint_load_envelope_summary(envelope: Any) -> str:
         f"{_fmt(getattr(envelope, 'design_root_bending_moment_n_m', None))} N*m; "
         "force-only misleading="
         f"{getattr(envelope, 'force_only_check_is_misleading', 'unknown')}; "
-        "0.10 m couple force="
-        f"{_fmt(getattr(couple_010, 'required_couple_force_n', None) if couple_010 is not None else None)} N."
+        "max couple force="
+        f"{_fmt(max_couple[0])} N; "
+        "max couple case="
+        f"{max_couple[1]}."
     )
+
+
+def _max_root_couple_row(rows: tuple[Any, ...]) -> tuple[float | None, str]:
+    values = [
+        (
+            _optional_float(getattr(row, "required_couple_force_n", None)),
+            str(getattr(row, "load_case_key", "unknown")),
+        )
+        for row in rows
+        if _optional_float(getattr(row, "required_couple_force_n", None)) is not None
+    ]
+    return max(values, key=lambda value: value[0] or float("-inf")) if values else (None, "n/a")
+
+
+def _optional_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    return float(value)
 
 
 def _wire_termination_efficiency_summary(sensitivity: Any) -> str:
