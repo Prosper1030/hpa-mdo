@@ -332,7 +332,8 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         "wire_attach_local_load_path"
     ].evidence
     assert "root design moment=10833.2000 N*m" in by_key["root_joint"].evidence
-    assert "root 0.10 m couple force=108332.0000 N" in by_key["root_joint"].evidence
+    assert "root max couple force=108332.0000 N" in by_key["root_joint"].evidence
+    assert "root max couple case=moment_couple_arm_0p100m" in by_key["root_joint"].evidence
     assert "force-only misleading=True" in by_key["root_joint"].evidence
     assert "termination eta 0.60 MBL=10000.0000 N" in by_key["wire_termination"].evidence
     assert "termination eta 0.80 MBL=7500.0000 N" in by_key["wire_termination"].evidence
@@ -462,6 +463,30 @@ def test_failure_mode_ordering_aggregates_duplicate_wire_attach_components() -> 
 
     assert "attach spanwise design=7200.0000 N" in evidence
     assert "attach transverse design=1800.0000 N" in evidence
+
+
+def test_failure_mode_ordering_reports_worst_root_couple_row() -> None:
+    envelope = SimpleNamespace(
+        overall_status="root_joint_load_envelope_defined_not_signoff",
+        design_root_force_n=18.3,
+        design_root_bending_moment_n_m=10000.0,
+        force_only_check_is_misleading=True,
+        rows=(
+            SimpleNamespace(
+                load_case_key="moment_couple_arm_0p100m",
+                required_couple_force_n=100000.0,
+            ),
+            SimpleNamespace(
+                load_case_key="moment_couple_arm_0p050m",
+                required_couple_force_n=200000.0,
+            ),
+        ),
+    )
+
+    evidence = phase25._root_joint_load_envelope_evidence(envelope)  # noqa: SLF001
+
+    assert "root max couple force=200000.0000 N" in evidence
+    assert "root max couple case=moment_couple_arm_0p050m" in evidence
 
 
 def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Path) -> None:
