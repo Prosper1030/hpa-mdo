@@ -13,6 +13,7 @@ from scripts.phase14_maclocal_fem_package import (
     B5ShellTorsionHardeningRow,
     ConstantTubeVerificationRow,
     Phase14ExpectedValue,
+    RouteRuntimeRow,
     TubeShellMeshSpec,
     _build_parser,
     build_structured_tube_shell_mesh,
@@ -25,6 +26,7 @@ from scripts.phase14_maclocal_fem_package import (
     tube_bending_uniform_load_delta,
     tip_torque_loads_for_ring,
     tube_torsion_theta,
+    write_runtime_audit_artifacts,
     write_apdl_windows_package,
     write_b5_shell_torsion_hardening_csv,
     write_b5_shell_torsion_hardening_markdown,
@@ -120,6 +122,127 @@ def test_build_parser_accepts_hardening_task() -> None:
     args = _build_parser().parse_args(["--task", "hardening"])
 
     assert args.task == "hardening"
+
+
+def test_build_parser_accepts_fidelity_ladder_task() -> None:
+    args = _build_parser().parse_args(["--task", "fidelity-ladder"])
+
+    assert args.task == "fidelity-ladder"
+
+
+def test_write_runtime_audit_artifacts(tmp_path: Path) -> None:
+    runtime_rows = [
+        RouteRuntimeRow(
+            route_id="beam_parity",
+            route_label="beam parity run",
+            runtime_s=2.9,
+            status="PASS",
+            output_artifact="beam/comparison_summary.md",
+            engineering_note="B1/B3 remain the daily beam gate.",
+        ),
+        RouteRuntimeRow(
+            route_id="structured_shell_constant",
+            route_label="structured shell constant tube run",
+            runtime_s=11.2,
+            status="WARN",
+            output_artifact="maclocal_fem_hardening/constant_tube_bending.csv",
+            engineering_note="Stable but warning-grade stiffness bias.",
+        ),
+    ]
+    bending_rows = [
+        ConstantTubeVerificationRow(
+            case_id="A1_constant_tube_tip_load",
+            mesh_id="fine",
+            n_span=96,
+            n_circumference=96,
+            element_count=9216,
+            load_or_torque=-80.0,
+            theory_value=-0.9825,
+            fem_value=-0.9113,
+            error_pct=7.25,
+            reaction_or_moment_residual=0.0,
+            mesh_delta_vs_previous_pct=0.12,
+            mesh_delta_vs_finest_pct=0.0,
+            max_von_mises_pa=1.98e8,
+            status="WARN",
+            engineering_note="outer-surface radius route",
+        )
+    ]
+    torsion_rows = [
+        ConstantTubeVerificationRow(
+            case_id="A3_constant_tube_tip_torque",
+            mesh_id="fine",
+            n_span=96,
+            n_circumference=96,
+            element_count=9216,
+            load_or_torque=100.0,
+            theory_value=0.04679,
+            fem_value=0.04341,
+            error_pct=7.24,
+            reaction_or_moment_residual=0.0,
+            mesh_delta_vs_previous_pct=0.18,
+            mesh_delta_vs_finest_pct=0.0,
+            max_von_mises_pa=2.09e7,
+            status="WARN",
+            engineering_note="outer-surface radius route",
+        )
+    ]
+    b2_rows = [
+        B2TaperedShellHardeningRow(
+            variant="structured_s4_root_ring_tributary_load",
+            mesh_id="b2_structured_s4_fine",
+            n_span=96,
+            n_circumference=96,
+            element_count=9216,
+            tip_uz_avg_m=-0.17179,
+            tip_uz_min_m=-0.17179,
+            tip_uz_max_m=-0.17179,
+            root_reaction_fz_n=80.0,
+            reaction_residual_n=0.0,
+            max_von_mises_pa=4.7e7,
+            error_vs_internal_pct=4.42,
+            error_vs_b32r_pipe_pct=7.07,
+            mesh_delta_vs_previous_pct=0.41,
+            mesh_delta_vs_finest_pct=0.0,
+            status="PASS",
+            engineering_note="structured S4 tapered route",
+        )
+    ]
+    b5_rows = [
+        B5ShellTorsionHardeningRow(
+            variant="structured_s4_end_ring_tangential_root_ring",
+            mesh_id="fine",
+            n_span=96,
+            n_circumference=96,
+            applied_torque_n_m=100.0,
+            recovered_torque_n_m=100.0,
+            theory_theta_rad=0.04679,
+            shell_theta_rad=0.04341,
+            theta_error_pct=7.24,
+            mesh_delta_vs_previous_pct=0.18,
+            max_von_mises_pa=2.09e7,
+            status="PASS",
+            engineering_note="structured S4 torsion route",
+        )
+    ]
+
+    artifacts = write_runtime_audit_artifacts(
+        tmp_path,
+        runtime_rows=runtime_rows,
+        bending_rows=bending_rows,
+        torsion_rows=torsion_rows,
+        b2_rows=b2_rows,
+        b5_rows=b5_rows,
+    )
+
+    csv_rows = list(csv.DictReader(artifacts["runtime_summary_csv"].read_text().splitlines()))
+    assert csv_rows[0]["route_id"] == "beam_parity"
+    assert csv_rows[1]["runtime_s"] == "11.2"
+    md_text = artifacts["current_route_audit_md"].read_text(encoding="utf-8")
+    assert "# Phase 14 Current FEM Route Audit" in md_text
+    assert "structured shell constant tube run" in md_text
+    assert "Constant tube shell bending" in md_text
+    assert "B2 structured S4 tapered" in md_text
 
 
 def test_write_constant_tube_artifacts_include_required_columns(tmp_path: Path) -> None:

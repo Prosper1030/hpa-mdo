@@ -9,6 +9,7 @@ import math
 from pathlib import Path
 import subprocess
 import sys
+import time
 from typing import Any, Iterable
 
 import numpy as np
@@ -186,6 +187,16 @@ class B2TaperedShellHardeningRow:
     mesh_delta_vs_previous_pct: float | None
     mesh_delta_vs_finest_pct: float | None
     status: str
+    engineering_note: str
+
+
+@dataclass(frozen=True)
+class RouteRuntimeRow:
+    route_id: str
+    route_label: str
+    runtime_s: float
+    status: str
+    output_artifact: str
     engineering_note: str
 
 
@@ -722,6 +733,133 @@ def run_phase14_maclocal_fem_hardening(
         "b2_tapered_shell_hardening_md": b2_md,
         "overnight_summary_md": overnight_md,
     }
+
+
+def run_phase14_maclocal_fem_fidelity_ladder(
+    *,
+    config_path: str | Path,
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    manifest_path: str | Path = DEFAULT_MANIFEST,
+) -> dict[str, Path]:
+    """Run the Phase 14 Mac-local FEM fidelity-ladder diagnostic workflow."""
+
+    config_path = Path(config_path).resolve()
+    manifest_path = Path(manifest_path).resolve()
+    cfg = phase14_bench.load_config(config_path)
+    output_root = Path(output_dir).resolve()
+    output_root.mkdir(parents=True, exist_ok=True)
+    fidelity_dir = output_root / "maclocal_fem_fidelity_ladder"
+    fidelity_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_rows = phase14_bench._load_manifest_rows(manifest_path)
+    cases = phase14_bench._build_benchmark_cases(cfg=cfg, manifest_rows=manifest_rows)
+    b2_case = next(case for case in cases if case.benchmark_id == "B2")
+    if not isinstance(b2_case.spec, SinglePipeCantileverSpec):
+        raise TypeError("Phase 14 fidelity ladder expects B2 to be a single pipe benchmark.")
+    material = b2_case.spec.material
+
+    runtime_rows: list[RouteRuntimeRow] = []
+    beam_output_dir = fidelity_dir / "_beam_parity_runtime"
+    beam_start = time.perf_counter()
+    beam_run = phase14_bench.run_phase14_calculix_beam_benchmarks(
+        config_path=config_path,
+        output_dir=beam_output_dir,
+        manifest_path=manifest_path,
+    )
+    runtime_rows.append(
+        RouteRuntimeRow(
+            route_id="beam_parity",
+            route_label="beam parity run",
+            runtime_s=time.perf_counter() - beam_start,
+            status="PASS" if any(result.status == "PASS" for result in beam_run.case_results) else "WARN",
+            output_artifact=str(beam_run.summary_md_path),
+            engineering_note="CalculiX B32R beam parity route; fastest Mac-local global bookkeeping gate.",
+        )
+    )
+
+    shell_work_dir = fidelity_dir / "_current_shell_runtime"
+    constant_start = time.perf_counter()
+    bending_rows = _run_constant_tube_bending_verification(
+        cfg=cfg,
+        hardening_dir=shell_work_dir,
+        material=material,
+    )
+    torsion_rows = _run_constant_tube_torsion_verification(
+        cfg=cfg,
+        hardening_dir=shell_work_dir,
+        material=material,
+    )
+    runtime_rows.append(
+        RouteRuntimeRow(
+            route_id="structured_shell_constant",
+            route_label="structured shell constant tube run",
+            runtime_s=time.perf_counter() - constant_start,
+            status=_aggregate_status([*bending_rows, *torsion_rows]),
+            output_artifact=str(shell_work_dir),
+            engineering_note=(
+                "Controlled S4 constant tube bending/torsion route; current outer-radius setup is stable "
+                "but carries the known stiffness bias."
+            ),
+        )
+    )
+
+    b5_start = time.perf_counter()
+    b5_rows = _run_b5_shell_torsion_hardening(
+        cfg=cfg,
+        hardening_dir=shell_work_dir,
+        material=material,
+        constant_torsion_rows=torsion_rows,
+    )
+    runtime_rows.append(
+        RouteRuntimeRow(
+            route_id="b5_shell_torsion",
+            route_label="B5 shell torsion run",
+            runtime_s=time.perf_counter() - b5_start,
+            status=_aggregate_status(b5_rows),
+            output_artifact=str(shell_work_dir / "_b5_legacy_gmsh_tri_runs"),
+            engineering_note="B5 shell torsion currently uses the structured S4 constant route plus legacy bad-baseline retention.",
+        )
+    )
+
+    b2_start = time.perf_counter()
+    b2_rows = _run_b2_tapered_shell_hardening(
+        cfg=cfg,
+        hardening_dir=shell_work_dir,
+        b2_spec=b2_case.spec,
+    )
+    runtime_rows.append(
+        RouteRuntimeRow(
+            route_id="b2_structured_shell",
+            route_label="B2 structured shell run",
+            runtime_s=time.perf_counter() - b2_start,
+            status=_aggregate_status(b2_rows),
+            output_artifact=str(shell_work_dir / "_b2_structured_s4_runs"),
+            engineering_note="B2 structured S4 tapered shell route remains diagnostic and does not alter production physics.",
+        )
+    )
+
+    artifacts = write_runtime_audit_artifacts(
+        fidelity_dir,
+        runtime_rows=runtime_rows,
+        bending_rows=bending_rows,
+        torsion_rows=torsion_rows,
+        b2_rows=b2_rows,
+        b5_rows=b5_rows,
+    )
+    return artifacts
+
+
+def _aggregate_status(rows: Iterable[Any]) -> str:
+    statuses = [str(getattr(row, "status", "")).upper() for row in rows]
+    if not statuses:
+        return "SKIP"
+    if any(status == "FAIL" for status in statuses):
+        return "FAIL"
+    if any(status == "WARN" for status in statuses):
+        return "WARN"
+    if any(status == "PASS" for status in statuses):
+        return "PASS"
+    return statuses[0] if statuses else "SKIP"
 
 
 def _constant_tube_mesh_specs() -> list[tuple[str, int, int]]:
@@ -2755,6 +2893,84 @@ def write_overnight_hardening_summary(
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_runtime_audit_artifacts(
+    output_dir: str | Path,
+    *,
+    runtime_rows: list[RouteRuntimeRow],
+    bending_rows: list[ConstantTubeVerificationRow],
+    torsion_rows: list[ConstantTubeVerificationRow],
+    b2_rows: list[B2TaperedShellHardeningRow],
+    b5_rows: list[B5ShellTorsionHardeningRow],
+) -> dict[str, Path]:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    runtime_csv = out / "runtime_summary.csv"
+    audit_md = out / "current_route_audit.md"
+    _write_dataclass_csv(runtime_csv, runtime_rows, RouteRuntimeRow)
+
+    tip = _finest_constant_row(bending_rows, "A1_constant_tube_tip_load")
+    uniform = _finest_constant_row(bending_rows, "A2_constant_tube_uniform_load")
+    torsion = _finest_constant_row(torsion_rows, "A3_constant_tube_tip_torque")
+    b2_best = _best_b2_hardening_row(b2_rows)
+    b5_best = _best_b5_hardening_row(b5_rows)
+    lines = [
+        "# Phase 14 Current FEM Route Audit",
+        "",
+        "Validation tooling only. This audit records runtime and current Mac-local structural-FEM evidence without changing aerodynamic ranking, hard gates, dual_beam_production physics, or calibration factors.",
+        "",
+        "## Runtime Summary",
+        "",
+        "| route_id | route_label | runtime_s | status | engineering_note |",
+        "| --- | --- | ---: | --- | --- |",
+    ]
+    for row in runtime_rows:
+        lines.append(
+            "| "
+            f"{row.route_id} | {row.route_label} | {row.runtime_s:.3f} | {row.status} | {row.engineering_note} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Current Engineering Readout",
+            "",
+            f"- Constant tube shell bending, tip load: {_constant_answer(tip)}.",
+            f"- Constant tube shell bending, uniform load: {_constant_answer(uniform)}.",
+            f"- Constant tube shell torsion: {_constant_answer(torsion)}.",
+        ]
+    )
+    if b5_best is not None:
+        lines.append(
+            f"- B5 shell torsion: `{b5_best.variant}` / `{b5_best.mesh_id}` theta "
+            f"{_fmt(b5_best.shell_theta_rad)} rad vs theory {_fmt(b5_best.theory_theta_rad)} rad "
+            f"(error {_fmt(b5_best.theta_error_pct)}%)."
+        )
+    else:
+        lines.append("- B5 shell torsion: no usable theta row.")
+    if b2_best is not None:
+        lines.append(
+            f"- B2 structured S4 tapered: `{b2_best.variant}` / `{b2_best.mesh_id}` tip UZ "
+            f"{_fmt(b2_best.tip_uz_avg_m)} m, error vs internal {_fmt(b2_best.error_vs_internal_pct)}%, "
+            f"error vs B32R {_fmt(b2_best.error_vs_b32r_pipe_pct)}%."
+        )
+    else:
+        lines.append("- B2 structured S4 tapered: no usable row.")
+    lines.extend(
+        [
+            "",
+            "## Audit Judgment",
+            "",
+            "- Beam parity is the fastest Mac-local global bookkeeping route.",
+            "- The current structured shell route is stable enough to diagnose, but the constant-tube bias blocks calling it external truth.",
+            "- APDL package files are user-owned handoff artifacts; this audit does not restore, delete, or stage them.",
+        ]
+    )
+    audit_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "runtime_summary_csv": runtime_csv,
+        "current_route_audit_md": audit_md,
+    }
+
+
 def _finest_constant_row(
     rows: list[ConstantTubeVerificationRow],
     case_id: str,
@@ -2926,9 +3142,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST))
     parser.add_argument(
         "--task",
-        choices=("package", "hardening"),
+        choices=("package", "hardening", "fidelity-ladder"),
         default="package",
-        help="Run the original APDL handoff package route or the Mac-local FEM hardening workflow.",
+        help="Run the original APDL handoff package route, hardening workflow, or fidelity ladder.",
     )
     return parser
 
@@ -2937,6 +3153,12 @@ def main() -> None:
     args = _build_parser().parse_args()
     if args.task == "hardening":
         artifacts = run_phase14_maclocal_fem_hardening(
+            config_path=args.config,
+            output_dir=args.output_dir,
+            manifest_path=args.manifest,
+        )
+    elif args.task == "fidelity-ladder":
+        artifacts = run_phase14_maclocal_fem_fidelity_ladder(
             config_path=args.config,
             output_dir=args.output_dir,
             manifest_path=args.manifest,
