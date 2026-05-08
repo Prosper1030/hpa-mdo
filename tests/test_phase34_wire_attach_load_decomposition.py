@@ -21,25 +21,62 @@ def _wire_rigging() -> list[dict[str, object]]:
     ]
 
 
+def _wire_rigging_with_eccentricity() -> list[dict[str, object]]:
+    rows = _wire_rigging()
+    rows[0].update(
+        {
+            "attach_eccentricity_x_m": 0.1,
+            "attach_eccentricity_y_m": 0.0,
+            "attach_eccentricity_z_m": 0.0,
+        }
+    )
+    return rows
+
+
 def test_wire_attach_decomposition_turns_vector_into_component_design_loads() -> None:
+    decomposition = build_wire_attach_load_decomposition(
+        "sample",
+        wire_rigging=_wire_rigging_with_eccentricity(),
+        detail_safety_factor=2.0,
+    )
+
+    assert decomposition.overall_status == (
+        "wire_attach_force_and_local_moment_defined_not_signoff"
+    )
+    assert decomposition.max_resultant_service_load_n == pytest.approx(10.0)
+    assert decomposition.max_resultant_design_load_n == pytest.approx(20.0)
+    assert decomposition.max_resultant_design_local_moment_n_m == pytest.approx(2.0)
+    by_component = {row.component_key: row for row in decomposition.rows}
+    assert by_component["resultant_xyz"].service_load_n == pytest.approx(10.0)
+    assert by_component["spanwise_y"].service_load_n == pytest.approx(6.0)
+    assert by_component["vertical_z"].design_load_n == pytest.approx(16.0)
+    assert by_component["transverse_xz"].service_load_n == pytest.approx(8.0)
+    assert by_component["spanwise_y"].status == (
+        "force_and_local_moment_defined_not_local_signoff"
+    )
+    assert by_component["spanwise_y"].service_local_moment_n_m == pytest.approx(1.0)
+    assert by_component["spanwise_y"].design_local_moment_n_m == pytest.approx(2.0)
+    assert by_component["transverse_xz"].applicable_subcomponents == (
+        "attach_ring_or_lug;insert_pullout_bearing;local_tube_wall_crushing;bonded_load_path"
+    )
+    assert "not local FEM signoff" in by_component["spanwise_y"].engineering_note
+
+
+def test_wire_attach_decomposition_marks_missing_eccentricity_as_force_only() -> None:
     decomposition = build_wire_attach_load_decomposition(
         "sample",
         wire_rigging=_wire_rigging(),
         detail_safety_factor=2.0,
     )
 
-    assert decomposition.overall_status == "wire_attach_load_components_defined_not_signoff"
-    assert decomposition.max_resultant_service_load_n == pytest.approx(10.0)
-    assert decomposition.max_resultant_design_load_n == pytest.approx(20.0)
-    by_component = {row.component_key: row for row in decomposition.rows}
-    assert by_component["resultant_xyz"].service_load_n == pytest.approx(10.0)
-    assert by_component["spanwise_y"].service_load_n == pytest.approx(6.0)
-    assert by_component["vertical_z"].design_load_n == pytest.approx(16.0)
-    assert by_component["transverse_xz"].service_load_n == pytest.approx(8.0)
-    assert by_component["transverse_xz"].applicable_subcomponents == (
-        "attach_ring_or_lug;insert_pullout_bearing;local_tube_wall_crushing;bonded_load_path"
+    assert decomposition.overall_status == (
+        "wire_attach_force_components_only_local_moment_missing"
     )
-    assert "not local FEM signoff" in by_component["spanwise_y"].engineering_note
+    assert decomposition.max_resultant_design_local_moment_n_m is None
+    assert {row.status for row in decomposition.rows} == {
+        "force_components_only_local_moment_missing"
+    }
+    assert all(row.design_local_moment_n_m is None for row in decomposition.rows)
 
 
 def test_wire_attach_decomposition_rejects_empty_or_invalid_inputs() -> None:
@@ -67,6 +104,7 @@ def test_write_wire_attach_decomposition_package_creates_reports(tmp_path: Path)
         "wire_attach_load_decomposition.md",
     }
     report = (tmp_path / "wire_attach_load_decomposition.md").read_text(encoding="utf-8")
-    assert "wire_attach_load_components_defined_not_signoff" in report
+    assert "wire_attach_force_components_only_local_moment_missing" in report
+    assert "local moment" in report
     assert "transverse_xz" in report
     assert "not local FEM signoff" in report

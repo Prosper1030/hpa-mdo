@@ -36,6 +36,11 @@ class WireAttachLoadComponentRow:
     status: str
     service_load_n: float
     design_load_n: float
+    attach_eccentricity_x_m: float | None
+    attach_eccentricity_y_m: float | None
+    attach_eccentricity_z_m: float | None
+    service_local_moment_n_m: float | None
+    design_local_moment_n_m: float | None
     force_x_n: float
     force_y_n: float
     force_z_n: float
@@ -53,6 +58,7 @@ class WireAttachLoadDecomposition:
     max_resultant_wire_identifier: str
     max_resultant_service_load_n: float
     max_resultant_design_load_n: float
+    max_resultant_design_local_moment_n_m: float | None
     rows: tuple[WireAttachLoadComponentRow, ...]
 
 
@@ -79,13 +85,29 @@ def build_wire_attach_load_decomposition(
         (row for row in rows if row.component_key == "resultant_xyz"),
         key=lambda row: row.service_load_n,
     )
+    local_moment_values = [
+        row.design_local_moment_n_m
+        for row in rows
+        if row.component_key == "resultant_xyz"
+        and row.design_local_moment_n_m is not None
+    ]
+    all_local_moments_defined = rows and all(
+        row.design_local_moment_n_m is not None for row in rows
+    )
     return WireAttachLoadDecomposition(
         candidate_id=str(candidate_id),
-        overall_status="wire_attach_load_components_defined_not_signoff",
+        overall_status=(
+            "wire_attach_force_and_local_moment_defined_not_signoff"
+            if all_local_moments_defined
+            else "wire_attach_force_components_only_local_moment_missing"
+        ),
         detail_safety_factor=float(detail_safety_factor),
         max_resultant_wire_identifier=max_resultant.wire_identifier,
         max_resultant_service_load_n=float(max_resultant.service_load_n),
         max_resultant_design_load_n=float(max_resultant.design_load_n),
+        max_resultant_design_local_moment_n_m=(
+            max(local_moment_values) if local_moment_values else None
+        ),
         rows=rows,
     )
 
@@ -128,6 +150,22 @@ def _component_rows(
     resultant = math.sqrt(fx * fx + fy * fy + fz * fz)
     transverse = math.sqrt(fx * fx + fz * fz)
     wire_id = str(rigging_row.get("identifier", "wire"))
+    eccentricity = _attach_eccentricity_vector_m(rigging_row)
+    service_local_moment = (
+        None
+        if eccentricity is None
+        else _local_moment_resultant_n_m(eccentricity, (fx, fy, fz))
+    )
+    design_local_moment = (
+        None
+        if service_local_moment is None
+        else float(service_local_moment) * float(detail_safety_factor)
+    )
+    status = (
+        "force_components_only_local_moment_missing"
+        if eccentricity is None
+        else "force_and_local_moment_defined_not_local_signoff"
+    )
     components = (
         (
             "resultant_xyz",
@@ -164,9 +202,14 @@ def _component_rows(
         WireAttachLoadComponentRow(
             wire_identifier=wire_id,
             component_key=component_key,
-            status="component_load_defined_not_local_signoff",
+            status=status,
             service_load_n=float(service_load),
             design_load_n=float(service_load) * float(detail_safety_factor),
+            attach_eccentricity_x_m=None if eccentricity is None else eccentricity[0],
+            attach_eccentricity_y_m=None if eccentricity is None else eccentricity[1],
+            attach_eccentricity_z_m=None if eccentricity is None else eccentricity[2],
+            service_local_moment_n_m=service_local_moment,
+            design_local_moment_n_m=design_local_moment,
             force_x_n=fx,
             force_y_n=fy,
             force_z_n=fz,
@@ -175,11 +218,40 @@ def _component_rows(
             engineering_role=engineering_role,
             engineering_note=(
                 "Load component for local-detail sizing only; not local FEM signoff and not a "
-                "substitute for ring, bond, insert, bearing, tube-wall, fatigue, or installation evidence."
+                "substitute for ring, bond, insert, bearing, tube-wall, fatigue, or installation evidence. "
+                "Attach eccentricity is required to avoid force-only local moment screening."
             ),
         )
         for component_key, service_load, applicable_subcomponents, engineering_role in components
     )
+
+
+def _attach_eccentricity_vector_m(
+    rigging_row: dict[str, object],
+) -> tuple[float, float, float] | None:
+    vector = rigging_row.get("attach_eccentricity_m")
+    if isinstance(vector, (list, tuple)) and len(vector) == 3:
+        return (float(vector[0]), float(vector[1]), float(vector[2]))
+    values = (
+        _dict_float(rigging_row, "attach_eccentricity_x_m"),
+        _dict_float(rigging_row, "attach_eccentricity_y_m"),
+        _dict_float(rigging_row, "attach_eccentricity_z_m"),
+    )
+    if any(value is None for value in values):
+        return None
+    return (float(values[0]), float(values[1]), float(values[2]))
+
+
+def _local_moment_resultant_n_m(
+    eccentricity_m: tuple[float, float, float],
+    force_n: tuple[float, float, float],
+) -> float:
+    ex, ey, ez = eccentricity_m
+    fx, fy, fz = force_n
+    moment_x = ey * fz - ez * fy
+    moment_y = ez * fx - ex * fz
+    moment_z = ex * fy - ey * fx
+    return math.sqrt(moment_x * moment_x + moment_y * moment_y + moment_z * moment_z)
 
 
 def _write_csv(path: Path, decomposition: WireAttachLoadDecomposition) -> Path:
@@ -213,14 +285,17 @@ def _write_markdown(path: Path, decomposition: WireAttachLoadDecomposition) -> P
         f"- max resultant wire: `{decomposition.max_resultant_wire_identifier}`",
         f"- max resultant service load: `{decomposition.max_resultant_service_load_n:.3f} N`",
         f"- max resultant design load: `{decomposition.max_resultant_design_load_n:.3f} N`",
+        f"- max resultant design local moment: `{_fmt(decomposition.max_resultant_design_local_moment_n_m)} N*m`",
         "",
-        "| wire | component | status | service N | design N | applicable subcomponents | role |",
-        "|---|---|---|---:|---:|---|---|",
+        "| wire | component | status | service N | design N | design local moment N*m | ecc x/y/z m | applicable subcomponents | role |",
+        "|---|---|---|---:|---:|---:|---|---|---|",
     ]
     for row in decomposition.rows:
         lines.append(
             f"| {row.wire_identifier} | `{row.component_key}` | `{row.status}` | "
             f"{row.service_load_n:.3f} | {row.design_load_n:.3f} | "
+            f"{_fmt(row.design_local_moment_n_m)} | "
+            f"{_fmt(row.attach_eccentricity_x_m)}/{_fmt(row.attach_eccentricity_y_m)}/{_fmt(row.attach_eccentricity_z_m)} | "
             f"{row.applicable_subcomponents} | {row.engineering_role} |"
         )
     lines.extend(
@@ -229,6 +304,7 @@ def _write_markdown(path: Path, decomposition: WireAttachLoadDecomposition) -> P
             "## Boundary",
             "",
             "- Treat global Y as the spanwise spar direction for this decomposition.",
+            "- Missing attach eccentricity means this is still a force-only local-detail screen.",
             "- Use these components to size or FEM the attach ring, bond, insert, bearing, and local tube wall.",
             "- The component loads do not prove stress concentration, bond peel, fatigue, or manufacturing margins.",
             "",
@@ -236,6 +312,17 @@ def _write_markdown(path: Path, decomposition: WireAttachLoadDecomposition) -> P
     )
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
+
+
+def _fmt(value: float | None) -> str:
+    return "n/a" if value is None else f"{float(value):.3f}"
+
+
+def _dict_float(row: dict[str, object], name: str) -> float | None:
+    value = row.get(name)
+    if value is None or value == "":
+        return None
+    return float(value)
 
 
 def main(argv: list[str] | None = None) -> int:
