@@ -253,6 +253,28 @@ def _local_detail_subcomponent_check() -> SimpleNamespace:
     )
 
 
+def _wire_attach_load_decomposition() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="wire_attach_load_components_defined_not_signoff",
+        max_resultant_service_load_n=3024.0,
+        max_resultant_design_load_n=6048.0,
+        rows=(
+            SimpleNamespace(
+                wire_identifier="wire-1",
+                component_key="spanwise_y",
+                service_load_n=2919.6,
+                design_load_n=5839.2,
+            ),
+            SimpleNamespace(
+                wire_identifier="wire-1",
+                component_key="transverse_xz",
+                service_load_n=788.1,
+                design_load_n=1576.2,
+            ),
+        ),
+    )
+
+
 def _rib_spacing_requirements() -> SimpleNamespace:
     return SimpleNamespace(
         current_max_bay_m=3.86,
@@ -353,6 +375,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
+        wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
@@ -374,6 +397,13 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "required load=6048.2000 N" in by_key["wire_attach_local_load_path"].current_evidence
     assert "hardware status=hardware_allowable_missing" in by_key["wire_attach_local_load_path"].current_evidence
     assert "subcomponents missing=1" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "Phase34" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "spanwise design=5839.2000 N" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "transverse design=1576.2000 N" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
@@ -425,6 +455,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
+        wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),

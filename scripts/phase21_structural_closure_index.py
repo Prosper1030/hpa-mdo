@@ -66,6 +66,9 @@ from scripts.phase32_rear_spar_rib_bracing_diagnostic import (  # noqa: E402
 from scripts.phase33_local_detail_subcomponent_margins import (  # noqa: E402
     build_local_detail_subcomponent_margin_check,
 )
+from scripts.phase34_wire_attach_load_decomposition import (  # noqa: E402
+    build_wire_attach_load_decomposition,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -101,6 +104,7 @@ def build_structural_closure_index(
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     local_detail_subcomponent_check: Any | None = None,
+    wire_attach_load_decomposition: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -125,6 +129,7 @@ def build_structural_closure_index(
             detail_requirements=detail_requirements,
             detail_margin_check=detail_margin_check,
             local_detail_subcomponent_check=local_detail_subcomponent_check,
+            wire_attach_load_decomposition=wire_attach_load_decomposition,
             rib_spacing_requirements=rib_spacing_requirements,
             rib_bracing_margin_check=rib_bracing_margin_check,
             torsion_twist_closure_check=torsion_twist_closure_check,
@@ -157,6 +162,7 @@ def write_structural_closure_index_package(
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     local_detail_subcomponent_check: Any | None = None,
+    wire_attach_load_decomposition: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -174,6 +180,7 @@ def write_structural_closure_index_package(
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -215,6 +222,10 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         detail_requirements,
         subcomponent_allowables=[],
     )
+    wire_attach_load_decomposition = build_wire_attach_load_decomposition(
+        reference.candidate_id,
+        wire_rigging=load_current_wire_rigging(),
+    )
     rib_spacing_requirements = build_rib_spacing_requirements(
         reference.candidate_id,
         spar_rows=load_current_spar_rows(),
@@ -254,6 +265,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -276,6 +288,7 @@ def _build_item(
     detail_requirements: Any | None,
     detail_margin_check: Any | None,
     local_detail_subcomponent_check: Any | None,
+    wire_attach_load_decomposition: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -294,6 +307,7 @@ def _build_item(
         detail_entry,
         detail_margin_entry,
         local_detail_subcomponent_check,
+        wire_attach_load_decomposition,
         rib_spacing_requirements,
         rib_bracing_margin_check,
         torsion_twist_closure_check,
@@ -314,6 +328,7 @@ def _build_item(
         detail_entry=detail_entry,
         detail_margin_entry=detail_margin_entry,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -364,6 +379,7 @@ def _evidence_artifacts(
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
     local_detail_subcomponent_check: Any | None,
+    wire_attach_load_decomposition: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -395,6 +411,8 @@ def _evidence_artifacts(
         "wire_termination",
     }:
         artifacts.append("Phase33 local_detail_subcomponent_margins")
+    if wire_attach_load_decomposition is not None and key == "wire_attach_local_load_path":
+        artifacts.append("Phase34 wire_attach_load_decomposition")
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -429,6 +447,7 @@ def _evidence_for_key(
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
     local_detail_subcomponent_check: Any | None,
+    wire_attach_load_decomposition: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -501,6 +520,8 @@ def _evidence_for_key(
         parts.append(
             f"Phase33: {_local_detail_subcomponent_summary(key, local_detail_subcomponent_check)}"
         )
+    if wire_attach_load_decomposition is not None and key == "wire_attach_local_load_path":
+        parts.append(f"Phase34: {_wire_attach_load_decomposition_summary(wire_attach_load_decomposition)}")
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -609,6 +630,25 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
         f"{positive}; "
         "worst margin="
         f"{_fmt(min(worst_values) if worst_values else None)}."
+    )
+
+
+def _wire_attach_load_decomposition_summary(decomposition: Any) -> str:
+    rows = {str(row.component_key): row for row in getattr(decomposition, "rows", ())}
+    spanwise = rows.get("spanwise_y")
+    transverse = rows.get("transverse_xz")
+    vertical = rows.get("vertical_z")
+    return (
+        "overall="
+        f"{getattr(decomposition, 'overall_status', 'unknown')}; "
+        "max resultant design="
+        f"{_fmt(getattr(decomposition, 'max_resultant_design_load_n', None))} N; "
+        "spanwise design="
+        f"{_fmt(getattr(spanwise, 'design_load_n', None) if spanwise is not None else None)} N; "
+        "transverse design="
+        f"{_fmt(getattr(transverse, 'design_load_n', None) if transverse is not None else None)} N; "
+        "vertical design="
+        f"{_fmt(getattr(vertical, 'design_load_n', None) if vertical is not None else None)} N."
     )
 
 
