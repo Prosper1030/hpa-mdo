@@ -60,7 +60,7 @@ def _audit() -> SimpleNamespace:
 def test_rear_spar_rib_bracing_diagnostic_extracts_engineering_signals_without_signoff() -> None:
     diagnostic = build_rear_spar_rib_bracing_diagnostic(_audit())
 
-    assert diagnostic.overall_status == "bracing_effective_but_not_signed_off"
+    assert diagnostic.overall_status == "bracing_sensitivity_present_not_signoff"
     by_key = {row.key: row for row in diagnostic.rows}
     assert by_key["rear_spar_stiffness"].status == "strong_model_sensitivity_not_signoff"
     assert by_key["rear_spar_stiffness"].tip_delta_pct == pytest.approx(292.6)
@@ -69,6 +69,18 @@ def test_rear_spar_rib_bracing_diagnostic_extracts_engineering_signals_without_s
     assert by_key["rib_load_transfer"].status == "surrogate_load_transfer_not_signoff"
     assert by_key["rib_load_transfer"].link_force_max_n == pytest.approx(934.5)
     assert "finite-rib surrogate" in by_key["rib_load_transfer"].engineering_read
+
+
+def test_rear_spar_rib_bracing_diagnostic_does_not_claim_effective_when_variants_missing() -> None:
+    diagnostic = build_rear_spar_rib_bracing_diagnostic(
+        SimpleNamespace(candidate_id="sample", rows=())
+    )
+
+    assert diagnostic.overall_status == "bracing_sensitivity_missing_not_signed_off"
+    assert {row.status for row in diagnostic.rows} == {
+        "model_sensitivity_weak_or_missing",
+        "surrogate_load_transfer_missing",
+    }
 
 
 def test_write_rear_spar_rib_bracing_diagnostic_package_creates_handoff_files(tmp_path: Path) -> None:
@@ -83,6 +95,6 @@ def test_write_rear_spar_rib_bracing_diagnostic_package_creates_handoff_files(tm
         "rear_spar_rib_bracing_diagnostic.md",
     }
     report = (tmp_path / "rear_spar_rib_bracing_diagnostic.md").read_text(encoding="utf-8")
-    assert "bracing_effective_but_not_signed_off" in report
+    assert "bracing_sensitivity_present_not_signoff" in report
     assert "internal model bias" in report
     assert "not a full-wing FEM signoff" in report

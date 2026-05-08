@@ -59,9 +59,19 @@ def build_rear_spar_rib_bracing_diagnostic(
     )
     return RearSparRibBracingDiagnostic(
         candidate_id=str(bracing_audit.candidate_id),
-        overall_status="bracing_effective_but_not_signed_off",
+        overall_status=_overall_status(rows),
         rows=rows,
     )
+
+
+def _overall_status(rows: tuple[RearSparRibBracingDiagnosticRow, ...]) -> str:
+    if any(
+        row.status
+        in {"model_sensitivity_weak_or_missing", "surrogate_load_transfer_missing"}
+        for row in rows
+    ):
+        return "bracing_sensitivity_missing_not_signed_off"
+    return "bracing_sensitivity_present_not_signoff"
 
 
 def write_rear_spar_rib_bracing_diagnostic_package(
