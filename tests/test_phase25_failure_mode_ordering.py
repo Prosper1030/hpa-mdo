@@ -59,11 +59,80 @@ def _rib_spacing_requirements() -> SimpleNamespace:
     )
 
 
+def _detail_margin_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        rows=(
+            SimpleNamespace(
+                key="wire_attach_local_load_path",
+                status="hardware_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                key="root_joint",
+                status="hardware_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                key="wire_termination",
+                status="hardware_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+        )
+    )
+
+
+def _rib_bracing_margin_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        required_link_force_n=934.5,
+        rows=(
+            SimpleNamespace(status="rib_allowable_missing"),
+            SimpleNamespace(status="rib_allowable_missing"),
+        ),
+    )
+
+
+def _torsion_twist_closure_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="torsion_twist_closure_not_closed",
+        rows=(SimpleNamespace(status="closure_input_missing"),),
+    )
+
+
+def _full_wing_buckling_closure_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="full_wing_global_buckling_not_closed",
+        rows=(SimpleNamespace(status="closure_input_missing"),),
+    )
+
+
+def _tip_deflection_revalidation_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="tip_deflection_current_submission_gate_retained",
+        rows=(
+            SimpleNamespace(
+                status="current_submission_gate_retained",
+                proposed_raw_tip_limit_m=2.5,
+            ),
+        ),
+    )
+
+
 def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_hardware_modes() -> None:
     ordering = build_failure_mode_ordering(
         _claim_review(),
         detail_requirements=_detail_requirements(),
         rib_spacing_requirements=_rib_spacing_requirements(),
+        detail_margin_check=_detail_margin_check(),
+        rib_bracing_margin_check=_rib_bracing_margin_check(),
+        torsion_twist_closure_check=_torsion_twist_closure_check(),
+        full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
     )
 
     assert ordering.overall_status == "true_failure_order_not_closed"
@@ -76,8 +145,13 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert by_key["wire_termination"].order_bucket == "unranked_real_structure_mode"
     assert by_key["wire_termination"].required_minimum_breaking_load_n == pytest.approx(10000.0)
     assert by_key["wire_termination"].body_allowable_margin_n == pytest.approx(-1000.0)
+    assert "hardware status=hardware_allowable_missing" in by_key["wire_attach_local_load_path"].evidence
+    assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].evidence
     assert "added stations=53" in by_key["rib_load_transfer"].evidence
+    assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
+    assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].evidence
     assert by_key["full_wing_global_buckling"].load_factor is None
+    assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].evidence
 
 
 def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Path) -> None:
@@ -86,6 +160,11 @@ def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Pat
         _claim_review(),
         detail_requirements=_detail_requirements(),
         rib_spacing_requirements=_rib_spacing_requirements(),
+        detail_margin_check=_detail_margin_check(),
+        rib_bracing_margin_check=_rib_bracing_margin_check(),
+        torsion_twist_closure_check=_torsion_twist_closure_check(),
+        full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
     )
 
     assert {path.name for path in outputs} == {
@@ -97,6 +176,7 @@ def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Pat
     assert "true failure order is not closed" in report
     assert "Ranked Internal Modes" in report
     assert "Unranked Real-Structure Modes" in report
+    assert "gate status=current_submission_gate_retained" in report
 
 
 def test_main_creates_requested_output_directory_before_writing(
@@ -110,6 +190,11 @@ def test_main_creates_requested_output_directory_before_writing(
             _claim_review(),
             detail_requirements=_detail_requirements(),
             rib_spacing_requirements=_rib_spacing_requirements(),
+            detail_margin_check=_detail_margin_check(),
+            rib_bracing_margin_check=_rib_bracing_margin_check(),
+            torsion_twist_closure_check=_torsion_twist_closure_check(),
+            full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+            tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         ),
     )
     out_dir = tmp_path / "nested" / "phase25"

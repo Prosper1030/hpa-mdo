@@ -31,6 +31,25 @@ from scripts.phase23_detail_sizing_requirements import (  # noqa: E402
 from scripts.phase24_rib_spacing_requirements import (  # noqa: E402
     build_rib_spacing_requirements,
 )
+from scripts.phase27_detail_margin_inputs import (  # noqa: E402
+    build_detail_margin_check,
+)
+from scripts.phase28_rib_bracing_margin_inputs import (  # noqa: E402
+    build_rib_bracing_margin_check,
+)
+from scripts.phase29_torsion_twist_closure_inputs import (  # noqa: E402
+    build_current_torsion_twist_closure_check,
+)
+from scripts.phase30_full_wing_buckling_closure_inputs import (  # noqa: E402
+    build_current_full_wing_buckling_closure_check,
+)
+from scripts.phase31_tip_deflection_revalidation_inputs import (  # noqa: E402
+    build_tip_deflection_revalidation_check,
+)
+from scripts.phase22_bracing_sensitivity import (  # noqa: E402
+    build_bracing_sensitivity_audit,
+    build_current_candidate_model,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase25_failure_mode_ordering"
@@ -68,11 +87,23 @@ def build_failure_mode_ordering(
     *,
     detail_requirements: Any | None = None,
     rib_spacing_requirements: Any | None = None,
+    detail_margin_check: Any | None = None,
+    rib_bracing_margin_check: Any | None = None,
+    torsion_twist_closure_check: Any | None = None,
+    full_wing_buckling_closure_check: Any | None = None,
+    tip_deflection_revalidation_check: Any | None = None,
 ) -> FailureModeOrdering:
-    ranked = _ranked_internal_rows(claim_review)
+    ranked = _ranked_internal_rows(
+        claim_review,
+        tip_deflection_revalidation_check=tip_deflection_revalidation_check,
+    )
     unranked = _unranked_real_structure_rows(
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
+        detail_margin_check=detail_margin_check,
+        rib_bracing_margin_check=rib_bracing_margin_check,
+        torsion_twist_closure_check=torsion_twist_closure_check,
+        full_wing_buckling_closure_check=full_wing_buckling_closure_check,
     )
     rows = (*ranked, *unranked)
     return FailureModeOrdering(
@@ -95,12 +126,22 @@ def write_failure_mode_ordering_package(
     *,
     detail_requirements: Any | None = None,
     rib_spacing_requirements: Any | None = None,
+    detail_margin_check: Any | None = None,
+    rib_bracing_margin_check: Any | None = None,
+    torsion_twist_closure_check: Any | None = None,
+    full_wing_buckling_closure_check: Any | None = None,
+    tip_deflection_revalidation_check: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     ordering = build_failure_mode_ordering(
         claim_review,
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
+        detail_margin_check=detail_margin_check,
+        rib_bracing_margin_check=rib_bracing_margin_check,
+        torsion_twist_closure_check=torsion_twist_closure_check,
+        full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+        tip_deflection_revalidation_check=tip_deflection_revalidation_check,
     )
     outputs = [
         _write_csv(out_dir / "failure_mode_ordering.csv", ordering),
@@ -124,14 +165,34 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         spar_rows=load_current_spar_rows(),
         wire_rigging=load_current_wire_rigging(),
     )
+    candidate_model = build_current_candidate_model()
+    bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
+    detail_margin_check = build_detail_margin_check(detail_requirements, hardware_allowables=[])
+    rib_bracing_margin_check = build_rib_bracing_margin_check(
+        rib_spacing_requirements,
+        bracing_audit,
+        rib_allowables=[],
+    )
     return build_failure_mode_ordering(
         claim_review,
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
+        detail_margin_check=detail_margin_check,
+        rib_bracing_margin_check=rib_bracing_margin_check,
+        torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
+        full_wing_buckling_closure_check=build_current_full_wing_buckling_closure_check(),
+        tip_deflection_revalidation_check=build_tip_deflection_revalidation_check(
+            reference,
+            revalidation_inputs=[],
+        ),
     )
 
 
-def _ranked_internal_rows(claim_review: Any) -> tuple[FailureModeOrderingRow, ...]:
+def _ranked_internal_rows(
+    claim_review: Any,
+    *,
+    tip_deflection_revalidation_check: Any | None,
+) -> tuple[FailureModeOrderingRow, ...]:
     raw = (
         _row(
             mode_key="wire_tension_body_allowable_current",
@@ -156,6 +217,7 @@ def _ranked_internal_rows(claim_review: Any) -> tuple[FailureModeOrderingRow, ..
             evidence=(
                 "tip-deflection gate factor="
                 f"{_fmt(_float_or_none(claim_review.tip_deflection_limit_load_factor))}"
+                f"; {_tip_gate_evidence(tip_deflection_revalidation_check)}"
             ),
             next_evidence="Keep as submission validity gate unless an aeroelastic/clearance requirement changes.",
         ),
@@ -192,8 +254,13 @@ def _unranked_real_structure_rows(
     *,
     detail_requirements: Any | None,
     rib_spacing_requirements: Any | None,
+    detail_margin_check: Any | None,
+    rib_bracing_margin_check: Any | None,
+    torsion_twist_closure_check: Any | None,
+    full_wing_buckling_closure_check: Any | None,
 ) -> tuple[FailureModeOrderingRow, ...]:
     details = _detail_entries(detail_requirements)
+    detail_margins = _detail_entries(detail_margin_check)
     wire_attach = details.get("wire_attach_local_load_path")
     root_joint = details.get("root_joint")
     wire_termination = details.get("wire_termination")
@@ -202,18 +269,21 @@ def _unranked_real_structure_rows(
             "wire_attach_local_load_path",
             "Wire attach local load path",
             wire_attach,
+            detail_margin=detail_margins.get("wire_attach_local_load_path"),
             next_evidence="Local lug/ring/insert/bond/tube-wall bearing and crushing margins.",
         ),
         _detail_row(
             "root_joint",
             "Root fitting / clamp / bonded insert",
             root_joint,
+            detail_margin=detail_margins.get("root_joint"),
             next_evidence="Root fitting, clamp, bonded insert, bearing, and tube-wall load-introduction margins.",
         ),
         _detail_row(
             "wire_termination",
             "Wire termination / end fitting",
             wire_termination,
+            detail_margin=detail_margins.get("wire_termination"),
             next_evidence="Selected termination hardware/process with efficiency, bend, anchor, and creep/abrasion reductions.",
         ),
         _row(
@@ -223,7 +293,10 @@ def _unranked_real_structure_rows(
             load_factor=None,
             status="unranked_stiffness_and_allowable_missing",
             basis="layout and surrogate link evidence only; no rib hardware allowable",
-            evidence=_rib_spacing_evidence(rib_spacing_requirements),
+            evidence=(
+                f"{_rib_spacing_evidence(rib_spacing_requirements)} "
+                f"{_rib_bracing_margin_evidence(rib_bracing_margin_check)}"
+            ),
             next_evidence="Finite-stiffness rib/link model plus rib shear, cap, bond, and spar-attach allowables.",
         ),
         _row(
@@ -243,7 +316,10 @@ def _unranked_real_structure_rows(
             load_factor=None,
             status="unranked_aeroelastic_loop_missing",
             basis="fixed-design internal twist check only",
-            evidence="local wall and beam twist checks do not close aeroelastic torque/twist coupling.",
+            evidence=(
+                "local wall and beam twist checks do not close aeroelastic torque/twist coupling. "
+                f"{_closure_evidence(torsion_twist_closure_check)}"
+            ),
             next_evidence="Torque-couple FEM or aeroelastic twist loop with load redistribution.",
         ),
         _row(
@@ -253,7 +329,10 @@ def _unranked_real_structure_rows(
             load_factor=None,
             status="unranked_global_buckling_fem_missing",
             basis="local/internal buckling checks only",
-            evidence="no full-wing dual-spar/rib/wire global buckling eigen/FEM result is present.",
+            evidence=(
+                "no full-wing dual-spar/rib/wire global buckling eigen/FEM result is present. "
+                f"{_closure_evidence(full_wing_buckling_closure_check)}"
+            ),
             next_evidence="Full-wing or credible braced-subassembly buckling FEM with mesh and boundary checks.",
         ),
     )
@@ -264,6 +343,7 @@ def _detail_row(
     title: str,
     detail: Any | None,
     *,
+    detail_margin: Any | None,
     next_evidence: str,
 ) -> FailureModeOrderingRow:
     return _row(
@@ -277,7 +357,7 @@ def _detail_row(
         required_allowable_moment_n_m=_attr_float(detail, "required_allowable_moment_n_m"),
         required_minimum_breaking_load_n=_attr_float(detail, "required_minimum_breaking_load_n"),
         body_allowable_margin_n=_attr_float(detail, "body_allowable_margin_n"),
-        evidence=_detail_evidence(detail),
+        evidence=f"{_detail_evidence(detail)} {_detail_margin_evidence(detail_margin)}",
         next_evidence=next_evidence,
     )
 
@@ -356,6 +436,65 @@ def _rib_spacing_evidence(requirements: Any | None) -> str:
     )
 
 
+def _detail_margin_evidence(detail_margin: Any | None) -> str:
+    if detail_margin is None:
+        return "hardware margin input is not available."
+    return (
+        "hardware status="
+        f"{getattr(detail_margin, 'status', 'unknown')}; "
+        "load margin="
+        f"{_fmt(_attr_float(detail_margin, 'load_margin_n'))} N; "
+        "moment margin="
+        f"{_fmt(_attr_float(detail_margin, 'moment_margin_n_m'))} N*m; "
+        "MBL margin="
+        f"{_fmt(_attr_float(detail_margin, 'mbl_margin_n'))} N."
+    )
+
+
+def _rib_bracing_margin_evidence(check: Any | None) -> str:
+    if check is None:
+        return "rib bracing margin input is not available."
+    rows = tuple(getattr(check, "rows", ()))
+    missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
+    negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
+    return (
+        "required link force="
+        f"{_fmt(_attr_float(check, 'required_link_force_n'))} N; "
+        "rib allowables missing="
+        f"{missing}; "
+        "negative rib margins="
+        f"{negative}."
+    )
+
+
+def _closure_evidence(check: Any | None) -> str:
+    if check is None:
+        return "closure input is not available."
+    rows = tuple(getattr(check, "rows", ()))
+    first = rows[0] if rows else None
+    return (
+        "closure status="
+        f"{getattr(first, 'status', 'missing') if first is not None else 'missing'}; "
+        "overall="
+        f"{getattr(check, 'overall_status', 'unknown')}."
+    )
+
+
+def _tip_gate_evidence(check: Any | None) -> str:
+    if check is None:
+        return "tip gate revalidation input is not available"
+    rows = tuple(getattr(check, "rows", ()))
+    first = rows[0] if rows else None
+    return (
+        "gate status="
+        f"{getattr(first, 'status', 'missing') if first is not None else 'missing'}; "
+        "proposed raw limit="
+        f"{_fmt(_attr_float(first, 'proposed_raw_tip_limit_m') if first is not None else None)} m; "
+        "overall="
+        f"{getattr(check, 'overall_status', 'unknown')}"
+    )
+
+
 def _attr_float(obj: Any | None, name: str) -> float | None:
     if obj is None:
         return None
@@ -414,13 +553,13 @@ def _write_markdown(path: Path, ordering: FailureModeOrdering) -> Path:
         "",
         "## Ranked Internal Modes",
         "",
-        "| rank | mode | n | status | basis |",
-        "|---:|---|---:|---|---|",
+        "| rank | mode | n | status | basis | evidence |",
+        "|---:|---|---:|---|---|---|",
     ]
     for row in ranked:
         lines.append(
             f"| {row.rank_index} | {row.title} | {_fmt(row.load_factor)} | "
-            f"`{row.status}` | {row.basis} |"
+            f"`{row.status}` | {row.basis} | {row.evidence} |"
         )
     lines.extend(
         [
