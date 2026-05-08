@@ -38,6 +38,10 @@ class DetailMarginRow:
     provided_minimum_breaking_load_n: float | None
     mbl_margin_n: float | None
     worst_margin: float | None
+    allowable_basis: str
+    derate_factor: float | None
+    termination_efficiency: float | None
+    traceability_status: str
     source: str
     engineering_note: str
 
@@ -103,19 +107,33 @@ def _build_margin_row(requirement: Any, allowable: dict[str, Any] | None) -> Det
     provided_load = _dict_float(allowable, "allowable_load_n")
     provided_moment = _dict_float(allowable, "allowable_moment_n_m")
     provided_mbl = _dict_float(allowable, "minimum_breaking_load_n")
+    component_id = str((allowable or {}).get("component_id", "")).strip()
+    source = str((allowable or {}).get("source", "")).strip()
+    allowable_basis = str((allowable or {}).get("allowable_basis", "")).strip()
+    derate_factor = _dict_float(allowable, "derate_factor")
+    termination_efficiency = _dict_float(allowable, "termination_efficiency")
     load_margin = _margin(provided_load, required_load)
     moment_margin = _margin(provided_moment, required_moment)
     mbl_margin = _margin(provided_mbl, required_mbl)
     margins = [value for value in (load_margin, moment_margin, mbl_margin) if value is not None]
+    traceability_status = _traceability_status(
+        requirement_key=str(requirement.key),
+        component_id=component_id,
+        source=source,
+        allowable_basis=allowable_basis,
+        derate_factor=derate_factor,
+        termination_efficiency=termination_efficiency,
+    )
     status = _status(
         required_values=(required_load, required_moment, required_mbl),
         provided_values=(provided_load, provided_moment, provided_mbl),
         margins=margins,
+        traceability_status=traceability_status,
     )
     return DetailMarginRow(
         key=str(requirement.key),
         title=str(requirement.title),
-        component_id=str((allowable or {}).get("component_id", "")),
+        component_id=component_id,
         status=status,
         required_allowable_load_n=required_load,
         provided_allowable_load_n=provided_load,
@@ -127,10 +145,14 @@ def _build_margin_row(requirement: Any, allowable: dict[str, Any] | None) -> Det
         provided_minimum_breaking_load_n=provided_mbl,
         mbl_margin_n=mbl_margin,
         worst_margin=None if not margins else min(margins),
-        source=str((allowable or {}).get("source", "")),
+        allowable_basis=allowable_basis,
+        derate_factor=derate_factor,
+        termination_efficiency=termination_efficiency,
+        traceability_status=traceability_status,
+        source=source,
         engineering_note=(
             "Input margin check only; not FEM signoff and not a substitute for local load introduction, "
-            "fatigue, manufacturing, bond, or inspection evidence."
+            "fatigue, manufacturing, bond, traceability, derating, or inspection evidence."
         ),
     )
 
@@ -140,13 +162,38 @@ def _status(
     required_values: tuple[float | None, ...],
     provided_values: tuple[float | None, ...],
     margins: list[float],
+    traceability_status: str,
 ) -> str:
     required_indices = [idx for idx, value in enumerate(required_values) if value is not None]
     if any(provided_values[idx] is None for idx in required_indices):
         return "hardware_allowable_missing"
     if any(value < 0.0 for value in margins):
         return "margin_negative"
+    if traceability_status == "termination_efficiency_or_derate_missing":
+        return "termination_derate_missing"
+    if traceability_status != "traceable_input":
+        return "hardware_traceability_missing"
     return "margin_positive_input_check_only"
+
+
+def _traceability_status(
+    *,
+    requirement_key: str,
+    component_id: str,
+    source: str,
+    allowable_basis: str,
+    derate_factor: float | None,
+    termination_efficiency: float | None,
+) -> str:
+    if not component_id:
+        return "component_id_missing"
+    if not source:
+        return "source_missing"
+    if not allowable_basis:
+        return "allowable_basis_missing"
+    if requirement_key == "wire_termination" and derate_factor is None and termination_efficiency is None:
+        return "termination_efficiency_or_derate_missing"
+    return "traceable_input"
 
 
 def _write_template(path: Path, detail_requirements: Any) -> Path:
@@ -160,6 +207,9 @@ def _write_template(path: Path, detail_requirements: Any) -> Path:
         "allowable_load_n",
         "allowable_moment_n_m",
         "minimum_breaking_load_n",
+        "allowable_basis",
+        "derate_factor",
+        "termination_efficiency",
         "source",
         "notes",
     ]
@@ -182,6 +232,9 @@ def _write_template(path: Path, detail_requirements: Any) -> Path:
                     "allowable_load_n": "",
                     "allowable_moment_n_m": "",
                     "minimum_breaking_load_n": "",
+                    "allowable_basis": "",
+                    "derate_factor": "",
+                    "termination_efficiency": "",
                     "source": "",
                     "notes": "",
                 }
@@ -213,12 +266,13 @@ def _write_markdown(path: Path, check: DetailMarginCheck) -> Path:
         "",
         "These are hardware input margins, not FEM signoff.",
         "",
-        "| item | component | status | load margin N | moment margin N*m | MBL margin N | source |",
-        "|---|---|---|---:|---:|---:|---|",
+        "| item | component | status | traceability | load margin N | moment margin N*m | MBL margin N | source |",
+        "|---|---|---|---|---:|---:|---:|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.title} | {row.component_id or 'n/a'} | `{row.status}` | "
+            f"`{row.traceability_status}` | "
             f"{_fmt(row.load_margin_n)} | {_fmt(row.moment_margin_n_m)} | "
             f"{_fmt(row.mbl_margin_n)} | {row.source or 'n/a'} |"
         )

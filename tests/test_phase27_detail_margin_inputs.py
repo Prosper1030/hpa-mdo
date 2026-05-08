@@ -48,6 +48,7 @@ def test_detail_margin_check_computes_margins_without_promoting_to_signoff() -> 
                 "key": "wire_attach_local_load_path",
                 "component_id": "attach-ring-a",
                 "allowable_load_n": "7200",
+                "allowable_basis": "bench_coupon_limit_load",
                 "source": "bench coupon placeholder",
             },
             {
@@ -55,6 +56,7 @@ def test_detail_margin_check_computes_margins_without_promoting_to_signoff() -> 
                 "component_id": "root-fitting-a",
                 "allowable_load_n": "50",
                 "allowable_moment_n_m": "9500",
+                "allowable_basis": "prelim_hand_calc_limit_load",
                 "source": "prelim hand calc",
             },
             {
@@ -62,6 +64,8 @@ def test_detail_margin_check_computes_margins_without_promoting_to_signoff() -> 
                 "component_id": "termination-a",
                 "allowable_load_n": "6500",
                 "minimum_breaking_load_n": "12000",
+                "allowable_basis": "vendor_mbl_with_swage_efficiency",
+                "termination_efficiency": "0.60",
                 "source": "vendor datasheet placeholder",
             },
         ),
@@ -75,7 +79,47 @@ def test_detail_margin_check_computes_margins_without_promoting_to_signoff() -> 
     assert by_key["root_joint"].moment_margin_n_m == pytest.approx(-500.0)
     assert by_key["wire_termination"].status == "margin_positive_input_check_only"
     assert by_key["wire_termination"].mbl_margin_n == pytest.approx(2000.0)
+    assert by_key["wire_termination"].traceability_status == "traceable_input"
     assert "not FEM signoff" in by_key["wire_termination"].engineering_note
+
+
+def test_detail_margin_check_requires_traceable_hardware_inputs() -> None:
+    check = build_detail_margin_check(
+        _requirements(),
+        hardware_allowables=(
+            {
+                "key": "wire_attach_local_load_path",
+                "component_id": "",
+                "allowable_load_n": "7200",
+                "source": "bench coupon placeholder",
+            },
+            {
+                "key": "root_joint",
+                "component_id": "root-fitting-a",
+                "allowable_load_n": "50",
+                "allowable_moment_n_m": "12000",
+                "allowable_basis": "prelim_hand_calc_limit_load",
+                "source": "",
+            },
+            {
+                "key": "wire_termination",
+                "component_id": "termination-a",
+                "allowable_load_n": "6500",
+                "minimum_breaking_load_n": "12000",
+                "allowable_basis": "vendor_mbl_without_process_efficiency",
+                "source": "vendor datasheet placeholder",
+            },
+        ),
+    )
+
+    by_key = {row.key: row for row in check.rows}
+    assert check.overall_status == "hardware_input_margins_not_closed"
+    assert by_key["wire_attach_local_load_path"].status == "hardware_traceability_missing"
+    assert by_key["wire_attach_local_load_path"].traceability_status == "component_id_missing"
+    assert by_key["root_joint"].status == "hardware_traceability_missing"
+    assert by_key["root_joint"].traceability_status == "source_missing"
+    assert by_key["wire_termination"].status == "termination_derate_missing"
+    assert by_key["wire_termination"].traceability_status == "termination_efficiency_or_derate_missing"
 
 
 def test_detail_margin_check_marks_missing_hardware_inputs() -> None:
