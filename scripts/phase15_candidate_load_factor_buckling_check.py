@@ -197,9 +197,9 @@ def build_phase15_rows(
             Phase15Row(
                 load_factor=load_factor,
                 fem_basis=(
-                    "repaired_candidate_equivalent_fem_checked"
+                    "repaired_candidate_equivalent_fem_ran_reference"
                     if load_factor <= float(reference.fem_validated_max_load_factor) + 1.0e-9
-                    else "internal_linear_extrapolation_beyond_checked_fem"
+                    else "internal_linear_extrapolation_beyond_fem_ran_reference"
                 ),
                 tip_deflection_m=tip,
                 loaded_main_tip_z_m=float(reference.jig_main_tip_z_m) + loaded_delta_main * scale,
@@ -233,9 +233,9 @@ def build_phase15_rows(
                     clearance=loaded_min,
                 ),
                 note=(
-                    "FEM-equivalent route checked at this load factor."
+                    "FEM-equivalent route ran at this load factor; treat as reference context, not validation signoff."
                     if load_factor <= float(reference.fem_validated_max_load_factor) + 1.0e-9
-                    else "Beyond checked FEM range; fixed-design internal linear extrapolation only."
+                    else "Beyond FEM-ran reference range; fixed-design internal linear extrapolation only."
                 ),
             )
         )
@@ -464,7 +464,7 @@ def _write_failure_mode_report(
         "",
         f"- Repaired candidate-equivalent FEM agreement through 2.0G: tip `{_fmt_optional(reference.fem_tip_error_pct)}%`, wire reaction `{_fmt_optional(reference.fem_wire_reaction_error_pct)}%`, root reaction `{_fmt_optional(reference.fem_root_reaction_error_pct)}%`.",
         f"- Corrected structured S4 shell route: B2 tapered tube error `{_fmt_optional(reference.structured_shell_b2_error_pct)}%`, B5 torsion error `{_fmt_optional(reference.structured_shell_b5_torsion_error_pct)}%`.",
-        "- 2.5G and 3.0G rows are fixed-design internal linear extrapolations beyond the checked repaired FEM range.",
+        "- 2.5G and 3.0G rows are fixed-design internal linear extrapolations beyond the repaired FEM-ran reference range.",
         "",
         "## Load-Factor Table",
         "",
@@ -512,7 +512,7 @@ def _write_limit_load_recommendation(
         "",
         "The internal fixed-design load-factor boundary for submission planning is `1.75G`.",
         "",
-        "Reason: 1.75G is inside the repaired candidate-equivalent FEM checked range and has comfortable internal modeled margins. This is not a full-wing structural signoff because global buckling, rear-spar/rib bracing, root fitting, wire attach, and termination strength remain unresolved.",
+        "Reason: 1.75G is inside the repaired candidate-equivalent FEM ran reference range and has comfortable internal modeled margins. This is not a full-wing structural signoff because global buckling, rear-spar/rib bracing, root fitting, wire attach, and termination strength remain unresolved.",
         "",
         "## Key Margins",
         "",
@@ -520,12 +520,12 @@ def _write_limit_load_recommendation(
         f"- 2.0G wire utilization: `{row_20.wire_utilization:.3f}`",
         f"- 3.0G wire utilization: `{row_30.wire_utilization:.3f}`",
         f"- estimated first fail: `{first_fail.mode}` at `n = {first_fail.load_factor:.3f}`",
-        f"- FEM checked range: up to `{reference.fem_validated_max_load_factor:.2f}G` on the repaired candidate-equivalent route",
+        f"- FEM ran reference range: up to `{reference.fem_validated_max_load_factor:.2f}G` on the repaired candidate-equivalent route",
         "",
         "## Reporting Boundary",
         "",
         "- You can report `1.75G internal fixed-design modeled limits clear`.",
-        "- You can report `2.0G internal/FEM-equivalent modeled limits clear` with the same caveat.",
+        "- You can report `2.0G internal modeled limits clear with FEM-ran reference context` with the same caveat.",
         "- Do not report `1.5G / 1.75G full-wing pass`; full-wing global buckling and hardware details are not closed.",
         "- Do not report `3.0G design load factor`; it is an estimated near-wire-limit point, not a validated design target.",
         "",
@@ -552,10 +552,10 @@ def _write_submission_numbers(
         "- Total modeled structural mass: `13.374 kg`",
         f"- 1.5G internal modeled limits clear: `yes`, tip deflection `{row_15.tip_deflection_m:.3f} m`, wire utilization `{row_15.wire_utilization:.3f}`",
         f"- 1.75G internal modeled limits clear: `yes`, tip deflection `{row_175.tip_deflection_m:.3f} m`, wire utilization `{row_175.wire_utilization:.3f}`",
-        f"- 2.0G internal/FEM-equivalent modeled limits clear: `yes`, tip deflection `{row_20.tip_deflection_m:.3f} m`, wire utilization `{row_20.wire_utilization:.3f}`",
+        f"- 2.0G internal modeled limits clear with FEM-ran reference context: `yes`, tip deflection `{row_20.tip_deflection_m:.3f} m`, wire utilization `{row_20.wire_utilization:.3f}`",
         f"- Estimated first-fail load factor: `n = {first_fail.load_factor:.3f}`",
         f"- Estimated first-fail mode: `{first_fail.mode}`",
-        "- Buckling: `estimated / internally checked`; candidate-specific local shell buckling and ovalization are not yet closed.",
+        "- Buckling: `estimated / FEM-ran reference context`; candidate-specific local shell buckling and ovalization are not yet closed.",
         "- Submission planning boundary: `1.75G internal fixed-design modeled limits clear`; not full-wing/hardware signoff.",
         "",
     ]

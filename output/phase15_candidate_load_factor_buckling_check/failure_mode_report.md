@@ -14,7 +14,7 @@ Candidate: `current_avl_compromise_conservative_closed`
 
 - Repaired candidate-equivalent FEM agreement through 2.0G: tip `3.74%`, wire reaction `2.09%`, root reaction `4.60%`.
 - Corrected structured S4 shell route: B2 tapered tube error `2.41%`, B5 torsion error `0.07%`.
-- 2.5G and 3.0G rows are fixed-design internal linear extrapolations beyond the checked repaired FEM range.
+- 2.5G and 3.0G rows are fixed-design internal linear extrapolations beyond the repaired FEM-ran reference range.
 
 ## Load-Factor Table
 

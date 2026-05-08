@@ -48,8 +48,8 @@ def test_phase15_rows_extend_requested_load_factors_and_mark_extrapolated_fem() 
     rows = build_phase15_rows(_reference(), load_factors=DEFAULT_LOAD_FACTORS)
 
     assert [row.load_factor for row in rows] == [1.0, 1.5, 1.75, 2.0, 2.5, 3.0]
-    assert rows[3].fem_basis == "repaired_candidate_equivalent_fem_checked"
-    assert rows[4].fem_basis == "internal_linear_extrapolation_beyond_checked_fem"
+    assert rows[3].fem_basis == "repaired_candidate_equivalent_fem_ran_reference"
+    assert rows[4].fem_basis == "internal_linear_extrapolation_beyond_fem_ran_reference"
     assert rows[-1].wire_utilization == pytest.approx(0.6)
     assert rows[-1].first_failure_mode == "none_with_margin"
     assert rows[-1].loaded_main_tip_z_m == pytest.approx(3.75)
@@ -83,5 +83,7 @@ def test_write_phase15_package_creates_required_submission_files(tmp_path: Path)
     report = (tmp_path / "candidate_limit_load_recommendation.md").read_text(encoding="utf-8")
     assert "internal fixed-design load-factor boundary" in report
     assert "1.75G validated" not in report
+    assert "checked range" not in report
+    assert "FEM ran reference range" in report
     claim_gate = (tmp_path / "structural_claim_readiness.md").read_text(encoding="utf-8")
     assert "Do not claim `1.5G / 1.75G full-wing pass`" in claim_gate
