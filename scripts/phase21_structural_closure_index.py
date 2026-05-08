@@ -872,7 +872,7 @@ def _bracing_summary_for_key(key: str, bracing_audit: Any) -> str:
     if key == "failure_mode_ordering" and rear_soft is not None:
         return (
             "rear_stiffness_5pct and dense-link variants show bracing assumptions move global response; "
-            "detail/global modes still need to enter the ordering table."
+            "detail modes are listed as unranked while global bracing modes still lack sortable FEM evidence."
         )
     if dense_rigid is not None:
         return (

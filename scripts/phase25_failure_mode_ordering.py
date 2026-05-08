@@ -49,6 +49,15 @@ from scripts.phase31_tip_deflection_revalidation_inputs import (  # noqa: E402
 from scripts.phase33_local_detail_subcomponent_margins import (  # noqa: E402
     build_local_detail_subcomponent_margin_check,
 )
+from scripts.phase34_wire_attach_load_decomposition import (  # noqa: E402
+    build_wire_attach_load_decomposition,
+)
+from scripts.phase35_root_joint_load_envelope import (  # noqa: E402
+    build_root_joint_load_envelope,
+)
+from scripts.phase36_wire_termination_efficiency_sensitivity import (  # noqa: E402
+    build_wire_termination_efficiency_sensitivity,
+)
 from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     build_bracing_sensitivity_audit,
     build_current_candidate_model,
@@ -92,6 +101,9 @@ def build_failure_mode_ordering(
     rib_spacing_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     local_detail_subcomponent_check: Any | None = None,
+    wire_attach_load_decomposition: Any | None = None,
+    root_joint_load_envelope: Any | None = None,
+    wire_termination_efficiency_sensitivity: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
@@ -106,6 +118,9 @@ def build_failure_mode_ordering(
         rib_spacing_requirements=rib_spacing_requirements,
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
+        root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
@@ -133,6 +148,9 @@ def write_failure_mode_ordering_package(
     rib_spacing_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     local_detail_subcomponent_check: Any | None = None,
+    wire_attach_load_decomposition: Any | None = None,
+    root_joint_load_envelope: Any | None = None,
+    wire_termination_efficiency_sensitivity: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
@@ -145,6 +163,9 @@ def write_failure_mode_ordering_package(
         rib_spacing_requirements=rib_spacing_requirements,
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
+        root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
@@ -179,6 +200,14 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         detail_requirements,
         subcomponent_allowables=[],
     )
+    wire_attach_load_decomposition = build_wire_attach_load_decomposition(
+        reference.candidate_id,
+        wire_rigging=load_current_wire_rigging(),
+    )
+    root_joint_load_envelope = build_root_joint_load_envelope(reference)
+    wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
+        detail_requirements
+    )
     rib_bracing_margin_check = build_rib_bracing_margin_check(
         rib_spacing_requirements,
         bracing_audit,
@@ -190,6 +219,9 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         rib_spacing_requirements=rib_spacing_requirements,
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
+        root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=build_current_full_wing_buckling_closure_check(),
@@ -268,6 +300,9 @@ def _unranked_real_structure_rows(
     rib_spacing_requirements: Any | None,
     detail_margin_check: Any | None,
     local_detail_subcomponent_check: Any | None,
+    wire_attach_load_decomposition: Any | None,
+    root_joint_load_envelope: Any | None,
+    wire_termination_efficiency_sensitivity: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
     full_wing_buckling_closure_check: Any | None,
@@ -284,6 +319,9 @@ def _unranked_real_structure_rows(
             wire_attach,
             detail_margin=detail_margins.get("wire_attach_local_load_path"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
+            extra_evidence=_wire_attach_load_decomposition_evidence(
+                wire_attach_load_decomposition
+            ),
             next_evidence="Local lug/ring/insert/bond/tube-wall bearing and crushing margins.",
         ),
         _detail_row(
@@ -292,6 +330,7 @@ def _unranked_real_structure_rows(
             root_joint,
             detail_margin=detail_margins.get("root_joint"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
+            extra_evidence=_root_joint_load_envelope_evidence(root_joint_load_envelope),
             next_evidence="Root fitting, clamp, bonded insert, bearing, and tube-wall load-introduction margins.",
         ),
         _detail_row(
@@ -300,6 +339,9 @@ def _unranked_real_structure_rows(
             wire_termination,
             detail_margin=detail_margins.get("wire_termination"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
+            extra_evidence=_wire_termination_efficiency_evidence(
+                wire_termination_efficiency_sensitivity
+            ),
             next_evidence="Selected termination hardware/process with efficiency, bend, anchor, and creep/abrasion reductions.",
         ),
         _row(
@@ -361,6 +403,7 @@ def _detail_row(
     *,
     detail_margin: Any | None,
     local_detail_subcomponent_check: Any | None,
+    extra_evidence: str,
     next_evidence: str,
 ) -> FailureModeOrderingRow:
     subcomponent_status = _local_detail_subcomponent_status(mode_key, local_detail_subcomponent_check)
@@ -377,7 +420,8 @@ def _detail_row(
         body_allowable_margin_n=_attr_float(detail, "body_allowable_margin_n"),
         evidence=(
             f"{_detail_evidence(detail)} {_detail_margin_evidence(detail_margin)} "
-            f"{_local_detail_subcomponent_evidence(mode_key, local_detail_subcomponent_check)}"
+            f"{_local_detail_subcomponent_evidence(mode_key, local_detail_subcomponent_check)} "
+            f"{extra_evidence}"
         ),
         next_evidence=next_evidence,
     )
@@ -525,6 +569,61 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
         f"{positive}; "
         "worst local margin="
         f"{_fmt(min(worst_values) if worst_values else None)}."
+    )
+
+
+def _wire_attach_load_decomposition_evidence(decomposition: Any | None) -> str:
+    if decomposition is None:
+        return "wire attach load decomposition is not available."
+    rows = {str(row.component_key): row for row in getattr(decomposition, "rows", ())}
+    spanwise = rows.get("spanwise_y")
+    transverse = rows.get("transverse_xz")
+    return (
+        "attach decomposition status="
+        f"{getattr(decomposition, 'overall_status', 'unknown')}; "
+        "attach max resultant design="
+        f"{_fmt(_attr_float(decomposition, 'max_resultant_design_load_n'))} N; "
+        "attach spanwise design="
+        f"{_fmt(_attr_float(spanwise, 'design_load_n') if spanwise is not None else None)} N; "
+        "attach transverse design="
+        f"{_fmt(_attr_float(transverse, 'design_load_n') if transverse is not None else None)} N."
+    )
+
+
+def _root_joint_load_envelope_evidence(envelope: Any | None) -> str:
+    if envelope is None:
+        return "root joint load envelope is not available."
+    rows = {str(row.load_case_key): row for row in getattr(envelope, "rows", ())}
+    couple_010 = rows.get("moment_couple_arm_0p100m")
+    return (
+        "root envelope status="
+        f"{getattr(envelope, 'overall_status', 'unknown')}; "
+        "root design force="
+        f"{_fmt(_attr_float(envelope, 'design_root_force_n'))} N; "
+        "root design moment="
+        f"{_fmt(_attr_float(envelope, 'design_root_bending_moment_n_m'))} N*m; "
+        "force-only misleading="
+        f"{getattr(envelope, 'force_only_check_is_misleading', 'unknown')}; "
+        "root 0.10 m couple force="
+        f"{_fmt(_attr_float(couple_010, 'required_couple_force_n') if couple_010 is not None else None)} N."
+    )
+
+
+def _wire_termination_efficiency_evidence(sensitivity: Any | None) -> str:
+    if sensitivity is None:
+        return "wire termination efficiency sensitivity is not available."
+    rows = {float(row.termination_efficiency): row for row in getattr(sensitivity, "rows", ())}
+    eta_060 = rows.get(0.6)
+    eta_080 = rows.get(0.8)
+    return (
+        "termination efficiency status="
+        f"{getattr(sensitivity, 'overall_status', 'unknown')}; "
+        "termination body margin="
+        f"{_fmt(_attr_float(sensitivity, 'body_allowable_margin_n'))} N; "
+        "termination eta 0.60 MBL="
+        f"{_fmt(_attr_float(eta_060, 'required_minimum_breaking_load_n') if eta_060 is not None else None)} N; "
+        "termination eta 0.80 MBL="
+        f"{_fmt(_attr_float(eta_080, 'required_minimum_breaking_load_n') if eta_080 is not None else None)} N."
     )
 
 

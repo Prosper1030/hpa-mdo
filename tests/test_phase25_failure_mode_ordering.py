@@ -130,6 +130,49 @@ def _local_detail_subcomponent_check() -> SimpleNamespace:
     )
 
 
+def _wire_attach_load_decomposition() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="wire_attach_load_components_defined_not_signoff",
+        max_resultant_design_load_n=6048.0,
+        rows=(
+            SimpleNamespace(component_key="spanwise_y", design_load_n=5839.2),
+            SimpleNamespace(component_key="transverse_xz", design_load_n=1576.2),
+        ),
+    )
+
+
+def _root_joint_load_envelope() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="root_joint_load_envelope_defined_not_signoff",
+        design_root_force_n=18.3,
+        design_root_bending_moment_n_m=10833.2,
+        force_only_check_is_misleading=True,
+        rows=(
+            SimpleNamespace(
+                load_case_key="moment_couple_arm_0p100m",
+                required_couple_force_n=108332.0,
+            ),
+        ),
+    )
+
+
+def _wire_termination_efficiency_sensitivity() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="termination_efficiency_sensitivity_defined_not_signoff",
+        body_allowable_margin_n=-1000.0,
+        rows=(
+            SimpleNamespace(
+                termination_efficiency=0.6,
+                required_minimum_breaking_load_n=10000.0,
+            ),
+            SimpleNamespace(
+                termination_efficiency=0.8,
+                required_minimum_breaking_load_n=7500.0,
+            ),
+        ),
+    )
+
+
 def _rib_bracing_margin_check() -> SimpleNamespace:
     return SimpleNamespace(
         required_link_force_n=934.5,
@@ -173,6 +216,9 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         rib_spacing_requirements=_rib_spacing_requirements(),
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
+        wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+        root_joint_load_envelope=_root_joint_load_envelope(),
+        wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
@@ -199,6 +245,20 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "local subcomponent negative margins=1" in by_key[
         "wire_attach_local_load_path"
     ].evidence
+    assert "attach max resultant design=6048.0000 N" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "attach spanwise design=5839.2000 N" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "attach transverse design=1576.2000 N" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "root design moment=10833.2000 N*m" in by_key["root_joint"].evidence
+    assert "root 0.10 m couple force=108332.0000 N" in by_key["root_joint"].evidence
+    assert "force-only misleading=True" in by_key["root_joint"].evidence
+    assert "termination eta 0.60 MBL=10000.0000 N" in by_key["wire_termination"].evidence
+    assert "termination eta 0.80 MBL=7500.0000 N" in by_key["wire_termination"].evidence
     assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].evidence
     assert "added stations=53" in by_key["rib_load_transfer"].evidence
     assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
@@ -215,6 +275,9 @@ def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Pat
         rib_spacing_requirements=_rib_spacing_requirements(),
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
+        wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+        root_joint_load_envelope=_root_joint_load_envelope(),
+        wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
@@ -246,6 +309,9 @@ def test_main_creates_requested_output_directory_before_writing(
             rib_spacing_requirements=_rib_spacing_requirements(),
             detail_margin_check=_detail_margin_check(),
             local_detail_subcomponent_check=_local_detail_subcomponent_check(),
+            wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+            root_joint_load_envelope=_root_joint_load_envelope(),
+            wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
             rib_bracing_margin_check=_rib_bracing_margin_check(),
             torsion_twist_closure_check=_torsion_twist_closure_check(),
             full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
