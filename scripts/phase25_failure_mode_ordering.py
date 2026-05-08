@@ -46,6 +46,9 @@ from scripts.phase30_full_wing_buckling_closure_inputs import (  # noqa: E402
 from scripts.phase31_tip_deflection_revalidation_inputs import (  # noqa: E402
     build_tip_deflection_revalidation_check,
 )
+from scripts.phase33_local_detail_subcomponent_margins import (  # noqa: E402
+    build_local_detail_subcomponent_margin_check,
+)
 from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     build_bracing_sensitivity_audit,
     build_current_candidate_model,
@@ -88,6 +91,7 @@ def build_failure_mode_ordering(
     detail_requirements: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
+    local_detail_subcomponent_check: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
@@ -101,6 +105,7 @@ def build_failure_mode_ordering(
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
         detail_margin_check=detail_margin_check,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
@@ -127,6 +132,7 @@ def write_failure_mode_ordering_package(
     detail_requirements: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
+    local_detail_subcomponent_check: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
@@ -138,6 +144,7 @@ def write_failure_mode_ordering_package(
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
         detail_margin_check=detail_margin_check,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
@@ -168,6 +175,10 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
     detail_margin_check = build_detail_margin_check(detail_requirements, hardware_allowables=[])
+    local_detail_subcomponent_check = build_local_detail_subcomponent_margin_check(
+        detail_requirements,
+        subcomponent_allowables=[],
+    )
     rib_bracing_margin_check = build_rib_bracing_margin_check(
         rib_spacing_requirements,
         bracing_audit,
@@ -178,6 +189,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
         detail_margin_check=detail_margin_check,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=build_current_full_wing_buckling_closure_check(),
@@ -255,6 +267,7 @@ def _unranked_real_structure_rows(
     detail_requirements: Any | None,
     rib_spacing_requirements: Any | None,
     detail_margin_check: Any | None,
+    local_detail_subcomponent_check: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
     full_wing_buckling_closure_check: Any | None,
@@ -270,6 +283,7 @@ def _unranked_real_structure_rows(
             "Wire attach local load path",
             wire_attach,
             detail_margin=detail_margins.get("wire_attach_local_load_path"),
+            local_detail_subcomponent_check=local_detail_subcomponent_check,
             next_evidence="Local lug/ring/insert/bond/tube-wall bearing and crushing margins.",
         ),
         _detail_row(
@@ -277,6 +291,7 @@ def _unranked_real_structure_rows(
             "Root fitting / clamp / bonded insert",
             root_joint,
             detail_margin=detail_margins.get("root_joint"),
+            local_detail_subcomponent_check=local_detail_subcomponent_check,
             next_evidence="Root fitting, clamp, bonded insert, bearing, and tube-wall load-introduction margins.",
         ),
         _detail_row(
@@ -284,6 +299,7 @@ def _unranked_real_structure_rows(
             "Wire termination / end fitting",
             wire_termination,
             detail_margin=detail_margins.get("wire_termination"),
+            local_detail_subcomponent_check=local_detail_subcomponent_check,
             next_evidence="Selected termination hardware/process with efficiency, bend, anchor, and creep/abrasion reductions.",
         ),
         _row(
@@ -344,20 +360,25 @@ def _detail_row(
     detail: Any | None,
     *,
     detail_margin: Any | None,
+    local_detail_subcomponent_check: Any | None,
     next_evidence: str,
 ) -> FailureModeOrderingRow:
+    subcomponent_status = _local_detail_subcomponent_status(mode_key, local_detail_subcomponent_check)
     return _row(
         mode_key=mode_key,
         title=title,
         order_bucket="unranked_real_structure_mode",
         load_factor=None,
-        status="unranked_detail_allowable_missing",
+        status=subcomponent_status,
         basis="service load converted to requirement; no selected hardware allowable",
         required_allowable_load_n=_attr_float(detail, "required_allowable_load_n"),
         required_allowable_moment_n_m=_attr_float(detail, "required_allowable_moment_n_m"),
         required_minimum_breaking_load_n=_attr_float(detail, "required_minimum_breaking_load_n"),
         body_allowable_margin_n=_attr_float(detail, "body_allowable_margin_n"),
-        evidence=f"{_detail_evidence(detail)} {_detail_margin_evidence(detail_margin)}",
+        evidence=(
+            f"{_detail_evidence(detail)} {_detail_margin_evidence(detail_margin)} "
+            f"{_local_detail_subcomponent_evidence(mode_key, local_detail_subcomponent_check)}"
+        ),
         next_evidence=next_evidence,
     )
 
@@ -448,6 +469,62 @@ def _detail_margin_evidence(detail_margin: Any | None) -> str:
         f"{_fmt(_attr_float(detail_margin, 'moment_margin_n_m'))} N*m; "
         "MBL margin="
         f"{_fmt(_attr_float(detail_margin, 'mbl_margin_n'))} N."
+    )
+
+
+def _local_detail_subcomponent_status(parent_key: str, check: Any | None) -> str:
+    if check is None:
+        return "unranked_detail_allowable_missing"
+    rows = [
+        row
+        for row in getattr(check, "rows", ())
+        if getattr(row, "parent_key", "") == parent_key
+    ]
+    if any(getattr(row, "status", "") == "margin_negative" for row in rows):
+        return "unranked_detail_subcomponent_margin_negative"
+    if any(getattr(row, "status", "") == "subcomponent_allowable_missing" for row in rows):
+        return "unranked_detail_subcomponent_allowable_missing"
+    if rows and all(
+        getattr(row, "status", "") == "margin_positive_input_check_only" for row in rows
+    ):
+        return "unranked_detail_subcomponent_inputs_positive_not_fem_signoff"
+    return "unranked_detail_allowable_missing"
+
+
+def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> str:
+    if check is None:
+        return "local detail subcomponent check is not available."
+    rows = [
+        row
+        for row in getattr(check, "rows", ())
+        if getattr(row, "parent_key", "") == parent_key
+    ]
+    missing = sum(1 for row in rows if getattr(row, "status", "") == "subcomponent_allowable_missing")
+    negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
+    positive = sum(
+        1 for row in rows if getattr(row, "status", "") == "margin_positive_input_check_only"
+    )
+    worst_values = [
+        value
+        for row in rows
+        for value in (
+            getattr(row, "load_margin_n", None),
+            getattr(row, "moment_margin_n_m", None),
+            getattr(row, "mbl_margin_n", None),
+        )
+        if value is not None
+    ]
+    return (
+        "local subcomponents="
+        f"{len(rows)}; "
+        "local subcomponents missing="
+        f"{missing}; "
+        "local subcomponent negative margins="
+        f"{negative}; "
+        "local subcomponent positive input rows="
+        f"{positive}; "
+        "worst local margin="
+        f"{_fmt(min(worst_values) if worst_values else None)}."
     )
 
 

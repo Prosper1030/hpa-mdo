@@ -63,6 +63,9 @@ from scripts.phase31_tip_deflection_revalidation_inputs import (  # noqa: E402
 from scripts.phase32_rear_spar_rib_bracing_diagnostic import (  # noqa: E402
     build_rear_spar_rib_bracing_diagnostic,
 )
+from scripts.phase33_local_detail_subcomponent_margins import (  # noqa: E402
+    build_local_detail_subcomponent_margin_check,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -97,6 +100,7 @@ def build_structural_closure_index(
     bracing_diagnostic: Any | None = None,
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
+    local_detail_subcomponent_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -120,6 +124,7 @@ def build_structural_closure_index(
             bracing_diagnostic=bracing_diagnostic,
             detail_requirements=detail_requirements,
             detail_margin_check=detail_margin_check,
+            local_detail_subcomponent_check=local_detail_subcomponent_check,
             rib_spacing_requirements=rib_spacing_requirements,
             rib_bracing_margin_check=rib_bracing_margin_check,
             torsion_twist_closure_check=torsion_twist_closure_check,
@@ -151,6 +156,7 @@ def write_structural_closure_index_package(
     bracing_diagnostic: Any | None = None,
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
+    local_detail_subcomponent_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -167,6 +173,7 @@ def write_structural_closure_index_package(
         bracing_diagnostic=bracing_diagnostic,
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -204,6 +211,10 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     )
     detail_requirements = build_detail_sizing_requirements(local_ledger)
     detail_margin_check = build_detail_margin_check(detail_requirements, hardware_allowables=[])
+    local_detail_subcomponent_check = build_local_detail_subcomponent_margin_check(
+        detail_requirements,
+        subcomponent_allowables=[],
+    )
     rib_spacing_requirements = build_rib_spacing_requirements(
         reference.candidate_id,
         spar_rows=load_current_spar_rows(),
@@ -242,6 +253,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         bracing_diagnostic=bracing_diagnostic,
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -263,6 +275,7 @@ def _build_item(
     bracing_diagnostic: Any | None,
     detail_requirements: Any | None,
     detail_margin_check: Any | None,
+    local_detail_subcomponent_check: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -280,6 +293,7 @@ def _build_item(
         bracing_diagnostic,
         detail_entry,
         detail_margin_entry,
+        local_detail_subcomponent_check,
         rib_spacing_requirements,
         rib_bracing_margin_check,
         torsion_twist_closure_check,
@@ -299,6 +313,7 @@ def _build_item(
         bracing_diagnostic=bracing_diagnostic,
         detail_entry=detail_entry,
         detail_margin_entry=detail_margin_entry,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -348,6 +363,7 @@ def _evidence_artifacts(
     bracing_diagnostic: Any | None,
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
+    local_detail_subcomponent_check: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -373,6 +389,12 @@ def _evidence_artifacts(
         artifacts.append("Phase23 detail_sizing_requirements")
     if detail_margin_entry is not None:
         artifacts.append("Phase27 detail_margin_inputs")
+    if local_detail_subcomponent_check is not None and key in {
+        "wire_attach_local_load_path",
+        "root_joint",
+        "wire_termination",
+    }:
+        artifacts.append("Phase33 local_detail_subcomponent_margins")
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -406,6 +428,7 @@ def _evidence_for_key(
     bracing_diagnostic: Any | None,
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
+    local_detail_subcomponent_check: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -470,6 +493,14 @@ def _evidence_for_key(
         parts.append(f"Phase23: {_detail_summary(detail_entry)}")
     if detail_margin_entry is not None:
         parts.append(f"Phase27: {_detail_margin_summary(detail_margin_entry)}")
+    if local_detail_subcomponent_check is not None and key in {
+        "wire_attach_local_load_path",
+        "root_joint",
+        "wire_termination",
+    }:
+        parts.append(
+            f"Phase33: {_local_detail_subcomponent_summary(key, local_detail_subcomponent_check)}"
+        )
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -541,6 +572,43 @@ def _detail_margin_summary(entry: Any) -> str:
         f"{_fmt(getattr(entry, 'moment_margin_n_m', None))} N*m; "
         "MBL margin="
         f"{_fmt(getattr(entry, 'mbl_margin_n', None))} N."
+    )
+
+
+def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
+    rows = [
+        row
+        for row in getattr(check, "rows", ())
+        if getattr(row, "parent_key", "") == parent_key
+    ]
+    missing = sum(1 for row in rows if getattr(row, "status", "") == "subcomponent_allowable_missing")
+    negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
+    positive = sum(
+        1 for row in rows if getattr(row, "status", "") == "margin_positive_input_check_only"
+    )
+    worst_values = [
+        value
+        for row in rows
+        for value in (
+            getattr(row, "load_margin_n", None),
+            getattr(row, "moment_margin_n_m", None),
+            getattr(row, "mbl_margin_n", None),
+        )
+        if value is not None
+    ]
+    return (
+        "overall="
+        f"{getattr(check, 'overall_status', 'unknown')}; "
+        "subcomponents="
+        f"{len(rows)}; "
+        "subcomponents missing="
+        f"{missing}; "
+        "negative margins="
+        f"{negative}; "
+        "positive input rows="
+        f"{positive}; "
+        "worst margin="
+        f"{_fmt(min(worst_values) if worst_values else None)}."
     )
 
 

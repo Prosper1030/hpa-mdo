@@ -87,6 +87,49 @@ def _detail_margin_check() -> SimpleNamespace:
     )
 
 
+def _local_detail_subcomponent_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="local_detail_subcomponent_margins_not_closed",
+        total_subcomponent_count=11,
+        missing_subcomponent_count=9,
+        negative_margin_count=1,
+        rows=(
+            SimpleNamespace(
+                parent_key="wire_attach_local_load_path",
+                subcomponent_key="attach_ring_or_lug",
+                status="margin_negative",
+                load_margin_n=-200.0,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                parent_key="wire_attach_local_load_path",
+                subcomponent_key="bonded_load_path",
+                status="subcomponent_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                parent_key="root_joint",
+                subcomponent_key="root_fitting_or_clamp",
+                status="subcomponent_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                parent_key="wire_termination",
+                subcomponent_key="termination_process_efficiency",
+                status="margin_positive_input_check_only",
+                load_margin_n=1000.0,
+                moment_margin_n_m=None,
+                mbl_margin_n=2000.0,
+            ),
+        ),
+    )
+
+
 def _rib_bracing_margin_check() -> SimpleNamespace:
     return SimpleNamespace(
         required_link_force_n=934.5,
@@ -129,6 +172,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         detail_requirements=_detail_requirements(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         detail_margin_check=_detail_margin_check(),
+        local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
@@ -145,7 +189,16 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert by_key["wire_termination"].order_bucket == "unranked_real_structure_mode"
     assert by_key["wire_termination"].required_minimum_breaking_load_n == pytest.approx(10000.0)
     assert by_key["wire_termination"].body_allowable_margin_n == pytest.approx(-1000.0)
+    assert by_key["wire_attach_local_load_path"].status == (
+        "unranked_detail_subcomponent_margin_negative"
+    )
     assert "hardware status=hardware_allowable_missing" in by_key["wire_attach_local_load_path"].evidence
+    assert "local subcomponents missing=1" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "local subcomponent negative margins=1" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
     assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].evidence
     assert "added stations=53" in by_key["rib_load_transfer"].evidence
     assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
@@ -161,6 +214,7 @@ def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Pat
         detail_requirements=_detail_requirements(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         detail_margin_check=_detail_margin_check(),
+        local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
@@ -191,6 +245,7 @@ def test_main_creates_requested_output_directory_before_writing(
             detail_requirements=_detail_requirements(),
             rib_spacing_requirements=_rib_spacing_requirements(),
             detail_margin_check=_detail_margin_check(),
+            local_detail_subcomponent_check=_local_detail_subcomponent_check(),
             rib_bracing_margin_check=_rib_bracing_margin_check(),
             torsion_twist_closure_check=_torsion_twist_closure_check(),
             full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),

@@ -218,6 +218,41 @@ def _detail_margin_check() -> SimpleNamespace:
     )
 
 
+def _local_detail_subcomponent_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="local_detail_subcomponent_margins_not_closed",
+        total_subcomponent_count=11,
+        missing_subcomponent_count=11,
+        negative_margin_count=0,
+        rows=(
+            SimpleNamespace(
+                parent_key="wire_attach_local_load_path",
+                subcomponent_key="attach_ring_or_lug",
+                status="subcomponent_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                parent_key="root_joint",
+                subcomponent_key="root_fitting_or_clamp",
+                status="subcomponent_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                parent_key="wire_termination",
+                subcomponent_key="termination_process_efficiency",
+                status="subcomponent_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+        ),
+    )
+
+
 def _rib_spacing_requirements() -> SimpleNamespace:
     return SimpleNamespace(
         current_max_bay_m=3.86,
@@ -317,6 +352,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         bracing_diagnostic=_bracing_diagnostic(),
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
+        local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
@@ -334,11 +370,17 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase19" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "Phase23" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "Phase27" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "Phase33" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "required load=6048.2000 N" in by_key["wire_attach_local_load_path"].current_evidence
     assert "hardware status=hardware_allowable_missing" in by_key["wire_attach_local_load_path"].current_evidence
+    assert "subcomponents missing=1" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
+    assert "subcomponents missing=1" in by_key["root_joint"].current_evidence
     assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
+    assert "subcomponents missing=1" in by_key["wire_termination"].current_evidence
     assert "Phase20" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase29" in by_key["torsion_twist_coupling"].evidence_artifacts
@@ -382,6 +424,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         bracing_diagnostic=_bracing_diagnostic(),
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
+        local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
