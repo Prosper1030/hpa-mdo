@@ -5,8 +5,11 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from scripts.structure_budgeted_z_state_search import (
+from scripts.structure_budgeted_z_state_search import (  # noqa: E402
+    DEFAULT_CANONICAL_NON_TUBE_STRUCTURAL_ALLOWANCE_KG,
     ZStateRequest,
+    _command_for_case,
+    canonical_total_structural_mass_target,
     effective_dihedral_deg,
     shortlist_status,
     target_main_tip_z_for_effective_dihedral,
@@ -65,3 +68,33 @@ def test_shortlist_status_requires_mass_and_clearance() -> None:
     assert status["healthy_clearance"] is True
     assert status["recommended_for_avl_recheck"] is True
     assert status["effective_dihedral_deg"] == effective_dihedral_deg(2.7, 17.166143)
+
+
+def test_canonical_total_structural_mass_target_keeps_tube_budget_basis_explicit() -> None:
+    target = canonical_total_structural_mass_target(
+        spar_tube_mass_target_kg=11.5,
+        non_tube_structural_allowance_kg=DEFAULT_CANONICAL_NON_TUBE_STRUCTURAL_ALLOWANCE_KG,
+    )
+
+    assert target == 14.0
+
+
+def test_command_for_case_passes_canonical_total_mass_cap_when_available(tmp_path: Path) -> None:
+    command = _command_for_case(
+        config_path=tmp_path / "config.yaml",
+        design_report=tmp_path / "crossval_report.txt",
+        case_dir=tmp_path / "case",
+        candidate_avl_artifact=tmp_path / "candidate.json",
+        target_shape_z_scale=1.25,
+        dihedral_exponent=1.0,
+        refresh_steps=0,
+        skip_local_refine=True,
+        skip_step_export=True,
+        no_ground_clearance_recovery=True,
+        cobyla_maxiter=40,
+        rib_zonewise_mode="limited_zonewise",
+        canonical_target_mass_kg=14.0,
+    )
+
+    assert "--target-mass-kg" in command
+    assert command[command.index("--target-mass-kg") + 1] == "14"

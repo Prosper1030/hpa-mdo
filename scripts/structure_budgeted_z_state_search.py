@@ -30,7 +30,6 @@ from scripts.run_phase10_2_canonical_inverse_design_check import (  # noqa: E402
     SMOOTH_RHO_KGPM3,
     SMOOTH_VELOCITY_MPS,
     build_smooth_canonical_config,
-    smooth_aero_summary_row,
 )
 
 
@@ -63,6 +62,8 @@ DEFAULT_TRIM_FT_NAME = "concept_trim.ft"
 DEFAULT_HEALTHY_CLEARANCE_M = 0.020
 DEFAULT_LOADED_SHAPE_ERROR_TOL_M = 0.005
 DEFAULT_SPAR_TUBE_MASS_TARGET_KG = 11.5
+DEFAULT_CANONICAL_NON_TUBE_STRUCTURAL_ALLOWANCE_KG = 2.5
+DEFAULT_FOURIER_AVL_CALIBRATION_DIR = REPO_ROOT / "output" / "pipeline_redesign_v2" / "fourier_avl_calibration_mvp"
 
 
 @dataclass(frozen=True)
@@ -113,8 +114,42 @@ def _write_csv(path: Path, rows: Sequence[Mapping[str, Any]], fields: Sequence[s
             writer.writerow({key: row.get(key, "") for key in keys})
 
 
+def _normalize_text_line_endings(path: Path) -> None:
+    if not path.exists() or not path.is_file():
+        return
+    data = path.read_bytes()
+    normalized = data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    if normalized != data:
+        path.write_bytes(normalized)
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _stage1_bridge_context(calibration_dir: Path) -> dict[str, Any]:
+    command_csv = calibration_dir / "fourier_command_to_avl_realized.csv"
+    fit_csv = calibration_dir / "avl_to_fourier_fit.csv"
+    recommendation = calibration_dir / "recommended_fourier_bridge.md"
+    context: dict[str, Any] = {
+        "calibration_dir": str(calibration_dir.resolve()),
+        "fourier_command_to_avl_realized_csv": str(command_csv.resolve()) if command_csv.exists() else "",
+        "avl_to_fourier_fit_csv": str(fit_csv.resolve()) if fit_csv.exists() else "",
+        "recommended_fourier_bridge_md": str(recommendation.resolve()) if recommendation.exists() else "",
+        "available": bool(command_csv.exists() or fit_csv.exists() or recommendation.exists()),
+        "case_count": 0,
+        "bridge_status_counts": {},
+        "downstream_load_authority": "avl_actual_spanload",
+    }
+    if command_csv.exists():
+        rows = _read_csv_rows(command_csv)
+        context["case_count"] = len(rows)
+        counts: dict[str, int] = {}
+        for row in rows:
+            status = str(row.get("bridge_status") or "unknown")
+            counts[status] = counts.get(status, 0) + 1
+        context["bridge_status_counts"] = counts
+    return context
 
 
 def _tip_z_from_shape_dict(shape: Mapping[str, Any]) -> tuple[float, float]:
@@ -170,6 +205,22 @@ def effective_dihedral_deg(z_tip_m: float, semi_span_m: float) -> float:
     if semi_span_m <= 0.0:
         raise ValueError("semi_span_m must be positive.")
     return round(math.degrees(math.atan2(float(z_tip_m), float(semi_span_m))), 12)
+
+
+def canonical_total_structural_mass_target(
+    *,
+    spar_tube_mass_target_kg: float,
+    non_tube_structural_allowance_kg: float,
+) -> float:
+    """Translate the tube/spar budget into the canonical selector mass basis."""
+
+    tube_target = float(spar_tube_mass_target_kg)
+    allowance = float(non_tube_structural_allowance_kg)
+    if not math.isfinite(tube_target) or tube_target <= 0.0:
+        raise ValueError("spar_tube_mass_target_kg must be a positive finite value.")
+    if not math.isfinite(allowance) or allowance < 0.0:
+        raise ValueError("non_tube_structural_allowance_kg must be finite and non-negative.")
+    return tube_target + allowance
 
 
 def unique_z_state_requests(
@@ -413,6 +464,8 @@ def _wire_metrics(case_dir: Path) -> dict[str, Any]:
         return {
             "wire_rigging_path": "",
             "wire_count": "",
+            "wire_tension_n": "",
+            "wire_margin_n": "",
             "wire_min_tension_n": "",
             "wire_max_tension_n": "",
             "wire_min_tension_margin_n": "",
@@ -425,6 +478,8 @@ def _wire_metrics(case_dir: Path) -> dict[str, Any]:
     return {
         "wire_rigging_path": str(path.resolve()),
         "wire_count": len(wires),
+        "wire_tension_n": max(tensions) if tensions else "",
+        "wire_margin_n": min(margins) if margins else "",
         "wire_min_tension_n": min(tensions) if tensions else "",
         "wire_max_tension_n": max(tensions) if tensions else "",
         "wire_min_tension_margin_n": min(margins) if margins else "",
@@ -446,6 +501,7 @@ def _command_for_case(
     no_ground_clearance_recovery: bool,
     cobyla_maxiter: int,
     rib_zonewise_mode: str,
+    canonical_target_mass_kg: float | None = None,
 ) -> list[str]:
     command = [
         sys.executable,
@@ -481,6 +537,8 @@ def _command_for_case(
         "--rib-zonewise-mode",
         str(rib_zonewise_mode),
     ]
+    if canonical_target_mass_kg is not None and math.isfinite(float(canonical_target_mass_kg)):
+        command.extend(["--target-mass-kg", f"{float(canonical_target_mass_kg):.12g}"])
     if skip_local_refine:
         command.append("--skip-local-refine")
     if skip_step_export:
@@ -498,6 +556,8 @@ def _run_case(
     design_report: Path,
     semi_span_m: float,
     base_main_tip_z_m: float,
+    aero_surface_z_m: float,
+    built_in_geometric_z_m: float,
     avl_path: Path,
     avl_run_dir: Path,
     source_candidate_artifact: Path | None,
@@ -512,6 +572,7 @@ def _run_case(
     cobyla_maxiter: int,
     rib_zonewise_mode: str,
     spar_tube_mass_target_kg: float,
+    canonical_total_structural_mass_target_kg: float | None,
     healthy_clearance_m: float,
     loaded_shape_error_tol_m: float,
     rerun: bool,
@@ -553,6 +614,7 @@ def _run_case(
         no_ground_clearance_recovery=no_ground_clearance_recovery,
         cobyla_maxiter=cobyla_maxiter,
         rib_zonewise_mode=rib_zonewise_mode,
+        canonical_target_mass_kg=canonical_total_structural_mass_target_kg,
     )
 
     if rerun or not summary_path.exists():
@@ -572,6 +634,9 @@ def _run_case(
     else:
         returncode = 0
 
+    for generated_csv in case_dir.glob("*.csv"):
+        _normalize_text_line_endings(generated_csv)
+
     row: dict[str, Any] = {
         "case_label": request.label,
         "target_source": request.source,
@@ -590,6 +655,16 @@ def _run_case(
         "candidate_avl_artifact": str(artifact_path.resolve()),
         "config_path": str(config_path.resolve()),
         "design_report": str(design_report.resolve()),
+        "tube_spar_mass_budget_kg": spar_tube_mass_target_kg,
+        "tube_spar_mass_budget_basis": "spar_tube_mass_full_span_kg_post_filter",
+        "canonical_total_structural_mass_target_kg": (
+            "" if canonical_total_structural_mass_target_kg is None else canonical_total_structural_mass_target_kg
+        ),
+        "canonical_target_mass_basis": (
+            "disabled"
+            if canonical_total_structural_mass_target_kg is None
+            else "direct_dual_beam_inverse_design.total_structural_mass_kg"
+        ),
     }
     if not summary_path.exists():
         row["feasible"] = False
@@ -621,21 +696,45 @@ def _run_case(
     )
 
     canonical_overall_feasible = bool(selected.get("overall_feasible"))
+    canonical_total_margin = (
+        float("nan")
+        if canonical_total_structural_mass_target_kg is None
+        else float(canonical_total_structural_mass_target_kg) - _float(selected.get("total_structural_mass_kg"))
+    )
     row.update(
         {
             "target_main_tip_z_m": target_main_tip_z_for_status,
             "target_rear_tip_z_m": target_rear_tip_z,
             "target_root_main_z_m": target_root_main_z,
             "target_root_rear_z_m": target_root_rear_z,
+            "aero_surface_z_m": aero_surface_z_m,
+            "aero_surface_z_source": "baseline_smooth_section_table_not_remapped_for_scaled_beam_line_target",
             "effective_dihedral_deg": status["effective_dihedral_deg"],
+            "total_cruise_effective_dihedral_deg": status["effective_dihedral_deg"],
+            "main_beam_z_m": target_main_tip_z_for_status,
+            "rear_beam_z_m": target_rear_tip_z,
+            "main_beam_tip_z_m": target_main_tip_z_for_status,
+            "rear_beam_tip_z_m": target_rear_tip_z,
+            "built_in_geometric_z_m": built_in_geometric_z_m,
+            "elastic_deflection_z_m": selected.get("equivalent_tip_deflection_m"),
+            "total_loaded_z_m": target_main_tip_z_for_status,
+            "total_loaded_tip_z_m": target_main_tip_z_for_status,
             "canonical_overall_feasible": canonical_overall_feasible,
             "feasible": bool(canonical_overall_feasible and status["recommended_for_avl_recheck"]),
             "tube_mass_kg": status["tube_mass_kg"],
+            "tube_mass_full_span_kg": status["tube_mass_kg"],
             "total_structural_mass_kg": status["total_structural_mass_kg"],
             "spar_tube_mass_target_kg": spar_tube_mass_target_kg,
             "tube_mass_margin_kg": status["tube_mass_margin_kg"],
             "meets_tube_mass_target": status["meets_tube_mass_target"],
+            "canonical_total_structural_mass_margin_kg": canonical_total_margin,
+            "meets_canonical_total_structural_mass_target": (
+                ""
+                if canonical_total_structural_mass_target_kg is None
+                else bool(canonical_total_margin >= -1.0e-12)
+            ),
             "jig_ground_clearance_min_m": status["jig_ground_clearance_min_m"],
+            "jig_ground_clearance_margin_m": status["jig_ground_clearance_min_m"],
             "healthy_clearance_m": healthy_clearance_m,
             "clearance_margin_vs_healthy_m": status["clearance_margin_vs_healthy_m"],
             "healthy_clearance": status["healthy_clearance"],
@@ -654,6 +753,8 @@ def _run_case(
             "selected_source": selected.get("source"),
             "failures": "|".join(str(item) for item in (selected.get("failures") or [])),
             "moment_closure_status": "not_reported_by_canonical_summary",
+            "jig_feasibility_status": "pass" if status["healthy_clearance"] and status["loaded_shape_error_ok"] else "blocked",
+            "structure_trust_label": "daily_screening",
             "warning_flags": "",
             "message": selected.get("message", ""),
         }
@@ -732,7 +833,7 @@ def _write_z_definition_audit(
         "- Canonical inverse design consumes the beam-line requested loaded shape: `target_loaded_shape.main_nodes_m` and `target_loaded_shape.rear_nodes_m`. In this MVP the sweep controls that state through `--target-shape-z-scale`, but the reported source of truth is the `selected.target_loaded_shape` object written by `scripts/direct_dual_beam_inverse_design.py`.",
         "- The 5-7 deg HPA guideline should be compared against total cruise effective Z of the physical loaded wing/aero surface, preferably quarter-chord or the explicitly defined aerodynamic section reference. For this smooth production package the independent quarter-chord Z is not exported, so the section-table tip `z_m` is the best available aerodynamic reference.",
         "- `target_main_tip_z_m` and `target_rear_tip_z_m` are beam-line structural quantities. They are valid control variables for inverse jig design, but they should not be treated as final aerodynamic effective dihedral unless the beam-to-aero-surface offset is explicitly mapped.",
-        "- The Phase 11 CSV includes `effective_dihedral_deg = atan(target_main_tip_z_m / semi_span)` as an MVP beam-line proxy so the sweep can be compared consistently with earlier z-state work.",
+        "- The sweep CSV includes `effective_dihedral_deg = atan(target_main_tip_z_m / semi_span)` as an MVP beam-line proxy so the result can be compared consistently with earlier z-state work.",
         "",
     ]
     if rows:
@@ -760,13 +861,53 @@ def _first_row(rows: Iterable[Mapping[str, Any]], key: str = "target_main_tip_z_
     return min(candidates, key=lambda row: _row_float(row, key))
 
 
+def _nearest_row_within(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    key: str,
+    target: float,
+    tolerance: float,
+) -> Mapping[str, Any] | None:
+    if not rows:
+        return None
+    row = min(rows, key=lambda item: abs(_row_float(item, key) - float(target)))
+    if abs(_row_float(row, key) - float(target)) > float(tolerance):
+        return None
+    return row
+
+
+def _truthy(value: Any) -> bool:
+    return value is True or str(value) == "True"
+
+
+def _blocker_labels(row: Mapping[str, Any]) -> list[str]:
+    labels: list[str] = []
+    failures = str(row.get("failures") or "").strip()
+    failure_labels = [part for part in failures.split("|") if part]
+    if not _truthy(row.get("meets_tube_mass_target")):
+        labels.append("tube_spar_mass_budget")
+    if row.get("meets_canonical_total_structural_mass_target") not in ("", None) and not _truthy(
+        row.get("meets_canonical_total_structural_mass_target")
+    ):
+        labels.append("canonical_total_mass_cap")
+    if not _truthy(row.get("healthy_clearance")) and "ground_clearance" not in failure_labels:
+        labels.append("jig_ground_clearance")
+    if not _truthy(row.get("loaded_shape_error_ok")):
+        labels.append("loaded_shape_error")
+    labels.extend(failure_labels)
+    return sorted(set(labels))
+
+
 def _write_summary_reports(
     *,
     output_dir: Path,
     rows: Sequence[Mapping[str, Any]],
     semi_span_m: float,
     spar_tube_mass_target_kg: float,
+    canonical_total_structural_mass_target_kg: float | None,
+    non_tube_structural_allowance_kg: float,
     healthy_clearance_m: float,
+    stage1_bridge_context: Mapping[str, Any],
 ) -> None:
     sorted_rows = _rows_sorted(rows)
     deg_5_7 = [
@@ -775,12 +916,12 @@ def _write_summary_reports(
         if _row_float(row, "effective_dihedral_deg") >= 5.0 - 1.0e-9
         and _row_float(row, "effective_dihedral_deg") <= 7.0 + 1.0e-9
     ]
-    pass_rows = [row for row in sorted_rows if str(row.get("meets_tube_mass_target")) == "True" or row.get("meets_tube_mass_target") is True]
-    feasible_rows = [row for row in sorted_rows if str(row.get("feasible")) == "True" or row.get("feasible") is True]
+    pass_rows = [row for row in sorted_rows if _truthy(row.get("meets_tube_mass_target"))]
+    feasible_rows = [row for row in sorted_rows if _truthy(row.get("feasible"))]
     healthy_pass_rows = [
         row
         for row in pass_rows
-        if str(row.get("healthy_clearance")) == "True" or row.get("healthy_clearance") is True
+        if _truthy(row.get("healthy_clearance"))
     ]
     first_pass = _first_row(pass_rows)
     first_feasible = _first_row(feasible_rows)
@@ -789,8 +930,23 @@ def _write_summary_reports(
         key=lambda row: abs(_row_float(row, "effective_dihedral_deg") - 6.0),
         default=None,
     )
-    prior_2675 = min(sorted_rows, key=lambda row: abs(_row_float(row, "target_main_tip_z_m") - 2.675), default=None)
-    prior_2700 = min(sorted_rows, key=lambda row: abs(_row_float(row, "target_main_tip_z_m") - 2.700), default=None)
+    row_7deg = min(
+        sorted_rows,
+        key=lambda row: abs(_row_float(row, "effective_dihedral_deg") - 7.0),
+        default=None,
+    )
+    prior_2675 = _nearest_row_within(
+        sorted_rows,
+        key="target_main_tip_z_m",
+        target=2.675,
+        tolerance=0.02,
+    )
+    prior_2700 = _nearest_row_within(
+        sorted_rows,
+        key="target_main_tip_z_m",
+        target=2.700,
+        tolerance=0.02,
+    )
     old_x4 = max((row for row in sorted_rows if row.get("target_source") == "old_x4_equivalent"), key=lambda row: _row_float(row, "target_main_tip_z_m"), default=None)
 
     deg_5_7_meets = any(row in pass_rows for row in deg_5_7)
@@ -805,10 +961,20 @@ def _write_summary_reports(
         "## Contract",
         "",
         f"- spar/tube mass target: {spar_tube_mass_target_kg:.3f} kg",
+        f"- canonical total-structural mass cap passed to direct route: {fnum(canonical_total_structural_mass_target_kg, 3)} kg",
+        f"- non-tube structural allowance used for that cap: {non_tube_structural_allowance_kg:.3f} kg",
         f"- healthy jig clearance threshold: {healthy_clearance_m * 1000.0:.1f} mm",
         "- refresh_steps: 0",
         "- aero source: candidate_avl_spanwise from smooth production AVL strip-force artifact",
+        "- Stage 1 bridge authority: AVL actual spanload, not raw commanded Fourier coefficients",
         "- ranking / hard gates: unchanged",
+        "",
+        "## Stage 1 Bridge Trace",
+        "",
+        f"- calibration artifacts available: {bool(stage1_bridge_context.get('available'))}",
+        f"- calibration case count: {stage1_bridge_context.get('case_count', 0)}",
+        f"- bridge status counts: {json.dumps(stage1_bridge_context.get('bridge_status_counts', {}), sort_keys=True)}",
+        f"- recommended bridge report: {stage1_bridge_context.get('recommended_fourier_bridge_md', '')}",
         "",
         "## Results",
         "",
@@ -873,6 +1039,15 @@ def _write_summary_reports(
             "- That mismatch is an engineering warning, not a software failure: before finalizing the production state we need an explicit aero-surface-to-beam-line offset contract and an AVL recheck of the realizable loaded shape.",
         ]
     )
+    if deg_5_7:
+        lines.extend(["", "## 5-7 Deg Blockers", ""])
+        for row in deg_5_7:
+            lines.append(
+                f"- {row.get('case_label')}: blockers={', '.join(_blocker_labels(row)) or 'none'}, "
+                f"tube={fnum(row.get('tube_mass_kg'), 3)} kg, "
+                f"total={fnum(row.get('total_structural_mass_kg'), 3)} kg, "
+                f"clearance={fnum(_row_float(row, 'jig_ground_clearance_min_m') * 1000.0, 1)} mm"
+            )
     (output_dir / "z_state_sweep_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     rec_lines = [
@@ -890,7 +1065,7 @@ def _write_summary_reports(
     else:
         rec_lines.extend(
             [
-                "Primary next AVL loaded-shape recheck:",
+                "Screening loaded-shape AVL recheck candidate:",
                 f"- target_main_tip_z_m: {fnum(first_feasible.get('target_main_tip_z_m'), 6)}",
                 f"- target_rear_tip_z_m: {fnum(first_feasible.get('target_rear_tip_z_m'), 6)}",
                 f"- effective_dihedral_deg beam-line proxy: {fnum(first_feasible.get('effective_dihedral_deg'), 6)}",
@@ -901,9 +1076,14 @@ def _write_summary_reports(
                 "Sensitivity points:",
             ]
         )
-        for row in (prior_2675, prior_2700, old_x4):
+        seen_labels: set[str] = set()
+        for row in (row_6deg, row_7deg, prior_2675, prior_2700, old_x4):
             if row is None:
                 continue
+            label = str(row.get("case_label"))
+            if label in seen_labels:
+                continue
+            seen_labels.add(label)
             rec_lines.append(
                 f"- {row.get('case_label')}: z={fnum(row.get('target_main_tip_z_m'), 3)} m, "
                 f"dihedral={fnum(row.get('effective_dihedral_deg'), 3)} deg, "
@@ -911,6 +1091,10 @@ def _write_summary_reports(
                 f"clearance={fnum(_row_float(row, 'jig_ground_clearance_min_m') * 1000.0, 1)} mm"
             )
     (output_dir / "recommended_z_state_for_next_avl_recheck.md").write_text(
+        "\n".join(rec_lines) + "\n",
+        encoding="utf-8",
+    )
+    (output_dir / "recommended_loaded_z_states.md").write_text(
         "\n".join(rec_lines) + "\n",
         encoding="utf-8",
     )
@@ -943,6 +1127,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--avl-run-dir", default=str(SMOOTH_AVL_RUN_DIR))
     parser.add_argument("--aero-summary-csv", default=str(DEFAULT_AERO_SUMMARY))
     parser.add_argument("--candidate-avl-spanwise-loads-json", default="")
+    parser.add_argument("--fourier-avl-calibration-dir", default=str(DEFAULT_FOURIER_AVL_CALIBRATION_DIR))
     parser.add_argument("--config-template", default="")
     parser.add_argument("--design-report", default="")
     parser.add_argument("--effective-dihedral-deg", default=DEFAULT_EFFECTIVE_DIHEDRAL_DEG)
@@ -957,6 +1142,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--cobyla-maxiter", type=int, default=40)
     parser.add_argument("--rib-zonewise-mode", default="limited_zonewise")
     parser.add_argument("--spar-tube-mass-target-kg", type=float, default=DEFAULT_SPAR_TUBE_MASS_TARGET_KG)
+    parser.add_argument(
+        "--canonical-non-tube-structural-allowance-kg",
+        type=float,
+        default=DEFAULT_CANONICAL_NON_TUBE_STRUCTURAL_ALLOWANCE_KG,
+        help=(
+            "Allowance added to the tube/spar budget before passing --target-mass-kg "
+            "to direct_dual_beam_inverse_design.py, whose cap is total structural mass."
+        ),
+    )
+    parser.add_argument(
+        "--disable-canonical-mass-cap",
+        action="store_true",
+        help="Keep the tube/spar budget as a post-filter only; retained for legacy comparison.",
+    )
     parser.add_argument("--healthy-clearance-m", type=float, default=DEFAULT_HEALTHY_CLEARANCE_M)
     parser.add_argument("--loaded-shape-error-tol-m", type=float, default=DEFAULT_LOADED_SHAPE_ERROR_TOL_M)
     parser.add_argument("--velocity-mps", type=float, default=SMOOTH_VELOCITY_MPS)
@@ -976,6 +1175,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     avl_path = Path(args.avl_path).expanduser().resolve()
     avl_run_dir = Path(args.avl_run_dir).expanduser().resolve()
     aero_summary_csv = Path(args.aero_summary_csv).expanduser().resolve()
+    fourier_avl_calibration_dir = Path(args.fourier_avl_calibration_dir).expanduser().resolve()
     design_report = _select_design_report(
         Path(args.design_report).expanduser().resolve() if str(args.design_report).strip() else None
     )
@@ -991,6 +1191,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     semi_span_m = float(section_audit["semi_span_m"])
     base_target = _base_canonical_target_shape()
     base_main_tip_z_m = float(base_target["target_main_tip_z_m"])
+    stage1_bridge_context = _stage1_bridge_context(fourier_avl_calibration_dir)
+    canonical_target_mass_kg = (
+        None
+        if bool(args.disable_canonical_mass_cap)
+        else canonical_total_structural_mass_target(
+            spar_tube_mass_target_kg=float(args.spar_tube_mass_target_kg),
+            non_tube_structural_allowance_kg=float(args.canonical_non_tube_structural_allowance_kg),
+        )
+    )
 
     if str(args.config_template).strip():
         config_path = _copy_config_template(Path(args.config_template).expanduser().resolve(), output_dir)
@@ -1031,6 +1240,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 design_report=design_report,
                 semi_span_m=semi_span_m,
                 base_main_tip_z_m=base_main_tip_z_m,
+                aero_surface_z_m=float(section_audit["aerodynamic_tip_z_m"]),
+                built_in_geometric_z_m=float(section_audit["built_in_geometric_z_m"]),
                 avl_path=avl_path,
                 avl_run_dir=avl_run_dir,
                 source_candidate_artifact=source_candidate_artifact,
@@ -1045,6 +1256,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cobyla_maxiter=int(args.cobyla_maxiter),
                 rib_zonewise_mode=str(args.rib_zonewise_mode),
                 spar_tube_mass_target_kg=float(args.spar_tube_mass_target_kg),
+                canonical_total_structural_mass_target_kg=canonical_target_mass_kg,
                 healthy_clearance_m=float(args.healthy_clearance_m),
                 loaded_shape_error_tol_m=float(args.loaded_shape_error_tol_m),
                 rerun=bool(args.rerun),
@@ -1082,7 +1294,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         rows=rows,
         semi_span_m=semi_span_m,
         spar_tube_mass_target_kg=float(args.spar_tube_mass_target_kg),
+        canonical_total_structural_mass_target_kg=canonical_target_mass_kg,
+        non_tube_structural_allowance_kg=float(args.canonical_non_tube_structural_allowance_kg),
         healthy_clearance_m=float(args.healthy_clearance_m),
+        stage1_bridge_context=stage1_bridge_context,
     )
 
     manifest = {
@@ -1094,10 +1309,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         "avl_run_dir": str(avl_run_dir),
         "aero_summary_csv": str(aero_summary_csv),
         "design_report": str(design_report),
+        "fourier_avl_calibration": stage1_bridge_context,
         "config": config_manifest,
         "semi_span_m": semi_span_m,
         "base_main_tip_z_m": base_main_tip_z_m,
         "spar_tube_mass_target_kg": float(args.spar_tube_mass_target_kg),
+        "tube_spar_mass_budget_basis": "spar_tube_mass_full_span_kg",
+        "canonical_total_structural_mass_target_kg": canonical_target_mass_kg,
+        "canonical_target_mass_basis": (
+            "disabled"
+            if canonical_target_mass_kg is None
+            else "total_structural_mass_kg = spar/tube target + non-tube structural allowance"
+        ),
+        "canonical_non_tube_structural_allowance_kg": float(
+            args.canonical_non_tube_structural_allowance_kg
+        ),
         "healthy_clearance_m": float(args.healthy_clearance_m),
         "loaded_shape_error_tol_m": float(args.loaded_shape_error_tol_m),
         "effective_dihedral_targets_deg": effective_targets,
@@ -1108,6 +1334,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "No aerodynamic ranking or hard gates are changed by this diagnostic.",
             "Canonical inverse command is recorded per case in canonical_command_used and command.txt.",
             "The CSV effective_dihedral_deg column is a beam-line target_main_tip_z_m proxy.",
+            "Stage 1 Fourier-AVL calibration is used as traceability for downstream load authority; this stage uses AVL actual spanload artifacts rather than raw commanded Fourier targets.",
         ],
     }
     (output_dir / "z_state_search_manifest.json").write_text(
@@ -1119,6 +1346,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Wrote {output_dir / 'z_definition_audit.md'}")
     print(f"Wrote {output_dir / 'z_state_sweep_summary.md'}")
     print(f"Wrote {output_dir / 'recommended_z_state_for_next_avl_recheck.md'}")
+    print(f"Wrote {output_dir / 'recommended_loaded_z_states.md'}")
     return 0
 
 

@@ -1,0 +1,80 @@
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+[WARNING] hpa_mdo.aero.load_mapper: struct_y exceeded aero y-range [0.450, 16.167]; out-of-range nodes carry zero aero load.
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0046 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0046 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0046 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0000 m at y=0.58 m
+Non-monotonic deflection detected: worst violation 0.0000 m at y=0.58 m
+Non-monotonic deflection detected: worst violation 0.0000 m at y=0.58 m
+Non-monotonic deflection detected: worst violation 0.0049 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0049 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0049 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0010 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0010 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0010 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0065 m at y=17.17 m
+Non-monotonic deflection detected: worst violation 0.0065 m at y=17.17 m
+Non-monotonic deflection detected: worst violation 0.0065 m at y=17.17 m
+Non-monotonic deflection detected: worst violation 0.0075 m at y=17.17 m
+Non-monotonic deflection detected: worst violation 0.0075 m at y=17.17 m
+Non-monotonic deflection detected: worst violation 0.0075 m at y=17.17 m
+Non-monotonic deflection detected: worst violation 0.0006 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0006 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0006 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0181 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0181 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0181 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0186 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0186 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0186 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0007 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0007 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0007 m at y=0.87 m
+Non-monotonic deflection detected: worst violation 0.0218 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0218 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0218 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0234 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0234 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0234 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0103 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0103 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0103 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0106 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0106 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0106 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0128 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0128 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0128 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0139 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0139 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0139 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0208 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0208 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0208 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0211 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0211 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0211 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0232 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0232 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0232 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0242 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0242 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0242 m at y=16.29 m
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0009 m at y=1.16 m
+Non-monotonic deflection detected: worst violation 0.0001 m at y=0.58 m

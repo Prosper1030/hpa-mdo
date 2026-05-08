@@ -1,0 +1,388 @@
+project_name: smooth_tier2_production_baseline canonical inverse-design check
+flight:
+  velocity: 6.6
+  altitude: 0.0
+  air_density: 1.18
+  kinematic_viscosity: 1.46e-05
+safety:
+  aerodynamic_load_factor: 2.0
+  material_safety_factor: 1.5
+  ks_rho_stress: 100.0
+  ks_rho_buckling: 50.0
+  ks_rho_twist: 100.0
+  shell_buckling_knockdown: 0.65
+  shell_buckling_bending_enhancement: 1.3
+  dual_spar_warping_knockdown: 0.5
+weight:
+  airframe_kg: 40.0
+  pilot_kg: 56.0
+  max_takeoff_kg: 100.0
+aero_gates:
+  min_lift_kg: 100.0
+  min_ld_ratio: 25.0
+  cd_profile_estimate: 0.01
+  max_trim_aoa_deg: 12.0
+  max_sideslip_deg: 12.0
+  min_spiral_time_to_double_s: 10.0
+  beta_sweep_values:
+  - 0.0
+  - 5.0
+  - 10.0
+  - 12.0
+mission:
+  objective_mode: max_range
+  target_range_km: 42.195
+  speed_sweep_min_mps: 6.0
+  speed_sweep_max_mps: 10.0
+  speed_sweep_points: 9
+  rider_model: fake_anchor_curve
+  anchor_power_w: 300.0
+  anchor_duration_min: 30.0
+wing:
+  span: 34.332286
+  root_chord: 1.256773096
+  tip_chord: 0.64500409
+  dihedral_root_deg: 0.0
+  dihedral_tip_deg: 6.0
+  dihedral_scaling_exponent: 1.0
+  spar_location_xc: 0.25
+  airfoil_root: dae31
+  airfoil_tip: cst_tip_nsga2_g06_child_0056_b3f9b7c4
+  airfoil_root_tc: 0.14
+  airfoil_tip_tc: 0.117
+  max_tip_twist_deg: 2.0
+  max_tip_deflection_m: 2.5
+  chord_schedule:
+  - - 0.0
+    - 1.256773096
+  - - 2.746583
+    - 1.171564829
+  - - 6.00815
+    - 1.067327906
+  - - 8.926394
+    - 0.970371624
+  - - 12.0163
+    - 0.862163835
+  - - 14.076237
+    - 0.784941307
+  - - 15.449529
+    - 0.729402473
+  - - 16.307836
+    - 0.691495432
+  - - 17.166143
+    - 0.64500409
+  dihedral_schedule:
+  - - 0.0
+    - 0.0
+  - - 2.746583
+    - 0.067125043
+  - - 6.00815
+    - 0.196697708
+  - - 8.926394
+    - 0.358575604
+  - - 12.0163
+    - 0.577352682
+  - - 14.076237
+    - 0.750330425
+  - - 15.449529
+    - 0.877726872
+  - - 16.307836
+    - 0.962262733
+  - - 17.166143
+    - 1.050581644
+  twist_schedule:
+  - - 0.0
+    - 5.63371
+  - - 2.746583
+    - 5.959416
+  - - 6.00815
+    - 6.062433
+  - - 8.926394
+    - 5.670963
+  - - 12.0163
+    - 4.843813
+  - - 14.076237
+    - 4.246063
+  - - 15.449529
+    - 3.928193
+  - - 16.307836
+    - 3.729525
+  - - 17.166143
+    - 3.650057
+horizontal_tail:
+  enabled: true
+  name: Elevator
+  x_location: 6.5
+  y_location: 0.0
+  z_location: 0.0
+  span: 4.0
+  root_chord: 0.9
+  tip_chord: 0.9
+  airfoil: NACA 0009
+  incidence_deg: 0.0
+  x_rotation_deg: 0.0
+  y_rotation_deg: 0.0
+  z_rotation_deg: 0.0
+  symmetry: xz
+  control_surface_name: elevator
+  control_surface_limit_deg: 20.0
+vertical_fin:
+  enabled: true
+  name: Fin
+  x_location: 7.0
+  y_location: 0.0
+  z_location: -0.7
+  span: 2.4
+  root_chord: 0.7
+  tip_chord: 0.7
+  airfoil: NACA 0009
+  incidence_deg: 0.0
+  x_rotation_deg: 90.0
+  y_rotation_deg: 0.0
+  z_rotation_deg: 0.0
+  symmetry: none
+  control_surface_name: rudder
+  control_surface_limit_deg: 25.0
+main_spar:
+  material: carbon_fiber_hm
+  location_xc: 0.25
+  layup_mode: isotropic
+  ply_material: cfrp_ply_hm
+  outer_diameter_root: null
+  outer_diameter_tip: null
+  thickness_fraction_root: 0.65
+  thickness_fraction_tip: 0.8
+  min_wall_thickness: 0.0008
+  max_segment_length: 3.0
+  max_ply_drop_per_segment: 1
+  min_layup_run_length_m: 1.5
+  segments: &id001
+  - 1.5
+  - 3.0
+  - 3.0
+  - 3.0
+  - 3.0
+  - 3.6661430000000017
+  joint_material: aluminum_6061_t6
+  joint_mass_kg: 0.15
+rear_spar:
+  enabled: true
+  material: carbon_fiber_hm
+  location_xc: 0.7
+  layup_mode: isotropic
+  ply_material: cfrp_ply_hm
+  outer_diameter_root: null
+  outer_diameter_tip: null
+  thickness_fraction_root: 0.55
+  thickness_fraction_tip: 0.65
+  min_wall_thickness: 0.0008
+  max_segment_length: 3.0
+  max_ply_drop_per_segment: 1
+  min_layup_run_length_m: 1.5
+  segments: *id001
+  joint_material: aluminum_6061_t6
+  joint_mass_kg: 0.1
+lift_wires:
+  enabled: true
+  cable_material: dyneema_sk75
+  cable_diameter: 0.0025
+  max_tension_fraction: 0.4
+  wire_angle_deg: 11.3
+  attachments:
+  - y: 7.5
+    fuselage_z: -1.5
+    label: wire-1
+structure:
+  failure_criterion: von_mises
+solver:
+  n_beam_nodes: 60
+  optimizer: SLSQP
+  optimizer_tol: 1.0e-06
+  optimizer_maxiter: 500
+  max_wall_thickness_m: 0.015
+  max_thickness_step_m: 0.003
+  min_radius_m: 0.01
+  max_radius_m: 0.06
+  max_thickness_to_radius_ratio: 0.8
+  rear_min_inner_radius_m: 0.0001
+  rear_inboard_span_m: 1.5
+  rear_inboard_ei_to_main_ratio_max: 0.2
+  fem_max_matrix_entry: 1.0e12
+  fem_max_disp_entry: 1.0e2
+  fem_bc_penalty: 1.0e15
+  scipy_eval_cache_size: 2048
+  de_max_workers: 4
+  main_spar_dominance_margin_m: 0.005
+  main_spar_ei_ratio: 2.0
+  loaded_shape_z_tol_m: 0.025
+  loaded_shape_twist_tol_deg: 0.15
+  fsi_coupling: one-way
+  fsi_max_iter: 20
+  fsi_tol: 0.001
+io:
+  sync_root: null
+  vsp_model: /Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/smooth_tier2_production_baseline.vsp3
+  vsp_lod: /Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat
+    004 wing only_VSPGeom.lod
+  vsp_polar: /Volumes/Samsung SSD/SyncFile/Aerodynamics/black cat 004 wing only/blackcat
+    004 wing only_VSPGeom.polar
+  airfoil_dir: /Volumes/Samsung SSD/hpa-mdo/output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/airfoils
+  output_dir: /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/smooth_tier2_config_io_output
+  training_db: database/training_data.csv
+hi_fidelity:
+  gmsh:
+    enabled: false
+    binary: null
+    mesh_size_m: 0.05
+  calculix:
+    enabled: false
+    ccx_binary: null
+    cgx_binary: null
+  paraview:
+    enabled: false
+    binary: null
+  su2:
+    enabled: false
+    binary: null
+    cfg_template: null
+  aswing:
+    enabled: false
+    binary: null
+    timeout_s: 600
+    n_panels: 20
+    vinf_mps: null
+    warn_threshold_pct: 10.0
+mass_budget:
+  reference_point_m:
+  - 0.0
+  - 0.0
+  - 0.0
+  target_total_mass_kg: 96.0
+  include_spar_from_optimization: true
+  include_lift_wires_from_geometry: true
+  pilot:
+    m_kg: 56.0
+    xyz_m:
+    - 0.4
+    - 0.0
+    - -0.5
+    sigma_kg: 2.0
+    principal_inertia_kgm2:
+    - 4.0
+    - 12.0
+    - 10.0
+    notes: pilot + clothing + hydration; recumbent, CG at 35% chord behind LE
+    source: estimated
+  fuselage_structure:
+    m_kg: 11.0
+    xyz_m:
+    - 1.5
+    - 0.0
+    - -0.15
+    sigma_kg: 1.2
+    notes: cockpit pod + tail boom; pod dominates mass, slender boom extends to tail
+    source: estimated
+  wing_secondary_structure:
+    m_kg: 7.8
+    xyz_m:
+    - 0.42
+    - 0.0
+    - 0.02
+    sigma_kg: 0.9
+    notes: ribs, film covering, LE/TE members, non-spar fittings
+    source: estimated
+  drivetrain:
+    m_kg: 3.4
+    xyz_m:
+    - 0.8
+    - 0.0
+    - -0.25
+    sigma_kg: 0.3
+    notes: crank, chain, bearings, shafting
+    source: estimated
+  propeller:
+    m_kg: 0.9
+    xyz_m:
+    - 1.8
+    - 0.0
+    - 0.0
+    sigma_kg: 0.1
+    principal_inertia_kgm2:
+    - 0.02
+    - 0.04
+    - 0.04
+    notes: pusher blades + hub; located aft of cockpit pod
+    source: vendor
+  empennage:
+    m_kg: 2.4
+    xyz_m:
+    - 6.8
+    - 0.0
+    - -0.05
+    sigma_kg: 0.3
+    notes: horizontal tail, fin, rudder/elevator structure
+    source: estimated
+  controls:
+    m_kg: 0.8
+    xyz_m:
+    - 3.5
+    - 0.0
+    - -0.1
+    sigma_kg: 0.1
+    notes: control cables, horns, guides, return springs
+    source: estimated
+  avionics:
+    m_kg: 0.35
+    xyz_m:
+    - 1.35
+    - 0.0
+    - -0.4
+    sigma_kg: 0.05
+    notes: altimeter, variometer, logger
+    source: vendor
+  landing_gear:
+    m_kg: 0.45
+    xyz_m:
+    - 1.2
+    - 0.0
+    - 0.2
+    sigma_kg: 0.05
+    notes: main skid and abrasion protection
+    source: estimated
+  payload:
+    m_kg: 0.25
+    xyz_m:
+    - 0.4
+    - 0.0
+    - -0.45
+    sigma_kg: 0.05
+    notes: water bottle / emergency items
+    source: estimated
+  ballast:
+    m_kg: 0.0
+    xyz_m:
+    - 0.15
+    - 0.0
+    - 0.0
+    sigma_kg: 0.0
+    notes: trim ballast placeholder
+    source: placeholder
+  miscellaneous:
+    m_kg: 0.6
+    xyz_m:
+    - 2.2
+    - 0.0
+    - -0.1
+    sigma_kg: 0.1
+    notes: bolts, adhesive, fairing scraps, small hardware margin
+    source: estimated
+  extra_items:
+    telemetry_spare:
+      m_kg: 0.0
+      xyz_m:
+      - 1.4
+      - 0.0
+      - -0.35
+      sigma_kg: 0.0
+      notes: reserved slot for future onboard instrumentation
+      source: placeholder

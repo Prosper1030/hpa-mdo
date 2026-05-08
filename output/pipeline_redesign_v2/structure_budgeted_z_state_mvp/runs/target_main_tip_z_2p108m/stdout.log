@@ -1,0 +1,31 @@
+Inverse-design lightweight load-refresh refinement complete.
+  Config              : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/smooth_tier2_canonical_config.yaml
+  Design report       : /Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/ansys/crossval_report.txt
+  Report              : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/direct_dual_beam_inverse_design_refresh_report.txt
+  Summary JSON        : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/direct_dual_beam_inverse_design_refresh_summary.json
+  Aero source mode    : candidate_avl_spanwise
+  Refresh steps       : 0/0
+  Dynamic map rebuild : 0
+  Converged           : False
+  Feasible            : False
+  Target mass cap     : 14.000 kg
+  Coarse mass         : 16.482 kg
+  Total mass          : 16.482 kg
+  Loaded-shape Z max  : 0.000000 mm
+  Loaded-shape twist  : 0.000000 deg
+  Nodewise mismatch   : 0.000000 mm
+  Jig clearance min   : -136.746 mm
+  Selected outer loop : baseline_requested (z_scale=1.979090, exp=1.000000)
+  Recovery triggered  : False
+  Clearance risk      : 202.336018
+  Active-wall risk    : 1.000000
+  Target shape CSV    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/target_loaded_shape_spar_data.csv
+  Jig shape CSV       : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/jig_shape_spar_data.csv
+  Loaded shape CSV    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/loaded_shape_spar_data.csv
+  Deflection CSV      : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/node_deflections.csv
+  Jig STEP            : not written
+  Loaded STEP         : not written
+  Diagnostics JSON    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/active_wall_diagnostics.json
+  Validity summary    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/validity_summary.json
+  Wire rigging JSON   : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/lift_wire_rigging.json
+  Aero contract JSON  : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/runs/target_main_tip_z_2p108m/candidate_aero_contract.json

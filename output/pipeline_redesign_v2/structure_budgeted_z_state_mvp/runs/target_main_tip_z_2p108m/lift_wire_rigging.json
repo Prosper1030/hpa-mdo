@@ -1,0 +1,28 @@
+{
+  "wire_rigging": [
+    {
+      "identifier": "wire-1",
+      "side": "positive_half_span",
+      "attach_node_index": 26,
+      "attach_y_m": 7.564740983050847,
+      "attach_point_loaded_m": [
+        0.2536969460507487,
+        7.556219208816054,
+        0.5310711099082085
+      ],
+      "anchor_point_m": [
+        0.25390285933987433,
+        0.0,
+        -1.5
+      ],
+      "L_flight_m": 7.824429603976558,
+      "delta_L_m": 0.04258060666387209,
+      "L_cut_m": 7.781848997312686,
+      "tension_force_n": 2900.8328149453414,
+      "vertical_reaction_n": -753.0002854284533,
+      "allowable_tension_n": 4581.4892864851145,
+      "tension_margin_n": 1680.656471539773,
+      "attach_label": "wire-1"
+    }
+  ]
+}
