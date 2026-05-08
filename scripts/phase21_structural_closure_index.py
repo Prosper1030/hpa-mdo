@@ -95,6 +95,9 @@ from scripts.phase41_braced_subassembly_fem_evidence import (  # noqa: E402
 from scripts.phase42_phase41_reference_load_review import (  # noqa: E402
     build_current_phase41_reference_load_review,
 )
+from scripts.phase43_existing_detail_allowable_evidence_triage import (  # noqa: E402
+    build_current_existing_detail_allowable_evidence_triage,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -145,6 +148,7 @@ def build_structural_closure_index(
     existing_fem_evidence_triage: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
     phase41_reference_load_review: Any | None = None,
+    existing_detail_allowable_evidence_triage: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
     local_by_key = _entry_map(getattr(local_ledger, "entries", ()))
@@ -178,6 +182,9 @@ def build_structural_closure_index(
             existing_fem_evidence_triage=existing_fem_evidence_triage,
             braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
             phase41_reference_load_review=phase41_reference_load_review,
+            existing_detail_allowable_evidence_triage=(
+                existing_detail_allowable_evidence_triage
+            ),
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
     )
@@ -219,6 +226,7 @@ def write_structural_closure_index_package(
     existing_fem_evidence_triage: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
     phase41_reference_load_review: Any | None = None,
+    existing_detail_allowable_evidence_triage: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     index = build_structural_closure_index(
@@ -245,6 +253,7 @@ def write_structural_closure_index_package(
         existing_fem_evidence_triage=existing_fem_evidence_triage,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        existing_detail_allowable_evidence_triage=existing_detail_allowable_evidence_triage,
     )
     outputs = [
         _write_csv(out_dir / "structural_closure_index.csv", index),
@@ -318,6 +327,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     )
     braced_subassembly_fem_evidence = load_current_braced_subassembly_fem_evidence()
     phase41_reference_load_review = build_current_phase41_reference_load_review()
+    existing_detail_allowable_evidence_triage = (
+        build_current_existing_detail_allowable_evidence_triage()
+    )
     full_wing_buckling_closure_check = build_full_wing_buckling_closure_check(
         reference.candidate_id,
         closure_inputs=phase30_closure_inputs_from_evidence(
@@ -362,6 +374,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         existing_fem_evidence_triage=existing_fem_evidence_triage,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        existing_detail_allowable_evidence_triage=existing_detail_allowable_evidence_triage,
     )
 
 
@@ -393,6 +406,7 @@ def _build_item(
     existing_fem_evidence_triage: Any | None,
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    existing_detail_allowable_evidence_triage: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
     detail_margin_entry = _detail_margin_entry_for_key(key, detail_margin_check)
@@ -420,6 +434,7 @@ def _build_item(
         existing_fem_evidence_triage,
         braced_subassembly_fem_evidence,
         phase41_reference_load_review,
+        existing_detail_allowable_evidence_triage,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
     evidence = _evidence_for_key(
@@ -449,6 +464,9 @@ def _build_item(
         existing_fem_evidence_triage=existing_fem_evidence_triage,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        existing_detail_allowable_evidence_triage=(
+            existing_detail_allowable_evidence_triage
+        ),
     )
     return StructuralClosureItem(
         key=key,
@@ -508,6 +526,7 @@ def _evidence_artifacts(
     existing_fem_evidence_triage: Any | None,
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    existing_detail_allowable_evidence_triage: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
     if local_entry is not None:
@@ -582,6 +601,14 @@ def _evidence_artifacts(
         "failure_mode_ordering",
     }:
         artifacts.append("Phase42 phase41_reference_load_review")
+    if existing_detail_allowable_evidence_triage is not None and key in {
+        "wire_attach_local_load_path",
+        "root_joint",
+        "wire_termination",
+        "rib_load_transfer",
+        "rib_spacing_assumption",
+    }:
+        artifacts.append("Phase43 existing_detail_allowable_evidence_triage")
     return "; ".join(artifacts)
 
 
@@ -613,6 +640,7 @@ def _evidence_for_key(
     existing_fem_evidence_triage: Any | None,
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    existing_detail_allowable_evidence_triage: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
     if local_entry is not None:
@@ -740,6 +768,17 @@ def _evidence_for_key(
     }:
         parts.append(
             f"Phase42: {_phase41_reference_load_review_summary(phase41_reference_load_review)}"
+        )
+    if existing_detail_allowable_evidence_triage is not None and key in {
+        "wire_attach_local_load_path",
+        "root_joint",
+        "wire_termination",
+        "rib_load_transfer",
+        "rib_spacing_assumption",
+    }:
+        parts.append(
+            "Phase43: "
+            f"{_existing_detail_allowable_evidence_triage_summary(key, existing_detail_allowable_evidence_triage)}"
         )
     return " ".join(parts)
 
@@ -1259,6 +1298,30 @@ def _phase41_reference_load_review_summary(review: Any) -> str:
         f"{implausible_lambda}; "
         "support-opposes rows="
         f"{support_opposes}."
+    )
+
+
+def _existing_detail_allowable_evidence_triage_summary(key: str, triage: Any) -> str:
+    rows = {
+        str(getattr(row, "blocker_key", "")): row
+        for row in getattr(triage, "rows", ())
+    }
+    row = rows.get(key)
+    return (
+        "existing detail allowable triage status="
+        f"{getattr(triage, 'overall_status', 'unknown')}; "
+        "rows="
+        f"{int(getattr(triage, 'row_count', len(rows)))}; "
+        "closing rows="
+        f"{int(getattr(triage, 'closing_evidence_count', 0))}; "
+        "row status="
+        f"{getattr(row, 'status', 'missing') if row is not None else 'missing'}; "
+        "closes margin="
+        f"{bool(getattr(row, 'closes_engineering_margin', False)) if row is not None else False}; "
+        "missing allowable rows="
+        f"{int(getattr(row, 'missing_allowable_rows', 0)) if row is not None else 0}; "
+        "station coverage gaps="
+        f"{int(getattr(row, 'station_coverage_gap_rows', 0)) if row is not None else 0}."
     )
 
 

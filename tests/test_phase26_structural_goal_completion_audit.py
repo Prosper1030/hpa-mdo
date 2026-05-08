@@ -24,22 +24,22 @@ def _closure_index() -> SimpleNamespace:
             ),
             SimpleNamespace(
                 key="rib_load_transfer",
-                evidence_artifacts="Phase19; Phase22; Phase24",
-                current_evidence="added stations=53; dense finite rib surrogate only",
+                evidence_artifacts="Phase19; Phase22; Phase24; Phase43",
+                current_evidence="added stations=53; dense finite rib surrogate only; Phase43: existing detail allowable triage status=existing_detail_allowables_do_not_close_goal; row status=rib_catalog_proxy_not_margin",
                 remaining_blocker="Finite rib stiffness and allowables",
                 next_action="Create finite-rib load transfer model",
             ),
             SimpleNamespace(
                 key="wire_attach_local_load_path",
-                evidence_artifacts="Phase19; Phase23",
-                current_evidence="required load=6048 N",
+                evidence_artifacts="Phase19; Phase23; Phase43",
+                current_evidence="required load=6048 N; Phase43: existing detail allowable triage status=existing_detail_allowables_do_not_close_goal; row status=local_subcomponent_allowables_missing",
                 remaining_blocker="Local attach margins",
                 next_action="Size lug/ring/insert",
             ),
             SimpleNamespace(
                 key="root_joint",
-                evidence_artifacts="Phase19; Phase23",
-                current_evidence="required moment=10833 N*m",
+                evidence_artifacts="Phase19; Phase23; Phase43",
+                current_evidence="required moment=10833 N*m; Phase43: existing detail allowable triage status=existing_detail_allowables_do_not_close_goal; row status=local_subcomponent_allowables_missing",
                 remaining_blocker="Root fitting margins",
                 next_action="Size root fitting",
             ),
@@ -52,15 +52,15 @@ def _closure_index() -> SimpleNamespace:
             ),
             SimpleNamespace(
                 key="wire_termination",
-                evidence_artifacts="Phase19; Phase23",
-                current_evidence="required MBL=10080 N; body margin=-1466 N",
+                evidence_artifacts="Phase19; Phase23; Phase43",
+                current_evidence="required MBL=10080 N; body margin=-1466 N; Phase43: existing detail allowable triage status=existing_detail_allowables_do_not_close_goal; row status=material_body_strength_not_termination_allowable",
                 remaining_blocker="Selected termination hardware",
                 next_action="Pick termination",
             ),
             SimpleNamespace(
                 key="rib_spacing_assumption",
-                evidence_artifacts="Phase20; Phase24",
-                current_evidence="added stations=53",
+                evidence_artifacts="Phase20; Phase24; Phase43",
+                current_evidence="added stations=53; Phase43: existing detail allowable triage status=existing_detail_allowables_do_not_close_goal; row status=rib_catalog_proxy_not_margin",
                 remaining_blocker="Physical rib stiffness",
                 next_action="Place and verify bracing ribs",
             ),
@@ -112,7 +112,12 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
     by_key = {row.key: row for row in audit.rows}
     assert by_key["wire_termination"].evidence_strength == "requirements_only"
     assert "required MBL=10080 N" in by_key["wire_termination"].evidence_summary
+    assert "Phase43" in by_key["wire_termination"].evidence_artifacts
+    assert "material_body_strength_not_termination_allowable" in by_key[
+        "wire_termination"
+    ].evidence_summary
     assert by_key["rib_spacing_assumption"].evidence_strength == "layout_requirement_only"
+    assert "Phase43" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert by_key["torsion_twist_coupling"].evidence_strength == (
         "screening_plus_closure_input_missing"
     )

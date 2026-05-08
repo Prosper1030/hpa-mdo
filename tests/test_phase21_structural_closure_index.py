@@ -594,6 +594,51 @@ def _phase41_reference_load_review() -> SimpleNamespace:
     )
 
 
+def _existing_detail_allowable_evidence_triage() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="existing_detail_allowables_do_not_close_goal",
+        row_count=5,
+        closing_evidence_count=0,
+        rows=(
+            SimpleNamespace(
+                blocker_key="wire_attach_local_load_path",
+                status="local_subcomponent_allowables_missing",
+                closes_engineering_margin=False,
+                missing_allowable_rows=2,
+                station_coverage_gap_rows=0,
+            ),
+            SimpleNamespace(
+                blocker_key="root_joint",
+                status="local_subcomponent_allowables_missing",
+                closes_engineering_margin=False,
+                missing_allowable_rows=1,
+                station_coverage_gap_rows=0,
+            ),
+            SimpleNamespace(
+                blocker_key="wire_termination",
+                status="material_body_strength_not_termination_allowable",
+                closes_engineering_margin=False,
+                missing_allowable_rows=1,
+                station_coverage_gap_rows=0,
+            ),
+            SimpleNamespace(
+                blocker_key="rib_load_transfer",
+                status="rib_catalog_proxy_not_margin",
+                closes_engineering_margin=False,
+                missing_allowable_rows=2,
+                station_coverage_gap_rows=1,
+            ),
+            SimpleNamespace(
+                blocker_key="rib_spacing_assumption",
+                status="rib_catalog_proxy_not_margin",
+                closes_engineering_margin=False,
+                missing_allowable_rows=2,
+                station_coverage_gap_rows=1,
+            ),
+        ),
+    )
+
+
 def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> None:
     index = build_structural_closure_index(
         _claim_review(),
@@ -619,6 +664,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         existing_fem_evidence_triage=_existing_fem_evidence_triage(),
         braced_subassembly_fem_evidence=_braced_subassembly_fem_evidence(),
         phase41_reference_load_review=_phase41_reference_load_review(),
+        existing_detail_allowable_evidence_triage=_existing_detail_allowable_evidence_triage(),
     )
 
     assert index.overall_status == "engineering_not_signed_off"
@@ -640,13 +686,21 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "wire_attach_local_load_path"
     ].current_evidence
     assert "Phase34" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "Phase43" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "spanwise design=7200.0000 N" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
     assert "transverse design=1800.0000 N" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
+    assert "existing detail allowable triage status=existing_detail_allowables_do_not_close_goal" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "row status=local_subcomponent_allowables_missing" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
     assert "Phase35" in by_key["root_joint"].evidence_artifacts
+    assert "Phase43" in by_key["root_joint"].evidence_artifacts
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
     assert "subcomponents missing=1" in by_key["root_joint"].current_evidence
     assert "design moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
@@ -656,6 +710,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
     assert "subcomponents missing=1" in by_key["wire_termination"].current_evidence
     assert "Phase36" in by_key["wire_termination"].evidence_artifacts
+    assert "Phase43" in by_key["wire_termination"].evidence_artifacts
     assert "MBL at eta 0.60=10080.3000 N" in by_key[
         "wire_termination"
     ].current_evidence
@@ -691,11 +746,13 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase32" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase40" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase41" in by_key["rib_load_transfer"].evidence_artifacts
+    assert "Phase43" in by_key["rib_load_transfer"].evidence_artifacts
     assert "diagnostic status=surrogate_load_transfer_not_signoff" in by_key[
         "rib_load_transfer"
     ].current_evidence
     assert "Phase24" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert "Phase28" in by_key["rib_load_transfer"].evidence_artifacts
+    assert "Phase43" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert "added stations=15" in by_key["rib_spacing_assumption"].current_evidence
     assert "max recommended subbay=0.2970 m" in by_key["rib_load_transfer"].current_evidence
     assert "required link force=934.5000 N" in by_key["rib_load_transfer"].current_evidence
