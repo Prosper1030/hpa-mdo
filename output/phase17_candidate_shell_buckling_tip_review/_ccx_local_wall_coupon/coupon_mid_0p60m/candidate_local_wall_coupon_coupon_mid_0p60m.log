@@ -17,35 +17,35 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
 
   number of:
 
-   nodes:       998496
-   elements:        15360
+   nodes:       599136
+   elements:         9216
    one-dimensional elements:            0
-   two-dimensional elements:        15360
+   two-dimensional elements:         9216
    integration points per element:            8
    degrees of freedom per node:            3
    layers per element:            1
 
    distributed facial loads:            0
    distributed volumetric loads:            0
-   concentrated loads:          384
-   single point constraints:      1108992
-   multiple point constraints:      1843201
-   terms in all multiple point constraints:     11796481
+   concentrated loads:          768
+   single point constraints:       666624
+   multiple point constraints:      1105921
+   terms in all multiple point constraints:      7077889
    tie constraints:            0
    dependent nodes tied by cyclic constraints:            0
    dependent nodes in pre-tension constraints:            0
 
    sets:            3
-   terms in all sets:        30912
+   terms in all sets:        18624
 
    materials:            1
    constants per material and temperature:            2
    temperature points per material:            1
    plastic data points per material:            0
 
-   orientations:        15360
-   amplitudes:            2
-   data points in all amplitudes:            2
+   orientations:         9216
+   amplitudes:            3
+   data points in all amplitudes:            3
    print requests:            1
    transformations:            0
    property cards:            0
@@ -74,9 +74,9 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
  Determining the structure of the matrix:
  Using up to 1 cpu(s) for setting up the structure of the matrix.
  number of equations
- 230304
+ 138144
  number of nonzero lower triangular matrix elements
- 6286080
+ 3760896
 
  Using up to 1 cpu(s) for the stress calculation.
 
@@ -100,9 +100,9 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
  Determining the structure of the matrix:
  Using up to 1 cpu(s) for setting up the structure of the matrix.
  number of equations
- 230304
+ 138144
  number of nonzero lower triangular matrix elements
- 6286080
+ 3760896
 
  Using up to 1 cpu(s) for the stress calculation.
 
@@ -120,7 +120,7 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
 
  Calculating the buckling factors and buckling modes:
 
-sigma=1.000000,d[0]=7125204690.653447
+sigma=1.000000,d[0]=6.388905
 
  Using up to 1 cpu(s) for the stress calculation.
 
@@ -147,6 +147,6 @@ sigma=1.000000,d[0]=7125204690.653447
 
 ________________________________________
 
-Total CalculiX Time: 11.574479
+Total CalculiX Time: 6.495219
 ________________________________________
 ===== stderr =====

@@ -12,34 +12,42 @@
 
 | mesh | elements | first lambda | shell buckling n | util at 3G | util at 4G | status |
 |---|---:|---:|---:|---:|---:|---|
-| coarse | 2880 | 1974.532 | 3949.064 | 0.001 | 0.001 | UNTRUSTED_FOR_LOCAL_WALL |
-| medium | 6144 | 33701.080 | 67402.160 | 0.000 | 0.000 | UNTRUSTED_FOR_LOCAL_WALL |
+| coarse | 2880 | 0.824 | 1.648 | 1.820 | 2.427 | GLOBAL_BRACING_FAIL_DIRECTIONAL |
+| medium | 6144 | 0.702 | 1.404 | 2.137 | 2.849 | GLOBAL_BRACING_FAIL_DIRECTIONAL |
 
 ## Stress-Calibrated Local Wall Coupon
 
-| mesh | D/t | reference stress MPa | raw CCX lambda | raw CCX n | classical n | internal n | status |
-|---|---:|---:|---:|---:|---:|---:|---|
-| coupon_coarse | 87.3 | 358.1 | 4500908000.000 | 9001816000.000 | 15.044 | 12.396 | UNTRUSTED_NUMERICAL |
-| coupon_medium | 87.3 | 358.1 | 7125205000.000 | 14250410000.000 | 15.044 | 12.396 | UNTRUSTED_NUMERICAL |
+| mesh | L m | D/t | CCX stress MPa | classical MPa | delta % | CCX n | internal n | status |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| coupon_rib_bay_0p30m | 0.30 | 87.3 | 2761.9 | 2693.4 | 2.5 | 15.427 | 12.396 | PASS_DIRECTIONAL |
+| coupon_mid_0p60m | 0.60 | 87.3 | 2287.7 | 2693.4 | -15.1 | 12.778 | 12.396 | PASS_DIRECTIONAL |
+| coupon_long_1p50m | 1.50 | 87.3 | 1189.6 | 2693.4 | -55.8 | 6.644 | 12.396 | PASS_DIRECTIONAL |
 
 ## Engineering Read
 
-- Full main-spar shell deck lowest parsed factor: `lambda = 1974.5320` on `coarse`, or `n = 3949.064G` from the 2G preload.
-- Engineering caution: this full-deck value is very high because the current wire load largely cancels net root vertical load in the simplified main-tube-only model; it is marked untrusted for local-wall buckling.
-- Stress-calibrated local-wall coupon lowest parsed factor: `lambda = 4500908000.0000` on `coupon_coarse`.
-- That raw CCX value implies an impossible critical stress of `1611673229728.4 MPa` versus the current knockdown/classical check of `2693.4 MPa`.
-- Therefore the S4 shell eigenvalue is not accepted as local-wall truth in this run.
-- Current usable buckling screen remains the internal estimate: local-wall buckling utilization reaches 1.0 at about `n = 12.396G`.
-- A simpler knockdown/classical stress ratio gives `n = 15.044G`, which is less conservative than the internal estimate.
-- Engineering conclusion: buckling is not the blocker through 3G, but candidate-specific CCX shell eigen-buckling is still numerically unresolved rather than validated.
+- Full main-spar shell deck lowest parsed factor: `lambda = 0.7020` on `medium`, or `n = 1.404G` from the 2G preload.
+- Engineering caution: this is a global compression/lateral-bracing mode in an isolated main-spar shell. It is not the local wall-buckling answer and it is not a complete wing truth without rear spar, ribs, and wire-attach load-transfer stiffness.
+- After moving the loads into the CalculiX `*BUCKLE` step, the stress-calibrated coupon route is now numerically plausible instead of returning astronomical eigenvalues.
+- Lowest long-coupon shell result is `6.644G`; it still clears 3G but is length/global-column sensitive.
+- The rib-bay-scale `coupon_rib_bay_0p30m` coupon gives critical stress `2761.9 MPa` versus classical `2693.4 MPa`, delta `2.5%`.
+- That maps to local-wall buckling at `n = 15.427G`, so local tube-wall buckling is validated as non-blocking through 3G if the tube is rib-bay braced at about this length scale.
+- The internal buckling estimate remains `n = 12.396G`; the validated rib-bay shell coupon is now in the same conservative order as the classical/internal screen.
+- Engineering conclusion: local wall buckling can be called candidate-specific checked and passed through 3G for rib-bay braced tube-wall behavior. The remaining unresolved item is global wire-compression bracing / joint load-transfer, not local wall buckling.
+
+## Blocking Resolution
+
+- Fixed: the CalculiX decks now repeat the active loads inside the `*BUCKLE` step, matching the local CalculiX verification examples. This removes the previous astronomical/unusable eigenvalue blocker.
+- Valid for this task: candidate-specific CFRP tube local-wall buckling is now checked by a stress-calibrated shell coupon and passes through 3G for rib-bay braced behavior.
+- Not honestly passable yet: the full isolated main-spar shell shows a global compression/lateral-bracing mode below 1.75G. That mode is model-scope dominated because the deck omits rear-spar, rib, and wire-attach load-transfer stiffness; it needs a dual-spar/rib/joint load-transfer FEM before being used as a final wing-buckling verdict.
+- Engineering decision: the original local-wall buckling blocker is fixed and valid; the remaining blocker has moved to global bracing/load-transfer validation rather than shell local buckling.
 
 ## Limits Of This FEM
 
 - This is candidate-specific for the main CFRP tube wall, but it is not a detailed root fitting, rib, bonded insert, lug, or wire-attach finite-element model.
 - The shell tube uses a smeared ring load at the wire attach station. That is appropriate for tube-wall screening, but it intentionally avoids claiming local lug bearing strength.
-- The local-wall coupon is stress-calibrated to the internal 2G compressive stress; it intentionally checks tube-wall stability rather than the full wing load path.
+- The local-wall coupons are stress-calibrated to the internal 2G compressive stress; they intentionally check tube-wall stability rather than the full wing load path.
 - The material is still the current effective isotropic CFRP tube material; final composite local buckling should eventually use laminate ABD/orthotropic shell properties and knockdowns.
-- The run should therefore be called `candidate-specific CCX shell attempted, but local-wall eigenvalue unresolved`; the classical/internal estimate is still the accepted screening value.
+- The full main-spar shell result should not be used alone as final failure truth because the real wing is not an isolated main spar with no rear-spar/rib bracing.
 
 - Reference 2G equivalent tip deflection used by the load-factor model: `1.543162 m`.
 - Current effective tip deflection gate: `2.550000 m`.

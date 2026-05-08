@@ -10,6 +10,8 @@ from scripts.phase17_candidate_shell_buckling_tip_review import (
     build_constant_tube_shell_mesh,
     parse_buckling_factors,
     parse_root_reaction,
+    write_shell_buckle_inp,
+    write_local_wall_coupon_buckle_inp,
     wire_force_vector_n,
     worst_main_tube_station,
 )
@@ -90,3 +92,63 @@ def test_worst_main_tube_station_uses_largest_d_over_t() -> None:
         CandidateStation(2, 1.0, 0.0, 0.0, 0.03, 0.001, 0.0, False),
     ]
     assert worst_main_tube_station(stations).node == 2
+
+
+def test_buckle_deck_repeats_loads_inside_buckle_step(tmp_path) -> None:
+    nodes, elements = build_constant_tube_shell_mesh(
+        outer_radius_m=0.03,
+        wall_thickness_m=0.002,
+        length_m=0.2,
+        n_span=2,
+        n_circumference=12,
+    )
+    deck = write_local_wall_coupon_buckle_inp(
+        tmp_path / "coupon.inp",
+        nodes=nodes,
+        elements=elements,
+        material_name="MAT",
+        young_pa=230.0e9,
+        poisson_ratio=0.27,
+        density_kgpm3=1600.0,
+        wall_thickness_m=0.002,
+        n_circumference=12,
+        axial_force_n=100.0,
+    )
+
+    text = deck.read_text(encoding="utf-8")
+    buckle_step = text.split("*STEP, NAME=local_wall_buckle", maxsplit=1)[1]
+    assert "*BUCKLE" in buckle_step
+    assert "*CLOAD" in buckle_step
+    assert "25, 2," in buckle_step
+
+
+def test_candidate_shell_deck_repeats_loads_inside_buckle_step(tmp_path) -> None:
+    stations = [
+        CandidateStation(1, 0.0, 0.0, 0.0, 0.03, 0.002, 10.0, False),
+        CandidateStation(2, 1.0, 0.0, 0.0, 0.03, 0.002, 5.0, False),
+    ]
+    nodes, elements, thickness, _ = build_candidate_shell_mesh(
+        stations,
+        n_span=2,
+        n_circumference=12,
+    )
+    deck = write_shell_buckle_inp(
+        tmp_path / "candidate.inp",
+        nodes=nodes,
+        elements=elements,
+        thickness_by_ring_m=thickness,
+        material_name="MAT",
+        young_pa=230.0e9,
+        poisson_ratio=0.27,
+        density_kgpm3=1600.0,
+        n_span=2,
+        n_circumference=12,
+        loads=[(1, 3, 10.0), (13, 3, 5.0)],
+    )
+
+    text = deck.read_text(encoding="utf-8")
+    buckle_step = text.split("*STEP, NAME=buckle_from_reference_2g", maxsplit=1)[1]
+    assert "*BUCKLE" in buckle_step
+    assert "*CLOAD" in buckle_step
+    assert "1, 3, 10" in buckle_step
+    assert "13, 3, 5" in buckle_step

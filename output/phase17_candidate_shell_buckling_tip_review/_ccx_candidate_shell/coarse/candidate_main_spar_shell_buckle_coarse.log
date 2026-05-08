@@ -27,7 +27,7 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
 
    distributed facial loads:            0
    distributed volumetric loads:            0
-   concentrated loads:        11904
+   concentrated loads:        23808
    single point constraints:       208512
    multiple point constraints:       345601
    terms in all multiple point constraints:      2211841
@@ -44,8 +44,8 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
    plastic data points per material:            0
 
    orientations:         2880
-   amplitudes:            2
-   data points in all amplitudes:            2
+   amplitudes:            3
+   data points in all amplitudes:            3
    print requests:            1
    transformations:            0
    property cards:            0
@@ -120,7 +120,7 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
 
  Calculating the buckling factors and buckling modes:
 
-sigma=1.000000,d[0]=1974.531712
+sigma=1.000000,d[0]=0.824145
 
  Using up to 1 cpu(s) for the stress calculation.
 
@@ -147,6 +147,6 @@ sigma=1.000000,d[0]=1974.531712
 
 ________________________________________
 
-Total CalculiX Time: 2.489560
+Total CalculiX Time: 1.925757
 ________________________________________
 ===== stderr =====

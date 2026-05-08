@@ -7,97 +7,97 @@
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-       -5.448960E-09  6.213933E+04 -1.065247E-09
+        3.726015E-10  6.213933E+04 -6.279057E-10
 
                         S T E P       2
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-        0.000000E+00  0.000000E+00  0.000000E+00
+        3.726015E-10  6.213933E+04 -6.279057E-10
 
      B U C K L I N G   F A C T O R   O U T P U T
 
  MODE NO       BUCKLING
                 FACTOR
 
-      1   0.4500908E+10
-      2   0.1202223E+11
-      3   0.1499091E+11
-      4   0.1880810E+11
-      5   0.2664300E+11
-      6   0.2704588E+11
-      7   0.2975835E+11
-      8   0.3554314E+11
-      9   0.3682239E+11
-     10   0.4153884E+11
+      1   0.7713269E+01
+      2   0.7797391E+01
+      3   0.7823164E+01
+      4   0.7872120E+01
+      5   0.7932832E+01
+      6   0.8007262E+01
+      7   0.8084170E+01
+      8   0.8196499E+01
+      9   0.8319496E+01
+     10   0.8459671E+01
 
                     E I G E N V A L U E    N U M B E R     1
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-        3.975826E+02 -1.254818E+01  4.171563E+01
+        1.033730E-02  1.245519E-03 -1.008027E-01
 
                     E I G E N V A L U E    N U M B E R     2
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-        1.500138E+02  2.194472E+00  4.153404E+02
+       -1.896335E+01  8.052824E-01  3.475042E+00
 
                     E I G E N V A L U E    N U M B E R     3
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-       -4.818233E+02  3.640209E+01  2.321406E+01
+       -3.296688E+01  6.180862E-02  4.718431E+00
 
                     E I G E N V A L U E    N U M B E R     4
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-       -3.165125E+01 -3.420479E+01  2.134486E+02
+        6.114143E+01 -7.108825E-01 -1.607073E+01
 
                     E I G E N V A L U E    N U M B E R     5
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-       -4.227177E+02 -8.343397E+01  1.079965E+02
+       -7.614825E+00 -7.337273E-02 -4.237312E+01
 
                     E I G E N V A L U E    N U M B E R     6
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-        3.530163E+01 -1.363182E+01  4.320749E+02
+        4.708625E+01 -2.080136E-01 -9.978828E+01
 
                     E I G E N V A L U E    N U M B E R     7
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-       -6.479937E+00 -5.219325E+01  7.901862E+02
+       -2.527124E+01 -5.068333E-01 -2.314650E+00
 
                     E I G E N V A L U E    N U M B E R     8
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-       -2.439753E+02 -3.891865E+01  2.185735E+02
+        5.835626E+01 -7.594099E-01  9.703083E+01
 
                     E I G E N V A L U E    N U M B E R     9
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-        2.034839E+02 -1.021501E+01  1.971367E+02
+       -1.636620E+01  1.938085E+00 -4.600534E+01
 
                     E I G E N V A L U E    N U M B E R    10
 
 
  total force (fx,fy,fz) for set ROOT and time  0.1000000E+01
 
-        7.140164E+01  5.025952E+01  3.452158E+02
+       -4.471021E+01  1.034082E+00 -3.661233E+00

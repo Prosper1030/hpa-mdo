@@ -17,33 +17,33 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
 
   number of:
 
-   nodes:       399424
-   elements:         6144
+   nodes:       998496
+   elements:        15360
    one-dimensional elements:            0
-   two-dimensional elements:         6144
+   two-dimensional elements:        15360
    integration points per element:            8
    degrees of freedom per node:            3
    layers per element:            1
 
    distributed facial loads:            0
    distributed volumetric loads:            0
-   concentrated loads:        31744
-   single point constraints:       443904
-   multiple point constraints:       737281
-   terms in all multiple point constraints:      4718593
+   concentrated loads:          768
+   single point constraints:      1108992
+   multiple point constraints:      1843201
+   terms in all multiple point constraints:     11796481
    tie constraints:            0
    dependent nodes tied by cyclic constraints:            0
    dependent nodes in pre-tension constraints:            0
 
-   sets:           97
-   terms in all sets:         6272
+   sets:            3
+   terms in all sets:        30912
 
    materials:            1
    constants per material and temperature:            2
    temperature points per material:            1
    plastic data points per material:            0
 
-   orientations:         6144
+   orientations:        15360
    amplitudes:            3
    data points in all amplitudes:            3
    print requests:            1
@@ -54,9 +54,9 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
  STEP            1
 
  *WARNING reading *STEP: parameter not recognized:
-          NAME=REFERENCE_STATIC_2G
+          NAME=REFERENCE_AXIAL_COMPRESSION
  *WARNING reading *STEP. Card image:
-          *STEP,NAME=REFERENCE_STATIC_2G
+          *STEP,NAME=REFERENCE_AXIAL_COMPRESSION
 
  *WARNING reading *STATIC:
           the minimum increment    0.0000000000000000
@@ -74,9 +74,9 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
  Determining the structure of the matrix:
  Using up to 1 cpu(s) for setting up the structure of the matrix.
  number of equations
- 92224
+ 230304
  number of nonzero lower triangular matrix elements
- 2513728
+ 6286080
 
  Using up to 1 cpu(s) for the stress calculation.
 
@@ -91,18 +91,18 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
  STEP            2
 
  *WARNING reading *STEP: parameter not recognized:
-          NAME=BUCKLE_FROM_REFERENCE_2G
+          NAME=LOCAL_WALL_BUCKLE
  *WARNING reading *STEP. Card image:
-          *STEP,NAME=BUCKLE_FROM_REFERENCE_2G
+          *STEP,NAME=LOCAL_WALL_BUCKLE
 
  Buckling analysis was selected
 
  Determining the structure of the matrix:
  Using up to 1 cpu(s) for setting up the structure of the matrix.
  number of equations
- 92224
+ 230304
  number of nonzero lower triangular matrix elements
- 2513728
+ 6286080
 
  Using up to 1 cpu(s) for the stress calculation.
 
@@ -120,7 +120,7 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
 
  Calculating the buckling factors and buckling modes:
 
-sigma=1.000000,d[0]=0.701969
+sigma=1.000000,d[0]=3.322155
 
  Using up to 1 cpu(s) for the stress calculation.
 
@@ -147,6 +147,6 @@ sigma=1.000000,d[0]=0.701969
 
 ________________________________________
 
-Total CalculiX Time: 4.251921
+Total CalculiX Time: 11.111101
 ________________________________________
 ===== stderr =====
