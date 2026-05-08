@@ -34,6 +34,9 @@ class RibBracingMarginRow:
     start_y_m: float
     end_y_m: float
     required_intermediate_stations: int
+    covered_intermediate_station_count: int | None
+    covered_station_ids: str
+    station_coverage_status: str
     recommended_subbay_m: float
     bay_vertical_load_scale_n: float
     required_link_force_n: float
@@ -61,6 +64,7 @@ class RibBracingMarginCheck:
     finite_rib_variant_id: str
     required_link_force_n: float
     traceability_gap_count: int
+    station_coverage_gap_count: int
     rows: tuple[RibBracingMarginRow, ...]
 
 
@@ -85,6 +89,9 @@ def build_rib_bracing_margin_check(
         for spacing_row in getattr(spacing_requirements, "rows", ())
     )
     traceability_gap_count = sum(1 for row in rows if row.status == "rib_traceability_missing")
+    station_coverage_gap_count = sum(
+        1 for row in rows if row.status == "rib_station_coverage_missing"
+    )
     all_positive = rows and all(row.status == "margin_positive_input_check_only" for row in rows)
     return RibBracingMarginCheck(
         candidate_id=str(spacing_requirements.candidate_id),
@@ -96,6 +103,7 @@ def build_rib_bracing_margin_check(
         finite_rib_variant_id=FINITE_RIB_VARIANT_ID,
         required_link_force_n=required_link_force,
         traceability_gap_count=traceability_gap_count,
+        station_coverage_gap_count=station_coverage_gap_count,
         rows=rows,
     )
 
@@ -156,6 +164,13 @@ def _build_row(
     allowable_basis = str((allowable or {}).get("allowable_basis", "")).strip()
     evidence_type = str((allowable or {}).get("evidence_type", "")).strip()
     attachment_basis = str((allowable or {}).get("attachment_basis", "")).strip()
+    covered_station_count = _dict_int(allowable, "covered_intermediate_station_count")
+    covered_station_ids = str((allowable or {}).get("covered_station_ids", "")).strip()
+    station_coverage_status = _station_coverage_status(
+        required_intermediate_stations=int(spacing_row.required_intermediate_stations),
+        covered_intermediate_station_count=covered_station_count,
+        covered_station_ids=covered_station_ids,
+    )
     traceability_status = _traceability_status(
         rib_family=rib_family,
         source=source,
@@ -167,12 +182,16 @@ def _build_row(
         provided=(allowable_link, allowable_shear, allowable_bond),
         margins=margins,
         traceability_status=traceability_status,
+        station_coverage_status=station_coverage_status,
     )
     return RibBracingMarginRow(
         bay_index=int(spacing_row.bay_index),
         start_y_m=float(spacing_row.start_y_m),
         end_y_m=float(spacing_row.end_y_m),
         required_intermediate_stations=int(spacing_row.required_intermediate_stations),
+        covered_intermediate_station_count=covered_station_count,
+        covered_station_ids=covered_station_ids,
+        station_coverage_status=station_coverage_status,
         recommended_subbay_m=float(spacing_row.recommended_subbay_m),
         bay_vertical_load_scale_n=float(spacing_row.bay_vertical_load_scale_n),
         required_link_force_n=float(required_link_force_n),
@@ -192,7 +211,7 @@ def _build_row(
         source=source,
         engineering_note=(
             "Input margin check only; not finite-rib FEM signoff and not a substitute for rib stiffness, "
-            "spar-attach, cap, web, bond, traceability, or manufacturing evidence."
+            "station-by-station spar-attach, cap, web, bond, traceability, or manufacturing evidence."
         ),
     )
 
@@ -209,6 +228,7 @@ def _status(
     provided: tuple[float | None, ...],
     margins: list[float],
     traceability_status: str,
+    station_coverage_status: str,
 ) -> str:
     if any(value is None for value in provided):
         return "rib_allowable_missing"
@@ -216,7 +236,29 @@ def _status(
         return "margin_negative"
     if traceability_status != "traceable_input":
         return "rib_traceability_missing"
+    if station_coverage_status != "station_coverage_satisfied":
+        return "rib_station_coverage_missing"
     return "margin_positive_input_check_only"
+
+
+def _station_coverage_status(
+    *,
+    required_intermediate_stations: int,
+    covered_intermediate_station_count: int | None,
+    covered_station_ids: str,
+) -> str:
+    if required_intermediate_stations <= 0:
+        return "station_coverage_satisfied"
+    if covered_intermediate_station_count is None:
+        return "station_coverage_count_missing"
+    if covered_intermediate_station_count < required_intermediate_stations:
+        return "station_coverage_count_insufficient"
+    station_ids = [value for value in covered_station_ids.split(";") if value.strip()]
+    if not station_ids:
+        return "station_ids_missing"
+    if len(station_ids) < required_intermediate_stations:
+        return "station_ids_insufficient"
+    return "station_coverage_satisfied"
 
 
 def _traceability_status(
@@ -246,6 +288,8 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
         "start_y_m",
         "end_y_m",
         "required_intermediate_stations",
+        "covered_intermediate_station_count",
+        "covered_station_ids",
         "recommended_subbay_m",
         "bay_vertical_load_scale_n",
         "required_link_force_n",
@@ -269,6 +313,8 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
                     "start_y_m": _fmt(row.start_y_m),
                     "end_y_m": _fmt(row.end_y_m),
                     "required_intermediate_stations": row.required_intermediate_stations,
+                    "covered_intermediate_station_count": "",
+                    "covered_station_ids": "",
                     "recommended_subbay_m": _fmt(row.recommended_subbay_m),
                     "bay_vertical_load_scale_n": _fmt(row.bay_vertical_load_scale_n),
                     "required_link_force_n": _fmt(row.required_link_force_n),
@@ -313,14 +359,19 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
         f"- finite-rib surrogate requirement row: `{check.finite_rib_variant_id}`",
         f"- required link force: `{check.required_link_force_n:.3f} N`",
         f"- traceability-gap bays: `{check.traceability_gap_count}`",
+        f"- station-coverage-gap bays: `{check.station_coverage_gap_count}`",
         "",
-        "| bay | y start m | y end m | status | traceability | required link N | link margin N | shear margin N | bond margin N | allowable basis | evidence type | attachment basis | source |",
-        "|---:|---:|---:|---|---|---:|---:|---:|---:|---|---|---|---|",
+        "| bay | y start m | y end m | required stations | covered stations | station ids | status | traceability | station coverage | required link N | link margin N | shear margin N | bond margin N | allowable basis | evidence type | attachment basis | source |",
+        "|---:|---:|---:|---:|---:|---|---|---|---|---:|---:|---:|---:|---|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.bay_index} | {row.start_y_m:.3f} | {row.end_y_m:.3f} | "
-            f"`{row.status}` | `{row.traceability_status}` | {row.required_link_force_n:.3f} | "
+            f"{row.required_intermediate_stations} | "
+            f"{_fmt_int(row.covered_intermediate_station_count)} | "
+            f"{row.covered_station_ids or 'n/a'} | "
+            f"`{row.status}` | `{row.traceability_status}` | "
+            f"`{row.station_coverage_status}` | {row.required_link_force_n:.3f} | "
             f"{_fmt(row.link_margin_n)} | {_fmt(row.shear_margin_n)} | {_fmt(row.bond_margin_n)} | "
             f"{row.allowable_basis or 'n/a'} | {row.evidence_type or 'n/a'} | "
             f"{row.attachment_basis or 'n/a'} | "
@@ -333,7 +384,8 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
             "",
             "- Positive margins here only mean supplied rib/link/bond numbers exceed the Phase 22 surrogate link-force requirement.",
             "- A traceable rib input requires rib family, source, allowable basis, evidence type, and attachment basis for each bay.",
-            "- This is not finite-rib FEM signoff and does not close bracing stiffness, spar attachment, cap/web sizing, or full-wing buckling by itself.",
+            "- Each bay-level input must also identify how many required intermediate stations it covers.",
+            "- This is not finite-rib FEM signoff and does not close bracing stiffness, station-level spar attachment, cap/web sizing, or full-wing buckling by itself.",
             "",
         ]
     )
@@ -350,6 +402,15 @@ def _dict_float(row: dict[str, Any] | None, name: str) -> float | None:
     return float(value)
 
 
+def _dict_int(row: dict[str, Any] | None, name: str) -> int | None:
+    if row is None:
+        return None
+    value = row.get(name)
+    if value is None or value == "":
+        return None
+    return int(float(value))
+
+
 def _margin(provided: float | None, required: float) -> float | None:
     if provided is None:
         return None
@@ -358,6 +419,10 @@ def _margin(provided: float | None, required: float) -> float | None:
 
 def _fmt(value: float | None) -> str:
     return "" if value is None else f"{float(value):.3f}"
+
+
+def _fmt_int(value: int | None) -> str:
+    return "" if value is None else str(int(value))
 
 
 def main(argv: list[str] | None = None) -> int:

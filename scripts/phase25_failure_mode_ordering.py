@@ -671,6 +671,9 @@ def _rib_bracing_margin_evidence(check: Any | None) -> str:
     missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
     traceability_gap = sum(1 for row in rows if getattr(row, "status", "") == "rib_traceability_missing")
+    station_coverage_gap = sum(
+        1 for row in rows if getattr(row, "status", "") == "rib_station_coverage_missing"
+    )
     return (
         "required link force="
         f"{_fmt(_attr_float(check, 'required_link_force_n'))} N; "
@@ -679,7 +682,9 @@ def _rib_bracing_margin_evidence(check: Any | None) -> str:
         "negative rib margins="
         f"{negative}; "
         "rib traceability gaps="
-        f"{traceability_gap}."
+        f"{traceability_gap}; "
+        "rib station coverage gaps="
+        f"{station_coverage_gap}."
     )
 
 

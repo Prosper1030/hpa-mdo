@@ -819,6 +819,9 @@ def _rib_bracing_summary(check: Any) -> str:
     missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
     traceability_gap = sum(1 for row in rows if getattr(row, "status", "") == "rib_traceability_missing")
+    station_coverage_gap = sum(
+        1 for row in rows if getattr(row, "status", "") == "rib_station_coverage_missing"
+    )
     return (
         "required link force="
         f"{_fmt(getattr(check, 'required_link_force_n', None))} N; "
@@ -827,7 +830,9 @@ def _rib_bracing_summary(check: Any) -> str:
         "negative-margin bays="
         f"{negative}; "
         "traceability-gap bays="
-        f"{traceability_gap}."
+        f"{traceability_gap}; "
+        "station-coverage-gap bays="
+        f"{station_coverage_gap}."
     )
 
 

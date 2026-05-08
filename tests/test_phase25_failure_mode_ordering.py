@@ -180,6 +180,7 @@ def _rib_bracing_margin_check() -> SimpleNamespace:
             SimpleNamespace(status="rib_allowable_missing"),
             SimpleNamespace(status="rib_allowable_missing"),
             SimpleNamespace(status="rib_traceability_missing"),
+            SimpleNamespace(status="rib_station_coverage_missing"),
         ),
     )
 
@@ -339,6 +340,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "added stations=53" in by_key["rib_load_transfer"].evidence
     assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
     assert "rib traceability gaps=1" in by_key["rib_load_transfer"].evidence
+    assert "rib station coverage gaps=1" in by_key["rib_load_transfer"].evidence
     assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].evidence
     assert "missing claim n=unknown" not in by_key["torsion_twist_coupling"].evidence
     assert "screening status=torsion_twist_screening_not_aeroelastic_signoff" in by_key[
