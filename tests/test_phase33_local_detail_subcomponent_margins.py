@@ -210,6 +210,32 @@ def test_subcomponent_margin_check_applies_termination_efficiency_to_effective_l
     assert termination.status == "margin_negative"
 
 
+def test_subcomponent_margin_check_multiplies_independent_termination_factors() -> None:
+    check = build_local_detail_subcomponent_margin_check(
+        _requirements(),
+        subcomponent_allowables=(
+            {
+                "parent_key": "wire_termination",
+                "subcomponent_key": "termination_process_efficiency",
+                "component_id": "swage-a",
+                "allowable_load_n": "7000",
+                "minimum_breaking_load_n": "12000",
+                "allowable_basis": "wire_body_mbl_with_swage_efficiency_and_derate",
+                "evidence_type": "vendor_datasheet",
+                "derate_factor": "0.80",
+                "termination_efficiency": "0.60",
+                "source": "vendor placeholder",
+            },
+        ),
+    )
+
+    by_key = {(row.parent_key, row.subcomponent_key): row for row in check.rows}
+    termination = by_key[("wire_termination", "termination_process_efficiency")]
+    assert termination.effective_termination_load_n == pytest.approx(5760.0)
+    assert termination.effective_termination_load_margin_n == pytest.approx(-240.0)
+    assert termination.status == "margin_negative"
+
+
 @pytest.mark.parametrize(
     ("factor_field", "factor_value", "expected_traceability"),
     (

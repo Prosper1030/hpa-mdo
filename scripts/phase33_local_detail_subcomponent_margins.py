@@ -367,7 +367,10 @@ def _effective_termination_load(
     factors = _valid_factors(derate_factor, termination_efficiency)
     if minimum_breaking_load_n is None or not factors:
         return None
-    return float(minimum_breaking_load_n) * min(factors)
+    effective_load = float(minimum_breaking_load_n)
+    for factor in factors:
+        effective_load *= factor
+    return effective_load
 
 
 def _write_template(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Path:
@@ -476,7 +479,7 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
             "",
             "- Positive inputs only mean every required subcomponent allowable exceeds the Phase 23 scalar requirement.",
             "- A traceable input requires a component id, source, allowable basis, and evidence type for each subcomponent.",
-            "- Termination process efficiency also requires an explicit efficiency or derate factor; when supplied, the check compares derated MBL against required load.",
+            "- Termination process efficiency also requires an explicit efficiency or derate factor; when both are supplied, independent factors are multiplied before comparing derated MBL against required load.",
             "- This does not close local stress concentration, load introduction, bond peel, fatigue, inspection, traceability, or installation quality.",
             "",
         ]
