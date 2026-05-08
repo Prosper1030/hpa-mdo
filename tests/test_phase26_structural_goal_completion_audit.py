@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+from pathlib import Path
+from types import SimpleNamespace
+
+from scripts.phase18_structural_claim_readiness import REQUIRED_STRUCTURAL_CLAIM_KEYS
+from scripts.phase26_structural_goal_completion_audit import (
+    build_structural_goal_completion_audit,
+    write_structural_goal_completion_audit_package,
+)
+
+
+def _closure_index() -> SimpleNamespace:
+    return SimpleNamespace(
+        candidate_id="sample",
+        overall_status="engineering_not_signed_off",
+        items=(
+            SimpleNamespace(
+                key="rear_spar_stiffness",
+                evidence_artifacts="Phase20; Phase22",
+                current_evidence="rear EI quantified; rear_stiffness_5pct moved response",
+                remaining_blocker="Dual-spar FEM",
+                next_action="Run rear-spar-on/off FEM",
+            ),
+            SimpleNamespace(
+                key="rib_load_transfer",
+                evidence_artifacts="Phase19; Phase22; Phase24",
+                current_evidence="added stations=53; dense finite rib surrogate only",
+                remaining_blocker="Finite rib stiffness and allowables",
+                next_action="Create finite-rib load transfer model",
+            ),
+            SimpleNamespace(
+                key="wire_attach_local_load_path",
+                evidence_artifacts="Phase19; Phase23",
+                current_evidence="required load=6048 N",
+                remaining_blocker="Local attach margins",
+                next_action="Size lug/ring/insert",
+            ),
+            SimpleNamespace(
+                key="root_joint",
+                evidence_artifacts="Phase19; Phase23",
+                current_evidence="required moment=10833 N*m",
+                remaining_blocker="Root fitting margins",
+                next_action="Size root fitting",
+            ),
+            SimpleNamespace(
+                key="torsion_twist_coupling",
+                evidence_artifacts="Phase20; Phase22",
+                current_evidence="not aero twist",
+                remaining_blocker="Aeroelastic loop",
+                next_action="Close twist loop",
+            ),
+            SimpleNamespace(
+                key="wire_termination",
+                evidence_artifacts="Phase19; Phase23",
+                current_evidence="required MBL=10080 N; body margin=-1466 N",
+                remaining_blocker="Selected termination hardware",
+                next_action="Pick termination",
+            ),
+            SimpleNamespace(
+                key="rib_spacing_assumption",
+                evidence_artifacts="Phase20; Phase24",
+                current_evidence="added stations=53",
+                remaining_blocker="Physical rib stiffness",
+                next_action="Place and verify bracing ribs",
+            ),
+            SimpleNamespace(
+                key="tip_deflection_limit",
+                evidence_artifacts="Phase18",
+                current_evidence="design-validity gate not fracture point",
+                remaining_blocker="Aeroelastic clearance recheck for relaxation",
+                next_action="Keep 2.5 m gate",
+            ),
+            SimpleNamespace(
+                key="full_wing_global_buckling",
+                evidence_artifacts="Phase18",
+                current_evidence="No full-wing global buckling eigen/FEM result",
+                remaining_blocker="Full-wing buckling FEM",
+                next_action="Run braced subassembly buckling",
+            ),
+            SimpleNamespace(
+                key="failure_mode_ordering",
+                evidence_artifacts="Phase18; Phase25",
+                current_evidence="unranked modes=7",
+                remaining_blocker="Add real-structure modes to ranking",
+                next_action="Rank after FEM and hardware margins",
+            ),
+        ),
+    )
+
+
+def _failure_mode_ordering() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="true_failure_order_not_closed",
+        known_unranked_mode_count=7,
+        modeled_first_limiter_with_current_wire="wire_tension_body_allowable",
+        modeled_first_limiter_with_6kn_wire="tip_deflection",
+    )
+
+
+def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> None:
+    audit = build_structural_goal_completion_audit(
+        _closure_index(),
+        failure_mode_ordering=_failure_mode_ordering(),
+    )
+
+    assert audit.overall_goal_status == "not_complete_engineering_signoff_missing"
+    assert audit.total_requirements == len(REQUIRED_STRUCTURAL_CLAIM_KEYS)
+    assert audit.closed_requirement_count == 0
+    assert audit.blocked_requirement_count == len(REQUIRED_STRUCTURAL_CLAIM_KEYS)
+    assert [row.key for row in audit.rows] == list(REQUIRED_STRUCTURAL_CLAIM_KEYS)
+    by_key = {row.key: row for row in audit.rows}
+    assert by_key["wire_termination"].evidence_strength == "requirements_only"
+    assert "required MBL=10080 N" in by_key["wire_termination"].evidence_summary
+    assert by_key["rib_spacing_assumption"].evidence_strength == "layout_requirement_only"
+    assert by_key["tip_deflection_limit"].evidence_strength == "claim_guardrail"
+    assert by_key["full_wing_global_buckling"].completion_blocker == "full_wing_or_braced_subassembly_buckling_fem_missing"
+    assert "unranked real-structure modes=7" in by_key["failure_mode_ordering"].evidence_summary
+
+
+def test_write_goal_completion_audit_package_creates_handoff_files(tmp_path: Path) -> None:
+    outputs = write_structural_goal_completion_audit_package(
+        tmp_path,
+        _closure_index(),
+        failure_mode_ordering=_failure_mode_ordering(),
+    )
+
+    assert {path.name for path in outputs} == {
+        "structural_goal_completion_audit.csv",
+        "structural_goal_completion_audit.json",
+        "structural_goal_completion_audit.md",
+    }
+    report = (tmp_path / "structural_goal_completion_audit.md").read_text(encoding="utf-8")
+    assert "not complete" in report
+    assert "Do not mark the goal complete" in report
+    assert "full-wing" in report
