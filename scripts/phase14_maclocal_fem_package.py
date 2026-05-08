@@ -52,7 +52,26 @@ class TubeShellMeshSpec:
 
 
 @dataclass(frozen=True)
+class TubeSolidMeshSpec:
+    name: str
+    span_m: float
+    outer_radius_m: float
+    thickness_m: float
+    n_span: int
+    n_circumference: int
+    n_thickness: int
+    element_type: str = "C3D8R"
+
+
+@dataclass(frozen=True)
 class ShellElement:
+    element_id: int
+    element_type: str
+    node_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True)
+class SolidElement:
     element_id: int
     element_type: str
     node_ids: tuple[int, ...]
@@ -220,6 +239,26 @@ class ShellBiasDiagnosisRow:
     engineering_note: str
 
 
+@dataclass(frozen=True)
+class SolidTubeProbeRow:
+    case_id: str
+    mesh_id: str
+    element_type: str
+    n_span: int
+    n_circumference: int
+    n_thickness: int
+    node_count: int
+    element_count: int
+    theory_value: float | None
+    fem_value: float | None
+    error_pct: float | None
+    reaction_residual: float | None
+    runtime_s: float
+    max_von_mises_pa: float | None
+    status: str
+    engineering_note: str
+
+
 def tube_second_moment_i(
     *,
     outer_radius_m: float,
@@ -316,6 +355,71 @@ def build_structured_tube_shell_mesh(
                 )
             )
             element_id += 1
+    return np.asarray(nodes, dtype=float), elements
+
+
+def build_structured_tube_solid_mesh(
+    spec: TubeSolidMeshSpec,
+) -> tuple[np.ndarray, list[SolidElement]]:
+    """Build a structured hexahedral solid mesh for a hollow circular tube."""
+
+    if spec.n_span < 1:
+        raise ValueError("n_span must be >= 1.")
+    if spec.n_circumference < 6:
+        raise ValueError("n_circumference must be >= 6.")
+    if spec.n_thickness < 1:
+        raise ValueError("n_thickness must be >= 1.")
+    inner_radius_m = float(spec.outer_radius_m) - float(spec.thickness_m)
+    if inner_radius_m <= 0.0:
+        raise ValueError("Solid tube inner radius must be positive.")
+    element_type = spec.element_type.upper()
+    if element_type not in {"C3D8", "C3D8R"}:
+        raise ValueError("Only C3D8/C3D8R structured solid tube meshes are supported.")
+
+    nodes: list[tuple[float, float, float, float]] = []
+    node_ids: dict[tuple[int, int, int], int] = {}
+    node_id = 1
+    for i_span in range(spec.n_span + 1):
+        y_m = float(spec.span_m) * i_span / spec.n_span
+        for i_circ in range(spec.n_circumference):
+            theta = 2.0 * math.pi * i_circ / spec.n_circumference
+            for i_thickness in range(spec.n_thickness + 1):
+                eta_t = i_thickness / spec.n_thickness
+                radius_m = inner_radius_m + eta_t * float(spec.thickness_m)
+                node_ids[(i_span, i_circ, i_thickness)] = node_id
+                nodes.append(
+                    (
+                        float(node_id),
+                        radius_m * math.cos(theta),
+                        y_m,
+                        radius_m * math.sin(theta),
+                    )
+                )
+                node_id += 1
+
+    elements: list[SolidElement] = []
+    element_id = 1
+    for i_span in range(spec.n_span):
+        for i_circ in range(spec.n_circumference):
+            j_next = (i_circ + 1) % spec.n_circumference
+            for i_thickness in range(spec.n_thickness):
+                elements.append(
+                    SolidElement(
+                        element_id=element_id,
+                        element_type=element_type,
+                        node_ids=(
+                            node_ids[(i_span, i_circ, i_thickness)],
+                            node_ids[(i_span + 1, i_circ, i_thickness)],
+                            node_ids[(i_span + 1, j_next, i_thickness)],
+                            node_ids[(i_span, j_next, i_thickness)],
+                            node_ids[(i_span, i_circ, i_thickness + 1)],
+                            node_ids[(i_span + 1, i_circ, i_thickness + 1)],
+                            node_ids[(i_span + 1, j_next, i_thickness + 1)],
+                            node_ids[(i_span, j_next, i_thickness + 1)],
+                        ),
+                    )
+                )
+                element_id += 1
     return np.asarray(nodes, dtype=float), elements
 
 
@@ -867,6 +971,7 @@ def run_phase14_maclocal_fem_fidelity_ladder(
         b5_rows=b5_rows,
     )
     artifacts.update(_run_shell_bias_diagnosis(cfg=cfg, fidelity_dir=fidelity_dir, material=material))
+    artifacts.update(_run_solid_tube_probe(cfg=cfg, fidelity_dir=fidelity_dir, material=material))
     return artifacts
 
 
@@ -1171,6 +1276,254 @@ def _classify_shell_bias_row(
     if float(error_pct) <= 10.0:
         return "WARN"
     return "FAIL"
+
+
+def _run_solid_tube_probe(
+    *,
+    cfg: Any,
+    fidelity_dir: Path,
+    material: BeamMaterial,
+) -> dict[str, Path]:
+    span_m = 10.0
+    outer_radius_m = 0.03
+    thickness_m = 0.0015
+    rows: list[SolidTubeProbeRow] = []
+    for mesh_id, n_span, n_circ, n_thickness in _solid_probe_mesh_specs():
+        spec = TubeSolidMeshSpec(
+            name=f"solid_tube_{mesh_id}",
+            span_m=span_m,
+            outer_radius_m=outer_radius_m,
+            thickness_m=thickness_m,
+            n_span=n_span,
+            n_circumference=n_circ,
+            n_thickness=n_thickness,
+            element_type="C3D8R",
+        )
+        rows.append(
+            _run_solid_tube_case(
+                cfg=cfg,
+                probe_dir=fidelity_dir / "_solid_tube_runs",
+                case_id="C1_solid_constant_tube_tip_load",
+                mesh_id=mesh_id,
+                mesh_spec=spec,
+                material=material,
+                load_or_torque=-80.0,
+                theory_value=tube_bending_tip_load_delta(
+                    force_n=-80.0,
+                    span_m=span_m,
+                    young_pa=material.young_pa,
+                    outer_radius_m=outer_radius_m,
+                    thickness_m=thickness_m,
+                ),
+                result_kind="tip_uz",
+                loads_builder=lambda nodes, root_nodes, tip_nodes, total=-80.0: _vertical_tip_ring_loads(
+                    nodes=nodes,
+                    tip_nodes=tip_nodes,
+                    total_fz_n=total,
+                ),
+                engineering_note="Tip face vertical load on all free-end solid nodes.",
+            )
+        )
+        rows.append(
+            _run_solid_tube_case(
+                cfg=cfg,
+                probe_dir=fidelity_dir / "_solid_tube_runs",
+                case_id="C2_solid_constant_tube_uniform_load",
+                mesh_id=mesh_id,
+                mesh_spec=spec,
+                material=material,
+                load_or_torque=-80.0,
+                theory_value=tube_bending_uniform_load_delta(
+                    q_n_per_m=-8.0,
+                    span_m=span_m,
+                    young_pa=material.young_pa,
+                    outer_radius_m=outer_radius_m,
+                    thickness_m=thickness_m,
+                ),
+                result_kind="tip_uz",
+                loads_builder=lambda nodes, root_nodes, tip_nodes, total=-80.0: _distributed_vertical_loads_by_span_tributary(
+                    nodes=nodes,
+                    root_nodes=set(root_nodes),
+                    total_fz_n=total,
+                ),
+                engineering_note="Uniform span load represented by tributary nodal loads on all non-root solid nodes.",
+            )
+        )
+        rows.append(
+            _run_solid_tube_case(
+                cfg=cfg,
+                probe_dir=fidelity_dir / "_solid_tube_runs",
+                case_id="C3_solid_constant_tube_tip_torque",
+                mesh_id=mesh_id,
+                mesh_spec=spec,
+                material=material,
+                load_or_torque=100.0,
+                theory_value=tube_torsion_theta(
+                    torque_n_m=100.0,
+                    span_m=span_m,
+                    young_pa=material.young_pa,
+                    poisson_ratio=material.poisson_ratio,
+                    outer_radius_m=outer_radius_m,
+                    thickness_m=thickness_m,
+                ),
+                result_kind="tip_twist",
+                loads_builder=lambda nodes, root_nodes, tip_nodes, torque=100.0: _tip_torque_cloads(
+                    nodes=nodes,
+                    tip_nodes=tip_nodes,
+                    torque_n_m=torque,
+                ),
+                engineering_note="Tip torque from tangential forces on all free-end solid nodes.",
+            )
+        )
+    return write_solid_tube_probe_artifacts(fidelity_dir, rows=rows)
+
+
+def _solid_probe_mesh_specs() -> list[tuple[str, int, int, int]]:
+    return [
+        ("coarse", 16, 24, 2),
+        ("medium", 32, 32, 2),
+        ("fine", 48, 48, 3),
+        ("axial_refined", 192, 32, 2),
+    ]
+
+
+def _run_solid_tube_case(
+    *,
+    cfg: Any,
+    probe_dir: Path,
+    case_id: str,
+    mesh_id: str,
+    mesh_spec: TubeSolidMeshSpec,
+    material: BeamMaterial,
+    load_or_torque: float,
+    theory_value: float,
+    result_kind: str,
+    loads_builder: Any,
+    engineering_note: str,
+) -> SolidTubeProbeRow:
+    nodes, elements = build_structured_tube_solid_mesh(mesh_spec)
+    aspect_ratio = _solid_element_nominal_aspect_ratio(mesh_spec)
+    if find_ccx(cfg) is None:
+        return SolidTubeProbeRow(
+            case_id=case_id,
+            mesh_id=mesh_id,
+            element_type=mesh_spec.element_type,
+            n_span=mesh_spec.n_span,
+            n_circumference=mesh_spec.n_circumference,
+            n_thickness=mesh_spec.n_thickness,
+            node_count=int(nodes.shape[0]),
+            element_count=len(elements),
+            theory_value=theory_value,
+            fem_value=None,
+            error_pct=None,
+            reaction_residual=None,
+            runtime_s=0.0,
+            max_von_mises_pa=None,
+            status="SKIP",
+            engineering_note="CalculiX unavailable; solid deck was not run.",
+        )
+    root_nodes = _nodes_at_y(nodes, 0.0)
+    tip_nodes = _nodes_at_y(nodes, mesh_spec.span_m)
+    loads = list(loads_builder(nodes, root_nodes, tip_nodes))
+    static_inp = probe_dir / case_id / mesh_id / f"{case_id}_{mesh_id}.inp"
+    _write_solid_static_inp(
+        static_inp,
+        nodes=nodes,
+        elements=elements,
+        material=material,
+        root_nodes=root_nodes,
+        loads=loads,
+        output_stress=True,
+    )
+    start = time.perf_counter()
+    payload = run_static(static_inp, cfg)
+    runtime_s = time.perf_counter() - start
+    if payload.get("error"):
+        return SolidTubeProbeRow(
+            case_id=case_id,
+            mesh_id=mesh_id,
+            element_type=mesh_spec.element_type,
+            n_span=mesh_spec.n_span,
+            n_circumference=mesh_spec.n_circumference,
+            n_thickness=mesh_spec.n_thickness,
+            node_count=int(nodes.shape[0]),
+            element_count=len(elements),
+            theory_value=theory_value,
+            fem_value=None,
+            error_pct=None,
+            reaction_residual=None,
+            runtime_s=runtime_s,
+            max_von_mises_pa=None,
+            status="WARN",
+            engineering_note=f"{engineering_note} Solver failed: {payload['error']}",
+        )
+
+    frd_path = Path(payload["frd"])
+    dat_path = Path(payload["dat"])
+    if result_kind == "tip_uz":
+        fem_value = _average_uz_at_y(frd_path, mesh_spec.span_m)
+        root_force = parse_total_force_from_dat(dat_path, "ROOT")
+        root_reaction_fz_n = None if root_force is None else float(root_force[2])
+        applied_total = float(sum(value for _node_id, dof, value in loads if dof == 3))
+        residual = None if root_reaction_fz_n is None else root_reaction_fz_n + applied_total
+    elif result_kind == "tip_twist":
+        fem_value = _tip_ring_twist_from_frd(frd_path, span_m=mesh_spec.span_m)
+        tip_force_rows = {
+            (node_id, dof): value
+            for node_id, dof, value in loads
+            if dof in {1, 3}
+        }
+        tip_rows = _rows_for_node_ids(nodes, tip_nodes)
+        recovered_torque = 0.0
+        for node_id, x_m, _y_m, z_m in tip_rows:
+            fx = float(tip_force_rows.get((int(node_id), 1), 0.0))
+            fz = float(tip_force_rows.get((int(node_id), 3), 0.0))
+            recovered_torque += float(z_m) * fx - float(x_m) * fz
+        residual = recovered_torque - load_or_torque
+    else:
+        raise ValueError(f"Unsupported solid tube result kind: {result_kind}")
+
+    error_pct = phase14_bench._pct_error(abs(fem_value), abs(theory_value))
+    residual_limit = max(1.0e-6, abs(float(load_or_torque)) * 1.0e-3)
+    residual_bad = residual is not None and abs(float(residual)) > residual_limit
+    if residual_bad:
+        status = "FAIL"
+    elif error_pct <= 5.0:
+        status = "PASS"
+    elif error_pct <= 25.0:
+        status = "WARN"
+    else:
+        status = "FAIL"
+    note = (
+        f"{engineering_note} Nominal solid element aspect ratio is about {aspect_ratio:.1f}:1; "
+        f"thin-wall solid stress/detail claims require caution."
+    )
+    return SolidTubeProbeRow(
+        case_id=case_id,
+        mesh_id=mesh_id,
+        element_type=mesh_spec.element_type,
+        n_span=mesh_spec.n_span,
+        n_circumference=mesh_spec.n_circumference,
+        n_thickness=mesh_spec.n_thickness,
+        node_count=int(nodes.shape[0]),
+        element_count=len(elements),
+        theory_value=theory_value,
+        fem_value=fem_value,
+        error_pct=error_pct,
+        reaction_residual=residual,
+        runtime_s=runtime_s,
+        max_von_mises_pa=_max_von_mises_from_frd(frd_path),
+        status=status,
+        engineering_note=note,
+    )
+
+
+def _solid_element_nominal_aspect_ratio(spec: TubeSolidMeshSpec) -> float:
+    axial = float(spec.span_m) / spec.n_span
+    circumferential = 2.0 * math.pi * float(spec.outer_radius_m) / spec.n_circumference
+    radial = float(spec.thickness_m) / spec.n_thickness
+    values = [abs(axial), abs(circumferential), abs(radial)]
+    return max(values) / max(min(values), 1.0e-12)
 
 
 def _constant_tube_mesh_specs() -> list[tuple[str, int, int]]:
@@ -2436,6 +2789,79 @@ def _write_shell_static_inp(
     return path
 
 
+def _write_solid_static_inp(
+    path: Path,
+    *,
+    nodes: np.ndarray,
+    elements: list[SolidElement],
+    material: BeamMaterial,
+    root_nodes: list[int],
+    loads: list[tuple[int, int, float]],
+    output_stress: bool,
+) -> Path:
+    element_by_type: dict[str, list[SolidElement]] = {}
+    for element in elements:
+        element_by_type.setdefault(element.element_type, []).append(element)
+    lines = [
+        "*HEADING",
+        "Phase 14 Mac-local solid FEM benchmark generated by phase14_maclocal_fem_package.py",
+        "*NODE",
+    ]
+    for node_id, x_m, y_m, z_m in nodes:
+        lines.append(f"{int(node_id)}, {x_m:.9g}, {y_m:.9g}, {z_m:.9g}")
+    all_element_ids: list[int] = []
+    for element_type, items in sorted(element_by_type.items()):
+        lines.append(f"*ELEMENT, TYPE={element_type}")
+        for element in items:
+            all_element_ids.append(element.element_id)
+            lines.append(
+                f"{element.element_id}, " + ", ".join(str(node_id) for node_id in element.node_ids)
+            )
+    lines.extend(
+        [
+            "*ELSET, ELSET=SOLID_TUBE",
+            *_format_int_chunks(all_element_ids),
+            "*MATERIAL, NAME=HPA_SOLID_MATERIAL",
+            "*ELASTIC",
+            f"{material.young_pa:.9g}, {material.poisson_ratio:.9g}",
+            "*DENSITY",
+            f"{material.density_kgpm3:.9g}",
+            "*SOLID SECTION, ELSET=SOLID_TUBE, MATERIAL=HPA_SOLID_MATERIAL",
+            "*NSET, NSET=ROOT",
+            *_format_int_chunks(root_nodes),
+            "*BOUNDARY",
+        ]
+    )
+    for node_id in root_nodes:
+        for dof in range(1, 4):
+            lines.append(f"{node_id}, {dof}, {dof}, 0.0")
+    lines.extend(
+        [
+            "*STEP, NAME=phase14_solid_static",
+            "*STATIC",
+            "1.0, 1.0",
+            "*CLOAD",
+        ]
+    )
+    for node_id, dof, value in loads:
+        if abs(value) > 0.0:
+            lines.append(f"{node_id}, {dof}, {value:.9g}")
+    lines.extend(
+        [
+            "*NODE PRINT, NSET=ROOT, TOTALS=ONLY",
+            "RF",
+            "*NODE FILE, OUTPUT=3D",
+            "U",
+        ]
+    )
+    if output_stress:
+        lines.extend(["*EL FILE, OUTPUT=3D", "S"])
+    lines.extend(["*END STEP", ""])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
 def _distributed_vertical_loads_for_shell_nodes(
     *,
     nodes: np.ndarray,
@@ -3399,6 +3825,90 @@ def _best_shell_bias_rows_by_case(rows: list[ShellBiasDiagnosisRow]) -> dict[str
         current = best.get(row.case_type)
         if current is None or float(row.error_pct) < float(current.error_pct or float("inf")):
             best[row.case_type] = row
+    return best
+
+
+def write_solid_tube_probe_artifacts(
+    output_dir: str | Path,
+    *,
+    rows: list[SolidTubeProbeRow],
+) -> dict[str, Path]:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    csv_path = out / "solid_tube_probe.csv"
+    md_path = out / "solid_tube_probe.md"
+    _write_dataclass_csv(csv_path, rows, SolidTubeProbeRow)
+    verdict = _classify_solid_probe(rows)
+    best_by_case = _best_solid_rows_by_case(rows)
+    lines = [
+        "# Phase 14 Solid Tube FEM Probe",
+        "",
+        "Validation tooling only. A 3D solid route is not automatically higher fidelity for a thin-wall tube; it must prove thickness-direction resolution, convergence, runtime, and reaction closure.",
+        "",
+        "## Probe Table",
+        "",
+        "| case_id | mesh_id | element_type | n_span | n_circumference | n_thickness | node_count | element_count | theory_value | fem_value | error_pct | reaction_residual | runtime_s | max_von_mises_pa | status | engineering_note |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row.case_id} | {row.mesh_id} | {row.element_type} | {row.n_span} | "
+            f"{row.n_circumference} | {row.n_thickness} | {row.node_count} | {row.element_count} | "
+            f"{_fmt(row.theory_value)} | {_fmt(row.fem_value)} | {_fmt(row.error_pct)} | "
+            f"{_fmt(row.reaction_residual)} | {row.runtime_s:.3f} | {_fmt(row.max_von_mises_pa)} | "
+            f"{row.status} | {row.engineering_note} |"
+        )
+    lines.extend(["", "## Engineering Judgment", "", f"- Acceptance verdict: {verdict}."])
+    for case_id, row in best_by_case.items():
+        lines.append(
+            f"- Best {case_id}: `{row.mesh_id}` {row.element_type}, n_thickness={row.n_thickness}, "
+            f"FEM {_fmt(row.fem_value)} vs theory {_fmt(row.theory_value)}, error {_fmt(row.error_pct)}%, "
+            f"runtime {row.runtime_s:.3f}s."
+        )
+    lines.extend(
+        [
+            "- Solid elements are useful for local root/joint/thick-wall details only after the mesh quality is proven.",
+            "- For this 30 mm OD / 1.5 mm wall tube, even 2-3 elements through thickness still creates very high axial-to-radial aspect ratios in a Mac-safe mesh.",
+            "- Do not replace the corrected mid-surface shell route with solid FEM unless the solid route matches or beats it on the same closed-form checks.",
+        ]
+    )
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "solid_tube_probe_csv": csv_path,
+        "solid_tube_probe_md": md_path,
+    }
+
+
+def _classify_solid_probe(rows: list[SolidTubeProbeRow]) -> str:
+    usable = [row for row in rows if row.error_pct is not None and row.status != "FAIL"]
+    if not usable:
+        return "FAIL"
+    required_cases = {
+        "C1_solid_constant_tube_tip_load",
+        "C2_solid_constant_tube_uniform_load",
+        "C3_solid_constant_tube_tip_torque",
+    }
+    best_by_case = _best_solid_rows_by_case(usable)
+    if required_cases.issubset(best_by_case) and all(
+        (best_by_case[case].error_pct or float("inf")) <= 5.0 for case in required_cases
+    ):
+        return "PASS"
+    if required_cases.issubset(best_by_case) and all(
+        (best_by_case[case].error_pct or float("inf")) <= 25.0 for case in required_cases
+    ):
+        return "WARN"
+    return "FAIL"
+
+
+def _best_solid_rows_by_case(rows: Iterable[SolidTubeProbeRow]) -> dict[str, SolidTubeProbeRow]:
+    best: dict[str, SolidTubeProbeRow] = {}
+    for row in rows:
+        if row.error_pct is None:
+            continue
+        current = best.get(row.case_id)
+        if current is None or float(row.error_pct) < float(current.error_pct or float("inf")):
+            best[row.case_id] = row
     return best
 
 

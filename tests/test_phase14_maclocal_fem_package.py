@@ -16,9 +16,12 @@ from scripts.phase14_maclocal_fem_package import (
     Phase14ExpectedValue,
     RouteRuntimeRow,
     ShellBiasDiagnosisRow,
+    SolidTubeProbeRow,
+    TubeSolidMeshSpec,
     TubeShellMeshSpec,
     _build_parser,
     build_structured_tube_shell_mesh,
+    build_structured_tube_solid_mesh,
     classify_b2_shell_agreement,
     classify_b5_shell_torsion_status,
     classify_constant_tube_status,
@@ -31,6 +34,7 @@ from scripts.phase14_maclocal_fem_package import (
     tube_torsion_theta,
     write_runtime_audit_artifacts,
     write_shell_bias_diagnosis_artifacts,
+    write_solid_tube_probe_artifacts,
     write_apdl_windows_package,
     write_b5_shell_torsion_hardening_csv,
     write_b5_shell_torsion_hardening_markdown,
@@ -354,6 +358,83 @@ def test_write_shell_bias_diagnosis_artifacts(tmp_path: Path) -> None:
     assert "# Phase 14 Structured Shell Bias Diagnosis" in md_text
     assert "mid-surface convention" in md_text
     assert "exact tube I" in md_text
+
+
+def test_build_structured_tube_solid_mesh_builds_hex_elements() -> None:
+    spec = TubeSolidMeshSpec(
+        name="solid_tiny",
+        span_m=2.0,
+        outer_radius_m=0.03,
+        thickness_m=0.003,
+        n_span=2,
+        n_circumference=6,
+        n_thickness=2,
+        element_type="C3D8R",
+    )
+
+    nodes, elements = build_structured_tube_solid_mesh(spec)
+
+    assert nodes.shape == (54, 4)
+    assert len(elements) == 24
+    assert {element.element_type for element in elements} == {"C3D8R"}
+    assert len(elements[0].node_ids) == 8
+    radii = np.hypot(nodes[:, 1], nodes[:, 3])
+    assert abs(float(np.min(radii)) - 0.027) < 1.0e-12
+    assert abs(float(np.max(radii)) - 0.03) < 1.0e-12
+
+
+def test_solid_tube_probe_row_has_required_schema() -> None:
+    fields = set(SolidTubeProbeRow.__dataclass_fields__)
+
+    assert {
+        "case_id",
+        "mesh_id",
+        "element_type",
+        "n_span",
+        "n_circumference",
+        "n_thickness",
+        "node_count",
+        "element_count",
+        "theory_value",
+        "fem_value",
+        "error_pct",
+        "reaction_residual",
+        "runtime_s",
+        "max_von_mises_pa",
+        "status",
+        "engineering_note",
+    }.issubset(fields)
+
+
+def test_write_solid_tube_probe_artifacts(tmp_path: Path) -> None:
+    rows = [
+        SolidTubeProbeRow(
+            case_id="C1_solid_constant_tube_tip_load",
+            mesh_id="medium",
+            element_type="C3D8R",
+            n_span=32,
+            n_circumference=32,
+            n_thickness=2,
+            node_count=3267,
+            element_count=2048,
+            theory_value=-0.9825,
+            fem_value=-0.90,
+            error_pct=8.4,
+            reaction_residual=0.0,
+            runtime_s=3.2,
+            max_von_mises_pa=1.0e8,
+            status="WARN",
+            engineering_note="solid route runs but is not better than mid-surface shell",
+        )
+    ]
+
+    artifacts = write_solid_tube_probe_artifacts(tmp_path, rows=rows)
+
+    csv_rows = list(csv.DictReader(artifacts["solid_tube_probe_csv"].read_text().splitlines()))
+    assert csv_rows[0]["element_type"] == "C3D8R"
+    md_text = artifacts["solid_tube_probe_md"].read_text(encoding="utf-8")
+    assert "# Phase 14 Solid Tube FEM Probe" in md_text
+    assert "not automatically higher fidelity" in md_text
 
 
 def test_write_constant_tube_artifacts_include_required_columns(tmp_path: Path) -> None:
