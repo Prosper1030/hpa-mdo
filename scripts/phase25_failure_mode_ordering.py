@@ -590,6 +590,7 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
             getattr(row, "load_margin_n", None),
             getattr(row, "moment_margin_n_m", None),
             getattr(row, "mbl_margin_n", None),
+            getattr(row, "effective_termination_load_margin_n", None),
         )
         if value is not None
     ]
