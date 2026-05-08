@@ -80,6 +80,7 @@ def test_subcomponent_margin_check_expands_detail_requirements_without_signoff()
                 "minimum_breaking_load_n": "13000",
                 "allowable_basis": "vendor_mbl_with_process_efficiency",
                 "evidence_type": "vendor_datasheet",
+                "termination_efficiency": "0.60",
                 "source": "vendor placeholder",
             },
         ),
@@ -107,6 +108,7 @@ def test_subcomponent_margin_check_expands_detail_requirements_without_signoff()
     assert root.moment_margin_n_m == pytest.approx(2000.0)
     termination = by_key[("wire_termination", "termination_process_efficiency")]
     assert termination.mbl_margin_n == pytest.approx(3000.0)
+    assert termination.termination_efficiency == pytest.approx(0.60)
     assert "not local FEM signoff" in termination.engineering_note
 
 
@@ -158,6 +160,91 @@ def test_subcomponent_margin_check_requires_traceable_subcomponent_inputs() -> N
     assert root.traceability_status == "source_missing"
 
 
+def test_subcomponent_margin_check_requires_termination_efficiency_or_derate() -> None:
+    check = build_local_detail_subcomponent_margin_check(
+        _requirements(),
+        subcomponent_allowables=(
+            {
+                "parent_key": "wire_termination",
+                "subcomponent_key": "termination_process_efficiency",
+                "component_id": "swage-a",
+                "allowable_load_n": "7000",
+                "minimum_breaking_load_n": "13000",
+                "allowable_basis": "vendor_mbl_without_process_efficiency",
+                "evidence_type": "vendor_datasheet",
+                "source": "vendor placeholder",
+            },
+        ),
+    )
+
+    by_key = {(row.parent_key, row.subcomponent_key): row for row in check.rows}
+    termination = by_key[("wire_termination", "termination_process_efficiency")]
+    assert check.traceability_gap_count == 1
+    assert termination.status == "subcomponent_traceability_missing"
+    assert termination.traceability_status == "termination_efficiency_or_derate_missing"
+
+
+def test_subcomponent_margin_check_applies_termination_efficiency_to_effective_load() -> None:
+    check = build_local_detail_subcomponent_margin_check(
+        _requirements(),
+        subcomponent_allowables=(
+            {
+                "parent_key": "wire_termination",
+                "subcomponent_key": "termination_process_efficiency",
+                "component_id": "swage-a",
+                "allowable_load_n": "7000",
+                "minimum_breaking_load_n": "12000",
+                "allowable_basis": "wire_body_mbl_with_swage_efficiency",
+                "evidence_type": "vendor_datasheet",
+                "termination_efficiency": "0.45",
+                "source": "vendor placeholder",
+            },
+        ),
+    )
+
+    by_key = {(row.parent_key, row.subcomponent_key): row for row in check.rows}
+    termination = by_key[("wire_termination", "termination_process_efficiency")]
+    assert termination.mbl_margin_n == pytest.approx(2000.0)
+    assert termination.effective_termination_load_n == pytest.approx(5400.0)
+    assert termination.effective_termination_load_margin_n == pytest.approx(-600.0)
+    assert termination.status == "margin_negative"
+
+
+@pytest.mark.parametrize(
+    ("factor_field", "factor_value", "expected_traceability"),
+    (
+        ("termination_efficiency", "1.20", "termination_efficiency_out_of_range"),
+        ("derate_factor", "0.0", "derate_factor_out_of_range"),
+    ),
+)
+def test_subcomponent_margin_check_rejects_invalid_termination_factor(
+    factor_field: str,
+    factor_value: str,
+    expected_traceability: str,
+) -> None:
+    check = build_local_detail_subcomponent_margin_check(
+        _requirements(),
+        subcomponent_allowables=(
+            {
+                "parent_key": "wire_termination",
+                "subcomponent_key": "termination_process_efficiency",
+                "component_id": "swage-a",
+                "allowable_load_n": "7000",
+                "minimum_breaking_load_n": "12000",
+                "allowable_basis": "wire_body_mbl_with_swage_efficiency",
+                "evidence_type": "vendor_datasheet",
+                factor_field: factor_value,
+                "source": "vendor placeholder",
+            },
+        ),
+    )
+
+    by_key = {(row.parent_key, row.subcomponent_key): row for row in check.rows}
+    termination = by_key[("wire_termination", "termination_process_efficiency")]
+    assert termination.status == "subcomponent_traceability_missing"
+    assert termination.traceability_status == expected_traceability
+
+
 def test_subcomponent_margin_check_can_pass_inputs_without_promoting_to_fem_signoff() -> None:
     allowables = []
     for parent_key, subcomponent_key in (
@@ -186,6 +273,9 @@ def test_subcomponent_margin_check_can_pass_inputs_without_promoting_to_fem_sign
                 "source": "placeholder positive input",
             }
         )
+    for allowable in allowables:
+        if allowable["subcomponent_key"] == "termination_process_efficiency":
+            allowable["termination_efficiency"] = "0.60"
 
     check = build_local_detail_subcomponent_margin_check(
         _requirements(),
@@ -229,6 +319,7 @@ def test_write_subcomponent_margin_package_creates_template_and_report(tmp_path:
     assert "local_tube_wall_crushing" in template
     assert "allowable_basis" in template
     assert "evidence_type" in template
+    assert "termination_efficiency" in template
     report = (tmp_path / "local_detail_subcomponent_margin_check.md").read_text(
         encoding="utf-8"
     )

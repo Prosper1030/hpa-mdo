@@ -97,9 +97,13 @@ class LocalDetailSubcomponentMarginRow:
     required_minimum_breaking_load_n: float | None
     provided_minimum_breaking_load_n: float | None
     mbl_margin_n: float | None
+    effective_termination_load_n: float | None
+    effective_termination_load_margin_n: float | None
     worst_margin: float | None
     allowable_basis: str
     evidence_type: str
+    derate_factor: float | None
+    termination_efficiency: float | None
     traceability_status: str
     source: str
     engineering_note: str
@@ -212,17 +216,40 @@ def _build_row(
     load_margin = _margin(provided_load, required_load)
     moment_margin = _margin(provided_moment, required_moment)
     mbl_margin = _margin(provided_mbl, required_mbl)
-    margins = [value for value in (load_margin, moment_margin, mbl_margin) if value is not None]
     component_id = str((allowable or {}).get("component_id", "")).strip()
     source = str((allowable or {}).get("source", "")).strip()
     allowable_basis = str((allowable or {}).get("allowable_basis", "")).strip()
     evidence_type = str((allowable or {}).get("evidence_type", "")).strip()
+    derate_factor = _dict_float(allowable, "derate_factor")
+    termination_efficiency = _dict_float(allowable, "termination_efficiency")
+    effective_termination_load = _effective_termination_load(
+        parent_key=parent_key,
+        subcomponent_key=subcomponent_key,
+        minimum_breaking_load_n=provided_mbl,
+        derate_factor=derate_factor,
+        termination_efficiency=termination_efficiency,
+    )
+    effective_termination_load_margin = _margin(effective_termination_load, required_load)
     traceability_status = _traceability_status(
+        parent_key=parent_key,
+        subcomponent_key=subcomponent_key,
         component_id=component_id,
         source=source,
         allowable_basis=allowable_basis,
         evidence_type=evidence_type,
+        derate_factor=derate_factor,
+        termination_efficiency=termination_efficiency,
     )
+    margins = [
+        value
+        for value in (
+            load_margin,
+            moment_margin,
+            mbl_margin,
+            effective_termination_load_margin,
+        )
+        if value is not None
+    ]
     status = _status(
         required_values=(required_load, required_moment, required_mbl),
         provided_values=(provided_load, provided_moment, provided_mbl),
@@ -245,9 +272,13 @@ def _build_row(
         required_minimum_breaking_load_n=required_mbl,
         provided_minimum_breaking_load_n=provided_mbl,
         mbl_margin_n=mbl_margin,
+        effective_termination_load_n=effective_termination_load,
+        effective_termination_load_margin_n=effective_termination_load_margin,
         worst_margin=None if not margins else min(margins),
         allowable_basis=allowable_basis,
         evidence_type=evidence_type,
+        derate_factor=derate_factor,
+        termination_efficiency=termination_efficiency,
         traceability_status=traceability_status,
         source=source,
         engineering_note=(
@@ -276,10 +307,14 @@ def _status(
 
 def _traceability_status(
     *,
+    parent_key: str,
+    subcomponent_key: str,
     component_id: str,
     source: str,
     allowable_basis: str,
     evidence_type: str,
+    derate_factor: float | None,
+    termination_efficiency: float | None,
 ) -> str:
     if not component_id:
         return "component_id_missing"
@@ -289,7 +324,50 @@ def _traceability_status(
         return "allowable_basis_missing"
     if not evidence_type:
         return "evidence_type_missing"
+    if (
+        parent_key == "wire_termination"
+        and subcomponent_key == "termination_process_efficiency"
+    ):
+        if derate_factor is None and termination_efficiency is None:
+            return "termination_efficiency_or_derate_missing"
+        if derate_factor is not None and not _is_valid_factor(derate_factor):
+            return "derate_factor_out_of_range"
+        if termination_efficiency is not None and not _is_valid_factor(
+            termination_efficiency
+        ):
+            return "termination_efficiency_out_of_range"
     return "traceable_input"
+
+
+def _is_valid_factor(value: float) -> bool:
+    return 0.0 < float(value) <= 1.0
+
+
+def _valid_factors(*values: float | None) -> tuple[float, ...]:
+    return tuple(
+        float(value)
+        for value in values
+        if value is not None and _is_valid_factor(value)
+    )
+
+
+def _effective_termination_load(
+    *,
+    parent_key: str,
+    subcomponent_key: str,
+    minimum_breaking_load_n: float | None,
+    derate_factor: float | None,
+    termination_efficiency: float | None,
+) -> float | None:
+    if (
+        parent_key != "wire_termination"
+        or subcomponent_key != "termination_process_efficiency"
+    ):
+        return None
+    factors = _valid_factors(derate_factor, termination_efficiency)
+    if minimum_breaking_load_n is None or not factors:
+        return None
+    return float(minimum_breaking_load_n) * min(factors)
 
 
 def _write_template(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Path:
@@ -306,6 +384,8 @@ def _write_template(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
         "minimum_breaking_load_n",
         "allowable_basis",
         "evidence_type",
+        "derate_factor",
+        "termination_efficiency",
         "source",
         "notes",
     ]
@@ -331,6 +411,8 @@ def _write_template(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
                     "minimum_breaking_load_n": "",
                     "allowable_basis": "",
                     "evidence_type": "",
+                    "derate_factor": "",
+                    "termination_efficiency": "",
                     "source": "",
                     "notes": "",
                 }
@@ -370,8 +452,8 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
         f"- negative-margin subcomponents: `{check.negative_margin_count}`",
         f"- traceability-gap subcomponents: `{check.traceability_gap_count}`",
         "",
-        "| parent | subcomponent | component | status | traceability | load margin N | moment margin N*m | MBL margin N | allowable basis | evidence type | source |",
-        "|---|---|---|---|---|---:|---:|---:|---|---|---|",
+        "| parent | subcomponent | component | status | traceability | load margin N | moment margin N*m | MBL margin N | effective termination load N | effective termination margin N | allowable basis | evidence type | derate | termination efficiency | source |",
+        "|---|---|---|---|---|---:|---:|---:|---:|---:|---|---|---:|---:|---|",
     ]
     for row in check.rows:
         lines.append(
@@ -379,8 +461,12 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
             f"{row.component_id or 'n/a'} | `{row.status}` | "
             f"`{row.traceability_status}` | "
             f"{_fmt(row.load_margin_n)} | {_fmt(row.moment_margin_n_m)} | "
-            f"{_fmt(row.mbl_margin_n)} | {row.allowable_basis or 'n/a'} | "
-            f"{row.evidence_type or 'n/a'} | "
+            f"{_fmt(row.mbl_margin_n)} | "
+            f"{_fmt(row.effective_termination_load_n)} | "
+            f"{_fmt(row.effective_termination_load_margin_n)} | "
+            f"{row.allowable_basis or 'n/a'} | "
+            f"{row.evidence_type or 'n/a'} | {_fmt(row.derate_factor)} | "
+            f"{_fmt(row.termination_efficiency)} | "
             f"{row.source or 'n/a'} |"
         )
     lines.extend(
@@ -390,6 +476,7 @@ def _write_markdown(path: Path, check: LocalDetailSubcomponentMarginCheck) -> Pa
             "",
             "- Positive inputs only mean every required subcomponent allowable exceeds the Phase 23 scalar requirement.",
             "- A traceable input requires a component id, source, allowable basis, and evidence type for each subcomponent.",
+            "- Termination process efficiency also requires an explicit efficiency or derate factor; when supplied, the check compares derated MBL against required load.",
             "- This does not close local stress concentration, load introduction, bond peel, fatigue, inspection, traceability, or installation quality.",
             "",
         ]
