@@ -73,8 +73,8 @@ def _closure_index() -> SimpleNamespace:
             ),
             SimpleNamespace(
                 key="full_wing_global_buckling",
-                evidence_artifacts="Phase18",
-                current_evidence="No full-wing global buckling eigen/FEM result",
+                evidence_artifacts="Phase18; Phase30; Phase38",
+                current_evidence="No full-wing global buckling eigen/FEM result; claim boundary status=full_wing_pass_claim_blocked_global_buckling_missing",
                 remaining_blocker="Full-wing buckling FEM",
                 next_action="Run braced subassembly buckling",
             ),
@@ -118,6 +118,10 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
     )
     assert "Phase37" in by_key["torsion_twist_coupling"].evidence_artifacts
     assert by_key["tip_deflection_limit"].evidence_strength == "claim_guardrail"
+    assert by_key["full_wing_global_buckling"].evidence_strength == (
+        "claim_boundary_plus_closure_input_missing"
+    )
+    assert "Phase38" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert by_key["full_wing_global_buckling"].completion_blocker == "full_wing_or_braced_subassembly_buckling_fem_missing"
     assert by_key["failure_mode_ordering"].evidence_strength == (
         "detail_modes_listed_but_unranked"

@@ -61,6 +61,9 @@ from scripts.phase36_wire_termination_efficiency_sensitivity import (  # noqa: E
 from scripts.phase37_torsion_twist_screening import (  # noqa: E402
     build_current_torsion_twist_screening,
 )
+from scripts.phase38_full_wing_buckling_claim_boundary import (  # noqa: E402
+    build_current_full_wing_buckling_claim_boundary,
+)
 from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     build_bracing_sensitivity_audit,
     build_current_candidate_model,
@@ -111,6 +114,7 @@ def build_failure_mode_ordering(
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
+    full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
 ) -> FailureModeOrdering:
     ranked = _ranked_internal_rows(
@@ -129,6 +133,7 @@ def build_failure_mode_ordering(
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+        full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
     )
     rows = (*ranked, *unranked)
     return FailureModeOrdering(
@@ -160,6 +165,7 @@ def write_failure_mode_ordering_package(
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
+    full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -176,6 +182,7 @@ def write_failure_mode_ordering_package(
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+        full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
     )
     outputs = [
@@ -233,6 +240,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
         torsion_twist_screening=build_current_torsion_twist_screening(),
         full_wing_buckling_closure_check=build_current_full_wing_buckling_closure_check(),
+        full_wing_buckling_claim_boundary=build_current_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=build_tip_deflection_revalidation_check(
             reference,
             revalidation_inputs=[],
@@ -315,6 +323,7 @@ def _unranked_real_structure_rows(
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
+    full_wing_buckling_claim_boundary: Any | None,
 ) -> tuple[FailureModeOrderingRow, ...]:
     details = _detail_entries(detail_requirements)
     detail_margins = _detail_entries(detail_margin_check)
@@ -400,6 +409,7 @@ def _unranked_real_structure_rows(
             evidence=(
                 "no full-wing dual-spar/rib/wire global buckling eigen/FEM result is present. "
                 f"{_closure_evidence(full_wing_buckling_closure_check)}"
+                f" {_full_wing_buckling_claim_boundary_evidence(full_wing_buckling_claim_boundary)}"
             ),
             next_evidence="Full-wing or credible braced-subassembly buckling FEM with mesh and boundary checks.",
         ),
@@ -697,6 +707,24 @@ def _tip_gate_evidence(check: Any | None) -> str:
         f"{_fmt(_attr_float(first, 'proposed_raw_tip_limit_m') if first is not None else None)} m; "
         "overall="
         f"{getattr(check, 'overall_status', 'unknown')}"
+    )
+
+
+def _full_wing_buckling_claim_boundary_evidence(boundary: Any | None) -> str:
+    if boundary is None:
+        return "full-wing buckling claim boundary is not available."
+    rows = {float(row.claim_load_factor): row for row in getattr(boundary, "rows", ())}
+    row_15 = rows.get(1.5)
+    row_175 = rows.get(1.75)
+    return (
+        "claim boundary status="
+        f"{getattr(boundary, 'overall_status', 'unknown')}; "
+        "1.5G local wall util="
+        f"{_fmt(_attr_float(row_15, 'local_wall_buckling_utilization') if row_15 is not None else None)}; "
+        "1.75G local wall util="
+        f"{_fmt(_attr_float(row_175, 'local_wall_buckling_utilization') if row_175 is not None else None)}; "
+        "blocked statement="
+        f"{getattr(row_175, 'blocked_statement', 'unknown') if row_175 is not None else 'unknown'}"
     )
 
 

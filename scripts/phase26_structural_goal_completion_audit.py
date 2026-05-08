@@ -70,7 +70,7 @@ EVIDENCE_STRENGTH_BY_KEY: dict[str, str] = {
     "wire_termination": "requirements_only",
     "rib_spacing_assumption": "layout_requirement_only",
     "tip_deflection_limit": "claim_guardrail",
-    "full_wing_global_buckling": "claim_guardrail",
+    "full_wing_global_buckling": "claim_boundary_plus_closure_input_missing",
     "failure_mode_ordering": "detail_modes_listed_but_unranked",
 }
 

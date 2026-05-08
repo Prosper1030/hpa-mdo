@@ -209,6 +209,29 @@ def _full_wing_buckling_closure_check() -> SimpleNamespace:
     )
 
 
+def _full_wing_buckling_claim_boundary() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="full_wing_pass_claim_blocked_global_buckling_missing",
+        global_buckling_closure_status="closure_input_missing",
+        rows=(
+            SimpleNamespace(
+                claim_load_factor=1.5,
+                local_wall_buckling_utilization=0.121,
+                tube_stress_utilization=0.269,
+                allowed_statement="1.5G internal fixed-design modeled limits clear",
+                blocked_statement="Do not claim 1.5G full-wing pass",
+            ),
+            SimpleNamespace(
+                claim_load_factor=1.75,
+                local_wall_buckling_utilization=0.141,
+                tube_stress_utilization=0.313,
+                allowed_statement="1.75G internal fixed-design modeled limits clear",
+                blocked_statement="Do not claim 1.75G full-wing pass",
+            ),
+        ),
+    )
+
+
 def _tip_deflection_revalidation_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="tip_deflection_current_submission_gate_retained",
@@ -235,6 +258,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         torsion_twist_screening=_torsion_twist_screening(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
     )
 
@@ -287,6 +311,12 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     ].evidence
     assert by_key["full_wing_global_buckling"].load_factor is None
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].evidence
+    assert "claim boundary status=full_wing_pass_claim_blocked_global_buckling_missing" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
+    assert "1.75G local wall util=0.1410" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
 
 
 def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Path) -> None:
@@ -304,6 +334,7 @@ def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Pat
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         torsion_twist_screening=_torsion_twist_screening(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
     )
 
@@ -339,6 +370,7 @@ def test_main_creates_requested_output_directory_before_writing(
             torsion_twist_closure_check=_torsion_twist_closure_check(),
             torsion_twist_screening=_torsion_twist_screening(),
             full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+            full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
             tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         ),
     )

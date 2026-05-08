@@ -15,6 +15,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.phase15_candidate_load_factor_buckling_check import (  # noqa: E402
+    build_phase15_rows,
     load_current_candidate_reference,
 )
 from scripts.phase18_structural_claim_readiness import (  # noqa: E402
@@ -78,6 +79,9 @@ from scripts.phase36_wire_termination_efficiency_sensitivity import (  # noqa: E
 from scripts.phase37_torsion_twist_screening import (  # noqa: E402
     build_torsion_twist_screening,
 )
+from scripts.phase38_full_wing_buckling_claim_boundary import (  # noqa: E402
+    build_full_wing_buckling_claim_boundary,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -121,6 +125,7 @@ def build_structural_closure_index(
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
+    full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> StructuralClosureIndex:
@@ -149,6 +154,7 @@ def build_structural_closure_index(
             torsion_twist_closure_check=torsion_twist_closure_check,
             torsion_twist_screening=torsion_twist_screening,
             full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+            full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
             tip_deflection_revalidation_check=tip_deflection_revalidation_check,
             failure_mode_ordering=failure_mode_ordering,
         )
@@ -185,6 +191,7 @@ def write_structural_closure_index_package(
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
+    full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> list[Path]:
@@ -206,6 +213,7 @@ def write_structural_closure_index_package(
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+        full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         failure_mode_ordering=failure_mode_ordering,
     )
@@ -282,6 +290,11 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         reference.candidate_id,
         closure_inputs=[],
     )
+    full_wing_buckling_claim_boundary = build_full_wing_buckling_claim_boundary(
+        reference.candidate_id,
+        phase15_rows=build_phase15_rows(reference),
+        closure_check=full_wing_buckling_closure_check,
+    )
     tip_deflection_revalidation_check = build_tip_deflection_revalidation_check(
         reference,
         revalidation_inputs=[],
@@ -303,6 +316,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+        full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         failure_mode_ordering=failure_mode_ordering,
     )
@@ -329,6 +343,7 @@ def _build_item(
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
+    full_wing_buckling_claim_boundary: Any | None,
     tip_deflection_revalidation_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> StructuralClosureItem:
@@ -351,6 +366,7 @@ def _build_item(
         torsion_twist_closure_check,
         torsion_twist_screening,
         full_wing_buckling_closure_check,
+        full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check,
         failure_mode_ordering,
     )
@@ -375,6 +391,7 @@ def _build_item(
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+        full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         failure_mode_ordering=failure_mode_ordering,
     )
@@ -429,6 +446,7 @@ def _evidence_artifacts(
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
+    full_wing_buckling_claim_boundary: Any | None,
     tip_deflection_revalidation_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
@@ -478,6 +496,8 @@ def _evidence_artifacts(
         artifacts.append("Phase37 torsion_twist_screening")
     if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
         artifacts.append("Phase30 full_wing_buckling_closure_inputs")
+    if full_wing_buckling_claim_boundary is not None and key == "full_wing_global_buckling":
+        artifacts.append("Phase38 full_wing_buckling_claim_boundary")
     if tip_deflection_revalidation_check is not None and key == "tip_deflection_limit":
         artifacts.append("Phase31 tip_deflection_revalidation_inputs")
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
@@ -506,6 +526,7 @@ def _evidence_for_key(
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
+    full_wing_buckling_claim_boundary: Any | None,
     tip_deflection_revalidation_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
@@ -600,6 +621,10 @@ def _evidence_for_key(
     if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
         parts.append(
             f"Phase30: {_full_wing_buckling_closure_summary(full_wing_buckling_closure_check)}"
+        )
+    if full_wing_buckling_claim_boundary is not None and key == "full_wing_global_buckling":
+        parts.append(
+            f"Phase38: {_full_wing_buckling_claim_boundary_summary(full_wing_buckling_claim_boundary)}"
         )
     if tip_deflection_revalidation_check is not None and key == "tip_deflection_limit":
         parts.append(
@@ -850,6 +875,24 @@ def _full_wing_buckling_closure_summary(check: Any) -> str:
         f"{_fmt(getattr(first, 'load_factor_margin', None) if first is not None else None)}; "
         "missing components="
         f"{getattr(first, 'missing_components', 'unknown') if first is not None else 'unknown'}."
+    )
+
+
+def _full_wing_buckling_claim_boundary_summary(boundary: Any) -> str:
+    rows = {float(row.claim_load_factor): row for row in getattr(boundary, "rows", ())}
+    row_15 = rows.get(1.5)
+    row_175 = rows.get(1.75)
+    return (
+        "claim boundary status="
+        f"{getattr(boundary, 'overall_status', 'unknown')}; "
+        "closure status="
+        f"{getattr(boundary, 'global_buckling_closure_status', 'unknown')}; "
+        "1.5G local wall util="
+        f"{_fmt(getattr(row_15, 'local_wall_buckling_utilization', None) if row_15 is not None else None)}; "
+        "1.75G local wall util="
+        f"{_fmt(getattr(row_175, 'local_wall_buckling_utilization', None) if row_175 is not None else None)}; "
+        "blocked 1.75G statement="
+        f"{getattr(row_175, 'blocked_statement', 'unknown') if row_175 is not None else 'unknown'}"
     )
 
 
