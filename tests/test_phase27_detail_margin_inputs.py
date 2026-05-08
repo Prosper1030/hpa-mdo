@@ -122,6 +122,62 @@ def test_detail_margin_check_requires_traceable_hardware_inputs() -> None:
     assert by_key["wire_termination"].traceability_status == "termination_efficiency_or_derate_missing"
 
 
+def test_detail_margin_check_applies_termination_factor_to_effective_load() -> None:
+    check = build_detail_margin_check(
+        _requirements(),
+        hardware_allowables=(
+            {
+                "key": "wire_termination",
+                "component_id": "termination-a",
+                "allowable_load_n": "7000",
+                "minimum_breaking_load_n": "12000",
+                "allowable_basis": "vendor_body_mbl_with_process_efficiency",
+                "termination_efficiency": "0.45",
+                "source": "vendor datasheet placeholder",
+            },
+        ),
+    )
+
+    termination = {row.key: row for row in check.rows}["wire_termination"]
+    assert termination.mbl_margin_n == pytest.approx(2000.0)
+    assert termination.effective_termination_load_n == pytest.approx(5400.0)
+    assert termination.effective_termination_load_margin_n == pytest.approx(-600.0)
+    assert termination.worst_margin == pytest.approx(-600.0)
+    assert termination.status == "margin_negative"
+
+
+@pytest.mark.parametrize(
+    ("factor_field", "factor_value", "expected_traceability"),
+    (
+        ("termination_efficiency", "1.20", "termination_efficiency_out_of_range"),
+        ("derate_factor", "0.0", "derate_factor_out_of_range"),
+    ),
+)
+def test_detail_margin_check_rejects_invalid_termination_factor(
+    factor_field: str,
+    factor_value: str,
+    expected_traceability: str,
+) -> None:
+    check = build_detail_margin_check(
+        _requirements(),
+        hardware_allowables=(
+            {
+                "key": "wire_termination",
+                "component_id": "termination-a",
+                "allowable_load_n": "7000",
+                "minimum_breaking_load_n": "12000",
+                "allowable_basis": "vendor_body_mbl_with_process_efficiency",
+                factor_field: factor_value,
+                "source": "vendor datasheet placeholder",
+            },
+        ),
+    )
+
+    termination = {row.key: row for row in check.rows}["wire_termination"]
+    assert termination.status == "hardware_traceability_missing"
+    assert termination.traceability_status == expected_traceability
+
+
 def test_detail_margin_check_marks_missing_hardware_inputs() -> None:
     check = build_detail_margin_check(_requirements(), hardware_allowables=())
 
