@@ -3247,10 +3247,25 @@ def _write_run_all_macro(package_dir: Path) -> Path:
         "! Open ANSYS Mechanical APDL, set the working directory to this folder, then run:",
         "! /INPUT,run_all_phase14,mac",
         "/CLEAR,NOSTART",
-        "HEADER='case_id,route,status,tip_uz_m,theta_rad,root_reaction_fz_n,root_torque_n_m,max_stress_pa,note'",
+        "H1='case_id'",
+        "H2=',route'",
+        "H3=',status'",
+        "H4=',tip_uz'",
+        "H5='_m'",
+        "H6=',theta'",
+        "H7='_rad'",
+        "H8=',root_r'",
+        "H9='eaction'",
+        "H10='_fz_n'",
+        "H11=',root_t'",
+        "H12='orque_n'",
+        "H13='_m'",
+        "H14=',max_st'",
+        "H15='ress_pa'",
+        "H16=',note'",
         "*CFOPEN,phase14_apdl_results,csv",
-        "*VWRITE,HEADER",
-        "(A)",
+        "*VWRITE,H1,H2,H3,H4,H5,H6,H7,H8,H9,H10,H11,H12,H13,H14,H15,H16",
+        "(A,A,A,A,A,A,A,A,A,A,A,A,A,A,A,A)",
         "*CFCLOS",
         "/INPUT,phase14_b2_tapered_tube,mac",
         "/INPUT,phase14_b5_single_torsion,mac",
@@ -3316,12 +3331,11 @@ def _write_apdl_b2_tapered_tube(package_dir: Path, material: BeamMaterial) -> Pa
             "SET,LAST",
             f"*GET,TIP_UZ,NODE,{n_elem + 1},U,Z",
             "*GET,ROOT_RFZ,NODE,1,RF,FZ",
-            "ETABLE,SEQV,S,EQV",
-            "*GET,MAXSEQV,ETAB,SEQV,MAX",
-            "CASEID='B2_TAPERED_TUBE'",
-            "ROUTE='APDL_BEAM188_CTUBE'",
+            *_apdl_beam188_stress_recovery_lines(),
+            "CASEID='B2_TAPER'",
+            "ROUTE='APDLBEAM'",
             "STATUS='RAN'",
-            "NOTE='root fixed distributed vertical load'",
+            "NOTE='rootfix'",
             "*CFOPEN,phase14_apdl_results,csv,,APPEND",
             "*VWRITE,CASEID,ROUTE,STATUS,TIP_UZ,0,ROOT_RFZ,0,MAXSEQV,NOTE",
             "(A32,',',A32,',',A12,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',A64)",
@@ -3368,12 +3382,11 @@ def _write_apdl_b5_single_torsion(package_dir: Path, material: BeamMaterial) -> 
             "SET,LAST",
             f"*GET,TIP_ROTY,NODE,{n_elem + 1},ROT,Y",
             "*GET,ROOT_TORQUE,NODE,1,RF,MY",
-            "ETABLE,SEQV,S,EQV",
-            "*GET,MAXSEQV,ETAB,SEQV,MAX",
-            "CASEID='B5_SINGLE_TORSION'",
-            "ROUTE='APDL_BEAM188_CTUBE'",
+            *_apdl_beam188_stress_recovery_lines(),
+            "CASEID='B5_TORS'",
+            "ROUTE='APDLBEAM'",
             "STATUS='RAN'",
-            "NOTE='tip MY torque compare theta TL over GJ'",
+            "NOTE='tipMY'",
             "*CFOPEN,phase14_apdl_results,csv,,APPEND",
             "*VWRITE,CASEID,ROUTE,STATUS,0,TIP_ROTY,0,ROOT_TORQUE,MAXSEQV,NOTE",
             "(A32,',',A32,',',A12,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',A64)",
@@ -3389,8 +3402,8 @@ def _write_apdl_b5_dual_direct_my(package_dir: Path, material: BeamMaterial) -> 
     return _write_apdl_dual_b5(
         package_dir / "phase14_b5_dual_direct_my.mac",
         material=material,
-        case_id="B5_DUAL_DIRECT_MY",
-        route="APDL_DUAL_BEAM_DIRECT_MY",
+        case_id="B5_DIRMY",
+        route="DUAL_MY",
         use_force_couple=False,
     )
 
@@ -3399,8 +3412,8 @@ def _write_apdl_b5_dual_force_couple(package_dir: Path, material: BeamMaterial) 
     return _write_apdl_dual_b5(
         package_dir / "phase14_b5_dual_force_couple.mac",
         material=material,
-        case_id="B5_DUAL_FORCE_COUPLE",
-        route="APDL_DUAL_BEAM_FORCE_COUPLE",
+        case_id="B5_COUP",
+        route="DUAL_FC",
         use_force_couple=True,
     )
 
@@ -3421,22 +3434,25 @@ def _write_apdl_dual_b5(
     lines.extend(["ET,1,BEAM188", "KEYOPT,1,3,2"])
     for idx in range(n_elem + 1):
         y = span_m * idx / n_elem
-        lines.append(f"K,{idx + 1},0,{y:.9g},0")
-        lines.append(f"K,{100 + idx + 1},{spacing_m:.9g},{y:.9g},0")
-    for idx in range(1, n_elem + 1):
-        lines.append(f"L,{idx},{idx + 1}")
-        lines.append(f"L,{100 + idx},{100 + idx + 1}")
+        lines.append(f"N,{idx + 1},0,{y:.9g},0")
+        lines.append(f"N,{100 + idx + 1},{spacing_m:.9g},{y:.9g},0")
     lines.extend(
         [
             "SECTYPE,1,BEAM,CTUBE",
             "SECDATA,2.82e-2,3.0e-2",
-            "LSEL,ALL",
-            "LATT,1,,1,,,,1",
-            "LESIZE,ALL,,,1",
-            "LMESH,ALL",
+            "TYPE,1",
+            "MAT,1",
+            "SECNUM,1",
+        ]
+    )
+    for idx in range(1, n_elem + 1):
+        lines.append(f"E,{idx},{idx + 1}")
+        lines.append(f"E,{100 + idx},{100 + idx + 1}")
+    lines.extend(
+        [
             "ALLSEL,ALL",
-            "DK,1,ALL,0",
-            "DK,101,ALL,0",
+            "D,1,ALL,0",
+            "D,101,ALL,0",
             "! Equal-DOF links approximate rigid rib stations.",
         ]
     )
@@ -3447,12 +3463,12 @@ def _write_apdl_dual_b5(
             lines.append(f"CE,NEXT,0,{main},{dof},1,{rear},{dof},-1")
     if use_force_couple:
         couple_force = total_torque / spacing_m
-        lines.append(f"FK,{n_elem + 1},FZ,{couple_force:.9e}")
-        lines.append(f"FK,{100 + n_elem + 1},FZ,{-couple_force:.9e}")
-        note = "vertical couple is a surrogate; compare against direct MY"
+        lines.append(f"F,{n_elem + 1},FZ,{couple_force:.9e}")
+        lines.append(f"F,{100 + n_elem + 1},FZ,{-couple_force:.9e}")
+        note = "couple"
     else:
-        lines.append(f"FK,{n_elem + 1},MY,{total_torque:.9e}")
-        note = "direct MY torque ownership case"
+        lines.append(f"F,{n_elem + 1},MY,{total_torque:.9e}")
+        note = "direct"
     lines.extend(
         [
             "FINISH",
@@ -3464,15 +3480,19 @@ def _write_apdl_dual_b5(
             "SET,LAST",
             f"*GET,MAIN_TIP_UZ,NODE,{n_elem + 1},U,Z",
             f"*GET,REAR_TIP_UZ,NODE,{100 + n_elem + 1},U,Z",
-            "*GET,ROOT_TORQUE,NODE,1,RF,MY",
-            "ETABLE,SEQV,S,EQV",
-            "*GET,MAXSEQV,ETAB,SEQV,MAX",
+            "*GET,MAIN_ROOT_RFZ,NODE,1,RF,FZ",
+            "*GET,REAR_ROOT_RFZ,NODE,101,RF,FZ",
+            "TOTAL_ROOT_FZ=MAIN_ROOT_RFZ+REAR_ROOT_RFZ",
+            "*GET,MAIN_ROOT_MY,NODE,1,RF,MY",
+            "*GET,REAR_ROOT_MY,NODE,101,RF,MY",
+            f"ROOT_TORQUE=MAIN_ROOT_MY+REAR_ROOT_MY-{spacing_m:.9e}*REAR_ROOT_RFZ",
+            *_apdl_beam188_stress_recovery_lines(),
             f"CASEID='{case_id}'",
             f"ROUTE='{route}'",
             "STATUS='RAN'",
             f"NOTE='{note}'",
             "*CFOPEN,phase14_apdl_results,csv,,APPEND",
-            "*VWRITE,CASEID,ROUTE,STATUS,MAIN_TIP_UZ,0,0,ROOT_TORQUE,MAXSEQV,NOTE",
+            "*VWRITE,CASEID,ROUTE,STATUS,MAIN_TIP_UZ,0,TOTAL_ROOT_FZ,ROOT_TORQUE,MAXSEQV,NOTE",
             "(A32,',',A32,',',A12,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',E16.8,',',A64)",
             "*CFCLOS",
             "FINISH",
@@ -3480,6 +3500,21 @@ def _write_apdl_dual_b5(
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def _apdl_beam188_stress_recovery_lines() -> list[str]:
+    return [
+        "ESEL,S,TYPE,,1",
+        "ETABLE,VM_I,SMISC,31",
+        "ETABLE,VM_J,SMISC,36",
+        "*GET,VM_I_MAX,ETAB,VM_I,MAX",
+        "*GET,VM_J_MAX,ETAB,VM_J,MAX",
+        "ALLSEL,ALL",
+        "MAXSEQV=VM_I_MAX",
+        "*IF,VM_J_MAX,GT,MAXSEQV,THEN",
+        "MAXSEQV=VM_J_MAX",
+        "*ENDIF",
+    ]
 
 
 def _apdl_common_header(title: str, material: BeamMaterial) -> list[str]:

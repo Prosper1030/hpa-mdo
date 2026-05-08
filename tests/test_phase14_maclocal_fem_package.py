@@ -977,6 +977,7 @@ def test_write_apdl_windows_package_creates_nonexpert_runner(tmp_path: Path) -> 
 
     runner = (package.directory / "run_all_phase14.mac").read_text(encoding="utf-8")
     assert "phase14_apdl_results,csv" in runner
+    assert "*VWRITE,H1,H2,H3,H4,H5,H6,H7,H8,H9,H10,H11,H12,H13,H14,H15,H16" in runner
     assert "/INPUT,phase14_b2_tapered_tube,mac" in runner
     assert "/INPUT,phase14_b5_single_torsion,mac" in runner
     assert "/INPUT,phase14_b5_dual_direct_my,mac" in runner
@@ -984,11 +985,23 @@ def test_write_apdl_windows_package_creates_nonexpert_runner(tmp_path: Path) -> 
 
     b2_deck = (package.directory / "phase14_b2_tapered_tube.mac").read_text(encoding="utf-8")
     b5_deck = (package.directory / "phase14_b5_single_torsion.mac").read_text(encoding="utf-8")
+    dual_deck = (package.directory / "phase14_b5_dual_force_couple.mac").read_text(encoding="utf-8")
     assert "BEAM188" in b2_deck
     assert "CTUBE" in b2_deck
     assert "*CFOPEN,phase14_apdl_results,csv,,APPEND" in b2_deck
-    assert "B5_SINGLE_TORSION" in b5_deck
+    assert "ETABLE,VM_I,SMISC,31" in b2_deck
+    assert "ETABLE,SEQV,S,EQV" not in b2_deck
+    assert "CASEID='B2_TAPER'" in b2_deck
+    assert "CASEID='B5_TORS'" in b5_deck
     assert "MY" in b5_deck
+    assert "CASEID='B5_COUP'" in dual_deck
+    assert "ROUTE='DUAL_FC'" in dual_deck
+    assert "N,103" in dual_deck
+    assert "K,103" not in dual_deck
+    assert "E,102,103" in dual_deck
+    assert "CE,NEXT,0,3,UX,1,103,UX,-1" in dual_deck
+    assert "ROOT_TORQUE=MAIN_ROOT_MY+REAR_ROOT_MY-3.500000000e-01*REAR_ROOT_RFZ" in dual_deck
+    assert "*VWRITE,CASEID,ROUTE,STATUS,MAIN_TIP_UZ,0,TOTAL_ROOT_FZ,ROOT_TORQUE,MAXSEQV,NOTE" in dual_deck
 
     readme = (package.directory / "README_windows_run.md").read_text(encoding="utf-8")
     assert "set working directory" in readme.lower()
