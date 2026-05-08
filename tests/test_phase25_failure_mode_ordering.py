@@ -446,6 +446,24 @@ def test_failure_mode_ordering_includes_derated_termination_margin_in_worst_loca
     assert "worst local margin=-600.0000" in evidence
 
 
+def test_failure_mode_ordering_aggregates_duplicate_wire_attach_components() -> None:
+    decomposition = SimpleNamespace(
+        overall_status="wire_attach_load_components_defined_not_signoff",
+        max_resultant_design_load_n=9000.0,
+        rows=(
+            SimpleNamespace(component_key="spanwise_y", design_load_n=7200.0),
+            SimpleNamespace(component_key="spanwise_y", design_load_n=5800.0),
+            SimpleNamespace(component_key="transverse_xz", design_load_n=1100.0),
+            SimpleNamespace(component_key="transverse_xz", design_load_n=1800.0),
+        ),
+    )
+
+    evidence = phase25._wire_attach_load_decomposition_evidence(decomposition)  # noqa: SLF001
+
+    assert "attach spanwise design=7200.0000 N" in evidence
+    assert "attach transverse design=1800.0000 N" in evidence
+
+
 def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Path) -> None:
     outputs = write_failure_mode_ordering_package(
         tmp_path,

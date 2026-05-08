@@ -626,19 +626,29 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
 def _wire_attach_load_decomposition_evidence(decomposition: Any | None) -> str:
     if decomposition is None:
         return "wire attach load decomposition is not available."
-    rows = {str(row.component_key): row for row in getattr(decomposition, "rows", ())}
-    spanwise = rows.get("spanwise_y")
-    transverse = rows.get("transverse_xz")
+    rows = tuple(getattr(decomposition, "rows", ()))
+    spanwise_design = _component_design_load_max(rows, "spanwise_y")
+    transverse_design = _component_design_load_max(rows, "transverse_xz")
     return (
         "attach decomposition status="
         f"{getattr(decomposition, 'overall_status', 'unknown')}; "
         "attach max resultant design="
         f"{_fmt(_attr_float(decomposition, 'max_resultant_design_load_n'))} N; "
         "attach spanwise design="
-        f"{_fmt(_attr_float(spanwise, 'design_load_n') if spanwise is not None else None)} N; "
+        f"{_fmt(spanwise_design)} N; "
         "attach transverse design="
-        f"{_fmt(_attr_float(transverse, 'design_load_n') if transverse is not None else None)} N."
+        f"{_fmt(transverse_design)} N."
     )
+
+
+def _component_design_load_max(rows: tuple[Any, ...], component_key: str) -> float | None:
+    values = [
+        _attr_float(row, "design_load_n")
+        for row in rows
+        if str(getattr(row, "component_key", "")) == component_key
+    ]
+    finite_values = [value for value in values if value is not None]
+    return max(finite_values) if finite_values else None
 
 
 def _root_joint_load_envelope_evidence(envelope: Any | None) -> str:
