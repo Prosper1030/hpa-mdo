@@ -36,7 +36,9 @@ class RibBracingMarginRow:
     required_intermediate_stations: int
     covered_intermediate_station_count: int | None
     covered_station_ids: str
+    covered_intermediate_station_y_m: str
     station_coverage_status: str
+    max_unsupported_subbay_m: float | None
     recommended_subbay_m: float
     bay_vertical_load_scale_n: float
     required_link_force_n: float
@@ -166,10 +168,23 @@ def _build_row(
     attachment_basis = str((allowable or {}).get("attachment_basis", "")).strip()
     covered_station_count = _dict_int(allowable, "covered_intermediate_station_count")
     covered_station_ids = str((allowable or {}).get("covered_station_ids", "")).strip()
+    covered_station_y_m = str(
+        (allowable or {}).get("covered_intermediate_station_y_m", "")
+    ).strip()
+    max_unsupported_subbay = _max_unsupported_subbay_m(
+        start_y_m=float(spacing_row.start_y_m),
+        end_y_m=float(spacing_row.end_y_m),
+        covered_station_y_m=covered_station_y_m,
+    )
     station_coverage_status = _station_coverage_status(
         required_intermediate_stations=int(spacing_row.required_intermediate_stations),
         covered_intermediate_station_count=covered_station_count,
         covered_station_ids=covered_station_ids,
+        covered_intermediate_station_y_m=covered_station_y_m,
+        start_y_m=float(spacing_row.start_y_m),
+        end_y_m=float(spacing_row.end_y_m),
+        recommended_subbay_m=float(spacing_row.recommended_subbay_m),
+        max_unsupported_subbay_m=max_unsupported_subbay,
     )
     traceability_status = _traceability_status(
         rib_family=rib_family,
@@ -191,7 +206,9 @@ def _build_row(
         required_intermediate_stations=int(spacing_row.required_intermediate_stations),
         covered_intermediate_station_count=covered_station_count,
         covered_station_ids=covered_station_ids,
+        covered_intermediate_station_y_m=covered_station_y_m,
         station_coverage_status=station_coverage_status,
+        max_unsupported_subbay_m=max_unsupported_subbay,
         recommended_subbay_m=float(spacing_row.recommended_subbay_m),
         bay_vertical_load_scale_n=float(spacing_row.bay_vertical_load_scale_n),
         required_link_force_n=float(required_link_force_n),
@@ -246,6 +263,11 @@ def _station_coverage_status(
     required_intermediate_stations: int,
     covered_intermediate_station_count: int | None,
     covered_station_ids: str,
+    covered_intermediate_station_y_m: str,
+    start_y_m: float,
+    end_y_m: float,
+    recommended_subbay_m: float,
+    max_unsupported_subbay_m: float | None,
 ) -> str:
     if required_intermediate_stations <= 0:
         return "station_coverage_satisfied"
@@ -258,6 +280,18 @@ def _station_coverage_status(
         return "station_ids_missing"
     if len(station_ids) < required_intermediate_stations:
         return "station_ids_insufficient"
+    station_y = _station_positions_m(covered_intermediate_station_y_m)
+    if not station_y:
+        return "station_positions_missing"
+    if len(station_y) < required_intermediate_stations:
+        return "station_positions_insufficient"
+    if any(value <= start_y_m + 1.0e-9 or value >= end_y_m - 1.0e-9 for value in station_y):
+        return "station_position_outside_bay"
+    if (
+        max_unsupported_subbay_m is None
+        or max_unsupported_subbay_m > float(recommended_subbay_m) + 1.0e-9
+    ):
+        return "station_max_gap_exceeds_recommended"
     return "station_coverage_satisfied"
 
 
@@ -290,7 +324,9 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
         "required_intermediate_stations",
         "covered_intermediate_station_count",
         "covered_station_ids",
+        "covered_intermediate_station_y_m",
         "recommended_subbay_m",
+        "max_unsupported_subbay_m",
         "bay_vertical_load_scale_n",
         "required_link_force_n",
         "rib_family",
@@ -315,7 +351,9 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
                     "required_intermediate_stations": row.required_intermediate_stations,
                     "covered_intermediate_station_count": "",
                     "covered_station_ids": "",
+                    "covered_intermediate_station_y_m": "",
                     "recommended_subbay_m": _fmt(row.recommended_subbay_m),
+                    "max_unsupported_subbay_m": "",
                     "bay_vertical_load_scale_n": _fmt(row.bay_vertical_load_scale_n),
                     "required_link_force_n": _fmt(row.required_link_force_n),
                     "rib_family": "",
@@ -361,8 +399,8 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
         f"- traceability-gap bays: `{check.traceability_gap_count}`",
         f"- station-coverage-gap bays: `{check.station_coverage_gap_count}`",
         "",
-        "| bay | y start m | y end m | required stations | covered stations | station ids | status | traceability | station coverage | required link N | link margin N | shear margin N | bond margin N | allowable basis | evidence type | attachment basis | source |",
-        "|---:|---:|---:|---:|---:|---|---|---|---|---:|---:|---:|---:|---|---|---|---|",
+        "| bay | y start m | y end m | required stations | covered stations | station ids | station y m | max unsupported m | status | traceability | station coverage | required link N | link margin N | shear margin N | bond margin N | allowable basis | evidence type | attachment basis | source |",
+        "|---:|---:|---:|---:|---:|---|---|---:|---|---|---|---:|---:|---:|---:|---|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
@@ -370,6 +408,8 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
             f"{row.required_intermediate_stations} | "
             f"{_fmt_int(row.covered_intermediate_station_count)} | "
             f"{row.covered_station_ids or 'n/a'} | "
+            f"{row.covered_intermediate_station_y_m or 'n/a'} | "
+            f"{_fmt(row.max_unsupported_subbay_m)} | "
             f"`{row.status}` | `{row.traceability_status}` | "
             f"`{row.station_coverage_status}` | {row.required_link_force_n:.3f} | "
             f"{_fmt(row.link_margin_n)} | {_fmt(row.shear_margin_n)} | {_fmt(row.bond_margin_n)} | "
@@ -384,7 +424,7 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
             "",
             "- Positive margins here only mean supplied rib/link/bond numbers exceed the Phase 22 surrogate link-force requirement.",
             "- A traceable rib input requires rib family, source, allowable basis, evidence type, and attachment basis for each bay.",
-            "- Each bay-level input must also identify how many required intermediate stations it covers.",
+            "- Each bay-level input must identify station count, station IDs, physical station y positions, and a maximum unsupported sub-bay no larger than the Phase 24 recommendation.",
             "- This is not finite-rib FEM signoff and does not close bracing stiffness, station-level spar attachment, cap/web sizing, or full-wing buckling by itself.",
             "",
         ]
@@ -409,6 +449,27 @@ def _dict_int(row: dict[str, Any] | None, name: str) -> int | None:
     if value is None or value == "":
         return None
     return int(float(value))
+
+
+def _station_positions_m(raw: str) -> tuple[float, ...]:
+    values = [value.strip() for value in str(raw).split(";") if value.strip()]
+    return tuple(sorted(float(value) for value in values))
+
+
+def _max_unsupported_subbay_m(
+    *,
+    start_y_m: float,
+    end_y_m: float,
+    covered_station_y_m: str,
+) -> float | None:
+    station_y = _station_positions_m(covered_station_y_m)
+    if not station_y:
+        return None
+    sorted_y = (float(start_y_m), *station_y, float(end_y_m))
+    return max(
+        sorted_y[index + 1] - sorted_y[index]
+        for index in range(len(sorted_y) - 1)
+    )
 
 
 def _margin(provided: float | None, required: float) -> float | None:

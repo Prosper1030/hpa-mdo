@@ -61,6 +61,7 @@ def test_rib_bracing_margin_check_uses_finite_rib_surrogate_link_force_as_requir
                 "attachment_basis": "bonded_spar_cap_shear_test",
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay0-rib1",
+                "covered_intermediate_station_y_m": "0.30",
                 "source": "coupon placeholder",
             },
             {
@@ -74,6 +75,7 @@ def test_rib_bracing_margin_check_uses_finite_rib_surrogate_link_force_as_requir
                 "attachment_basis": "bonded_spar_cap_shear_test",
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay1-rib1",
+                "covered_intermediate_station_y_m": "0.90",
                 "source": "coupon placeholder",
             },
         ),
@@ -88,6 +90,7 @@ def test_rib_bracing_margin_check_uses_finite_rib_surrogate_link_force_as_requir
     assert by_bay[0].bond_margin_n == pytest.approx(50.0)
     assert by_bay[0].covered_intermediate_station_count == 1
     assert by_bay[0].station_coverage_status == "station_coverage_satisfied"
+    assert by_bay[0].max_unsupported_subbay_m == pytest.approx(0.3)
     assert by_bay[1].status == "margin_negative"
     assert by_bay[1].bond_margin_n == pytest.approx(-100.0)
     assert "not finite-rib FEM signoff" in by_bay[0].engineering_note
@@ -167,6 +170,36 @@ def test_rib_bracing_margin_check_requires_station_level_coverage() -> None:
     assert by_bay[0].station_coverage_status == "station_coverage_count_missing"
 
 
+def test_rib_bracing_margin_check_requires_physical_station_placement() -> None:
+    check = build_rib_bracing_margin_check(
+        _spacing_requirements(),
+        _bracing_audit(),
+        rib_allowables=(
+            {
+                "bay_index": "0",
+                "rib_family": "balsa_sheet_3mm",
+                "allowable_link_force_n": "1200",
+                "allowable_shear_force_n": "1000",
+                "allowable_bond_force_n": "950",
+                "allowable_basis": "rib_link_coupon_limit_load",
+                "evidence_type": "coupon_test",
+                "attachment_basis": "bonded_spar_cap_shear_test",
+                "covered_intermediate_station_count": "1",
+                "covered_station_ids": "bay0-rib1",
+                "covered_intermediate_station_y_m": "0.10",
+                "source": "coupon placeholder",
+            },
+        ),
+    )
+
+    by_bay = {row.bay_index: row for row in check.rows}
+    assert check.overall_status == "rib_bracing_margins_not_closed"
+    assert check.station_coverage_gap_count == 1
+    assert by_bay[0].status == "rib_station_coverage_missing"
+    assert by_bay[0].station_coverage_status == "station_max_gap_exceeds_recommended"
+    assert by_bay[0].max_unsupported_subbay_m == pytest.approx(0.5)
+
+
 def test_write_rib_bracing_margin_input_package_creates_template_and_report(tmp_path: Path) -> None:
     outputs = write_rib_bracing_margin_input_package(
         tmp_path,
@@ -184,6 +217,7 @@ def test_write_rib_bracing_margin_input_package_creates_template_and_report(tmp_
                 "attachment_basis": "bonded_spar_cap_shear_test",
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay0-rib1",
+                "covered_intermediate_station_y_m": "0.30",
                 "source": "coupon placeholder",
             },
         ),
@@ -201,6 +235,8 @@ def test_write_rib_bracing_margin_input_package_creates_template_and_report(tmp_
     assert "allowable_basis" in template
     assert "attachment_basis" in template
     assert "covered_intermediate_station_count" in template
+    assert "covered_intermediate_station_y_m" in template
+    assert "max_unsupported_subbay_m" in template
     report = (tmp_path / "rib_bracing_margin_check.md").read_text(encoding="utf-8")
     assert "rib bracing input margins" in report
     assert "not finite-rib FEM signoff" in report
@@ -209,3 +245,4 @@ def test_write_rib_bracing_margin_input_package_creates_template_and_report(tmp_
     assert "traceability" in report
     assert "rib_link_coupon_limit_load" in report
     assert "bay0-rib1" in report
+    assert "0.30" in report
