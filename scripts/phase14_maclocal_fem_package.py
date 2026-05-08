@@ -3504,15 +3504,18 @@ def _write_apdl_dual_b5(
 
 def _apdl_beam188_stress_recovery_lines() -> list[str]:
     return [
+        "VMI=0",
+        "VMJ=0",
+        "MAXSEQV=0",
         "ESEL,S,TYPE,,1",
-        "ETABLE,VM_I,SMISC,31",
-        "ETABLE,VM_J,SMISC,36",
-        "*GET,VM_I_MAX,ETAB,VM_I,MAX",
-        "*GET,VM_J_MAX,ETAB,VM_J,MAX",
+        "ETABLE,VMI,SMISC,31",
+        "ETABLE,VMJ,SMISC,36",
+        "*GET,VMI,ETAB,VMI,MAX",
+        "*GET,VMJ,ETAB,VMJ,MAX",
         "ALLSEL,ALL",
-        "MAXSEQV=VM_I_MAX",
-        "*IF,VM_J_MAX,GT,MAXSEQV,THEN",
-        "MAXSEQV=VM_J_MAX",
+        "MAXSEQV=VMI",
+        "*IF,VMJ,GT,MAXSEQV,THEN",
+        "MAXSEQV=VMJ",
         "*ENDIF",
     ]
 

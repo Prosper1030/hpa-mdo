@@ -989,7 +989,9 @@ def test_write_apdl_windows_package_creates_nonexpert_runner(tmp_path: Path) -> 
     assert "BEAM188" in b2_deck
     assert "CTUBE" in b2_deck
     assert "*CFOPEN,phase14_apdl_results,csv,,APPEND" in b2_deck
-    assert "ETABLE,VM_I,SMISC,31" in b2_deck
+    assert "ETABLE,VMI,SMISC,31" in b2_deck
+    assert "MAXSEQV=VMI" in b2_deck
+    assert "VM_I_MAX" not in b2_deck
     assert "ETABLE,SEQV,S,EQV" not in b2_deck
     assert "CASEID='B2_TAPER'" in b2_deck
     assert "CASEID='B5_TORS'" in b5_deck
