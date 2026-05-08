@@ -259,6 +259,22 @@ class SolidTubeProbeRow:
     engineering_note: str
 
 
+@dataclass(frozen=True)
+class FidelityLadderDecisionRow:
+    route: str
+    global_bending_accuracy: str
+    global_torsion_accuracy: str
+    reaction_closure: str
+    runtime: str
+    mesh_convergence_behavior: str
+    thin_wall_suitability: str
+    local_stress_usefulness: str
+    buckling_usefulness: str
+    implementation_maturity: str
+    mac_local_automation_readiness: str
+    recommended_role: str
+
+
 def tube_second_moment_i(
     *,
     outer_radius_m: float,
@@ -970,8 +986,28 @@ def run_phase14_maclocal_fem_fidelity_ladder(
         b2_rows=b2_rows,
         b5_rows=b5_rows,
     )
-    artifacts.update(_run_shell_bias_diagnosis(cfg=cfg, fidelity_dir=fidelity_dir, material=material))
-    artifacts.update(_run_solid_tube_probe(cfg=cfg, fidelity_dir=fidelity_dir, material=material))
+    shell_bias_artifacts = _run_shell_bias_diagnosis(cfg=cfg, fidelity_dir=fidelity_dir, material=material)
+    artifacts.update(shell_bias_artifacts)
+    solid_artifacts = _run_solid_tube_probe(cfg=cfg, fidelity_dir=fidelity_dir, material=material)
+    artifacts.update(solid_artifacts)
+    decision_rows = build_fidelity_ladder_decision_rows(
+        runtime_rows=runtime_rows,
+        shell_bias_csv=shell_bias_artifacts["shell_bias_diagnosis_csv"],
+        solid_probe_csv=solid_artifacts["solid_tube_probe_csv"],
+        b2_rows=b2_rows,
+        b5_rows=b5_rows,
+    )
+    artifacts.update(
+        write_fidelity_ladder_decision_artifacts(
+            fidelity_dir,
+            rows=decision_rows,
+            decision_summary=(
+                "Use the simplest model that is accurate enough for the quantity: beam for daily global "
+                "bookkeeping, corrected mid-surface shell for thin-wall diagnostics, and no current Mac-safe "
+                "solid route for tube global bending/torsion truth."
+            ),
+        )
+    )
     return artifacts
 
 
@@ -3910,6 +3946,201 @@ def _best_solid_rows_by_case(rows: Iterable[SolidTubeProbeRow]) -> dict[str, Sol
         if current is None or float(row.error_pct) < float(current.error_pct or float("inf")):
             best[row.case_id] = row
     return best
+
+
+def build_fidelity_ladder_decision_rows(
+    *,
+    runtime_rows: list[RouteRuntimeRow],
+    shell_bias_csv: Path,
+    solid_probe_csv: Path,
+    b2_rows: list[B2TaperedShellHardeningRow],
+    b5_rows: list[B5ShellTorsionHardeningRow],
+) -> list[FidelityLadderDecisionRow]:
+    runtime_by_id = {row.route_id: row for row in runtime_rows}
+    shell_rows = _read_csv_dict_rows(shell_bias_csv)
+    solid_rows = _read_csv_dict_rows(solid_probe_csv)
+    shell_tip = _best_csv_row(shell_rows, "case_type", "constant_tip_load")
+    shell_uniform = _best_csv_row(shell_rows, "case_type", "constant_uniform_load")
+    shell_torsion = _best_csv_row(shell_rows, "case_type", "constant_tip_torque")
+    solid_tip = _best_csv_row(solid_rows, "case_id", "C1_solid_constant_tube_tip_load")
+    solid_uniform = _best_csv_row(solid_rows, "case_id", "C2_solid_constant_tube_uniform_load")
+    solid_torsion = _best_csv_row(solid_rows, "case_id", "C3_solid_constant_tube_tip_torque")
+    b2_best = _best_b2_hardening_row(b2_rows)
+    b5_best = _best_b5_hardening_row(b5_rows)
+    legacy_b5 = next((row for row in b5_rows if row.variant.startswith("legacy_gmsh_tri")), None)
+    beam_runtime = runtime_by_id.get("beam_parity")
+    shell_runtime = runtime_by_id.get("structured_shell_constant")
+    b2_runtime = runtime_by_id.get("b2_structured_shell")
+
+    return [
+        FidelityLadderDecisionRow(
+            route="CalculiX B32R PIPE beam",
+            global_bending_accuracy="B1 0.466-0.621% vs internal/closed-form; B2 tapered remains 10.734% warning",
+            global_torsion_accuracy="B5 direct-MY torque ownership is auditable through section forces, but dual-beam twist remains warning-level",
+            reaction_closure="B1/B3/B4 corrected reactions close; B2 tapered mismatch is section-form, not equilibrium",
+            runtime=_runtime_label(beam_runtime),
+            mesh_convergence_behavior="mature beam-element deck; not a shell/solid mesh convergence tool",
+            thin_wall_suitability="good for global tube bending/torsion bookkeeping, not wall stress",
+            local_stress_usefulness="low",
+            buckling_usefulness="none",
+            implementation_maturity="mature current Phase 14 parity runner",
+            mac_local_automation_readiness="ready",
+            recommended_role="daily gate",
+        ),
+        FidelityLadderDecisionRow(
+            route="internal equivalent/tubing beam",
+            global_bending_accuracy="production-speed reference; B2 internal tip is the current tubing model target",
+            global_torsion_accuracy="use for design trend, but keep external FEM/APDL torque checks",
+            reaction_closure="internal bookkeeping is fast; external solver remains the audit layer",
+            runtime="sub-second in normal design flow",
+            mesh_convergence_behavior="not mesh-based",
+            thin_wall_suitability="good for global sizing when section properties are explicit",
+            local_stress_usefulness="none",
+            buckling_usefulness="none",
+            implementation_maturity="current design model",
+            mac_local_automation_readiness="ready",
+            recommended_role="daily gate",
+        ),
+        FidelityLadderDecisionRow(
+            route="structured shell current best",
+            global_bending_accuracy=(
+                f"mid-surface S4: tip {_csv_error(shell_tip)}; uniform {_csv_error(shell_uniform)}; "
+                f"B2 structured shell best {_b2_error_label(b2_best)}"
+            ),
+            global_torsion_accuracy=f"mid-surface S4 constant torsion {_csv_error(shell_torsion)}; B5 current {_b5_error_label(b5_best)}",
+            reaction_closure="constant shell and B2 shell reactions close within small residuals",
+            runtime=f"{_runtime_label(shell_runtime)} for constant checks; {_runtime_label(b2_runtime)} for current B2 shell route",
+            mesh_convergence_behavior="stable after using tube mid-surface reference radius",
+            thin_wall_suitability="best current Mac-local thin-wall FEM route",
+            local_stress_usefulness="diagnostic once reference surface is correct; not calibration truth",
+            buckling_usefulness="future diagnostic only; no buckling solve in this task",
+            implementation_maturity="automated S4 route with tested report schema",
+            mac_local_automation_readiness="ready for diagnostic runs",
+            recommended_role="design diagnostic",
+        ),
+        FidelityLadderDecisionRow(
+            route="solid/volume current best",
+            global_bending_accuracy=f"C1 {_csv_error(solid_tip)}; C2 {_csv_error(solid_uniform)}",
+            global_torsion_accuracy=f"C3 {_csv_error(solid_torsion)}",
+            reaction_closure="root reactions close, but displacement/twist accuracy fails",
+            runtime="seconds per Mac-safe case, but accuracy is unacceptable",
+            mesh_convergence_behavior="axial refinement improves displacement but remains far from theory",
+            thin_wall_suitability="poor for this slender 1.5 mm wall tube at Mac-safe mesh sizes",
+            local_stress_usefulness="not recommended until mesh quality/thickness resolution are proven",
+            buckling_usefulness="not recommended",
+            implementation_maturity="prototype C3D8R structured hex route",
+            mac_local_automation_readiness="runs, but should fail the trust gate",
+            recommended_role="not recommended",
+        ),
+        FidelityLadderDecisionRow(
+            route="legacy triangular shell",
+            global_bending_accuracy="old B2 Gmsh triangular route was mesh-sensitive and warning-grade",
+            global_torsion_accuracy=(
+                "B5 legacy theta error "
+                f"{_pct_label(None if legacy_b5 is None else legacy_b5.theta_error_pct)}%"
+            ),
+            reaction_closure="not the main issue; formulation/load representation is too poor",
+            runtime="fast, but misleading",
+            mesh_convergence_behavior="not trustworthy for the tube quantities in this ladder",
+            thin_wall_suitability="poor",
+            local_stress_usefulness="not recommended",
+            buckling_usefulness="not recommended",
+            implementation_maturity="retained only as diagnosed bad baseline",
+            mac_local_automation_readiness="do not use except for regression comparison",
+            recommended_role="not recommended",
+        ),
+    ]
+
+
+def _read_csv_dict_rows(path: Path) -> list[dict[str, str]]:
+    if not Path(path).exists():
+        return []
+    with Path(path).open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _best_csv_row(rows: list[dict[str, str]], key: str, value: str) -> dict[str, str] | None:
+    matches = [row for row in rows if row.get(key) == value and row.get("error_pct")]
+    if not matches:
+        return None
+    return min(matches, key=lambda row: float(row["error_pct"]))
+
+
+def _csv_error(row: dict[str, str] | None) -> str:
+    if row is None or not row.get("error_pct"):
+        return "no usable row"
+    return f"{float(row['error_pct']):.3f}% error"
+
+
+def _runtime_label(row: RouteRuntimeRow | None) -> str:
+    if row is None:
+        return "not timed"
+    return f"{row.runtime_s:.3f}s"
+
+
+def _b2_error_label(row: B2TaperedShellHardeningRow | None) -> str:
+    if row is None:
+        return "no B2 row"
+    return f"{_pct_label(row.error_vs_internal_pct)}% vs internal, {_pct_label(row.error_vs_b32r_pipe_pct)}% vs B32R"
+
+
+def _b5_error_label(row: B5ShellTorsionHardeningRow | None) -> str:
+    if row is None:
+        return "no B5 row"
+    return f"{_pct_label(row.theta_error_pct)}% theta error"
+
+
+def _pct_label(value: float | None) -> str:
+    if value is None:
+        return ""
+    return f"{float(value):.3f}"
+
+
+def write_fidelity_ladder_decision_artifacts(
+    output_dir: str | Path,
+    *,
+    rows: list[FidelityLadderDecisionRow],
+    decision_summary: str,
+) -> dict[str, Path]:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    csv_path = out / "fidelity_ladder_comparison.csv"
+    md_path = out / "fidelity_ladder_decision.md"
+    _write_dataclass_csv(csv_path, rows, FidelityLadderDecisionRow)
+    lines = [
+        "# Phase 14 FEM Fidelity Ladder Decision",
+        "",
+        decision_summary,
+        "",
+        "## Decision Matrix",
+        "",
+        "| route | global_bending_accuracy | global_torsion_accuracy | reaction_closure | runtime | mesh_convergence_behavior | thin_wall_suitability | local_stress_usefulness | buckling_usefulness | implementation_maturity | mac_local_automation_readiness | recommended_role |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row.route} | {row.global_bending_accuracy} | {row.global_torsion_accuracy} | "
+            f"{row.reaction_closure} | {row.runtime} | {row.mesh_convergence_behavior} | "
+            f"{row.thin_wall_suitability} | {row.local_stress_usefulness} | {row.buckling_usefulness} | "
+            f"{row.implementation_maturity} | {row.mac_local_automation_readiness} | {row.recommended_role} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Trust Policy",
+            "",
+            "- daily gate: internal equivalent/tubing beam plus CalculiX B32R PIPE beam parity for global bookkeeping.",
+            "- design diagnostic: corrected mid-surface structured S4 shell for thin-wall tube checks and local stress trend inspection.",
+            "- not recommended: the current Mac-safe solid/volume probe and the legacy triangular shell route for global tube bending/torsion.",
+            "- APDL-required: final external B2 tapered truth and B5 twist/GJ truth before changing production trust boundaries.",
+        ]
+    )
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "fidelity_ladder_comparison_csv": csv_path,
+        "fidelity_ladder_decision_md": md_path,
+    }
 
 
 def _finest_constant_row(

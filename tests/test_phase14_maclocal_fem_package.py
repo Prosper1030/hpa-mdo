@@ -13,6 +13,7 @@ from scripts.phase14_maclocal_fem_package import (
     B2TaperedShellHardeningRow,
     B5ShellTorsionHardeningRow,
     ConstantTubeVerificationRow,
+    FidelityLadderDecisionRow,
     Phase14ExpectedValue,
     RouteRuntimeRow,
     ShellBiasDiagnosisRow,
@@ -36,6 +37,7 @@ from scripts.phase14_maclocal_fem_package import (
     write_shell_bias_diagnosis_artifacts,
     write_solid_tube_probe_artifacts,
     write_apdl_windows_package,
+    write_fidelity_ladder_decision_artifacts,
     write_b5_shell_torsion_hardening_csv,
     write_b5_shell_torsion_hardening_markdown,
     write_b2_tapered_shell_hardening_csv,
@@ -435,6 +437,57 @@ def test_write_solid_tube_probe_artifacts(tmp_path: Path) -> None:
     md_text = artifacts["solid_tube_probe_md"].read_text(encoding="utf-8")
     assert "# Phase 14 Solid Tube FEM Probe" in md_text
     assert "not automatically higher fidelity" in md_text
+
+
+def test_fidelity_ladder_decision_row_has_required_schema() -> None:
+    fields = set(FidelityLadderDecisionRow.__dataclass_fields__)
+
+    assert {
+        "route",
+        "global_bending_accuracy",
+        "global_torsion_accuracy",
+        "reaction_closure",
+        "runtime",
+        "mesh_convergence_behavior",
+        "thin_wall_suitability",
+        "local_stress_usefulness",
+        "buckling_usefulness",
+        "implementation_maturity",
+        "mac_local_automation_readiness",
+        "recommended_role",
+    }.issubset(fields)
+
+
+def test_write_fidelity_ladder_decision_artifacts(tmp_path: Path) -> None:
+    rows = [
+        FidelityLadderDecisionRow(
+            route="structured shell current best",
+            global_bending_accuracy="0.06% constant tip-load error",
+            global_torsion_accuracy="0.07% constant torsion error",
+            reaction_closure="closed",
+            runtime="seconds",
+            mesh_convergence_behavior="stable",
+            thin_wall_suitability="best current Mac-local thin-wall route",
+            local_stress_usefulness="diagnostic",
+            buckling_usefulness="future diagnostic",
+            implementation_maturity="automated",
+            mac_local_automation_readiness="ready",
+            recommended_role="design diagnostic",
+        )
+    ]
+
+    artifacts = write_fidelity_ladder_decision_artifacts(
+        tmp_path,
+        rows=rows,
+        decision_summary="Use the simplest model that is accurate enough.",
+    )
+
+    csv_rows = list(csv.DictReader(artifacts["fidelity_ladder_comparison_csv"].read_text().splitlines()))
+    assert csv_rows[0]["route"] == "structured shell current best"
+    md_text = artifacts["fidelity_ladder_decision_md"].read_text(encoding="utf-8")
+    assert "# Phase 14 FEM Fidelity Ladder Decision" in md_text
+    assert "simplest model" in md_text
+    assert "design diagnostic" in md_text
 
 
 def test_write_constant_tube_artifacts_include_required_columns(tmp_path: Path) -> None:

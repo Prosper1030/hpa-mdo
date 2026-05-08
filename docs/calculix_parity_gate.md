@@ -76,6 +76,37 @@ Trust categories for this shell line:
 - not trustworthy yet: legacy Gmsh triangular B5 shell torsion and any shell value used without mesh/convergence context
 - APDL-required: final B2 tapered truth, final B5 twist/GJ truth, and root-cap/reference-node coupling claims
 
+## Phase 14 FEM Fidelity Ladder Decision
+
+The current fidelity-ladder workflow writes its decision matrix under
+`output/phase14_dual_beam_calibration/maclocal_fem_fidelity_ladder/`.
+The key engineering update is that the structured shell stiffness bias was not
+primarily a material or solver calibration issue. It came from using the tube
+outer radius as the shell reference surface. With the shell mesh placed at the
+tube mid-surface radius, the constant tube checks become agreement-quality:
+
+- tip-load bending: `0.062%` error on the fine S4 mesh
+- uniform-load bending: `0.569%` error on the fine S4 mesh
+- tip-torque torsion: `0.070%` error on the fine S4 mesh
+
+That makes the corrected structured S4 shell route the best current Mac-local
+thin-wall diagnostic route. It is still validation tooling: do not use it to
+change aerodynamic ranking, hard gates, `dual_beam_production` physics, or add
+calibration factors.
+
+The 3D solid/volume probe is not promoted. The C3D8R structured-hex route runs
+and closes reactions, but it is far too stiff for this slender thin-wall tube at
+Mac-safe mesh sizes. Even the axial-refined `192 x 32 x 2` case remains about
+`65.6%` off in constant tip-load bending and about `83.0%` off in torsion. Treat
+that as a useful failed route, not as higher-fidelity truth.
+
+Current route roles:
+
+- daily gate: internal equivalent/tubing beam plus CalculiX B32R PIPE beam parity
+- design diagnostic: corrected mid-surface structured S4 shell
+- not recommended: current Mac-safe C3D8R solid tube probe and legacy triangular shell
+- APDL-required: final B2 tapered truth and final B5 twist/GJ truth
+
 ## Practical Use
 
 Run:
