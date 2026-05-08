@@ -2,9 +2,9 @@
 
 ## Recommendation
 
-The safe submission design load factor is `1.75G`.
+The internal fixed-design load-factor boundary for submission planning is `1.75G`.
 
-Reason: 1.75G is inside the repaired candidate-equivalent FEM checked range and has comfortable internal margins. The internal model also passes 2.0G, 2.5G, and barely 3.0G, but buckling/ovalization and joint/attach details are not candidate-specific validated shell or hardware truth.
+Reason: 1.75G is inside the repaired candidate-equivalent FEM checked range and has comfortable internal modeled margins. This is not a full-wing structural signoff because global buckling, rear-spar/rib bracing, root fitting, wire attach, and termination strength remain unresolved.
 
 ## Key Margins
 
@@ -16,6 +16,7 @@ Reason: 1.75G is inside the repaired candidate-equivalent FEM checked range and 
 
 ## Reporting Boundary
 
-- You can report `1.75G validated for the current engineering submission package`.
-- You can report `2.0G internal/FEM-equivalent pass` with the same caveat.
+- You can report `1.75G internal fixed-design modeled limits clear`.
+- You can report `2.0G internal/FEM-equivalent modeled limits clear` with the same caveat.
+- Do not report `1.5G / 1.75G full-wing pass`; full-wing global buckling and hardware details are not closed.
 - Do not report `3.0G design load factor`; it is an estimated near-wire-limit point, not a validated design target.

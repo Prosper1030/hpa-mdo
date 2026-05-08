@@ -3,8 +3,8 @@
 ## Plain-Language Answer
 
 - Changing the modeled wire allowable from 4.581 kN to 6 kN mainly increases strength margin, not stiffness. If the real wire diameter/material/stiffness changes, the FEM must be rerun with the new AE and pretension.
-- At `3.0G`, the 6 kN wire tension is `4536.1 N`, utilization `0.756`. It does not break in this model.
-- Put bluntly: the wire does not snap at 3.0G in this model.
+- At `3.0G`, the 6 kN wire-body tension is `4536.1 N`, utilization `0.756`. The modeled cable-body tension allowable is not exceeded.
+- Put bluntly: this is a cable-body allowable check, not proof that the termination, splice, bend radius, clamp, fuselage anchor, or wing attach survives 3.0G.
 - First thing that happens as G increases: the configured tip deflection limit is reached at about `n = 3.305`.
 - The 6 kN wire allowable is reached later at about `n = 3.968`.
 - CFRP global bending stress reaches allowable later still at about `n = 5.585`.

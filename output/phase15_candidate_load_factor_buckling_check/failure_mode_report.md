@@ -4,11 +4,11 @@ Candidate: `current_avl_compromise_conservative_closed`
 
 ## Direct Answers
 
-- Passes 1.5G: yes
-- Passes 1.75G: yes
+- 1.5G internal fixed-design modeled limits clear: yes
+- 1.75G internal fixed-design modeled limits clear: yes
 - Estimated first-fail load factor: `n = 3.030`
 - First failure mode: `wire_tension` (lift-wire tension reaches allowable).
-- Buckling status: checked as an internal shell-buckling utilization estimate and supported by Phase 14 corrected S4 shell route on benchmark B2/B5; candidate-specific local shell eigenvalue buckling, ovalization, root fitting, and wire attach are still unresolved.
+- Buckling status: internal/local estimate only. This does not close full-wing global buckling, rear-spar/rib bracing, root fitting, wire attach, or termination strength.
 
 ## Evidence Basis
 
@@ -29,8 +29,8 @@ Candidate: `current_avl_compromise_conservative_closed`
 
 ## Engineering Readout
 
-- CFRP global bending stress stays below the internal allowable through 3.0G.
+- CFRP global bending stress stays below the internal beam-line allowable through 3.0G.
 - Local tube wall buckling is not controlling in the current internal estimate, but the maximum D/t is high enough that ovalization and clamp-induced local wall buckling remain real hardware risks.
-- Torsion/twist is comfortably below the configured twist limit in this fixed-design estimate.
+- Torsion/twist is below the configured internal twist limit in this fixed-design estimate; aeroelastic twist coupling is not signed off.
 - Wire tension is the practical limiter: 3.0G is technically below the computed allowable but has only a small margin.
 - Root joint, wire attach, and rib load-transfer are warnings, not validated failure modes. The report should not be used as a drawing-release signoff for fittings.

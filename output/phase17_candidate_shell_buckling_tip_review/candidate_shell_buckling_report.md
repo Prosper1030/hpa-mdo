@@ -30,16 +30,16 @@
 - After moving the loads into the CalculiX `*BUCKLE` step, the stress-calibrated coupon route is now numerically plausible instead of returning astronomical eigenvalues.
 - Lowest long-coupon shell result is `6.644G`; it still clears 3G but is length/global-column sensitive.
 - The rib-bay-scale `coupon_rib_bay_0p30m` coupon gives critical stress `2761.9 MPa` versus classical `2693.4 MPa`, delta `2.5%`.
-- That maps to local-wall buckling at `n = 15.427G`, so local tube-wall buckling is validated as non-blocking through 3G if the tube is rib-bay braced at about this length scale.
-- The internal buckling estimate remains `n = 12.396G`; the validated rib-bay shell coupon is now in the same conservative order as the classical/internal screen.
-- Engineering conclusion: local wall buckling can be called candidate-specific checked and passed through 3G for rib-bay braced tube-wall behavior. The remaining unresolved item is global wire-compression bracing / joint load-transfer, not local wall buckling.
+- That maps to local-wall buckling at `n = 15.427G`, so the coupon supports a non-blocking local-wall interpretation through 3G under the conditional assumed rib-bay bracing length.
+- The internal buckling estimate remains `n = 12.396G`; the rib-bay shell coupon is now in the same conservative order as the classical/internal screen.
+- Engineering conclusion: local wall buckling is a conditional coupon check through 3G for assumed rib-bay braced tube-wall behavior. The remaining unresolved item is global wire-compression bracing / joint load-transfer, not local wall coupon response.
 
 ## Blocking Resolution
 
-- Fixed: the CalculiX decks now repeat the active loads inside the `*BUCKLE` step, matching the local CalculiX verification examples. This removes the previous astronomical/unusable eigenvalue blocker.
-- Valid for this task: candidate-specific CFRP tube local-wall buckling is now checked by a stress-calibrated shell coupon and passes through 3G for rib-bay braced behavior.
+- Fixed numerically: the CalculiX decks now repeat the active loads inside the `*BUCKLE` step, matching the local CalculiX verification examples. This removes the previous astronomical/unusable eigenvalue blocker.
+- Bounded check for this task: candidate-specific CFRP tube local-wall buckling is now checked by a stress-calibrated shell coupon and clears 3G only under assumed rib-bay braced behavior.
 - Not honestly passable yet: the full isolated main-spar shell shows a global compression/lateral-bracing mode below 1.75G. That mode is model-scope dominated because the deck omits rear-spar, rib, and wire-attach load-transfer stiffness; it needs a dual-spar/rib/joint load-transfer FEM before being used as a final wing-buckling verdict.
-- Engineering decision: the original local-wall buckling blocker is fixed and valid; the remaining blocker has moved to global bracing/load-transfer validation rather than shell local buckling.
+- Engineering decision: the original local-wall buckling numerical blocker is resolved as a conditional coupon check; the remaining blocker has moved to global bracing/load-transfer evidence rather than shell local coupon response.
 
 ## Limits Of This FEM
 
