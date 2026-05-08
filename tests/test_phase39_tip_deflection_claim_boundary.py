@@ -37,6 +37,34 @@ def _revalidation_check() -> SimpleNamespace:
     )
 
 
+def _mixed_revalidation_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="tip_deflection_submission_gate_not_revalidated",
+        current_raw_tip_limit_m=2.5,
+        current_effective_tip_limit_m=2.55,
+        rows=(
+            SimpleNamespace(
+                case_id="current_2p5m_submission_gate",
+                usage_context="submission",
+                status="current_submission_gate_retained",
+                proposed_raw_tip_limit_m=2.5,
+                proposed_effective_tip_limit_m=2.55,
+                deflection_limit_load_factor=3.3049,
+                missing_rechecks="",
+            ),
+            SimpleNamespace(
+                case_id="relaxed_submission_gate",
+                usage_context="submission",
+                status="submission_revalidation_missing",
+                proposed_raw_tip_limit_m=2.75,
+                proposed_effective_tip_limit_m=2.805,
+                deflection_limit_load_factor=3.6354,
+                missing_rechecks="aeroelastic_rechecked;clearance_rechecked;load_path_rechecked",
+            ),
+        ),
+    )
+
+
 def test_tip_deflection_claim_boundary_keeps_gate_as_design_validity_not_fracture() -> None:
     boundary = build_tip_deflection_claim_boundary(
         _reference(),
@@ -47,7 +75,8 @@ def test_tip_deflection_claim_boundary_keeps_gate_as_design_validity_not_fractur
     assert boundary.current_raw_tip_limit_m == pytest.approx(2.5)
     assert boundary.current_effective_tip_limit_m == pytest.approx(2.55)
     assert boundary.deflection_limit_load_factor == pytest.approx(3.3049)
-    assert boundary.revalidation_status == "current_submission_gate_retained"
+    assert boundary.revalidation_status == "tip_deflection_current_submission_gate_retained"
+    assert boundary.missing_submission_rechecks == ""
 
     by_key = {row.policy_key: row for row in boundary.rows}
     assert by_key["current_submission_gate"].status == "design_validity_gate_not_fracture"
@@ -60,6 +89,18 @@ def test_tip_deflection_claim_boundary_keeps_gate_as_design_validity_not_fractur
     assert "loaded-shape; aeroelastic; clearance; load-path" in by_key[
         "submission_relaxation"
     ].required_evidence
+
+
+def test_tip_deflection_claim_boundary_uses_whole_revalidation_check_not_first_row() -> None:
+    boundary = build_tip_deflection_claim_boundary(
+        _reference(),
+        revalidation_check=_mixed_revalidation_check(),
+    )
+
+    assert boundary.overall_status == "tip_deflection_claim_boundary_revalidation_required"
+    assert boundary.revalidation_status == "tip_deflection_submission_gate_not_revalidated"
+    assert "relaxed_submission_gate" in boundary.missing_submission_rechecks
+    assert "aeroelastic_rechecked" in boundary.missing_submission_rechecks
 
 
 def test_write_tip_deflection_claim_boundary_package_creates_handoff_files(tmp_path: Path) -> None:

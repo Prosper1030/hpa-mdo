@@ -47,6 +47,7 @@ class TipDeflectionClaimBoundary:
     current_effective_tip_limit_m: float
     deflection_limit_load_factor: float | None
     revalidation_status: str
+    missing_submission_rechecks: str
     rows: tuple[TipDeflectionClaimBoundaryRow, ...]
 
 
@@ -62,6 +63,7 @@ def build_tip_deflection_claim_boundary(
     if current_effective is None:
         current_effective = _attr_float(reference, "tip_deflection_limit_m") or 0.0
     revalidation_status = _revalidation_status(revalidation_check)
+    missing_submission_rechecks = _missing_submission_rechecks(revalidation_check)
     limit_n = _revalidation_limit_load_factor(revalidation_check)
     if limit_n is None:
         limit_n = _deflection_limit_load_factor(reference, current_effective)
@@ -74,13 +76,14 @@ def build_tip_deflection_claim_boundary(
         candidate_id=str(reference.candidate_id),
         overall_status=(
             "tip_deflection_claim_boundary_submission_gate_retained"
-            if revalidation_status == "current_submission_gate_retained"
+            if revalidation_status == "tip_deflection_current_submission_gate_retained"
             else "tip_deflection_claim_boundary_revalidation_required"
         ),
         current_raw_tip_limit_m=float(current_raw),
         current_effective_tip_limit_m=float(current_effective),
         deflection_limit_load_factor=limit_n,
         revalidation_status=revalidation_status,
+        missing_submission_rechecks=missing_submission_rechecks,
         rows=rows,
     )
 
@@ -174,10 +177,28 @@ def _submission_row(
 def _revalidation_status(revalidation_check: Any | None) -> str:
     if revalidation_check is None:
         return "revalidation_check_unavailable"
+    overall_status = str(getattr(revalidation_check, "overall_status", "")).strip()
+    if overall_status:
+        return overall_status
     rows = tuple(getattr(revalidation_check, "rows", ()))
     if not rows:
         return "revalidation_input_missing"
     return str(getattr(rows[0], "status", "unknown"))
+
+
+def _missing_submission_rechecks(revalidation_check: Any | None) -> str:
+    if revalidation_check is None:
+        return "unknown"
+    parts = []
+    for row in getattr(revalidation_check, "rows", ()):
+        if str(getattr(row, "status", "")) != "submission_revalidation_missing":
+            continue
+        missing = str(getattr(row, "missing_rechecks", "")).strip()
+        if not missing:
+            continue
+        case_id = str(getattr(row, "case_id", "submission_relaxation")).strip()
+        parts.append(f"{case_id or 'submission_relaxation'}:{missing}")
+    return "; ".join(parts)
 
 
 def _revalidation_limit_load_factor(revalidation_check: Any | None) -> float | None:
@@ -241,6 +262,7 @@ def _write_markdown(path: Path, boundary: TipDeflectionClaimBoundary) -> Path:
         f"- current effective limit: `{_fmt(boundary.current_effective_tip_limit_m)} m`",
         f"- deflection-limit load factor: `{_fmt(boundary.deflection_limit_load_factor)}`",
         f"- revalidation status: `{boundary.revalidation_status}`",
+        f"- missing submission rechecks: `{boundary.missing_submission_rechecks or 'none'}`",
         "",
         "| policy | status | allowed statement | blocked statement | required evidence |",
         "|---|---|---|---|---|",
