@@ -254,13 +254,14 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     )
     detail_requirements = build_detail_sizing_requirements(local_ledger)
     detail_margin_check = build_detail_margin_check(detail_requirements, hardware_allowables=[])
-    local_detail_subcomponent_check = build_local_detail_subcomponent_margin_check(
-        detail_requirements,
-        subcomponent_allowables=[],
-    )
     wire_attach_load_decomposition = build_wire_attach_load_decomposition(
         reference.candidate_id,
         wire_rigging=load_current_wire_rigging(),
+    )
+    local_detail_subcomponent_check = build_local_detail_subcomponent_margin_check(
+        detail_requirements,
+        subcomponent_allowables=[],
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
     )
     root_joint_load_envelope = build_root_joint_load_envelope(reference)
     wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
@@ -712,6 +713,11 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
         if getattr(row, "parent_key", "") == parent_key
     ]
     missing = sum(1 for row in rows if getattr(row, "status", "") == "subcomponent_allowable_missing")
+    moment_missing = sum(
+        1
+        for row in rows
+        if getattr(row, "status", "") == "subcomponent_moment_allowable_missing"
+    )
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
     traceability_gap = sum(
         1 for row in rows if getattr(row, "status", "") == "subcomponent_traceability_missing"
@@ -726,6 +732,7 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
             getattr(row, "load_margin_n", None),
             getattr(row, "moment_margin_n_m", None),
             getattr(row, "mbl_margin_n", None),
+            getattr(row, "effective_termination_load_margin_n", None),
         )
         if value is not None
     ]
@@ -736,6 +743,8 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
         f"{len(rows)}; "
         "subcomponents missing="
         f"{missing}; "
+        "moment allowable gaps="
+        f"{moment_missing}; "
         "negative margins="
         f"{negative}; "
         "traceability gaps="

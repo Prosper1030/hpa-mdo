@@ -17,6 +17,9 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.phase23_detail_sizing_requirements import (  # noqa: E402
     build_current_detail_sizing_requirements,
 )
+from scripts.phase34_wire_attach_load_decomposition import (  # noqa: E402
+    build_current_wire_attach_load_decomposition,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase33_local_detail_subcomponent_margins"
@@ -124,6 +127,7 @@ def build_local_detail_subcomponent_margin_check(
     detail_requirements: Any,
     *,
     subcomponent_allowables: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    wire_attach_load_decomposition: Any | None = None,
 ) -> LocalDetailSubcomponentMarginCheck:
     requirements_by_key = {
         str(row.key): row
@@ -140,10 +144,16 @@ def build_local_detail_subcomponent_margin_check(
             subcomponent_key=subcomponent_key,
             subcomponent_title=subcomponent_title,
             allowable=allowables_by_key.get((parent_key, subcomponent_key)),
+            wire_attach_load_decomposition=wire_attach_load_decomposition,
         )
         for parent_key, subcomponent_key, subcomponent_title in SUBCOMPONENT_REQUIREMENTS
     )
-    missing_count = sum(1 for row in rows if row.status == "subcomponent_allowable_missing")
+    missing_count = sum(
+        1
+        for row in rows
+        if row.status
+        in {"subcomponent_allowable_missing", "subcomponent_moment_allowable_missing"}
+    )
     negative_count = sum(1 for row in rows if row.status == "margin_negative")
     traceability_gap_count = sum(
         1 for row in rows if row.status == "subcomponent_traceability_missing"
@@ -169,11 +179,13 @@ def write_local_detail_subcomponent_margin_package(
     detail_requirements: Any,
     *,
     subcomponent_allowables: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    wire_attach_load_decomposition: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     check = build_local_detail_subcomponent_margin_check(
         detail_requirements,
         subcomponent_allowables=subcomponent_allowables,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
     )
     outputs = [
         _write_template(
@@ -196,6 +208,7 @@ def build_current_local_detail_subcomponent_margin_check() -> LocalDetailSubcomp
     return build_local_detail_subcomponent_margin_check(
         build_current_detail_sizing_requirements(),
         subcomponent_allowables=[],
+        wire_attach_load_decomposition=build_current_wire_attach_load_decomposition(),
     )
 
 
@@ -206,9 +219,14 @@ def _build_row(
     subcomponent_key: str,
     subcomponent_title: str,
     allowable: dict[str, Any] | None,
+    wire_attach_load_decomposition: Any | None,
 ) -> LocalDetailSubcomponentMarginRow:
     required_load = _attr_float(requirement, "required_allowable_load_n")
-    required_moment = _attr_float(requirement, "required_allowable_moment_n_m")
+    required_moment = _required_moment(
+        requirement,
+        parent_key=parent_key,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
+    )
     required_mbl = _attr_float(requirement, "required_minimum_breaking_load_n")
     provided_load = _dict_float(allowable, "allowable_load_n")
     provided_moment = _dict_float(allowable, "allowable_moment_n_m")
@@ -251,6 +269,7 @@ def _build_row(
         if value is not None
     ]
     status = _status(
+        parent_key=parent_key,
         required_values=(required_load, required_moment, required_mbl),
         provided_values=(provided_load, provided_moment, provided_mbl),
         margins=margins,
@@ -290,12 +309,20 @@ def _build_row(
 
 def _status(
     *,
+    parent_key: str,
     required_values: tuple[float | None, ...],
     provided_values: tuple[float | None, ...],
     margins: list[float],
     traceability_status: str,
 ) -> str:
     required_indices = [idx for idx, value in enumerate(required_values) if value is not None]
+    if (
+        parent_key == "wire_attach_local_load_path"
+        and required_values[1] is not None
+        and provided_values[0] is not None
+        and provided_values[1] is None
+    ):
+        return "subcomponent_moment_allowable_missing"
     if any(provided_values[idx] is None for idx in required_indices):
         return "subcomponent_allowable_missing"
     if any(value < 0.0 for value in margins):
@@ -337,6 +364,22 @@ def _traceability_status(
         ):
             return "termination_efficiency_out_of_range"
     return "traceable_input"
+
+
+def _required_moment(
+    requirement: Any,
+    *,
+    parent_key: str,
+    wire_attach_load_decomposition: Any | None,
+) -> float | None:
+    if parent_key == "wire_attach_local_load_path":
+        attach_moment = _attr_float(
+            wire_attach_load_decomposition,
+            "max_resultant_design_local_moment_n_m",
+        )
+        if attach_moment is not None:
+            return attach_moment
+    return _attr_float(requirement, "required_allowable_moment_n_m")
 
 
 def _is_valid_factor(value: float) -> bool:
@@ -530,6 +573,7 @@ def main(argv: list[str] | None = None) -> int:
         args.output_dir,
         detail_requirements,
         subcomponent_allowables=subcomponent_allowables,
+        wire_attach_load_decomposition=build_current_wire_attach_load_decomposition(),
     )
     for path in outputs:
         print(path)

@@ -160,6 +160,32 @@ def test_subcomponent_margin_check_requires_traceable_subcomponent_inputs() -> N
     assert root.traceability_status == "source_missing"
 
 
+def test_subcomponent_margin_check_requires_attach_moment_allowables_when_eccentricity_moment_exists() -> None:
+    check = build_local_detail_subcomponent_margin_check(
+        _requirements(),
+        subcomponent_allowables=(
+            {
+                "parent_key": "wire_attach_local_load_path",
+                "subcomponent_key": "attach_ring_or_lug",
+                "component_id": "ring-a",
+                "allowable_load_n": "7200",
+                "allowable_basis": "coupon_limit_load",
+                "evidence_type": "coupon_test",
+                "source": "coupon placeholder",
+            },
+        ),
+        wire_attach_load_decomposition=SimpleNamespace(
+            max_resultant_design_local_moment_n_m=250.0
+        ),
+    )
+
+    by_key = {(row.parent_key, row.subcomponent_key): row for row in check.rows}
+    ring = by_key[("wire_attach_local_load_path", "attach_ring_or_lug")]
+    assert ring.required_allowable_moment_n_m == pytest.approx(250.0)
+    assert ring.status == "subcomponent_moment_allowable_missing"
+    assert check.missing_subcomponent_count == 11
+
+
 def test_subcomponent_margin_check_requires_termination_efficiency_or_derate() -> None:
     check = build_local_detail_subcomponent_margin_check(
         _requirements(),

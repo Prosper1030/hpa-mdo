@@ -399,6 +399,31 @@ def test_failure_mode_ordering_surfaces_local_subcomponent_traceability_gaps() -
     assert "local subcomponent positive input rows=1" in evidence
 
 
+def test_failure_mode_ordering_surfaces_local_moment_allowable_gaps() -> None:
+    check = SimpleNamespace(
+        rows=(
+            SimpleNamespace(
+                parent_key="wire_attach_local_load_path",
+                subcomponent_key="attach_ring_or_lug",
+                status="subcomponent_moment_allowable_missing",
+                load_margin_n=1000.0,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+        )
+    )
+
+    assert phase25._local_detail_subcomponent_status(  # noqa: SLF001
+        "wire_attach_local_load_path",
+        check,
+    ) == "unranked_detail_subcomponent_moment_allowable_missing"
+    evidence = phase25._local_detail_subcomponent_evidence(  # noqa: SLF001
+        "wire_attach_local_load_path",
+        check,
+    )
+    assert "local moment allowable gaps=1" in evidence
+
+
 def test_failure_mode_ordering_includes_derated_termination_margin_in_worst_local_margin() -> None:
     check = SimpleNamespace(
         rows=(

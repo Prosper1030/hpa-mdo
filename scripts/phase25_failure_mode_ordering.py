@@ -217,13 +217,14 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
     detail_margin_check = build_detail_margin_check(detail_requirements, hardware_allowables=[])
-    local_detail_subcomponent_check = build_local_detail_subcomponent_margin_check(
-        detail_requirements,
-        subcomponent_allowables=[],
-    )
     wire_attach_load_decomposition = build_wire_attach_load_decomposition(
         reference.candidate_id,
         wire_rigging=load_current_wire_rigging(),
+    )
+    local_detail_subcomponent_check = build_local_detail_subcomponent_margin_check(
+        detail_requirements,
+        subcomponent_allowables=[],
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
     )
     root_joint_load_envelope = build_root_joint_load_envelope(reference)
     wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
@@ -556,6 +557,11 @@ def _local_detail_subcomponent_status(parent_key: str, check: Any | None) -> str
     ]
     if any(getattr(row, "status", "") == "margin_negative" for row in rows):
         return "unranked_detail_subcomponent_margin_negative"
+    if any(
+        getattr(row, "status", "") == "subcomponent_moment_allowable_missing"
+        for row in rows
+    ):
+        return "unranked_detail_subcomponent_moment_allowable_missing"
     if any(getattr(row, "status", "") == "subcomponent_allowable_missing" for row in rows):
         return "unranked_detail_subcomponent_allowable_missing"
     if any(getattr(row, "status", "") == "subcomponent_traceability_missing" for row in rows):
@@ -576,6 +582,11 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
         if getattr(row, "parent_key", "") == parent_key
     ]
     missing = sum(1 for row in rows if getattr(row, "status", "") == "subcomponent_allowable_missing")
+    moment_missing = sum(
+        1
+        for row in rows
+        if getattr(row, "status", "") == "subcomponent_moment_allowable_missing"
+    )
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
     traceability_gap = sum(
         1 for row in rows if getattr(row, "status", "") == "subcomponent_traceability_missing"
@@ -599,6 +610,8 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
         f"{len(rows)}; "
         "local subcomponents missing="
         f"{missing}; "
+        "local moment allowable gaps="
+        f"{moment_missing}; "
         "local subcomponent negative margins="
         f"{negative}; "
         "local subcomponent traceability gaps="
