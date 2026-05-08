@@ -859,17 +859,21 @@ def _bracing_diagnostic_summary_for_key(key: str, diagnostic: Any) -> str:
 
 def _torsion_twist_closure_summary(check: Any) -> str:
     rows = tuple(getattr(check, "rows", ()))
-    first = rows[0] if rows else None
-    status = "missing" if first is None else getattr(first, "status", "unknown")
+    representative = _first_blocking_or_first_row(rows)
+    status = (
+        "missing"
+        if representative is None
+        else getattr(representative, "status", "unknown")
+    )
     return (
         "closure status="
         f"{status}; "
         "overall="
         f"{getattr(check, 'overall_status', 'unknown')}; "
         "twist margin="
-        f"{_fmt(getattr(first, 'twist_margin_deg', None) if first is not None else None)} deg; "
+        f"{_fmt(getattr(representative, 'twist_margin_deg', None) if representative is not None else None)} deg; "
         "torque margin="
-        f"{_fmt(getattr(first, 'torque_balance_margin_pct', None) if first is not None else None)}%."
+        f"{_fmt(getattr(representative, 'torque_balance_margin_pct', None) if representative is not None else None)}%."
     )
 
 
@@ -894,23 +898,40 @@ def _torsion_twist_screening_summary(screening: Any) -> str:
 
 def _full_wing_buckling_closure_summary(check: Any) -> str:
     rows = tuple(getattr(check, "rows", ()))
-    first = rows[0] if rows else None
-    status = "missing" if first is None else getattr(first, "status", "unknown")
+    representative = _first_blocking_or_first_row(rows)
+    status = (
+        "missing"
+        if representative is None
+        else getattr(representative, "status", "unknown")
+    )
     return (
         "closure status="
         f"{status}; "
         "overall="
         f"{getattr(check, 'overall_status', 'unknown')}; "
         "claim n="
-        f"{_fmt(getattr(first, 'claim_load_factor', None) if first is not None else None)}; "
+        f"{_fmt(getattr(representative, 'claim_load_factor', None) if representative is not None else None)}; "
         "first buckling n="
-        f"{_fmt(getattr(first, 'first_global_buckling_load_factor', None) if first is not None else None)}; "
+        f"{_fmt(getattr(representative, 'first_global_buckling_load_factor', None) if representative is not None else None)}; "
         "margin n="
-        f"{_fmt(getattr(first, 'load_factor_margin', None) if first is not None else None)}; "
+        f"{_fmt(getattr(representative, 'load_factor_margin', None) if representative is not None else None)}; "
         "missing components="
-        f"{getattr(first, 'missing_components', 'unknown') if first is not None else 'unknown'}; "
+        f"{getattr(representative, 'missing_components', 'unknown') if representative is not None else 'unknown'}; "
         "missing claim n="
         f"{getattr(check, 'missing_required_claim_load_factors', 'unknown')}."
+    )
+
+
+def _first_blocking_or_first_row(rows: tuple[Any, ...]) -> Any | None:
+    if not rows:
+        return None
+    return next(
+        (
+            row
+            for row in rows
+            if getattr(row, "status", "") != "margin_positive_input_check_only"
+        ),
+        rows[0],
     )
 
 

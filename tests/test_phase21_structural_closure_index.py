@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from scripts import phase21_structural_closure_index as phase21
 from scripts.phase18_structural_claim_readiness import REQUIRED_STRUCTURAL_CLAIM_KEYS
 from scripts.phase21_structural_closure_index import (
     build_structural_closure_index,
@@ -610,6 +611,54 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "submission policy=submission_relaxation_requires_rechecks" in by_key[
         "tip_deflection_limit"
     ].current_evidence
+
+
+def test_closure_index_summaries_use_first_blocking_row_not_first_row() -> None:
+    torsion_summary = phase21._torsion_twist_closure_summary(  # noqa: SLF001
+        SimpleNamespace(
+            overall_status="torsion_twist_closure_not_closed",
+            rows=(
+                SimpleNamespace(
+                    status="margin_positive_input_check_only",
+                    twist_margin_deg=1.0,
+                    torque_balance_margin_pct=5.0,
+                ),
+                SimpleNamespace(
+                    status="margin_negative",
+                    twist_margin_deg=-0.1,
+                    torque_balance_margin_pct=2.0,
+                ),
+            ),
+        )
+    )
+    assert "closure status=margin_negative" in torsion_summary
+    assert "twist margin=-0.1000 deg" in torsion_summary
+
+    buckling_summary = phase21._full_wing_buckling_closure_summary(  # noqa: SLF001
+        SimpleNamespace(
+            overall_status="full_wing_global_buckling_not_closed",
+            missing_required_claim_load_factors="1.75",
+            rows=(
+                SimpleNamespace(
+                    status="margin_positive_input_check_only",
+                    claim_load_factor=1.5,
+                    first_global_buckling_load_factor=2.0,
+                    load_factor_margin=0.5,
+                    missing_components="",
+                ),
+                SimpleNamespace(
+                    status="required_structural_components_missing",
+                    claim_load_factor=1.75,
+                    first_global_buckling_load_factor=2.1,
+                    load_factor_margin=0.35,
+                    missing_components="rear_spar",
+                ),
+            ),
+        )
+    )
+    assert "closure status=required_structural_components_missing" in buckling_summary
+    assert "claim n=1.7500" in buckling_summary
+    assert "missing components=rear_spar" in buckling_summary
 
 
 def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: Path) -> None:
