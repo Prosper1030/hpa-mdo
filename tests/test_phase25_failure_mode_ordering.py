@@ -235,6 +235,30 @@ def _full_wing_buckling_claim_boundary() -> SimpleNamespace:
     )
 
 
+def _braced_subassembly_fem_evidence() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="braced_subassembly_reference_load_review_required",
+        case_count=2,
+        solver_ran_count=2,
+        mode_reviewed_count=0,
+        claim_load_factor_coverage="1.50;1.75",
+        rows=(
+            SimpleNamespace(
+                status="solver_ran_reference_load_review_required",
+                first_eigen_multiplier=2.7e6,
+                reference_load_status="unphysical_or_load_sign_review_required",
+                phase30_closure_status="mode_review_missing",
+            ),
+            SimpleNamespace(
+                status="solver_ran_reference_load_review_required",
+                first_eigen_multiplier=2.7e6,
+                reference_load_status="unphysical_or_load_sign_review_required",
+                phase30_closure_status="mode_review_missing",
+            ),
+        ),
+    )
+
+
 def _tip_deflection_revalidation_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="tip_deflection_current_submission_gate_retained",
@@ -292,6 +316,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         torsion_twist_screening=_torsion_twist_screening(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
+        braced_subassembly_fem_evidence=_braced_subassembly_fem_evidence(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
     )
@@ -354,6 +379,9 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         "torsion_twist_coupling"
     ].evidence
     assert by_key["full_wing_global_buckling"].load_factor is None
+    assert by_key["full_wing_global_buckling"].status == (
+        "unranked_global_buckling_reference_load_review_required"
+    )
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].evidence
     assert "missing claim n=1.50;1.75" in by_key[
         "full_wing_global_buckling"
@@ -364,6 +392,16 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "1.75G local wall util=0.1410" in by_key[
         "full_wing_global_buckling"
     ].evidence
+    assert "braced subassembly status=braced_subassembly_reference_load_review_required" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
+    assert "reference-load review rows=2" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
+    assert "Phase30 status=mode_review_missing" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
+    assert "reference-load/sign" in by_key["full_wing_global_buckling"].next_evidence
 
 
 def test_failure_mode_ordering_surfaces_local_subcomponent_traceability_gaps() -> None:

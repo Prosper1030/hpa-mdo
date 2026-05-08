@@ -41,7 +41,7 @@ from scripts.phase29_torsion_twist_closure_inputs import (  # noqa: E402
     build_current_torsion_twist_closure_check,
 )
 from scripts.phase30_full_wing_buckling_closure_inputs import (  # noqa: E402
-    build_current_full_wing_buckling_closure_check,
+    build_full_wing_buckling_closure_check,
 )
 from scripts.phase31_tip_deflection_revalidation_inputs import (  # noqa: E402
     build_tip_deflection_revalidation_check,
@@ -70,6 +70,10 @@ from scripts.phase39_tip_deflection_claim_boundary import (  # noqa: E402
 from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     build_bracing_sensitivity_audit,
     build_current_candidate_model,
+)
+from scripts.phase41_braced_subassembly_fem_evidence import (  # noqa: E402
+    load_current_braced_subassembly_fem_evidence,
+    phase30_closure_inputs_from_evidence,
 )
 
 
@@ -118,6 +122,7 @@ def build_failure_mode_ordering(
     torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
+    braced_subassembly_fem_evidence: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
 ) -> FailureModeOrdering:
@@ -139,6 +144,7 @@ def build_failure_mode_ordering(
         torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
+        braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
     )
     rows = (*ranked, *unranked)
     return FailureModeOrdering(
@@ -171,6 +177,7 @@ def write_failure_mode_ordering_package(
     torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
+    braced_subassembly_fem_evidence: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
 ) -> list[Path]:
@@ -189,6 +196,7 @@ def write_failure_mode_ordering_package(
         torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
+        braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
     )
@@ -235,6 +243,13 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         bracing_audit,
         rib_allowables=[],
     )
+    braced_subassembly_fem_evidence = load_current_braced_subassembly_fem_evidence()
+    full_wing_buckling_closure_check = build_full_wing_buckling_closure_check(
+        reference.candidate_id,
+        closure_inputs=phase30_closure_inputs_from_evidence(
+            braced_subassembly_fem_evidence
+        ),
+    )
     return build_failure_mode_ordering(
         claim_review,
         detail_requirements=detail_requirements,
@@ -247,8 +262,9 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
         torsion_twist_screening=build_current_torsion_twist_screening(),
-        full_wing_buckling_closure_check=build_current_full_wing_buckling_closure_check(),
+        full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=build_current_full_wing_buckling_claim_boundary(),
+        braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         tip_deflection_revalidation_check=build_tip_deflection_revalidation_check(
             reference,
             revalidation_inputs=[],
@@ -335,6 +351,7 @@ def _unranked_real_structure_rows(
     torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
     full_wing_buckling_claim_boundary: Any | None,
+    braced_subassembly_fem_evidence: Any | None,
 ) -> tuple[FailureModeOrderingRow, ...]:
     details = _detail_entries(detail_requirements)
     detail_margins = _detail_entries(detail_margin_check)
@@ -415,14 +432,20 @@ def _unranked_real_structure_rows(
             title="Full-wing global buckling",
             order_bucket="unranked_real_structure_mode",
             load_factor=None,
-            status="unranked_global_buckling_fem_missing",
+            status=_full_wing_global_buckling_status(
+                braced_subassembly_fem_evidence
+            ),
             basis="local/internal buckling checks only",
             evidence=(
                 "no full-wing dual-spar/rib/wire global buckling eigen/FEM result is present. "
                 f"{_closure_evidence(full_wing_buckling_closure_check)}"
                 f" {_full_wing_buckling_claim_boundary_evidence(full_wing_buckling_claim_boundary)}"
+                f" {_braced_subassembly_fem_evidence(braced_subassembly_fem_evidence)}"
             ),
-            next_evidence="Full-wing or credible braced-subassembly buckling FEM with mesh and boundary checks.",
+            next_evidence=(
+                "Resolve Phase41 reference-load/sign convention, mode review, "
+                "mesh/link sensitivity, and then promote a qualified braced/full-wing row."
+            ),
         ),
     )
 
@@ -455,6 +478,59 @@ def _detail_row(
             f"{extra_evidence}"
         ),
         next_evidence=next_evidence,
+    )
+
+
+def _full_wing_global_buckling_status(
+    braced_subassembly_fem_evidence: Any | None,
+) -> str:
+    if _braced_reference_load_review_count(braced_subassembly_fem_evidence) > 0:
+        return "unranked_global_buckling_reference_load_review_required"
+    return "unranked_global_buckling_fem_missing"
+
+
+def _braced_subassembly_fem_evidence(evidence: Any | None) -> str:
+    if evidence is None:
+        return "braced subassembly evidence is not available."
+    rows = tuple(getattr(evidence, "rows", ()))
+    phase30_statuses = sorted(
+        {
+            str(getattr(row, "phase30_closure_status", "")).strip()
+            for row in rows
+            if str(getattr(row, "phase30_closure_status", "")).strip()
+        }
+    )
+    eigenvalues = [
+        _attr_float(row, "first_eigen_multiplier")
+        for row in rows
+        if _attr_float(row, "first_eigen_multiplier") is not None
+    ]
+    return (
+        "braced subassembly status="
+        f"{getattr(evidence, 'overall_status', 'unknown')}; "
+        "solver ran="
+        f"{int(getattr(evidence, 'solver_ran_count', 0))}; "
+        "mode reviewed="
+        f"{int(getattr(evidence, 'mode_reviewed_count', 0))}; "
+        "claim coverage="
+        f"{getattr(evidence, 'claim_load_factor_coverage', 'unknown')}; "
+        "reference-load review rows="
+        f"{_braced_reference_load_review_count(evidence)}; "
+        "max lambda="
+        f"{_fmt(max(eigenvalues) if eigenvalues else None)}; "
+        "Phase30 status="
+        f"{';'.join(phase30_statuses) if phase30_statuses else 'unknown'}."
+    )
+
+
+def _braced_reference_load_review_count(evidence: Any | None) -> int:
+    if evidence is None:
+        return 0
+    return sum(
+        1
+        for row in getattr(evidence, "rows", ())
+        if getattr(row, "reference_load_status", "")
+        == "unphysical_or_load_sign_review_required"
     )
 
 
