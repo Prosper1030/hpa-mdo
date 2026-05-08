@@ -87,6 +87,10 @@ COMPLETION_BLOCKER_BY_KEY: dict[str, str] = {
     "failure_mode_ordering": "unranked_real_structure_modes_still_missing",
 }
 
+CLOSED_BLOCKER_BY_KEY: dict[str, str] = {
+    "tip_deflection_limit": "none_current_submission_gate_retained",
+}
+
 
 def build_structural_goal_completion_audit(
     closure_index: Any,
@@ -156,15 +160,54 @@ def _build_row(
             f"{evidence_summary} unranked real-structure modes="
             f"{int(getattr(failure_mode_ordering, 'known_unranked_mode_count', 0))}."
         )
+    completion_status = _completion_status_for_key(
+        key,
+        evidence_artifacts=str(item.evidence_artifacts),
+        evidence_summary=evidence_summary,
+    )
     return StructuralGoalCompletionRow(
         key=key,
         prompt_requirement=PROMPT_REQUIREMENTS[key],
-        completion_status="blocked",
+        completion_status=completion_status,
         evidence_strength=EVIDENCE_STRENGTH_BY_KEY[key],
         evidence_artifacts=str(item.evidence_artifacts),
         evidence_summary=evidence_summary,
-        completion_blocker=COMPLETION_BLOCKER_BY_KEY[key],
+        completion_blocker=(
+            CLOSED_BLOCKER_BY_KEY.get(key, "none")
+            if completion_status == "closed"
+            else COMPLETION_BLOCKER_BY_KEY[key]
+        ),
         next_verification_step=str(item.next_action),
+    )
+
+
+def _completion_status_for_key(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> str:
+    if key == "tip_deflection_limit" and _tip_deflection_claim_boundary_closed(
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "closed"
+    return "blocked"
+
+
+def _tip_deflection_claim_boundary_closed(
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    not_fracture_claim = (
+        "design-validity gate not fracture point" in evidence_summary
+        or "this is not a fracture point" in evidence_summary
+    )
+    return (
+        "Phase39" in evidence_artifacts
+        and "tip_deflection_claim_boundary_submission_gate_retained" in evidence_summary
+        and not_fracture_claim
     )
 
 

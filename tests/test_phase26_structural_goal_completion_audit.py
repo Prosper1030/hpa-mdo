@@ -67,7 +67,7 @@ def _closure_index() -> SimpleNamespace:
             SimpleNamespace(
                 key="tip_deflection_limit",
                 evidence_artifacts="Phase18; Phase31; Phase39",
-                current_evidence="design-validity gate not fracture point; claim boundary status=tip_deflection_claim_boundary_submission_gate_retained",
+                current_evidence="Tip-deflection design-validity load factor=3.305; this is not a fracture point. claim boundary status=tip_deflection_claim_boundary_submission_gate_retained",
                 remaining_blocker="Aeroelastic clearance recheck for relaxation",
                 next_action="Keep 2.5 m gate",
             ),
@@ -106,8 +106,8 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
 
     assert audit.overall_goal_status == "not_complete_engineering_signoff_missing"
     assert audit.total_requirements == len(REQUIRED_STRUCTURAL_CLAIM_KEYS)
-    assert audit.closed_requirement_count == 0
-    assert audit.blocked_requirement_count == len(REQUIRED_STRUCTURAL_CLAIM_KEYS)
+    assert audit.closed_requirement_count == 1
+    assert audit.blocked_requirement_count == len(REQUIRED_STRUCTURAL_CLAIM_KEYS) - 1
     assert [row.key for row in audit.rows] == list(REQUIRED_STRUCTURAL_CLAIM_KEYS)
     by_key = {row.key: row for row in audit.rows}
     assert by_key["wire_termination"].evidence_strength == "requirements_only"
@@ -120,7 +120,11 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
     assert by_key["tip_deflection_limit"].evidence_strength == (
         "claim_boundary_submission_gate_retained"
     )
+    assert by_key["tip_deflection_limit"].completion_status == "closed"
     assert "Phase39" in by_key["tip_deflection_limit"].evidence_artifacts
+    assert by_key["tip_deflection_limit"].completion_blocker == (
+        "none_current_submission_gate_retained"
+    )
     assert by_key["full_wing_global_buckling"].evidence_strength == (
         "claim_boundary_plus_closure_input_missing"
     )
