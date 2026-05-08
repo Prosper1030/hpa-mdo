@@ -65,6 +65,34 @@ def _mixed_revalidation_check() -> SimpleNamespace:
     )
 
 
+def _reordered_revalidation_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="tip_deflection_current_submission_gate_retained",
+        current_raw_tip_limit_m=2.5,
+        current_effective_tip_limit_m=2.55,
+        rows=(
+            SimpleNamespace(
+                case_id="exploration_relaxation",
+                usage_context="exploration",
+                status="exploration_only_not_submission",
+                proposed_raw_tip_limit_m=2.75,
+                proposed_effective_tip_limit_m=2.805,
+                deflection_limit_load_factor=3.6354,
+                missing_rechecks="",
+            ),
+            SimpleNamespace(
+                case_id="current_2p5m_submission_gate",
+                usage_context="submission",
+                status="current_submission_gate_retained",
+                proposed_raw_tip_limit_m=2.5,
+                proposed_effective_tip_limit_m=2.55,
+                deflection_limit_load_factor=3.3049,
+                missing_rechecks="",
+            ),
+        ),
+    )
+
+
 def test_tip_deflection_claim_boundary_keeps_gate_as_design_validity_not_fracture() -> None:
     boundary = build_tip_deflection_claim_boundary(
         _reference(),
@@ -101,6 +129,16 @@ def test_tip_deflection_claim_boundary_uses_whole_revalidation_check_not_first_r
     assert boundary.revalidation_status == "tip_deflection_submission_gate_not_revalidated"
     assert "relaxed_submission_gate" in boundary.missing_submission_rechecks
     assert "aeroelastic_rechecked" in boundary.missing_submission_rechecks
+
+
+def test_tip_deflection_claim_boundary_uses_current_gate_load_factor_not_first_row() -> None:
+    boundary = build_tip_deflection_claim_boundary(
+        _reference(),
+        revalidation_check=_reordered_revalidation_check(),
+    )
+
+    assert boundary.overall_status == "tip_deflection_claim_boundary_submission_gate_retained"
+    assert boundary.deflection_limit_load_factor == pytest.approx(3.3049)
 
 
 def test_write_tip_deflection_claim_boundary_package_creates_handoff_files(tmp_path: Path) -> None:

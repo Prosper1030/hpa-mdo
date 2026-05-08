@@ -204,10 +204,22 @@ def _missing_submission_rechecks(revalidation_check: Any | None) -> str:
 def _revalidation_limit_load_factor(revalidation_check: Any | None) -> float | None:
     if revalidation_check is None:
         return None
+    row = _current_submission_gate_row(revalidation_check)
+    if row is None:
+        return None
+    return _attr_float(row, "deflection_limit_load_factor")
+
+
+def _current_submission_gate_row(revalidation_check: Any | None) -> Any | None:
+    if revalidation_check is None:
+        return None
     rows = tuple(getattr(revalidation_check, "rows", ()))
     if not rows:
         return None
-    return _attr_float(rows[0], "deflection_limit_load_factor")
+    for row in rows:
+        if str(getattr(row, "status", "")) == "current_submission_gate_retained":
+            return row
+    return rows[0]
 
 
 def _deflection_limit_load_factor(reference: Any, effective_limit_m: float | None) -> float | None:
