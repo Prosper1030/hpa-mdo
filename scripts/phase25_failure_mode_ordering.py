@@ -688,12 +688,15 @@ def _closure_evidence(check: Any | None) -> str:
         return "closure input is not available."
     rows = tuple(getattr(check, "rows", ()))
     first = rows[0] if rows else None
-    return (
+    parts = [
         "closure status="
-        f"{getattr(first, 'status', 'missing') if first is not None else 'missing'}; "
-        "overall="
-        f"{getattr(check, 'overall_status', 'unknown')}."
-    )
+        f"{getattr(first, 'status', 'missing') if first is not None else 'missing'}",
+        f"overall={getattr(check, 'overall_status', 'unknown')}",
+    ]
+    missing_claims = getattr(check, "missing_required_claim_load_factors", None)
+    if missing_claims is not None:
+        parts.append(f"missing claim n={missing_claims}")
+    return "; ".join(parts) + "."
 
 
 def _torsion_twist_screening_evidence(screening: Any | None) -> str:

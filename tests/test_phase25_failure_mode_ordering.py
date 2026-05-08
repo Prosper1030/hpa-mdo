@@ -206,6 +206,7 @@ def _torsion_twist_screening() -> SimpleNamespace:
 def _full_wing_buckling_closure_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="full_wing_global_buckling_not_closed",
+        missing_required_claim_load_factors="1.50;1.75",
         rows=(SimpleNamespace(status="closure_input_missing"),),
     )
 
@@ -339,6 +340,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
     assert "rib traceability gaps=1" in by_key["rib_load_transfer"].evidence
     assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].evidence
+    assert "missing claim n=unknown" not in by_key["torsion_twist_coupling"].evidence
     assert "screening status=torsion_twist_screening_not_aeroelastic_signoff" in by_key[
         "torsion_twist_coupling"
     ].evidence
@@ -350,6 +352,9 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     ].evidence
     assert by_key["full_wing_global_buckling"].load_factor is None
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].evidence
+    assert "missing claim n=1.50;1.75" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
     assert "claim boundary status=full_wing_pass_claim_blocked_global_buckling_missing" in by_key[
         "full_wing_global_buckling"
     ].evidence

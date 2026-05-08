@@ -30,6 +30,7 @@ REQUIRED_COMPONENTS = (
     "wire_attach_load_path",
     "root_boundary",
 )
+REQUIRED_CLAIM_LOAD_FACTORS = (1.50, 1.75)
 REQUIRED_VERIFICATION_FIELDS = (
     "boundary_condition_status",
     "mesh_convergence_status",
@@ -67,6 +68,8 @@ class FullWingBucklingClosureCheck:
     overall_status: str
     accepted_model_scopes: tuple[str, ...]
     required_components: tuple[str, ...]
+    required_claim_load_factors: tuple[float, ...]
+    missing_required_claim_load_factors: str
     rows: tuple[FullWingBucklingClosureRow, ...]
 
 
@@ -80,16 +83,21 @@ def build_full_wing_buckling_closure_check(
         if not closure_inputs
         else tuple(_build_row(raw) for raw in closure_inputs)
     )
+    missing_required_claims = _missing_required_claim_load_factors(rows)
     all_positive = rows and all(row.status == "margin_positive_input_check_only" for row in rows)
     return FullWingBucklingClosureCheck(
         candidate_id=str(candidate_id),
         overall_status=(
             "buckling_input_margins_pass_not_full_aircraft_signoff"
-            if all_positive
+            if all_positive and not missing_required_claims
             else "full_wing_global_buckling_not_closed"
         ),
         accepted_model_scopes=ACCEPTED_MODEL_SCOPES,
         required_components=REQUIRED_COMPONENTS,
+        required_claim_load_factors=REQUIRED_CLAIM_LOAD_FACTORS,
+        missing_required_claim_load_factors=";".join(
+            f"{factor:.2f}" for factor in missing_required_claims
+        ),
         rows=rows,
     )
 
@@ -195,6 +203,22 @@ def _missing_input_row() -> FullWingBucklingClosureRow:
     )
 
 
+def _missing_required_claim_load_factors(
+    rows: tuple[FullWingBucklingClosureRow, ...],
+) -> tuple[float, ...]:
+    positive_claims = {
+        round(float(row.claim_load_factor), 2)
+        for row in rows
+        if row.claim_load_factor is not None
+        and row.status == "margin_positive_input_check_only"
+    }
+    return tuple(
+        factor
+        for factor in REQUIRED_CLAIM_LOAD_FACTORS
+        if round(float(factor), 2) not in positive_claims
+    )
+
+
 def _status(
     *,
     model_scope: str,
@@ -270,26 +294,30 @@ def _write_template(path: Path) -> Path:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, lineterminator="\n")
         writer.writeheader()
-        writer.writerow(
-            {
-                "case_id": "candidate_1p75g_global_buckling_case",
-                "model_scope": "full_wing_global_eigen",
-                "accepted_model_scopes": ";".join(ACCEPTED_MODEL_SCOPES),
-                "claim_load_factor": "1.75",
-                "first_global_buckling_load_factor": "",
-                "includes_main_spar": "true",
-                "includes_rear_spar": "true",
-                "includes_finite_ribs": "true",
-                "includes_wire_attach_load_path": "true",
-                "includes_root_boundary": "true",
-                "boundary_condition_status": "pass",
-                "mesh_convergence_status": "pass",
-                "solver_status": "pass",
-                "mode_review_status": "pass",
-                "source": "",
-                "notes": "Use full_wing_global_eigen, apdl_full_wing_eigen, or braced_subassembly_eigen.",
-            }
-        )
+        for claim_load_factor in REQUIRED_CLAIM_LOAD_FACTORS:
+            writer.writerow(
+                {
+                    "case_id": f"candidate_{claim_load_factor:.2f}g_global_buckling_case",
+                    "model_scope": "full_wing_global_eigen",
+                    "accepted_model_scopes": ";".join(ACCEPTED_MODEL_SCOPES),
+                    "claim_load_factor": f"{claim_load_factor:.2f}",
+                    "first_global_buckling_load_factor": "",
+                    "includes_main_spar": "true",
+                    "includes_rear_spar": "true",
+                    "includes_finite_ribs": "true",
+                    "includes_wire_attach_load_path": "true",
+                    "includes_root_boundary": "true",
+                    "boundary_condition_status": "pass",
+                    "mesh_convergence_status": "pass",
+                    "solver_status": "pass",
+                    "mode_review_status": "pass",
+                    "source": "",
+                    "notes": (
+                        "Use full_wing_global_eigen, apdl_full_wing_eigen, or "
+                        "braced_subassembly_eigen."
+                    ),
+                }
+            )
     return path
 
 
@@ -319,6 +347,8 @@ def _write_markdown(path: Path, check: FullWingBucklingClosureCheck) -> Path:
         "",
         f"- accepted model scopes: `{'; '.join(check.accepted_model_scopes)}`",
         f"- required components: `{'; '.join(check.required_components)}`",
+        f"- required claim load factors: `{'; '.join(f'{value:.2f}' for value in check.required_claim_load_factors)}`",
+        f"- missing required claim load factors: `{check.missing_required_claim_load_factors or 'none'}`",
         "",
         "| case | model scope | status | claim n | first buckling n | margin n | mode review | missing components | source |",
         "|---|---|---|---:|---:|---:|---|---|---|",

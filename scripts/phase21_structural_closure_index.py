@@ -903,7 +903,9 @@ def _full_wing_buckling_closure_summary(check: Any) -> str:
         "margin n="
         f"{_fmt(getattr(first, 'load_factor_margin', None) if first is not None else None)}; "
         "missing components="
-        f"{getattr(first, 'missing_components', 'unknown') if first is not None else 'unknown'}."
+        f"{getattr(first, 'missing_components', 'unknown') if first is not None else 'unknown'}; "
+        "missing claim n="
+        f"{getattr(check, 'missing_required_claim_load_factors', 'unknown')}."
     )
 
 

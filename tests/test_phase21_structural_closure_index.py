@@ -384,6 +384,8 @@ def _torsion_twist_screening() -> SimpleNamespace:
 def _full_wing_buckling_closure_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="full_wing_global_buckling_not_closed",
+        required_claim_load_factors=(1.5, 1.75),
+        missing_required_claim_load_factors="1.50;1.75",
         rows=(
             SimpleNamespace(
                 case_id="full_wing_global_buckling_input_required",
@@ -578,6 +580,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase30" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase38" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].current_evidence
+    assert "missing claim n=1.50;1.75" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
     assert "claim boundary status=full_wing_pass_claim_blocked_global_buckling_missing" in by_key[
         "full_wing_global_buckling"
     ].current_evidence

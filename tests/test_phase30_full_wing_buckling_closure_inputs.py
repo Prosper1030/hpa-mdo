@@ -86,6 +86,61 @@ def test_full_wing_buckling_closure_rejects_missing_braced_structure_components(
     assert row.missing_components == "rear_spar"
 
 
+def test_full_wing_buckling_closure_requires_both_claim_load_factors() -> None:
+    check = build_full_wing_buckling_closure_check(
+        "sample",
+        closure_inputs=(
+            {
+                "case_id": "full-wing-1p75",
+                "model_scope": "full_wing_global_eigen",
+                "claim_load_factor": "1.75",
+                "first_global_buckling_load_factor": "2.10",
+                "includes_main_spar": "true",
+                "includes_rear_spar": "true",
+                "includes_finite_ribs": "true",
+                "includes_wire_attach_load_path": "true",
+                "includes_root_boundary": "true",
+                "boundary_condition_status": "pass",
+                "mesh_convergence_status": "pass",
+                "solver_status": "pass",
+                "mode_review_status": "pass",
+                "source": "qualified FEM placeholder",
+            },
+        ),
+    )
+
+    assert check.overall_status == "full_wing_global_buckling_not_closed"
+    assert check.required_claim_load_factors == pytest.approx((1.50, 1.75))
+    assert check.missing_required_claim_load_factors == "1.50"
+
+
+def test_full_wing_buckling_closure_can_pass_input_margins_when_both_claims_are_covered() -> None:
+    base = {
+        "model_scope": "full_wing_global_eigen",
+        "first_global_buckling_load_factor": "2.10",
+        "includes_main_spar": "true",
+        "includes_rear_spar": "true",
+        "includes_finite_ribs": "true",
+        "includes_wire_attach_load_path": "true",
+        "includes_root_boundary": "true",
+        "boundary_condition_status": "pass",
+        "mesh_convergence_status": "pass",
+        "solver_status": "pass",
+        "mode_review_status": "pass",
+        "source": "qualified FEM placeholder",
+    }
+    check = build_full_wing_buckling_closure_check(
+        "sample",
+        closure_inputs=(
+            {**base, "case_id": "full-wing-1p50", "claim_load_factor": "1.50"},
+            {**base, "case_id": "full-wing-1p75", "claim_load_factor": "1.75"},
+        ),
+    )
+
+    assert check.overall_status == "buckling_input_margins_pass_not_full_aircraft_signoff"
+    assert check.missing_required_claim_load_factors == ""
+
+
 def test_full_wing_buckling_closure_requires_source_and_mode_review() -> None:
     base = {
         "case_id": "unreviewed-global",
@@ -153,6 +208,8 @@ def test_write_full_wing_buckling_closure_input_package_creates_template_and_rep
     )
     assert "full_wing_global_eigen" in template
     assert "braced_subassembly_eigen" in template
+    assert "1.50" in template
     report = (tmp_path / "full_wing_buckling_closure_check.md").read_text(encoding="utf-8")
     assert "full-wing global buckling closure inputs" in report
     assert "not a full aircraft signoff" in report
+    assert "required claim load factors" in report
