@@ -85,6 +85,9 @@ from scripts.phase38_full_wing_buckling_claim_boundary import (  # noqa: E402
 from scripts.phase39_tip_deflection_claim_boundary import (  # noqa: E402
     build_tip_deflection_claim_boundary,
 )
+from scripts.phase40_existing_fem_evidence_triage import (  # noqa: E402
+    build_current_existing_fem_evidence_triage,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -132,6 +135,7 @@ def build_structural_closure_index(
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
     failure_mode_ordering: Any | None = None,
+    existing_fem_evidence_triage: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
     local_by_key = _entry_map(getattr(local_ledger, "entries", ()))
@@ -162,6 +166,7 @@ def build_structural_closure_index(
             tip_deflection_revalidation_check=tip_deflection_revalidation_check,
             tip_deflection_claim_boundary=tip_deflection_claim_boundary,
             failure_mode_ordering=failure_mode_ordering,
+            existing_fem_evidence_triage=existing_fem_evidence_triage,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
     )
@@ -200,6 +205,7 @@ def write_structural_closure_index_package(
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
     failure_mode_ordering: Any | None = None,
+    existing_fem_evidence_triage: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     index = build_structural_closure_index(
@@ -223,6 +229,7 @@ def write_structural_closure_index_package(
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
         failure_mode_ordering=failure_mode_ordering,
+        existing_fem_evidence_triage=existing_fem_evidence_triage,
     )
     outputs = [
         _write_csv(out_dir / "structural_closure_index.csv", index),
@@ -311,6 +318,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         reference,
         revalidation_check=tip_deflection_revalidation_check,
     )
+    existing_fem_evidence_triage = build_current_existing_fem_evidence_triage()
     return build_structural_closure_index(
         review,
         local_ledger=local_ledger,
@@ -332,6 +340,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
         failure_mode_ordering=failure_mode_ordering,
+        existing_fem_evidence_triage=existing_fem_evidence_triage,
     )
 
 
@@ -360,6 +369,7 @@ def _build_item(
     tip_deflection_revalidation_check: Any | None,
     tip_deflection_claim_boundary: Any | None,
     failure_mode_ordering: Any | None,
+    existing_fem_evidence_triage: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
     detail_margin_entry = _detail_margin_entry_for_key(key, detail_margin_check)
@@ -384,6 +394,7 @@ def _build_item(
         tip_deflection_revalidation_check,
         tip_deflection_claim_boundary,
         failure_mode_ordering,
+        existing_fem_evidence_triage,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
     evidence = _evidence_for_key(
@@ -410,6 +421,7 @@ def _build_item(
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
         failure_mode_ordering=failure_mode_ordering,
+        existing_fem_evidence_triage=existing_fem_evidence_triage,
     )
     return StructuralClosureItem(
         key=key,
@@ -466,6 +478,7 @@ def _evidence_artifacts(
     tip_deflection_revalidation_check: Any | None,
     tip_deflection_claim_boundary: Any | None,
     failure_mode_ordering: Any | None,
+    existing_fem_evidence_triage: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
     if local_entry is not None:
@@ -521,6 +534,13 @@ def _evidence_artifacts(
         artifacts.append("Phase39 tip_deflection_claim_boundary")
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
         artifacts.append("Phase25 failure_mode_ordering")
+    if existing_fem_evidence_triage is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "full_wing_global_buckling",
+        "failure_mode_ordering",
+    }:
+        artifacts.append("Phase40 existing_fem_evidence_triage")
     return "; ".join(artifacts)
 
 
@@ -549,6 +569,7 @@ def _evidence_for_key(
     tip_deflection_revalidation_check: Any | None,
     tip_deflection_claim_boundary: Any | None,
     failure_mode_ordering: Any | None,
+    existing_fem_evidence_triage: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
     if local_entry is not None:
@@ -654,6 +675,13 @@ def _evidence_for_key(
         parts.append(f"Phase39: {_tip_deflection_claim_boundary_summary(tip_deflection_claim_boundary)}")
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
         parts.append(f"Phase25: {_failure_ordering_summary(failure_mode_ordering)}")
+    if existing_fem_evidence_triage is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "full_wing_global_buckling",
+        "failure_mode_ordering",
+    }:
+        parts.append(f"Phase40: {_existing_fem_evidence_triage_summary(existing_fem_evidence_triage)}")
     return " ".join(parts)
 
 
@@ -1039,6 +1067,47 @@ def _failure_ordering_summary(ordering: Any) -> str:
         f"{getattr(ordering, 'modeled_first_limiter_with_current_wire', 'unknown')}; "
         "6 kN wire first="
         f"{getattr(ordering, 'modeled_first_limiter_with_6kn_wire', 'unknown')}."
+    )
+
+
+def _existing_fem_evidence_triage_summary(triage: Any) -> str:
+    rows = tuple(getattr(triage, "rows", ()))
+    full_wing_closure_count = sum(
+        1 for row in rows if bool(getattr(row, "closes_full_wing_buckling_claim", False))
+    )
+    rear_rib_closure_count = sum(
+        1 for row in rows if bool(getattr(row, "closes_rear_spar_rib_bracing", False))
+    )
+    hardware_closure_count = sum(
+        1 for row in rows if bool(getattr(row, "closes_local_detail_hardware", False))
+    )
+    candidate_static_coverages = [
+        str(getattr(row, "claim_load_factor_coverage", "")).strip()
+        for row in rows
+        if str(getattr(row, "claim_load_factor_coverage", "")).strip()
+    ]
+    limited_hifi_count = sum(
+        1
+        for row in rows
+        if getattr(row, "status", "") == "limited_hifi_buckle_not_phase30_closure"
+    )
+    return (
+        "existing FEM triage status="
+        f"{getattr(triage, 'overall_status', 'unknown')}; "
+        "rows="
+        f"{int(getattr(triage, 'row_count', len(rows)))}; "
+        "closing rows="
+        f"{int(getattr(triage, 'closing_evidence_count', 0))}; "
+        "full-wing closure rows="
+        f"{full_wing_closure_count}; "
+        "rear/rib closure rows="
+        f"{rear_rib_closure_count}; "
+        "hardware closure rows="
+        f"{hardware_closure_count}; "
+        "candidate static coverage="
+        f"{candidate_static_coverages[0] if candidate_static_coverages else 'n/a'}; "
+        "limited hifi rows="
+        f"{limited_hifi_count}."
     )
 
 

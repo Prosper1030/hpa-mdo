@@ -128,6 +128,18 @@ def read_hifi_structural_check_json(path: Path, *, case_id: str | None = None) -
     return raw
 
 
+def build_current_existing_fem_evidence_triage() -> ExistingFemEvidenceTriage:
+    return build_existing_fem_evidence_triage(
+        CANDIDATE_ID,
+        candidate_static_rows=read_candidate_static_summary_csv(DEFAULT_CANDIDATE_STATIC_SUMMARY),
+        hifi_structural_checks=tuple(
+            read_hifi_structural_check_json(path)
+            for path in DEFAULT_HIFI_STRUCTURAL_CHECKS
+            if path.exists()
+        ),
+    )
+
+
 def _candidate_static_row(rows: list[dict[str, Any]] | tuple[dict[str, Any], ...]) -> ExistingFemEvidenceRow:
     load_factors = sorted(
         {

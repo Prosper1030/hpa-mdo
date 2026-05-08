@@ -503,6 +503,40 @@ def _failure_mode_ordering() -> SimpleNamespace:
     )
 
 
+def _existing_fem_evidence_triage() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="existing_fem_evidence_does_not_close_goal",
+        row_count=3,
+        closing_evidence_count=0,
+        rows=(
+            SimpleNamespace(
+                case_id="candidate_equivalent_static_reference",
+                status="equivalent_static_reference_not_global_buckling",
+                closes_full_wing_buckling_claim=False,
+                closes_rear_spar_rib_bracing=False,
+                closes_local_detail_hardware=False,
+                claim_load_factor_coverage="1.50;1.75",
+            ),
+            SimpleNamespace(
+                case_id="hifi_a",
+                status="limited_hifi_buckle_not_phase30_closure",
+                closes_full_wing_buckling_claim=False,
+                closes_rear_spar_rib_bracing=False,
+                closes_local_detail_hardware=False,
+                claim_load_factor_coverage="",
+            ),
+            SimpleNamespace(
+                case_id="hifi_b",
+                status="limited_hifi_buckle_not_phase30_closure",
+                closes_full_wing_buckling_claim=False,
+                closes_rear_spar_rib_bracing=False,
+                closes_local_detail_hardware=False,
+                claim_load_factor_coverage="",
+            ),
+        ),
+    )
+
+
 def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> None:
     index = build_structural_closure_index(
         _claim_review(),
@@ -525,6 +559,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
         failure_mode_ordering=_failure_mode_ordering(),
+        existing_fem_evidence_triage=_existing_fem_evidence_triage(),
     )
 
     assert index.overall_status == "engineering_not_signed_off"
@@ -574,9 +609,11 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase37" in by_key["torsion_twist_coupling"].evidence_artifacts
     assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
     assert "Phase32" in by_key["rear_spar_stiffness"].evidence_artifacts
+    assert "Phase40" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "diagnostic status=strong_model_sensitivity_not_signoff" in by_key[
         "rear_spar_stiffness"
     ].current_evidence
+    assert "rear/rib closure rows=0" in by_key["rear_spar_stiffness"].current_evidence
     assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].current_evidence
     assert "screening status=torsion_twist_screening_not_aeroelastic_signoff" in by_key[
         "torsion_twist_coupling"
@@ -586,6 +623,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     ].current_evidence
     assert "dense_finite_rib_surrogate" in by_key["rib_load_transfer"].current_evidence
     assert "Phase32" in by_key["rib_load_transfer"].evidence_artifacts
+    assert "Phase40" in by_key["rib_load_transfer"].evidence_artifacts
     assert "diagnostic status=surrogate_load_transfer_not_signoff" in by_key[
         "rib_load_transfer"
     ].current_evidence
@@ -598,6 +636,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "station-coverage-gap bays=1" in by_key["rib_load_transfer"].current_evidence
     assert "missing bays=2" in by_key["rib_spacing_assumption"].current_evidence
     assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
+    assert "Phase40" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
     assert "detail modes are listed as unranked" in by_key[
@@ -605,6 +644,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     ].current_evidence
     assert "Phase30" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase38" in by_key["full_wing_global_buckling"].evidence_artifacts
+    assert "Phase40" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].current_evidence
     assert "missing claim n=1.50;1.75" in by_key[
         "full_wing_global_buckling"
@@ -618,6 +658,13 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "missing components=main_spar;rear_spar;finite_ribs;wire_attach_load_path;root_boundary" in by_key[
         "full_wing_global_buckling"
     ].current_evidence
+    assert "existing FEM triage status=existing_fem_evidence_does_not_close_goal" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
+    assert "candidate static coverage=1.50;1.75" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
+    assert "limited hifi rows=2" in by_key["full_wing_global_buckling"].current_evidence
     assert "Phase31" in by_key["tip_deflection_limit"].evidence_artifacts
     assert "Phase39" in by_key["tip_deflection_limit"].evidence_artifacts
     assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].current_evidence
@@ -701,6 +748,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
         failure_mode_ordering=_failure_mode_ordering(),
+        existing_fem_evidence_triage=_existing_fem_evidence_triage(),
     )
 
     assert {path.name for path in outputs} == {
