@@ -25,6 +25,7 @@ from scripts.phase30_full_wing_buckling_closure_inputs import (  # noqa: E402
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase38_full_wing_buckling_claim_boundary"
 DEFAULT_CLAIM_LOAD_FACTORS = (1.5, 1.75)
+QUALIFIED_CLOSURE_STATUS = "buckling_input_margins_pass_not_full_aircraft_signoff"
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class FullWingBucklingClaimBoundary:
     overall_status: str
     required_claim_load_factors: tuple[float, ...]
     global_buckling_closure_status: str
+    missing_required_claim_load_factors: str
     rows: tuple[FullWingBucklingClaimBoundaryRow, ...]
 
 
@@ -61,12 +63,17 @@ def build_full_wing_buckling_claim_boundary(
 ) -> FullWingBucklingClaimBoundary:
     rows_by_load = {float(row.load_factor): row for row in phase15_rows}
     closure_status = _closure_status(closure_check)
+    missing_required_claims = _missing_required_claim_load_factors(closure_check)
+    closure_ready = (
+        closure_status == QUALIFIED_CLOSURE_STATUS and not missing_required_claims
+    )
     missing_components = _missing_components(closure_check)
     rows = tuple(
         _build_row(
             rows_by_load.get(float(load_factor)),
             claim_load_factor=float(load_factor),
             closure_status=closure_status,
+            closure_ready=closure_ready,
             missing_components=missing_components,
         )
         for load_factor in claim_load_factors
@@ -75,11 +82,12 @@ def build_full_wing_buckling_claim_boundary(
         candidate_id=str(candidate_id),
         overall_status=(
             "full_wing_pass_claim_input_positive_review_required"
-            if closure_status == "margin_positive_input_check_only"
+            if closure_ready
             else "full_wing_pass_claim_blocked_global_buckling_missing"
         ),
         required_claim_load_factors=tuple(float(value) for value in claim_load_factors),
         global_buckling_closure_status=closure_status,
+        missing_required_claim_load_factors=missing_required_claims,
         rows=rows,
     )
 
@@ -120,6 +128,7 @@ def _build_row(
     *,
     claim_load_factor: float,
     closure_status: str,
+    closure_ready: bool,
     missing_components: str,
 ) -> FullWingBucklingClaimBoundaryRow:
     local_util = _attr_float(row, "local_wall_buckling_utilization")
@@ -128,11 +137,12 @@ def _build_row(
     internal_pass = all(
         value is not None and value < 1.0 for value in (local_util, stress_util, wire_util)
     )
-    status = (
-        "internal_local_pass_global_claim_blocked"
-        if internal_pass and closure_status != "margin_positive_input_check_only"
-        else "internal_or_global_buckling_claim_not_closed"
-    )
+    if internal_pass and closure_ready:
+        status = "full_wing_buckling_input_positive_review_required"
+    elif internal_pass:
+        status = "internal_local_pass_global_claim_blocked"
+    else:
+        status = "internal_or_global_buckling_claim_not_closed"
     load_label = _load_label(claim_load_factor)
     return FullWingBucklingClaimBoundaryRow(
         claim_load_factor=float(claim_load_factor),
@@ -164,10 +174,20 @@ def _build_row(
 def _closure_status(closure_check: Any | None) -> str:
     if closure_check is None:
         return "closure_input_unavailable"
+    overall_status = str(getattr(closure_check, "overall_status", "")).strip()
+    if overall_status:
+        return overall_status
     rows = tuple(getattr(closure_check, "rows", ()))
     if not rows:
         return "closure_input_missing"
     return str(getattr(rows[0], "status", "unknown"))
+
+
+def _missing_required_claim_load_factors(closure_check: Any | None) -> str:
+    if closure_check is None:
+        return "unknown"
+    value = str(getattr(closure_check, "missing_required_claim_load_factors", "")).strip()
+    return value
 
 
 def _missing_components(closure_check: Any | None) -> str:
@@ -224,6 +244,7 @@ def _write_markdown(path: Path, boundary: FullWingBucklingClaimBoundary) -> Path
         "This separates internal fixed-design local checks from full-wing global buckling claims.",
         "",
         f"- global buckling closure status: `{boundary.global_buckling_closure_status}`",
+        f"- missing required claim load factors: `{boundary.missing_required_claim_load_factors or 'none'}`",
         "",
         "| load | status | local wall util | stress util | wire util | allowed statement | blocked statement |",
         "|---:|---|---:|---:|---:|---|---|",
