@@ -13,6 +13,7 @@
 ### Phase 14 — CalculiX structural parity
 - `phase14_calculix_parity_round3_goal.md` ✅ B2/B4/B5 structural diagnosis and trust-policy update (`dd8f3ba` / `b570603` / `0b93503` / `bddb736` / `5dbf0b4`)
 - `phase14_calculix_b2_b5_solution_hunt_goal.md` ✅ B2/B5 solution-hunt route (`4fe871c` / `7399ffc` / `4c19acb` / `296283d`)
+- `phase14_maclocal_fem_overnight_hardening_goal.md` ✅ Mac-local shell FEM hardening (`33d1858` / `8f14976` / `8f09e3e`)
 
 ### Milestone 4（Design Fidelity）
 - `F10_lift_wire_compression.md` ✅ `0dd1275` wire precompression, angle=11.3°
@@ -28,7 +29,7 @@
 
 | 順序 | 任務 | 預估工時 | 前置條件 |
 |-----|------|---------|---------|
-| 0 | `phase14_maclocal_fem_overnight_hardening_goal.md`: Mac-local shell FEM overnight hardening（constant tube + B2/B5 convergence） | 4–8 h | Phase 14 Mac-local FEM smoke |
+| 0 | `phase14_maclocal_fem_fidelity_ladder_goal.md`: Mac-local beam/shell/solid FEM fidelity ladder（tube accuracy + runtime + trust policy） | 6–10 h | Phase 14 shell FEM hardening |
 | 1 | M4-4f: dual-spar adequacy spot-check（非 gate） | 2–4 h | 4e PASS |
 | 2 | 多工況 4G 雙重計算修正 | 2 h | 無 |
 | 3 | II-2: tube_catalog 強化 | 3–4 h | 無 |
