@@ -19,6 +19,7 @@ def test_full_wing_buckling_closure_accepts_global_or_braced_eigen_inputs_only()
                 "model_scope": "full_wing_global_eigen",
                 "claim_load_factor": "1.75",
                 "first_global_buckling_load_factor": "2.10",
+                "reference_load_status": "pass",
                 "includes_main_spar": "true",
                 "includes_rear_spar": "true",
                 "includes_finite_ribs": "true",
@@ -35,6 +36,7 @@ def test_full_wing_buckling_closure_accepts_global_or_braced_eigen_inputs_only()
                 "model_scope": "local_shell_coupon",
                 "claim_load_factor": "1.75",
                 "first_global_buckling_load_factor": "3.00",
+                "reference_load_status": "pass",
                 "includes_main_spar": "true",
                 "includes_rear_spar": "false",
                 "includes_finite_ribs": "false",
@@ -66,6 +68,7 @@ def test_full_wing_buckling_closure_rejects_missing_braced_structure_components(
                 "model_scope": "braced_subassembly_eigen",
                 "claim_load_factor": "1.50",
                 "first_global_buckling_load_factor": "2.00",
+                "reference_load_status": "pass",
                 "includes_main_spar": "true",
                 "includes_rear_spar": "false",
                 "includes_finite_ribs": "true",
@@ -95,6 +98,7 @@ def test_full_wing_buckling_closure_requires_both_claim_load_factors() -> None:
                 "model_scope": "full_wing_global_eigen",
                 "claim_load_factor": "1.75",
                 "first_global_buckling_load_factor": "2.10",
+                "reference_load_status": "pass",
                 "includes_main_spar": "true",
                 "includes_rear_spar": "true",
                 "includes_finite_ribs": "true",
@@ -118,6 +122,7 @@ def test_full_wing_buckling_closure_can_pass_input_margins_when_both_claims_are_
     base = {
         "model_scope": "full_wing_global_eigen",
         "first_global_buckling_load_factor": "2.10",
+        "reference_load_status": "pass",
         "includes_main_spar": "true",
         "includes_rear_spar": "true",
         "includes_finite_ribs": "true",
@@ -147,6 +152,7 @@ def test_full_wing_buckling_closure_requires_source_and_mode_review() -> None:
         "model_scope": "full_wing_global_eigen",
         "claim_load_factor": "1.75",
         "first_global_buckling_load_factor": "2.10",
+        "reference_load_status": "pass",
         "includes_main_spar": "true",
         "includes_rear_spar": "true",
         "includes_finite_ribs": "true",
@@ -177,6 +183,47 @@ def test_full_wing_buckling_closure_requires_source_and_mode_review() -> None:
     assert check.overall_status == "full_wing_global_buckling_not_closed"
     assert by_case["unreviewed-global"].status == "source_missing"
     assert by_case["mode-unreviewed-global"].status == "mode_review_missing"
+
+
+def test_full_wing_buckling_closure_requires_qualified_reference_load_review() -> None:
+    base = {
+        "case_id": "reference-load-unreviewed",
+        "model_scope": "full_wing_global_eigen",
+        "claim_load_factor": "1.75",
+        "first_global_buckling_load_factor": "2.10",
+        "includes_main_spar": "true",
+        "includes_rear_spar": "true",
+        "includes_finite_ribs": "true",
+        "includes_wire_attach_load_path": "true",
+        "includes_root_boundary": "true",
+        "boundary_condition_status": "pass",
+        "mesh_convergence_status": "pass",
+        "solver_status": "pass",
+        "mode_review_status": "pass",
+        "source": "qualified FEM placeholder",
+    }
+    check = build_full_wing_buckling_closure_check(
+        "sample",
+        closure_inputs=(
+            base,
+            {
+                **base,
+                "case_id": "reference-load-screening",
+                "reference_load_status": "screening_range",
+            },
+        ),
+    )
+
+    by_case = {row.case_id: row for row in check.rows}
+    assert by_case["reference-load-unreviewed"].status == (
+        "reference_load_review_missing"
+    )
+    assert by_case["reference-load-screening"].status == (
+        "reference_load_review_missing"
+    )
+    assert "qualified reference-load review" in by_case[
+        "reference-load-screening"
+    ].engineering_note
 
 
 def test_full_wing_buckling_closure_rejects_unusable_reference_load_factor() -> None:

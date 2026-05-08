@@ -78,7 +78,9 @@ def test_phase41_generates_buckle_decks_and_report_only_evidence(tmp_path: Path)
     assert "reference_load_status" in closure_csv
 
 
-def test_phase41_solver_result_keeps_mode_review_as_blocker(tmp_path: Path) -> None:
+def test_phase41_solver_result_needs_reference_load_review_before_phase30(
+    tmp_path: Path,
+) -> None:
     model = _simple_model(
         lift_per_span_npm=np.array([0.0, -12.0, -6.0]),
         joint_node_indices=(1,),
@@ -117,7 +119,7 @@ def test_phase41_solver_result_keeps_mode_review_as_blocker(tmp_path: Path) -> N
     assert row["first_eigen_multiplier"] == 2.0
     assert row["inferred_first_buckling_load_factor"] == 3.0
     assert row["mode_review_status"] == "unreviewed"
-    assert row["phase30_closure_status"] == "mode_review_missing"
+    assert row["phase30_closure_status"] == "reference_load_review_missing"
 
 
 def test_phase41_reads_written_json_round_trip(tmp_path: Path) -> None:

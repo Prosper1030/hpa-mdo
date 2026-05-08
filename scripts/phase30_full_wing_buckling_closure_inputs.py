@@ -38,6 +38,11 @@ REQUIRED_VERIFICATION_FIELDS = (
     "mode_review_status",
 )
 PASS_STATUS = "pass"
+QUALIFIED_REFERENCE_LOAD_STATUSES = (
+    "pass",
+    "qualified_reference_load",
+    "reviewed_reference_load",
+)
 UNUSABLE_REFERENCE_LOAD_STATUSES = (
     "unphysical_or_load_sign_review_required",
     "reference_load_formulation_not_rankable",
@@ -258,6 +263,8 @@ def _status(
         return "closure_input_incomplete"
     if missing_components:
         return "required_structural_components_missing"
+    if not _reference_load_qualified(reference_load_status):
+        return "reference_load_review_missing"
     if verification_statuses.get("mode_review_status") != PASS_STATUS:
         return "mode_review_missing"
     if any(status != PASS_STATUS for status in verification_statuses.values()):
@@ -287,6 +294,11 @@ def _engineering_note(status: str) -> str:
         return "Buckling evidence must include a traceable source path, report id, or solver artifact reference."
     if status == "mode_review_missing":
         return "A qualified mode review must confirm the first eigenmode is the relevant global/braced buckling mode."
+    if status == "reference_load_review_missing":
+        return (
+            "A qualified reference-load review must confirm the reference load creates "
+            "the physical global/prestress buckling stress state before margin ranking."
+        )
     if status == "reference_load_formulation_not_rankable":
         return (
             "The reference load formulation is not usable as a buckling margin; "
@@ -434,6 +446,10 @@ def _reference_load_not_rankable(reference_load_status: str) -> bool:
         or "not_rankable" in normalized
         or "unphysical" in normalized
     )
+
+
+def _reference_load_qualified(reference_load_status: str) -> bool:
+    return reference_load_status.strip().lower() in QUALIFIED_REFERENCE_LOAD_STATUSES
 
 
 def _fmt(value: float | None) -> str:
