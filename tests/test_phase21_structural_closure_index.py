@@ -256,6 +256,23 @@ def _full_wing_buckling_closure_check() -> SimpleNamespace:
     )
 
 
+def _tip_deflection_revalidation_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="tip_deflection_current_submission_gate_retained",
+        rows=(
+            SimpleNamespace(
+                case_id="current_2p5m_submission_gate",
+                status="current_submission_gate_retained",
+                usage_context="submission",
+                current_raw_tip_limit_m=2.5,
+                proposed_raw_tip_limit_m=2.5,
+                deflection_limit_load_factor=3.305,
+                missing_rechecks="",
+            ),
+        ),
+    )
+
+
 def _failure_mode_ordering() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="true_failure_order_not_closed",
@@ -277,6 +294,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 
@@ -314,6 +332,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "missing components=main_spar;rear_spar;finite_ribs;wire_attach_load_path;root_boundary" in by_key[
         "full_wing_global_buckling"
     ].current_evidence
+    assert "Phase31" in by_key["tip_deflection_limit"].evidence_artifacts
+    assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].current_evidence
+    assert "proposed raw limit=2.5000 m" in by_key["tip_deflection_limit"].current_evidence
 
 
 def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: Path) -> None:
@@ -329,6 +350,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 
