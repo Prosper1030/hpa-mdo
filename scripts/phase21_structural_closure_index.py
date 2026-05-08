@@ -36,6 +36,9 @@ from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     build_bracing_sensitivity_audit,
     build_current_candidate_model,
 )
+from scripts.phase23_detail_sizing_requirements import (  # noqa: E402
+    build_detail_sizing_requirements,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -67,6 +70,7 @@ def build_structural_closure_index(
     local_ledger: Any | None = None,
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
+    detail_requirements: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
     local_by_key = _entry_map(getattr(local_ledger, "entries", ()))
@@ -81,6 +85,7 @@ def build_structural_closure_index(
             torsion_entry=torsion_by_key.get(key),
             torsion_audit=torsion_audit,
             bracing_audit=bracing_audit,
+            detail_requirements=detail_requirements,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
     )
@@ -103,6 +108,7 @@ def write_structural_closure_index_package(
     local_ledger: Any | None = None,
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
+    detail_requirements: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     index = build_structural_closure_index(
@@ -110,6 +116,7 @@ def write_structural_closure_index_package(
         local_ledger=local_ledger,
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
+        detail_requirements=detail_requirements,
     )
     outputs = [
         _write_csv(out_dir / "structural_closure_index.csv", index),
@@ -139,6 +146,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         rear_shear_pa=rear_g,
         equivalent_twist_max_deg=load_current_equivalent_twist_max_deg(),
     )
+    detail_requirements = build_detail_sizing_requirements(local_ledger)
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
     return build_structural_closure_index(
@@ -146,6 +154,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         local_ledger=local_ledger,
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
+        detail_requirements=detail_requirements,
     )
 
 
@@ -158,8 +167,16 @@ def _build_item(
     torsion_entry: Any | None,
     torsion_audit: Any | None,
     bracing_audit: Any | None,
+    detail_requirements: Any | None,
 ) -> StructuralClosureItem:
-    evidence_artifacts = _evidence_artifacts(key, local_entry, torsion_entry, bracing_audit)
+    detail_entry = _detail_entry_for_key(key, detail_requirements)
+    evidence_artifacts = _evidence_artifacts(
+        key,
+        local_entry,
+        torsion_entry,
+        bracing_audit,
+        detail_entry,
+    )
     status = _status_for_key(key, local_entry, torsion_entry)
     evidence = _evidence_for_key(
         key,
@@ -169,6 +186,7 @@ def _build_item(
         torsion_entry=torsion_entry,
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
+        detail_entry=detail_entry,
     )
     return StructuralClosureItem(
         key=key,
@@ -209,6 +227,7 @@ def _evidence_artifacts(
     local_entry: Any | None,
     torsion_entry: Any | None,
     bracing_audit: Any | None,
+    detail_entry: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
     if local_entry is not None:
@@ -222,6 +241,8 @@ def _evidence_artifacts(
         "failure_mode_ordering",
     }:
         artifacts.append("Phase22 bracing_sensitivity")
+    if detail_entry is not None:
+        artifacts.append("Phase23 detail_sizing_requirements")
     return "; ".join(artifacts)
 
 
@@ -234,6 +255,7 @@ def _evidence_for_key(
     torsion_entry: Any | None,
     torsion_audit: Any | None,
     bracing_audit: Any | None,
+    detail_entry: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
     if local_entry is not None:
@@ -286,7 +308,35 @@ def _evidence_for_key(
         "failure_mode_ordering",
     }:
         parts.append(f"Phase22: {_bracing_summary_for_key(key, bracing_audit)}")
+    if detail_entry is not None:
+        parts.append(f"Phase23: {_detail_summary(detail_entry)}")
     return " ".join(parts)
+
+
+def _detail_entry_for_key(key: str, detail_requirements: Any | None) -> Any | None:
+    if detail_requirements is None:
+        return None
+    entries = {
+        str(entry.key): entry
+        for entry in getattr(detail_requirements, "rows", ())
+    }
+    return entries.get(key)
+
+
+def _detail_summary(entry: Any) -> str:
+    parts = [
+        f"required load={_fmt(getattr(entry, 'required_allowable_load_n', None))} N"
+    ]
+    moment = getattr(entry, "required_allowable_moment_n_m", None)
+    if moment is not None:
+        parts.append(f"required moment={_fmt(moment)} N*m")
+    mbl = getattr(entry, "required_minimum_breaking_load_n", None)
+    if mbl is not None:
+        parts.append(f"required MBL={_fmt(mbl)} N")
+    body_margin = getattr(entry, "body_allowable_margin_n", None)
+    if body_margin is not None:
+        parts.append(f"body margin={_fmt(body_margin)} N")
+    return "; ".join(parts) + "."
 
 
 def _bracing_summary_for_key(key: str, bracing_audit: Any) -> str:

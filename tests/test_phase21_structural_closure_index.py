@@ -136,12 +136,41 @@ def _bracing_audit() -> SimpleNamespace:
     )
 
 
+def _detail_requirements() -> SimpleNamespace:
+    return SimpleNamespace(
+        rows=(
+            SimpleNamespace(
+                key="wire_attach_local_load_path",
+                required_allowable_load_n=6048.2,
+                required_allowable_moment_n_m=None,
+                required_minimum_breaking_load_n=None,
+                body_allowable_margin_n=None,
+            ),
+            SimpleNamespace(
+                key="root_joint",
+                required_allowable_load_n=18.3,
+                required_allowable_moment_n_m=10833.2,
+                required_minimum_breaking_load_n=None,
+                body_allowable_margin_n=None,
+            ),
+            SimpleNamespace(
+                key="wire_termination",
+                required_allowable_load_n=6048.2,
+                required_allowable_moment_n_m=None,
+                required_minimum_breaking_load_n=10080.3,
+                body_allowable_margin_n=-1466.7,
+            ),
+        )
+    )
+
+
 def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> None:
     index = build_structural_closure_index(
         _claim_review(),
         local_ledger=_local_ledger(),
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
+        detail_requirements=_detail_requirements(),
     )
 
     assert index.overall_status == "engineering_not_signed_off"
@@ -151,6 +180,11 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert by_key["rear_spar_stiffness"].status == "stiffness_quantified_global_role_not_closed"
     assert by_key["tip_deflection_limit"].status == "claim_guarded_not_physical_failure"
     assert "Phase19" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "Phase23" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "required load=6048.2000 N" in by_key["wire_attach_local_load_path"].current_evidence
+    assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
+    assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
+    assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
     assert "Phase20" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
@@ -165,6 +199,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         local_ledger=_local_ledger(),
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
+        detail_requirements=_detail_requirements(),
     )
 
     assert {path.name for path in outputs} == {
