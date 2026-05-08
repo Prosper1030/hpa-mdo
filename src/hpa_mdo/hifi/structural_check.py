@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -528,7 +528,7 @@ def _run_static_check(
 
     tip_deflection_m = abs(float(matches[-1, 3])) * mesh_length_scale_m_per_unit
     diff_pct = _pct_diff(tip_deflection_m, expected_tip_deflection_m)
-    status = "PASS" if diff_pct is not None and abs(diff_pct) <= 5.0 else "WARN"
+    status = "MATCH" if diff_pct is not None and abs(diff_pct) <= 5.0 else "WARN"
     if expected_tip_deflection_m is None:
         status = "SKIP"
     comparability = _assess_section_comparability(
@@ -551,7 +551,7 @@ def _run_static_check(
         expected=expected_tip_deflection_m,
         diff_pct=diff_pct,
         artifact_path=frd_path,
-        issue_category=None if status in {"PASS", "SKIP"} else "result_mismatch",
+        issue_category=None if status in {"MATCH", "SKIP"} else "result_mismatch",
         comparability=comparability,
         log_path=Path(result["log"]).resolve() if result.get("log") else None,
     )
@@ -620,7 +620,7 @@ def _run_buckle_check(
         else None
     )
     margin = None if threshold is None else lambda_1 - threshold
-    status = "PASS" if margin is not None and margin >= 0.0 else "WARN"
+    status = "MATCH" if margin is not None and margin >= 0.0 else "WARN"
     if expected_buckling_index is None:
         status = "SKIP"
     comparability = _assess_section_comparability(
@@ -641,7 +641,7 @@ def _run_buckle_check(
         threshold=threshold,
         margin=margin,
         artifact_path=frd_path,
-        issue_category=None if status in {"PASS", "SKIP"} else "result_mismatch",
+        issue_category=None if status in {"MATCH", "SKIP"} else "result_mismatch",
         comparability=comparability,
         log_path=Path(result["log"]).resolve() if result.get("log") else None,
     )
@@ -740,8 +740,8 @@ def _pct_diff(actual: float | None, expected: float | None) -> float | None:
 def _combine_status(*statuses: str) -> str:
     if any(status == "WARN" for status in statuses):
         return "WARN"
-    if any(status == "PASS" for status in statuses):
-        return "PASS"
+    if any(status == "MATCH" for status in statuses):
+        return "MATCH"
     return "SKIP"
 
 
@@ -865,6 +865,7 @@ def _write_combined_report(
         "",
         f"- Overall status: {overall_status}",
         f"- Overall comparability: {overall_comparability}",
+        "- Status semantics: MATCH/WARN/SKIP compare hifi results against reference metrics; they are not structural design pass/fail signoff.",
         f"- Summary input: {summary_path or '—'}",
         f"- STEP input: {step_path or '—'}",
         f"- Mesh input: {mesh_path or '—'}",
@@ -1201,7 +1202,7 @@ def _build_support_reaction_summary(
     message = "Support reaction totals were extracted from the CalculiX .dat output."
     if total_actual is not None and expected_total is not None:
         diff_pct = abs(abs(total_actual) - abs(expected_total)) / max(abs(expected_total), 1.0e-12) * 100.0
-        status = "PASS" if diff_pct <= 5.0 else "WARN"
+        status = "MATCH" if diff_pct <= 5.0 else "WARN"
         comparability = "COMPARABLE"
         message = "Support reaction totals were extracted from the CalculiX .dat output and compared against the reference support reaction."
     elif total_actual is not None:

@@ -258,6 +258,7 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
                 "HPA-MDO Spar Optimization Summary",
                 "  Tip deflection  : 2500.00 mm  (2.50000 m)",
                 "  Buckling index  : -0.80000",
+                "  Support reaction Fz all supports 90.0 N",
             ]
         ),
         encoding="utf-8",
@@ -336,21 +337,25 @@ def test_run_structural_check_uses_existing_mesh_and_writes_report(
 
     report_text = result.report_path.read_text(encoding="utf-8")
     summary_payload = json.loads(result.summary_json_path.read_text(encoding="utf-8"))
-    assert result.overall_status == "PASS"
-    assert result.static.status == "PASS"
-    assert result.buckle.status == "PASS"
+    assert result.overall_status == "MATCH"
+    assert result.static.status == "MATCH"
+    assert result.buckle.status == "MATCH"
     assert result.paraview_script_path is not None
     assert result.paraview_script_path.exists()
     assert result.summary_json_path.exists()
-    assert "Overall status: PASS" in report_text
+    assert "Overall status: MATCH" in report_text
+    assert "Status semantics: MATCH/WARN/SKIP compare hifi results against reference metrics" in report_text
+    assert "Overall status: PASS" not in report_text
+    assert "Status: PASS" not in report_text
     assert "Overall comparability: COMPARABLE" in report_text
     assert "Static tip-deflection check completed using" in report_text
     assert "Buckling check completed using" in report_text
-    assert summary_payload["overall_status"] == "PASS"
+    assert summary_payload["overall_status"] == "MATCH"
     assert summary_payload["overall_comparability"] == "COMPARABLE"
     assert summary_payload["load_model"]["source_kind"] == "spar_csv"
+    assert summary_payload["support_reactions"]["status"] == "MATCH"
     assert summary_payload["support_reactions"]["actual_total_fz_n"] == 90.0
-    assert summary_payload["support_reactions"]["comparability"] == "LIMITED"
+    assert summary_payload["support_reactions"]["comparability"] == "COMPARABLE"
     assert summary_payload["static"]["comparability"] == "COMPARABLE"
     assert summary_payload["mesh_diagnostics"]["mesh_path"] == str(mesh.resolve())
     assert summary_payload["mesh_diagnostics"]["diagnostics_path"].endswith(
@@ -424,7 +429,7 @@ def test_run_structural_check_matches_tip_by_frd_coordinates_when_ids_change(
         hifi_dir=hifi_dir,
     )
 
-    assert result.static.status == "PASS"
+    assert result.static.status == "MATCH"
     assert result.static.actual == 2.5
     assert "FRD tip matched by coordinates" in result.static.message
 
