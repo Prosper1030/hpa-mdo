@@ -72,6 +72,9 @@ from scripts.phase34_wire_attach_load_decomposition import (  # noqa: E402
 from scripts.phase35_root_joint_load_envelope import (  # noqa: E402
     build_root_joint_load_envelope,
 )
+from scripts.phase36_wire_termination_efficiency_sensitivity import (  # noqa: E402
+    build_wire_termination_efficiency_sensitivity,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -109,6 +112,7 @@ def build_structural_closure_index(
     local_detail_subcomponent_check: Any | None = None,
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
+    wire_termination_efficiency_sensitivity: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -135,6 +139,7 @@ def build_structural_closure_index(
             local_detail_subcomponent_check=local_detail_subcomponent_check,
             wire_attach_load_decomposition=wire_attach_load_decomposition,
             root_joint_load_envelope=root_joint_load_envelope,
+            wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
             rib_spacing_requirements=rib_spacing_requirements,
             rib_bracing_margin_check=rib_bracing_margin_check,
             torsion_twist_closure_check=torsion_twist_closure_check,
@@ -169,6 +174,7 @@ def write_structural_closure_index_package(
     local_detail_subcomponent_check: Any | None = None,
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
+    wire_termination_efficiency_sensitivity: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -188,6 +194,7 @@ def write_structural_closure_index_package(
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -234,6 +241,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         wire_rigging=load_current_wire_rigging(),
     )
     root_joint_load_envelope = build_root_joint_load_envelope(reference)
+    wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
+        detail_requirements
+    )
     rib_spacing_requirements = build_rib_spacing_requirements(
         reference.candidate_id,
         spar_rows=load_current_spar_rows(),
@@ -275,6 +285,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -299,6 +310,7 @@ def _build_item(
     local_detail_subcomponent_check: Any | None,
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
+    wire_termination_efficiency_sensitivity: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -319,6 +331,7 @@ def _build_item(
         local_detail_subcomponent_check,
         wire_attach_load_decomposition,
         root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity,
         rib_spacing_requirements,
         rib_bracing_margin_check,
         torsion_twist_closure_check,
@@ -341,6 +354,7 @@ def _build_item(
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -393,6 +407,7 @@ def _evidence_artifacts(
     local_detail_subcomponent_check: Any | None,
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
+    wire_termination_efficiency_sensitivity: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -428,6 +443,8 @@ def _evidence_artifacts(
         artifacts.append("Phase34 wire_attach_load_decomposition")
     if root_joint_load_envelope is not None and key == "root_joint":
         artifacts.append("Phase35 root_joint_load_envelope")
+    if wire_termination_efficiency_sensitivity is not None and key == "wire_termination":
+        artifacts.append("Phase36 wire_termination_efficiency_sensitivity")
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -464,6 +481,7 @@ def _evidence_for_key(
     local_detail_subcomponent_check: Any | None,
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
+    wire_termination_efficiency_sensitivity: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -540,6 +558,11 @@ def _evidence_for_key(
         parts.append(f"Phase34: {_wire_attach_load_decomposition_summary(wire_attach_load_decomposition)}")
     if root_joint_load_envelope is not None and key == "root_joint":
         parts.append(f"Phase35: {_root_joint_load_envelope_summary(root_joint_load_envelope)}")
+    if wire_termination_efficiency_sensitivity is not None and key == "wire_termination":
+        parts.append(
+            "Phase36: "
+            f"{_wire_termination_efficiency_summary(wire_termination_efficiency_sensitivity)}"
+        )
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -684,6 +707,22 @@ def _root_joint_load_envelope_summary(envelope: Any) -> str:
         f"{getattr(envelope, 'force_only_check_is_misleading', 'unknown')}; "
         "0.10 m couple force="
         f"{_fmt(getattr(couple_010, 'required_couple_force_n', None) if couple_010 is not None else None)} N."
+    )
+
+
+def _wire_termination_efficiency_summary(sensitivity: Any) -> str:
+    rows = {float(row.termination_efficiency): row for row in getattr(sensitivity, "rows", ())}
+    eta_060 = rows.get(0.6)
+    eta_080 = rows.get(0.8)
+    return (
+        "overall="
+        f"{getattr(sensitivity, 'overall_status', 'unknown')}; "
+        "body margin="
+        f"{_fmt(getattr(sensitivity, 'body_allowable_margin_n', None))} N; "
+        "MBL at eta 0.60="
+        f"{_fmt(getattr(eta_060, 'required_minimum_breaking_load_n', None) if eta_060 is not None else None)} N; "
+        "MBL at eta 0.80="
+        f"{_fmt(getattr(eta_080, 'required_minimum_breaking_load_n', None) if eta_080 is not None else None)} N."
     )
 
 

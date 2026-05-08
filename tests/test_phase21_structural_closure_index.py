@@ -290,6 +290,23 @@ def _root_joint_load_envelope() -> SimpleNamespace:
     )
 
 
+def _wire_termination_efficiency_sensitivity() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="termination_efficiency_sensitivity_defined_not_signoff",
+        body_allowable_margin_n=-1466.7,
+        rows=(
+            SimpleNamespace(
+                termination_efficiency=0.6,
+                required_minimum_breaking_load_n=10080.3,
+            ),
+            SimpleNamespace(
+                termination_efficiency=0.8,
+                required_minimum_breaking_load_n=7560.2,
+            ),
+        ),
+    )
+
+
 def _rib_spacing_requirements() -> SimpleNamespace:
     return SimpleNamespace(
         current_max_bay_m=3.86,
@@ -392,6 +409,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         root_joint_load_envelope=_root_joint_load_envelope(),
+        wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
@@ -430,6 +448,13 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
     assert "subcomponents missing=1" in by_key["wire_termination"].current_evidence
+    assert "Phase36" in by_key["wire_termination"].evidence_artifacts
+    assert "MBL at eta 0.60=10080.3000 N" in by_key[
+        "wire_termination"
+    ].current_evidence
+    assert "MBL at eta 0.80=7560.2000 N" in by_key[
+        "wire_termination"
+    ].current_evidence
     assert "Phase20" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase29" in by_key["torsion_twist_coupling"].evidence_artifacts
@@ -476,6 +501,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         root_joint_load_envelope=_root_joint_load_envelope(),
+        wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
