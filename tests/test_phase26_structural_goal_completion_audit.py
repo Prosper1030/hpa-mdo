@@ -73,10 +73,10 @@ def _closure_index() -> SimpleNamespace:
             ),
             SimpleNamespace(
                 key="full_wing_global_buckling",
-                evidence_artifacts="Phase18; Phase30; Phase38",
-                current_evidence="No full-wing global buckling eigen/FEM result; claim boundary status=full_wing_pass_claim_blocked_global_buckling_missing",
+                evidence_artifacts="Phase18; Phase30; Phase38; Phase41",
+                current_evidence="No full-wing global buckling eigen/FEM result; claim boundary status=full_wing_pass_claim_blocked_global_buckling_missing; Phase41: braced subassembly status=braced_subassembly_reference_load_review_required; reference-load review rows=2; Phase30 status=mode_review_missing",
                 remaining_blocker="Full-wing buckling FEM",
-                next_action="Run braced subassembly buckling",
+                next_action="Resolve Phase41 reference-load/sign convention",
             ),
             SimpleNamespace(
                 key="failure_mode_ordering",
@@ -126,10 +126,13 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
         "none_current_submission_gate_retained"
     )
     assert by_key["full_wing_global_buckling"].evidence_strength == (
-        "claim_boundary_plus_closure_input_missing"
+        "claim_boundary_plus_braced_route_unreviewed"
     )
     assert "Phase38" in by_key["full_wing_global_buckling"].evidence_artifacts
-    assert by_key["full_wing_global_buckling"].completion_blocker == "full_wing_or_braced_subassembly_buckling_fem_missing"
+    assert "Phase41" in by_key["full_wing_global_buckling"].evidence_artifacts
+    assert by_key["full_wing_global_buckling"].completion_blocker == (
+        "braced_subassembly_reference_load_mode_review_mesh_missing"
+    )
     assert by_key["failure_mode_ordering"].evidence_strength == (
         "detail_modes_listed_but_unranked"
     )

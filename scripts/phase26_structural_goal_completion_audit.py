@@ -165,19 +165,72 @@ def _build_row(
         evidence_artifacts=str(item.evidence_artifacts),
         evidence_summary=evidence_summary,
     )
+    evidence_artifacts = str(item.evidence_artifacts)
     return StructuralGoalCompletionRow(
         key=key,
         prompt_requirement=PROMPT_REQUIREMENTS[key],
         completion_status=completion_status,
-        evidence_strength=EVIDENCE_STRENGTH_BY_KEY[key],
-        evidence_artifacts=str(item.evidence_artifacts),
+        evidence_strength=_evidence_strength_for_key(
+            key,
+            evidence_artifacts=evidence_artifacts,
+            evidence_summary=evidence_summary,
+        ),
+        evidence_artifacts=evidence_artifacts,
         evidence_summary=evidence_summary,
         completion_blocker=(
             CLOSED_BLOCKER_BY_KEY.get(key, "none")
             if completion_status == "closed"
-            else COMPLETION_BLOCKER_BY_KEY[key]
+            else _completion_blocker_for_key(
+                key,
+                evidence_artifacts=evidence_artifacts,
+                evidence_summary=evidence_summary,
+            )
         ),
         next_verification_step=str(item.next_action),
+    )
+
+
+def _evidence_strength_for_key(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> str:
+    if _phase41_braced_route_unreviewed(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "claim_boundary_plus_braced_route_unreviewed"
+    return EVIDENCE_STRENGTH_BY_KEY[key]
+
+
+def _completion_blocker_for_key(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> str:
+    if _phase41_braced_route_unreviewed(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "braced_subassembly_reference_load_mode_review_mesh_missing"
+    return COMPLETION_BLOCKER_BY_KEY[key]
+
+
+def _phase41_braced_route_unreviewed(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "full_wing_global_buckling"
+        and "Phase41" in evidence_artifacts
+        and "braced_subassembly_reference_load_review_required" in evidence_summary
+        and "Phase30 status=mode_review_missing" in evidence_summary
     )
 
 
