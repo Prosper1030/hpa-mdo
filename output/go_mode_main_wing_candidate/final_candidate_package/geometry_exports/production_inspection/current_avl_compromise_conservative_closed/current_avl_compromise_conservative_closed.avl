@@ -1,0 +1,61 @@
+Smooth Tier2 production-facing baseline from Birdman concept wing-only AVL Phase9 smooth monotone Phase9 smooth monotone
+#Mach
+0.000000
+#IYsym  iZsym  Zsym
+1  0  0.000000
+#Sref  Cref  Bref
+33.420059598  1.003721543  34.332286000
+#Xref  Yref  Zref
+0.246276512  0.000000000  0.000000000
+#CDp
+0.000000
+#
+SURFACE
+Wing
+16  1.0  32  1.0
+#
+SECTION
+0.000000000  0.000000000  0.000000000  1.256773096  5.813860000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/dae31.dat
+#
+SECTION
+0.000000000  2.746583000  0.088492515  1.171564829  6.139566000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/dae31.dat
+#
+SECTION
+0.000000000  6.008150000  0.306084434  1.067327906  6.242583000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/dae31.dat
+#
+SECTION
+0.000000000  8.926394000  0.643125068  0.970371624  5.851113000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/dae31.dat
+#
+SECTION
+0.000000000  12.016300000  1.186643196  0.862163835  5.023963000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/dae31.dat
+#
+SECTION
+0.000000000  14.076237000  1.675614475  0.784941307  4.426213000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/cst_tip_nsga2_g05_child_0032_70ef8136.dat
+#
+SECTION
+0.000000000  15.449529000  2.064278575  0.729402473  4.108343000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/cst_tip_nsga2_g05_child_0032_70ef8136.dat
+#
+SECTION
+0.000000000  16.307836000  2.335349374  0.691495432  3.909675000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/cst_tip_nsga2_g05_child_0032_70ef8136.dat
+#
+SECTION
+0.000000000  17.166143000  2.628560870  0.645004090  3.830207000
+AFILE
+/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/cst_tip_nsga2_g05_child_0032_70ef8136.dat
+#

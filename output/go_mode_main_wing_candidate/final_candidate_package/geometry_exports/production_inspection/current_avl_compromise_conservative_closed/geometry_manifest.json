@@ -1,0 +1,126 @@
+{
+  "Bref": 34.332286,
+  "Cref": 1.003721543,
+  "Sref": 33.420059598,
+  "airfoil_assignment": {
+    "mid1": "dae31",
+    "mid2": "dae31",
+    "root": "dae31",
+    "tip": "cst_tip_nsga2_g05_child_0032_70ef8136"
+  },
+  "case_name": "current_avl_compromise_conservative_closed",
+  "chord_mode": "monotone_normalized",
+  "chord_monotonicity_enforced": true,
+  "computed_span_m": 34.332286,
+  "computed_wing_area_m2": 33.42005959800001,
+  "export_mode": "production_inspection",
+  "export_mode_warning": "This file is cruise-normalized and monotone-chord. Use this for VSP/SolidWorks/fairing/manual geometry inspection.",
+  "export_timestamp": "2026-05-08T06:34:08.643635+00:00",
+  "incidence_mode": "cruise_alpha_zero",
+  "incidence_offset_deg_added_to_all_sections": 0.18015,
+  "incidence_offset_source": "explicit_override",
+  "known_limitations": [
+    "Diagnostic manual-inspection export only; no VSPAero or aerodynamic analysis was run.",
+    "Main wing planform, twist, and loaded z are reconstructed from the sidecar AVL sections.",
+    "OpenVSP wing sections are driven by span/chord/dihedral/twist; exact CST/DAE/ClarkY airfoil import status is recorded in vsp_export.",
+    "Reference empennage/fuselage geometry is not included because the sidecar AVL source is wing-only.",
+    "This file is cruise-normalized and monotone-chord. Use this for VSP/SolidWorks/fairing/manual geometry inspection."
+  ],
+  "loaded_shape_mode": "loaded_dihedral_avl",
+  "loaded_tip_z_m": 2.62856087,
+  "parity_checks": [
+    {
+      "delta": 0.0,
+      "expected": 9,
+      "name": "section_count",
+      "observed": 9,
+      "status": "pass",
+      "tolerance": 0.0
+    },
+    {
+      "delta": 0.0,
+      "expected": 34.332286,
+      "name": "span_difference_m",
+      "observed": 34.332286,
+      "status": "pass",
+      "tolerance": 1e-06
+    },
+    {
+      "delta": 7.105427357601002e-15,
+      "expected": 33.420059598,
+      "name": "Sref_vs_computed_area_m2",
+      "observed": 33.42005959800001,
+      "status": "pass",
+      "tolerance": 0.05
+    },
+    {
+      "delta": 4.7344350662115176e-12,
+      "expected": 1.256773096,
+      "name": "root_chord_difference_m",
+      "observed": 1.2567730960047345,
+      "status": "pass",
+      "tolerance": 1e-09
+    },
+    {
+      "delta": 2.4298341116946176e-12,
+      "expected": 0.64500409,
+      "name": "tip_chord_difference_m",
+      "observed": 0.6450040900024299,
+      "status": "pass",
+      "tolerance": 1e-09
+    },
+    {
+      "delta": 0.0,
+      "expected": 2.62856087,
+      "name": "loaded_tip_z_difference_m",
+      "observed": 2.62856087,
+      "status": "pass",
+      "tolerance": 1e-09
+    },
+    {
+      "delta": 0.0,
+      "expected": 9,
+      "name": "exported_avl_section_count",
+      "observed": 9,
+      "status": "pass",
+      "tolerance": 0.0
+    },
+    {
+      "delta": 0.18015000000000025,
+      "expected": 0.0,
+      "name": "twist_distribution_max_delta_deg",
+      "observed": 0.18015000000000025,
+      "status": "warn",
+      "tolerance": 1e-09
+    },
+    {
+      "delta": 0.0,
+      "expected": true,
+      "name": "airfoil_assignment_match",
+      "observed": true,
+      "status": "pass",
+      "tolerance": 0.0
+    },
+    {
+      "delta": null,
+      "expected": "nonzero",
+      "name": "loaded_z_nonzero",
+      "observed": 2.62856087,
+      "status": "pass",
+      "tolerance": null
+    }
+  ],
+  "schema_version": "phase7_sidecar_vsp_geometry_manifest_v2",
+  "source_avl_file_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+  "source_geometry": "sidecar_avl_loaded_shape",
+  "source_sidecar_report_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/tier2_loaded_shape_airfoil_report.md",
+  "vsp_alpha0_is_cruise": true,
+  "vsp_export": {
+    "airfoil_errors": [],
+    "airfoil_import_mode": "file_airfoil_imported",
+    "status": "vsp3_written",
+    "vsp3_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.vsp3",
+    "vsp_uses_airfoil_shapes": true,
+    "vspscript_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.vspscript"
+  }
+}

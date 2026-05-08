@@ -1,0 +1,32 @@
+{
+  "case_name": "current_avl_compromise_conservative_closed",
+  "reports": [
+    {
+      "avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.avl",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed",
+      "case_name": "current_avl_compromise_conservative_closed",
+      "export_mode": "avl_parity",
+      "export_report_md": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/export_report.md",
+      "geometry_manifest_json": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/geometry_manifest.json",
+      "parity_status": "pass",
+      "section_table_csv": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv",
+      "vsp3_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.vsp3",
+      "vsp_status": "vsp3_written",
+      "vspscript_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.vspscript"
+    },
+    {
+      "avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.avl",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+      "case_name": "current_avl_compromise_conservative_closed",
+      "export_mode": "production_inspection",
+      "export_report_md": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/export_report.md",
+      "geometry_manifest_json": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+      "parity_status": "warn",
+      "section_table_csv": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+      "vsp3_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.vsp3",
+      "vsp_status": "vsp3_written",
+      "vspscript_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.vspscript"
+    }
+  ],
+  "schema_version": "go_mode_geometry_export_summary_v1"
+}

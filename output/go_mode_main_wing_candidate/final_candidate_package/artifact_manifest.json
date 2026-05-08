@@ -1,0 +1,88 @@
+{
+  "schema_version": "go_mode_final_artifact_manifest_v1",
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "decision_status": "screening_closed_compromise_candidate",
+  "final_recommendation": "Use as the single production-facing screening candidate for manual geometry inspection and FEM/APDL spot-check. Do not update final production ranking yet.",
+  "selected_candidate": {
+    "selected_role": "conservative_best",
+    "assignment": "root:dae31|mid1:dae31|mid2:dae31|tip:cst_tip_nsga2_g05_child_0032_70ef8136",
+    "airfoil_query_quality": "actual_loaded_shape_query_pass",
+    "closure_status": "closed_for_screening",
+    "structure_trust_label": "daily_screening_not_final_truth",
+    "metrics": {
+      "P_crank_W": 174.60027944116567,
+      "P_crank_conservative_W": 178.8818396527458,
+      "CL": 1.16853,
+      "CDi": 0.0127613,
+      "e_CDi": 0.9564,
+      "profile_cd": 0.009368851143241826,
+      "CD0_total": 0.013258730502038055,
+      "tube_mass_kg": 10.8736370429664,
+      "total_structural_mass_kg": 13.3736370429664,
+      "jig_ground_clearance_m": 0.042389758176557296,
+      "wire_tension_N": 3024.0856954921524,
+      "equivalent_tip_deflection_m": 1.543161599989442,
+      "target_main_tip_z_m": 2.7000000000002062,
+      "effective_dihedral_deg": 8.938613407924
+    }
+  },
+  "blocker": {
+    "scope": "strict 6-7 deg beam-line target under the current coupling model",
+    "status": "blocked_by_mass_clearance_and_z_basis",
+    "summary": "The 6-7 deg sampled states fail mass and/or jig clearance. The first sampled full contract pass is 2.700 m / 8.939 deg beam-line proxy. This proves a current-model blocker, not a proof that a real lower-Z aircraft is impossible."
+  },
+  "artifacts": [
+    {
+      "name": "final decision",
+      "path": "output/go_mode_main_wing_candidate/final_candidate_package/GO_MODE_DECISION.md"
+    },
+    {
+      "name": "candidate summary",
+      "path": "output/go_mode_main_wing_candidate/final_candidate_package/candidate_summary.csv"
+    },
+    {
+      "name": "structure Z sweep",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/z_state_sweep_summary.md"
+    },
+    {
+      "name": "structure Z sweep CSV",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/z_state_structure_budget_sweep.csv"
+    },
+    {
+      "name": "loaded-shape AVL recheck",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_loaded_shape_avl_recheck/loaded_shape_aero_recheck_report.md"
+    },
+    {
+      "name": "loaded-shape AVL recheck CSV",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_loaded_shape_avl_recheck/loaded_shape_avl_recheck.csv"
+    },
+    {
+      "name": "Tier2 airfoil selection",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/tier2_loaded_shape_airfoil_report.md"
+    },
+    {
+      "name": "Tier2 selected AVL recheck CSV",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/tier2_loaded_shape_selected_avl_recheck.csv"
+    },
+    {
+      "name": "aero-structure closure",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_closure/aero_structure_closure_report.md"
+    },
+    {
+      "name": "aero-structure closure CSV",
+      "path": "output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_closure/aero_structure_closure_summary.csv"
+    },
+    {
+      "name": "geometry export summary",
+      "path": "output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/geometry_export_summary.json"
+    },
+    {
+      "name": "AVL parity geometry package",
+      "path": "output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/"
+    },
+    {
+      "name": "production inspection geometry package",
+      "path": "output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/"
+    }
+  ]
+}
