@@ -108,11 +108,40 @@ def _torsion_audit() -> SimpleNamespace:
     )
 
 
+def _bracing_audit() -> SimpleNamespace:
+    return SimpleNamespace(
+        rows=(
+            SimpleNamespace(
+                variant_id="baseline_joint_only",
+                tip_main_delta_vs_baseline_pct=0.0,
+                max_vertical_delta_vs_baseline_pct=0.0,
+                angle_delta_vs_baseline_deg=0.0,
+                link_force_max_n=3055.0,
+            ),
+            SimpleNamespace(
+                variant_id="dense_finite_rib_surrogate",
+                tip_main_delta_vs_baseline_pct=-17.7,
+                max_vertical_delta_vs_baseline_pct=-17.2,
+                angle_delta_vs_baseline_deg=-8.3,
+                link_force_max_n=934.5,
+            ),
+            SimpleNamespace(
+                variant_id="rear_stiffness_5pct",
+                tip_main_delta_vs_baseline_pct=292.6,
+                max_vertical_delta_vs_baseline_pct=295.8,
+                angle_delta_vs_baseline_deg=36.3,
+                link_force_max_n=1201.8,
+            ),
+        )
+    )
+
+
 def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> None:
     index = build_structural_closure_index(
         _claim_review(),
         local_ledger=_local_ledger(),
         torsion_audit=_torsion_audit(),
+        bracing_audit=_bracing_audit(),
     )
 
     assert index.overall_status == "engineering_not_signed_off"
@@ -123,6 +152,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert by_key["tip_deflection_limit"].status == "claim_guarded_not_physical_failure"
     assert "Phase19" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "Phase20" in by_key["rear_spar_stiffness"].evidence_artifacts
+    assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
+    assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
+    assert "dense_finite_rib_surrogate" in by_key["rib_load_transfer"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
 
 
@@ -132,6 +164,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         _claim_review(),
         local_ledger=_local_ledger(),
         torsion_audit=_torsion_audit(),
+        bracing_audit=_bracing_audit(),
     )
 
     assert {path.name for path in outputs} == {

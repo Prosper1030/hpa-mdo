@@ -32,6 +32,10 @@ from scripts.phase20_rear_spar_torsion_audit import (  # noqa: E402
     load_current_material_stiffness,
     load_current_rows,
 )
+from scripts.phase22_bracing_sensitivity import (  # noqa: E402
+    build_bracing_sensitivity_audit,
+    build_current_candidate_model,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -62,6 +66,7 @@ def build_structural_closure_index(
     *,
     local_ledger: Any | None = None,
     torsion_audit: Any | None = None,
+    bracing_audit: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
     local_by_key = _entry_map(getattr(local_ledger, "entries", ()))
@@ -75,6 +80,7 @@ def build_structural_closure_index(
             local_entry=local_by_key.get(key),
             torsion_entry=torsion_by_key.get(key),
             torsion_audit=torsion_audit,
+            bracing_audit=bracing_audit,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
     )
@@ -96,12 +102,14 @@ def write_structural_closure_index_package(
     *,
     local_ledger: Any | None = None,
     torsion_audit: Any | None = None,
+    bracing_audit: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     index = build_structural_closure_index(
         claim_review,
         local_ledger=local_ledger,
         torsion_audit=torsion_audit,
+        bracing_audit=bracing_audit,
     )
     outputs = [
         _write_csv(out_dir / "structural_closure_index.csv", index),
@@ -131,10 +139,13 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         rear_shear_pa=rear_g,
         equivalent_twist_max_deg=load_current_equivalent_twist_max_deg(),
     )
+    candidate_model = build_current_candidate_model()
+    bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
     return build_structural_closure_index(
         review,
         local_ledger=local_ledger,
         torsion_audit=torsion_audit,
+        bracing_audit=bracing_audit,
     )
 
 
@@ -146,8 +157,9 @@ def _build_item(
     local_entry: Any | None,
     torsion_entry: Any | None,
     torsion_audit: Any | None,
+    bracing_audit: Any | None,
 ) -> StructuralClosureItem:
-    evidence_artifacts = _evidence_artifacts(key, local_entry, torsion_entry)
+    evidence_artifacts = _evidence_artifacts(key, local_entry, torsion_entry, bracing_audit)
     status = _status_for_key(key, local_entry, torsion_entry)
     evidence = _evidence_for_key(
         key,
@@ -156,6 +168,7 @@ def _build_item(
         local_entry=local_entry,
         torsion_entry=torsion_entry,
         torsion_audit=torsion_audit,
+        bracing_audit=bracing_audit,
     )
     return StructuralClosureItem(
         key=key,
@@ -191,12 +204,24 @@ def _status_for_key(key: str, local_entry: Any | None, torsion_entry: Any | None
     return "claim_guarded_not_closed"
 
 
-def _evidence_artifacts(key: str, local_entry: Any | None, torsion_entry: Any | None) -> str:
+def _evidence_artifacts(
+    key: str,
+    local_entry: Any | None,
+    torsion_entry: Any | None,
+    bracing_audit: Any | None,
+) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
     if local_entry is not None:
         artifacts.append("Phase19 local_load_path_ledger")
     if torsion_entry is not None or key == "rib_load_transfer":
         artifacts.append("Phase20 rear_spar_torsion_audit")
+    if bracing_audit is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "torsion_twist_coupling",
+        "failure_mode_ordering",
+    }:
+        artifacts.append("Phase22 bracing_sensitivity")
     return "; ".join(artifacts)
 
 
@@ -208,6 +233,7 @@ def _evidence_for_key(
     local_entry: Any | None,
     torsion_entry: Any | None,
     torsion_audit: Any | None,
+    bracing_audit: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
     if local_entry is not None:
@@ -253,7 +279,51 @@ def _evidence_for_key(
         )
     if key == "full_wing_global_buckling":
         parts.append("No full-wing global buckling eigen/FEM result is present in these artifacts.")
+    if bracing_audit is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "torsion_twist_coupling",
+        "failure_mode_ordering",
+    }:
+        parts.append(f"Phase22: {_bracing_summary_for_key(key, bracing_audit)}")
     return " ".join(parts)
+
+
+def _bracing_summary_for_key(key: str, bracing_audit: Any) -> str:
+    rows = {str(row.variant_id): row for row in getattr(bracing_audit, "rows", ())}
+    rear_soft = rows.get("rear_stiffness_5pct")
+    dense_finite = rows.get("dense_finite_rib_surrogate")
+    dense_rigid = rows.get("dense_rigid_links")
+    if key == "rear_spar_stiffness" and rear_soft is not None:
+        return (
+            "rear_stiffness_5pct changed tip by "
+            f"{_fmt(getattr(rear_soft, 'tip_main_delta_vs_baseline_pct', None))}% "
+            "and spar-pair angle by "
+            f"{_fmt(getattr(rear_soft, 'angle_delta_vs_baseline_deg', None))} deg."
+        )
+    if key == "rib_load_transfer" and dense_finite is not None:
+        return (
+            "dense_finite_rib_surrogate changed max vertical by "
+            f"{_fmt(getattr(dense_finite, 'max_vertical_delta_vs_baseline_pct', None))}% "
+            "with max link force "
+            f"{_fmt(getattr(dense_finite, 'link_force_max_n', None))} N."
+        )
+    if key == "torsion_twist_coupling" and dense_finite is not None:
+        return (
+            "dense_finite_rib_surrogate changed spar-pair angle by "
+            f"{_fmt(getattr(dense_finite, 'angle_delta_vs_baseline_deg', None))} deg."
+        )
+    if key == "failure_mode_ordering" and rear_soft is not None:
+        return (
+            "rear_stiffness_5pct and dense-link variants show bracing assumptions move global response; "
+            "detail/global modes still need to enter the ordering table."
+        )
+    if dense_rigid is not None:
+        return (
+            "dense_rigid_links changed max vertical by "
+            f"{_fmt(getattr(dense_rigid, 'max_vertical_delta_vs_baseline_pct', None))}%."
+        )
+    return "bracing sensitivity rows unavailable."
 
 
 def _next_action_for_key(key: str) -> str:
