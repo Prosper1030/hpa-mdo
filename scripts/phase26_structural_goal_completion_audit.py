@@ -71,7 +71,7 @@ EVIDENCE_STRENGTH_BY_KEY: dict[str, str] = {
     "rib_spacing_assumption": "layout_requirement_only",
     "tip_deflection_limit": "claim_guardrail",
     "full_wing_global_buckling": "claim_guardrail",
-    "failure_mode_ordering": "ranked_internal_only",
+    "failure_mode_ordering": "detail_modes_listed_but_unranked",
 }
 
 COMPLETION_BLOCKER_BY_KEY: dict[str, str] = {

@@ -115,6 +115,9 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
     assert by_key["rib_spacing_assumption"].evidence_strength == "layout_requirement_only"
     assert by_key["tip_deflection_limit"].evidence_strength == "claim_guardrail"
     assert by_key["full_wing_global_buckling"].completion_blocker == "full_wing_or_braced_subassembly_buckling_fem_missing"
+    assert by_key["failure_mode_ordering"].evidence_strength == (
+        "detail_modes_listed_but_unranked"
+    )
     assert "unranked real-structure modes=7" in by_key["failure_mode_ordering"].evidence_summary
 
 
