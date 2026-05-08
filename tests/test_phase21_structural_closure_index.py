@@ -239,6 +239,23 @@ def _torsion_twist_closure_check() -> SimpleNamespace:
     )
 
 
+def _full_wing_buckling_closure_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="full_wing_global_buckling_not_closed",
+        rows=(
+            SimpleNamespace(
+                case_id="full_wing_global_buckling_input_required",
+                status="closure_input_missing",
+                model_scope="",
+                claim_load_factor=None,
+                first_global_buckling_load_factor=None,
+                load_factor_margin=None,
+                missing_components="main_spar;rear_spar;finite_ribs;wire_attach_load_path;root_boundary",
+            ),
+        ),
+    )
+
+
 def _failure_mode_ordering() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="true_failure_order_not_closed",
@@ -259,6 +276,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
+        full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 
@@ -291,6 +309,11 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
+    assert "Phase30" in by_key["full_wing_global_buckling"].evidence_artifacts
+    assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].current_evidence
+    assert "missing components=main_spar;rear_spar;finite_ribs;wire_attach_load_path;root_boundary" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
 
 
 def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: Path) -> None:
@@ -305,6 +328,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
+        full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 

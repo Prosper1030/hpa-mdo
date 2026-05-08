@@ -54,6 +54,9 @@ from scripts.phase28_rib_bracing_margin_inputs import (  # noqa: E402
 from scripts.phase29_torsion_twist_closure_inputs import (  # noqa: E402
     build_torsion_twist_closure_check,
 )
+from scripts.phase30_full_wing_buckling_closure_inputs import (  # noqa: E402
+    build_full_wing_buckling_closure_check,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -90,6 +93,7 @@ def build_structural_closure_index(
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
+    full_wing_buckling_closure_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
@@ -110,6 +114,7 @@ def build_structural_closure_index(
             rib_spacing_requirements=rib_spacing_requirements,
             rib_bracing_margin_check=rib_bracing_margin_check,
             torsion_twist_closure_check=torsion_twist_closure_check,
+            full_wing_buckling_closure_check=full_wing_buckling_closure_check,
             failure_mode_ordering=failure_mode_ordering,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
@@ -138,6 +143,7 @@ def write_structural_closure_index_package(
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
+    full_wing_buckling_closure_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -151,6 +157,7 @@ def write_structural_closure_index_package(
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         failure_mode_ordering=failure_mode_ordering,
     )
     outputs = [
@@ -204,6 +211,10 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         torsion_audit,
         closure_inputs=[],
     )
+    full_wing_buckling_closure_check = build_full_wing_buckling_closure_check(
+        reference.candidate_id,
+        closure_inputs=[],
+    )
     return build_structural_closure_index(
         review,
         local_ledger=local_ledger,
@@ -214,6 +225,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         failure_mode_ordering=failure_mode_ordering,
     )
 
@@ -232,6 +244,7 @@ def _build_item(
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
+    full_wing_buckling_closure_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
@@ -246,6 +259,7 @@ def _build_item(
         rib_spacing_requirements,
         rib_bracing_margin_check,
         torsion_twist_closure_check,
+        full_wing_buckling_closure_check,
         failure_mode_ordering,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
@@ -262,6 +276,7 @@ def _build_item(
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         failure_mode_ordering=failure_mode_ordering,
     )
     return StructuralClosureItem(
@@ -308,6 +323,7 @@ def _evidence_artifacts(
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
+    full_wing_buckling_closure_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
@@ -338,6 +354,8 @@ def _evidence_artifacts(
         artifacts.append("Phase28 rib_bracing_margin_inputs")
     if torsion_twist_closure_check is not None and key == "torsion_twist_coupling":
         artifacts.append("Phase29 torsion_twist_closure_inputs")
+    if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
+        artifacts.append("Phase30 full_wing_buckling_closure_inputs")
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
         artifacts.append("Phase25 failure_mode_ordering")
     return "; ".join(artifacts)
@@ -357,6 +375,7 @@ def _evidence_for_key(
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
+    full_wing_buckling_closure_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
@@ -426,6 +445,10 @@ def _evidence_for_key(
         parts.append(f"Phase28: {_rib_bracing_summary(rib_bracing_margin_check)}")
     if torsion_twist_closure_check is not None and key == "torsion_twist_coupling":
         parts.append(f"Phase29: {_torsion_twist_closure_summary(torsion_twist_closure_check)}")
+    if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
+        parts.append(
+            f"Phase30: {_full_wing_buckling_closure_summary(full_wing_buckling_closure_check)}"
+        )
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
         parts.append(f"Phase25: {_failure_ordering_summary(failure_mode_ordering)}")
     return " ".join(parts)
@@ -522,6 +545,26 @@ def _torsion_twist_closure_summary(check: Any) -> str:
         f"{_fmt(getattr(first, 'twist_margin_deg', None) if first is not None else None)} deg; "
         "torque margin="
         f"{_fmt(getattr(first, 'torque_balance_margin_pct', None) if first is not None else None)}%."
+    )
+
+
+def _full_wing_buckling_closure_summary(check: Any) -> str:
+    rows = tuple(getattr(check, "rows", ()))
+    first = rows[0] if rows else None
+    status = "missing" if first is None else getattr(first, "status", "unknown")
+    return (
+        "closure status="
+        f"{status}; "
+        "overall="
+        f"{getattr(check, 'overall_status', 'unknown')}; "
+        "claim n="
+        f"{_fmt(getattr(first, 'claim_load_factor', None) if first is not None else None)}; "
+        "first buckling n="
+        f"{_fmt(getattr(first, 'first_global_buckling_load_factor', None) if first is not None else None)}; "
+        "margin n="
+        f"{_fmt(getattr(first, 'load_factor_margin', None) if first is not None else None)}; "
+        "missing components="
+        f"{getattr(first, 'missing_components', 'unknown') if first is not None else 'unknown'}."
     )
 
 
