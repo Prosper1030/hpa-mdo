@@ -124,8 +124,10 @@ def _build_row(torsion_audit: Any, raw: dict[str, Any]) -> TorsionTwistClosureRo
     max_torque_error = _dict_float(raw, "max_allowed_torque_balance_error_pct")
     twist_margin = _twist_margin(measured_twist, twist_limit)
     torque_margin = _margin(max_torque_error, torque_error)
+    source = str(raw.get("source", "")).strip()
     status = _status(
         method=method,
+        source=source,
         measured_twist=measured_twist,
         twist_limit=twist_limit,
         torque_error=torque_error,
@@ -147,7 +149,7 @@ def _build_row(torsion_audit: Any, raw: dict[str, Any]) -> TorsionTwistClosureRo
             torsion_audit,
             "max_spar_pair_line_angle_delta_deg",
         ),
-        source=str(raw.get("source", "")),
+        source=source,
         engineering_note=_engineering_note(status),
     )
 
@@ -178,6 +180,7 @@ def _missing_input_row(torsion_audit: Any) -> TorsionTwistClosureRow:
 def _status(
     *,
     method: str,
+    source: str,
     measured_twist: float | None,
     twist_limit: float | None,
     torque_error: float | None,
@@ -186,6 +189,8 @@ def _status(
 ) -> str:
     if method not in ACCEPTED_CLOSURE_METHODS:
         return "invalid_twist_observable"
+    if not source:
+        return "source_missing"
     if (
         measured_twist is None
         or twist_limit is None

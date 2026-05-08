@@ -53,6 +53,26 @@ def test_torsion_twist_closure_check_accepts_tip_ring_or_aeroelastic_inputs_only
     assert "tip-ring" in by_case["single-node"].engineering_note
 
 
+def test_torsion_twist_closure_check_requires_traceable_source() -> None:
+    check = build_torsion_twist_closure_check(
+        _torsion_audit(),
+        closure_inputs=(
+            {
+                "case_id": "tip-ring-no-source",
+                "closure_method": "tip_ring_fem",
+                "measured_twist_deg": "2.2",
+                "twist_limit_deg": "5.0",
+                "torque_balance_error_pct": "4.0",
+                "max_allowed_torque_balance_error_pct": "10.0",
+                "source": "",
+            },
+        ),
+    )
+
+    assert check.overall_status == "torsion_twist_closure_not_closed"
+    assert check.rows[0].status == "source_missing"
+
+
 def test_torsion_twist_closure_check_marks_missing_inputs() -> None:
     check = build_torsion_twist_closure_check(_torsion_audit(), closure_inputs=())
 
