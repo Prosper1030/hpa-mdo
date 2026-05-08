@@ -172,7 +172,7 @@
            │      min_lift≥100kg, L/D≥25 check   │
            │      AVL trim → CL/CD/L/D extract   │
            │ 7f ✅ phase-2 sweep re-run           │
-           │      all 7 cases pass all gates     │
+           │      7 cases clear legacy gates      │
            │ 7g ✅ progressive dihedral scaling   │
            │      span-weighted Z, exponent p    │
            │ 7h ✅ loaded STEP + deflection CSV   │
@@ -365,6 +365,11 @@ Phase 2 prompt：docs/codex_prompts/M_VSP2_generic_intake_phase2.md
 
 ### Phase I-B 目前狀態明細
 
+> **Stale evidence note:** 本節保留 Phase 2/9 歷史進度；其中 `all pass` / `feasible`
+> 指的是當時的 AVL/stability/beam screening gates cleared，不是目前的 rear-spar/rib
+> bracing、wire attach/termination、root joint、aeroelastic twist 或 full-wing buckling
+> engineering sign-off。現行結構宣稱邊界以 Phase18/21/26/38/39 artifacts 為準。
+
 | 項目 | 狀態 | 備註 |
 |------|------|------|
 | dual-beam production mainline | ✅ | builder/solver/recovery/optimizer_view |
@@ -383,14 +388,14 @@ Phase 2 prompt：docs/codex_prompts/M_VSP2_generic_intake_phase2.md
 | full-body AVL model | ✅ | wing+elevator+fin，data/blackcat_004_full.avl |
 | sweep error handling | ✅ | per-case collection + --strict flag |
 | aero performance gates | ✅ | min_lift≥100kg, L/D≥25, AVL trim |
-| phase-2 sweep | ✅ | 7 cases all pass all gates |
+| phase-2 sweep | ✅ | 7 cases cleared legacy screening gates（not current structure sign-off） |
 | progressive dihedral scaling | ✅ | Task 7g — span-weighted exponent |
 | loaded STEP + deflection CSV | ✅ | Task 7h — jig+loaded .step + deflection CSV |
 | monotonic deflection check | ✅ | Task 7i — diagnostic warning in summary/log |
 | VSP3→AVL pipeline | ✅ | vsp_geometry_parser + avl_exporter + CLI |
 | generic VSP controls | ✅ | 已接進 AVL / ASWING exporter |
 | phase-2 gate stack | ✅ | stability + min_lift + L/D + structural gates 全部啟用 |
-| fine dihedral sweep (9a) | ✅ | 1.0→3.5 / 0.1 step，26 cases all pass，best x3.5 = 11.99 kg |
+| fine dihedral sweep (9a) | ✅ | 1.0→3.5 / 0.1 step，26 cases cleared legacy screening gates，best x3.5 = 11.99 kg |
 | multi-wire sweep (9b) | ✅ | 1/2/3 wires + drag penalty；single x3.5 still best |
 | multi-objective Pareto front (9c) | ✅ | 54 feasible → 21 Pareto points；triple wire 脫離 frontier |
 | vendor-aware tube catalog (9d) | ✅ | 4 representative designs 全數離散化；tube BOM penalty +2.8~+9.6 kg |
@@ -681,7 +686,7 @@ Phase IV ───────────────────────�
 | Phase I — Milestone B | ✅ | Production → `method="auto"`, 21.57→13.91 kg (−35%), 5× speedup |
 | Phase I — Milestone 2 | ✅ | F13 compressive / F9 warping / F6 壁厚平滑 / F8 torsion-shear |
 | Phase I — Milestone 3 | ✅ | FSI one-way, multi-case, STEP deformed shape |
-| Phase I — Milestone 4 | ✅ | F10 wire precomp / F11 discrete OD / F12 gravity torque / 4e ANSYS PASS |
+| Phase I — Milestone 4 | ✅ | F10 wire precomp / F11 discrete OD / F12 gravity torque / 4e ANSYS reference agreement（legacy parity） |
 | Phase I-B — Milestone 6 | ✅ | dual-beam mainline, inverse design MVP, discrete geometry, decision layer |
 | Phase I-B — Milestone 7 | ✅ | dihedral sweep MVP-1, aero gates, phase-2 re-run, progressive/output diagnostics |
 | Phase I-B — Milestone 8 | ✅ | VSP3 XML parser, AVL exporter, CLI utility, tail/fin schema/runtime |
@@ -699,8 +704,8 @@ Dihedral ×1.5:  mass=19.7 kg, clearance=2.4 mm, wire=3335 N
 Dihedral ×2.0:  mass=14.6 kg, clearance=4.7 mm, wire=3716 N
 Dihedral ×2.5:  mass=13.1 kg, clearance=8.4 mm, wire=3875 N
 
-Wire allowable (dyneema_sk75, 2.5mm, 40%):  ≈6872 N  ← 全部 feasible
-Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
+Wire allowable (dyneema_sk75, 2.5mm, 40%):  ≈6872 N  ← wire-body screening feasible；termination/fitting allowables 未關閉
+Stability + aero gates:  已啟用，phase-2 sweep 7 cases cleared legacy screening gates
 
 9a fine sweep highlights:
   x3.0:  mass=12.47 kg, clearance=1.49 mm, wire=3912 N
@@ -802,13 +807,13 @@ Stability + aero gates:  已啟用，phase-2 sweep 7 cases all pass
 | tolerance 進 config | M7 | ✅ Pydantic + YAML + CLI |
 | .lod component filter | M7 | ✅ optional component_ids + WARNING |
 | aero performance gates | M7 | ✅ min_lift ≥ 100kg, L/D ≥ 25, trim gate |
-| phase-2 sweep re-run | M7 | ✅ 7 cases all pass all gates |
+| phase-2 sweep re-run | M7 | ✅ 7 cases cleared legacy screening gates |
 | progressive dihedral scaling | M7 | ✅ span-weighted exponent |
 | loaded STEP + deflection CSV | M7 | ✅ loaded_shape.step + node_deflections.csv |
 | monotonic deflection diagnostic | M7 | ✅ summary JSON + warning hook |
 | VSP3→AVL pipeline | M8 | ✅ parser + exporter + CLI + tests |
-| fine dihedral sweep | M9 | ✅ 26 cases, all pass, best x3.5 = 11.99 kg |
-| multi-wire sweep + drag penalty | M9 | ✅ 24 cases, all pass, single x3.5 still best |
+| fine dihedral sweep | M9 | ✅ 26 cases cleared legacy screening gates，best x3.5 = 11.99 kg |
+| multi-wire sweep + drag penalty | M9 | ✅ 24 cases cleared legacy screening gates，single x3.5 still best |
 | multi-objective Pareto front | M9 | ✅ 54 feasible → 21 frontier points，mass-first single x5.0 |
 | vendor-aware tube catalog | M9 | ✅ 4 representative designs discrete BOM + cost；tube penalty +2.8~+9.6 kg |
 | full wire/rigging system | M9 | ✅ mirrored aircraft wire schedule + BOM；cable mass 0.07~0.15 kg |
