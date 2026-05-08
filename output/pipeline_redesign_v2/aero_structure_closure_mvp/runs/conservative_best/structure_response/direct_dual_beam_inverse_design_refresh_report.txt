@@ -1,0 +1,177 @@
+============================================================================================================
+Inverse-Design Load Refresh Refinement
+============================================================================================================
+Generated                     : 2026-05-08 13:31:33 CST
+Config                        : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/smooth_tier2_canonical_config.yaml
+Design report                 : /Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/ansys/crossval_report.txt
+Baseline cruise AoA           : 0.000 deg
+Target mass cap               : 14.000 kg
+Aero source mode              : candidate_avl_spanwise
+Aero load ownership           : legacy_refresh still owns the structural selected load-state; candidate_avl_spanwise only swaps in a candidate-owned AVL spanwise lift distribution shape for that already-selected state.
+Aero artifact ownership       : Candidate-owned AVL geometry, trim, strip-force, and spanwise-load artifacts live under /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/tier2_loaded_shape_airfoil_mvp/runs/conservative_best/avl_run.
+Candidate knobs               : target_shape_z_scale=3.990598, dihedral_multiplier=3.990598, dihedral_exponent=1.000000
+Candidate AoA sweep           : -5.000, -4.000, -3.000, -2.000, -1.000, 0.000, 1.000, 2.000, 3.000, 4.000, 5.000
+Candidate aero note           : Pipeline v2 MVP5 closure artifact from MVP4 selected-airfoil AVL rerun.
+Candidate aero note           : Structure response remains daily-screening/report-only.
+Candidate aero note           : Structural selected state is re-aligned to the old legacy_refresh owner by reusing the shared cfg.io VSPAero sweep selection rule.
+Candidate aero note           : Selected cruise AoA source: mvp4_selected_airfoil_avl_trim.
+Candidate aero note           : candidate_avl_spanwise now replaces only the spanwise lift distribution shape; drag / torque ownership stay on the legacy-selected structural state.
+Candidate aero note           : AVL lift shape for the selected structural state comes from the closest candidate-owned strip-force case by half-span lift (shape AoA 0.122 deg), then it is rescaled back to the legacy-selected total lift.
+Candidate aero note           : Outer-loop gate owner metadata: mvp4_selected_airfoil_loaded_shape_avl_rerun.
+Candidate aero note           : Boundary coverage: nearest_strip_coefficients_with_avl_root_tip_chord.
+Rib design mode               : limited_zonewise
+Rib design profile            : baseline_uniform
+Rib mix mode                  : single_family_uniform
+Rib effective knockdown       : 0.503301
+
+Definition:
+  target_loaded_shape         : current VSP / structural cruise geometry at the beam nodes
+  jig_shape                   : nodes_target - structural displacement
+  refresh method              : candidate-level AVL geometry + strip-force AoA sweep for the baseline load owner; later refresh steps interpolate within the candidate-owned AVL AoA sweep
+  outer updates               : 1-2 one-way refresh steps only; no inner converged aero-structural loop
+  dynamic design space        : disabled
+  converged outer loop        : no
+
+Physics assumptions:
+  1. Each stage is still a one-way structural solve on the existing beam-line target shape.
+  2. The beam-line target shape remains fixed across refresh iterations.
+  3. The initial baseline loads come from a candidate-owned AVL geometry and strip-force AoA sweep.
+  4. Later refresh steps reuse that candidate-owned AVL AoA sweep; AVL is not rerun after each structural update.
+  5. Structural twist is treated as local washout with a simple scalar scale factor.
+  6. The forward refresh check estimates frozen-load bias by applying refreshed displacement to the previous jig.
+
+Difference from full coupling:
+  - capped outer refresh count instead of iterating to convergence
+  - baseline candidate lift shape is rebuilt once from AVL strip forces while torque stays on the legacy-selected state, but there is still no per-refresh AVL rerun
+  - no trim solve or dynamic design-space update
+
+Initial reduced map:
+  main_plateau_scale upper    : 1.1400
+  main_taper_fill upper       : 0.8000
+  rear_radius_scale upper     : 1.1200
+  delta_t_global_max          : 7.200 mm
+  delta_t_rear_outboard_max   : 3.000 mm
+
+Manufacturing limits:
+  source                      : baseline_seed x 1.100
+  max jig vertical prebend    : 3486.171 mm
+  max jig vertical curvature  : 0.140962 1/m
+  refresh washout scale       : 1.000
+
+Refresh summary:
+  requested outer steps       : 0
+  completed outer steps       : 0
+  dynamic map rebuilds        : 0
+  converged                   : False
+  final feasible              : True
+  final selected source       : baseline
+  best overall feasible mass  : 12.189 kg
+  best target-feasible mass   : 12.189 kg
+  recovery enabled            : False
+  recovery triggered          : False
+  recovery baseline knobs     : target_shape_z_scale=3.990598, dihedral_exponent=1.000000
+  recovery selected attempt   : baseline_requested
+  recovery selected knobs     : target_shape_z_scale=3.990598, dihedral_exponent=1.000000
+
+Ground-clearance recovery ladder:
+  attempt 01                  : baseline_requested
+    requested knobs           : target_shape_z_scale=3.990598, dihedral_exponent=1.000000
+    case output dir           : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/ground_clearance_recovery_cases/baseline_requested
+    run completed            : True
+    feasible                 : True
+    ground clearance blocker : False
+    analysis succeeded       : True
+    selected total mass      : 12.189 kg
+    target mismatch max      : 0.000000 mm
+    jig ground clearance min : 41.207 mm
+    primary driver           : radius_dominance_margin_min_m
+    message                  : analysis complete
+
+Iteration 0:
+  load source                 : candidate_avl_spanwise:legacy_selected_state_plus_candidate_owned_avl_lift_shape_sweep:aoa_0.000deg
+  dynamic map rebuild         : False
+  map plateau / taper / rear  : 1.1400 / 0.8000 / 1.1200
+  map delta_t / rear_outboard :    7.200000 mm /    3.000000 mm
+  coarse selected mass        :      12.189 kg
+  coarse candidate count      :          96
+  coarse feasible count       :          57
+  coarse target-feasible cnt  :          15
+  total structural mass       :      12.189 kg
+  coarse -> selected delta    :      +0.000 kg
+  overall feasible            : True
+  target mass passed          : True
+  mass margin                 :      +1.811 kg
+  loaded-shape main-Z max     :    0.000000 mm
+  loaded-shape main-Z rms     :    0.000000 mm
+  loaded-shape twist max      :    0.000000 deg
+  loaded-shape twist rms      :    0.000000 deg
+  nodewise mismatch max       :    0.000000 mm
+  nodewise mismatch rms       :    0.000000 mm
+  loaded-shape penalty        :    0.000000 kg
+  jig min ground clearance    :      41.207 mm
+  clearance risk score        :    0.000000
+  clearance hotspot count     :           0
+  hotspot mean clearance      :      50.075 mm
+  clearance penalty           :    0.000000 kg
+  active-wall risk score      :    0.666667
+  active-wall tight count     :           2
+  active-wall penalty         :    0.033333 kg
+  rib design key              : baseline_uniform
+  rib mix mode                : single_family_uniform
+  rib effective knockdown     :    0.503301
+  rib unique families         :           1 / 2
+  rib family switches         :           0
+  rib design penalty          :    0.000000 kg
+  clearance fragile           : False
+  max jig prebend             :    3169.246 mm
+  max jig curvature           :    0.128147 1/m
+  equivalent failure          :   -0.526799
+  equivalent buckling         :   -0.819957
+  equivalent tip              :    2410.064 mm
+  equivalent twist            :    0.187052 deg
+  total half-span lift        :     451.932 N
+  total half-span drag        :       6.479 N
+  total |torque| half-span    :     259.757 N*m
+  effective AoA range         :    0.000 ..    0.000 deg
+  twist abs max (refresh)     :    0.000000 deg
+  AoA clip fraction           :       0.000 %
+
+Active-wall diagnostics:
+  clearance hotspots:
+    rank 01                 : rear node 4 side=positive_half_span y=1.166 m z=0.041207 m clearance=41.206878 mm
+    rank 02                 : rear node 5 side=positive_half_span y=1.457 m z=0.045014 m clearance=45.013565 mm
+    rank 03                 : rear node 3 side=positive_half_span y=0.874 m z=0.048392 m clearance=48.392183 mm
+    rank 04                 : rear node 6 side=positive_half_span y=1.748 m z=0.056276 m clearance=56.275846 mm
+    rank 05                 : rear node 2 side=positive_half_span y=0.583 m z=0.059487 m clearance=59.486560 mm
+  principal bottleneck        : main_radius_taper_margin_min_m
+  primary driver              : radius_dominance_margin_min_m
+  active-wall risk score      : 0.666667
+  wall radius_dominance_margin_min_m : margin=-0.000000 mm  state=lower_bound  segment 6 @ y=13.500..17.166 m  main_r=15.000 mm rear_r=10.000 mm (required gap=5.000 mm)
+  wall main_radius_taper_margin_min_m : margin= 0.000000 mm  state=equality_wall  interface 1->2 @ y=1.500 m  main radius taper inboard=30.635 mm outboard=30.635 mm
+  wall rear_radius_taper_margin_min_m : margin= 0.000000 mm  state=equality_wall  interface 1->2 @ y=1.500 m  rear radius taper inboard=10.000 mm outboard=10.000 mm
+  wall main_thickness_step_margin_min_m : margin= 3.000000 mm  state=upper_bound  interface 1->2 @ y=1.500 m  main thickness step |Δ|=0.000 mm (limit=3.000 mm)
+  wall rear_thickness_step_margin_min_m : margin= 3.000000 mm  state=upper_bound  interface 1->2 @ y=1.500 m  rear thickness step |Δ|=0.000 mm (limit=3.000 mm)
+  reduced var main_plateau_scale  : margin=0.000000  state=lower_bound  value=0.000000  lower_margin=0.000000  upper_margin=1.000000
+  reduced var main_taper_fill     : margin=0.000000  state=lower_bound  value=0.000000  lower_margin=0.000000  upper_margin=1.000000
+  reduced var rear_radius_scale   : margin=0.000000  state=lower_bound  value=0.000000  lower_margin=0.000000  upper_margin=1.000000
+  reduced var rear_outboard_fraction : margin=0.000000  state=lower_bound  value=0.000000  lower_margin=0.000000  upper_margin=1.000000
+  reduced var wall_thickness_fraction : margin=0.000000  state=lower_bound  value=0.000000  lower_margin=0.000000  upper_margin=1.000000
+  lightening probes:
+    rear_radius_scale       : dm=  +0.009 kg  dclear=   +0.264 mm  blocker=geometry_validity
+    main_taper_fill         : dm=  +0.031 kg  dclear=   +0.054 mm  blocker=main_radius_taper_margin_min_m
+    main_plateau_scale      : dm=  +0.033 kg  dclear=   +0.291 mm  blocker=main_radius_taper_margin_min_m
+    rear_outboard_fraction  : dm=  +0.111 kg  dclear=   +0.088 mm  blocker=radius_dominance_margin_min_m
+    wall_thickness_fraction : dm=  +2.540 kg  dclear=  +12.044 mm  blocker=radius_dominance_margin_min_m
+
+Artifacts:
+  target shape CSV             : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/target_loaded_shape_spar_data.csv
+  jig shape CSV                : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/jig_shape_spar_data.csv
+  loaded shape CSV             : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/loaded_shape_spar_data.csv
+  deflection CSV               : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/node_deflections.csv
+  jig STEP                     : not written
+  loaded STEP                  : not written
+  diagnostics JSON             : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/active_wall_diagnostics.json
+  validity summary JSON        : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/validity_summary.json
+  wire rigging JSON            : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/lift_wire_rigging.json
+  aero contract JSON           : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/conservative_best/structure_response/candidate_aero_contract.json
+  STEP engine                  : not run

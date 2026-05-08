@@ -1,0 +1,163 @@
+{
+  "generated_at": "2026-05-08T13:31:33.232196+08:00",
+  "selected_source": "baseline",
+  "selected_message": "analysis complete",
+  "overall_status": "warn",
+  "validity_status": {
+    "overall_status": "warn",
+    "mainline_gate_status": "pass",
+    "legacy_reference_status": "pass",
+    "monotonic_deflection_status": "warn"
+  },
+  "mainline_feasibility": {
+    "overall_feasible": true,
+    "safety_passed": true,
+    "manufacturing_passed": true,
+    "failures": []
+  },
+  "legacy_reference": {
+    "passed": true,
+    "failures": []
+  },
+  "metrics": {
+    "loaded_shape_match": {
+      "mode": "exact_nodal",
+      "control_station_fractions": [
+        0.0,
+        0.5,
+        1.0
+      ],
+      "control_station_y_m": [
+        0.0,
+        8.5830715,
+        17.166143
+      ],
+      "main_z_target_m": [
+        0.07143912961806514,
+        0.9444439160696169,
+        4.249999999997169
+      ],
+      "main_z_loaded_m": [
+        0.07143912961806514,
+        0.9444439160696169,
+        4.249999999997169
+      ],
+      "main_z_error_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "twist_target_deg": [
+        -0.6334942714991902,
+        0.4124741409320993,
+        -4.725464894440169
+      ],
+      "twist_loaded_deg": [
+        -0.6334942714991902,
+        0.4124741409320993,
+        -4.725464894440169
+      ],
+      "twist_error_deg": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "main_z_tolerance_m": 0.025,
+      "twist_tolerance_deg": 0.15,
+      "main_z_max_abs_error_m": 0.0,
+      "main_z_rms_error_m": 0.0,
+      "twist_max_abs_error_deg": 0.0,
+      "twist_rms_error_deg": 0.0,
+      "normalized_max_error": 0.0,
+      "normalized_rms_error": 0.0,
+      "passed": true
+    },
+    "target_shape_error": {
+      "max_abs_error_m": 1.1102230246251565e-16,
+      "rms_error_m": 1.0134903240813529e-17,
+      "tolerance_m": 1e-09,
+      "passed": true
+    },
+    "ground_clearance": {
+      "clearance_floor_z_m": 0.0,
+      "min_main_z_m": 0.07143912961806514,
+      "min_rear_z_m": 0.0412068776623874,
+      "min_z_m": 0.0412068776623874,
+      "margin_m": 0.0412068776623874,
+      "passed": true
+    },
+    "manufacturing": {
+      "max_abs_vertical_prebend_m": 3.169246326997204,
+      "max_abs_vertical_curvature_per_m": 0.12814747684129582,
+      "prebend_limit_m": 3.486170959696925,
+      "curvature_limit_per_m": 0.14096222452542542,
+      "prebend_margin_m": 0.3169246326997208,
+      "curvature_margin_per_m": 0.012814747684129602,
+      "prebend_passed": true,
+      "curvature_passed": true,
+      "passed": true
+    },
+    "monotonic_deflection": {
+      "segments_checked": 2,
+      "segments_monotonic": 1,
+      "worst_violation_m": 8.509349941404015e-05,
+      "worst_violation_node_y_m": 0.5819031525423729,
+      "passed": false,
+      "details": [
+        "segment [0.000, 7.500] m: non-monotonic at y=0.291 m, violation=2.913492e-06 m",
+        "segment [0.000, 7.500] m: non-monotonic at y=0.582 m, violation=8.509350e-05 m",
+        "segment [0.000, 7.500] m: non-monotonic at y=0.873 m, violation=4.497901e-05 m"
+      ]
+    },
+    "candidate": {
+      "total_structural_mass_kg": 12.18940044080386,
+      "tube_mass_kg": 9.68940044080386,
+      "objective_value_kg": 12.222733774137193,
+      "clearance_risk_score": 0.0,
+      "active_wall_risk_score": 0.6666666666666666,
+      "technically_clearance_fragile": false
+    }
+  },
+  "margins": {
+    "inverse_design": {
+      "loaded_shape_main_z_margin_m": 0.025,
+      "loaded_shape_twist_margin_deg": 0.15,
+      "ground_clearance_margin_m": 0.0412068776623874,
+      "jig_prebend_margin_m": 0.3169246326997208,
+      "jig_curvature_margin_per_m": 0.012814747684129602
+    },
+    "hard_constraints": {
+      "ei_dominance_margin_min_nm2": 775.7055709461465,
+      "ei_ratio_margin_min": 1.5141265886770667,
+      "equivalent_buckling_margin": 0.8299569467187915,
+      "equivalent_failure_margin": 0.5367989600452503,
+      "equivalent_tip_margin": 0.13993584704569972,
+      "equivalent_twist_margin": 1.8529481495410258,
+      "ground_clearance_margin_m": 0.0412068776623874,
+      "jig_curvature_margin_per_m": 0.012814747684129602,
+      "jig_prebend_margin_m": 0.3169246326997208,
+      "loaded_shape_main_z_margin_m": 0.025,
+      "loaded_shape_twist_margin_deg": 0.15,
+      "main_hollow_margin_min_m": 0.014199999999999999,
+      "main_radius_taper_margin_min_m": 0.0,
+      "main_thickness_ratio_margin_min_m": 0.0112,
+      "main_thickness_step_margin_min_m": 0.003,
+      "radius_dominance_margin_min_m": -8.673617379884035e-19,
+      "rear_hollow_margin_min_m": 0.0091,
+      "rear_inboard_ei_margin_min_nm2": 2683.664553141044,
+      "rear_main_radius_ratio_margin_min_m": 0.01,
+      "rear_radius_taper_margin_min_m": 0.0,
+      "rear_thickness_ratio_margin_min_m": 0.0072,
+      "rear_thickness_step_margin_min_m": 0.003
+    }
+  },
+  "blockers": {
+    "primary_failures": [],
+    "negative_hard_margins": {
+      "radius_dominance_margin_min_m": -8.673617379884035e-19
+    },
+    "technically_clearance_fragile": false,
+    "active_wall_principal_bottleneck": "main_radius_taper_margin_min_m",
+    "active_wall_primary_driver": "radius_dominance_margin_min_m"
+  }
+}

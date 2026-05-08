@@ -1,0 +1,269 @@
+{
+  "selected_source": "baseline",
+  "mass_kg": 12.18940044080386,
+  "minimum_clearance_m": 0.041467348085143296,
+  "clearance_risk_score": 0.0,
+  "clearance_hotspot_count": 0,
+  "clearance_hotspot_mean_m": 0.05033811769765563,
+  "technically_clearance_fragile": false,
+  "clearance_hotspots": [
+    {
+      "rank": 1,
+      "spar": "rear",
+      "side": "positive_half_span",
+      "node_index": 4,
+      "y_m": 1.1658381800786433,
+      "z_m": 0.041467348085143296,
+      "clearance_m": 0.041467348085143296
+    },
+    {
+      "rank": 2,
+      "spar": "rear",
+      "side": "positive_half_span",
+      "node_index": 5,
+      "y_m": 1.457119081442333,
+      "z_m": 0.045365201378917544,
+      "clearance_m": 0.045365201378917544
+    },
+    {
+      "rank": 3,
+      "spar": "rear",
+      "side": "positive_half_span",
+      "node_index": 3,
+      "y_m": 0.8743295067478417,
+      "z_m": 0.04855869003443882,
+      "clearance_m": 0.04855869003443882
+    },
+    {
+      "rank": 4,
+      "spar": "rear",
+      "side": "positive_half_span",
+      "node_index": 6,
+      "y_m": 1.7482831390454427,
+      "z_m": 0.0567298261081737,
+      "clearance_m": 0.0567298261081737
+    },
+    {
+      "rank": 5,
+      "spar": "rear",
+      "side": "positive_half_span",
+      "node_index": 2,
+      "y_m": 0.582748072744954,
+      "z_m": 0.059569522881604775,
+      "clearance_m": 0.059569522881604775
+    }
+  ],
+  "active_wall_diagnostics": {
+    "principal_bottleneck": "main_radius_taper_margin_min_m",
+    "primary_driver": "radius_dominance_margin_min_m",
+    "active_wall_risk_score": 0.6666666666666666,
+    "tight_wall_count": 2,
+    "geometry_walls": [
+      {
+        "name": "radius_dominance_margin_min_m",
+        "category": "geometry / discrete boundary",
+        "margin": -8.673617379884035e-19,
+        "buffer": 0.001,
+        "risk_score": 1.0000000000000018,
+        "location": "segment 6 @ y=13.500..17.166 m",
+        "boundary_state": "lower_bound",
+        "detail": "main_r=15.000 mm rear_r=10.000 mm (required gap=5.000 mm)"
+      },
+      {
+        "name": "main_radius_taper_margin_min_m",
+        "category": "geometry / discrete boundary",
+        "margin": 0.0,
+        "buffer": 0.0005,
+        "risk_score": 1.0,
+        "location": "interface 1->2 @ y=1.500 m",
+        "boundary_state": "equality_wall",
+        "detail": "main radius taper inboard=30.635 mm outboard=30.635 mm"
+      },
+      {
+        "name": "rear_radius_taper_margin_min_m",
+        "category": "geometry / discrete boundary",
+        "margin": 0.0,
+        "buffer": 0.0005,
+        "risk_score": 1.0,
+        "location": "interface 1->2 @ y=1.500 m",
+        "boundary_state": "equality_wall",
+        "detail": "rear radius taper inboard=10.000 mm outboard=10.000 mm"
+      },
+      {
+        "name": "main_thickness_step_margin_min_m",
+        "category": "geometry / discrete boundary",
+        "margin": 0.003,
+        "buffer": 0.00025,
+        "risk_score": 0.0,
+        "location": "interface 1->2 @ y=1.500 m",
+        "boundary_state": "upper_bound",
+        "detail": "main thickness step |\u0394|=0.000 mm (limit=3.000 mm)"
+      },
+      {
+        "name": "rear_thickness_step_margin_min_m",
+        "category": "geometry / discrete boundary",
+        "margin": 0.003,
+        "buffer": 0.00025,
+        "risk_score": 0.0,
+        "location": "interface 1->2 @ y=1.500 m",
+        "boundary_state": "upper_bound",
+        "detail": "rear thickness step |\u0394|=0.000 mm (limit=3.000 mm)"
+      }
+    ],
+    "reduced_variable_bounds": [
+      {
+        "name": "main_plateau_scale",
+        "category": "reduced variable bound",
+        "margin": 0.0,
+        "buffer": 0.05,
+        "risk_score": 1.0,
+        "location": "z[0]",
+        "boundary_state": "lower_bound",
+        "detail": "value=0.000000  lower_margin=0.000000  upper_margin=1.000000"
+      },
+      {
+        "name": "main_taper_fill",
+        "category": "reduced variable bound",
+        "margin": 0.0,
+        "buffer": 0.05,
+        "risk_score": 1.0,
+        "location": "z[1]",
+        "boundary_state": "lower_bound",
+        "detail": "value=0.000000  lower_margin=0.000000  upper_margin=1.000000"
+      },
+      {
+        "name": "rear_radius_scale",
+        "category": "reduced variable bound",
+        "margin": 0.0,
+        "buffer": 0.05,
+        "risk_score": 1.0,
+        "location": "z[2]",
+        "boundary_state": "lower_bound",
+        "detail": "value=0.000000  lower_margin=0.000000  upper_margin=1.000000"
+      },
+      {
+        "name": "rear_outboard_fraction",
+        "category": "reduced variable bound",
+        "margin": 0.0,
+        "buffer": 0.05,
+        "risk_score": 1.0,
+        "location": "z[3]",
+        "boundary_state": "lower_bound",
+        "detail": "value=0.000000  lower_margin=0.000000  upper_margin=1.000000"
+      },
+      {
+        "name": "wall_thickness_fraction",
+        "category": "reduced variable bound",
+        "margin": 0.0,
+        "buffer": 0.05,
+        "risk_score": 1.0,
+        "location": "z[4]",
+        "boundary_state": "lower_bound",
+        "detail": "value=0.000000  lower_margin=0.000000  upper_margin=1.000000"
+      }
+    ],
+    "lighten_probes": [
+      {
+        "variable": "rear_radius_scale",
+        "selected_z": 0.0,
+        "trial_z": 0.03,
+        "mass_delta_kg": 0.009403556636378596,
+        "clearance_delta_m": 0.00026362427887097195,
+        "failure_delta": -0.0002422075005832358,
+        "buckling_delta": -7.074718215160924e-05,
+        "dominant_blocker": "geometry_validity",
+        "dominant_blocker_margin": -0.0026484857752726576,
+        "overall_feasible": false,
+        "target_mass_passed": true,
+        "clearance_risk_score": 0.0
+      },
+      {
+        "variable": "main_taper_fill",
+        "selected_z": 0.0,
+        "trial_z": 0.03,
+        "mass_delta_kg": 0.031058734023281076,
+        "clearance_delta_m": 5.359129579751709e-05,
+        "failure_delta": -0.0008708154006463742,
+        "buckling_delta": -0.0002684268835773107,
+        "dominant_blocker": "main_radius_taper_margin_min_m",
+        "dominant_blocker_margin": 0.0,
+        "overall_feasible": true,
+        "target_mass_passed": true,
+        "clearance_risk_score": 0.0
+      },
+      {
+        "variable": "main_plateau_scale",
+        "selected_z": 0.0,
+        "trial_z": 0.03,
+        "mass_delta_kg": 0.03331582201403904,
+        "clearance_delta_m": 0.0002882972438928294,
+        "failure_delta": -0.003982601275520081,
+        "buckling_delta": -0.00061794617818689,
+        "dominant_blocker": "main_radius_taper_margin_min_m",
+        "dominant_blocker_margin": 0.0,
+        "overall_feasible": true,
+        "target_mass_passed": true,
+        "clearance_risk_score": 0.0
+      },
+      {
+        "variable": "rear_outboard_fraction",
+        "selected_z": 0.0,
+        "trial_z": 0.03,
+        "mass_delta_kg": 0.11086111829517797,
+        "clearance_delta_m": 8.900986992051163e-05,
+        "failure_delta": -0.002859901653594399,
+        "buckling_delta": -0.0008677370833870546,
+        "dominant_blocker": "radius_dominance_margin_min_m",
+        "dominant_blocker_margin": -8.673617379884035e-19,
+        "overall_feasible": true,
+        "target_mass_passed": true,
+        "clearance_risk_score": 0.0
+      },
+      {
+        "variable": "wall_thickness_fraction",
+        "selected_z": 0.0,
+        "trial_z": 0.03,
+        "mass_delta_kg": 2.540393805858603,
+        "clearance_delta_m": 0.01199165846189687,
+        "failure_delta": -0.11403360984717426,
+        "buckling_delta": -0.05016173548850955,
+        "dominant_blocker": "radius_dominance_margin_min_m",
+        "dominant_blocker_margin": -8.673617379884035e-19,
+        "overall_feasible": true,
+        "target_mass_passed": false,
+        "clearance_risk_score": 0.0
+      }
+    ]
+  },
+  "hard_margins": {
+    "main_thickness_ratio_margin_min_m": 0.0112,
+    "rear_thickness_ratio_margin_min_m": 0.0072,
+    "main_hollow_margin_min_m": 0.014199999999999999,
+    "rear_hollow_margin_min_m": 0.0091,
+    "main_radius_taper_margin_min_m": 0.0,
+    "rear_radius_taper_margin_min_m": 0.0,
+    "main_thickness_step_margin_min_m": 0.003,
+    "rear_thickness_step_margin_min_m": 0.003,
+    "radius_dominance_margin_min_m": -8.673617379884035e-19,
+    "rear_main_radius_ratio_margin_min_m": 0.01,
+    "ei_dominance_margin_min_nm2": 775.7055709461465,
+    "ei_ratio_margin_min": 1.5141265886770667,
+    "rear_inboard_ei_margin_min_nm2": 2683.664553141044,
+    "equivalent_failure_margin": 0.5285078794703005,
+    "equivalent_buckling_margin": 0.8271560269621396,
+    "equivalent_tip_margin": -0.0046052394832836185,
+    "equivalent_twist_margin": 1.8532845772294535,
+    "loaded_shape_main_z_margin_m": 0.025,
+    "loaded_shape_twist_margin_deg": 0.15,
+    "ground_clearance_margin_m": 0.041467348085143296,
+    "jig_prebend_margin_m": 0.3289648701662946,
+    "jig_curvature_margin_per_m": 0.012771212655412284
+  },
+  "reduced_variables": {
+    "main_plateau_scale": 0.0,
+    "main_taper_fill": 0.0,
+    "rear_radius_scale": 0.0,
+    "rear_outboard_fraction": 0.0,
+    "wall_thickness_fraction": 0.0
+  }
+}

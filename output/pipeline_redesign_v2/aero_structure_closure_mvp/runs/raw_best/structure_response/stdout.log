@@ -1,0 +1,31 @@
+Inverse-design lightweight load-refresh refinement complete.
+  Config              : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/structure_budgeted_z_state_mvp/smooth_tier2_canonical_config.yaml
+  Design report       : /Volumes/Samsung SSD/hpa-mdo/output/blackcat_004/ansys/crossval_report.txt
+  Report              : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/direct_dual_beam_inverse_design_refresh_report.txt
+  Summary JSON        : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/direct_dual_beam_inverse_design_refresh_summary.json
+  Aero source mode    : candidate_avl_spanwise
+  Refresh steps       : 0/0
+  Dynamic map rebuild : 0
+  Converged           : False
+  Feasible            : True
+  Target mass cap     : 14.000 kg
+  Coarse mass         : 12.189 kg
+  Total mass          : 12.189 kg
+  Loaded-shape Z max  : 0.000000 mm
+  Loaded-shape twist  : 0.000000 deg
+  Nodewise mismatch   : 0.000000 mm
+  Jig clearance min   : 41.467 mm
+  Selected outer loop : baseline_requested (z_scale=3.990598, exp=1.000000)
+  Recovery triggered  : False
+  Clearance risk      : 0.000000
+  Active-wall risk    : 0.666667
+  Target shape CSV    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/target_loaded_shape_spar_data.csv
+  Jig shape CSV       : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/jig_shape_spar_data.csv
+  Loaded shape CSV    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/loaded_shape_spar_data.csv
+  Deflection CSV      : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/node_deflections.csv
+  Jig STEP            : not written
+  Loaded STEP         : not written
+  Diagnostics JSON    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/active_wall_diagnostics.json
+  Validity summary    : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/validity_summary.json
+  Wire rigging JSON   : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/lift_wire_rigging.json
+  Aero contract JSON  : /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/runs/raw_best/structure_response/candidate_aero_contract.json

@@ -1,0 +1,43 @@
+{
+  "source_mode": "candidate_avl_spanwise",
+  "baseline_load_source": "legacy_selected_state_plus_candidate_owned_avl_lift_shape_sweep",
+  "refresh_load_source": "candidate_owned_twist_refresh_from_avl_spanwise_sweep",
+  "load_ownership": "legacy_refresh still owns the structural selected load-state; candidate_avl_spanwise only swaps in a candidate-owned AVL spanwise lift distribution shape for that already-selected state.",
+  "artifact_ownership": "Candidate-owned AVL geometry, trim, strip-force, and spanwise-load artifacts live under /Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/tier2_loaded_shape_airfoil_mvp/runs/conservative_best/avl_run.",
+  "requested_knobs": {
+    "target_shape_z_scale": 3.990597595912658,
+    "dihedral_multiplier": 3.990597595912658,
+    "dihedral_exponent": 1.0
+  },
+  "aoa_sweep_deg": [
+    -5.0,
+    -4.0,
+    -3.0,
+    -2.0,
+    -1.0,
+    0.0,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "selected_cruise_aoa_deg": 0.0,
+  "geometry_artifacts": {
+    "candidate_output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/tier2_loaded_shape_airfoil_mvp/runs/conservative_best/avl_run",
+    "avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/tier2_loaded_shape_airfoil_mvp/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+    "trim_force_path": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/tier2_loaded_shape_airfoil_mvp/runs/conservative_best/avl_run/concept_trim.ft",
+    "trim_stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/tier2_loaded_shape_airfoil_mvp/runs/conservative_best/avl_run/concept_trim_stdout.log",
+    "candidate_avl_spanwise_loads_json": "/Volumes/Samsung SSD/hpa-mdo/output/pipeline_redesign_v2/aero_structure_closure_mvp/candidate_avl_artifacts/conservative_best_selected_airfoil_spanwise.json"
+  },
+  "notes": [
+    "Pipeline v2 MVP5 closure artifact from MVP4 selected-airfoil AVL rerun.",
+    "Structure response remains daily-screening/report-only.",
+    "Structural selected state is re-aligned to the old legacy_refresh owner by reusing the shared cfg.io VSPAero sweep selection rule.",
+    "Selected cruise AoA source: mvp4_selected_airfoil_avl_trim.",
+    "candidate_avl_spanwise now replaces only the spanwise lift distribution shape; drag / torque ownership stay on the legacy-selected structural state.",
+    "AVL lift shape for the selected structural state comes from the closest candidate-owned strip-force case by half-span lift (shape AoA 0.122 deg), then it is rescaled back to the legacy-selected total lift.",
+    "Outer-loop gate owner metadata: mvp4_selected_airfoil_loaded_shape_avl_rerun.",
+    "Boundary coverage: nearest_strip_coefficients_with_avl_root_tip_chord."
+  ]
+}
