@@ -45,6 +45,9 @@ from scripts.phase24_rib_spacing_requirements import (  # noqa: E402
 from scripts.phase25_failure_mode_ordering import (  # noqa: E402
     build_failure_mode_ordering,
 )
+from scripts.phase27_detail_margin_inputs import (  # noqa: E402
+    build_detail_margin_check,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -77,6 +80,7 @@ def build_structural_closure_index(
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
     detail_requirements: Any | None = None,
+    detail_margin_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> StructuralClosureIndex:
@@ -94,6 +98,7 @@ def build_structural_closure_index(
             torsion_audit=torsion_audit,
             bracing_audit=bracing_audit,
             detail_requirements=detail_requirements,
+            detail_margin_check=detail_margin_check,
             rib_spacing_requirements=rib_spacing_requirements,
             failure_mode_ordering=failure_mode_ordering,
         )
@@ -119,6 +124,7 @@ def write_structural_closure_index_package(
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
     detail_requirements: Any | None = None,
+    detail_margin_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> list[Path]:
@@ -129,6 +135,7 @@ def write_structural_closure_index_package(
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
         detail_requirements=detail_requirements,
+        detail_margin_check=detail_margin_check,
         rib_spacing_requirements=rib_spacing_requirements,
         failure_mode_ordering=failure_mode_ordering,
     )
@@ -161,6 +168,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         equivalent_twist_max_deg=load_current_equivalent_twist_max_deg(),
     )
     detail_requirements = build_detail_sizing_requirements(local_ledger)
+    detail_margin_check = build_detail_margin_check(detail_requirements, hardware_allowables=[])
     rib_spacing_requirements = build_rib_spacing_requirements(
         reference.candidate_id,
         spar_rows=load_current_spar_rows(),
@@ -179,6 +187,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
         detail_requirements=detail_requirements,
+        detail_margin_check=detail_margin_check,
         rib_spacing_requirements=rib_spacing_requirements,
         failure_mode_ordering=failure_mode_ordering,
     )
@@ -194,16 +203,19 @@ def _build_item(
     torsion_audit: Any | None,
     bracing_audit: Any | None,
     detail_requirements: Any | None,
+    detail_margin_check: Any | None,
     rib_spacing_requirements: Any | None,
     failure_mode_ordering: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
+    detail_margin_entry = _detail_margin_entry_for_key(key, detail_margin_check)
     evidence_artifacts = _evidence_artifacts(
         key,
         local_entry,
         torsion_entry,
         bracing_audit,
         detail_entry,
+        detail_margin_entry,
         rib_spacing_requirements,
         failure_mode_ordering,
     )
@@ -217,6 +229,7 @@ def _build_item(
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
         detail_entry=detail_entry,
+        detail_margin_entry=detail_margin_entry,
         rib_spacing_requirements=rib_spacing_requirements,
         failure_mode_ordering=failure_mode_ordering,
     )
@@ -260,6 +273,7 @@ def _evidence_artifacts(
     torsion_entry: Any | None,
     bracing_audit: Any | None,
     detail_entry: Any | None,
+    detail_margin_entry: Any | None,
     rib_spacing_requirements: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
@@ -277,6 +291,8 @@ def _evidence_artifacts(
         artifacts.append("Phase22 bracing_sensitivity")
     if detail_entry is not None:
         artifacts.append("Phase23 detail_sizing_requirements")
+    if detail_margin_entry is not None:
+        artifacts.append("Phase27 detail_margin_inputs")
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -297,6 +313,7 @@ def _evidence_for_key(
     torsion_audit: Any | None,
     bracing_audit: Any | None,
     detail_entry: Any | None,
+    detail_margin_entry: Any | None,
     rib_spacing_requirements: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
@@ -353,6 +370,8 @@ def _evidence_for_key(
         parts.append(f"Phase22: {_bracing_summary_for_key(key, bracing_audit)}")
     if detail_entry is not None:
         parts.append(f"Phase23: {_detail_summary(detail_entry)}")
+    if detail_margin_entry is not None:
+        parts.append(f"Phase27: {_detail_margin_summary(detail_margin_entry)}")
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -373,6 +392,16 @@ def _detail_entry_for_key(key: str, detail_requirements: Any | None) -> Any | No
     return entries.get(key)
 
 
+def _detail_margin_entry_for_key(key: str, detail_margin_check: Any | None) -> Any | None:
+    if detail_margin_check is None:
+        return None
+    entries = {
+        str(entry.key): entry
+        for entry in getattr(detail_margin_check, "rows", ())
+    }
+    return entries.get(key)
+
+
 def _detail_summary(entry: Any) -> str:
     parts = [
         f"required load={_fmt(getattr(entry, 'required_allowable_load_n', None))} N"
@@ -387,6 +416,19 @@ def _detail_summary(entry: Any) -> str:
     if body_margin is not None:
         parts.append(f"body margin={_fmt(body_margin)} N")
     return "; ".join(parts) + "."
+
+
+def _detail_margin_summary(entry: Any) -> str:
+    return (
+        "hardware status="
+        f"{getattr(entry, 'status', 'unknown')}; "
+        "load margin="
+        f"{_fmt(getattr(entry, 'load_margin_n', None))} N; "
+        "moment margin="
+        f"{_fmt(getattr(entry, 'moment_margin_n_m', None))} N*m; "
+        "MBL margin="
+        f"{_fmt(getattr(entry, 'mbl_margin_n', None))} N."
+    )
 
 
 def _rib_spacing_summary(requirements: Any) -> str:

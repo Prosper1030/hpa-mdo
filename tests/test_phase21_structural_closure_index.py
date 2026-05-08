@@ -164,6 +164,34 @@ def _detail_requirements() -> SimpleNamespace:
     )
 
 
+def _detail_margin_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        rows=(
+            SimpleNamespace(
+                key="wire_attach_local_load_path",
+                status="hardware_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                key="root_joint",
+                status="hardware_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+            SimpleNamespace(
+                key="wire_termination",
+                status="hardware_allowable_missing",
+                load_margin_n=None,
+                moment_margin_n_m=None,
+                mbl_margin_n=None,
+            ),
+        )
+    )
+
+
 def _rib_spacing_requirements() -> SimpleNamespace:
     return SimpleNamespace(
         current_max_bay_m=3.86,
@@ -190,6 +218,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
         detail_requirements=_detail_requirements(),
+        detail_margin_check=_detail_margin_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
@@ -202,7 +231,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert by_key["tip_deflection_limit"].status == "claim_guarded_not_physical_failure"
     assert "Phase19" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "Phase23" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "Phase27" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "required load=6048.2000 N" in by_key["wire_attach_local_load_path"].current_evidence
+    assert "hardware status=hardware_allowable_missing" in by_key["wire_attach_local_load_path"].current_evidence
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
     assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
@@ -226,6 +257,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
         detail_requirements=_detail_requirements(),
+        detail_margin_check=_detail_margin_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
