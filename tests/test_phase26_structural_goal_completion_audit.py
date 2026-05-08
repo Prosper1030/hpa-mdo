@@ -45,8 +45,8 @@ def _closure_index() -> SimpleNamespace:
             ),
             SimpleNamespace(
                 key="torsion_twist_coupling",
-                evidence_artifacts="Phase20; Phase22",
-                current_evidence="not aero twist",
+                evidence_artifacts="Phase20; Phase22; Phase29; Phase37",
+                current_evidence="not aero twist; screening status=torsion_twist_screening_not_aeroelastic_signoff",
                 remaining_blocker="Aeroelastic loop",
                 next_action="Close twist loop",
             ),
@@ -113,6 +113,10 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
     assert by_key["wire_termination"].evidence_strength == "requirements_only"
     assert "required MBL=10080 N" in by_key["wire_termination"].evidence_summary
     assert by_key["rib_spacing_assumption"].evidence_strength == "layout_requirement_only"
+    assert by_key["torsion_twist_coupling"].evidence_strength == (
+        "screening_plus_closure_input_missing"
+    )
+    assert "Phase37" in by_key["torsion_twist_coupling"].evidence_artifacts
     assert by_key["tip_deflection_limit"].evidence_strength == "claim_guardrail"
     assert by_key["full_wing_global_buckling"].completion_blocker == "full_wing_or_braced_subassembly_buckling_fem_missing"
     assert by_key["failure_mode_ordering"].evidence_strength == (

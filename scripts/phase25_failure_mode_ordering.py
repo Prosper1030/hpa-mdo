@@ -58,6 +58,9 @@ from scripts.phase35_root_joint_load_envelope import (  # noqa: E402
 from scripts.phase36_wire_termination_efficiency_sensitivity import (  # noqa: E402
     build_wire_termination_efficiency_sensitivity,
 )
+from scripts.phase37_torsion_twist_screening import (  # noqa: E402
+    build_current_torsion_twist_screening,
+)
 from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     build_bracing_sensitivity_audit,
     build_current_candidate_model,
@@ -106,6 +109,7 @@ def build_failure_mode_ordering(
     wire_termination_efficiency_sensitivity: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
+    torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
 ) -> FailureModeOrdering:
@@ -123,6 +127,7 @@ def build_failure_mode_ordering(
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
     )
     rows = (*ranked, *unranked)
@@ -153,6 +158,7 @@ def write_failure_mode_ordering_package(
     wire_termination_efficiency_sensitivity: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
+    torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
 ) -> list[Path]:
@@ -168,6 +174,7 @@ def write_failure_mode_ordering_package(
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
     )
@@ -224,6 +231,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
+        torsion_twist_screening=build_current_torsion_twist_screening(),
         full_wing_buckling_closure_check=build_current_full_wing_buckling_closure_check(),
         tip_deflection_revalidation_check=build_tip_deflection_revalidation_check(
             reference,
@@ -305,6 +313,7 @@ def _unranked_real_structure_rows(
     wire_termination_efficiency_sensitivity: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
+    torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
 ) -> tuple[FailureModeOrderingRow, ...]:
     details = _detail_entries(detail_requirements)
@@ -376,7 +385,8 @@ def _unranked_real_structure_rows(
             basis="fixed-design internal twist check only",
             evidence=(
                 "local wall and beam twist checks do not close aeroelastic torque/twist coupling. "
-                f"{_closure_evidence(torsion_twist_closure_check)}"
+                f"{_closure_evidence(torsion_twist_closure_check)} "
+                f"{_torsion_twist_screening_evidence(torsion_twist_screening)}"
             ),
             next_evidence="Torque-couple FEM or aeroelastic twist loop with load redistribution.",
         ),
@@ -653,6 +663,25 @@ def _closure_evidence(check: Any | None) -> str:
         f"{getattr(first, 'status', 'missing') if first is not None else 'missing'}; "
         "overall="
         f"{getattr(check, 'overall_status', 'unknown')}."
+    )
+
+
+def _torsion_twist_screening_evidence(screening: Any | None) -> str:
+    if screening is None:
+        return "torsion/twist screening is not available."
+    return (
+        "screening status="
+        f"{getattr(screening, 'overall_status', 'unknown')}; "
+        "internal equivalent twist="
+        f"{_fmt(_attr_float(screening, 'internal_equivalent_twist_deg'))} deg; "
+        "spar-pair angle="
+        f"{_fmt(_attr_float(screening, 'max_spar_pair_line_angle_delta_deg'))} deg; "
+        "dense finite rib angle delta="
+        f"{_fmt(_attr_float(screening, 'dense_finite_rib_angle_delta_deg'))} deg; "
+        "rear-soft angle delta="
+        f"{_fmt(_attr_float(screening, 'rear_soft_angle_delta_deg'))} deg; "
+        "accepted methods="
+        f"{'; '.join(str(method) for method in getattr(screening, 'accepted_closure_methods', ()))}."
     )
 
 

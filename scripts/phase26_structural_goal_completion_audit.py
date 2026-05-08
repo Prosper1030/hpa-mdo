@@ -66,7 +66,7 @@ EVIDENCE_STRENGTH_BY_KEY: dict[str, str] = {
     "rib_load_transfer": "surrogate_and_layout_only",
     "wire_attach_local_load_path": "requirements_only",
     "root_joint": "requirements_only",
-    "torsion_twist_coupling": "report_only_sensitivity",
+    "torsion_twist_coupling": "screening_plus_closure_input_missing",
     "wire_termination": "requirements_only",
     "rib_spacing_assumption": "layout_requirement_only",
     "tip_deflection_limit": "claim_guardrail",

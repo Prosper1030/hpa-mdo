@@ -354,6 +354,18 @@ def _torsion_twist_closure_check() -> SimpleNamespace:
     )
 
 
+def _torsion_twist_screening() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="torsion_twist_screening_not_aeroelastic_signoff",
+        internal_equivalent_twist_deg=0.1846,
+        max_spar_pair_line_angle_delta_deg=33.662,
+        dense_finite_rib_angle_delta_deg=-8.3,
+        rear_soft_angle_delta_deg=36.3,
+        closure_input_status="closure_input_missing",
+        accepted_closure_methods=("tip_ring_fem", "aeroelastic_loop", "apdl_tip_ring_fem"),
+    )
+
+
 def _full_wing_buckling_closure_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="full_wing_global_buckling_not_closed",
@@ -413,6 +425,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
+        torsion_twist_screening=_torsion_twist_screening(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         failure_mode_ordering=_failure_mode_ordering(),
@@ -458,12 +471,19 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase20" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase29" in by_key["torsion_twist_coupling"].evidence_artifacts
+    assert "Phase37" in by_key["torsion_twist_coupling"].evidence_artifacts
     assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
     assert "Phase32" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "diagnostic status=strong_model_sensitivity_not_signoff" in by_key[
         "rear_spar_stiffness"
     ].current_evidence
     assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].current_evidence
+    assert "screening status=torsion_twist_screening_not_aeroelastic_signoff" in by_key[
+        "torsion_twist_coupling"
+    ].current_evidence
+    assert "dense finite rib angle delta=-8.3000 deg" in by_key[
+        "torsion_twist_coupling"
+    ].current_evidence
     assert "dense_finite_rib_surrogate" in by_key["rib_load_transfer"].current_evidence
     assert "Phase32" in by_key["rib_load_transfer"].evidence_artifacts
     assert "diagnostic status=surrogate_load_transfer_not_signoff" in by_key[
@@ -508,6 +528,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
+        torsion_twist_screening=_torsion_twist_screening(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         failure_mode_ordering=_failure_mode_ordering(),

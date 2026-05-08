@@ -190,6 +190,18 @@ def _torsion_twist_closure_check() -> SimpleNamespace:
     )
 
 
+def _torsion_twist_screening() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="torsion_twist_screening_not_aeroelastic_signoff",
+        internal_equivalent_twist_deg=0.1846,
+        max_spar_pair_line_angle_delta_deg=33.662,
+        dense_finite_rib_angle_delta_deg=-8.3,
+        rear_soft_angle_delta_deg=36.3,
+        closure_input_status="closure_input_missing",
+        accepted_closure_methods=("tip_ring_fem", "aeroelastic_loop", "apdl_tip_ring_fem"),
+    )
+
+
 def _full_wing_buckling_closure_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="full_wing_global_buckling_not_closed",
@@ -221,6 +233,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
+        torsion_twist_screening=_torsion_twist_screening(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
     )
@@ -263,6 +276,15 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "added stations=53" in by_key["rib_load_transfer"].evidence
     assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
     assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].evidence
+    assert "screening status=torsion_twist_screening_not_aeroelastic_signoff" in by_key[
+        "torsion_twist_coupling"
+    ].evidence
+    assert "internal equivalent twist=0.1846 deg" in by_key[
+        "torsion_twist_coupling"
+    ].evidence
+    assert "accepted methods=tip_ring_fem; aeroelastic_loop; apdl_tip_ring_fem" in by_key[
+        "torsion_twist_coupling"
+    ].evidence
     assert by_key["full_wing_global_buckling"].load_factor is None
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].evidence
 
@@ -280,6 +302,7 @@ def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Pat
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
+        torsion_twist_screening=_torsion_twist_screening(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
     )
@@ -314,6 +337,7 @@ def test_main_creates_requested_output_directory_before_writing(
             wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
             rib_bracing_margin_check=_rib_bracing_margin_check(),
             torsion_twist_closure_check=_torsion_twist_closure_check(),
+            torsion_twist_screening=_torsion_twist_screening(),
             full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
             tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         ),

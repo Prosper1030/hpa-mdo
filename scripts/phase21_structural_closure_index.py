@@ -75,6 +75,9 @@ from scripts.phase35_root_joint_load_envelope import (  # noqa: E402
 from scripts.phase36_wire_termination_efficiency_sensitivity import (  # noqa: E402
     build_wire_termination_efficiency_sensitivity,
 )
+from scripts.phase37_torsion_twist_screening import (  # noqa: E402
+    build_torsion_twist_screening,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -116,6 +119,7 @@ def build_structural_closure_index(
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
+    torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
@@ -143,6 +147,7 @@ def build_structural_closure_index(
             rib_spacing_requirements=rib_spacing_requirements,
             rib_bracing_margin_check=rib_bracing_margin_check,
             torsion_twist_closure_check=torsion_twist_closure_check,
+            torsion_twist_screening=torsion_twist_screening,
             full_wing_buckling_closure_check=full_wing_buckling_closure_check,
             tip_deflection_revalidation_check=tip_deflection_revalidation_check,
             failure_mode_ordering=failure_mode_ordering,
@@ -178,6 +183,7 @@ def write_structural_closure_index_package(
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
+    torsion_twist_screening: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
@@ -198,6 +204,7 @@ def write_structural_closure_index_package(
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         failure_mode_ordering=failure_mode_ordering,
@@ -266,6 +273,11 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         torsion_audit,
         closure_inputs=[],
     )
+    torsion_twist_screening = build_torsion_twist_screening(
+        torsion_audit,
+        bracing_audit=bracing_audit,
+        closure_check=torsion_twist_closure_check,
+    )
     full_wing_buckling_closure_check = build_full_wing_buckling_closure_check(
         reference.candidate_id,
         closure_inputs=[],
@@ -289,6 +301,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         failure_mode_ordering=failure_mode_ordering,
@@ -314,6 +327,7 @@ def _build_item(
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
+    torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
     tip_deflection_revalidation_check: Any | None,
     failure_mode_ordering: Any | None,
@@ -335,6 +349,7 @@ def _build_item(
         rib_spacing_requirements,
         rib_bracing_margin_check,
         torsion_twist_closure_check,
+        torsion_twist_screening,
         full_wing_buckling_closure_check,
         tip_deflection_revalidation_check,
         failure_mode_ordering,
@@ -358,6 +373,7 @@ def _build_item(
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
+        torsion_twist_screening=torsion_twist_screening,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         failure_mode_ordering=failure_mode_ordering,
@@ -411,6 +427,7 @@ def _evidence_artifacts(
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
+    torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
     tip_deflection_revalidation_check: Any | None,
     failure_mode_ordering: Any | None,
@@ -457,6 +474,8 @@ def _evidence_artifacts(
         artifacts.append("Phase28 rib_bracing_margin_inputs")
     if torsion_twist_closure_check is not None and key == "torsion_twist_coupling":
         artifacts.append("Phase29 torsion_twist_closure_inputs")
+    if torsion_twist_screening is not None and key == "torsion_twist_coupling":
+        artifacts.append("Phase37 torsion_twist_screening")
     if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
         artifacts.append("Phase30 full_wing_buckling_closure_inputs")
     if tip_deflection_revalidation_check is not None and key == "tip_deflection_limit":
@@ -485,6 +504,7 @@ def _evidence_for_key(
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
+    torsion_twist_screening: Any | None,
     full_wing_buckling_closure_check: Any | None,
     tip_deflection_revalidation_check: Any | None,
     failure_mode_ordering: Any | None,
@@ -575,6 +595,8 @@ def _evidence_for_key(
         parts.append(f"Phase28: {_rib_bracing_summary(rib_bracing_margin_check)}")
     if torsion_twist_closure_check is not None and key == "torsion_twist_coupling":
         parts.append(f"Phase29: {_torsion_twist_closure_summary(torsion_twist_closure_check)}")
+    if torsion_twist_screening is not None and key == "torsion_twist_coupling":
+        parts.append(f"Phase37: {_torsion_twist_screening_summary(torsion_twist_screening)}")
     if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
         parts.append(
             f"Phase30: {_full_wing_buckling_closure_summary(full_wing_buckling_closure_check)}"
@@ -789,6 +811,25 @@ def _torsion_twist_closure_summary(check: Any) -> str:
         f"{_fmt(getattr(first, 'twist_margin_deg', None) if first is not None else None)} deg; "
         "torque margin="
         f"{_fmt(getattr(first, 'torque_balance_margin_pct', None) if first is not None else None)}%."
+    )
+
+
+def _torsion_twist_screening_summary(screening: Any) -> str:
+    return (
+        "screening status="
+        f"{getattr(screening, 'overall_status', 'unknown')}; "
+        "internal equivalent twist="
+        f"{_fmt(getattr(screening, 'internal_equivalent_twist_deg', None))} deg; "
+        "spar-pair angle="
+        f"{_fmt(getattr(screening, 'max_spar_pair_line_angle_delta_deg', None))} deg; "
+        "dense finite rib angle delta="
+        f"{_fmt(getattr(screening, 'dense_finite_rib_angle_delta_deg', None))} deg; "
+        "rear-soft angle delta="
+        f"{_fmt(getattr(screening, 'rear_soft_angle_delta_deg', None))} deg; "
+        "closure input="
+        f"{getattr(screening, 'closure_input_status', 'unknown')}; "
+        "accepted methods="
+        f"{'; '.join(str(method) for method in getattr(screening, 'accepted_closure_methods', ()))}."
     )
 
 
