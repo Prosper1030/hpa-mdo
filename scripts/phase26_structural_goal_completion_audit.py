@@ -217,6 +217,22 @@ def _write_markdown(path: Path, audit: StructuralGoalCompletionAudit) -> Path:
     lines.extend(
         [
             "",
+            "## Requirement Details",
+            "",
+        ]
+    )
+    for row in audit.rows:
+        lines.extend(
+            [
+                f"### {row.key}",
+                "",
+                f"- current evidence: {row.evidence_summary}",
+                f"- next verification step: {row.next_verification_step}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
             "## Engineering Readout",
             "",
             "- The current package is suitable for preventing unsafe claims.",

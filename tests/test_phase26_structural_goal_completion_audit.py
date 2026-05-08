@@ -148,3 +148,5 @@ def test_write_goal_completion_audit_package_creates_handoff_files(tmp_path: Pat
     assert "not complete" in report
     assert "Do not mark the goal complete" in report
     assert "full-wing" in report
+    assert "rear EI quantified; rear_stiffness_5pct moved response" in report
+    assert "Run rear-spar-on/off FEM" in report
