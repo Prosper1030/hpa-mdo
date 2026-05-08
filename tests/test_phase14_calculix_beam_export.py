@@ -161,6 +161,51 @@ def test_write_dual_pipe_deck_can_export_offset_rigid_link_equations(
     assert f"{rear_node}, 4, 1.0, {main_node}, 4, -1.0" in text
 
 
+def test_write_dual_pipe_deck_can_export_buckle_reference_step(
+    tmp_path: Path,
+) -> None:
+    material = BeamMaterial(
+        name="CARBON",
+        young_pa=135.0e9,
+        poisson_ratio=0.3,
+        density_kgpm3=1600.0,
+    )
+    y_nodes_m = np.array([0.0, 1.0, 2.0])
+    main_nodal_fz_n = np.array([0.0, -10.0, -5.0])
+
+    spec = build_dual_pipe_benchmark_spec(
+        name="braced_subassembly_buckle",
+        y_nodes_m=y_nodes_m,
+        main_x_m=np.zeros_like(y_nodes_m),
+        rear_x_m=np.full_like(y_nodes_m, 0.4),
+        main_z_m=np.zeros_like(y_nodes_m),
+        rear_z_m=np.zeros_like(y_nodes_m),
+        main_outer_radius_m=np.full(2, 0.04),
+        main_thickness_m=np.full(2, 0.002),
+        rear_outer_radius_m=np.full(2, 0.03),
+        rear_thickness_m=np.full(2, 0.0015),
+        material_main=material,
+        material_rear=material,
+        main_nodal_fz_n=main_nodal_fz_n,
+        rear_nodal_fz_n=np.zeros_like(y_nodes_m),
+        joint_node_indices=(1,),
+        joint_link_mode="offset_rigid",
+    )
+    deck = write_calculix_beam_inp(
+        spec,
+        tmp_path / "braced_subassembly_buckle.inp",
+        analysis_kind="buckle",
+        n_buckle_modes=3,
+    )
+    text = deck.inp_path.read_text(encoding="utf-8")
+
+    assert "*STEP, NAME=reference_static" in text
+    assert "*CLOAD" in text
+    assert f"{deck.node_sets['TIP_MAIN'][0]}, 3, -5" in text
+    assert "*STEP, NAME=buckle\n*BUCKLE\n3" in text
+    assert text.count("*END STEP") == 2
+
+
 def test_parse_total_force_from_dat_reads_named_set_totals(tmp_path: Path) -> None:
     dat_path = tmp_path / "case.dat"
     dat_path.write_text(

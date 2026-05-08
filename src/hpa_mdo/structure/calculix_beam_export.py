@@ -189,21 +189,39 @@ def build_dual_pipe_benchmark_spec(
 def write_calculix_beam_inp(
     spec: SinglePipeCantileverSpec | DualPipeBenchmarkSpec,
     path: str | Path,
+    *,
+    analysis_kind: str = "static",
+    n_buckle_modes: int = 5,
 ) -> CalculixBeamDeck:
     """Write one standalone linear-static CalculiX beam deck."""
 
     out_path = Path(path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if analysis_kind not in {"static", "buckle"}:
+        raise ValueError("analysis_kind must be 'static' or 'buckle'.")
+    if n_buckle_modes < 1:
+        raise ValueError("n_buckle_modes must be >= 1.")
     if isinstance(spec, SinglePipeCantileverSpec):
-        text, node_sets = _single_beam_text(spec)
+        text, node_sets = _single_beam_text(
+            spec,
+            analysis_kind=analysis_kind,
+            n_buckle_modes=n_buckle_modes,
+        )
     else:
-        text, node_sets = _dual_beam_text(spec)
+        text, node_sets = _dual_beam_text(
+            spec,
+            analysis_kind=analysis_kind,
+            n_buckle_modes=n_buckle_modes,
+        )
     out_path.write_text(text, encoding="utf-8")
     return CalculixBeamDeck(inp_path=out_path, node_sets=node_sets)
 
 
 def _single_beam_text(
     spec: SinglePipeCantileverSpec,
+    *,
+    analysis_kind: str,
+    n_buckle_modes: int,
 ) -> tuple[str, dict[str, tuple[int, ...]]]:
     nn = spec.y_nodes_m.size
     main_topology = _quadratic_chain_topology(
@@ -260,36 +278,31 @@ def _single_beam_text(
     for node_id in node_sets.get("WIRE_MAIN", ()):
         lines.append(f"{node_id}, 3, 3, 0.0")
 
-    lines.extend(
-        [
-            "*STEP",
-            "*STATIC",
-            "1.0, 1.0",
-            "*CLOAD",
-        ]
-    )
+    cload_lines: list[str] = []
     for node_id, fz_n in zip(main_topology.endpoint_node_ids, spec.nodal_fz_n, strict=True):
         if abs(float(fz_n)) > 0.0:
-            lines.append(f"{node_id}, 3, {float(fz_n):.9g}")
+            cload_lines.append(f"{node_id}, 3, {float(fz_n):.9g}")
         station_index = main_topology.endpoint_node_ids.index(node_id)
         my_nm = float(spec.nodal_my_nm[station_index])
         if abs(my_nm) > 0.0:
-            lines.append(f"{node_id}, 5, {my_nm:.9g}")
+            cload_lines.append(f"{node_id}, 5, {my_nm:.9g}")
 
-    lines.extend(_reaction_output_block(node_sets))
     lines.extend(
-        [
-            "*NODE FILE, OUTPUT=2D",
-            "U",
-            "*END STEP",
-            "",
-        ]
+        _analysis_step_lines(
+            cload_lines,
+            node_sets,
+            analysis_kind=analysis_kind,
+            n_buckle_modes=n_buckle_modes,
+        )
     )
     return "\n".join(lines), node_sets
 
 
 def _dual_beam_text(
     spec: DualPipeBenchmarkSpec,
+    *,
+    analysis_kind: str,
+    n_buckle_modes: int,
 ) -> tuple[str, dict[str, tuple[int, ...]]]:
     nn = spec.y_nodes_m.size
     main_topology = _quadratic_chain_topology(
@@ -424,42 +437,73 @@ def _dual_beam_text(
     for node_id in node_sets.get("WIRE_MAIN", ()):
         lines.append(f"{node_id}, 3, 3, 0.0")
 
-    lines.extend(
-        [
-            "*STEP",
-            "*STATIC",
-            "1.0, 1.0",
-            "*CLOAD",
-        ]
-    )
+    cload_lines: list[str] = []
     for node_index in range(nn):
         main_node = main_topology.endpoint_node_ids[node_index]
         rear_node = rear_topology.endpoint_node_ids[node_index]
 
         main_fz_n = float(spec.main_nodal_fz_n[node_index])
         if abs(main_fz_n) > 0.0:
-            lines.append(f"{main_node}, 3, {main_fz_n:.9g}")
+            cload_lines.append(f"{main_node}, 3, {main_fz_n:.9g}")
         rear_fz_n = float(spec.rear_nodal_fz_n[node_index])
         if abs(rear_fz_n) > 0.0:
-            lines.append(f"{rear_node}, 3, {rear_fz_n:.9g}")
+            cload_lines.append(f"{rear_node}, 3, {rear_fz_n:.9g}")
 
         main_my_nm = float(spec.main_nodal_my_nm[node_index])
         if abs(main_my_nm) > 0.0:
-            lines.append(f"{main_node}, 5, {main_my_nm:.9g}")
+            cload_lines.append(f"{main_node}, 5, {main_my_nm:.9g}")
         rear_my_nm = float(spec.rear_nodal_my_nm[node_index])
         if abs(rear_my_nm) > 0.0:
-            lines.append(f"{rear_node}, 5, {rear_my_nm:.9g}")
+            cload_lines.append(f"{rear_node}, 5, {rear_my_nm:.9g}")
 
-    lines.extend(_reaction_output_block(node_sets))
     lines.extend(
-        [
+        _analysis_step_lines(
+            cload_lines,
+            node_sets,
+            analysis_kind=analysis_kind,
+            n_buckle_modes=n_buckle_modes,
+        )
+    )
+    return "\n".join(lines), node_sets
+
+
+def _analysis_step_lines(
+    cload_lines: list[str],
+    node_sets: dict[str, tuple[int, ...]],
+    *,
+    analysis_kind: str,
+    n_buckle_modes: int,
+) -> list[str]:
+    reference_static = (
+        "*STEP, NAME=reference_static" if analysis_kind == "buckle" else "*STEP"
+    )
+    lines = [
+        reference_static,
+        "*STATIC",
+        "1.0, 1.0",
+        "*CLOAD",
+        *cload_lines,
+        *_reaction_output_block(node_sets),
+        "*END STEP",
+    ]
+    if analysis_kind == "static":
+        return [
+            *lines[:-1],
             "*NODE FILE, OUTPUT=2D",
             "U",
             "*END STEP",
             "",
         ]
-    )
-    return "\n".join(lines), node_sets
+    return [
+        *lines,
+        "*STEP, NAME=buckle",
+        "*BUCKLE",
+        str(int(n_buckle_modes)),
+        "*NODE FILE, OUTPUT=2D",
+        "U",
+        "*END STEP",
+        "",
+    ]
 
 
 def _format_node_sets(node_sets: dict[str, tuple[int, ...]]) -> list[str]:
