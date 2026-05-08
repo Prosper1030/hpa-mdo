@@ -1,0 +1,734 @@
+ a KNOT was generated in node           73
+
+ a KNOT was generated in node           75
+
+ a KNOT was generated in node           93
+
+ a KNOT was generated in node           95
+
+ ELEMENT            1 with label "B32R   P" and with nodes:
+          1          2          3
+  is expanded into a "C3D20RBP" element with topology:
+        239        255        256        240        242        258        257        241        247        259
+        248        243        250        261        249        245        246        262        260        244
+
+ ELEMENT            2 with label "B32R   P" and with nodes:
+          3          4          5
+  is expanded into a "C3D20RBP" element with topology:
+        255        271        272        256        258        274        273        257        263        275
+        264        259        266        277        265        261        262        278        276        260
+
+ ELEMENT            3 with label "B32R   P" and with nodes:
+          5          6          7
+  is expanded into a "C3D20RBP" element with topology:
+        271        287        288        272        274        290        289        273        279        291
+        280        275        282        293        281        277        278        294        292        276
+
+ ELEMENT            4 with label "B32R   P" and with nodes:
+          7          8          9
+  is expanded into a "C3D20RBP" element with topology:
+        287        303        304        288        290        306        305        289        295        307
+        296        291        298        309        297        293        294        310        308        292
+
+ ELEMENT            5 with label "B32R   P" and with nodes:
+          9         10         11
+  is expanded into a "C3D20RBP" element with topology:
+        303        319        320        304        306        322        321        305        311        323
+        312        307        314        325        313        309        310        326        324        308
+
+ ELEMENT            6 with label "B32R   P" and with nodes:
+         11         12         13
+  is expanded into a "C3D20RBP" element with topology:
+        319        335        336        320        322        338        337        321        327        339
+        328        323        330        341        329        325        326        342        340        324
+
+ ELEMENT            7 with label "B32R   P" and with nodes:
+         13         14         15
+  is expanded into a "C3D20RBP" element with topology:
+        335        351        352        336        338        354        353        337        343        355
+        344        339        346        357        345        341        342        358        356        340
+
+ ELEMENT            8 with label "B32R   P" and with nodes:
+         15         16         17
+  is expanded into a "C3D20RBP" element with topology:
+        351        367        368        352        354        370        369        353        359        371
+        360        355        362        373        361        357        358        374        372        356
+
+ ELEMENT            9 with label "B32R   P" and with nodes:
+         17         18         19
+  is expanded into a "C3D20RBP" element with topology:
+        367        383        384        368        370        386        385        369        375        387
+        376        371        378        389        377        373        374        390        388        372
+
+ ELEMENT           10 with label "B32R   P" and with nodes:
+         19         20         21
+  is expanded into a "C3D20RBP" element with topology:
+        383        399        400        384        386        402        401        385        391        403
+        392        387        394        405        393        389        390        406        404        388
+
+ ELEMENT           11 with label "B32R   P" and with nodes:
+         21         22         23
+  is expanded into a "C3D20RBP" element with topology:
+        399        415        416        400        402        418        417        401        407        419
+        408        403        410        421        409        405        406        422        420        404
+
+ ELEMENT           12 with label "B32R   P" and with nodes:
+         23         24         25
+  is expanded into a "C3D20RBP" element with topology:
+        415        431        432        416        418        434        433        417        423        435
+        424        419        426        437        425        421        422        438        436        420
+
+ ELEMENT           13 with label "B32R   P" and with nodes:
+         25         26         27
+  is expanded into a "C3D20RBP" element with topology:
+        431        447        448        432        434        450        449        433        439        451
+        440        435        442        453        441        437        438        454        452        436
+
+ ELEMENT           14 with label "B32R   P" and with nodes:
+         27         28         29
+  is expanded into a "C3D20RBP" element with topology:
+        447        463        464        448        450        466        465        449        455        467
+        456        451        458        469        457        453        454        470        468        452
+
+ ELEMENT           15 with label "B32R   P" and with nodes:
+         29         30         31
+  is expanded into a "C3D20RBP" element with topology:
+        463        479        480        464        466        482        481        465        471        483
+        472        467        474        485        473        469        470        486        484        468
+
+ ELEMENT           16 with label "B32R   P" and with nodes:
+         31         32         33
+  is expanded into a "C3D20RBP" element with topology:
+        479        495        496        480        482        498        497        481        487        499
+        488        483        490        501        489        485        486        502        500        484
+
+ ELEMENT           17 with label "B32R   P" and with nodes:
+         33         34         35
+  is expanded into a "C3D20RBP" element with topology:
+        495        511        512        496        498        514        513        497        503        515
+        504        499        506        517        505        501        502        518        516        500
+
+ ELEMENT           18 with label "B32R   P" and with nodes:
+         35         36         37
+  is expanded into a "C3D20RBP" element with topology:
+        511        527        528        512        514        530        529        513        519        531
+        520        515        522        533        521        517        518        534        532        516
+
+ ELEMENT           19 with label "B32R   P" and with nodes:
+         37         38         39
+  is expanded into a "C3D20RBP" element with topology:
+        527        543        544        528        530        546        545        529        535        547
+        536        531        538        549        537        533        534        550        548        532
+
+ ELEMENT           20 with label "B32R   P" and with nodes:
+         39         40         41
+  is expanded into a "C3D20RBP" element with topology:
+        543        559        560        544        546        562        561        545        551        563
+        552        547        554        565        553        549        550        566        564        548
+
+ ELEMENT           21 with label "B32R   P" and with nodes:
+         41         42         43
+  is expanded into a "C3D20RBP" element with topology:
+        559        575        576        560        562        578        577        561        567        579
+        568        563        570        581        569        565        566        582        580        564
+
+ ELEMENT           22 with label "B32R   P" and with nodes:
+         43         44         45
+  is expanded into a "C3D20RBP" element with topology:
+        575        591        592        576        578        594        593        577        583        595
+        584        579        586        597        585        581        582        598        596        580
+
+ ELEMENT           23 with label "B32R   P" and with nodes:
+         45         46         47
+  is expanded into a "C3D20RBP" element with topology:
+        591        607        608        592        594        610        609        593        599        611
+        600        595        602        613        601        597        598        614        612        596
+
+ ELEMENT           24 with label "B32R   P" and with nodes:
+         47         48         49
+  is expanded into a "C3D20RBP" element with topology:
+        607        623        624        608        610        626        625        609        615        627
+        616        611        618        629        617        613        614        630        628        612
+
+ ELEMENT           25 with label "B32R   P" and with nodes:
+         49         50         51
+  is expanded into a "C3D20RBP" element with topology:
+        623        639        640        624        626        642        641        625        631        643
+        632        627        634        645        633        629        630        646        644        628
+
+ ELEMENT           26 with label "B32R   P" and with nodes:
+         51         52         53
+  is expanded into a "C3D20RBP" element with topology:
+        639        655        656        640        642        658        657        641        647        659
+        648        643        650        661        649        645        646        662        660        644
+
+ ELEMENT           27 with label "B32R   P" and with nodes:
+         53         54         55
+  is expanded into a "C3D20RBP" element with topology:
+        655        671        672        656        658        674        673        657        663        675
+        664        659        666        677        665        661        662        678        676        660
+
+ ELEMENT           28 with label "B32R   P" and with nodes:
+         55         56         57
+  is expanded into a "C3D20RBP" element with topology:
+        671        687        688        672        674        690        689        673        679        691
+        680        675        682        693        681        677        678        694        692        676
+
+ ELEMENT           29 with label "B32R   P" and with nodes:
+         57         58         59
+  is expanded into a "C3D20RBP" element with topology:
+        687        703        704        688        690        706        705        689        695        707
+        696        691        698        709        697        693        694        710        708        692
+
+ ELEMENT           30 with label "B32R   P" and with nodes:
+         59         60         61
+  is expanded into a "C3D20RBP" element with topology:
+        703        719        720        704        706        722        721        705        711        723
+        712        707        714        725        713        709        710        726        724        708
+
+ ELEMENT           31 with label "B32R   P" and with nodes:
+         61         62         63
+  is expanded into a "C3D20RBP" element with topology:
+        719        735        736        720        722        738        737        721        727        739
+        728        723        730        741        729        725        726        742        740        724
+
+ ELEMENT           32 with label "B32R   P" and with nodes:
+         63         64         65
+  is expanded into a "C3D20RBP" element with topology:
+        735        751        752        736        738        754        753        737        743        755
+        744        739        746        757        745        741        742        758        756        740
+
+ ELEMENT           33 with label "B32R   P" and with nodes:
+         65         66         67
+  is expanded into a "C3D20RBP" element with topology:
+        751        767        768        752        754        770        769        753        759        771
+        760        755        762        773        761        757        758        774        772        756
+
+ ELEMENT           34 with label "B32R   P" and with nodes:
+         67         68         69
+  is expanded into a "C3D20RBP" element with topology:
+        767        783        784        768        770        786        785        769        775        787
+        776        771        778        789        777        773        774        790        788        772
+
+ ELEMENT           35 with label "B32R   P" and with nodes:
+         69         70         71
+  is expanded into a "C3D20RBP" element with topology:
+        783        799        800        784        786        802        801        785        791        803
+        792        787        794        805        793        789        790        806        804        788
+
+ ELEMENT           36 with label "B32R   P" and with nodes:
+         71         72         73
+  is expanded into a "C3D20RBP" element with topology:
+        799        815        816        800        802        818        817        801        807        819
+        808        803        810        821        809        805        806        822        820        804
+
+ ELEMENT           37 with label "B32R   P" and with nodes:
+         73         74         75
+  is expanded into a "C3D20RBP" element with topology:
+        823        857        858        824        826        860        859        825        849        861
+        850        827        852        863        851        829        830        864        862        828
+
+ ELEMENT           38 with label "B32R   P" and with nodes:
+         75         76         77
+  is expanded into a "C3D20RBP" element with topology:
+        865        899        900        866        868        902        901        867        891        903
+        892        869        894        905        893        871        872        906        904        870
+
+ ELEMENT           39 with label "B32R   P" and with nodes:
+         77         78         79
+  is expanded into a "C3D20RBP" element with topology:
+        899        915        916        900        902        918        917        901        907        919
+        908        903        910        921        909        905        906        922        920        904
+
+ ELEMENT           40 with label "B32R   P" and with nodes:
+         79         80         81
+  is expanded into a "C3D20RBP" element with topology:
+        915        931        932        916        918        934        933        917        923        935
+        924        919        926        937        925        921        922        938        936        920
+
+ ELEMENT           41 with label "B32R   P" and with nodes:
+         81         82         83
+  is expanded into a "C3D20RBP" element with topology:
+        931        947        948        932        934        950        949        933        939        951
+        940        935        942        953        941        937        938        954        952        936
+
+ ELEMENT           42 with label "B32R   P" and with nodes:
+         83         84         85
+  is expanded into a "C3D20RBP" element with topology:
+        947        963        964        948        950        966        965        949        955        967
+        956        951        958        969        957        953        954        970        968        952
+
+ ELEMENT           43 with label "B32R   P" and with nodes:
+         85         86         87
+  is expanded into a "C3D20RBP" element with topology:
+        963        979        980        964        966        982        981        965        971        983
+        972        967        974        985        973        969        970        986        984        968
+
+ ELEMENT           44 with label "B32R   P" and with nodes:
+         87         88         89
+  is expanded into a "C3D20RBP" element with topology:
+        979        995        996        980        982        998        997        981        987        999
+        988        983        990       1001        989        985        986       1002       1000        984
+
+ ELEMENT           45 with label "B32R   P" and with nodes:
+         89         90         91
+  is expanded into a "C3D20RBP" element with topology:
+        995       1011       1012        996        998       1014       1013        997       1003       1015
+       1004        999       1006       1017       1005       1001       1002       1018       1016       1000
+
+ ELEMENT           46 with label "B32R   P" and with nodes:
+         91         92         93
+  is expanded into a "C3D20RBP" element with topology:
+       1011       1027       1028       1012       1014       1030       1029       1013       1019       1031
+       1020       1015       1022       1033       1021       1017       1018       1034       1032       1016
+
+ ELEMENT           47 with label "B32R   P" and with nodes:
+         93         94         95
+  is expanded into a "C3D20RBP" element with topology:
+       1035       1069       1070       1036       1038       1072       1071       1037       1061       1073
+       1062       1039       1064       1075       1063       1041       1042       1076       1074       1040
+
+ ELEMENT           48 with label "B32R   P" and with nodes:
+         95         96         97
+  is expanded into a "C3D20RBP" element with topology:
+       1077       1111       1112       1078       1080       1114       1113       1079       1103       1115
+       1104       1081       1106       1117       1105       1083       1084       1118       1116       1082
+
+ ELEMENT           49 with label "B32R   P" and with nodes:
+         97         98         99
+  is expanded into a "C3D20RBP" element with topology:
+       1111       1127       1128       1112       1114       1130       1129       1113       1119       1131
+       1120       1115       1122       1133       1121       1117       1118       1134       1132       1116
+
+ ELEMENT           50 with label "B32R   P" and with nodes:
+         99        100        101
+  is expanded into a "C3D20RBP" element with topology:
+       1127       1143       1144       1128       1130       1146       1145       1129       1135       1147
+       1136       1131       1138       1149       1137       1133       1134       1150       1148       1132
+
+ ELEMENT           51 with label "B32R   P" and with nodes:
+        101        102        103
+  is expanded into a "C3D20RBP" element with topology:
+       1143       1159       1160       1144       1146       1162       1161       1145       1151       1163
+       1152       1147       1154       1165       1153       1149       1150       1166       1164       1148
+
+ ELEMENT           52 with label "B32R   P" and with nodes:
+        103        104        105
+  is expanded into a "C3D20RBP" element with topology:
+       1159       1175       1176       1160       1162       1178       1177       1161       1167       1179
+       1168       1163       1170       1181       1169       1165       1166       1182       1180       1164
+
+ ELEMENT           53 with label "B32R   P" and with nodes:
+        105        106        107
+  is expanded into a "C3D20RBP" element with topology:
+       1175       1191       1192       1176       1178       1194       1193       1177       1183       1195
+       1184       1179       1186       1197       1185       1181       1182       1198       1196       1180
+
+ ELEMENT           54 with label "B32R   P" and with nodes:
+        107        108        109
+  is expanded into a "C3D20RBP" element with topology:
+       1191       1207       1208       1192       1194       1210       1209       1193       1199       1211
+       1200       1195       1202       1213       1201       1197       1198       1214       1212       1196
+
+ ELEMENT           55 with label "B32R   P" and with nodes:
+        109        110        111
+  is expanded into a "C3D20RBP" element with topology:
+       1207       1223       1224       1208       1210       1226       1225       1209       1215       1227
+       1216       1211       1218       1229       1217       1213       1214       1230       1228       1212
+
+ ELEMENT           56 with label "B32R   P" and with nodes:
+        111        112        113
+  is expanded into a "C3D20RBP" element with topology:
+       1223       1239       1240       1224       1226       1242       1241       1225       1231       1243
+       1232       1227       1234       1245       1233       1229       1230       1246       1244       1228
+
+ ELEMENT           57 with label "B32R   P" and with nodes:
+        113        114        115
+  is expanded into a "C3D20RBP" element with topology:
+       1239       1255       1256       1240       1242       1258       1257       1241       1247       1259
+       1248       1243       1250       1261       1249       1245       1246       1262       1260       1244
+
+ ELEMENT           58 with label "B32R   P" and with nodes:
+        115        116        117
+  is expanded into a "C3D20RBP" element with topology:
+       1255       1271       1272       1256       1258       1274       1273       1257       1263       1275
+       1264       1259       1266       1277       1265       1261       1262       1278       1276       1260
+
+ ELEMENT           59 with label "B32R   P" and with nodes:
+        117        118        119
+  is expanded into a "C3D20RBP" element with topology:
+       1271       1287       1288       1272       1274       1290       1289       1273       1279       1291
+       1280       1275       1282       1293       1281       1277       1278       1294       1292       1276
+
+ ELEMENT           60 with label "B32R   P" and with nodes:
+        120        121        122
+  is expanded into a "C3D20RBP" element with topology:
+       1295       1311       1312       1296       1298       1314       1313       1297       1303       1315
+       1304       1299       1306       1317       1305       1301       1302       1318       1316       1300
+
+ ELEMENT           61 with label "B32R   P" and with nodes:
+        122        123        124
+  is expanded into a "C3D20RBP" element with topology:
+       1311       1327       1328       1312       1314       1330       1329       1313       1319       1331
+       1320       1315       1322       1333       1321       1317       1318       1334       1332       1316
+
+ ELEMENT           62 with label "B32R   P" and with nodes:
+        124        125        126
+  is expanded into a "C3D20RBP" element with topology:
+       1327       1343       1344       1328       1330       1346       1345       1329       1335       1347
+       1336       1331       1338       1349       1337       1333       1334       1350       1348       1332
+
+ ELEMENT           63 with label "B32R   P" and with nodes:
+        126        127        128
+  is expanded into a "C3D20RBP" element with topology:
+       1343       1359       1360       1344       1346       1362       1361       1345       1351       1363
+       1352       1347       1354       1365       1353       1349       1350       1366       1364       1348
+
+ ELEMENT           64 with label "B32R   P" and with nodes:
+        128        129        130
+  is expanded into a "C3D20RBP" element with topology:
+       1359       1375       1376       1360       1362       1378       1377       1361       1367       1379
+       1368       1363       1370       1381       1369       1365       1366       1382       1380       1364
+
+ ELEMENT           65 with label "B32R   P" and with nodes:
+        130        131        132
+  is expanded into a "C3D20RBP" element with topology:
+       1375       1391       1392       1376       1378       1394       1393       1377       1383       1395
+       1384       1379       1386       1397       1385       1381       1382       1398       1396       1380
+
+ ELEMENT           66 with label "B32R   P" and with nodes:
+        132        133        134
+  is expanded into a "C3D20RBP" element with topology:
+       1391       1407       1408       1392       1394       1410       1409       1393       1399       1411
+       1400       1395       1402       1413       1401       1397       1398       1414       1412       1396
+
+ ELEMENT           67 with label "B32R   P" and with nodes:
+        134        135        136
+  is expanded into a "C3D20RBP" element with topology:
+       1407       1423       1424       1408       1410       1426       1425       1409       1415       1427
+       1416       1411       1418       1429       1417       1413       1414       1430       1428       1412
+
+ ELEMENT           68 with label "B32R   P" and with nodes:
+        136        137        138
+  is expanded into a "C3D20RBP" element with topology:
+       1423       1439       1440       1424       1426       1442       1441       1425       1431       1443
+       1432       1427       1434       1445       1433       1429       1430       1446       1444       1428
+
+ ELEMENT           69 with label "B32R   P" and with nodes:
+        138        139        140
+  is expanded into a "C3D20RBP" element with topology:
+       1439       1455       1456       1440       1442       1458       1457       1441       1447       1459
+       1448       1443       1450       1461       1449       1445       1446       1462       1460       1444
+
+ ELEMENT           70 with label "B32R   P" and with nodes:
+        140        141        142
+  is expanded into a "C3D20RBP" element with topology:
+       1455       1471       1472       1456       1458       1474       1473       1457       1463       1475
+       1464       1459       1466       1477       1465       1461       1462       1478       1476       1460
+
+ ELEMENT           71 with label "B32R   P" and with nodes:
+        142        143        144
+  is expanded into a "C3D20RBP" element with topology:
+       1471       1487       1488       1472       1474       1490       1489       1473       1479       1491
+       1480       1475       1482       1493       1481       1477       1478       1494       1492       1476
+
+ ELEMENT           72 with label "B32R   P" and with nodes:
+        144        145        146
+  is expanded into a "C3D20RBP" element with topology:
+       1487       1503       1504       1488       1490       1506       1505       1489       1495       1507
+       1496       1491       1498       1509       1497       1493       1494       1510       1508       1492
+
+ ELEMENT           73 with label "B32R   P" and with nodes:
+        146        147        148
+  is expanded into a "C3D20RBP" element with topology:
+       1503       1519       1520       1504       1506       1522       1521       1505       1511       1523
+       1512       1507       1514       1525       1513       1509       1510       1526       1524       1508
+
+ ELEMENT           74 with label "B32R   P" and with nodes:
+        148        149        150
+  is expanded into a "C3D20RBP" element with topology:
+       1519       1535       1536       1520       1522       1538       1537       1521       1527       1539
+       1528       1523       1530       1541       1529       1525       1526       1542       1540       1524
+
+ ELEMENT           75 with label "B32R   P" and with nodes:
+        150        151        152
+  is expanded into a "C3D20RBP" element with topology:
+       1535       1551       1552       1536       1538       1554       1553       1537       1543       1555
+       1544       1539       1546       1557       1545       1541       1542       1558       1556       1540
+
+ ELEMENT           76 with label "B32R   P" and with nodes:
+        152        153        154
+  is expanded into a "C3D20RBP" element with topology:
+       1551       1567       1568       1552       1554       1570       1569       1553       1559       1571
+       1560       1555       1562       1573       1561       1557       1558       1574       1572       1556
+
+ ELEMENT           77 with label "B32R   P" and with nodes:
+        154        155        156
+  is expanded into a "C3D20RBP" element with topology:
+       1567       1583       1584       1568       1570       1586       1585       1569       1575       1587
+       1576       1571       1578       1589       1577       1573       1574       1590       1588       1572
+
+ ELEMENT           78 with label "B32R   P" and with nodes:
+        156        157        158
+  is expanded into a "C3D20RBP" element with topology:
+       1583       1599       1600       1584       1586       1602       1601       1585       1591       1603
+       1592       1587       1594       1605       1593       1589       1590       1606       1604       1588
+
+ ELEMENT           79 with label "B32R   P" and with nodes:
+        158        159        160
+  is expanded into a "C3D20RBP" element with topology:
+       1599       1615       1616       1600       1602       1618       1617       1601       1607       1619
+       1608       1603       1610       1621       1609       1605       1606       1622       1620       1604
+
+ ELEMENT           80 with label "B32R   P" and with nodes:
+        160        161        162
+  is expanded into a "C3D20RBP" element with topology:
+       1615       1631       1632       1616       1618       1634       1633       1617       1623       1635
+       1624       1619       1626       1637       1625       1621       1622       1638       1636       1620
+
+ ELEMENT           81 with label "B32R   P" and with nodes:
+        162        163        164
+  is expanded into a "C3D20RBP" element with topology:
+       1631       1647       1648       1632       1634       1650       1649       1633       1639       1651
+       1640       1635       1642       1653       1641       1637       1638       1654       1652       1636
+
+ ELEMENT           82 with label "B32R   P" and with nodes:
+        164        165        166
+  is expanded into a "C3D20RBP" element with topology:
+       1647       1663       1664       1648       1650       1666       1665       1649       1655       1667
+       1656       1651       1658       1669       1657       1653       1654       1670       1668       1652
+
+ ELEMENT           83 with label "B32R   P" and with nodes:
+        166        167        168
+  is expanded into a "C3D20RBP" element with topology:
+       1663       1679       1680       1664       1666       1682       1681       1665       1671       1683
+       1672       1667       1674       1685       1673       1669       1670       1686       1684       1668
+
+ ELEMENT           84 with label "B32R   P" and with nodes:
+        168        169        170
+  is expanded into a "C3D20RBP" element with topology:
+       1679       1695       1696       1680       1682       1698       1697       1681       1687       1699
+       1688       1683       1690       1701       1689       1685       1686       1702       1700       1684
+
+ ELEMENT           85 with label "B32R   P" and with nodes:
+        170        171        172
+  is expanded into a "C3D20RBP" element with topology:
+       1695       1711       1712       1696       1698       1714       1713       1697       1703       1715
+       1704       1699       1706       1717       1705       1701       1702       1718       1716       1700
+
+ ELEMENT           86 with label "B32R   P" and with nodes:
+        172        173        174
+  is expanded into a "C3D20RBP" element with topology:
+       1711       1727       1728       1712       1714       1730       1729       1713       1719       1731
+       1720       1715       1722       1733       1721       1717       1718       1734       1732       1716
+
+ ELEMENT           87 with label "B32R   P" and with nodes:
+        174        175        176
+  is expanded into a "C3D20RBP" element with topology:
+       1727       1743       1744       1728       1730       1746       1745       1729       1735       1747
+       1736       1731       1738       1749       1737       1733       1734       1750       1748       1732
+
+ ELEMENT           88 with label "B32R   P" and with nodes:
+        176        177        178
+  is expanded into a "C3D20RBP" element with topology:
+       1743       1759       1760       1744       1746       1762       1761       1745       1751       1763
+       1752       1747       1754       1765       1753       1749       1750       1766       1764       1748
+
+ ELEMENT           89 with label "B32R   P" and with nodes:
+        178        179        180
+  is expanded into a "C3D20RBP" element with topology:
+       1759       1775       1776       1760       1762       1778       1777       1761       1767       1779
+       1768       1763       1770       1781       1769       1765       1766       1782       1780       1764
+
+ ELEMENT           90 with label "B32R   P" and with nodes:
+        180        181        182
+  is expanded into a "C3D20RBP" element with topology:
+       1775       1791       1792       1776       1778       1794       1793       1777       1783       1795
+       1784       1779       1786       1797       1785       1781       1782       1798       1796       1780
+
+ ELEMENT           91 with label "B32R   P" and with nodes:
+        182        183        184
+  is expanded into a "C3D20RBP" element with topology:
+       1791       1807       1808       1792       1794       1810       1809       1793       1799       1811
+       1800       1795       1802       1813       1801       1797       1798       1814       1812       1796
+
+ ELEMENT           92 with label "B32R   P" and with nodes:
+        184        185        186
+  is expanded into a "C3D20RBP" element with topology:
+       1807       1823       1824       1808       1810       1826       1825       1809       1815       1827
+       1816       1811       1818       1829       1817       1813       1814       1830       1828       1812
+
+ ELEMENT           93 with label "B32R   P" and with nodes:
+        186        187        188
+  is expanded into a "C3D20RBP" element with topology:
+       1823       1839       1840       1824       1826       1842       1841       1825       1831       1843
+       1832       1827       1834       1845       1833       1829       1830       1846       1844       1828
+
+ ELEMENT           94 with label "B32R   P" and with nodes:
+        188        189        190
+  is expanded into a "C3D20RBP" element with topology:
+       1839       1855       1856       1840       1842       1858       1857       1841       1847       1859
+       1848       1843       1850       1861       1849       1845       1846       1862       1860       1844
+
+ ELEMENT           95 with label "B32R   P" and with nodes:
+        190        191        192
+  is expanded into a "C3D20RBP" element with topology:
+       1855       1871       1872       1856       1858       1874       1873       1857       1863       1875
+       1864       1859       1866       1877       1865       1861       1862       1878       1876       1860
+
+ ELEMENT           96 with label "B32R   P" and with nodes:
+        192        193        194
+  is expanded into a "C3D20RBP" element with topology:
+       1871       1887       1888       1872       1874       1890       1889       1873       1879       1891
+       1880       1875       1882       1893       1881       1877       1878       1894       1892       1876
+
+ ELEMENT           97 with label "B32R   P" and with nodes:
+        194        195        196
+  is expanded into a "C3D20RBP" element with topology:
+       1887       1903       1904       1888       1890       1906       1905       1889       1895       1907
+       1896       1891       1898       1909       1897       1893       1894       1910       1908       1892
+
+ ELEMENT           98 with label "B32R   P" and with nodes:
+        196        197        198
+  is expanded into a "C3D20RBP" element with topology:
+       1903       1919       1920       1904       1906       1922       1921       1905       1911       1923
+       1912       1907       1914       1925       1913       1909       1910       1926       1924       1908
+
+ ELEMENT           99 with label "B32R   P" and with nodes:
+        198        199        200
+  is expanded into a "C3D20RBP" element with topology:
+       1919       1935       1936       1920       1922       1938       1937       1921       1927       1939
+       1928       1923       1930       1941       1929       1925       1926       1942       1940       1924
+
+ ELEMENT          100 with label "B32R   P" and with nodes:
+        200        201        202
+  is expanded into a "C3D20RBP" element with topology:
+       1935       1951       1952       1936       1938       1954       1953       1937       1943       1955
+       1944       1939       1946       1957       1945       1941       1942       1958       1956       1940
+
+ ELEMENT          101 with label "B32R   P" and with nodes:
+        202        203        204
+  is expanded into a "C3D20RBP" element with topology:
+       1951       1967       1968       1952       1954       1970       1969       1953       1959       1971
+       1960       1955       1962       1973       1961       1957       1958       1974       1972       1956
+
+ ELEMENT          102 with label "B32R   P" and with nodes:
+        204        205        206
+  is expanded into a "C3D20RBP" element with topology:
+       1967       1983       1984       1968       1970       1986       1985       1969       1975       1987
+       1976       1971       1978       1989       1977       1973       1974       1990       1988       1972
+
+ ELEMENT          103 with label "B32R   P" and with nodes:
+        206        207        208
+  is expanded into a "C3D20RBP" element with topology:
+       1983       1999       2000       1984       1986       2002       2001       1985       1991       2003
+       1992       1987       1994       2005       1993       1989       1990       2006       2004       1988
+
+ ELEMENT          104 with label "B32R   P" and with nodes:
+        208        209        210
+  is expanded into a "C3D20RBP" element with topology:
+       1999       2015       2016       2000       2002       2018       2017       2001       2007       2019
+       2008       2003       2010       2021       2009       2005       2006       2022       2020       2004
+
+ ELEMENT          105 with label "B32R   P" and with nodes:
+        210        211        212
+  is expanded into a "C3D20RBP" element with topology:
+       2015       2031       2032       2016       2018       2034       2033       2017       2023       2035
+       2024       2019       2026       2037       2025       2021       2022       2038       2036       2020
+
+ ELEMENT          106 with label "B32R   P" and with nodes:
+        212        213        214
+  is expanded into a "C3D20RBP" element with topology:
+       2031       2047       2048       2032       2034       2050       2049       2033       2039       2051
+       2040       2035       2042       2053       2041       2037       2038       2054       2052       2036
+
+ ELEMENT          107 with label "B32R   P" and with nodes:
+        214        215        216
+  is expanded into a "C3D20RBP" element with topology:
+       2047       2063       2064       2048       2050       2066       2065       2049       2055       2067
+       2056       2051       2058       2069       2057       2053       2054       2070       2068       2052
+
+ ELEMENT          108 with label "B32R   P" and with nodes:
+        216        217        218
+  is expanded into a "C3D20RBP" element with topology:
+       2063       2079       2080       2064       2066       2082       2081       2065       2071       2083
+       2072       2067       2074       2085       2073       2069       2070       2086       2084       2068
+
+ ELEMENT          109 with label "B32R   P" and with nodes:
+        218        219        220
+  is expanded into a "C3D20RBP" element with topology:
+       2079       2095       2096       2080       2082       2098       2097       2081       2087       2099
+       2088       2083       2090       2101       2089       2085       2086       2102       2100       2084
+
+ ELEMENT          110 with label "B32R   P" and with nodes:
+        220        221        222
+  is expanded into a "C3D20RBP" element with topology:
+       2095       2111       2112       2096       2098       2114       2113       2097       2103       2115
+       2104       2099       2106       2117       2105       2101       2102       2118       2116       2100
+
+ ELEMENT          111 with label "B32R   P" and with nodes:
+        222        223        224
+  is expanded into a "C3D20RBP" element with topology:
+       2111       2127       2128       2112       2114       2130       2129       2113       2119       2131
+       2120       2115       2122       2133       2121       2117       2118       2134       2132       2116
+
+ ELEMENT          112 with label "B32R   P" and with nodes:
+        224        225        226
+  is expanded into a "C3D20RBP" element with topology:
+       2127       2143       2144       2128       2130       2146       2145       2129       2135       2147
+       2136       2131       2138       2149       2137       2133       2134       2150       2148       2132
+
+ ELEMENT          113 with label "B32R   P" and with nodes:
+        226        227        228
+  is expanded into a "C3D20RBP" element with topology:
+       2143       2159       2160       2144       2146       2162       2161       2145       2151       2163
+       2152       2147       2154       2165       2153       2149       2150       2166       2164       2148
+
+ ELEMENT          114 with label "B32R   P" and with nodes:
+        228        229        230
+  is expanded into a "C3D20RBP" element with topology:
+       2159       2175       2176       2160       2162       2178       2177       2161       2167       2179
+       2168       2163       2170       2181       2169       2165       2166       2182       2180       2164
+
+ ELEMENT          115 with label "B32R   P" and with nodes:
+        230        231        232
+  is expanded into a "C3D20RBP" element with topology:
+       2175       2191       2192       2176       2178       2194       2193       2177       2183       2195
+       2184       2179       2186       2197       2185       2181       2182       2198       2196       2180
+
+ ELEMENT          116 with label "B32R   P" and with nodes:
+        232        233        234
+  is expanded into a "C3D20RBP" element with topology:
+       2191       2207       2208       2192       2194       2210       2209       2193       2199       2211
+       2200       2195       2202       2213       2201       2197       2198       2214       2212       2196
+
+ ELEMENT          117 with label "B32R   P" and with nodes:
+        234        235        236
+  is expanded into a "C3D20RBP" element with topology:
+       2207       2223       2224       2208       2210       2226       2225       2209       2215       2227
+       2216       2211       2218       2229       2217       2213       2214       2230       2228       2212
+
+ ELEMENT          118 with label "B32R   P" and with nodes:
+        236        237        238
+  is expanded into a "C3D20RBP" element with topology:
+       2223       2239       2240       2224       2226       2242       2241       2225       2231       2243
+       2232       2227       2234       2245       2233       2229       2230       2246       2244       2228
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   1.0000000000000000      ,   0.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   0.0000000000000000      ,   1.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node            1
+                 about the axis (   0.0000000000000000      ,   0.0000000000000000      ,   1.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node          120
+                 about the axis (   1.0000000000000000      ,   0.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node          120
+                 about the axis (   0.0000000000000000      ,   1.0000000000000000      ,   0.0000000000000000      )
+
+ a MEAN ROTATION MPC was generated in node          120
+                 about the axis (   0.0000000000000000      ,   0.0000000000000000      ,   1.0000000000000000      )
+
