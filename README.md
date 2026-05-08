@@ -132,7 +132,7 @@ graph LR
     SC --> OBJ["目標函數<br/>total_mass_full_kg"]
     SC --> C1["約束：failure_index ≤ 0"]
     SB --> C2["約束：twist_max_deg ≤ 2°"]
-    SB --> C3["設計有效性 gate：tip_deflection_m ≤ 2.5m（不是斷裂點）"]
+    SB --> C3["設計有效性 / aeroelastic-assumption gate：tip_deflection_m ≤ 2.5m（不是斷裂點）"]
 ```
 
 ---
@@ -160,6 +160,7 @@ graph LR
 - **正式對外 consumer contract**：`python -m hpa_mdo.producer` 產出的 decision interface JSON。
 - **legacy parity path**：`equivalent_beam` 與 `scripts/ansys_crossval.py --export-mode equivalent_beam` 只保留為歷史 Phase I parity / regression 參考，不應再當成目前的設計 sign-off、排名基準或高保真比對目標。
 - **高保真幾何/驗證目標**：應優先對齊 dual-beam production / inverse-design artifacts，例如 production check report、selected design summary、`spar_jig_shape.step`、loaded-shape artifacts；不要預設拿 `output/blackcat_004/optimization_summary.txt` 或 `spar_model.step` 當最後真值。
+- **tip deflection 2.5 m gate**：目前是設計有效性 / submission / aeroelastic-assumption gate，不是斷裂點、材料強度 margin 或 root/joint/hardware sign-off。若要放寬到 submission 判準，必須先補 loaded-shape、aeroelastic twist、clearance、load-path recheck；Phase31/Phase39 artifacts 只允許 exploration relaxation，不允許直接宣稱 submission pass。
 
 如果你是人或 AI 代理，對 Black Cat 004 的後續開發請優先讀：
 
