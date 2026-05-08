@@ -39,6 +39,9 @@ from scripts.phase22_bracing_sensitivity import (  # noqa: E402
 from scripts.phase23_detail_sizing_requirements import (  # noqa: E402
     build_detail_sizing_requirements,
 )
+from scripts.phase24_rib_spacing_requirements import (  # noqa: E402
+    build_rib_spacing_requirements,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -71,6 +74,7 @@ def build_structural_closure_index(
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
     detail_requirements: Any | None = None,
+    rib_spacing_requirements: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
     local_by_key = _entry_map(getattr(local_ledger, "entries", ()))
@@ -86,6 +90,7 @@ def build_structural_closure_index(
             torsion_audit=torsion_audit,
             bracing_audit=bracing_audit,
             detail_requirements=detail_requirements,
+            rib_spacing_requirements=rib_spacing_requirements,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
     )
@@ -109,6 +114,7 @@ def write_structural_closure_index_package(
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
     detail_requirements: Any | None = None,
+    rib_spacing_requirements: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     index = build_structural_closure_index(
@@ -117,6 +123,7 @@ def write_structural_closure_index_package(
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
         detail_requirements=detail_requirements,
+        rib_spacing_requirements=rib_spacing_requirements,
     )
     outputs = [
         _write_csv(out_dir / "structural_closure_index.csv", index),
@@ -147,6 +154,11 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         equivalent_twist_max_deg=load_current_equivalent_twist_max_deg(),
     )
     detail_requirements = build_detail_sizing_requirements(local_ledger)
+    rib_spacing_requirements = build_rib_spacing_requirements(
+        reference.candidate_id,
+        spar_rows=load_current_spar_rows(),
+        wire_rigging=load_current_wire_rigging(),
+    )
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
     return build_structural_closure_index(
@@ -155,6 +167,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
         detail_requirements=detail_requirements,
+        rib_spacing_requirements=rib_spacing_requirements,
     )
 
 
@@ -168,6 +181,7 @@ def _build_item(
     torsion_audit: Any | None,
     bracing_audit: Any | None,
     detail_requirements: Any | None,
+    rib_spacing_requirements: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
     evidence_artifacts = _evidence_artifacts(
@@ -176,6 +190,7 @@ def _build_item(
         torsion_entry,
         bracing_audit,
         detail_entry,
+        rib_spacing_requirements,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
     evidence = _evidence_for_key(
@@ -187,6 +202,7 @@ def _build_item(
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
         detail_entry=detail_entry,
+        rib_spacing_requirements=rib_spacing_requirements,
     )
     return StructuralClosureItem(
         key=key,
@@ -228,6 +244,7 @@ def _evidence_artifacts(
     torsion_entry: Any | None,
     bracing_audit: Any | None,
     detail_entry: Any | None,
+    rib_spacing_requirements: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
     if local_entry is not None:
@@ -243,6 +260,11 @@ def _evidence_artifacts(
         artifacts.append("Phase22 bracing_sensitivity")
     if detail_entry is not None:
         artifacts.append("Phase23 detail_sizing_requirements")
+    if rib_spacing_requirements is not None and key in {
+        "rib_load_transfer",
+        "rib_spacing_assumption",
+    }:
+        artifacts.append("Phase24 rib_spacing_requirements")
     return "; ".join(artifacts)
 
 
@@ -256,6 +278,7 @@ def _evidence_for_key(
     torsion_audit: Any | None,
     bracing_audit: Any | None,
     detail_entry: Any | None,
+    rib_spacing_requirements: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
     if local_entry is not None:
@@ -310,6 +333,11 @@ def _evidence_for_key(
         parts.append(f"Phase22: {_bracing_summary_for_key(key, bracing_audit)}")
     if detail_entry is not None:
         parts.append(f"Phase23: {_detail_summary(detail_entry)}")
+    if rib_spacing_requirements is not None and key in {
+        "rib_load_transfer",
+        "rib_spacing_assumption",
+    }:
+        parts.append(f"Phase24: {_rib_spacing_summary(rib_spacing_requirements)}")
     return " ".join(parts)
 
 
@@ -337,6 +365,21 @@ def _detail_summary(entry: Any) -> str:
     if body_margin is not None:
         parts.append(f"body margin={_fmt(body_margin)} N")
     return "; ".join(parts) + "."
+
+
+def _rib_spacing_summary(requirements: Any) -> str:
+    return (
+        "current max bay="
+        f"{_fmt(getattr(requirements, 'current_max_bay_m', None))} m; "
+        "target bay="
+        f"{_fmt(getattr(requirements, 'target_bay_m', None))} m; "
+        "added stations="
+        f"{int(getattr(requirements, 'total_added_bracing_stations', 0))}; "
+        "recommended stations="
+        f"{int(getattr(requirements, 'recommended_station_count', 0))}; "
+        "max recommended subbay="
+        f"{_fmt(getattr(requirements, 'max_recommended_subbay_m', None))} m."
+    )
 
 
 def _bracing_summary_for_key(key: str, bracing_audit: Any) -> str:

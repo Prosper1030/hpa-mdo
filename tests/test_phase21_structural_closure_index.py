@@ -164,6 +164,16 @@ def _detail_requirements() -> SimpleNamespace:
     )
 
 
+def _rib_spacing_requirements() -> SimpleNamespace:
+    return SimpleNamespace(
+        current_max_bay_m=3.86,
+        target_bay_m=0.30,
+        total_added_bracing_stations=15,
+        recommended_station_count=22,
+        max_recommended_subbay_m=0.297,
+    )
+
+
 def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> None:
     index = build_structural_closure_index(
         _claim_review(),
@@ -171,6 +181,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
         detail_requirements=_detail_requirements(),
+        rib_spacing_requirements=_rib_spacing_requirements(),
     )
 
     assert index.overall_status == "engineering_not_signed_off"
@@ -189,6 +200,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
     assert "dense_finite_rib_surrogate" in by_key["rib_load_transfer"].current_evidence
+    assert "Phase24" in by_key["rib_spacing_assumption"].evidence_artifacts
+    assert "added stations=15" in by_key["rib_spacing_assumption"].current_evidence
+    assert "max recommended subbay=0.2970 m" in by_key["rib_load_transfer"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
 
 
@@ -200,6 +214,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
         detail_requirements=_detail_requirements(),
+        rib_spacing_requirements=_rib_spacing_requirements(),
     )
 
     assert {path.name for path in outputs} == {
