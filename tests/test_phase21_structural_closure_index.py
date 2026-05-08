@@ -174,6 +174,15 @@ def _rib_spacing_requirements() -> SimpleNamespace:
     )
 
 
+def _failure_mode_ordering() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="true_failure_order_not_closed",
+        known_unranked_mode_count=7,
+        modeled_first_limiter_with_current_wire="wire_tension_body_allowable",
+        modeled_first_limiter_with_6kn_wire="tip_deflection",
+    )
+
+
 def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> None:
     index = build_structural_closure_index(
         _claim_review(),
@@ -182,6 +191,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         bracing_audit=_bracing_audit(),
         detail_requirements=_detail_requirements(),
         rib_spacing_requirements=_rib_spacing_requirements(),
+        failure_mode_ordering=_failure_mode_ordering(),
     )
 
     assert index.overall_status == "engineering_not_signed_off"
@@ -203,6 +213,8 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase24" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert "added stations=15" in by_key["rib_spacing_assumption"].current_evidence
     assert "max recommended subbay=0.2970 m" in by_key["rib_load_transfer"].current_evidence
+    assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
+    assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
 
 
@@ -215,6 +227,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         bracing_audit=_bracing_audit(),
         detail_requirements=_detail_requirements(),
         rib_spacing_requirements=_rib_spacing_requirements(),
+        failure_mode_ordering=_failure_mode_ordering(),
     )
 
     assert {path.name for path in outputs} == {

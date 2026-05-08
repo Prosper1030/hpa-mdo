@@ -42,6 +42,9 @@ from scripts.phase23_detail_sizing_requirements import (  # noqa: E402
 from scripts.phase24_rib_spacing_requirements import (  # noqa: E402
     build_rib_spacing_requirements,
 )
+from scripts.phase25_failure_mode_ordering import (  # noqa: E402
+    build_failure_mode_ordering,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -75,6 +78,7 @@ def build_structural_closure_index(
     bracing_audit: Any | None = None,
     detail_requirements: Any | None = None,
     rib_spacing_requirements: Any | None = None,
+    failure_mode_ordering: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
     local_by_key = _entry_map(getattr(local_ledger, "entries", ()))
@@ -91,6 +95,7 @@ def build_structural_closure_index(
             bracing_audit=bracing_audit,
             detail_requirements=detail_requirements,
             rib_spacing_requirements=rib_spacing_requirements,
+            failure_mode_ordering=failure_mode_ordering,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
     )
@@ -115,6 +120,7 @@ def write_structural_closure_index_package(
     bracing_audit: Any | None = None,
     detail_requirements: Any | None = None,
     rib_spacing_requirements: Any | None = None,
+    failure_mode_ordering: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     index = build_structural_closure_index(
@@ -124,6 +130,7 @@ def write_structural_closure_index_package(
         bracing_audit=bracing_audit,
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
+        failure_mode_ordering=failure_mode_ordering,
     )
     outputs = [
         _write_csv(out_dir / "structural_closure_index.csv", index),
@@ -159,6 +166,11 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         spar_rows=load_current_spar_rows(),
         wire_rigging=load_current_wire_rigging(),
     )
+    failure_mode_ordering = build_failure_mode_ordering(
+        review,
+        detail_requirements=detail_requirements,
+        rib_spacing_requirements=rib_spacing_requirements,
+    )
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
     return build_structural_closure_index(
@@ -168,6 +180,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         bracing_audit=bracing_audit,
         detail_requirements=detail_requirements,
         rib_spacing_requirements=rib_spacing_requirements,
+        failure_mode_ordering=failure_mode_ordering,
     )
 
 
@@ -182,6 +195,7 @@ def _build_item(
     bracing_audit: Any | None,
     detail_requirements: Any | None,
     rib_spacing_requirements: Any | None,
+    failure_mode_ordering: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
     evidence_artifacts = _evidence_artifacts(
@@ -191,6 +205,7 @@ def _build_item(
         bracing_audit,
         detail_entry,
         rib_spacing_requirements,
+        failure_mode_ordering,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
     evidence = _evidence_for_key(
@@ -203,6 +218,7 @@ def _build_item(
         bracing_audit=bracing_audit,
         detail_entry=detail_entry,
         rib_spacing_requirements=rib_spacing_requirements,
+        failure_mode_ordering=failure_mode_ordering,
     )
     return StructuralClosureItem(
         key=key,
@@ -245,6 +261,7 @@ def _evidence_artifacts(
     bracing_audit: Any | None,
     detail_entry: Any | None,
     rib_spacing_requirements: Any | None,
+    failure_mode_ordering: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
     if local_entry is not None:
@@ -265,6 +282,8 @@ def _evidence_artifacts(
         "rib_spacing_assumption",
     }:
         artifacts.append("Phase24 rib_spacing_requirements")
+    if failure_mode_ordering is not None and key == "failure_mode_ordering":
+        artifacts.append("Phase25 failure_mode_ordering")
     return "; ".join(artifacts)
 
 
@@ -279,6 +298,7 @@ def _evidence_for_key(
     bracing_audit: Any | None,
     detail_entry: Any | None,
     rib_spacing_requirements: Any | None,
+    failure_mode_ordering: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
     if local_entry is not None:
@@ -338,6 +358,8 @@ def _evidence_for_key(
         "rib_spacing_assumption",
     }:
         parts.append(f"Phase24: {_rib_spacing_summary(rib_spacing_requirements)}")
+    if failure_mode_ordering is not None and key == "failure_mode_ordering":
+        parts.append(f"Phase25: {_failure_ordering_summary(failure_mode_ordering)}")
     return " ".join(parts)
 
 
@@ -379,6 +401,19 @@ def _rib_spacing_summary(requirements: Any) -> str:
         f"{int(getattr(requirements, 'recommended_station_count', 0))}; "
         "max recommended subbay="
         f"{_fmt(getattr(requirements, 'max_recommended_subbay_m', None))} m."
+    )
+
+
+def _failure_ordering_summary(ordering: Any) -> str:
+    return (
+        "status="
+        f"{getattr(ordering, 'overall_status', 'unknown')}; "
+        "unranked modes="
+        f"{int(getattr(ordering, 'known_unranked_mode_count', 0))}; "
+        "current wire first="
+        f"{getattr(ordering, 'modeled_first_limiter_with_current_wire', 'unknown')}; "
+        "6 kN wire first="
+        f"{getattr(ordering, 'modeled_first_limiter_with_6kn_wire', 'unknown')}."
     )
 
 
