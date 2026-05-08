@@ -136,6 +136,32 @@ def _bracing_audit() -> SimpleNamespace:
     )
 
 
+def _bracing_diagnostic() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="bracing_effective_but_not_signed_off",
+        rows=(
+            SimpleNamespace(
+                key="rear_spar_stiffness",
+                status="strong_model_sensitivity_not_signoff",
+                tip_delta_pct=292.6,
+                max_vertical_delta_pct=295.8,
+                angle_delta_deg=36.3,
+                link_force_max_n=1201.8,
+                model_bias_guardrail="internal_model_bias_guardrail_required",
+            ),
+            SimpleNamespace(
+                key="rib_load_transfer",
+                status="surrogate_load_transfer_not_signoff",
+                tip_delta_pct=-17.7,
+                max_vertical_delta_pct=-17.2,
+                angle_delta_deg=-8.3,
+                link_force_max_n=934.5,
+                model_bias_guardrail="internal_model_bias_guardrail_required",
+            ),
+        ),
+    )
+
+
 def _detail_requirements() -> SimpleNamespace:
     return SimpleNamespace(
         rows=(
@@ -288,6 +314,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         local_ledger=_local_ledger(),
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
+        bracing_diagnostic=_bracing_diagnostic(),
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),
@@ -316,8 +343,16 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase29" in by_key["torsion_twist_coupling"].evidence_artifacts
     assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
+    assert "Phase32" in by_key["rear_spar_stiffness"].evidence_artifacts
+    assert "diagnostic status=strong_model_sensitivity_not_signoff" in by_key[
+        "rear_spar_stiffness"
+    ].current_evidence
     assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].current_evidence
     assert "dense_finite_rib_surrogate" in by_key["rib_load_transfer"].current_evidence
+    assert "Phase32" in by_key["rib_load_transfer"].evidence_artifacts
+    assert "diagnostic status=surrogate_load_transfer_not_signoff" in by_key[
+        "rib_load_transfer"
+    ].current_evidence
     assert "Phase24" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert "Phase28" in by_key["rib_load_transfer"].evidence_artifacts
     assert "added stations=15" in by_key["rib_spacing_assumption"].current_evidence
@@ -344,6 +379,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         local_ledger=_local_ledger(),
         torsion_audit=_torsion_audit(),
         bracing_audit=_bracing_audit(),
+        bracing_diagnostic=_bracing_diagnostic(),
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),

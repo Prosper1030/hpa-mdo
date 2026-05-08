@@ -60,6 +60,9 @@ from scripts.phase30_full_wing_buckling_closure_inputs import (  # noqa: E402
 from scripts.phase31_tip_deflection_revalidation_inputs import (  # noqa: E402
     build_tip_deflection_revalidation_check,
 )
+from scripts.phase32_rear_spar_rib_bracing_diagnostic import (  # noqa: E402
+    build_rear_spar_rib_bracing_diagnostic,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -91,6 +94,7 @@ def build_structural_closure_index(
     local_ledger: Any | None = None,
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
+    bracing_diagnostic: Any | None = None,
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
@@ -113,6 +117,7 @@ def build_structural_closure_index(
             torsion_entry=torsion_by_key.get(key),
             torsion_audit=torsion_audit,
             bracing_audit=bracing_audit,
+            bracing_diagnostic=bracing_diagnostic,
             detail_requirements=detail_requirements,
             detail_margin_check=detail_margin_check,
             rib_spacing_requirements=rib_spacing_requirements,
@@ -143,6 +148,7 @@ def write_structural_closure_index_package(
     local_ledger: Any | None = None,
     torsion_audit: Any | None = None,
     bracing_audit: Any | None = None,
+    bracing_diagnostic: Any | None = None,
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
@@ -158,6 +164,7 @@ def write_structural_closure_index_package(
         local_ledger=local_ledger,
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
+        bracing_diagnostic=bracing_diagnostic,
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
         rib_spacing_requirements=rib_spacing_requirements,
@@ -209,6 +216,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     )
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
+    bracing_diagnostic = build_rear_spar_rib_bracing_diagnostic(bracing_audit)
     rib_bracing_margin_check = build_rib_bracing_margin_check(
         rib_spacing_requirements,
         bracing_audit,
@@ -231,6 +239,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         local_ledger=local_ledger,
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
+        bracing_diagnostic=bracing_diagnostic,
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
         rib_spacing_requirements=rib_spacing_requirements,
@@ -251,6 +260,7 @@ def _build_item(
     torsion_entry: Any | None,
     torsion_audit: Any | None,
     bracing_audit: Any | None,
+    bracing_diagnostic: Any | None,
     detail_requirements: Any | None,
     detail_margin_check: Any | None,
     rib_spacing_requirements: Any | None,
@@ -267,6 +277,7 @@ def _build_item(
         local_entry,
         torsion_entry,
         bracing_audit,
+        bracing_diagnostic,
         detail_entry,
         detail_margin_entry,
         rib_spacing_requirements,
@@ -285,6 +296,7 @@ def _build_item(
         torsion_entry=torsion_entry,
         torsion_audit=torsion_audit,
         bracing_audit=bracing_audit,
+        bracing_diagnostic=bracing_diagnostic,
         detail_entry=detail_entry,
         detail_margin_entry=detail_margin_entry,
         rib_spacing_requirements=rib_spacing_requirements,
@@ -333,6 +345,7 @@ def _evidence_artifacts(
     local_entry: Any | None,
     torsion_entry: Any | None,
     bracing_audit: Any | None,
+    bracing_diagnostic: Any | None,
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
     rib_spacing_requirements: Any | None,
@@ -354,6 +367,8 @@ def _evidence_artifacts(
         "failure_mode_ordering",
     }:
         artifacts.append("Phase22 bracing_sensitivity")
+    if bracing_diagnostic is not None and key in {"rear_spar_stiffness", "rib_load_transfer"}:
+        artifacts.append("Phase32 rear_spar_rib_bracing_diagnostic")
     if detail_entry is not None:
         artifacts.append("Phase23 detail_sizing_requirements")
     if detail_margin_entry is not None:
@@ -388,6 +403,7 @@ def _evidence_for_key(
     torsion_entry: Any | None,
     torsion_audit: Any | None,
     bracing_audit: Any | None,
+    bracing_diagnostic: Any | None,
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
     rib_spacing_requirements: Any | None,
@@ -448,6 +464,8 @@ def _evidence_for_key(
         "failure_mode_ordering",
     }:
         parts.append(f"Phase22: {_bracing_summary_for_key(key, bracing_audit)}")
+    if bracing_diagnostic is not None and key in {"rear_spar_stiffness", "rib_load_transfer"}:
+        parts.append(f"Phase32: {_bracing_diagnostic_summary_for_key(key, bracing_diagnostic)}")
     if detail_entry is not None:
         parts.append(f"Phase23: {_detail_summary(detail_entry)}")
     if detail_margin_entry is not None:
@@ -552,6 +570,27 @@ def _rib_bracing_summary(check: Any) -> str:
         f"{missing}; "
         "negative-margin bays="
         f"{negative}."
+    )
+
+
+def _bracing_diagnostic_summary_for_key(key: str, diagnostic: Any) -> str:
+    rows = {str(row.key): row for row in getattr(diagnostic, "rows", ())}
+    row = rows.get(key)
+    if row is None:
+        return "diagnostic row unavailable."
+    return (
+        "diagnostic status="
+        f"{getattr(row, 'status', 'unknown')}; "
+        "tip delta="
+        f"{_fmt(getattr(row, 'tip_delta_pct', None))}%; "
+        "max vertical delta="
+        f"{_fmt(getattr(row, 'max_vertical_delta_pct', None))}%; "
+        "angle delta="
+        f"{_fmt(getattr(row, 'angle_delta_deg', None))} deg; "
+        "link force="
+        f"{_fmt(getattr(row, 'link_force_max_n', None))} N; "
+        "guardrail="
+        f"{getattr(row, 'model_bias_guardrail', 'unknown')}."
     )
 
 
