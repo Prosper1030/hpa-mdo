@@ -38,6 +38,11 @@ REQUIRED_VERIFICATION_FIELDS = (
     "mode_review_status",
 )
 PASS_STATUS = "pass"
+UNUSABLE_REFERENCE_LOAD_STATUSES = (
+    "unphysical_or_load_sign_review_required",
+    "reference_load_formulation_not_rankable",
+    "phase41_reference_load_formulation_not_rankable",
+)
 
 
 @dataclass(frozen=True)
@@ -48,6 +53,7 @@ class FullWingBucklingClosureRow:
     claim_load_factor: float | None
     first_global_buckling_load_factor: float | None
     load_factor_margin: float | None
+    reference_load_status: str
     includes_main_spar: bool
     includes_rear_spar: bool
     includes_finite_ribs: bool
@@ -132,7 +138,16 @@ def build_current_full_wing_buckling_closure_check() -> FullWingBucklingClosureC
 
 def _build_row(raw: dict[str, Any]) -> FullWingBucklingClosureRow:
     claim_load_factor = _dict_float(raw, "claim_load_factor")
-    first_global_buckling_load_factor = _dict_float(raw, "first_global_buckling_load_factor")
+    reference_load_status = str(raw.get("reference_load_status", "")).strip()
+    reported_first_global_buckling_load_factor = _dict_float(
+        raw,
+        "first_global_buckling_load_factor",
+    )
+    first_global_buckling_load_factor = (
+        None
+        if _reference_load_not_rankable(reference_load_status)
+        else reported_first_global_buckling_load_factor
+    )
     load_factor_margin = _margin(first_global_buckling_load_factor, claim_load_factor)
     component_flags = {
         component: _dict_bool(raw, f"includes_{component}")
@@ -153,6 +168,7 @@ def _build_row(raw: dict[str, Any]) -> FullWingBucklingClosureRow:
         missing_components=missing_components,
         verification_statuses=verification_statuses,
         source=source,
+        reference_load_status=reference_load_status,
         load_factor_margin=load_factor_margin,
     )
     return FullWingBucklingClosureRow(
@@ -162,6 +178,7 @@ def _build_row(raw: dict[str, Any]) -> FullWingBucklingClosureRow:
         claim_load_factor=claim_load_factor,
         first_global_buckling_load_factor=first_global_buckling_load_factor,
         load_factor_margin=load_factor_margin,
+        reference_load_status=reference_load_status,
         includes_main_spar=component_flags["main_spar"],
         includes_rear_spar=component_flags["rear_spar"],
         includes_finite_ribs=component_flags["finite_ribs"],
@@ -185,6 +202,7 @@ def _missing_input_row() -> FullWingBucklingClosureRow:
         claim_load_factor=None,
         first_global_buckling_load_factor=None,
         load_factor_margin=None,
+        reference_load_status="",
         includes_main_spar=False,
         includes_rear_spar=False,
         includes_finite_ribs=False,
@@ -227,12 +245,15 @@ def _status(
     missing_components: str,
     verification_statuses: dict[str, str],
     source: str,
+    reference_load_status: str,
     load_factor_margin: float | None,
 ) -> str:
     if not source:
         return "source_missing"
     if model_scope not in ACCEPTED_MODEL_SCOPES:
         return "invalid_buckling_model_scope"
+    if _reference_load_not_rankable(reference_load_status):
+        return "reference_load_formulation_not_rankable"
     if claim_load_factor is None or first_global_buckling_load_factor is None:
         return "closure_input_incomplete"
     if missing_components:
@@ -266,6 +287,11 @@ def _engineering_note(status: str) -> str:
         return "Buckling evidence must include a traceable source path, report id, or solver artifact reference."
     if status == "mode_review_missing":
         return "A qualified mode review must confirm the first eigenmode is the relevant global/braced buckling mode."
+    if status == "reference_load_formulation_not_rankable":
+        return (
+            "The reference load formulation is not usable as a buckling margin; "
+            "replace it with a reviewed global/prestress buckling load case."
+        )
     return (
         "Input margin check only; not a full aircraft signoff without qualified model review, "
         "mesh/solver evidence, and engineering approval."
@@ -279,6 +305,7 @@ def _write_template(path: Path) -> Path:
         "accepted_model_scopes",
         "claim_load_factor",
         "first_global_buckling_load_factor",
+        "reference_load_status",
         "includes_main_spar",
         "includes_rear_spar",
         "includes_finite_ribs",
@@ -302,6 +329,7 @@ def _write_template(path: Path) -> Path:
                     "accepted_model_scopes": ";".join(ACCEPTED_MODEL_SCOPES),
                     "claim_load_factor": f"{claim_load_factor:.2f}",
                     "first_global_buckling_load_factor": "",
+                    "reference_load_status": "pass",
                     "includes_main_spar": "true",
                     "includes_rear_spar": "true",
                     "includes_finite_ribs": "true",
@@ -350,14 +378,15 @@ def _write_markdown(path: Path, check: FullWingBucklingClosureCheck) -> Path:
         f"- required claim load factors: `{'; '.join(f'{value:.2f}' for value in check.required_claim_load_factors)}`",
         f"- missing required claim load factors: `{check.missing_required_claim_load_factors or 'none'}`",
         "",
-        "| case | model scope | status | claim n | first buckling n | margin n | mode review | missing components | source |",
-        "|---|---|---|---:|---:|---:|---|---|---|",
+        "| case | model scope | status | claim n | first buckling n | margin n | ref load | mode review | missing components | source |",
+        "|---|---|---|---:|---:|---:|---|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.case_id} | {row.model_scope or 'n/a'} | `{row.status}` | "
             f"{_fmt(row.claim_load_factor)} | {_fmt(row.first_global_buckling_load_factor)} | "
-            f"{_fmt(row.load_factor_margin)} | {row.mode_review_status or 'n/a'} | "
+            f"{_fmt(row.load_factor_margin)} | {row.reference_load_status or 'n/a'} | "
+            f"{row.mode_review_status or 'n/a'} | "
             f"{row.missing_components or 'none'} | "
             f"{row.source or 'n/a'} |"
         )
@@ -394,6 +423,17 @@ def _margin(available: float | None, required: float | None) -> float | None:
     if available is None or required is None:
         return None
     return float(available) - float(required)
+
+
+def _reference_load_not_rankable(reference_load_status: str) -> bool:
+    normalized = reference_load_status.strip().lower()
+    if not normalized:
+        return False
+    return (
+        normalized in UNUSABLE_REFERENCE_LOAD_STATUSES
+        or "not_rankable" in normalized
+        or "unphysical" in normalized
+    )
 
 
 def _fmt(value: float | None) -> str:

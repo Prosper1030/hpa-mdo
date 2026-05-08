@@ -179,6 +179,38 @@ def test_full_wing_buckling_closure_requires_source_and_mode_review() -> None:
     assert by_case["mode-unreviewed-global"].status == "mode_review_missing"
 
 
+def test_full_wing_buckling_closure_rejects_unusable_reference_load_factor() -> None:
+    check = build_full_wing_buckling_closure_check(
+        "sample",
+        closure_inputs=(
+            {
+                "case_id": "phase41-huge-lambda",
+                "model_scope": "braced_subassembly_eigen",
+                "claim_load_factor": "1.50",
+                "first_global_buckling_load_factor": "4088644.50",
+                "reference_load_status": "unphysical_or_load_sign_review_required",
+                "includes_main_spar": "true",
+                "includes_rear_spar": "true",
+                "includes_finite_ribs": "true",
+                "includes_wire_attach_load_path": "true",
+                "includes_root_boundary": "true",
+                "boundary_condition_status": "generated_unreviewed",
+                "mesh_convergence_status": "single_mesh_not_converged",
+                "solver_status": "pass",
+                "mode_review_status": "unreviewed",
+                "source": "phase41 deck",
+            },
+        ),
+    )
+
+    row = check.rows[0]
+    assert row.status == "reference_load_formulation_not_rankable"
+    assert row.reference_load_status == "unphysical_or_load_sign_review_required"
+    assert row.first_global_buckling_load_factor is None
+    assert row.load_factor_margin is None
+    assert "reference load formulation" in row.engineering_note
+
+
 def test_full_wing_buckling_closure_marks_missing_inputs() -> None:
     check = build_full_wing_buckling_closure_check("sample", closure_inputs=())
 

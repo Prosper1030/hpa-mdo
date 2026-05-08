@@ -516,6 +516,7 @@ def _phase30_input_row(row: BracedSubassemblyFemEvidenceRow | dict[str, Any]) ->
             "inferred_first_buckling_load_factor",
         )
         or "",
+        "reference_load_status": _row_value(row, "reference_load_status"),
         "includes_main_spar": _row_value(row, "includes_main_spar"),
         "includes_rear_spar": _row_value(row, "includes_rear_spar"),
         "includes_finite_ribs": _row_value(row, "includes_finite_ribs"),
@@ -607,6 +608,7 @@ def _write_phase30_inputs_csv(
         "accepted_model_scopes",
         "claim_load_factor",
         "first_global_buckling_load_factor",
+        "reference_load_status",
         "includes_main_spar",
         "includes_rear_spar",
         "includes_finite_ribs",

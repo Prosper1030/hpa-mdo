@@ -75,6 +75,7 @@ def test_phase41_generates_buckle_decks_and_report_only_evidence(tmp_path: Path)
     )
     assert "braced_subassembly_eigen" in closure_csv
     assert "generated_unreviewed" in closure_csv
+    assert "reference_load_status" in closure_csv
 
 
 def test_phase41_solver_result_keeps_mode_review_as_blocker(tmp_path: Path) -> None:
@@ -182,4 +183,5 @@ def test_phase41_flags_huge_eigen_multiplier_as_reference_load_review(
     )
     assert row["status"] == "solver_ran_reference_load_review_required"
     assert row["reference_load_status"] == "unphysical_or_load_sign_review_required"
+    assert row["phase30_closure_status"] == "reference_load_formulation_not_rankable"
     assert "reference load/sign convention" in row["engineering_note"]
