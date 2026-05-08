@@ -343,6 +343,13 @@ def _rib_bracing_margin_check() -> SimpleNamespace:
                 shear_margin_n=None,
                 bond_margin_n=None,
             ),
+            SimpleNamespace(
+                bay_index=2,
+                status="rib_traceability_missing",
+                link_margin_n=200.0,
+                shear_margin_n=100.0,
+                bond_margin_n=50.0,
+            ),
         ),
     )
 
@@ -560,6 +567,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "added stations=15" in by_key["rib_spacing_assumption"].current_evidence
     assert "max recommended subbay=0.2970 m" in by_key["rib_load_transfer"].current_evidence
     assert "required link force=934.5000 N" in by_key["rib_load_transfer"].current_evidence
+    assert "traceability-gap bays=1" in by_key["rib_load_transfer"].current_evidence
     assert "missing bays=2" in by_key["rib_spacing_assumption"].current_evidence
     assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence

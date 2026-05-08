@@ -46,6 +46,10 @@ class RibBracingMarginRow:
     allowable_bond_force_n: float | None
     bond_margin_n: float | None
     worst_margin_n: float | None
+    allowable_basis: str
+    evidence_type: str
+    attachment_basis: str
+    traceability_status: str
     source: str
     engineering_note: str
 
@@ -56,6 +60,7 @@ class RibBracingMarginCheck:
     overall_status: str
     finite_rib_variant_id: str
     required_link_force_n: float
+    traceability_gap_count: int
     rows: tuple[RibBracingMarginRow, ...]
 
 
@@ -79,6 +84,7 @@ def build_rib_bracing_margin_check(
         )
         for spacing_row in getattr(spacing_requirements, "rows", ())
     )
+    traceability_gap_count = sum(1 for row in rows if row.status == "rib_traceability_missing")
     all_positive = rows and all(row.status == "margin_positive_input_check_only" for row in rows)
     return RibBracingMarginCheck(
         candidate_id=str(spacing_requirements.candidate_id),
@@ -89,6 +95,7 @@ def build_rib_bracing_margin_check(
         ),
         finite_rib_variant_id=FINITE_RIB_VARIANT_ID,
         required_link_force_n=required_link_force,
+        traceability_gap_count=traceability_gap_count,
         rows=rows,
     )
 
@@ -144,9 +151,22 @@ def _build_row(
     shear_margin = _margin(allowable_shear, required_link_force_n)
     bond_margin = _margin(allowable_bond, required_link_force_n)
     margins = [value for value in (link_margin, shear_margin, bond_margin) if value is not None]
+    rib_family = str((allowable or {}).get("rib_family", "")).strip()
+    source = str((allowable or {}).get("source", "")).strip()
+    allowable_basis = str((allowable or {}).get("allowable_basis", "")).strip()
+    evidence_type = str((allowable or {}).get("evidence_type", "")).strip()
+    attachment_basis = str((allowable or {}).get("attachment_basis", "")).strip()
+    traceability_status = _traceability_status(
+        rib_family=rib_family,
+        source=source,
+        allowable_basis=allowable_basis,
+        evidence_type=evidence_type,
+        attachment_basis=attachment_basis,
+    )
     status = _status(
         provided=(allowable_link, allowable_shear, allowable_bond),
         margins=margins,
+        traceability_status=traceability_status,
     )
     return RibBracingMarginRow(
         bay_index=int(spacing_row.bay_index),
@@ -156,7 +176,7 @@ def _build_row(
         recommended_subbay_m=float(spacing_row.recommended_subbay_m),
         bay_vertical_load_scale_n=float(spacing_row.bay_vertical_load_scale_n),
         required_link_force_n=float(required_link_force_n),
-        rib_family=str((allowable or {}).get("rib_family", "")),
+        rib_family=rib_family,
         status=status,
         allowable_link_force_n=allowable_link,
         link_margin_n=link_margin,
@@ -165,10 +185,14 @@ def _build_row(
         allowable_bond_force_n=allowable_bond,
         bond_margin_n=bond_margin,
         worst_margin_n=None if not margins else min(margins),
-        source=str((allowable or {}).get("source", "")),
+        allowable_basis=allowable_basis,
+        evidence_type=evidence_type,
+        attachment_basis=attachment_basis,
+        traceability_status=traceability_status,
+        source=source,
         engineering_note=(
             "Input margin check only; not finite-rib FEM signoff and not a substitute for rib stiffness, "
-            "spar-attach, cap, web, bond, or manufacturing evidence."
+            "spar-attach, cap, web, bond, traceability, or manufacturing evidence."
         ),
     )
 
@@ -180,12 +204,40 @@ def _finite_rib_link_force(bracing_audit: Any) -> float:
     raise ValueError(f"{FINITE_RIB_VARIANT_ID} row is required.")
 
 
-def _status(*, provided: tuple[float | None, ...], margins: list[float]) -> str:
+def _status(
+    *,
+    provided: tuple[float | None, ...],
+    margins: list[float],
+    traceability_status: str,
+) -> str:
     if any(value is None for value in provided):
         return "rib_allowable_missing"
     if any(value < 0.0 for value in margins):
         return "margin_negative"
+    if traceability_status != "traceable_input":
+        return "rib_traceability_missing"
     return "margin_positive_input_check_only"
+
+
+def _traceability_status(
+    *,
+    rib_family: str,
+    source: str,
+    allowable_basis: str,
+    evidence_type: str,
+    attachment_basis: str,
+) -> str:
+    if not rib_family:
+        return "rib_family_missing"
+    if not source:
+        return "source_missing"
+    if not allowable_basis:
+        return "allowable_basis_missing"
+    if not evidence_type:
+        return "evidence_type_missing"
+    if not attachment_basis:
+        return "attachment_basis_missing"
+    return "traceable_input"
 
 
 def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
@@ -201,6 +253,9 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
         "allowable_link_force_n",
         "allowable_shear_force_n",
         "allowable_bond_force_n",
+        "allowable_basis",
+        "evidence_type",
+        "attachment_basis",
         "source",
         "notes",
     ]
@@ -221,6 +276,9 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
                     "allowable_link_force_n": "",
                     "allowable_shear_force_n": "",
                     "allowable_bond_force_n": "",
+                    "allowable_basis": "",
+                    "evidence_type": "",
+                    "attachment_basis": "",
                     "source": "",
                     "notes": "",
                 }
@@ -254,15 +312,18 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
         "",
         f"- finite-rib surrogate requirement row: `{check.finite_rib_variant_id}`",
         f"- required link force: `{check.required_link_force_n:.3f} N`",
+        f"- traceability-gap bays: `{check.traceability_gap_count}`",
         "",
-        "| bay | y start m | y end m | status | required link N | link margin N | shear margin N | bond margin N | source |",
-        "|---:|---:|---:|---|---:|---:|---:|---:|---|",
+        "| bay | y start m | y end m | status | traceability | required link N | link margin N | shear margin N | bond margin N | evidence type | attachment basis | source |",
+        "|---:|---:|---:|---|---|---:|---:|---:|---:|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.bay_index} | {row.start_y_m:.3f} | {row.end_y_m:.3f} | "
-            f"`{row.status}` | {row.required_link_force_n:.3f} | {_fmt(row.link_margin_n)} | "
-            f"{_fmt(row.shear_margin_n)} | {_fmt(row.bond_margin_n)} | {row.source or 'n/a'} |"
+            f"`{row.status}` | `{row.traceability_status}` | {row.required_link_force_n:.3f} | "
+            f"{_fmt(row.link_margin_n)} | {_fmt(row.shear_margin_n)} | {_fmt(row.bond_margin_n)} | "
+            f"{row.evidence_type or 'n/a'} | {row.attachment_basis or 'n/a'} | "
+            f"{row.source or 'n/a'} |"
         )
     lines.extend(
         [
@@ -270,6 +331,7 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
             "## Boundary",
             "",
             "- Positive margins here only mean supplied rib/link/bond numbers exceed the Phase 22 surrogate link-force requirement.",
+            "- A traceable rib input requires rib family, source, allowable basis, evidence type, and attachment basis for each bay.",
             "- This is not finite-rib FEM signoff and does not close bracing stiffness, spar attachment, cap/web sizing, or full-wing buckling by itself.",
             "",
         ]

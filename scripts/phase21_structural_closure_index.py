@@ -818,13 +818,16 @@ def _rib_bracing_summary(check: Any) -> str:
     rows = tuple(getattr(check, "rows", ()))
     missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
+    traceability_gap = sum(1 for row in rows if getattr(row, "status", "") == "rib_traceability_missing")
     return (
         "required link force="
         f"{_fmt(getattr(check, 'required_link_force_n', None))} N; "
         "missing bays="
         f"{missing}; "
         "negative-margin bays="
-        f"{negative}."
+        f"{negative}; "
+        "traceability-gap bays="
+        f"{traceability_gap}."
     )
 
 
