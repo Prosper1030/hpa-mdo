@@ -66,8 +66,8 @@ def _closure_index() -> SimpleNamespace:
             ),
             SimpleNamespace(
                 key="tip_deflection_limit",
-                evidence_artifacts="Phase18",
-                current_evidence="design-validity gate not fracture point",
+                evidence_artifacts="Phase18; Phase31; Phase39",
+                current_evidence="design-validity gate not fracture point; claim boundary status=tip_deflection_claim_boundary_submission_gate_retained",
                 remaining_blocker="Aeroelastic clearance recheck for relaxation",
                 next_action="Keep 2.5 m gate",
             ),
@@ -117,7 +117,10 @@ def test_goal_completion_audit_maps_every_goal_item_and_refuses_completion() -> 
         "screening_plus_closure_input_missing"
     )
     assert "Phase37" in by_key["torsion_twist_coupling"].evidence_artifacts
-    assert by_key["tip_deflection_limit"].evidence_strength == "claim_guardrail"
+    assert by_key["tip_deflection_limit"].evidence_strength == (
+        "claim_boundary_submission_gate_retained"
+    )
+    assert "Phase39" in by_key["tip_deflection_limit"].evidence_artifacts
     assert by_key["full_wing_global_buckling"].evidence_strength == (
         "claim_boundary_plus_closure_input_missing"
     )

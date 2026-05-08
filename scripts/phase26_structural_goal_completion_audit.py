@@ -69,7 +69,7 @@ EVIDENCE_STRENGTH_BY_KEY: dict[str, str] = {
     "torsion_twist_coupling": "screening_plus_closure_input_missing",
     "wire_termination": "requirements_only",
     "rib_spacing_assumption": "layout_requirement_only",
-    "tip_deflection_limit": "claim_guardrail",
+    "tip_deflection_limit": "claim_boundary_submission_gate_retained",
     "full_wing_global_buckling": "claim_boundary_plus_closure_input_missing",
     "failure_mode_ordering": "detail_modes_listed_but_unranked",
 }

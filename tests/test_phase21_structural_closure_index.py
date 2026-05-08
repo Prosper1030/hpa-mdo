@@ -423,6 +423,36 @@ def _tip_deflection_revalidation_check() -> SimpleNamespace:
     )
 
 
+def _tip_deflection_claim_boundary() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="tip_deflection_claim_boundary_submission_gate_retained",
+        current_raw_tip_limit_m=2.5,
+        current_effective_tip_limit_m=2.55,
+        deflection_limit_load_factor=3.3049,
+        revalidation_status="current_submission_gate_retained",
+        rows=(
+            SimpleNamespace(
+                policy_key="current_submission_gate",
+                status="design_validity_gate_not_fracture",
+                allowed_statement="2.5 m raw tip limit remains a design-validity/submission gate",
+                blocked_statement="Do not treat the 2.5 m raw gate as a fracture point",
+            ),
+            SimpleNamespace(
+                policy_key="exploration_relaxation",
+                status="exploration_only_not_submission",
+                allowed_statement="Exploration-only relaxation may be used for trade studies",
+                blocked_statement="Do not use exploration relaxation for submission",
+            ),
+            SimpleNamespace(
+                policy_key="submission_relaxation",
+                status="submission_relaxation_requires_rechecks",
+                allowed_statement="Submission relaxation requires rechecks",
+                blocked_statement="Do not relax submission gate without rechecks",
+            ),
+        ),
+    )
+
+
 def _failure_mode_ordering() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="true_failure_order_not_closed",
@@ -452,6 +482,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
+        tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 
@@ -538,8 +569,15 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "full_wing_global_buckling"
     ].current_evidence
     assert "Phase31" in by_key["tip_deflection_limit"].evidence_artifacts
+    assert "Phase39" in by_key["tip_deflection_limit"].evidence_artifacts
     assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].current_evidence
     assert "proposed raw limit=2.5000 m" in by_key["tip_deflection_limit"].current_evidence
+    assert "claim boundary status=tip_deflection_claim_boundary_submission_gate_retained" in by_key[
+        "tip_deflection_limit"
+    ].current_evidence
+    assert "submission policy=submission_relaxation_requires_rechecks" in by_key[
+        "tip_deflection_limit"
+    ].current_evidence
 
 
 def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: Path) -> None:
@@ -563,6 +601,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
+        tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 

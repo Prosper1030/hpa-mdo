@@ -244,6 +244,36 @@ def _tip_deflection_revalidation_check() -> SimpleNamespace:
     )
 
 
+def _tip_deflection_claim_boundary() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="tip_deflection_claim_boundary_submission_gate_retained",
+        current_raw_tip_limit_m=2.5,
+        current_effective_tip_limit_m=2.55,
+        deflection_limit_load_factor=3.3049,
+        revalidation_status="current_submission_gate_retained",
+        rows=(
+            SimpleNamespace(
+                policy_key="current_submission_gate",
+                status="design_validity_gate_not_fracture",
+                allowed_statement="2.5 m raw tip limit remains a design-validity/submission gate",
+                blocked_statement="Do not treat the 2.5 m raw gate as a fracture point",
+            ),
+            SimpleNamespace(
+                policy_key="exploration_relaxation",
+                status="exploration_only_not_submission",
+                allowed_statement="Exploration-only relaxation may be used for trade studies",
+                blocked_statement="Do not use exploration relaxation for submission",
+            ),
+            SimpleNamespace(
+                policy_key="submission_relaxation",
+                status="submission_relaxation_requires_rechecks",
+                allowed_statement="Submission relaxation requires rechecks",
+                blocked_statement="Do not relax submission gate without rechecks",
+            ),
+        ),
+    )
+
+
 def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_hardware_modes() -> None:
     ordering = build_failure_mode_ordering(
         _claim_review(),
@@ -260,6 +290,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
+        tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
     )
 
     assert ordering.overall_status == "true_failure_order_not_closed"
@@ -269,6 +300,12 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     by_key = {row.mode_key: row for row in ordering.rows}
     assert by_key["wire_tension_body_allowable_current"].load_factor == pytest.approx(3.0)
     assert by_key["tip_deflection_limit"].status == "design_validity_gate_not_fracture"
+    assert "claim boundary status=tip_deflection_claim_boundary_submission_gate_retained" in by_key[
+        "tip_deflection_limit"
+    ].evidence
+    assert "submission policy=submission_relaxation_requires_rechecks" in by_key[
+        "tip_deflection_limit"
+    ].evidence
     assert by_key["wire_termination"].order_bucket == "unranked_real_structure_mode"
     assert by_key["wire_termination"].required_minimum_breaking_load_n == pytest.approx(10000.0)
     assert by_key["wire_termination"].body_allowable_margin_n == pytest.approx(-1000.0)
@@ -336,6 +373,7 @@ def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Pat
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
+        tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
     )
 
     assert {path.name for path in outputs} == {
@@ -372,6 +410,7 @@ def test_main_creates_requested_output_directory_before_writing(
             full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
             full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
             tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
+            tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
         ),
     )
     out_dir = tmp_path / "nested" / "phase25"

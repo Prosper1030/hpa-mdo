@@ -64,6 +64,9 @@ from scripts.phase37_torsion_twist_screening import (  # noqa: E402
 from scripts.phase38_full_wing_buckling_claim_boundary import (  # noqa: E402
     build_current_full_wing_buckling_claim_boundary,
 )
+from scripts.phase39_tip_deflection_claim_boundary import (  # noqa: E402
+    build_current_tip_deflection_claim_boundary,
+)
 from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     build_bracing_sensitivity_audit,
     build_current_candidate_model,
@@ -116,10 +119,12 @@ def build_failure_mode_ordering(
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
+    tip_deflection_claim_boundary: Any | None = None,
 ) -> FailureModeOrdering:
     ranked = _ranked_internal_rows(
         claim_review,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
+        tip_deflection_claim_boundary=tip_deflection_claim_boundary,
     )
     unranked = _unranked_real_structure_rows(
         detail_requirements=detail_requirements,
@@ -167,6 +172,7 @@ def write_failure_mode_ordering_package(
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
+    tip_deflection_claim_boundary: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     ordering = build_failure_mode_ordering(
@@ -184,6 +190,7 @@ def write_failure_mode_ordering_package(
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
+        tip_deflection_claim_boundary=tip_deflection_claim_boundary,
     )
     outputs = [
         _write_csv(out_dir / "failure_mode_ordering.csv", ordering),
@@ -245,6 +252,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
             reference,
             revalidation_inputs=[],
         ),
+        tip_deflection_claim_boundary=build_current_tip_deflection_claim_boundary(),
     )
 
 
@@ -252,6 +260,7 @@ def _ranked_internal_rows(
     claim_review: Any,
     *,
     tip_deflection_revalidation_check: Any | None,
+    tip_deflection_claim_boundary: Any | None,
 ) -> tuple[FailureModeOrderingRow, ...]:
     raw = (
         _row(
@@ -277,7 +286,8 @@ def _ranked_internal_rows(
             evidence=(
                 "tip-deflection gate factor="
                 f"{_fmt(_float_or_none(claim_review.tip_deflection_limit_load_factor))}"
-                f"; {_tip_gate_evidence(tip_deflection_revalidation_check)}"
+                f"; {_tip_gate_evidence(tip_deflection_revalidation_check)}; "
+                f"{_tip_deflection_claim_boundary_evidence(tip_deflection_claim_boundary)}"
             ),
             next_evidence="Keep as submission validity gate unless an aeroelastic/clearance requirement changes.",
         ),
@@ -707,6 +717,24 @@ def _tip_gate_evidence(check: Any | None) -> str:
         f"{_fmt(_attr_float(first, 'proposed_raw_tip_limit_m') if first is not None else None)} m; "
         "overall="
         f"{getattr(check, 'overall_status', 'unknown')}"
+    )
+
+
+def _tip_deflection_claim_boundary_evidence(boundary: Any | None) -> str:
+    if boundary is None:
+        return "tip-deflection claim boundary is not available."
+    rows = {str(row.policy_key): row for row in getattr(boundary, "rows", ())}
+    submission = rows.get("submission_relaxation")
+    exploration = rows.get("exploration_relaxation")
+    return (
+        "claim boundary status="
+        f"{getattr(boundary, 'overall_status', 'unknown')}; "
+        "raw gate="
+        f"{_fmt(_attr_float(boundary, 'current_raw_tip_limit_m'))} m; "
+        "exploration policy="
+        f"{getattr(exploration, 'status', 'unknown') if exploration is not None else 'unknown'}; "
+        "submission policy="
+        f"{getattr(submission, 'status', 'unknown') if submission is not None else 'unknown'}."
     )
 
 
