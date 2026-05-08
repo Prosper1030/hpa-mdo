@@ -107,6 +107,17 @@ Current route roles:
 - not recommended: current Mac-safe C3D8R solid tube probe and legacy triangular shell
 - APDL-required: final B2 tapered truth and final B5 twist/GJ truth
 
+The best-route B2/B5 rerun uses the same corrected mid-surface S4 convention:
+
+- B2 tapered tube: `tip UZ = -0.184074 m`, which is `2.410%` from the
+  internal tubing beam (`-0.179741 m`) and `14.725%` from the B32R PIPE
+  reference (`-0.160448 m`). This supports the internal tubing model as a
+  Mac-local diagnostic but leaves the B32R/APDL tapered-section question open.
+- B5 single-tube torsion: `theta = 0.0468246 rad` versus closed-form
+  `0.0467920 rad`, or `0.070%` error.
+- Next APDL action: run `run_all_phase14.mac`; the key decks are
+  `phase14_b2_tapered_tube.mac` and `phase14_b5_single_torsion.mac`.
+
 ## Practical Use
 
 Run:

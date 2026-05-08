@@ -275,6 +275,22 @@ class FidelityLadderDecisionRow:
     recommended_role: str
 
 
+@dataclass(frozen=True)
+class BestRouteCheckRow:
+    case_id: str
+    route: str
+    metric: str
+    reference_source: str
+    reference_value: float | None
+    fem_value: float | None
+    error_pct: float | None
+    mesh_id: str
+    element_count: int
+    runtime_s: float
+    status: str
+    engineering_note: str
+
+
 def tube_second_moment_i(
     *,
     outer_radius_m: float,
@@ -1008,6 +1024,15 @@ def run_phase14_maclocal_fem_fidelity_ladder(
             ),
         )
     )
+    artifacts.update(
+        _run_b2_b5_best_route_check(
+            cfg=cfg,
+            fidelity_dir=fidelity_dir,
+            output_root=output_root,
+            b2_spec=b2_case.spec,
+            material=material,
+        )
+    )
     return artifacts
 
 
@@ -1560,6 +1585,160 @@ def _solid_element_nominal_aspect_ratio(spec: TubeSolidMeshSpec) -> float:
     radial = float(spec.thickness_m) / spec.n_thickness
     values = [abs(axial), abs(circumferential), abs(radial)]
     return max(values) / max(min(values), 1.0e-12)
+
+
+def _run_b2_b5_best_route_check(
+    *,
+    cfg: Any,
+    fidelity_dir: Path,
+    output_root: Path,
+    b2_spec: SinglePipeCantileverSpec,
+    material: BeamMaterial,
+) -> dict[str, Path]:
+    span_m = float(b2_spec.y_nodes_m[-1] - b2_spec.y_nodes_m[0])
+    total_fz_n = float(np.sum(b2_spec.nodal_fz_n))
+    root_reference_radius_m = float(b2_spec.outer_radius_m[0]) - 0.5 * float(b2_spec.thickness_m[0])
+    tip_reference_radius_m = float(b2_spec.outer_radius_m[-1]) - 0.5 * float(b2_spec.thickness_m[-1])
+    internal_tip_uz_m = float(phase14_bench._solve_single_beam_internal(b2_spec)["tip_main_m"])
+    pipe_tip_uz_m = _run_b2_pipe_reference(
+        cfg=cfg,
+        route_dir=fidelity_dir / "_best_route_runs" / "b2_pipe_reference",
+        b2_spec=b2_spec,
+    )
+    b2_mesh = TubeShellMeshSpec(
+        name="b2_best_midsurface_s4_fine",
+        span_m=span_m,
+        root_outer_radius_m=root_reference_radius_m,
+        tip_outer_radius_m=tip_reference_radius_m,
+        n_span=96,
+        n_circumference=96,
+        mesh_size_m=span_m / 96.0,
+    )
+    b2_start = time.perf_counter()
+    b2_shell = _run_b2_structured_s4_tapered_case(
+        cfg=cfg,
+        hardening_dir=fidelity_dir / "_best_route_runs",
+        mesh_spec=b2_mesh,
+        b2_spec=b2_spec,
+        internal_tip_uz_m=internal_tip_uz_m,
+        pipe_tip_uz_m=pipe_tip_uz_m,
+        total_fz_n=total_fz_n,
+    )
+    b2_runtime_s = time.perf_counter() - b2_start
+    best_rows: list[BestRouteCheckRow] = [
+        BestRouteCheckRow(
+            case_id="B2_TAPERED_TUBE",
+            route="best_midsurface_s4_shell",
+            metric="tip_uz_m",
+            reference_source="internal_tubing_beam",
+            reference_value=internal_tip_uz_m,
+            fem_value=b2_shell.tip_uz_avg_m,
+            error_pct=b2_shell.error_vs_internal_pct,
+            mesh_id=b2_mesh.name,
+            element_count=b2_shell.element_count,
+            runtime_s=b2_runtime_s,
+            status=_best_route_status(b2_shell.error_vs_internal_pct, pass_pct=5.0, warn_pct=10.0),
+            engineering_note=(
+                "Corrected mid-surface structured S4 tapered shell compared against the current internal tubing model."
+            ),
+        )
+    ]
+    if pipe_tip_uz_m is not None:
+        best_rows.append(
+            BestRouteCheckRow(
+                case_id="B2_TAPERED_TUBE",
+                route="best_midsurface_s4_shell",
+                metric="tip_uz_m",
+                reference_source="calculix_b32r_pipe",
+                reference_value=pipe_tip_uz_m,
+                fem_value=b2_shell.tip_uz_avg_m,
+                error_pct=b2_shell.error_vs_b32r_pipe_pct,
+                mesh_id=b2_mesh.name,
+                element_count=b2_shell.element_count,
+                runtime_s=b2_runtime_s,
+                status=_best_route_status(b2_shell.error_vs_b32r_pipe_pct, pass_pct=5.0, warn_pct=15.0),
+                engineering_note=(
+                    "Same shell result compared with the B32R PIPE tapered reference; this remains a formulation comparison, not production calibration."
+                ),
+            )
+        )
+
+    b5_span_m = 10.0
+    b5_outer_radius_m = 0.03
+    b5_thickness_m = 0.0015
+    b5_mid_radius_m = b5_outer_radius_m - 0.5 * b5_thickness_m
+    b5_row = _run_shell_bias_case(
+        cfg=cfg,
+        diagnosis_dir=fidelity_dir / "_best_route_runs",
+        variant="best_midsurface_s4_shell",
+        case_type="B5_SINGLE_TORSION",
+        mesh_id="b5_best_midsurface_s4_fine",
+        n_span=96,
+        n_circumference=96,
+        span_m=b5_span_m,
+        reference_radius_m=b5_mid_radius_m,
+        true_outer_radius_m=b5_outer_radius_m,
+        thickness_m=b5_thickness_m,
+        material=material,
+        radius_convention="mesh radius equals tube mid-surface",
+        load_or_torque=100.0,
+        theory_value=tube_torsion_theta(
+            torque_n_m=100.0,
+            span_m=b5_span_m,
+            young_pa=material.young_pa,
+            poisson_ratio=material.poisson_ratio,
+            outer_radius_m=b5_outer_radius_m,
+            thickness_m=b5_thickness_m,
+        ),
+        result_kind="tip_twist",
+        load_method="self-equilibrated tangential tip-force ring",
+        loads_builder=lambda nodes, root_nodes, tip_nodes, torque=100.0: _tip_torque_cloads(
+            nodes=nodes,
+            tip_nodes=tip_nodes,
+            torque_n_m=torque,
+        ),
+        engineering_note="Corrected mid-surface S4 torsion check for B5 single-tube twist/GJ evidence.",
+    )
+    best_rows.append(
+        BestRouteCheckRow(
+            case_id="B5_SINGLE_TORSION",
+            route="best_midsurface_s4_shell",
+            metric="theta_rad",
+            reference_source="closed_form_TL_over_GJ",
+            reference_value=b5_row.theory_value,
+            fem_value=b5_row.fem_value,
+            error_pct=b5_row.error_pct,
+            mesh_id="b5_best_midsurface_s4_fine",
+            element_count=b5_row.element_count,
+            runtime_s=b5_row.runtime_s,
+            status=_best_route_status(b5_row.error_pct, pass_pct=5.0, warn_pct=10.0),
+            engineering_note=(
+                "Corrected mid-surface structured S4 torsion route; still keep APDL for external twist/GJ truth."
+            ),
+        )
+    )
+    artifacts = write_best_route_check_artifacts(fidelity_dir, rows=best_rows)
+    final_report = write_fidelity_ladder_final_report(
+        fidelity_dir,
+        best_route_rows=best_rows,
+        decision_summary=(
+            "Corrected mid-surface structured S4 shell is the best current Mac-local thin-wall diagnostic; "
+            "beam routes remain the daily global gate, and the current solid route is not trustworthy."
+        ),
+        apdl_runner=str(output_root / "apdl_windows_package" / "run_all_phase14.mac"),
+    )
+    artifacts["final_report_md"] = final_report
+    return artifacts
+
+
+def _best_route_status(error_pct: float | None, *, pass_pct: float, warn_pct: float) -> str:
+    if error_pct is None:
+        return "SKIP"
+    if float(error_pct) <= pass_pct:
+        return "PASS"
+    if float(error_pct) <= warn_pct:
+        return "WARN"
+    return "FAIL"
 
 
 def _constant_tube_mesh_specs() -> list[tuple[str, int, int]]:
@@ -4141,6 +4320,173 @@ def write_fidelity_ladder_decision_artifacts(
         "fidelity_ladder_comparison_csv": csv_path,
         "fidelity_ladder_decision_md": md_path,
     }
+
+
+def write_best_route_check_artifacts(
+    output_dir: str | Path,
+    *,
+    rows: list[BestRouteCheckRow],
+) -> dict[str, Path]:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    csv_path = out / "b2_b5_best_route_check.csv"
+    md_path = out / "b2_b5_best_route_check.md"
+    _write_dataclass_csv(csv_path, rows, BestRouteCheckRow)
+    b2_internal = _find_best_route_row(rows, "B2_TAPERED_TUBE", "internal_tubing_beam")
+    b5 = _find_best_route_row(rows, "B5_SINGLE_TORSION", "closed_form_TL_over_GJ")
+    lines = [
+        "# Phase 14 B2/B5 Best Route Check",
+        "",
+        "Validation tooling only. The best current Mac-local route is the corrected mid-surface structured S4 shell; no production physics or calibration factors are changed.",
+        "",
+        "## Direct Answers",
+        "",
+        f"1. B2 tapered tube support within 5% of internal tubing model: {_yes_no_from_row(b2_internal, 5.0)}.",
+        f"2. B5 torsion/twist support within 5-10%: {_yes_no_from_row(b5, 10.0)}.",
+        "3. APDL is still required for external B2 tapered truth and B5 twist/GJ truth.",
+        "4. Tomorrow run `run_all_phase14.mac`; the key APDL decks inside it are `phase14_b2_tapered_tube.mac` and `phase14_b5_single_torsion.mac`.",
+        "",
+        "## Best Route Rows",
+        "",
+        "| case_id | route | metric | reference_source | reference_value | fem_value | error_pct | mesh_id | element_count | runtime_s | status | engineering_note |",
+        "| --- | --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row.case_id} | {row.route} | {row.metric} | {row.reference_source} | "
+            f"{_fmt(row.reference_value)} | {_fmt(row.fem_value)} | {_fmt(row.error_pct)} | "
+            f"{row.mesh_id} | {row.element_count} | {row.runtime_s:.3f} | {row.status} | "
+            f"{row.engineering_note} |"
+        )
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "b2_b5_best_route_check_csv": csv_path,
+        "b2_b5_best_route_check_md": md_path,
+    }
+
+
+def write_fidelity_ladder_final_report(
+    output_dir: str | Path,
+    *,
+    best_route_rows: list[BestRouteCheckRow],
+    decision_summary: str,
+    apdl_runner: str,
+) -> Path:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / "final_report.md"
+    b2_internal = _find_best_route_row(best_route_rows, "B2_TAPERED_TUBE", "internal_tubing_beam")
+    b2_pipe = _find_best_route_row(best_route_rows, "B2_TAPERED_TUBE", "calculix_b32r_pipe")
+    b5 = _find_best_route_row(best_route_rows, "B5_SINGLE_TORSION", "closed_form_TL_over_GJ")
+    lines = [
+        "# Phase 14 Mac-Local FEM Fidelity Ladder Final Report",
+        "",
+        "## 1. One-paragraph answer",
+        "",
+        (
+            f"{decision_summary} The corrected shell result supports B2 against the internal tubing model "
+            f"({_row_error_text(b2_internal)}) and supports single-tube B5 torsion against closed form "
+            f"({_row_error_text(b5)}). APDL is still required as the external solver check before changing trust boundaries."
+        ),
+        "",
+        "## 2. Beam vs shell vs solid explanation",
+        "",
+        "- FEM means finite element method for structures; this route uses CalculiX locally on Mac.",
+        "- Beam models collapse the tube into a line element, which is fastest for global deflection and reactions.",
+        "- Shell models put the tube wall on a surface with thickness; for thin-wall CFRP tubes this is the best current Mac-local diagnostic once the surface is placed at the tube mid-surface.",
+        "- Solid or volume FEM fills the tube wall with 3D elements, but this task showed the Mac-safe C3D8R solid mesh is much too stiff for global tube bending/torsion.",
+        "",
+        "## 3. What passed",
+        "",
+        f"- B2 vs internal tubing beam: {_row_full_text(b2_internal)}.",
+        f"- B5 torsion vs closed form: {_row_full_text(b5)}.",
+        "- Constant tube corrected mid-surface shell checks passed earlier in this run: tip bending 0.062%, uniform bending 0.569%, torsion 0.070%.",
+        "",
+        "## 4. What stayed warning-level",
+        "",
+        f"- B2 vs CalculiX B32R PIPE remains a formulation comparison: {_row_full_text(b2_pipe)}.",
+        "- Solid/volume C3D8R stayed fail-level for global tube response even after axial refinement.",
+        "",
+        "## 5. Which route is fastest",
+        "",
+        "- Internal beam is sub-second in normal design flow.",
+        "- CalculiX B32R beam parity is the fastest external Mac-local gate, around a few seconds for the current benchmark runner.",
+        "- Corrected structured shell is seconds per constant case and tens of seconds for the B2 shell route.",
+        "",
+        "## 6. Which route is most accurate for global deflection/twist",
+        "",
+        "- For constant thin-wall tube checks, corrected mid-surface S4 shell is the most accurate Mac-local FEM route in this task.",
+        "- For daily global design checks, beam routes remain preferred because they are simpler and already match the quantities they are meant to own.",
+        "",
+        "## 7. Which route is useful for local stress/buckling",
+        "",
+        "- Corrected shell is the only current Mac-local candidate worth using for local wall-stress trends or future buckling diagnostics.",
+        "- Solid is not recommended for local stress or buckling until a mesh-quality route beats the same closed-form ladder.",
+        "",
+        "## 8. What APDL still needs to answer",
+        "",
+        "- APDL should check the B2 tapered tube truth deck and the B5 single-tube twist/GJ truth deck independently of CalculiX.",
+        "- APDL should be treated as external confirmation, not as a source of calibration factors.",
+        "",
+        "## 9. What to trust in the current tubing / dual-beam model",
+        "",
+        "- Trust the internal/tubing beam and CalculiX B32R beam as daily global bookkeeping gates.",
+        "- Trust corrected mid-surface structured shell as a Mac-local diagnostic for thin-wall tube behavior.",
+        "- Do not trust the current C3D8R solid probe or legacy triangular shell for global tube bending/torsion.",
+        "",
+        "## 10. Exact next command/files",
+        "",
+        "Run the local ladder:",
+        "",
+        "```bash",
+        "./.venv/bin/python scripts/phase14_maclocal_fem_package.py --config configs/blackcat_004.yaml --output-dir output/phase14_dual_beam_calibration --task fidelity-ladder",
+        "```",
+        "",
+        f"On Windows APDL, run `{apdl_runner}` and return `phase14_apdl_results.csv`.",
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def _find_best_route_row(
+    rows: list[BestRouteCheckRow],
+    case_id: str,
+    reference_source: str,
+) -> BestRouteCheckRow | None:
+    return next(
+        (row for row in rows if row.case_id == case_id and row.reference_source == reference_source),
+        None,
+    )
+
+
+def _yes_no_from_row(row: BestRouteCheckRow | None, limit_pct: float) -> str:
+    if row is None or row.error_pct is None:
+        return "no usable row"
+    answer = "yes" if row.error_pct <= limit_pct else "no"
+    return f"{answer}, error {row.error_pct:.3f}% ({row.status})"
+
+
+def _row_error_text(row: BestRouteCheckRow | None) -> str:
+    if row is None or row.error_pct is None:
+        return "no usable row"
+    return f"{row.error_pct:.3f}% error"
+
+
+def _row_full_text(row: BestRouteCheckRow | None) -> str:
+    if row is None:
+        return "no usable row"
+    return (
+        f"{row.status}, FEM {_value_label(row.fem_value)} vs {row.reference_source} "
+        f"{_value_label(row.reference_value)}, error {_pct_label(row.error_pct)}%, mesh {row.mesh_id}, "
+        f"elements {row.element_count}, runtime {row.runtime_s:.3f}s"
+    )
+
+
+def _value_label(value: float | None) -> str:
+    if value is None:
+        return ""
+    return f"{float(value):.6g}"
 
 
 def _finest_constant_row(

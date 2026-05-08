@@ -12,6 +12,7 @@ from scripts.phase14_maclocal_fem_package import (
     B2ComparisonInputs,
     B2TaperedShellHardeningRow,
     B5ShellTorsionHardeningRow,
+    BestRouteCheckRow,
     ConstantTubeVerificationRow,
     FidelityLadderDecisionRow,
     Phase14ExpectedValue,
@@ -37,7 +38,9 @@ from scripts.phase14_maclocal_fem_package import (
     write_shell_bias_diagnosis_artifacts,
     write_solid_tube_probe_artifacts,
     write_apdl_windows_package,
+    write_best_route_check_artifacts,
     write_fidelity_ladder_decision_artifacts,
+    write_fidelity_ladder_final_report,
     write_b5_shell_torsion_hardening_csv,
     write_b5_shell_torsion_hardening_markdown,
     write_b2_tapered_shell_hardening_csv,
@@ -488,6 +491,73 @@ def test_write_fidelity_ladder_decision_artifacts(tmp_path: Path) -> None:
     assert "# Phase 14 FEM Fidelity Ladder Decision" in md_text
     assert "simplest model" in md_text
     assert "design diagnostic" in md_text
+
+
+def test_best_route_check_row_has_required_schema() -> None:
+    fields = set(BestRouteCheckRow.__dataclass_fields__)
+
+    assert {
+        "case_id",
+        "route",
+        "metric",
+        "reference_source",
+        "reference_value",
+        "fem_value",
+        "error_pct",
+        "mesh_id",
+        "element_count",
+        "runtime_s",
+        "status",
+        "engineering_note",
+    }.issubset(fields)
+
+
+def test_write_best_route_and_final_report_artifacts(tmp_path: Path) -> None:
+    rows = [
+        BestRouteCheckRow(
+            case_id="B2_TAPERED_TUBE",
+            route="best_midsurface_s4_shell",
+            metric="tip_uz_m",
+            reference_source="internal_tubing_beam",
+            reference_value=-0.1797,
+            fem_value=-0.184,
+            error_pct=2.4,
+            mesh_id="b2_best_midsurface_s4_fine",
+            element_count=9216,
+            runtime_s=1.5,
+            status="PASS",
+            engineering_note="within 5% of internal tubing model",
+        ),
+        BestRouteCheckRow(
+            case_id="B5_SINGLE_TORSION",
+            route="best_midsurface_s4_shell",
+            metric="theta_rad",
+            reference_source="closed_form_TL_over_GJ",
+            reference_value=0.04679,
+            fem_value=0.04682,
+            error_pct=0.07,
+            mesh_id="b5_best_midsurface_s4_fine",
+            element_count=9216,
+            runtime_s=1.4,
+            status="PASS",
+            engineering_note="within 5% of torsion theory",
+        ),
+    ]
+
+    best_artifacts = write_best_route_check_artifacts(tmp_path, rows=rows)
+    report_path = write_fidelity_ladder_final_report(
+        tmp_path,
+        best_route_rows=rows,
+        decision_summary="Corrected shell is the best current Mac-local diagnostic.",
+        apdl_runner="output/phase14_dual_beam_calibration/apdl_windows_package/run_all_phase14.mac",
+    )
+
+    csv_rows = list(csv.DictReader(best_artifacts["b2_b5_best_route_check_csv"].read_text().splitlines()))
+    assert csv_rows[0]["case_id"] == "B2_TAPERED_TUBE"
+    assert "B2 tapered tube" in best_artifacts["b2_b5_best_route_check_md"].read_text(encoding="utf-8")
+    report_text = report_path.read_text(encoding="utf-8")
+    assert "One-paragraph answer" in report_text
+    assert "APDL" in report_text
 
 
 def test_write_constant_tube_artifacts_include_required_columns(tmp_path: Path) -> None:
