@@ -72,10 +72,16 @@ def test_write_phase15_package_creates_required_submission_files(tmp_path: Path)
         "failure_mode_report.md",
         "candidate_limit_load_recommendation.md",
         "submission_numbers.md",
+        "structural_claim_readiness.csv",
+        "structural_claim_readiness.json",
+        "structural_claim_readiness.md",
     }
     assert {path.name for path in outputs} == expected
     summary = (tmp_path / "load_factor_summary.csv").read_text(encoding="utf-8")
     assert "compression_side_risk" in summary
     assert "root_joint_wire_attach_rib_load_transfer_warning" in summary
     report = (tmp_path / "candidate_limit_load_recommendation.md").read_text(encoding="utf-8")
-    assert "safe submission design load factor" in report
+    assert "internal fixed-design load-factor boundary" in report
+    assert "1.75G validated" not in report
+    claim_gate = (tmp_path / "structural_claim_readiness.md").read_text(encoding="utf-8")
+    assert "Do not claim `1.5G / 1.75G full-wing pass`" in claim_gate

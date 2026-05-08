@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hpa_mdo.core import MaterialDB, load_config
+from hpa_mdo.core import MaterialDB, load_config  # noqa: E402
 
 
 CANDIDATE_ID = "current_avl_compromise_conservative_closed"
@@ -248,6 +248,10 @@ def write_phase15_package(
     *,
     load_factors: Iterable[float] = DEFAULT_LOAD_FACTORS,
 ) -> list[Path]:
+    from scripts.phase18_structural_claim_readiness import (
+        write_structural_claim_readiness_package,
+    )
+
     out_dir.mkdir(parents=True, exist_ok=True)
     rows = build_phase15_rows(reference, load_factors=load_factors)
     first_fail = estimate_first_fail(reference)
@@ -264,6 +268,7 @@ def write_phase15_package(
             first_fail,
         ),
         _write_submission_numbers(out_dir / "submission_numbers.md", rows, reference, first_fail),
+        *write_structural_claim_readiness_package(out_dir, reference),
     ]
     return outputs
 
@@ -434,8 +439,14 @@ def _write_failure_mode_report(
     reference: CandidateReference,
     first_fail: FirstFailEstimate,
 ) -> Path:
-    pass_15 = _row_by_load(rows, 1.5).wire_utilization < 1.0 and _row_by_load(rows, 1.5).local_wall_buckling_utilization < 1.0
-    pass_175 = _row_by_load(rows, 1.75).wire_utilization < 1.0 and _row_by_load(rows, 1.75).local_wall_buckling_utilization < 1.0
+    pass_15 = (
+        _row_by_load(rows, 1.5).wire_utilization < 1.0
+        and _row_by_load(rows, 1.5).local_wall_buckling_utilization < 1.0
+    )
+    pass_175 = (
+        _row_by_load(rows, 1.75).wire_utilization < 1.0
+        and _row_by_load(rows, 1.75).local_wall_buckling_utilization < 1.0
+    )
     lines = [
         "# Failure Mode Report",
         "",
@@ -443,11 +454,11 @@ def _write_failure_mode_report(
         "",
         "## Direct Answers",
         "",
-        f"- Passes 1.5G: {'yes' if pass_15 else 'no'}",
-        f"- Passes 1.75G: {'yes' if pass_175 else 'no'}",
+        f"- 1.5G internal fixed-design modeled limits clear: {'yes' if pass_15 else 'no'}",
+        f"- 1.75G internal fixed-design modeled limits clear: {'yes' if pass_175 else 'no'}",
         f"- Estimated first-fail load factor: `n = {first_fail.load_factor:.3f}`",
         f"- First failure mode: `{first_fail.mode}` ({first_fail.note}).",
-        "- Buckling status: checked as an internal shell-buckling utilization estimate and supported by Phase 14 corrected S4 shell route on benchmark B2/B5; candidate-specific local shell eigenvalue buckling, ovalization, root fitting, and wire attach are still unresolved.",
+        "- Buckling status: internal/local estimate only. This does not close full-wing global buckling, rear-spar/rib bracing, root fitting, wire attach, or termination strength.",
         "",
         "## Evidence Basis",
         "",
@@ -473,9 +484,9 @@ def _write_failure_mode_report(
             "",
             "## Engineering Readout",
             "",
-            "- CFRP global bending stress stays below the internal allowable through 3.0G.",
+            "- CFRP global bending stress stays below the internal beam-line allowable through 3.0G.",
             "- Local tube wall buckling is not controlling in the current internal estimate, but the maximum D/t is high enough that ovalization and clamp-induced local wall buckling remain real hardware risks.",
-            "- Torsion/twist is comfortably below the configured twist limit in this fixed-design estimate.",
+            "- Torsion/twist is below the configured internal twist limit in this fixed-design estimate; aeroelastic twist coupling is not signed off.",
             "- Wire tension is the practical limiter: 3.0G is technically below the computed allowable but has only a small margin.",
             "- Root joint, wire attach, and rib load-transfer are warnings, not validated failure modes. The report should not be used as a drawing-release signoff for fittings.",
             "",
@@ -499,9 +510,9 @@ def _write_limit_load_recommendation(
         "",
         "## Recommendation",
         "",
-        "The safe submission design load factor is `1.75G`.",
+        "The internal fixed-design load-factor boundary for submission planning is `1.75G`.",
         "",
-        "Reason: 1.75G is inside the repaired candidate-equivalent FEM checked range and has comfortable internal margins. The internal model also passes 2.0G, 2.5G, and barely 3.0G, but buckling/ovalization and joint/attach details are not candidate-specific validated shell or hardware truth.",
+        "Reason: 1.75G is inside the repaired candidate-equivalent FEM checked range and has comfortable internal modeled margins. This is not a full-wing structural signoff because global buckling, rear-spar/rib bracing, root fitting, wire attach, and termination strength remain unresolved.",
         "",
         "## Key Margins",
         "",
@@ -513,8 +524,9 @@ def _write_limit_load_recommendation(
         "",
         "## Reporting Boundary",
         "",
-        "- You can report `1.75G validated for the current engineering submission package`.",
-        "- You can report `2.0G internal/FEM-equivalent pass` with the same caveat.",
+        "- You can report `1.75G internal fixed-design modeled limits clear`.",
+        "- You can report `2.0G internal/FEM-equivalent modeled limits clear` with the same caveat.",
+        "- Do not report `1.5G / 1.75G full-wing pass`; full-wing global buckling and hardware details are not closed.",
         "- Do not report `3.0G design load factor`; it is an estimated near-wire-limit point, not a validated design target.",
         "",
     ]
@@ -538,13 +550,13 @@ def _write_submission_numbers(
         "- P_crank nominal / conservative: `174.600 W` / `178.882 W`",
         "- CFRP tube mass: `10.874 kg`",
         "- Total modeled structural mass: `13.374 kg`",
-        f"- 1.5G pass: `yes`, tip deflection `{row_15.tip_deflection_m:.3f} m`, wire utilization `{row_15.wire_utilization:.3f}`",
-        f"- 1.75G pass: `yes`, tip deflection `{row_175.tip_deflection_m:.3f} m`, wire utilization `{row_175.wire_utilization:.3f}`",
-        f"- 2.0G internal/FEM-equivalent pass: `yes`, tip deflection `{row_20.tip_deflection_m:.3f} m`, wire utilization `{row_20.wire_utilization:.3f}`",
+        f"- 1.5G internal modeled limits clear: `yes`, tip deflection `{row_15.tip_deflection_m:.3f} m`, wire utilization `{row_15.wire_utilization:.3f}`",
+        f"- 1.75G internal modeled limits clear: `yes`, tip deflection `{row_175.tip_deflection_m:.3f} m`, wire utilization `{row_175.wire_utilization:.3f}`",
+        f"- 2.0G internal/FEM-equivalent modeled limits clear: `yes`, tip deflection `{row_20.tip_deflection_m:.3f} m`, wire utilization `{row_20.wire_utilization:.3f}`",
         f"- Estimated first-fail load factor: `n = {first_fail.load_factor:.3f}`",
         f"- Estimated first-fail mode: `{first_fail.mode}`",
         "- Buckling: `estimated / internally checked`; candidate-specific local shell buckling and ovalization are not yet closed.",
-        "- Safe submission design load factor: `1.75G`",
+        "- Submission planning boundary: `1.75G internal fixed-design modeled limits clear`; not full-wing/hardware signoff.",
         "",
     ]
     path.write_text("\n".join(lines), encoding="utf-8")

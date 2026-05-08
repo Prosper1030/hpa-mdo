@@ -16,10 +16,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hpa_mdo.core import load_config
-from hpa_mdo.hifi.calculix_runner import find_ccx
-from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues
-from scripts.phase15_candidate_load_factor_buckling_check import (
+from hpa_mdo.core import load_config  # noqa: E402
+from hpa_mdo.hifi.calculix_runner import find_ccx  # noqa: E402
+from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues  # noqa: E402
+from scripts.phase15_candidate_load_factor_buckling_check import (  # noqa: E402
     CandidateReference,
     load_current_candidate_reference,
 )
@@ -675,8 +675,8 @@ def _write_wire6_ramp_report(
         "## Plain-Language Answer",
         "",
         "- Changing the modeled wire allowable from 4.581 kN to 6 kN mainly increases strength margin, not stiffness. If the real wire diameter/material/stiffness changes, the FEM must be rerun with the new AE and pretension.",
-        f"- At `3.0G`, the 6 kN wire tension is `{row_30.wire_tension_n:.1f} N`, utilization `{row_30.wire_utilization:.3f}`. It does not break in this model.",
-        "- Put bluntly: the wire does not snap at 3.0G in this model.",
+        f"- At `3.0G`, the 6 kN wire-body tension is `{row_30.wire_tension_n:.1f} N`, utilization `{row_30.wire_utilization:.3f}`. The modeled cable-body tension allowable is not exceeded.",
+        "- Put bluntly: this is a cable-body allowable check, not proof that the termination, splice, bend radius, clamp, fuselage anchor, or wing attach survives 3.0G.",
         f"- First thing that happens as G increases: the configured tip deflection limit is reached at about `n = {tip_limit_n:.3f}`.",
         f"- The 6 kN wire allowable is reached later at about `n = {wire_limit_n:.3f}`.",
         f"- CFRP global bending stress reaches allowable later still at about `n = {stress_limit_n:.3f}`.",

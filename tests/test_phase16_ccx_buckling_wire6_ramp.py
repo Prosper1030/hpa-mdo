@@ -94,6 +94,6 @@ def test_write_phase16_package_without_ccx_result_creates_reports(tmp_path: Path
     assert "CalculiX BUCKLE" in (tmp_path / "ccx_buckling_capability_report.md").read_text(
         encoding="utf-8"
     )
-    assert "wire does not snap" in (tmp_path / "wire6_load_factor_ramp_report.md").read_text(
-        encoding="utf-8"
-    )
+    ramp_report = (tmp_path / "wire6_load_factor_ramp_report.md").read_text(encoding="utf-8")
+    assert "modeled cable-body tension allowable is not exceeded" in ramp_report
+    assert "wire does not snap" not in ramp_report

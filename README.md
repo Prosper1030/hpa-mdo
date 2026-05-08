@@ -132,7 +132,7 @@ graph LR
     SC --> OBJ["目標函數<br/>total_mass_full_kg"]
     SC --> C1["約束：failure_index ≤ 0"]
     SB --> C2["約束：twist_max_deg ≤ 2°"]
-    SB --> C3["約束：tip_deflection_m ≤ 2.5m"]
+    SB --> C3["設計有效性 gate：tip_deflection_m ≤ 2.5m（不是斷裂點）"]
 ```
 
 ---

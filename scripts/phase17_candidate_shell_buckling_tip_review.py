@@ -30,8 +30,8 @@ if str(REPO_ROOT) not in sys.path:
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from hpa_mdo.core.config import load_config
-from hpa_mdo.core.materials import MaterialDB
+from hpa_mdo.core.config import load_config  # noqa: E402
+from hpa_mdo.core.materials import MaterialDB  # noqa: E402
 
 from scripts.phase15_candidate_load_factor_buckling_check import (  # noqa: E402
     SELECTED_RUN,
@@ -1055,13 +1055,13 @@ def write_reports(
                 shell_lines.extend(
                     [
                         f"- The rib-bay-scale `{rib_bay.mesh_id}` coupon gives critical stress `{_fmt(rib_bay.shell_critical_stress_mpa, 1)} MPa` versus classical `{_fmt(rib_bay.classical_knockdown_sigma_cr_mpa, 1)} MPa`, delta `{_fmt(rib_bay.ccx_vs_classical_critical_stress_delta_pct, 1)}%`.",
-                        f"- That maps to local-wall buckling at `n = {_fmt(rib_bay.shell_buckle_load_factor, 3)}G`, so local tube-wall buckling is validated as non-blocking through 3G if the tube is rib-bay braced at about this length scale.",
+                        f"- That maps to local-wall buckling at `n = {_fmt(rib_bay.shell_buckle_load_factor, 3)}G`, so the coupon supports a non-blocking local-wall interpretation through 3G under the conditional assumed rib-bay bracing length.",
                     ]
                 )
             shell_lines.extend(
                 [
-                    f"- The internal buckling estimate remains `n = {_fmt(coupon_best.internal_estimate_buckle_load_factor, 3)}G`; the validated rib-bay shell coupon is now in the same conservative order as the classical/internal screen.",
-                    "- Engineering conclusion: local wall buckling can be called candidate-specific checked and passed through 3G for rib-bay braced tube-wall behavior. The remaining unresolved item is global wire-compression bracing / joint load-transfer, not local wall buckling.",
+                    f"- The internal buckling estimate remains `n = {_fmt(coupon_best.internal_estimate_buckle_load_factor, 3)}G`; the rib-bay shell coupon is now in the same conservative order as the classical/internal screen.",
+                    "- Engineering conclusion: local wall buckling is a conditional coupon check through 3G for assumed rib-bay braced tube-wall behavior. The remaining unresolved item is global wire-compression bracing / joint load-transfer, not local wall coupon response.",
                 ]
             )
     shell_lines.extend(
@@ -1069,10 +1069,10 @@ def write_reports(
             "",
             "## Blocking Resolution",
             "",
-            "- Fixed: the CalculiX decks now repeat the active loads inside the `*BUCKLE` step, matching the local CalculiX verification examples. This removes the previous astronomical/unusable eigenvalue blocker.",
-            "- Valid for this task: candidate-specific CFRP tube local-wall buckling is now checked by a stress-calibrated shell coupon and passes through 3G for rib-bay braced behavior.",
+            "- Fixed numerically: the CalculiX decks now repeat the active loads inside the `*BUCKLE` step, matching the local CalculiX verification examples. This removes the previous astronomical/unusable eigenvalue blocker.",
+            "- Bounded check for this task: candidate-specific CFRP tube local-wall buckling is now checked by a stress-calibrated shell coupon and clears 3G only under assumed rib-bay braced behavior.",
             "- Not honestly passable yet: the full isolated main-spar shell shows a global compression/lateral-bracing mode below 1.75G. That mode is model-scope dominated because the deck omits rear-spar, rib, and wire-attach load-transfer stiffness; it needs a dual-spar/rib/joint load-transfer FEM before being used as a final wing-buckling verdict.",
-            "- Engineering decision: the original local-wall buckling blocker is fixed and valid; the remaining blocker has moved to global bracing/load-transfer validation rather than shell local buckling.",
+            "- Engineering decision: the original local-wall buckling numerical blocker is resolved as a conditional coupon check; the remaining blocker has moved to global bracing/load-transfer evidence rather than shell local coupon response.",
             "",
             "## Limits Of This FEM",
             "",
