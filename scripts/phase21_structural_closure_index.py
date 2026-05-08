@@ -88,6 +88,10 @@ from scripts.phase39_tip_deflection_claim_boundary import (  # noqa: E402
 from scripts.phase40_existing_fem_evidence_triage import (  # noqa: E402
     build_current_existing_fem_evidence_triage,
 )
+from scripts.phase41_braced_subassembly_fem_evidence import (  # noqa: E402
+    load_current_braced_subassembly_fem_evidence,
+    phase30_closure_inputs_from_evidence,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -136,6 +140,7 @@ def build_structural_closure_index(
     tip_deflection_claim_boundary: Any | None = None,
     failure_mode_ordering: Any | None = None,
     existing_fem_evidence_triage: Any | None = None,
+    braced_subassembly_fem_evidence: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
     local_by_key = _entry_map(getattr(local_ledger, "entries", ()))
@@ -167,6 +172,7 @@ def build_structural_closure_index(
             tip_deflection_claim_boundary=tip_deflection_claim_boundary,
             failure_mode_ordering=failure_mode_ordering,
             existing_fem_evidence_triage=existing_fem_evidence_triage,
+            braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
     )
@@ -206,6 +212,7 @@ def write_structural_closure_index_package(
     tip_deflection_claim_boundary: Any | None = None,
     failure_mode_ordering: Any | None = None,
     existing_fem_evidence_triage: Any | None = None,
+    braced_subassembly_fem_evidence: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     index = build_structural_closure_index(
@@ -230,6 +237,7 @@ def write_structural_closure_index_package(
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
         failure_mode_ordering=failure_mode_ordering,
         existing_fem_evidence_triage=existing_fem_evidence_triage,
+        braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
     )
     outputs = [
         _write_csv(out_dir / "structural_closure_index.csv", index),
@@ -301,9 +309,12 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         bracing_audit=bracing_audit,
         closure_check=torsion_twist_closure_check,
     )
+    braced_subassembly_fem_evidence = load_current_braced_subassembly_fem_evidence()
     full_wing_buckling_closure_check = build_full_wing_buckling_closure_check(
         reference.candidate_id,
-        closure_inputs=[],
+        closure_inputs=phase30_closure_inputs_from_evidence(
+            braced_subassembly_fem_evidence
+        ),
     )
     full_wing_buckling_claim_boundary = build_full_wing_buckling_claim_boundary(
         reference.candidate_id,
@@ -341,6 +352,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
         failure_mode_ordering=failure_mode_ordering,
         existing_fem_evidence_triage=existing_fem_evidence_triage,
+        braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
     )
 
 
@@ -370,6 +382,7 @@ def _build_item(
     tip_deflection_claim_boundary: Any | None,
     failure_mode_ordering: Any | None,
     existing_fem_evidence_triage: Any | None,
+    braced_subassembly_fem_evidence: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
     detail_margin_entry = _detail_margin_entry_for_key(key, detail_margin_check)
@@ -395,6 +408,7 @@ def _build_item(
         tip_deflection_claim_boundary,
         failure_mode_ordering,
         existing_fem_evidence_triage,
+        braced_subassembly_fem_evidence,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
     evidence = _evidence_for_key(
@@ -422,6 +436,7 @@ def _build_item(
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
         failure_mode_ordering=failure_mode_ordering,
         existing_fem_evidence_triage=existing_fem_evidence_triage,
+        braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
     )
     return StructuralClosureItem(
         key=key,
@@ -479,6 +494,7 @@ def _evidence_artifacts(
     tip_deflection_claim_boundary: Any | None,
     failure_mode_ordering: Any | None,
     existing_fem_evidence_triage: Any | None,
+    braced_subassembly_fem_evidence: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
     if local_entry is not None:
@@ -541,6 +557,13 @@ def _evidence_artifacts(
         "failure_mode_ordering",
     }:
         artifacts.append("Phase40 existing_fem_evidence_triage")
+    if braced_subassembly_fem_evidence is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "full_wing_global_buckling",
+        "failure_mode_ordering",
+    }:
+        artifacts.append("Phase41 braced_subassembly_fem_evidence")
     return "; ".join(artifacts)
 
 
@@ -570,6 +593,7 @@ def _evidence_for_key(
     tip_deflection_claim_boundary: Any | None,
     failure_mode_ordering: Any | None,
     existing_fem_evidence_triage: Any | None,
+    braced_subassembly_fem_evidence: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
     if local_entry is not None:
@@ -682,6 +706,15 @@ def _evidence_for_key(
         "failure_mode_ordering",
     }:
         parts.append(f"Phase40: {_existing_fem_evidence_triage_summary(existing_fem_evidence_triage)}")
+    if braced_subassembly_fem_evidence is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "full_wing_global_buckling",
+        "failure_mode_ordering",
+    }:
+        parts.append(
+            f"Phase41: {_braced_subassembly_fem_evidence_summary(braced_subassembly_fem_evidence)}"
+        )
     return " ".join(parts)
 
 
@@ -1111,6 +1144,60 @@ def _existing_fem_evidence_triage_summary(triage: Any) -> str:
     )
 
 
+def _braced_subassembly_fem_evidence_summary(evidence: Any) -> str:
+    rows = tuple(getattr(evidence, "rows", ()))
+    phase30_statuses = sorted(
+        {
+            str(getattr(row, "phase30_closure_status", "")).strip()
+            for row in rows
+            if str(getattr(row, "phase30_closure_status", "")).strip()
+        }
+    )
+    reference_review_count = sum(
+        1
+        for row in rows
+        if getattr(row, "reference_load_status", "")
+        == "unphysical_or_load_sign_review_required"
+    )
+    link_node_counts = [
+        int(getattr(row, "link_node_count", 0))
+        for row in rows
+        if getattr(row, "link_node_count", None) is not None
+    ]
+    wire_support_counts = [
+        int(getattr(row, "wire_support_count", 0))
+        for row in rows
+        if getattr(row, "wire_support_count", None) is not None
+    ]
+    eigenvalues = [
+        _optional_float(getattr(row, "first_eigen_multiplier", None))
+        for row in rows
+    ]
+    finite_eigenvalues = [value for value in eigenvalues if value is not None]
+    return (
+        "braced subassembly status="
+        f"{getattr(evidence, 'overall_status', 'unknown')}; "
+        "cases="
+        f"{int(getattr(evidence, 'case_count', len(rows)))}; "
+        "solver ran="
+        f"{int(getattr(evidence, 'solver_ran_count', 0))}; "
+        "mode reviewed="
+        f"{int(getattr(evidence, 'mode_reviewed_count', 0))}; "
+        "claim coverage="
+        f"{getattr(evidence, 'claim_load_factor_coverage', 'unknown')}; "
+        "reference-load review rows="
+        f"{reference_review_count}; "
+        "max link nodes="
+        f"{max(link_node_counts) if link_node_counts else 0}; "
+        "max wire supports="
+        f"{max(wire_support_counts) if wire_support_counts else 0}; "
+        "max lambda="
+        f"{_fmt(max(finite_eigenvalues) if finite_eigenvalues else None)}; "
+        "Phase30 status="
+        f"{';'.join(phase30_statuses) if phase30_statuses else 'unknown'}."
+    )
+
+
 def _bracing_summary_for_key(key: str, bracing_audit: Any) -> str:
     rows = {str(row.variant_id): row for row in getattr(bracing_audit, "rows", ())}
     rear_soft = rows.get("rear_stiffness_5pct")
@@ -1158,7 +1245,7 @@ def _next_action_for_key(key: str) -> str:
         "wire_termination": "Apply termination efficiency and hardware allowable, not just cable-body tensile allowable.",
         "rib_spacing_assumption": "Prove physical rib/bracing station spacing and stiffness before using the 0.30 m local-buckling bay.",
         "tip_deflection_limit": "Keep 2.5 m as a design-validity/submission gate unless a separate aeroelastic requirement changes it.",
-        "full_wing_global_buckling": "Run a full-wing or credible braced subassembly buckling route before any 1.5G/1.75G global pass claim.",
+        "full_wing_global_buckling": "Resolve Phase41 reference-load/sign convention, mode review, and mesh/link sensitivity before any 1.5G/1.75G global pass claim.",
         "failure_mode_ordering": "Re-rank with global bracing, joints, attachments, root fitting, and terminations included.",
     }
     return actions[key]

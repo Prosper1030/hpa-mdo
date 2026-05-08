@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from scripts.phase41_braced_subassembly_fem_evidence import (
+    read_braced_subassembly_fem_evidence_json,
     write_braced_subassembly_fem_evidence_package,
 )
 from tests.test_dual_beam_mainline import _simple_model
@@ -116,6 +117,30 @@ def test_phase41_solver_result_keeps_mode_review_as_blocker(tmp_path: Path) -> N
     assert row["inferred_first_buckling_load_factor"] == 3.0
     assert row["mode_review_status"] == "unreviewed"
     assert row["phase30_closure_status"] == "mode_review_missing"
+
+
+def test_phase41_reads_written_json_round_trip(tmp_path: Path) -> None:
+    model = _simple_model(
+        lift_per_span_npm=np.array([0.0, -12.0, -6.0]),
+        joint_node_indices=(1,),
+        wire_node_indices=(1,),
+    )
+    write_braced_subassembly_fem_evidence_package(
+        tmp_path,
+        "sample",
+        model,
+        claim_load_factors=(1.50,),
+        run_solver=False,
+    )
+
+    evidence = read_braced_subassembly_fem_evidence_json(
+        tmp_path / "braced_subassembly_fem_evidence.json"
+    )
+
+    assert evidence.candidate_id == "sample"
+    assert evidence.case_count == 1
+    assert evidence.rows[0].case_id == "braced_subassembly_1p50g_buckle"
+    assert evidence.rows[0].phase30_closure_status == "closure_input_incomplete"
 
 
 def test_phase41_flags_huge_eigen_multiplier_as_reference_load_review(

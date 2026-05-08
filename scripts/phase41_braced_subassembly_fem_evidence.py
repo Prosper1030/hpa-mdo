@@ -176,6 +176,33 @@ def build_current_braced_subassembly_fem_evidence(
     )
 
 
+def load_current_braced_subassembly_fem_evidence(
+    *,
+    out_dir: Path = DEFAULT_OUTPUT_DIR,
+) -> BracedSubassemblyFemEvidence:
+    evidence_path = out_dir / "braced_subassembly_fem_evidence.json"
+    if evidence_path.exists():
+        return read_braced_subassembly_fem_evidence_json(evidence_path)
+    return build_current_braced_subassembly_fem_evidence(out_dir=out_dir, run_solver=False)
+
+
+def read_braced_subassembly_fem_evidence_json(
+    path: Path,
+) -> BracedSubassemblyFemEvidence:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    rows = tuple(BracedSubassemblyFemEvidenceRow(**row) for row in raw["rows"])
+    return BracedSubassemblyFemEvidence(
+        candidate_id=str(raw["candidate_id"]),
+        overall_status=str(raw["overall_status"]),
+        case_count=int(raw["case_count"]),
+        solver_ran_count=int(raw["solver_ran_count"]),
+        mode_reviewed_count=int(raw["mode_reviewed_count"]),
+        claim_load_factor_coverage=str(raw["claim_load_factor_coverage"]),
+        engineering_boundary=str(raw["engineering_boundary"]),
+        rows=rows,
+    )
+
+
 def phase30_closure_inputs_from_evidence(
     evidence: BracedSubassemblyFemEvidence,
 ) -> list[dict[str, Any]]:
