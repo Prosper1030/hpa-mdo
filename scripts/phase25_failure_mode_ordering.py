@@ -558,6 +558,8 @@ def _local_detail_subcomponent_status(parent_key: str, check: Any | None) -> str
         return "unranked_detail_subcomponent_margin_negative"
     if any(getattr(row, "status", "") == "subcomponent_allowable_missing" for row in rows):
         return "unranked_detail_subcomponent_allowable_missing"
+    if any(getattr(row, "status", "") == "subcomponent_traceability_missing" for row in rows):
+        return "unranked_detail_subcomponent_traceability_missing"
     if rows and all(
         getattr(row, "status", "") == "margin_positive_input_check_only" for row in rows
     ):
@@ -575,6 +577,9 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
     ]
     missing = sum(1 for row in rows if getattr(row, "status", "") == "subcomponent_allowable_missing")
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
+    traceability_gap = sum(
+        1 for row in rows if getattr(row, "status", "") == "subcomponent_traceability_missing"
+    )
     positive = sum(
         1 for row in rows if getattr(row, "status", "") == "margin_positive_input_check_only"
     )
@@ -595,6 +600,8 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
         f"{missing}; "
         "local subcomponent negative margins="
         f"{negative}; "
+        "local subcomponent traceability gaps="
+        f"{traceability_gap}; "
         "local subcomponent positive input rows="
         f"{positive}; "
         "worst local margin="
