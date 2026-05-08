@@ -65,6 +65,34 @@ def test_mission_ranking_prefers_e88_completion_speed_over_diagnostic_e85() -> N
     assert ranked[0]["mission_ranking_tier"] == "e_cdi_ge_0p88_primary"
 
 
+def test_mission_ranking_ignores_fourier_avl_calibration_diagnostics() -> None:
+    records = [
+        {
+            "sample_index": 1,
+            "physical_acceptance": {"physically_acceptable": True},
+            "avl_reference_case": {"avl_e_cdi": 0.86},
+            "mission_speed_sweep": {"v_complete_max_mps": 7.0, "best_complete_power_margin_w": 8.0},
+            "avl_cdi_power_proxy": {"power_required_w": 210.0},
+            "mass_authority": {"proxy_budget_warning": False},
+            "fourier_avl_calibration": {"bridge_status": "calibrated"},
+        },
+        {
+            "sample_index": 2,
+            "physical_acceptance": {"physically_acceptable": True},
+            "avl_reference_case": {"avl_e_cdi": 0.89},
+            "mission_speed_sweep": {"v_complete_max_mps": 6.8, "best_complete_power_margin_w": 4.0},
+            "avl_cdi_power_proxy": {"power_required_w": 215.0},
+            "mass_authority": {"proxy_budget_warning": False},
+            "fourier_avl_calibration": {"bridge_status": "geometry_authority_limited"},
+        },
+    ]
+
+    ranked = mission_search.rank_mission_candidates(records)
+
+    assert ranked[0]["sample_index"] == 2
+    assert ranked[0]["mission_ranking_tier"] == "e_cdi_ge_0p88_primary"
+
+
 def test_design_speed_allocation_keeps_stage1_top_k_total_bounded() -> None:
     allocation = mission_search.allocate_stage1_budget(
         design_speeds_mps=(6.0, 6.2, 6.4, 6.6, 6.8, 7.0),
