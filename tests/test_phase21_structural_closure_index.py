@@ -571,6 +571,29 @@ def _braced_subassembly_fem_evidence() -> SimpleNamespace:
     )
 
 
+def _phase41_reference_load_review() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="phase41_reference_load_formulation_not_rankable",
+        row_count=2,
+        not_rankable_count=2,
+        balanced_count=2,
+        rows=(
+            SimpleNamespace(
+                status="reference_load_formulation_not_rankable",
+                axial_reference_load_status="no_axial_compression_reference",
+                lambda_plausibility_status="implausibly_high_for_claim_margin",
+                sign_convention_read="support_reaction_opposes_applied_fz",
+            ),
+            SimpleNamespace(
+                status="reference_load_formulation_not_rankable",
+                axial_reference_load_status="no_axial_compression_reference",
+                lambda_plausibility_status="implausibly_high_for_claim_margin",
+                sign_convention_read="support_reaction_opposes_applied_fz",
+            ),
+        ),
+    )
+
+
 def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> None:
     index = build_structural_closure_index(
         _claim_review(),
@@ -595,6 +618,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         failure_mode_ordering=_failure_mode_ordering(),
         existing_fem_evidence_triage=_existing_fem_evidence_triage(),
         braced_subassembly_fem_evidence=_braced_subassembly_fem_evidence(),
+        phase41_reference_load_review=_phase41_reference_load_review(),
     )
 
     assert index.overall_status == "engineering_not_signed_off"
@@ -681,15 +705,20 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase40" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase41" in by_key["failure_mode_ordering"].evidence_artifacts
+    assert "Phase42" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
     assert "detail modes are listed as unranked" in by_key[
+        "failure_mode_ordering"
+    ].current_evidence
+    assert "reference review status=phase41_reference_load_formulation_not_rankable" in by_key[
         "failure_mode_ordering"
     ].current_evidence
     assert "Phase30" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase38" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase40" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase41" in by_key["full_wing_global_buckling"].evidence_artifacts
+    assert "Phase42" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].current_evidence
     assert "missing claim n=1.50;1.75" in by_key[
         "full_wing_global_buckling"
@@ -713,7 +742,15 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase30 status=mode_review_missing" in by_key[
         "full_wing_global_buckling"
     ].current_evidence
-    assert "reference-load/sign" in by_key["full_wing_global_buckling"].next_action
+    assert "reference review status=phase41_reference_load_formulation_not_rankable" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
+    assert "no axial compression reference rows=2" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
+    assert "transverse lift/moment reference" in by_key[
+        "full_wing_global_buckling"
+    ].next_action
     assert "Phase31" in by_key["tip_deflection_limit"].evidence_artifacts
     assert "Phase39" in by_key["tip_deflection_limit"].evidence_artifacts
     assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].current_evidence

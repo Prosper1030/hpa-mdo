@@ -75,6 +75,9 @@ from scripts.phase41_braced_subassembly_fem_evidence import (  # noqa: E402
     load_current_braced_subassembly_fem_evidence,
     phase30_closure_inputs_from_evidence,
 )
+from scripts.phase42_phase41_reference_load_review import (  # noqa: E402
+    build_current_phase41_reference_load_review,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase25_failure_mode_ordering"
@@ -123,6 +126,7 @@ def build_failure_mode_ordering(
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
+    phase41_reference_load_review: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
 ) -> FailureModeOrdering:
@@ -145,6 +149,7 @@ def build_failure_mode_ordering(
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
+        phase41_reference_load_review=phase41_reference_load_review,
     )
     rows = (*ranked, *unranked)
     return FailureModeOrdering(
@@ -178,6 +183,7 @@ def write_failure_mode_ordering_package(
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
+    phase41_reference_load_review: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
 ) -> list[Path]:
@@ -197,6 +203,7 @@ def write_failure_mode_ordering_package(
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
+        phase41_reference_load_review=phase41_reference_load_review,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
     )
@@ -250,6 +257,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
             braced_subassembly_fem_evidence
         ),
     )
+    phase41_reference_load_review = build_current_phase41_reference_load_review()
     return build_failure_mode_ordering(
         claim_review,
         detail_requirements=detail_requirements,
@@ -265,6 +273,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=build_current_full_wing_buckling_claim_boundary(),
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
+        phase41_reference_load_review=phase41_reference_load_review,
         tip_deflection_revalidation_check=build_tip_deflection_revalidation_check(
             reference,
             revalidation_inputs=[],
@@ -352,6 +361,7 @@ def _unranked_real_structure_rows(
     full_wing_buckling_closure_check: Any | None,
     full_wing_buckling_claim_boundary: Any | None,
     braced_subassembly_fem_evidence: Any | None,
+    phase41_reference_load_review: Any | None,
 ) -> tuple[FailureModeOrderingRow, ...]:
     details = _detail_entries(detail_requirements)
     detail_margins = _detail_entries(detail_margin_check)
@@ -433,7 +443,8 @@ def _unranked_real_structure_rows(
             order_bucket="unranked_real_structure_mode",
             load_factor=None,
             status=_full_wing_global_buckling_status(
-                braced_subassembly_fem_evidence
+                braced_subassembly_fem_evidence,
+                phase41_reference_load_review,
             ),
             basis="local/internal buckling checks only",
             evidence=(
@@ -441,10 +452,10 @@ def _unranked_real_structure_rows(
                 f"{_closure_evidence(full_wing_buckling_closure_check)}"
                 f" {_full_wing_buckling_claim_boundary_evidence(full_wing_buckling_claim_boundary)}"
                 f" {_braced_subassembly_fem_evidence(braced_subassembly_fem_evidence)}"
+                f" {_phase41_reference_load_review_evidence(phase41_reference_load_review)}"
             ),
-            next_evidence=(
-                "Resolve Phase41 reference-load/sign convention, mode review, "
-                "mesh/link sensitivity, and then promote a qualified braced/full-wing row."
+            next_evidence=_full_wing_global_buckling_next_evidence(
+                phase41_reference_load_review
             ),
         ),
     )
@@ -483,10 +494,28 @@ def _detail_row(
 
 def _full_wing_global_buckling_status(
     braced_subassembly_fem_evidence: Any | None,
+    phase41_reference_load_review: Any | None,
 ) -> str:
+    if _phase41_reference_not_rankable_count(phase41_reference_load_review) > 0:
+        return "unranked_global_buckling_reference_load_formulation_not_rankable"
     if _braced_reference_load_review_count(braced_subassembly_fem_evidence) > 0:
         return "unranked_global_buckling_reference_load_review_required"
     return "unranked_global_buckling_fem_missing"
+
+
+def _full_wing_global_buckling_next_evidence(
+    phase41_reference_load_review: Any | None,
+) -> str:
+    if _phase41_reference_not_rankable_count(phase41_reference_load_review) > 0:
+        return (
+            "Replace Phase41's transverse lift/moment reference with a qualified "
+            "global/prestress buckling load case, then repeat mode review, "
+            "mesh/link sensitivity, and braced/full-wing promotion."
+        )
+    return (
+        "Resolve Phase41 reference-load/sign convention, mode review, "
+        "mesh/link sensitivity, and then promote a qualified braced/full-wing row."
+    )
 
 
 def _braced_subassembly_fem_evidence(evidence: Any | None) -> str:
@@ -532,6 +561,50 @@ def _braced_reference_load_review_count(evidence: Any | None) -> int:
         if getattr(row, "reference_load_status", "")
         == "unphysical_or_load_sign_review_required"
     )
+
+
+def _phase41_reference_load_review_evidence(review: Any | None) -> str:
+    if review is None:
+        return "phase41 reference load review is not available."
+    rows = tuple(getattr(review, "rows", ()))
+    no_axial = sum(
+        1
+        for row in rows
+        if getattr(row, "axial_reference_load_status", "")
+        == "no_axial_compression_reference"
+    )
+    support_opposes = sum(
+        1
+        for row in rows
+        if getattr(row, "sign_convention_read", "")
+        == "support_reaction_opposes_applied_fz"
+    )
+    implausible_lambda = sum(
+        1
+        for row in rows
+        if getattr(row, "lambda_plausibility_status", "")
+        == "implausibly_high_for_claim_margin"
+    )
+    return (
+        "phase41 reference review status="
+        f"{getattr(review, 'overall_status', 'unknown')}; "
+        "not-rankable rows="
+        f"{int(getattr(review, 'not_rankable_count', 0))}; "
+        "balanced rows="
+        f"{int(getattr(review, 'balanced_count', 0))}; "
+        "no axial compression reference rows="
+        f"{no_axial}; "
+        "implausible lambda rows="
+        f"{implausible_lambda}; "
+        "support-opposes rows="
+        f"{support_opposes}."
+    )
+
+
+def _phase41_reference_not_rankable_count(review: Any | None) -> int:
+    if review is None:
+        return 0
+    return int(getattr(review, "not_rankable_count", 0))
 
 
 def _row(
