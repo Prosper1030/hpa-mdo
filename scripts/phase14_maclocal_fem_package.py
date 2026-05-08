@@ -200,6 +200,26 @@ class RouteRuntimeRow:
     engineering_note: str
 
 
+@dataclass(frozen=True)
+class ShellBiasDiagnosisRow:
+    variant: str
+    case_type: str
+    element_type: str
+    radius_convention: str
+    root_bc: str
+    load_method: str
+    n_span: int
+    n_circumference: int
+    element_count: int
+    theory_value: float | None
+    fem_value: float | None
+    error_pct: float | None
+    mesh_delta_pct: float | None
+    runtime_s: float
+    status: str
+    engineering_note: str
+
+
 def tube_second_moment_i(
     *,
     outer_radius_m: float,
@@ -846,6 +866,7 @@ def run_phase14_maclocal_fem_fidelity_ladder(
         b2_rows=b2_rows,
         b5_rows=b5_rows,
     )
+    artifacts.update(_run_shell_bias_diagnosis(cfg=cfg, fidelity_dir=fidelity_dir, material=material))
     return artifacts
 
 
@@ -860,6 +881,296 @@ def _aggregate_status(rows: Iterable[Any]) -> str:
     if any(status == "PASS" for status in statuses):
         return "PASS"
     return statuses[0] if statuses else "SKIP"
+
+
+def _run_shell_bias_diagnosis(
+    *,
+    cfg: Any,
+    fidelity_dir: Path,
+    material: BeamMaterial,
+) -> dict[str, Path]:
+    span_m = 10.0
+    true_outer_radius_m = 0.03
+    thickness_m = 0.0015
+    mid_radius_m = true_outer_radius_m - 0.5 * thickness_m
+    rows: list[ShellBiasDiagnosisRow] = []
+    variants = [
+        (
+            "outer_surface_reference",
+            true_outer_radius_m,
+            "mesh radius equals tube outer radius; CalculiX shell section is centered on that reference surface",
+        ),
+        (
+            "midsurface_reference",
+            mid_radius_m,
+            "mesh radius equals tube mid-surface; closed form still uses exact outer and inner radii",
+        ),
+    ]
+    for variant, reference_radius_m, radius_convention in variants:
+        for mesh_id, n_span, n_circ in _constant_tube_mesh_specs():
+            rows.append(
+                _run_shell_bias_case(
+                    cfg=cfg,
+                    diagnosis_dir=fidelity_dir / "_shell_bias_runs",
+                    variant=variant,
+                    case_type="constant_tip_load",
+                    mesh_id=mesh_id,
+                    n_span=n_span,
+                    n_circumference=n_circ,
+                    span_m=span_m,
+                    reference_radius_m=reference_radius_m,
+                    true_outer_radius_m=true_outer_radius_m,
+                    thickness_m=thickness_m,
+                    material=material,
+                    radius_convention=radius_convention,
+                    load_or_torque=-80.0,
+                    theory_value=tube_bending_tip_load_delta(
+                        force_n=-80.0,
+                        span_m=span_m,
+                        young_pa=material.young_pa,
+                        outer_radius_m=true_outer_radius_m,
+                        thickness_m=thickness_m,
+                    ),
+                    result_kind="tip_uz",
+                    load_method="tip ring equal FZ",
+                    loads_builder=lambda nodes, root_nodes, tip_nodes, total=-80.0: _vertical_tip_ring_loads(
+                        nodes=nodes,
+                        tip_nodes=tip_nodes,
+                        total_fz_n=total,
+                    ),
+                    engineering_note="Tip-ring bending check against exact hollow-tube cantilever theory.",
+                )
+            )
+            rows.append(
+                _run_shell_bias_case(
+                    cfg=cfg,
+                    diagnosis_dir=fidelity_dir / "_shell_bias_runs",
+                    variant=variant,
+                    case_type="constant_uniform_load",
+                    mesh_id=mesh_id,
+                    n_span=n_span,
+                    n_circumference=n_circ,
+                    span_m=span_m,
+                    reference_radius_m=reference_radius_m,
+                    true_outer_radius_m=true_outer_radius_m,
+                    thickness_m=thickness_m,
+                    material=material,
+                    radius_convention=radius_convention,
+                    load_or_torque=-80.0,
+                    theory_value=tube_bending_uniform_load_delta(
+                        q_n_per_m=-8.0,
+                        span_m=span_m,
+                        young_pa=material.young_pa,
+                        outer_radius_m=true_outer_radius_m,
+                        thickness_m=thickness_m,
+                    ),
+                    result_kind="tip_uz",
+                    load_method="span tributary FZ on non-root shell nodes",
+                    loads_builder=lambda nodes, root_nodes, tip_nodes, total=-80.0: _distributed_vertical_loads_by_span_tributary(
+                        nodes=nodes,
+                        root_nodes=set(root_nodes),
+                        total_fz_n=total,
+                    ),
+                    engineering_note="Uniform-load bending check against exact hollow-tube cantilever theory.",
+                )
+            )
+            rows.append(
+                _run_shell_bias_case(
+                    cfg=cfg,
+                    diagnosis_dir=fidelity_dir / "_shell_bias_runs",
+                    variant=variant,
+                    case_type="constant_tip_torque",
+                    mesh_id=mesh_id,
+                    n_span=n_span,
+                    n_circumference=n_circ,
+                    span_m=span_m,
+                    reference_radius_m=reference_radius_m,
+                    true_outer_radius_m=true_outer_radius_m,
+                    thickness_m=thickness_m,
+                    material=material,
+                    radius_convention=radius_convention,
+                    load_or_torque=100.0,
+                    theory_value=tube_torsion_theta(
+                        torque_n_m=100.0,
+                        span_m=span_m,
+                        young_pa=material.young_pa,
+                        poisson_ratio=material.poisson_ratio,
+                        outer_radius_m=true_outer_radius_m,
+                        thickness_m=thickness_m,
+                    ),
+                    result_kind="tip_twist",
+                    load_method="self-equilibrated tangential tip-force ring",
+                    loads_builder=lambda nodes, root_nodes, tip_nodes, torque=100.0: _tip_torque_cloads(
+                        nodes=nodes,
+                        tip_nodes=tip_nodes,
+                        torque_n_m=torque,
+                    ),
+                    engineering_note="Tip torque checks whether the bias appears in torsion as well as bending.",
+                )
+            )
+
+    rows = _with_shell_bias_mesh_deltas(rows)
+    rows.append(
+        _run_shell_bias_case(
+            cfg=cfg,
+            diagnosis_dir=fidelity_dir / "_shell_bias_runs",
+            variant="midsurface_reference_half_load",
+            case_type="constant_tip_load_half",
+            mesh_id="medium",
+            n_span=64,
+            n_circumference=64,
+            span_m=span_m,
+            reference_radius_m=mid_radius_m,
+            true_outer_radius_m=true_outer_radius_m,
+            thickness_m=thickness_m,
+            material=material,
+            radius_convention="mesh radius equals tube mid-surface; half load checks linear load-scale sensitivity",
+            load_or_torque=-40.0,
+            theory_value=tube_bending_tip_load_delta(
+                force_n=-40.0,
+                span_m=span_m,
+                young_pa=material.young_pa,
+                outer_radius_m=true_outer_radius_m,
+                thickness_m=thickness_m,
+            ),
+            result_kind="tip_uz",
+            load_method="tip ring equal FZ",
+            loads_builder=lambda nodes, root_nodes, tip_nodes, total=-40.0: _vertical_tip_ring_loads(
+                nodes=nodes,
+                tip_nodes=tip_nodes,
+                total_fz_n=total,
+            ),
+            engineering_note="Smaller-load linearity check requested by the fidelity-ladder goal; no material tuning.",
+        )
+    )
+    exact_i = tube_second_moment_i(outer_radius_m=true_outer_radius_m, thickness_m=thickness_m)
+    thin_wall_i = math.pi * mid_radius_m**3 * thickness_m
+    exact_j = float(tube_J(np.asarray([true_outer_radius_m]), np.asarray([thickness_m]))[0])
+    thin_wall_j = 2.0 * math.pi * mid_radius_m**3 * thickness_m
+    return write_shell_bias_diagnosis_artifacts(
+        fidelity_dir,
+        rows=rows,
+        exact_i_m4=exact_i,
+        thin_wall_i_m4=thin_wall_i,
+        exact_j_m4=exact_j,
+        thin_wall_j_m4=thin_wall_j,
+    )
+
+
+def _run_shell_bias_case(
+    *,
+    cfg: Any,
+    diagnosis_dir: Path,
+    variant: str,
+    case_type: str,
+    mesh_id: str,
+    n_span: int,
+    n_circumference: int,
+    span_m: float,
+    reference_radius_m: float,
+    true_outer_radius_m: float,
+    thickness_m: float,
+    material: BeamMaterial,
+    radius_convention: str,
+    load_or_torque: float,
+    theory_value: float,
+    result_kind: str,
+    load_method: str,
+    loads_builder: Any,
+    engineering_note: str,
+) -> ShellBiasDiagnosisRow:
+    spec = TubeShellMeshSpec(
+        name=f"{variant}_{case_type}_{mesh_id}",
+        span_m=span_m,
+        root_outer_radius_m=reference_radius_m,
+        tip_outer_radius_m=reference_radius_m,
+        n_span=n_span,
+        n_circumference=n_circumference,
+        mesh_size_m=span_m / n_span,
+    )
+    start = time.perf_counter()
+    row = _run_constant_tube_shell_case(
+        cfg=cfg,
+        case_dir=diagnosis_dir / variant / case_type / mesh_id,
+        case_id=case_type,
+        mesh_id=mesh_id,
+        mesh_spec=spec,
+        material=material,
+        root_thickness_m=thickness_m,
+        tip_thickness_m=thickness_m,
+        loads_builder=loads_builder,
+        theory_value=theory_value,
+        load_or_torque=load_or_torque,
+        result_kind=result_kind,
+        engineering_note=engineering_note,
+    )
+    runtime_s = time.perf_counter() - start
+    note = (
+        f"{engineering_note} True tube OD radius={true_outer_radius_m:.6g} m, "
+        f"shell reference radius={reference_radius_m:.6g} m."
+    )
+    return ShellBiasDiagnosisRow(
+        variant=variant,
+        case_type=case_type,
+        element_type="S4",
+        radius_convention=radius_convention,
+        root_bc="root ring all shell DOF fixed",
+        load_method=load_method,
+        n_span=row.n_span,
+        n_circumference=row.n_circumference,
+        element_count=row.element_count,
+        theory_value=row.theory_value,
+        fem_value=row.fem_value,
+        error_pct=row.error_pct,
+        mesh_delta_pct=None,
+        runtime_s=runtime_s,
+        status=row.status,
+        engineering_note=note,
+    )
+
+
+def _tip_torque_cloads(
+    *,
+    nodes: np.ndarray,
+    tip_nodes: Iterable[int],
+    torque_n_m: float,
+) -> list[tuple[int, int, float]]:
+    ring_loads = tip_torque_loads_for_ring(_rows_for_node_ids(nodes, tip_nodes), torque_n_m=torque_n_m)
+    loads: list[tuple[int, int, float]] = []
+    for load in ring_loads:
+        loads.append((load.node_id, 1, load.force_x_n))
+        loads.append((load.node_id, 3, load.force_z_n))
+    return loads
+
+
+def _with_shell_bias_mesh_deltas(rows: list[ShellBiasDiagnosisRow]) -> list[ShellBiasDiagnosisRow]:
+    previous_by_key: dict[tuple[str, str], float] = {}
+    updated: list[ShellBiasDiagnosisRow] = []
+    for row in rows:
+        key = (row.variant, row.case_type)
+        previous = previous_by_key.get(key)
+        mesh_delta = _pct_delta(row.fem_value, previous)
+        status = _classify_shell_bias_row(row.status, row.error_pct, mesh_delta)
+        updated.append(replace(row, mesh_delta_pct=mesh_delta, status=status))
+        if row.fem_value is not None:
+            previous_by_key[key] = row.fem_value
+    return updated
+
+
+def _classify_shell_bias_row(
+    current_status: str,
+    error_pct: float | None,
+    mesh_delta_pct: float | None,
+) -> str:
+    if current_status.upper() in {"SKIP", "FAIL"}:
+        return current_status
+    if error_pct is None:
+        return "SKIP"
+    if float(error_pct) <= 5.0 and float(mesh_delta_pct or 0.0) <= 5.0:
+        return "PASS"
+    if float(error_pct) <= 10.0:
+        return "WARN"
+    return "FAIL"
 
 
 def _constant_tube_mesh_specs() -> list[tuple[str, int, int]]:
@@ -2969,6 +3280,126 @@ def write_runtime_audit_artifacts(
         "runtime_summary_csv": runtime_csv,
         "current_route_audit_md": audit_md,
     }
+
+
+def classify_shell_bias_diagnosis(rows: list[ShellBiasDiagnosisRow]) -> str:
+    by_variant: dict[str, list[ShellBiasDiagnosisRow]] = {}
+    for row in rows:
+        by_variant.setdefault(row.variant, []).append(row)
+
+    saw_warning_grade_pair = False
+    for variant_rows in by_variant.values():
+        bending_rows = [
+            row
+            for row in variant_rows
+            if row.case_type in {"constant_tip_load", "constant_uniform_load", "constant_tip_load_half"}
+            and _shell_bias_row_is_stable(row)
+        ]
+        torsion_rows = [
+            row
+            for row in variant_rows
+            if row.case_type == "constant_tip_torque" and _shell_bias_row_is_stable(row)
+        ]
+        has_pass_bending = any(row.error_pct is not None and row.error_pct <= 5.0 for row in bending_rows)
+        has_pass_torsion = any(row.error_pct is not None and row.error_pct <= 5.0 for row in torsion_rows)
+        if has_pass_bending and has_pass_torsion:
+            return "PASS"
+        has_warn_bending = any(row.error_pct is not None and row.error_pct <= 10.0 for row in bending_rows)
+        has_warn_torsion = any(row.error_pct is not None and row.error_pct <= 10.0 for row in torsion_rows)
+        saw_warning_grade_pair = saw_warning_grade_pair or (has_warn_bending and has_warn_torsion)
+    return "WARN" if saw_warning_grade_pair else "FAIL"
+
+
+def _shell_bias_row_is_stable(row: ShellBiasDiagnosisRow) -> bool:
+    if row.fem_value is None or row.error_pct is None:
+        return False
+    if row.status == "FAIL":
+        return False
+    return row.mesh_delta_pct is None or abs(float(row.mesh_delta_pct)) <= 5.0
+
+
+def write_shell_bias_diagnosis_artifacts(
+    output_dir: str | Path,
+    *,
+    rows: list[ShellBiasDiagnosisRow],
+    exact_i_m4: float,
+    thin_wall_i_m4: float,
+    exact_j_m4: float,
+    thin_wall_j_m4: float,
+) -> dict[str, Path]:
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    csv_path = out / "shell_bias_diagnosis.csv"
+    md_path = out / "shell_bias_diagnosis.md"
+    _write_dataclass_csv(csv_path, rows, ShellBiasDiagnosisRow)
+
+    verdict = classify_shell_bias_diagnosis(rows)
+    best_rows = _best_shell_bias_rows_by_case(rows)
+    lines = [
+        "# Phase 14 Structured Shell Bias Diagnosis",
+        "",
+        "Validation tooling only. These comparisons diagnose the structured-shell stiffness bias without changing material properties, hard gates, aerodynamic ranking, or dual_beam_production physics.",
+        "",
+        "## Section Property Grounding",
+        "",
+        f"- exact tube I: {exact_i_m4:.6e} m^4.",
+        f"- thin-wall diagnostic I: {thin_wall_i_m4:.6e} m^4 ({phase14_bench._pct_error(thin_wall_i_m4, exact_i_m4):.3f}% from exact).",
+        f"- exact tube J: {exact_j_m4:.6e} m^4.",
+        f"- thin-wall diagnostic J: {thin_wall_j_m4:.6e} m^4 ({phase14_bench._pct_error(thin_wall_j_m4, exact_j_m4):.3f}% from exact).",
+        "",
+        "Thin-wall formulas are listed as diagnostics only; the closed-form benchmark uses exact hollow-tube properties.",
+        "",
+        "## Diagnosis Table",
+        "",
+        "| variant | case_type | element_type | radius_convention | root_bc | load_method | n_span | n_circumference | element_count | theory_value | fem_value | error_pct | mesh_delta_pct | runtime_s | status | engineering_note |",
+        "| --- | --- | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ]
+    for row in rows:
+        lines.append(
+            "| "
+            f"{row.variant} | {row.case_type} | {row.element_type} | {row.radius_convention} | "
+            f"{row.root_bc} | {row.load_method} | {row.n_span} | {row.n_circumference} | "
+            f"{row.element_count} | {_fmt(row.theory_value)} | {_fmt(row.fem_value)} | "
+            f"{_fmt(row.error_pct)} | {_fmt(row.mesh_delta_pct)} | {row.runtime_s:.3f} | "
+            f"{row.status} | {row.engineering_note} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Engineering Judgment",
+            "",
+            f"- Acceptance verdict: {verdict}.",
+        ]
+    )
+    for case_type, row in best_rows.items():
+        lines.append(
+            f"- Best {case_type}: `{row.variant}` {row.element_type}, FEM {_fmt(row.fem_value)} vs theory "
+            f"{_fmt(row.theory_value)}, error {_fmt(row.error_pct)}%, mesh delta {_fmt(row.mesh_delta_pct)}%."
+        )
+    lines.extend(
+        [
+            "- Primary diagnosis: the old outer-surface reference convention placed the shell midsurface too far outboard for a thin tube, which artificially increased bending and torsional stiffness.",
+            "- The mid-surface convention is physically cleaner for a shell model because shell thickness is centered on the reference surface.",
+            "- S8/S8R was not promoted here because the current automated shell deck/mesh path is tested for S4/S3 ingestion; a second-order shell route needs its own node-ordering and parser tests before it can be called evidence.",
+            "- Root cap/reference-node coupling remains a separate future test. This task keeps the root ring clamp constant so the radius convention is isolated.",
+        ]
+    )
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {
+        "shell_bias_diagnosis_csv": csv_path,
+        "shell_bias_diagnosis_md": md_path,
+    }
+
+
+def _best_shell_bias_rows_by_case(rows: list[ShellBiasDiagnosisRow]) -> dict[str, ShellBiasDiagnosisRow]:
+    best: dict[str, ShellBiasDiagnosisRow] = {}
+    for row in rows:
+        if row.error_pct is None:
+            continue
+        current = best.get(row.case_type)
+        if current is None or float(row.error_pct) < float(current.error_pct or float("inf")):
+            best[row.case_type] = row
+    return best
 
 
 def _finest_constant_row(

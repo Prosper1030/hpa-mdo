@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -14,12 +15,14 @@ from scripts.phase14_maclocal_fem_package import (
     ConstantTubeVerificationRow,
     Phase14ExpectedValue,
     RouteRuntimeRow,
+    ShellBiasDiagnosisRow,
     TubeShellMeshSpec,
     _build_parser,
     build_structured_tube_shell_mesh,
     classify_b2_shell_agreement,
     classify_b5_shell_torsion_status,
     classify_constant_tube_status,
+    classify_shell_bias_diagnosis,
     _distributed_vertical_loads_by_span_tributary,
     estimate_ring_twist_rad,
     tube_bending_tip_load_delta,
@@ -27,6 +30,7 @@ from scripts.phase14_maclocal_fem_package import (
     tip_torque_loads_for_ring,
     tube_torsion_theta,
     write_runtime_audit_artifacts,
+    write_shell_bias_diagnosis_artifacts,
     write_apdl_windows_package,
     write_b5_shell_torsion_hardening_csv,
     write_b5_shell_torsion_hardening_markdown,
@@ -243,6 +247,113 @@ def test_write_runtime_audit_artifacts(tmp_path: Path) -> None:
     assert "structured shell constant tube run" in md_text
     assert "Constant tube shell bending" in md_text
     assert "B2 structured S4 tapered" in md_text
+
+
+def test_shell_bias_diagnosis_row_has_required_schema() -> None:
+    fields = set(ShellBiasDiagnosisRow.__dataclass_fields__)
+
+    assert {
+        "variant",
+        "case_type",
+        "element_type",
+        "radius_convention",
+        "root_bc",
+        "load_method",
+        "n_span",
+        "n_circumference",
+        "element_count",
+        "theory_value",
+        "fem_value",
+        "error_pct",
+        "mesh_delta_pct",
+        "runtime_s",
+        "status",
+        "engineering_note",
+    }.issubset(fields)
+
+
+def test_classify_shell_bias_diagnosis_uses_bending_and_torsion() -> None:
+    rows = [
+        ShellBiasDiagnosisRow(
+            variant="midsurface_reference",
+            case_type="constant_tip_load",
+            element_type="S4",
+            radius_convention="midsurface",
+            root_bc="root_ring",
+            load_method="tip_ring",
+            n_span=96,
+            n_circumference=96,
+            element_count=9216,
+            theory_value=-1.0,
+            fem_value=-0.98,
+            error_pct=2.0,
+            mesh_delta_pct=0.2,
+            runtime_s=1.0,
+            status="PASS",
+            engineering_note="bending pass",
+        ),
+        ShellBiasDiagnosisRow(
+            variant="midsurface_reference",
+            case_type="constant_tip_torque",
+            element_type="S4",
+            radius_convention="midsurface",
+            root_bc="root_ring",
+            load_method="tip_torque_ring",
+            n_span=96,
+            n_circumference=96,
+            element_count=9216,
+            theory_value=0.04,
+            fem_value=0.039,
+            error_pct=2.5,
+            mesh_delta_pct=0.2,
+            runtime_s=1.0,
+            status="PASS",
+            engineering_note="torsion pass",
+        ),
+    ]
+
+    assert classify_shell_bias_diagnosis(rows) == "PASS"
+    assert classify_shell_bias_diagnosis([replace(row, error_pct=7.0, status="WARN") for row in rows]) == "WARN"
+    assert classify_shell_bias_diagnosis([replace(row, error_pct=15.0, status="FAIL") for row in rows]) == "FAIL"
+
+
+def test_write_shell_bias_diagnosis_artifacts(tmp_path: Path) -> None:
+    rows = [
+        ShellBiasDiagnosisRow(
+            variant="midsurface_reference",
+            case_type="constant_tip_load",
+            element_type="S4",
+            radius_convention="mesh radius is tube mid-surface",
+            root_bc="root ring all DOF",
+            load_method="tip ring equal FZ",
+            n_span=96,
+            n_circumference=96,
+            element_count=9216,
+            theory_value=-0.9825,
+            fem_value=-0.980,
+            error_pct=0.25,
+            mesh_delta_pct=0.1,
+            runtime_s=1.2,
+            status="PASS",
+            engineering_note="mid-surface convention removes artificial radius offset",
+        )
+    ]
+
+    artifacts = write_shell_bias_diagnosis_artifacts(
+        tmp_path,
+        rows=rows,
+        exact_i_m4=1.2e-7,
+        thin_wall_i_m4=1.18e-7,
+        exact_j_m4=2.4e-7,
+        thin_wall_j_m4=2.36e-7,
+    )
+
+    csv_rows = list(csv.DictReader(artifacts["shell_bias_diagnosis_csv"].read_text().splitlines()))
+    assert csv_rows[0]["variant"] == "midsurface_reference"
+    md_text = artifacts["shell_bias_diagnosis_md"].read_text(encoding="utf-8")
+    assert "# Phase 14 Structured Shell Bias Diagnosis" in md_text
+    assert "mid-surface convention" in md_text
+    assert "exact tube I" in md_text
 
 
 def test_write_constant_tube_artifacts_include_required_columns(tmp_path: Path) -> None:
