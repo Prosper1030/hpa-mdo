@@ -275,6 +275,21 @@ def _wire_attach_load_decomposition() -> SimpleNamespace:
     )
 
 
+def _root_joint_load_envelope() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="root_joint_load_envelope_defined_not_signoff",
+        design_root_force_n=18.3,
+        design_root_bending_moment_n_m=10833.2,
+        force_only_check_is_misleading=True,
+        rows=(
+            SimpleNamespace(
+                load_case_key="moment_couple_arm_0p100m",
+                required_couple_force_n=108332.0,
+            ),
+        ),
+    )
+
+
 def _rib_spacing_requirements() -> SimpleNamespace:
     return SimpleNamespace(
         current_max_bay_m=3.86,
@@ -376,6 +391,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+        root_joint_load_envelope=_root_joint_load_envelope(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
@@ -406,8 +422,11 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "transverse design=1576.2000 N" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
+    assert "Phase35" in by_key["root_joint"].evidence_artifacts
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
     assert "subcomponents missing=1" in by_key["root_joint"].current_evidence
+    assert "design moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
+    assert "0.10 m couple force=108332.0000 N" in by_key["root_joint"].current_evidence
     assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
     assert "subcomponents missing=1" in by_key["wire_termination"].current_evidence
@@ -456,6 +475,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+        root_joint_load_envelope=_root_joint_load_envelope(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
