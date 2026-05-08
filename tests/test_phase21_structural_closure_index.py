@@ -202,6 +202,28 @@ def _rib_spacing_requirements() -> SimpleNamespace:
     )
 
 
+def _rib_bracing_margin_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        required_link_force_n=934.5,
+        rows=(
+            SimpleNamespace(
+                bay_index=0,
+                status="rib_allowable_missing",
+                link_margin_n=None,
+                shear_margin_n=None,
+                bond_margin_n=None,
+            ),
+            SimpleNamespace(
+                bay_index=1,
+                status="rib_allowable_missing",
+                link_margin_n=None,
+                shear_margin_n=None,
+                bond_margin_n=None,
+            ),
+        ),
+    )
+
+
 def _failure_mode_ordering() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="true_failure_order_not_closed",
@@ -220,6 +242,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),
+        rib_bracing_margin_check=_rib_bracing_margin_check(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 
@@ -242,8 +265,11 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
     assert "dense_finite_rib_surrogate" in by_key["rib_load_transfer"].current_evidence
     assert "Phase24" in by_key["rib_spacing_assumption"].evidence_artifacts
+    assert "Phase28" in by_key["rib_load_transfer"].evidence_artifacts
     assert "added stations=15" in by_key["rib_spacing_assumption"].current_evidence
     assert "max recommended subbay=0.2970 m" in by_key["rib_load_transfer"].current_evidence
+    assert "required link force=934.5000 N" in by_key["rib_load_transfer"].current_evidence
+    assert "missing bays=2" in by_key["rib_spacing_assumption"].current_evidence
     assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
@@ -259,6 +285,7 @@ def test_write_structural_closure_index_package_creates_handoff_files(tmp_path: 
         detail_requirements=_detail_requirements(),
         detail_margin_check=_detail_margin_check(),
         rib_spacing_requirements=_rib_spacing_requirements(),
+        rib_bracing_margin_check=_rib_bracing_margin_check(),
         failure_mode_ordering=_failure_mode_ordering(),
     )
 

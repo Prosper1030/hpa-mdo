@@ -48,6 +48,9 @@ from scripts.phase25_failure_mode_ordering import (  # noqa: E402
 from scripts.phase27_detail_margin_inputs import (  # noqa: E402
     build_detail_margin_check,
 )
+from scripts.phase28_rib_bracing_margin_inputs import (  # noqa: E402
+    build_rib_bracing_margin_check,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -82,6 +85,7 @@ def build_structural_closure_index(
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
+    rib_bracing_margin_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
@@ -100,6 +104,7 @@ def build_structural_closure_index(
             detail_requirements=detail_requirements,
             detail_margin_check=detail_margin_check,
             rib_spacing_requirements=rib_spacing_requirements,
+            rib_bracing_margin_check=rib_bracing_margin_check,
             failure_mode_ordering=failure_mode_ordering,
         )
         for key in REQUIRED_STRUCTURAL_CLAIM_KEYS
@@ -126,6 +131,7 @@ def write_structural_closure_index_package(
     detail_requirements: Any | None = None,
     detail_margin_check: Any | None = None,
     rib_spacing_requirements: Any | None = None,
+    rib_bracing_margin_check: Any | None = None,
     failure_mode_ordering: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -137,6 +143,7 @@ def write_structural_closure_index_package(
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
         rib_spacing_requirements=rib_spacing_requirements,
+        rib_bracing_margin_check=rib_bracing_margin_check,
         failure_mode_ordering=failure_mode_ordering,
     )
     outputs = [
@@ -181,6 +188,11 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     )
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
+    rib_bracing_margin_check = build_rib_bracing_margin_check(
+        rib_spacing_requirements,
+        bracing_audit,
+        rib_allowables=[],
+    )
     return build_structural_closure_index(
         review,
         local_ledger=local_ledger,
@@ -189,6 +201,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         detail_requirements=detail_requirements,
         detail_margin_check=detail_margin_check,
         rib_spacing_requirements=rib_spacing_requirements,
+        rib_bracing_margin_check=rib_bracing_margin_check,
         failure_mode_ordering=failure_mode_ordering,
     )
 
@@ -205,6 +218,7 @@ def _build_item(
     detail_requirements: Any | None,
     detail_margin_check: Any | None,
     rib_spacing_requirements: Any | None,
+    rib_bracing_margin_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
@@ -217,6 +231,7 @@ def _build_item(
         detail_entry,
         detail_margin_entry,
         rib_spacing_requirements,
+        rib_bracing_margin_check,
         failure_mode_ordering,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
@@ -231,6 +246,7 @@ def _build_item(
         detail_entry=detail_entry,
         detail_margin_entry=detail_margin_entry,
         rib_spacing_requirements=rib_spacing_requirements,
+        rib_bracing_margin_check=rib_bracing_margin_check,
         failure_mode_ordering=failure_mode_ordering,
     )
     return StructuralClosureItem(
@@ -275,6 +291,7 @@ def _evidence_artifacts(
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
     rib_spacing_requirements: Any | None,
+    rib_bracing_margin_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
@@ -298,6 +315,11 @@ def _evidence_artifacts(
         "rib_spacing_assumption",
     }:
         artifacts.append("Phase24 rib_spacing_requirements")
+    if rib_bracing_margin_check is not None and key in {
+        "rib_load_transfer",
+        "rib_spacing_assumption",
+    }:
+        artifacts.append("Phase28 rib_bracing_margin_inputs")
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
         artifacts.append("Phase25 failure_mode_ordering")
     return "; ".join(artifacts)
@@ -315,6 +337,7 @@ def _evidence_for_key(
     detail_entry: Any | None,
     detail_margin_entry: Any | None,
     rib_spacing_requirements: Any | None,
+    rib_bracing_margin_check: Any | None,
     failure_mode_ordering: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
@@ -377,6 +400,11 @@ def _evidence_for_key(
         "rib_spacing_assumption",
     }:
         parts.append(f"Phase24: {_rib_spacing_summary(rib_spacing_requirements)}")
+    if rib_bracing_margin_check is not None and key in {
+        "rib_load_transfer",
+        "rib_spacing_assumption",
+    }:
+        parts.append(f"Phase28: {_rib_bracing_summary(rib_bracing_margin_check)}")
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
         parts.append(f"Phase25: {_failure_ordering_summary(failure_mode_ordering)}")
     return " ".join(parts)
@@ -443,6 +471,20 @@ def _rib_spacing_summary(requirements: Any) -> str:
         f"{int(getattr(requirements, 'recommended_station_count', 0))}; "
         "max recommended subbay="
         f"{_fmt(getattr(requirements, 'max_recommended_subbay_m', None))} m."
+    )
+
+
+def _rib_bracing_summary(check: Any) -> str:
+    rows = tuple(getattr(check, "rows", ()))
+    missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
+    negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
+    return (
+        "required link force="
+        f"{_fmt(getattr(check, 'required_link_force_n', None))} N; "
+        "missing bays="
+        f"{missing}; "
+        "negative-margin bays="
+        f"{negative}."
     )
 
 
