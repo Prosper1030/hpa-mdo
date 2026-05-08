@@ -27,6 +27,7 @@ def test_full_wing_buckling_closure_accepts_global_or_braced_eigen_inputs_only()
                 "boundary_condition_status": "pass",
                 "mesh_convergence_status": "pass",
                 "solver_status": "pass",
+                "mode_review_status": "pass",
                 "source": "qualified FEM placeholder",
             },
             {
@@ -42,6 +43,7 @@ def test_full_wing_buckling_closure_accepts_global_or_braced_eigen_inputs_only()
                 "boundary_condition_status": "pass",
                 "mesh_convergence_status": "pass",
                 "solver_status": "pass",
+                "mode_review_status": "pass",
                 "source": "local coupon",
             },
         ),
@@ -72,6 +74,7 @@ def test_full_wing_buckling_closure_rejects_missing_braced_structure_components(
                 "boundary_condition_status": "pass",
                 "mesh_convergence_status": "pass",
                 "solver_status": "pass",
+                "mode_review_status": "pass",
                 "source": "subassembly placeholder",
             },
         ),
@@ -81,6 +84,44 @@ def test_full_wing_buckling_closure_rejects_missing_braced_structure_components(
     row = check.rows[0]
     assert row.status == "required_structural_components_missing"
     assert row.missing_components == "rear_spar"
+
+
+def test_full_wing_buckling_closure_requires_source_and_mode_review() -> None:
+    base = {
+        "case_id": "unreviewed-global",
+        "model_scope": "full_wing_global_eigen",
+        "claim_load_factor": "1.75",
+        "first_global_buckling_load_factor": "2.10",
+        "includes_main_spar": "true",
+        "includes_rear_spar": "true",
+        "includes_finite_ribs": "true",
+        "includes_wire_attach_load_path": "true",
+        "includes_root_boundary": "true",
+        "boundary_condition_status": "pass",
+        "mesh_convergence_status": "pass",
+        "solver_status": "pass",
+    }
+    check = build_full_wing_buckling_closure_check(
+        "sample",
+        closure_inputs=(
+            {
+                **base,
+                "source": "",
+                "mode_review_status": "pass",
+            },
+            {
+                **base,
+                "case_id": "mode-unreviewed-global",
+                "source": "qualified FEM placeholder",
+                "mode_review_status": "",
+            },
+        ),
+    )
+
+    by_case = {row.case_id: row for row in check.rows}
+    assert check.overall_status == "full_wing_global_buckling_not_closed"
+    assert by_case["unreviewed-global"].status == "source_missing"
+    assert by_case["mode-unreviewed-global"].status == "mode_review_missing"
 
 
 def test_full_wing_buckling_closure_marks_missing_inputs() -> None:

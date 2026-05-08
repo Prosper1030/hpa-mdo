@@ -34,6 +34,7 @@ REQUIRED_VERIFICATION_FIELDS = (
     "boundary_condition_status",
     "mesh_convergence_status",
     "solver_status",
+    "mode_review_status",
 )
 PASS_STATUS = "pass"
 
@@ -55,6 +56,7 @@ class FullWingBucklingClosureRow:
     boundary_condition_status: str
     mesh_convergence_status: str
     solver_status: str
+    mode_review_status: str
     source: str
     engineering_note: str
 
@@ -135,12 +137,14 @@ def _build_row(raw: dict[str, Any]) -> FullWingBucklingClosureRow:
         field: str(raw.get(field, ""))
         for field in REQUIRED_VERIFICATION_FIELDS
     }
+    source = str(raw.get("source", "")).strip()
     status = _status(
         model_scope=str(raw.get("model_scope", "")),
         claim_load_factor=claim_load_factor,
         first_global_buckling_load_factor=first_global_buckling_load_factor,
         missing_components=missing_components,
         verification_statuses=verification_statuses,
+        source=source,
         load_factor_margin=load_factor_margin,
     )
     return FullWingBucklingClosureRow(
@@ -159,7 +163,8 @@ def _build_row(raw: dict[str, Any]) -> FullWingBucklingClosureRow:
         boundary_condition_status=verification_statuses["boundary_condition_status"],
         mesh_convergence_status=verification_statuses["mesh_convergence_status"],
         solver_status=verification_statuses["solver_status"],
-        source=str(raw.get("source", "")),
+        mode_review_status=verification_statuses["mode_review_status"],
+        source=source,
         engineering_note=_engineering_note(status),
     )
 
@@ -181,6 +186,7 @@ def _missing_input_row() -> FullWingBucklingClosureRow:
         boundary_condition_status="",
         mesh_convergence_status="",
         solver_status="",
+        mode_review_status="",
         source="",
         engineering_note=(
             "Supply full-wing or credible braced-subassembly global buckling eigen/FEM evidence "
@@ -196,14 +202,19 @@ def _status(
     first_global_buckling_load_factor: float | None,
     missing_components: str,
     verification_statuses: dict[str, str],
+    source: str,
     load_factor_margin: float | None,
 ) -> str:
+    if not source:
+        return "source_missing"
     if model_scope not in ACCEPTED_MODEL_SCOPES:
         return "invalid_buckling_model_scope"
     if claim_load_factor is None or first_global_buckling_load_factor is None:
         return "closure_input_incomplete"
     if missing_components:
         return "required_structural_components_missing"
+    if verification_statuses.get("mode_review_status") != PASS_STATUS:
+        return "mode_review_missing"
     if any(status != PASS_STATUS for status in verification_statuses.values()):
         return "verification_check_missing"
     if load_factor_margin is not None and load_factor_margin < 0.0:
@@ -227,6 +238,10 @@ def _engineering_note(status: str) -> str:
             "Boundary conditions, mesh convergence, and solver status must all be marked pass "
             "before treating the input as qualified evidence."
         )
+    if status == "source_missing":
+        return "Buckling evidence must include a traceable source path, report id, or solver artifact reference."
+    if status == "mode_review_missing":
+        return "A qualified mode review must confirm the first eigenmode is the relevant global/braced buckling mode."
     return (
         "Input margin check only; not a full aircraft signoff without qualified model review, "
         "mesh/solver evidence, and engineering approval."
@@ -248,6 +263,7 @@ def _write_template(path: Path) -> Path:
         "boundary_condition_status",
         "mesh_convergence_status",
         "solver_status",
+        "mode_review_status",
         "source",
         "notes",
     ]
@@ -269,6 +285,7 @@ def _write_template(path: Path) -> Path:
                 "boundary_condition_status": "pass",
                 "mesh_convergence_status": "pass",
                 "solver_status": "pass",
+                "mode_review_status": "pass",
                 "source": "",
                 "notes": "Use full_wing_global_eigen, apdl_full_wing_eigen, or braced_subassembly_eigen.",
             }
@@ -303,14 +320,15 @@ def _write_markdown(path: Path, check: FullWingBucklingClosureCheck) -> Path:
         f"- accepted model scopes: `{'; '.join(check.accepted_model_scopes)}`",
         f"- required components: `{'; '.join(check.required_components)}`",
         "",
-        "| case | model scope | status | claim n | first buckling n | margin n | missing components | source |",
-        "|---|---|---|---:|---:|---:|---|---|",
+        "| case | model scope | status | claim n | first buckling n | margin n | mode review | missing components | source |",
+        "|---|---|---|---:|---:|---:|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
             f"| {row.case_id} | {row.model_scope or 'n/a'} | `{row.status}` | "
             f"{_fmt(row.claim_load_factor)} | {_fmt(row.first_global_buckling_load_factor)} | "
-            f"{_fmt(row.load_factor_margin)} | {row.missing_components or 'none'} | "
+            f"{_fmt(row.load_factor_margin)} | {row.mode_review_status or 'n/a'} | "
+            f"{row.missing_components or 'none'} | "
             f"{row.source or 'n/a'} |"
         )
     lines.extend(
@@ -320,7 +338,7 @@ def _write_markdown(path: Path, check: FullWingBucklingClosureCheck) -> Path:
             "",
             "- Local wall checks and main-spar coupon buckling are not full-wing global buckling evidence.",
             "- Positive input margins do not close drawing-release or flight-submission signoff by themselves.",
-            "- Boundary conditions, mesh convergence, solver status, and included bracing components must be reviewed as engineering evidence.",
+            "- Boundary conditions, mesh convergence, solver status, mode review, source traceability, and included bracing components must be reviewed as engineering evidence.",
             "",
         ]
     )
