@@ -415,6 +415,14 @@ class InverseDesignTests(unittest.TestCase):
         summary = candidate_to_summary_dict(candidate)
 
         rib_surrogate = summary["rib_bay_surrogate"]
+        feasibility_scope = summary["feasibility_scope"]
+        self.assertEqual(
+            feasibility_scope["scope_key"],
+            "beam_candidate_gate_only_not_full_structure_signoff",
+        )
+        self.assertIn("overall_feasible", feasibility_scope["allowed_claim"])
+        self.assertIn("full-wing structural signoff", feasibility_scope["blocked_claim"])
+        self.assertIn("wire attach local FEM", feasibility_scope["required_next_evidence"])
         self.assertIsInstance(rib_surrogate, dict)
         self.assertEqual(rib_surrogate["bay_count"], 3)
         self.assertEqual(rib_surrogate["trust_level"], "surrogate_report_only_not_signoff")
@@ -1279,6 +1287,11 @@ class InverseDesignTests(unittest.TestCase):
         self.assertEqual(payload["validity_status"]["mainline_gate_status"], "pass")
         self.assertEqual(payload["validity_status"]["legacy_reference_status"], "warn")
         self.assertTrue(payload["mainline_feasibility"]["overall_feasible"])
+        self.assertEqual(
+            payload["feasibility_scope"]["scope_key"],
+            "beam_candidate_gate_only_not_full_structure_signoff",
+        )
+        self.assertIn("joint", payload["feasibility_scope"]["blocked_claim"])
         self.assertEqual(
             payload["legacy_reference"]["failures"],
             [

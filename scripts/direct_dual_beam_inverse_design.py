@@ -105,6 +105,24 @@ DEFAULT_ZONEWISE_RIB_PROFILE_KEYS = (
 )
 DEFAULT_VSPAERO_ANALYSIS_METHOD = "vlm"
 VSPAERO_ANALYSIS_METHOD_CHOICES = ("vlm", "panel")
+STRUCTURAL_FEASIBILITY_SCOPE_KEY = "beam_candidate_gate_only_not_full_structure_signoff"
+STRUCTURAL_FEASIBILITY_ALLOWED_CLAIM = (
+    "`overall_feasible` means the modeled dual-beam inverse-design candidate gates cleared "
+    "for the current beam-line constraints."
+)
+STRUCTURAL_FEASIBILITY_BLOCKED_CLAIM = (
+    "Do not treat `overall_feasible` as full-wing structural signoff, rear-spar/rib bracing "
+    "proof, wire attach/termination proof, root joint margin, or aeroelastic twist/buckling signoff."
+)
+STRUCTURAL_FEASIBILITY_REQUIRED_NEXT_EVIDENCE = (
+    "dual-spar finite-rib global FEM",
+    "finite rib stiffness and rib/spar attach allowables",
+    "wire attach local FEM",
+    "root joint fitting/clamp/bond/insert margin",
+    "selected wire termination allowable with derates",
+    "aeroelastic twist closure",
+    "full-wing or braced-subassembly buckling FEM",
+)
 
 
 @dataclass(frozen=True)
@@ -2946,6 +2964,7 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
         "safety_passed": candidate.safety_passed,
         "manufacturing_passed": candidate.manufacturing_passed,
         "overall_feasible": candidate.overall_feasible,
+        "feasibility_scope": _structural_feasibility_scope_payload(),
         "mass_margin_kg": candidate.mass_margin_kg,
         "target_mass_passed": candidate.target_mass_passed,
         "overall_target_feasible": candidate.overall_target_feasible,
@@ -2976,6 +2995,15 @@ def candidate_to_summary_dict(candidate: InverseCandidate) -> dict[str, object]:
             else asdict(inverse.monotonic_deflection)
         ),
         "feasibility_report": feasibility_report,
+    }
+
+
+def _structural_feasibility_scope_payload() -> dict[str, object]:
+    return {
+        "scope_key": STRUCTURAL_FEASIBILITY_SCOPE_KEY,
+        "allowed_claim": STRUCTURAL_FEASIBILITY_ALLOWED_CLAIM,
+        "blocked_claim": STRUCTURAL_FEASIBILITY_BLOCKED_CLAIM,
+        "required_next_evidence": list(STRUCTURAL_FEASIBILITY_REQUIRED_NEXT_EVIDENCE),
     }
 
 
@@ -3217,6 +3245,12 @@ def build_report_text(
         lines.append("  jig_shape                   : nodes_target - structural displacement")
         lines.append("  predicted_loaded_shape      : jig_shape + same frozen displacement")
     lines.append("")
+    scope = _structural_feasibility_scope_payload()
+    lines.append("Feasibility scope:")
+    lines.append(f"  scope                       : {scope['scope_key']}")
+    lines.append(f"  allowed                     : {scope['allowed_claim']}")
+    lines.append(f"  blocked                     : {scope['blocked_claim']}")
+    lines.append("")
     lines.append("Physics assumptions:")
     lines.append("  1. One-way frozen-load aeroelastic solve; aerodynamic loads are not refreshed after jig back-out.")
     lines.append("  2. Cruise target shape is represented on the existing main/rear spar beam lines, not the full wing skin.")
@@ -3360,6 +3394,7 @@ def build_summary_json(
         "config": str(config_path),
         "design_report": str(design_report),
         "cruise_aoa_deg": float(cruise_aoa_deg),
+        "feasibility_scope": _structural_feasibility_scope_payload(),
         "mvp_definition": {
             "target_loaded_shape": "current VSP / structural cruise geometry on main and rear spar beam nodes",
             "jig_shape_rule": (
@@ -3681,6 +3716,12 @@ def build_refresh_report_text(
     lines.append(
         f"  converged outer loop        : {'yes' if outcome.converged else 'no'}"
     )
+    lines.append("")
+    scope = _structural_feasibility_scope_payload()
+    lines.append("Feasibility scope:")
+    lines.append(f"  scope                       : {scope['scope_key']}")
+    lines.append(f"  allowed                     : {scope['allowed_claim']}")
+    lines.append(f"  blocked                     : {scope['blocked_claim']}")
     lines.append("")
     lines.append("Physics assumptions:")
     for idx, assumption in enumerate(
@@ -4027,6 +4068,7 @@ def build_refresh_summary_json(
         "config": str(config_path),
         "design_report": str(design_report),
         "cruise_aoa_deg": float(cruise_aoa_deg),
+        "feasibility_scope": _structural_feasibility_scope_payload(),
         "refinement_definition": {
             "target_loaded_shape": "current VSP / structural cruise geometry on main and rear spar beam nodes",
             "jig_shape_rule": (
@@ -4182,6 +4224,7 @@ def _build_validity_summary_payload(
         "selected_message": candidate.message,
         "overall_status": None if validity_status is None else validity_status["overall_status"],
         "validity_status": validity_status,
+        "feasibility_scope": _structural_feasibility_scope_payload(),
         "mainline_feasibility": {
             "overall_feasible": bool(inverse.feasibility.overall_feasible),
             "safety_passed": bool(inverse.feasibility.safety_passed),
