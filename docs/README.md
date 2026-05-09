@@ -14,10 +14,8 @@
 |---|---|---|
 | [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 目前正式主線的單一真相文件 | 所有人，尤其是新進協作者與 AI agent |
 | [README.md](../README.md) | Repo landing page，先講正式入口、閱讀路徑、第一個指令 | 第一次進 repo 的人 |
-| [drawing_ready_package.md](drawing_ready_package.md) | 畫圖 / drawing handoff 的最短入口 | 需要直接拿幾何與設計依據去畫圖的人 |
-| [dual_beam_workflow_architecture_overview.md](dual_beam_workflow_architecture_overview.md) | 正式 dual-beam workflow 與資料流概觀 | 協作開發者 |
-| [dual_beam_consumer_integration_guide.md](dual_beam_consumer_integration_guide.md) | consumer 如何接正式 decision output | 外部整合 / AI agent |
-| [dual_beam_autoresearch_quickstart.md](dual_beam_autoresearch_quickstart.md) | built-in autoresearch 的最小可用入口 | AI / automation |
+| [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived Phase J pipeline report | 需要理解目前主線來源的人 |
+| [legacy_blackcat004_downstream_reference.md](legacy_blackcat004_downstream_reference.md) | Black Cat 004 / OpenMDAO 舊 downstream 參考 | 需要查歷史工具、舊 quickstart、舊 DAG 的人 |
 | [mesh_native_cfd_line_freeze.v1.md](../hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 暫停中的主翼 mesh-native CFD / SU2 支線交接 | 需要接續 Gmsh/SU2/BL 網格與低雷諾數 CFD 的人 |
 
 ## Current Mainline
@@ -27,11 +25,7 @@
 | 文件 | 性質 | 說明 |
 |---|---|---|
 | [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 最高優先的現況真值 | 定義現在 repo 真正主線、入口、legacy 邊界、能力上限 |
-| [drawing_ready_package.md](drawing_ready_package.md) | 正式 drawing handoff 入口 | 定義哪個 artifact 拿去畫圖、哪些只能當參考 |
-| [dual_beam_workflow_architecture_overview.md](dual_beam_workflow_architecture_overview.md) | 正式 workflow 真值 | 說明 dual-beam production / inverse-design / decision layer 怎麼串起來 |
-| [dual_beam_decision_interface_v1_spec.md](dual_beam_decision_interface_v1_spec.md) | 正式 consumer contract | 定義 decision interface JSON |
-| [dual_beam_consumer_integration_guide.md](dual_beam_consumer_integration_guide.md) | 正式 integration guide | 告訴 consumer 怎麼接 producer output |
-| [dual_beam_autoresearch_quickstart.md](dual_beam_autoresearch_quickstart.md) | 正式 machine-readable 入口說明 | 對應 `hpa_mdo.autoresearch` |
+| [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived 現況報告 | Phase J pipeline 與 Phase K guardrail addendum 的來源 |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
 | [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |
@@ -81,5 +75,6 @@
 | codex prompts | [codex_prompts/](codex_prompts/) | 給 AI 代理執行特定任務的自包含 prompt |
 | manuals / papers | [Manual/](Manual/), [Paper/](Paper/) | 外部工具與論文參考資料 |
 | examples snapshots | [examples/README.md](examples/README.md) | 範例輸出快照 |
+| legacy Black Cat 004 | [legacy_blackcat004_downstream_reference.md](legacy_blackcat004_downstream_reference.md) | 舊 Black Cat / OpenMDAO / dual-beam downstream 入口與 DAG，歷史參考用 |
 
 如果你不確定某份文件是不是現在要跟的真值，先回到 [README.md](../README.md) 或 `Current Mainline` 再決定。
