@@ -27,8 +27,12 @@ production aircraft。
 如果要看這條 pipeline 每一步現在實際用到哪些 artifact、candidate、關鍵數字與 trust boundary，
 先讀 [docs/reports/2026-05-09_phase_j_evidence_map.md](docs/reports/2026-05-09_phase_j_evidence_map.md)。
 這份 evidence map 已重新審核 source chain：`sample_1476` / `233 W` / `8642.9 m`
-屬於舊 medium-search 診斷資料，不是目前 Phase J 上游證據；目前 go-mode candidate
-是 downstream screening closure，不是已經由新版 mission handoff 完整推出的 final aircraft。
+屬於舊 medium-search 診斷資料，不是目前 Phase J 上游證據。commit history 顯示
+mission-to-airfoil 線確實存在：pilot power / thermal derate、mission design-space scan、
+drag budget、MissionContract / FourierTarget、airfoil sidecar、smooth geometry、loaded-Z、
+Tier2 airfoil 與 closure 都已接出來。現在缺的是一份 promoted trace manifest，把 current
+mission handoff 乾淨追到 `current_avl_compromise_conservative_closed`；所以目前 go-mode
+candidate 是 conservative screening candidate，不是 final aircraft。
 
 ---
 
@@ -49,11 +53,12 @@ production aircraft。
 
 ## 目前能做什麼
 
-- 用 mission design-space / drag-budget contract 建立 Stage-0 search bounds、mission gate 與 seed pool。
-- Fourier-AVL calibration 工具與資料格式已存在，但目前 `output/pipeline_redesign_v2/fourier_avl_calibration_mvp`
-  仍是 legacy diagnostic；要做 current candidate ordering 前必須從新版 mission handoff 重建。
-- Stage-2 Fourier spanload candidate generation 目前缺少乾淨的 current artifact；不要把舊 medium-search
-  top candidate exports 當成目前主線。
+- 用 mission design-space / drag-budget contract 建立 Stage-0 search bounds、mission gate 與 seed pool；
+  committed config dry-run 為 `22464` cases，local generated handoff 目前是 ignored output。
+- Fourier-AVL calibration 工具與資料格式已存在；目前 committed calibration rows 仍是 legacy diagnostic，
+  要做 current candidate ordering 前必須建立 current trace，而不是重用舊 medium-search top exports。
+- Stage-2 Fourier spanload / MissionContract / FourierTarget machinery 已存在，但還缺一份 promoted
+  current trace manifest 連到 go-mode candidate；不要把「缺 trace」誤讀成「Stage 0-2 不存在」。
 - 現有 downstream chain 可從 `smooth_tier2_production_baseline` 進入 smooth production geometry / AVL realization。
 - 對 realized geometry 做 AVL realization check。
 - 做 structure-budgeted loaded-Z search，檢查 mass、clearance、wire、loaded shape 的折衝。

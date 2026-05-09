@@ -27,7 +27,7 @@
 |---|---|---|
 | [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 最高優先的現況真值 | 定義現在 repo 真正主線、入口、legacy 邊界、能力上限 |
 | [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived 現況報告 | Phase J pipeline 與 Phase K guardrail addendum 的來源 |
-| [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md) | Phase J 實際證據地圖 | 把每個 stage 對回目前 artifact / candidate / key number / trust boundary / next action，並標出 Stage 0-2 source-chain gap |
+| [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md) | Phase J 實際證據地圖 | 把每個 stage 對回目前 artifact / candidate / key number / trust boundary / next action，並標出 Stage 0-2 promoted-trace gap |
 | [2026-05-09_phase_j_evidence_map_plan.md](reports/2026-05-09_phase_j_evidence_map_plan.md) | evidence map 前置計畫 | 這份 report 的 planning predecessor；保留設計意圖與優先順序來源 |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |

@@ -147,15 +147,18 @@ Phase J evidence map 已重新深度審核，位置在
 目前 artifact / candidate / trust boundary 的對照表，也是舊 medium-search source 的
 quarantine 文件。
 
-最新判讀：目前 Stage 0 mission design-space / drag-budget contract 是可用 source；Stage 1
-Fourier-AVL calibration artifact 仍綁著 legacy medium-search top candidates；Stage 2
-Fourier spanload candidate generation 沒有乾淨 current artifact。因此 go-mode candidate
-應讀成 downstream screening closure，而不是完整 mission -> Fourier -> smooth end-to-end final design。
+最新判讀：目前 Stage 0 mission design-space / drag-budget contract 是可用 source，且
+commit history 已包含 pilot power / thermal derate、mission design-space scan、drag budget、
+MissionContract / FourierTarget、airfoil sidecar、smooth geometry、loaded-Z、Tier2 airfoil
+與 closure。Stage 1 Fourier-AVL calibration artifact 仍綁著 legacy medium-search top candidates；
+Stage 2 machinery 存在，但還沒有一份 promoted current trace manifest 把 current mission
+handoff 乾淨追到 go-mode candidate。因此 go-mode candidate 應讀成 conservative screening
+candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircraft。
 
-1. **先修正或明確標示 Stage 0-2 source chain**
-   - 目的：從 current mission design-space / drag-budget handoff 重建 Fourier/Fourier-AVL candidate
-     evidence，或明確寫出目前 go-mode candidate 是從 `smooth_tier2_production_baseline`
-     開始的 downstream screening surrogate。
+1. **先建立或明確標示 Stage 0-2 promoted trace**
+   - 目的：從 current mission design-space / drag-budget handoff 產生一份可提交的
+     Fourier/Fourier-AVL candidate trace manifest，或明確寫出目前 go-mode candidate 是從
+     `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。
    - 原因：如果上游來源不清，後續 beam-line、rib、FEM 都可能在替錯誤的 candidate narrative 背書。
 2. **再處理 beam-line / aerodynamic surface / clearance 對齊**
    - 目的：釐清 beam-line Z proxy、真實 aerodynamic surface、clearance、dihedral 定義是不是在同一個幾何語言下。
@@ -171,7 +174,7 @@ Fourier spanload candidate generation 沒有乾淨 current artifact。因此 go-
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md` 為起點，先重建或明確標示 Stage 0-2 source chain：確認 current mission design-space / drag-budget handoff 是否能追到 current Fourier/Fourier-AVL candidate source；若不能，明確把 `current_avl_compromise_conservative_closed` 定位成從 `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。完成後再做 beam-line / aerodynamic surface / clearance 對齊，並確認 closure 是否仍在同一個 geometry / load / airfoil / structure basis 上成立；除非 rib / bracing sensitivity 被證明會改變 closure ranking，否則 rib 維持 downstream validation queue。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md` 為起點，先建立或明確標示 Stage 0-2 promoted trace：commit history 已證明 mission design-space / drag-budget / MissionContract / FourierTarget / airfoil sidecar machinery 存在；現在要確認 current mission handoff 是否能被乾淨追到 current Fourier/Fourier-AVL candidate source 與 go-mode candidate。若不能，明確把 `current_avl_compromise_conservative_closed` 定位成從 `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。完成後再做 beam-line / aerodynamic surface / clearance 對齊，並確認 closure 是否仍在同一個 geometry / load / airfoil / structure basis 上成立；除非 rib / bracing sensitivity 被證明會改變 closure ranking，否則 rib 維持 downstream validation queue。
 ```
 
 ## 7. 常用入口與角色
