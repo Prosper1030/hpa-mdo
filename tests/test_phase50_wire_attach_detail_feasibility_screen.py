@@ -75,7 +75,7 @@ def test_wire_attach_detail_screen_checks_force_and_local_moment_paths() -> None
     assert row.insert_pullout_bearing_margin_n == pytest.approx(1000.0)
     assert row.local_tube_wall_crushing_margin_n == pytest.approx(600.0)
     assert row.local_moment_margin_n_m == pytest.approx(60.0)
-    assert row.worst_margin_n_equivalent == pytest.approx(60.0)
+    assert row.worst_margin_n_equivalent == pytest.approx(600.0)
     assert not row.closes_wire_attach_margin
     assert "not wire-attach local FEM signoff" in row.engineering_note
 

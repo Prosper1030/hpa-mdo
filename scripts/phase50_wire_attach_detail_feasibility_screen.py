@@ -187,9 +187,9 @@ def _concept_row(
     insert_margin = _margin(insert_allowable, required_spanwise_load_n)
     tube_margin = _margin(tube_allowable, required_transverse_load_n)
     moment_margin = _margin(moment_allowable, required_local_moment_n_m)
-    margins = [
+    force_margins = [
         value
-        for value in (ring_margin, bond_margin, insert_margin, tube_margin, moment_margin)
+        for value in (ring_margin, bond_margin, insert_margin, tube_margin)
         if value is not None
     ]
     traceability_status = _traceability_status(
@@ -220,7 +220,7 @@ def _concept_row(
         local_tube_wall_crushing_margin_n=tube_margin,
         local_moment_allowable_n_m=moment_allowable,
         local_moment_margin_n_m=moment_margin,
-        worst_margin_n_equivalent=min(margins) if margins else None,
+        worst_margin_n_equivalent=min(force_margins) if force_margins else None,
         traceability_status=traceability_status,
         evidence_type=str(concept.get("evidence_type", "")).strip(),
         source=str(concept.get("source", "")).strip(),
