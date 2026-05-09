@@ -1,0 +1,302 @@
+{
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "claim_boundary": "Engineering screening only: not final FEM, not hardware certification, not local wall buckling full-wing signoff, and not an ASWing binary requirement.",
+  "engineering_verdict": "ready_for_tail_aware_aeroelastic_closure",
+  "mass_cg_assessment": {
+    "base_cg_x_m": 0.72,
+    "base_mass_kg": 96.0,
+    "cg_range_x_m": [
+      0.68,
+      0.75
+    ],
+    "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+    "final_screening_cg_x_m": 0.75,
+    "forward_rebalance_limit_m": 0.2,
+    "forward_rebalance_mass_kg": 56.0,
+    "mass_items": [
+      {
+        "mass_kg": 1.172727,
+        "name": "selected_tail_screening_delta",
+        "x_m": 8.3106393129771
+      },
+      {
+        "mass_kg": 3.029671,
+        "name": "physical_rib_station_pack",
+        "x_m": 0.461633
+      }
+    ],
+    "required_forward_rebalance_m": 0.091302,
+    "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+    "total_mass_after_items_kg": 100.202398,
+    "uncompensated_cg_x_m": 0.801026,
+    "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+  },
+  "rib_basis": {
+    "added_half_wing_station_count_from_phase24": 53,
+    "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+    "estimated_full_wing_rib_mass_kg": 3.029671,
+    "estimated_rib_pack_cg_x_m": 0.461633,
+    "family_key": "balsa_sheet_3mm",
+    "full_wing_rib_count": 121,
+    "half_wing_station_count": 61,
+    "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+    "max_recommended_subbay_m": 0.297063,
+    "spacing_m": 0.3,
+    "warping_knockdown": 0.50246
+  },
+  "schema_version": "tail_aware_rib_rear_spar_sensitivity_v1",
+  "selected_basis": {
+    "case_id": "finite_rib_rear_0p50_selected_screening_basis",
+    "cg_impact": {
+      "base_cg_x_m": 0.72,
+      "base_mass_kg": 96.0,
+      "cg_range_x_m": [
+        0.68,
+        0.75
+      ],
+      "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+      "final_screening_cg_x_m": 0.75,
+      "forward_rebalance_limit_m": 0.2,
+      "forward_rebalance_mass_kg": 56.0,
+      "mass_items": [
+        {
+          "mass_kg": 1.172727,
+          "name": "selected_tail_screening_delta",
+          "x_m": 8.3106393129771
+        },
+        {
+          "mass_kg": 3.029671,
+          "name": "physical_rib_station_pack",
+          "x_m": 0.461633
+        }
+      ],
+      "required_forward_rebalance_m": 0.091302,
+      "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "total_mass_after_items_kg": 100.202398,
+      "uncompensated_cg_x_m": 0.801026,
+      "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+    },
+    "closure_ranking_changes": "no_change_conservative_best_remains_screening_closed",
+    "effective_changes_vs_finite_rib_rear_1p00": {
+      "EI_flap_ratio": 0.5992789173659128,
+      "GJ_ratio": 0.5680885529269527,
+      "angle_delta_deg": 0.17946266635208552,
+      "max_vertical_delta_pct": 48.226766012261564,
+      "tip_main_delta_pct": 48.2276994690109
+    },
+    "load_remap_diagnostics": {
+      "engineering_read": "Current committed smoke shows small conservative projection correction with no sign reversal; rerun if the aero load owner changes.",
+      "source": "docs/reports/2026-05-09_conservative_load_mapper_foundation.md",
+      "status": "conserved"
+    },
+    "rear_spar_participation": "bounded_50pct_screening",
+    "rear_stiffness_scale": 0.5,
+    "rib_count_or_bay_length_assumption": {
+      "full_wing_rib_count": 121,
+      "half_wing_station_count": 61,
+      "max_recommended_subbay_m": 0.297063,
+      "source": "Phase24 physical station layout, not bare local-wall bay assumption"
+    },
+    "rib_spacing_m": 0.3,
+    "structural_mass_delta": {
+      "basis": "Rib mass is a screening estimate for making the 0.30 m station basis physical; rear-spar scale is participation/stiffness, not a new tube redesign mass claim.",
+      "estimated_full_wing_rib_mass_kg": 3.029671,
+      "rear_spar_mass_delta_kg": 0.0,
+      "tail_mass_delta_kg": 1.172727
+    },
+    "tail_margins_after_mass_stiffness_changes": {
+      "C_n_beta_min_row": 0.016153,
+      "basis": "Committed tail v1 rows; stiffness changes do not alter AVL tail derivatives in this screening runner.",
+      "max_abs_delta_H_required_deg": 9.326502,
+      "max_abs_delta_V_required_deg": 3.931878,
+      "worst_delta_H_margin_to_limit_deg": 5.673498,
+      "worst_delta_V_margin_to_limit_deg": 16.068122,
+      "worst_static_margin": 0.088378
+    },
+    "tail_trim_static_directional_margins_after_mass_stiffness_changes": {
+      "C_n_beta_min_row": 0.016153,
+      "basis": "Committed tail v1 rows; stiffness changes do not alter AVL tail derivatives in this screening runner.",
+      "max_abs_delta_H_required_deg": 9.326502,
+      "max_abs_delta_V_required_deg": 3.931878,
+      "worst_delta_H_margin_to_limit_deg": 5.673498,
+      "worst_delta_V_margin_to_limit_deg": 16.068122,
+      "worst_static_margin": 0.088378
+    },
+    "warping_knockdown": 0.50246
+  },
+  "selected_case_id": "finite_rib_rear_0p50_selected_screening_basis",
+  "structural_cases": [
+    {
+      "angle_delta_vs_baseline_deg": 8.337161851259467,
+      "blockers": [
+        "physical_rib_station_basis_missing",
+        "finite_rib_link_basis_missing",
+        "rear_spar_participation_above_selection_bound",
+        "spar_pair_angle_delta_exceeds_screening_limit"
+      ],
+      "case_id": "joint_only_current_rear_1p00_not_selectable",
+      "effective_ei_flap_nm2": 313156.9007063576,
+      "effective_ei_flap_ratio_vs_baseline": 1.0,
+      "effective_gj_nm2": 838666.8544313563,
+      "effective_gj_ratio_vs_baseline": 1.0,
+      "full_wing_rib_count": 0,
+      "link_force_max_n": 3055.207188502636,
+      "link_mode": "joint_only_offset_rigid",
+      "max_spar_pair_line_angle_delta_deg": 13.391529949929506,
+      "max_vertical_delta_vs_baseline_pct": 20.765924429190438,
+      "max_vertical_displacement_m": 0.5169123867006761,
+      "physical_rib_station_count": 0,
+      "rear_spar_participation": "bounded_100pct_screening",
+      "rear_stiffness_scale": 1.0,
+      "status": "blocked",
+      "structural_read": "Case is not selectable for the next aeroelastic closure basis.",
+      "tip_main_delta_vs_baseline_pct": 21.4871845710784,
+      "tip_main_m": 0.5169123867006761,
+      "tip_rear_m": 0.40166947920656226,
+      "warping_knockdown": 0.50246,
+      "wire_tension_max_n": 1191.7599688104206
+    },
+    {
+      "angle_delta_vs_baseline_deg": 1.9355009337683402,
+      "blockers": [
+        "rear_spar_participation_below_reasonable_screening_bound"
+      ],
+      "case_id": "finite_rib_rear_0p30_stress_case",
+      "effective_ei_flap_nm2": 126204.37640493487,
+      "effective_ei_flap_ratio_vs_baseline": 0.40300685094362576,
+      "effective_gj_nm2": 302964.4977078462,
+      "effective_gj_ratio_vs_baseline": 0.3612453456423601,
+      "full_wing_rib_count": 121,
+      "link_force_max_n": 616.137137646786,
+      "link_mode": "dense_finite_rib",
+      "max_spar_pair_line_angle_delta_deg": 6.98986903243838,
+      "max_vertical_delta_vs_baseline_pct": 93.03751674695374,
+      "max_vertical_displacement_m": 0.8262552866305127,
+      "physical_rib_station_count": 61,
+      "rear_spar_participation": "bounded_30pct_screening",
+      "rear_stiffness_scale": 0.3,
+      "status": "blocked",
+      "structural_read": "Case is not selectable for the next aeroelastic closure basis.",
+      "tip_main_delta_vs_baseline_pct": 93.00060988684378,
+      "tip_main_m": 0.8211928381048739,
+      "tip_rear_m": 0.8262552866305127,
+      "warping_knockdown": 0.50246,
+      "wire_tension_max_n": 1498.9072860814024
+    },
+    {
+      "angle_delta_vs_baseline_deg": 0.17946266635208552,
+      "blockers": [],
+      "case_id": "finite_rib_rear_0p50_selected_screening_basis",
+      "effective_ei_flap_nm2": 187668.32842097062,
+      "effective_ei_flap_ratio_vs_baseline": 0.5992789173659128,
+      "effective_gj_nm2": 476437.0397217085,
+      "effective_gj_ratio_vs_baseline": 0.5680885529269527,
+      "full_wing_rib_count": 121,
+      "link_force_max_n": 626.6635497570447,
+      "link_mode": "dense_finite_rib",
+      "max_spar_pair_line_angle_delta_deg": 5.233830765022125,
+      "max_vertical_delta_vs_baseline_pct": 48.226766012261564,
+      "max_vertical_displacement_m": 0.6344525722340335,
+      "physical_rib_station_count": 61,
+      "rear_spar_participation": "bounded_50pct_screening",
+      "rear_stiffness_scale": 0.5,
+      "status": "pass_screening_sensitivity",
+      "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+      "tip_main_delta_vs_baseline_pct": 48.2276994690109,
+      "tip_main_m": 0.6306898474780979,
+      "tip_rear_m": 0.6344525722340335,
+      "warping_knockdown": 0.50246,
+      "wire_tension_max_n": 1194.281001095612
+    },
+    {
+      "angle_delta_vs_baseline_deg": 0.31318231504307725,
+      "blockers": [],
+      "case_id": "finite_rib_rear_0p65_confirmation",
+      "effective_ei_flap_nm2": 229094.86478112935,
+      "effective_ei_flap_ratio_vs_baseline": 0.7315657559018572,
+      "effective_gj_nm2": 594832.3689885376,
+      "effective_gj_ratio_vs_baseline": 0.7092594226724908,
+      "full_wing_rib_count": 121,
+      "link_force_max_n": 734.6005411303597,
+      "link_mode": "dense_finite_rib",
+      "max_spar_pair_line_angle_delta_deg": 5.367550413713117,
+      "max_vertical_delta_vs_baseline_pct": 28.248769694362956,
+      "max_vertical_displacement_m": 0.5489410853887743,
+      "physical_rib_station_count": 61,
+      "rear_spar_participation": "bounded_65pct_screening",
+      "rear_stiffness_scale": 0.65,
+      "status": "pass_screening_sensitivity",
+      "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+      "tip_main_delta_vs_baseline_pct": 28.253106818036066,
+      "tip_main_m": 0.545700517969451,
+      "tip_rear_m": 0.5489410853887743,
+      "warping_knockdown": 0.50246,
+      "wire_tension_max_n": 1042.1752700111088
+    },
+    {
+      "angle_delta_vs_baseline_deg": 0.0,
+      "blockers": [
+        "rear_spar_participation_above_selection_bound"
+      ],
+      "case_id": "finite_rib_rear_1p00_upper_bound",
+      "effective_ei_flap_nm2": 313156.9007063576,
+      "effective_ei_flap_ratio_vs_baseline": 1.0,
+      "effective_gj_nm2": 838666.8544313563,
+      "effective_gj_ratio_vs_baseline": 1.0,
+      "full_wing_rib_count": 121,
+      "link_force_max_n": 934.4769368717501,
+      "link_mode": "dense_finite_rib",
+      "max_spar_pair_line_angle_delta_deg": 5.0543680986700394,
+      "max_vertical_delta_vs_baseline_pct": 0.0,
+      "max_vertical_displacement_m": 0.42802834420711205,
+      "physical_rib_station_count": 61,
+      "rear_spar_participation": "bounded_100pct_screening",
+      "rear_stiffness_scale": 1.0,
+      "status": "blocked",
+      "structural_read": "Case is not selectable for the next aeroelastic closure basis.",
+      "tip_main_delta_vs_baseline_pct": 0.0,
+      "tip_main_m": 0.4254871725982312,
+      "tip_rear_m": 0.42802834420711205,
+      "warping_knockdown": 0.50246,
+      "wire_tension_max_n": 817.6245382347546
+    }
+  ],
+  "tail_screening_basis": {
+    "cg_range_x_m": [
+      0.68,
+      0.75
+    ],
+    "engineering_verdict": "ready_for_tail_aware_rib_rear_spar_sensitivity",
+    "horizontal_tail": {
+      "S_H_m2": 4.5,
+      "V_H": 1.077895,
+      "l_H_m": 8.034973,
+      "mean_chord_m": 1.125,
+      "span_m": 4.0,
+      "x_ac_H_m": 8.28125,
+      "x_le_m": 8.0
+    },
+    "tail_drag_mass_treatment": {
+      "baseline_tail_area_m2": 5.28,
+      "baseline_tail_mass_kg_assumption": 2.4,
+      "cg_coupling_warning": "Selected tail mass is aft of the wing reference. Keep the next sensitivity inside the recommended CG range or rerun this screen with the aft-shifted CG; do not silently add tail mass and keep the same stability claim.",
+      "engineering_read": "Use as a screening penalty in the next sensitivity. It is not a measured tail structural mass, pivot mass, or full trim-induced drag model.",
+      "selected_tail_area_m2": 7.86,
+      "selected_tail_mass_kg_estimate": 3.572727,
+      "status": "screening_delta_not_charged_to_candidate_truth",
+      "tail_cd0_increment_estimate": 0.002352,
+      "tail_mass_delta_kg_estimate": 1.172727,
+      "tail_profile_cd0_assumption": 0.01,
+      "tail_profile_power_increment_w_estimate": 13.33234
+    },
+    "vertical_tail": {
+      "S_V_m2": 3.36,
+      "V_V": 0.023731,
+      "height_or_span_m": 2.4,
+      "l_V_m": 8.103723,
+      "mean_chord_m": 1.4,
+      "x_ac_V_m": 8.35,
+      "x_le_m": 8.0
+    }
+  }
+}

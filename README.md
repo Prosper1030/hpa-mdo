@@ -84,6 +84,15 @@ CG range `[0.68, 0.75] m`、H-tail `S_H=4.5 m^2 / x_ac_H=8.281 m`、V-tail
 `S_V=3.36 m^2 / x_ac_V=8.350 m`，並把 tail drag/mass penalty 帶進 sensitivity；
 這不是 measured CG manifest、tail polar sign-off、FEM 或硬體認證。
 
+tail-aware bounded rib / rear-spar sensitivity 已完成，讀
+[docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md)。
+目前 verdict 是 `ready_for_tail_aware_aeroelastic_closure`，選定 screening basis 是
+`0.30 m` rib target bay tied to `121` full-wing materialized rib/station count、
+`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`。
+重要限制：未補償的 tail+ribs mass bookkeeping 會把 CG 推到 `0.801 m`，所以 aeroelastic
+closure 只能使用 final CG 管理後的 `0.75 m` screening row；不能把 tail/rib mass 加上去後還
+沿用舊 ready verdict。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -115,6 +124,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 Phase J 每一步目前到底靠哪些 artifact / candidate / trust boundary | [docs/reports/2026-05-09_phase_j_evidence_map.md](docs/reports/2026-05-09_phase_j_evidence_map.md) | stage-by-stage evidence map |
 | 看目前 pathfinder 的 locked basis / geometry-state 一致性 / 下一步優先序 | [docs/reports/2026-05-09_pathfinder_basis_lock.md](docs/reports/2026-05-09_pathfinder_basis_lock.md) | candidate basis lock |
 | 看 conservative load remap / rib sensitivity 前置 load gate | [docs/reports/2026-05-09_conservative_load_mapper_foundation.md](docs/reports/2026-05-09_conservative_load_mapper_foundation.md) | load conservation foundation |
+| 看 tail-aware rib / rear-spar sensitivity verdict 與下一步 basis | [docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | ready-for-aeroelastic-closure screening basis |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
@@ -143,8 +153,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 - 建立 tail / CG / trim / stability 低階 contract，讓 all-moving horizontal tail / vertical tail
   在 mission、full-aircraft AVL recheck、tail-aware closure、tailboom/hardware validation 中有明確位置。
   Current pathfinder v0 foundation、all-moving full-aircraft AVL audit v0、V-tail sensitivity v0
-  和 tail / CG / trim / stability screening v1 已存在；目前可進入 tail-aware rib / rear-spar
-  sensitivity 的是 v1 screening basis，不是 final trim/stability sign-off。
+  和 tail / CG / trim / stability screening v1 已存在；tail-aware rib / rear-spar
+  sensitivity 已選出可進下一階段的 screening basis，但 final CG 必須被管理在 `[0.68, 0.75] m`。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
 - 做 FEM/APDL、shell buckling、load-factor candidate spot-check。
@@ -199,6 +209,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/tier2_loaded_shape_airfoil_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/aero_structure_closure_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/full_aircraft_tail_avl_audit_v0.py
 PYTHONPATH=src ./.venv/bin/python scripts/vtail_cg_reference_sensitivity_v0.py
+PYTHONPATH=src ./.venv/bin/python scripts/tail_aware_rib_rear_spar_sensitivity.py
 ```
 
 只有在明確做歷史診斷時，才可以加
@@ -242,7 +253,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Mission / concept search | 可用於新設計探索，但仍依賴 proxy 與 worker quality |
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
 | Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
-| Empennage / trim / stability | 已有 tail contract v0、all-moving AVL audit v0、V-tail sensitivity v0，以及 tail/CG/trim/stability screening v1；v1 verdict 是 `ready_for_tail_aware_rib_rear_spar_sensitivity`，但只代表 screening basis |
+| Empennage / trim / stability | 已有 tail contract v0、all-moving AVL audit v0、V-tail sensitivity v0，以及 tail/CG/trim/stability screening v1；tail-aware rib/rear-spar sensitivity 已把 current pathfinder 推到 `ready_for_tail_aware_aeroelastic_closure`，但 CG 必須用 final managed row，不可用未補償 mass shift |
 | V-tail / CG reference sensitivity | v0 顯示 directional derivatives 可被 area/arm 推高；v1 進一步用 explicit CG-referenced AVL rows 驗證 Xnp convention、longitudinal trim、static margin 與 yaw authority |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |

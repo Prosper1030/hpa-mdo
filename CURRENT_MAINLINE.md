@@ -274,11 +274,22 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      選用 H-tail `S_H=4.5 m^2`、V-tail `S_V=3.36 m^2`、tail x_le `8.0 m` 才讓 CG row
      有 screening margin。這不是 final geometry sign-off，只是讓下一步 stiffness sensitivity
      不再建立在一個配平/穩定性未知的 aircraft reference 上。
-6. **然後做 tail-aware bounded rib/rear-spar sensitivity**
+6. **tail-aware bounded rib/rear-spar sensitivity 已完成**
+   - 目前：`scripts/tail_aware_rib_rear_spar_sensitivity.py` 與
+     `docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md` 已建立。
+     current pathfinder verdict 是 `ready_for_tail_aware_aeroelastic_closure`。
    - 目的：用同一個 locked pathfinder load/Z basis 跑 rear-soft/rear-stiff、finite-rib-link、
      no-rib/limited-rib 等 bounded sensitivity，確認 loaded tip Z、root-offset-removed AVL section Z、
      clearance、twist、tube mass、wire tension、`delta_H_required`、tail CL utilization、
      trim residual 與 closure ranking 會不會被 bracing 假設改變。
+   - 選定 basis：`0.30 m` rib target bay 只有在 Phase24 physical station basis 下成立，
+     對應 `61` half-wing stations / `121` full-wing ribs or stations、`balsa_sheet_3mm`、
+     warping knockdown `0.50246`、`bounded_50pct_screening` rear-spar participation；
+     對 finite-rib rear=1.0 upper-bound，選定 case 約為 `EI_flap 0.599x / GJ 0.568x`。
+   - CG 限制：未補償的 selected tail delta + physical rib pack 會把 CG 推到約 `0.801 m`；
+     aeroelastic closure 只能使用 final CG 管理後的 `0.75 m` screening row。需要約
+     `0.091 m` forward rebalance on 56 kg equivalent pilot/cockpit mass；不能把 tail/rib mass
+     加上去後還沿用舊 ready verdict。
    - load 前提：使用 conservative remap diagnostics 檢查 total lift、root bending moment、torque
      是否守恆；如果出現 large correction 或 unphysical status，先降級 loading confidence，不要直接進 rib sensitivity。
    - 原因：現有 Phase32 / structural closure evidence 已顯示 rear spar / rib assumptions
@@ -286,22 +297,22 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      FEM detail 則應吃已鎖定的 load/geometry envelope，不應先決定哪個 beam-line / aero-surface
      state 才是真正設計狀態。
    - 後續順序：tail / CG / trim / stability screening v1 basis ->
-     tail-aware bounded rib/rear-spar sensitivity -> elastic twist / `alpha_eff` + trim audit ->
+     tail-aware bounded rib/rear-spar sensitivity (done) -> elastic twist / `alpha_eff` + trim audit ->
      ASWing-like / equivalent tail-aware aeroelastic coupling -> root/wire/termination/rib/tail hardware FEM detail。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
 full-aircraft AVL audit v0、V-tail / CG reference sizing sensitivity v0、以及 tail / CG /
-trim / stability screening v1 也已完成。接下來可以進 tail-aware bounded rib / rear-spar
-stiffness sensitivity，但必須消費 v1 的 CG range、selected tail geometry、deflection reserve、
-tail drag/mass treatment，並保留 conservative remap diagnostics 當前置 gate；不能把 large
-correction 當成已修復的乾淨 load basis。v1 仍不是 final CG/mass contract、tail polar、
-ASWing-like coupling、FEM 或硬體 sign-off。
+trim / stability screening v1 也已完成。tail-aware bounded rib / rear-spar stiffness
+sensitivity 已完成並選出下一階段 basis；接下來要做 elastic twist / `alpha_eff` + trim audit
+與 tail-aware aeroelastic closure。這個 ready verdict 仍是 screening ready，不是 final
+CG/mass contract、tail polar、ASWing-like coupling、FEM 或硬體 sign-off；尤其 CG 必須使用
+final managed row，而不是未補償的 tail/rib mass shift。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_tail_cg_trim_stability_screening_v1.md`、`docs/reports/2026-05-09_conservative_load_mapper_foundation.md`、`configs/current_pathfinder_tail_contract_v0.yaml` 為起點，執行 tail-aware bounded rib / rear-spar sensitivity。必須使用 v1 的 CG range `[0.68, 0.75] m`、selected H-tail/V-tail geometry、moment reference convention、H/V deflection reserve、directional authority margin、tail drag/mass screening penalty；rib / bracing sensitivity 只能消費 tail screening outputs，不能取代 trim/stability feasibility，也不能把 v1 包裝成 final aircraft sign-off。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md` 為起點，執行下一步 elastic twist / `alpha_eff` + trim audit 與 tail-aware aeroelastic closure。必須使用 selected basis：`0.30 m` physical rib station basis、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready。
 ```
 
 ## 8. 常用入口與角色
@@ -342,7 +353,18 @@ ASWing-like coupling、FEM 或硬體 sign-off。
 - 注意：v1 已可作為 tail-aware rib / rear-spar sensitivity 的 screening basis；仍不是 full
   flight dynamics、measured CG/mass manifest，也不是 tail hardware sign-off。
 
-### E. FEM/APDL / shell / load-factor spot-check
+### E. Tail-aware rib / rear-spar sensitivity
+
+- 入口：
+  - `scripts/tail_aware_rib_rear_spar_sensitivity.py`
+  - `docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md`
+- 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
+  warping knockdown、mass/CG bookkeeping 與 closure ranking 接成下一步 aeroelastic closure
+  的 screening basis。
+- 注意：目前 verdict 是 `ready_for_tail_aware_aeroelastic_closure`，但只在 final CG managed
+  row `0.75 m` 下成立；未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。
+
+### F. FEM/APDL / shell / load-factor spot-check
 
 - 入口：
   - `scripts/phase14_maclocal_fem_package.py`
@@ -352,13 +374,13 @@ ASWing-like coupling、FEM 或硬體 sign-off。
 - 角色：candidate-relevant equivalent-physics validation / review package。
 - 注意：這不是 final composite/root/wire/rib/hardware certification。
 
-### F. Drawing-ready package
+### G. Drawing-ready package
 
 - 入口：`scripts/export_drawing_ready_package.py`
 - 角色：把可畫圖 artifact 收成 handoff package。
 - 注意：drawing handoff boundary 不等於 external validation boundary。
 
-### G. Producer / decision interface
+### H. Producer / decision interface
 
 - 入口：`python -m hpa_mdo.producer`
 - 角色：提供外部 consumer / automation 用 machine-readable contract。
