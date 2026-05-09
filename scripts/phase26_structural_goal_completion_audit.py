@@ -232,6 +232,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "local_detail_work_priority_ranked_allowables_missing"
+    if _phase46_failure_ordering_local_priority_ranked(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "detail_work_priority_ranked_but_failure_order_unclosed"
     return EVIDENCE_STRENGTH_BY_KEY[key]
 
 
@@ -348,6 +354,20 @@ def _phase46_local_detail_work_priority_ranked(
         key in {"wire_attach_local_load_path", "root_joint", "wire_termination"}
         and "Phase46" in evidence_artifacts
         and "local_detail_work_priority_ranked_allowables_missing" in evidence_summary
+        and "work_priority_only_not_failure_load_factor_rank" in evidence_summary
+    )
+
+
+def _phase46_failure_ordering_local_priority_ranked(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "failure_mode_ordering"
+        and "Phase46" in evidence_artifacts
+        and "local detail priority top=" in evidence_summary
         and "work_priority_only_not_failure_load_factor_rank" in evidence_summary
     )
 
