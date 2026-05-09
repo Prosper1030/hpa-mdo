@@ -138,6 +138,13 @@ conservative screening candidate」，不是 final design。
   `docs/reports/2026-05-09_tail_contract_v0_foundation.md`；目前 screening status 是
   `required_inputs_missing`，只完成 tail volume / reserve bookkeeping，尚未完成 full-aircraft
   trim / stability pass。
+- All-moving full-aircraft tail AVL audit v0 已建立，位置在
+  `docs/reports/2026-05-09_full_aircraft_tail_avl_audit_v0.md` 與
+  `output/current_pathfinder_tail_avl_audit_v0/`；本機 AVL runner 已產生 9 個全機 deck /
+  `.st` sweep artifact。判讀是 `blocked_by_directional_stability_or_vtail_authority`：
+  `delta_H_required` 仍被 CG / wing AC 缺口擋住，`V_V = 0.010145` 且
+  `C_n_beta = 0.002236` 太小，下一步應先回 tail sizing / CG / reference-moment contract，
+  不應直接進 rib sensitivity。
 - `scripts/fourier_avl_calibration_mvp.py` 提供 Fourier-AVL calibration artifacts；它現在要求
   明確 `--report-json`，舊 medium-search report 預設封鎖，只能用
   `--allow-legacy-medium-search` 做明確標示的歷史診斷。
@@ -155,9 +162,10 @@ conservative screening candidate」，不是 final design。
   仍需要更高可信度的 detail model、coupon、外部工程審查或 FEM。
 - Ground clearance margin 對製造誤差、跑道不平、wire setup、joint compliance 仍偏薄。
 - Beam-line Z proxy 還不能直接等同 aerodynamic surface / final aircraft dihedral。
-- Current pathfinder 尚未完成 all-moving horizontal tail / vertical tail 的 full-aircraft trim、
-  static stability、control authority、tail drag/mass budget 或 tailboom/pivot load ownership；
-  v0 foundation 已把缺口列出，但不是 aircraft-feasible sign-off。
+- Current pathfinder 已有 all-moving horizontal tail / vertical tail 的 full-aircraft AVL deck /
+  derivative audit v0，但尚未完成 trim、directional stability / authority、tail drag/mass budget
+  或 tailboom/pivot load ownership；v0 audit 目前明確是 blocker report，不是
+  aircraft-feasible sign-off。
 - SU2 / mesh-native CFD 支線仍是 paused validation route，不是目前 performance claim truth。
 - Rib 目前是下游 bracing / shell bay / load-transfer 實體化問題，不是主線 candidate
   generation 的短線最大優先，除非它被證明會改變 aero-structure closure 的候選排序。
@@ -229,20 +237,21 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 3. **之後才看 aero-structure closure 的工程可信度**
    - 目的：確認 `current_avl_compromise_conservative_closed` 是否真的在同一個 geometry / load /
      airfoil / structure state 上閉合。
-4. **在 rib sensitivity / ASWing-like coupling / FEM detail 之前，先完成 tail contract v0 -> all-moving audit**
-   - 目前：tail contract v0 foundation 已建立，包含 CG range 缺口、H-tail / V-tail seed design box、
-     all-moving travel reserve、tail volume、tail drag/mass placeholder 與 tail airfoil discrete screening policy；
-     screening output 明確是 `required_inputs_missing`。
-   - 目的：下一步要把 missing CG / true wing AC / downwash / stability derivatives / tail drag-mass
-     補成 full-aircraft trim / static stability / control authority audit。
-   - 原因：如果全機不能配平或方向穩定不足，主翼 loaded-Z / rib / FEM 局部 pass 沒有 aircraft-level 意義。
-     尾翼不應干擾 Fourier spanload generation，但從 mission contract 起必須存在。
-5. **接著做 all-moving full-aircraft AVL geometry / trim-stability audit**
-   - 目的：用整片旋轉的 all-moving H-tail / V-tail 幾何 sweep，而不是只用 hinged-control proxy，
-     建立 `delta_H_required`、`C_m_alpha`、static margin、`C_n_beta`、`delta_V` authority、
-     yaw-roll coupling 與 tail load envelope。
-   - 原因：AVL 適合作為 rigid full-aircraft screening；但 artifact 必須標明 all-moving geometry
-     semantics，不能把 elevator/rudder proxy 當作 final tail model。
+4. **tail contract v0 -> all-moving audit 已完成第一輪 artifact**
+   - 目前：tail contract v0 foundation 已建立，且 all-moving full-aircraft AVL audit v0 已跑出
+     9 個 deck / `.st` derivative artifacts。
+   - 讀法：這是 blocker report，不是 pass report；它把 missing CG / wing AC 和低 V-tail 方向穩定
+     evidence 變成可審查 artifact。
+   - 原因：如果全機不能配平或方向穩定不足，主翼 loaded-Z / rib / FEM 局部 pass 沒有 aircraft-level
+     意義。尾翼不應干擾 Fourier spanload generation，但從 mission contract 起必須存在。
+5. **回補 tail sizing / CG / reference moment，再重跑 all-moving full-aircraft AVL audit**
+   - 目前：all-moving full-aircraft AVL audit v0 已可產生 deck 與 derivative artifact，但 verdict
+     是 `blocked_by_directional_stability_or_vtail_authority`，且 longitudinal trim 仍被
+     missing CG / wing AC 擋住。
+   - 目的：先補 promoted CG range、wing aerodynamic center / reference moment、yaw/turn beta case，
+     並重估 V-tail sizing / arm / area，讓 `C_n_beta` 和 V-tail authority 至少達到 screening floor。
+   - 原因：`V_V = 0.010145` 搭配 `C_n_beta = 0.002236` 表示方向穩定餘裕偏低；在這之前直接做
+     rib/rear-spar sensitivity，可能是在強化一個整機控制性不足的 candidate。
 6. **然後做 tail-aware bounded rib/rear-spar sensitivity**
    - 目的：用同一個 locked pathfinder load/Z basis 跑 rear-soft/rear-stiff、finite-rib-link、
      no-rib/limited-rib 等 bounded sensitivity，確認 loaded tip Z、root-offset-removed AVL section Z、
@@ -254,22 +263,28 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      會大幅移動 response；若先跑 ASWing，可能只是把錯的 stiffness basis 耦合得更漂亮。
      FEM detail 則應吃已鎖定的 load/geometry envelope，不應先決定哪個 beam-line / aero-surface
      state 才是真正設計狀態。
-   - 後續順序：tail contract v0 -> all-moving full-aircraft AVL trim/stability audit ->
+   - 後續順序：CG / reference moment / V-tail sizing refresh -> rerun all-moving audit ->
      tail-aware bounded rib/rear-spar sensitivity -> elastic twist / `alpha_eff` + trim audit ->
      ASWing-like / equivalent tail-aware aeroelastic coupling -> root/wire/termination/rib/tail hardware FEM detail。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
-是 load ownership 前置基礎且已完成；接下來不是直接做 ASWing-like runner，也不是直接跳 FEM，
-而是先建立 tail / CG / trim / stability contract，再做 all-moving full-aircraft AVL trim/stability audit，
-再進 tail-aware bounded rib / rear-spar stiffness sensitivity，然後依序檢查
-elastic twist / `alpha_eff` + trim、ASWing-like fixed-point coupling、FEM / joint / hardware / tailboom detail。
-其中 rib / rear-spar sensitivity 必須把 conservative remap diagnostics 當前置 gate，而不能把
+是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0 與 all-moving
+full-aircraft AVL audit v0 也已完成第一輪 artifact。接下來不是直接做 ASWing-like runner，
+也不是直接跳 FEM 或 rib sensitivity，而是先回補 CG / wing AC / reference moment、yaw beta case
+與 V-tail sizing，再重跑 all-moving audit；之後才進 tail-aware bounded rib / rear-spar stiffness
+sensitivity，然後依序檢查 elastic twist / `alpha_eff` + trim、ASWing-like fixed-point coupling、
+FEM / joint / hardware / tailboom detail。
+目前 tail contract v0 foundation 和 all-moving full-aircraft AVL audit v0 已完成第一輪 artifact；
+下一步應先回補 CG / wing AC / reference moment 與 V-tail sizing，再重跑 audit。只有當
+longitudinal trim、static-stability reference、directional stability / authority 都至少達到
+screening confidence 後，才適合進 tail-aware bounded rib / rear-spar stiffness sensitivity。
+其中 rib / rear-spar sensitivity 仍必須把 conservative remap diagnostics 當前置 gate，不能把
 large correction 當成已修復的乾淨 load basis。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md`、`docs/reports/2026-05-09_pathfinder_basis_lock.md`、`docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md` 為起點，先建立或明確標示 Stage 0-2 promoted trace：commit history 已證明 mission design-space / drag-budget / MissionContract / FourierTarget / airfoil sidecar machinery 存在；現在要確認 current mission handoff 是否能被乾淨追到 current Fourier/Fourier-AVL candidate source 與 go-mode candidate。若不能，明確把 `current_avl_compromise_conservative_closed` 定位成從 `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。完成 beam-line / aerodynamic surface / clearance 對齊後，建立 pathfinder 的 tail / CG / trim / stability contract v0 與 all-moving full-aircraft AVL trim/stability audit；再確認 closure 是否仍在同一個 geometry / load / airfoil / structure / tail-control basis 上成立。rib / bracing sensitivity 必須是 tail-aware 的，除非它被證明會改變 closure ranking 或 trim/stability feasibility，否則 rib 維持 downstream validation queue。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_full_aircraft_tail_avl_audit_v0.md`、`configs/current_pathfinder_tail_contract_v0.yaml`、`docs/reports/2026-05-09_pathfinder_basis_lock.md` 為起點，先回補 current pathfinder 的 CG range、wing aerodynamic center / reference moment、yaw/turn beta case，並重估 V-tail sizing / arm / area。現有 audit v0 已證明 AVL deck / derivative pipeline 可跑，但 verdict 是 `blocked_by_directional_stability_or_vtail_authority` 且 longitudinal trim 仍被 missing CG / wing AC 擋住；下一輪要讓 `delta_H_required`、H-tail utilization、`C_m_alpha` / static margin、`C_n_beta`、`C_n_deltaV` 和 yaw-roll coupling warning 都能被同一個 full-aircraft reference contract 解讀。只有 audit 至少達到 screening confidence 後，才進 tail-aware bounded rib / rear-spar sensitivity；rib / bracing sensitivity 必須消費 tail audit outputs，不能取代 trim/stability feasibility。
 ```
 
 ## 8. 常用入口與角色

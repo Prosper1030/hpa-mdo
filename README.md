@@ -59,7 +59,13 @@ all-moving tail 才能作為控制自由度。
 [docs/reports/2026-05-09_tail_contract_v0_foundation.md](docs/reports/2026-05-09_tail_contract_v0_foundation.md)
 和 [configs/current_pathfinder_tail_contract_v0.yaml](configs/current_pathfinder_tail_contract_v0.yaml)。
 它只完成 tail volume / reserve bookkeeping，screening output 仍是 `required_inputs_missing`；
-下一步仍是 all-moving full-aircraft AVL trim / stability audit。
+all-moving full-aircraft AVL audit v0 則在
+[docs/reports/2026-05-09_full_aircraft_tail_avl_audit_v0.md](docs/reports/2026-05-09_full_aircraft_tail_avl_audit_v0.md)
+與 `output/current_pathfinder_tail_avl_audit_v0/`。本機 AVL runner 已產生 9 個全機 deck /
+`.st` sweep artifact，但 verdict 是 `blocked_by_directional_stability_or_vtail_authority`：
+longitudinal trim 仍被 missing CG / wing AC 擋住，`V_V = 0.010145` 且
+`C_n_beta = 0.002236` 太小。下一步要先回 tail sizing / CG / reference-moment contract，
+不要直接跳 rib sensitivity。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -119,8 +125,9 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
   confidence，不能直接進 rib sensitivity。
 - 建立 tail / CG / trim / stability 低階 contract，讓 all-moving horizontal tail / vertical tail
   在 mission、full-aircraft AVL recheck、tail-aware closure、tailboom/hardware validation 中有明確位置。
-  Current pathfinder v0 foundation 已存在，但缺 CG range、true wing AC、downwash、stability derivatives、
-  tail drag/mass model，不能當 trim/stability pass。
+  Current pathfinder v0 foundation 和 all-moving full-aircraft AVL audit v0 已存在；目前 audit
+  有 deck / derivatives，但仍缺 CG range、true wing AC、reference moment、yaw beta case、
+  tail drag/mass model，且 V-tail directional stability / authority 偏弱，不能當 trim/stability pass。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
 - 做 FEM/APDL、shell buckling、load-factor candidate spot-check。
@@ -134,8 +141,9 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 - `configs/blackcat_004.yaml`、`examples/blackcat_004_optimize.py`、舊 OpenMDAO component DAG、11 根管材描述等都是歷史 / downstream reference。
 - FEM/APDL / shell / load-factor checks 目前是 candidate-relevant equivalent-physics validation / spot-check，不是 final composite、root fitting、wire hardware、rib joint 或 flight sign-off。
 - Rib / rear spar / wire attach / root joint 是 downstream physical-realization 與 validation 問題；除非它們會改變 aero-structure closure candidate 排序，否則不要把它們升成上游主線。
-- Horizontal / vertical tail 不是最後才補的外觀件；current pathfinder 尚未完成 all-moving tail
-  trim / stability / control authority / tail drag-mass contract，不能宣稱整機 aircraft-feasible。
+- Horizontal / vertical tail 不是最後才補的外觀件；current pathfinder 已有 all-moving tail
+  AVL audit v0，但目前是 blocker report。CG / wing AC、directional stability / authority、
+  tail drag-mass contract 還沒 closure，不能宣稱整機 aircraft-feasible。
 - 主翼 mesh-native CFD / SU2 線仍暫停，不能拿來當 performance claim truth。
 
 ---
@@ -172,6 +180,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/structure_budgeted_z_state_search.py
 PYTHONPATH=src ./.venv/bin/python scripts/loaded_shape_avl_recheck_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/tier2_loaded_shape_airfoil_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/aero_structure_closure_mvp.py
+PYTHONPATH=src ./.venv/bin/python scripts/full_aircraft_tail_avl_audit_v0.py
 ```
 
 只有在明確做歷史診斷時，才可以加
@@ -215,7 +224,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Mission / concept search | 可用於新設計探索，但仍依賴 proxy 與 worker quality |
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
 | Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
-| Empennage / trim / stability | 已有 current pathfinder tail contract v0 foundation；目前 `required_inputs_missing`，尚未完成 full-aircraft trim/stability closure |
+| Empennage / trim / stability | 已有 current pathfinder tail contract v0 foundation 與 all-moving full-aircraft AVL audit v0；目前 verdict 是 `blocked_by_directional_stability_or_vtail_authority`，尚未完成 trim/stability closure |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
