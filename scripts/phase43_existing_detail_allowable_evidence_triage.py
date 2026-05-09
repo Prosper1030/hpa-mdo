@@ -51,7 +51,8 @@ class ExistingDetailAllowableEvidenceRow:
     negative_margin_rows: int
     traceability_gap_rows: int
     station_coverage_gap_rows: int
-    worst_margin: float | None
+    worst_force_like_margin_n: float | None
+    worst_moment_margin_n_m: float | None
     existing_evidence_boundary: str
     missing_for_margin: str
     next_action: str
@@ -213,7 +214,8 @@ def _local_detail_row(
         negative_margin_rows=counts["negative"],
         traceability_gap_rows=counts["traceability_gap"],
         station_coverage_gap_rows=0,
-        worst_margin=_worst_margin(rows),
+        worst_force_like_margin_n=_worst_force_like_margin_n(rows),
+        worst_moment_margin_n_m=_worst_moment_margin_n_m(rows),
         existing_evidence_boundary=(
             "Material and tube catalogs provide screening properties or tube geometry; "
             "they do not define selected local hardware allowables."
@@ -243,7 +245,8 @@ def _wire_termination_row(
         negative_margin_rows=counts["negative"],
         traceability_gap_rows=counts["traceability_gap"],
         station_coverage_gap_rows=0,
-        worst_margin=_worst_margin(rows),
+        worst_force_like_margin_n=_worst_force_like_margin_n(rows),
+        worst_moment_margin_n_m=_worst_moment_margin_n_m(rows),
         existing_evidence_boundary=(
             "Wire/cable material tensile strength is cable-body evidence only; it is not "
             "a swage, splice, knot, end anchor, pin, bend-radius, creep, or abrasion allowable."
@@ -292,7 +295,8 @@ def _rib_row(
         negative_margin_rows=negative,
         traceability_gap_rows=traceability_gap,
         station_coverage_gap_rows=station_gap,
-        worst_margin=_worst_margin(rows),
+        worst_force_like_margin_n=_worst_force_like_margin_n(rows),
+        worst_moment_margin_n_m=_worst_moment_margin_n_m(rows),
         existing_evidence_boundary=(
             "Rib family and spacing catalogs are proxy/layout evidence; they do not prove "
             "finite rib stiffness, shear/cap/bond strength, or spar-attachment margins."
@@ -408,7 +412,7 @@ def _rib_catalog_summary(catalog: dict[str, Any]) -> str:
     )
 
 
-def _worst_margin(rows: tuple[Any, ...]) -> float | None:
+def _worst_force_like_margin_n(rows: tuple[Any, ...]) -> float | None:
     values = [
         _attr_float(row, name)
         for row in rows
@@ -416,7 +420,6 @@ def _worst_margin(rows: tuple[Any, ...]) -> float | None:
             "worst_margin",
             "worst_margin_n",
             "load_margin_n",
-            "moment_margin_n_m",
             "mbl_margin_n",
             "effective_termination_load_margin_n",
             "link_margin_n",
@@ -424,6 +427,12 @@ def _worst_margin(rows: tuple[Any, ...]) -> float | None:
             "bond_margin_n",
         )
     ]
+    finite = [value for value in values if value is not None]
+    return min(finite) if finite else None
+
+
+def _worst_moment_margin_n_m(rows: tuple[Any, ...]) -> float | None:
+    values = [_attr_float(row, "moment_margin_n_m") for row in rows]
     finite = [value for value in values if value is not None]
     return min(finite) if finite else None
 

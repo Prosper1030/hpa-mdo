@@ -71,6 +71,34 @@ def _termination_sensitivity() -> SimpleNamespace:
     )
 
 
+def test_phase43_reports_force_and_moment_margins_separately() -> None:
+    triage = build_existing_detail_allowable_evidence_triage(
+        "sample",
+        material_catalog={},
+        tube_catalog_rows=(),
+        rib_catalog={"families": {}},
+        local_detail_subcomponent_check=SimpleNamespace(
+            rows=(
+                SimpleNamespace(
+                    parent_key="root_joint",
+                    status="margin_negative",
+                    load_margin_n=50.0,
+                    moment_margin_n_m=-200.0,
+                    mbl_margin_n=None,
+                    effective_termination_load_margin_n=None,
+                ),
+            )
+        ),
+        rib_bracing_margin_check=_rib_bracing_check(),
+        wire_termination_efficiency_sensitivity=_termination_sensitivity(),
+    )
+
+    root = {row.blocker_key: row for row in triage.rows}["root_joint"]
+
+    assert root.worst_force_like_margin_n == 50.0
+    assert root.worst_moment_margin_n_m == -200.0
+
+
 def test_phase43_separates_material_catalogs_from_local_hardware_margins() -> None:
     triage = build_existing_detail_allowable_evidence_triage(
         "sample",
