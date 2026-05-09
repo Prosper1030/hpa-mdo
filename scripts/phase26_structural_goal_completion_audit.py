@@ -226,6 +226,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "layout_plus_model_link_spacing_not_physical_signoff"
+    if _phase46_local_detail_work_priority_ranked(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "local_detail_work_priority_ranked_allowables_missing"
     return EVIDENCE_STRENGTH_BY_KEY[key]
 
 
@@ -329,6 +335,20 @@ def _phase45_model_spacing_not_physical_signoff(
         and "phase41_rib_spacing_model_matches_nominal_not_physical_signoff"
         in evidence_summary
         and "physical signoff rows=0" in evidence_summary
+    )
+
+
+def _phase46_local_detail_work_priority_ranked(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key in {"wire_attach_local_load_path", "root_joint", "wire_termination"}
+        and "Phase46" in evidence_artifacts
+        and "local_detail_work_priority_ranked_allowables_missing" in evidence_summary
+        and "work_priority_only_not_failure_load_factor_rank" in evidence_summary
     )
 
 

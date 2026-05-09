@@ -104,6 +104,9 @@ from scripts.phase44_phase41_mode_shape_review import (  # noqa: E402
 from scripts.phase45_phase41_rib_spacing_link_review import (  # noqa: E402
     build_current_phase41_rib_spacing_link_review,
 )
+from scripts.phase46_local_detail_criticality_ordering import (  # noqa: E402
+    build_local_detail_criticality_ordering,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -142,6 +145,7 @@ def build_structural_closure_index(
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    local_detail_criticality_ordering: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -178,6 +182,7 @@ def build_structural_closure_index(
             wire_attach_load_decomposition=wire_attach_load_decomposition,
             root_joint_load_envelope=root_joint_load_envelope,
             wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+            local_detail_criticality_ordering=local_detail_criticality_ordering,
             rib_spacing_requirements=rib_spacing_requirements,
             rib_bracing_margin_check=rib_bracing_margin_check,
             torsion_twist_closure_check=torsion_twist_closure_check,
@@ -224,6 +229,7 @@ def write_structural_closure_index_package(
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    local_detail_criticality_ordering: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -253,6 +259,7 @@ def write_structural_closure_index_package(
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -341,6 +348,17 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     existing_detail_allowable_evidence_triage = (
         build_current_existing_detail_allowable_evidence_triage()
     )
+    local_detail_criticality_ordering = build_local_detail_criticality_ordering(
+        reference.candidate_id,
+        detail_requirements=detail_requirements,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
+        root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        existing_detail_allowable_evidence_triage=(
+            existing_detail_allowable_evidence_triage
+        ),
+    )
     full_wing_buckling_closure_check = build_full_wing_buckling_closure_check(
         reference.candidate_id,
         closure_inputs=phase30_closure_inputs_from_evidence(
@@ -370,6 +388,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
@@ -394,6 +413,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -428,6 +448,7 @@ def _build_item(
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    local_detail_criticality_ordering: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -458,6 +479,7 @@ def _build_item(
         wire_attach_load_decomposition,
         root_joint_load_envelope,
         wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering,
         rib_spacing_requirements,
         rib_bracing_margin_check,
         torsion_twist_closure_check,
@@ -490,6 +512,7 @@ def _build_item(
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -554,6 +577,7 @@ def _evidence_artifacts(
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    local_detail_criticality_ordering: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -600,6 +624,13 @@ def _evidence_artifacts(
         artifacts.append("Phase35 root_joint_load_envelope")
     if wire_termination_efficiency_sensitivity is not None and key == "wire_termination":
         artifacts.append("Phase36 wire_termination_efficiency_sensitivity")
+    if local_detail_criticality_ordering is not None and key in {
+        "wire_attach_local_load_path",
+        "root_joint",
+        "wire_termination",
+        "failure_mode_ordering",
+    }:
+        artifacts.append("Phase46 local_detail_criticality_ordering")
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -682,6 +713,7 @@ def _evidence_for_key(
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    local_detail_criticality_ordering: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -772,6 +804,15 @@ def _evidence_for_key(
             "Phase36: "
             f"{_wire_termination_efficiency_summary(wire_termination_efficiency_sensitivity)}"
         )
+    if local_detail_criticality_ordering is not None and key in {
+        "wire_attach_local_load_path",
+        "root_joint",
+        "wire_termination",
+    }:
+        parts.append(
+            "Phase46: "
+            f"{_local_detail_criticality_summary(key, local_detail_criticality_ordering)}"
+        )
     if rib_spacing_requirements is not None and key in {
         "rib_load_transfer",
         "rib_spacing_assumption",
@@ -802,6 +843,11 @@ def _evidence_for_key(
         parts.append(f"Phase39: {_tip_deflection_claim_boundary_summary(tip_deflection_claim_boundary)}")
     if failure_mode_ordering is not None and key == "failure_mode_ordering":
         parts.append(f"Phase25: {_failure_ordering_summary(failure_mode_ordering)}")
+    if local_detail_criticality_ordering is not None and key == "failure_mode_ordering":
+        parts.append(
+            "Phase46: "
+            f"{_local_detail_criticality_overall_summary(local_detail_criticality_ordering)}"
+        )
     if existing_fem_evidence_triage is not None and key in {
         "rear_spar_stiffness",
         "rib_load_transfer",
@@ -1033,6 +1079,47 @@ def _wire_termination_efficiency_summary(sensitivity: Any) -> str:
         f"{_fmt(getattr(eta_060, 'required_minimum_breaking_load_n', None) if eta_060 is not None else None)} N; "
         "MBL at eta 0.80="
         f"{_fmt(getattr(eta_080, 'required_minimum_breaking_load_n', None) if eta_080 is not None else None)} N."
+    )
+
+
+def _local_detail_criticality_summary(key: str, ordering: Any) -> str:
+    rows = {
+        str(getattr(row, "blocker_key", "")): row
+        for row in getattr(ordering, "rows", ())
+    }
+    row = rows.get(key)
+    return (
+        "local detail criticality status="
+        f"{getattr(ordering, 'overall_status', 'unknown')}; "
+        "priority rank="
+        f"{int(getattr(row, 'work_priority_rank', 0)) if row is not None else 0}; "
+        "governing screen="
+        f"{getattr(row, 'governing_screen', 'missing') if row is not None else 'missing'}; "
+        "severity N-equivalent="
+        f"{_fmt(getattr(row, 'design_severity_n_equivalent', None) if row is not None else None)}; "
+        "closes margin="
+        f"{bool(getattr(row, 'closes_engineering_margin', False)) if row is not None else False}; "
+        "boundary="
+        f"{getattr(row, 'ordering_boundary', 'missing') if row is not None else 'missing'}."
+    )
+
+
+def _local_detail_criticality_overall_summary(ordering: Any) -> str:
+    top_key = str(getattr(ordering, "highest_priority_key", "unknown"))
+    rows = {
+        str(getattr(row, "blocker_key", "")): row
+        for row in getattr(ordering, "rows", ())
+    }
+    top = rows.get(top_key)
+    return (
+        "local detail priority top="
+        f"{top_key}; "
+        "top governing screen="
+        f"{getattr(top, 'governing_screen', 'unknown') if top is not None else 'unknown'}; "
+        "unclosed details="
+        f"{int(getattr(ordering, 'unclosed_detail_count', 0))}; "
+        "boundary="
+        f"{getattr(top, 'ordering_boundary', 'unknown') if top is not None else 'unknown'}."
     )
 
 

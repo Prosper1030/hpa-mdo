@@ -84,6 +84,9 @@ from scripts.phase44_phase41_mode_shape_review import (  # noqa: E402
 from scripts.phase45_phase41_rib_spacing_link_review import (  # noqa: E402
     build_current_phase41_rib_spacing_link_review,
 )
+from scripts.phase46_local_detail_criticality_ordering import (  # noqa: E402
+    build_local_detail_criticality_ordering,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase25_failure_mode_ordering"
@@ -126,6 +129,7 @@ def build_failure_mode_ordering(
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    local_detail_criticality_ordering: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
@@ -151,6 +155,7 @@ def build_failure_mode_ordering(
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
@@ -187,6 +192,7 @@ def write_failure_mode_ordering_package(
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    local_detail_criticality_ordering: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
@@ -209,6 +215,7 @@ def write_failure_mode_ordering_package(
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
@@ -259,6 +266,14 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
     wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
         detail_requirements
     )
+    local_detail_criticality_ordering = build_local_detail_criticality_ordering(
+        reference.candidate_id,
+        detail_requirements=detail_requirements,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
+        root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+    )
     rib_bracing_margin_check = build_rib_bracing_margin_check(
         rib_spacing_requirements,
         bracing_audit,
@@ -283,6 +298,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
         torsion_twist_screening=build_current_torsion_twist_screening(),
@@ -373,6 +389,7 @@ def _unranked_real_structure_rows(
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    local_detail_criticality_ordering: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
@@ -395,6 +412,7 @@ def _unranked_real_structure_rows(
             wire_attach,
             detail_margin=detail_margins.get("wire_attach_local_load_path"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
+            local_detail_criticality_ordering=local_detail_criticality_ordering,
             extra_evidence=_wire_attach_load_decomposition_evidence(
                 wire_attach_load_decomposition
             ),
@@ -406,6 +424,7 @@ def _unranked_real_structure_rows(
             root_joint,
             detail_margin=detail_margins.get("root_joint"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
+            local_detail_criticality_ordering=local_detail_criticality_ordering,
             extra_evidence=_root_joint_load_envelope_evidence(root_joint_load_envelope),
             next_evidence="Root fitting, clamp, bonded insert, bearing, and tube-wall load-introduction margins.",
         ),
@@ -415,6 +434,7 @@ def _unranked_real_structure_rows(
             wire_termination,
             detail_margin=detail_margins.get("wire_termination"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
+            local_detail_criticality_ordering=local_detail_criticality_ordering,
             extra_evidence=_wire_termination_efficiency_evidence(
                 wire_termination_efficiency_sensitivity
             ),
@@ -492,6 +512,7 @@ def _detail_row(
     *,
     detail_margin: Any | None,
     local_detail_subcomponent_check: Any | None,
+    local_detail_criticality_ordering: Any | None,
     extra_evidence: str,
     next_evidence: str,
 ) -> FailureModeOrderingRow:
@@ -510,6 +531,7 @@ def _detail_row(
         evidence=(
             f"{_detail_evidence(detail)} {_detail_margin_evidence(detail_margin)} "
             f"{_local_detail_subcomponent_evidence(mode_key, local_detail_subcomponent_check)} "
+            f"{_local_detail_criticality_evidence(mode_key, local_detail_criticality_ordering)} "
             f"{extra_evidence}"
         ),
         next_evidence=next_evidence,
@@ -874,6 +896,40 @@ def _local_detail_subcomponent_evidence(parent_key: str, check: Any | None) -> s
         f"{positive}; "
         "worst local margin="
         f"{_fmt(min(worst_values) if worst_values else None)}."
+    )
+
+
+def _local_detail_criticality_evidence(parent_key: str, ordering: Any | None) -> str:
+    if ordering is None:
+        return "local detail criticality ordering is not available."
+    rows = {
+        str(getattr(row, "blocker_key", "")): row
+        for row in getattr(ordering, "rows", ())
+    }
+    row = rows.get(parent_key)
+    if row is None:
+        return (
+            "local detail criticality status="
+            f"{getattr(ordering, 'overall_status', 'unknown')}; "
+            "local detail priority row=missing."
+        )
+    boundary = str(getattr(row, "ordering_boundary", "unknown"))
+    return (
+        "local detail criticality status="
+        f"{getattr(ordering, 'overall_status', 'unknown')}; "
+        "local detail priority rank="
+        f"{int(getattr(row, 'work_priority_rank', 0))}; "
+        "governing screen="
+        f"{getattr(row, 'governing_screen', 'unknown')}; "
+        "severity N-equivalent="
+        f"{_fmt(_attr_float(row, 'design_severity_n_equivalent'))}; "
+        "priority status="
+        f"{getattr(row, 'status', 'unknown')}; "
+        "closes margin="
+        f"{bool(getattr(row, 'closes_engineering_margin', False))}; "
+        "boundary="
+        f"{boundary}; "
+        "work priority only, not failure-load rank."
     )
 
 

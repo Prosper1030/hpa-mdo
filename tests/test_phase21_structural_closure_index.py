@@ -332,6 +332,44 @@ def _wire_termination_efficiency_sensitivity() -> SimpleNamespace:
     )
 
 
+def _local_detail_criticality_ordering() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="local_detail_work_priority_ranked_allowables_missing",
+        row_count=3,
+        unclosed_detail_count=3,
+        highest_priority_key="root_joint",
+        rows=(
+            SimpleNamespace(
+                blocker_key="root_joint",
+                work_priority_rank=1,
+                status="work_priority_ranked_negative_or_missing_margin",
+                design_severity_n_equivalent=216664.0,
+                governing_screen="root_moment_couple_force",
+                closes_engineering_margin=False,
+                ordering_boundary="work_priority_only_not_failure_load_factor_rank",
+            ),
+            SimpleNamespace(
+                blocker_key="wire_termination",
+                work_priority_rank=2,
+                status="work_priority_ranked_negative_or_missing_margin",
+                design_severity_n_equivalent=10080.3,
+                governing_screen="termination_required_mbl_eta_0p60",
+                closes_engineering_margin=False,
+                ordering_boundary="work_priority_only_not_failure_load_factor_rank",
+            ),
+            SimpleNamespace(
+                blocker_key="wire_attach_local_load_path",
+                work_priority_rank=3,
+                status="work_priority_ranked_negative_or_missing_margin",
+                design_severity_n_equivalent=6048.2,
+                governing_screen="wire_attach_resultant_design_load",
+                closes_engineering_margin=False,
+                ordering_boundary="work_priority_only_not_failure_load_factor_rank",
+            ),
+        ),
+    )
+
+
 def _rib_spacing_requirements() -> SimpleNamespace:
     return SimpleNamespace(
         current_max_bay_m=3.86,
@@ -716,6 +754,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         root_joint_load_envelope=_root_joint_load_envelope(),
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
+        local_detail_criticality_ordering=_local_detail_criticality_ordering(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
@@ -765,24 +804,36 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "row status=local_subcomponent_allowables_missing" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
+    assert "Phase46" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "local detail criticality status=local_detail_work_priority_ranked_allowables_missing" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "priority rank=3" in by_key["wire_attach_local_load_path"].current_evidence
+    assert "work_priority_only_not_failure_load_factor_rank" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
     assert "Phase35" in by_key["root_joint"].evidence_artifacts
     assert "Phase43" in by_key["root_joint"].evidence_artifacts
+    assert "Phase46" in by_key["root_joint"].evidence_artifacts
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
     assert "subcomponents missing=1" in by_key["root_joint"].current_evidence
     assert "design moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
     assert "max couple force=216664.0000 N" in by_key["root_joint"].current_evidence
     assert "max couple case=moment_couple_arm_0p050m" in by_key["root_joint"].current_evidence
+    assert "priority rank=1" in by_key["root_joint"].current_evidence
     assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
     assert "subcomponents missing=1" in by_key["wire_termination"].current_evidence
     assert "Phase36" in by_key["wire_termination"].evidence_artifacts
     assert "Phase43" in by_key["wire_termination"].evidence_artifacts
+    assert "Phase46" in by_key["wire_termination"].evidence_artifacts
     assert "MBL at eta 0.60=10080.3000 N" in by_key[
         "wire_termination"
     ].current_evidence
     assert "MBL at eta 0.80=7560.2000 N" in by_key[
         "wire_termination"
     ].current_evidence
+    assert "priority rank=2" in by_key["wire_termination"].current_evidence
     assert "Phase20" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase29" in by_key["torsion_twist_coupling"].evidence_artifacts
@@ -836,6 +887,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "rib_spacing_assumption"
     ].current_evidence
     assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
+    assert "Phase46" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase40" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase41" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase42" in by_key["failure_mode_ordering"].evidence_artifacts
@@ -849,6 +901,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "failure_mode_ordering"
     ].current_evidence
     assert "rib row status=unranked_stiffness_and_allowable_missing" in by_key[
+        "failure_mode_ordering"
+    ].current_evidence
+    assert "local detail priority top=root_joint" in by_key[
         "failure_mode_ordering"
     ].current_evidence
     assert "reference review status=phase41_reference_load_formulation_not_rankable" in by_key[

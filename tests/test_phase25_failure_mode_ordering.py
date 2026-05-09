@@ -173,6 +173,44 @@ def _wire_termination_efficiency_sensitivity() -> SimpleNamespace:
     )
 
 
+def _local_detail_criticality_ordering() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="local_detail_work_priority_ranked_allowables_missing",
+        row_count=3,
+        unclosed_detail_count=3,
+        highest_priority_key="root_joint",
+        rows=(
+            SimpleNamespace(
+                blocker_key="root_joint",
+                work_priority_rank=1,
+                status="work_priority_ranked_negative_or_missing_margin",
+                design_severity_n_equivalent=108332.0,
+                governing_screen="root_moment_couple_force",
+                closes_engineering_margin=False,
+                ordering_boundary="work_priority_only_not_failure_load_factor_rank",
+            ),
+            SimpleNamespace(
+                blocker_key="wire_termination",
+                work_priority_rank=2,
+                status="work_priority_ranked_negative_or_missing_margin",
+                design_severity_n_equivalent=10000.0,
+                governing_screen="termination_required_mbl_eta_0p60",
+                closes_engineering_margin=False,
+                ordering_boundary="work_priority_only_not_failure_load_factor_rank",
+            ),
+            SimpleNamespace(
+                blocker_key="wire_attach_local_load_path",
+                work_priority_rank=3,
+                status="work_priority_ranked_negative_or_missing_margin",
+                design_severity_n_equivalent=6048.0,
+                governing_screen="wire_attach_resultant_design_load",
+                closes_engineering_margin=False,
+                ordering_boundary="work_priority_only_not_failure_load_factor_rank",
+            ),
+        ),
+    )
+
+
 def _rib_bracing_margin_check() -> SimpleNamespace:
     return SimpleNamespace(
         required_link_force_n=934.5,
@@ -403,6 +441,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         root_joint_load_envelope=_root_joint_load_envelope(),
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
+        local_detail_criticality_ordering=_local_detail_criticality_ordering(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         torsion_twist_screening=_torsion_twist_screening(),
@@ -457,6 +496,13 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "force-only misleading=True" in by_key["root_joint"].evidence
     assert "termination eta 0.60 MBL=10000.0000 N" in by_key["wire_termination"].evidence
     assert "termination eta 0.80 MBL=7500.0000 N" in by_key["wire_termination"].evidence
+    assert "local detail priority rank=1" in by_key["root_joint"].evidence
+    assert "local detail priority rank=2" in by_key["wire_termination"].evidence
+    assert "local detail priority rank=3" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "governing screen=root_moment_couple_force" in by_key["root_joint"].evidence
+    assert "work priority only, not failure-load rank" in by_key["root_joint"].evidence
     assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].evidence
     assert "added stations=53" in by_key["rib_load_transfer"].evidence
     assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
