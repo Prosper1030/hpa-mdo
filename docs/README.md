@@ -19,6 +19,7 @@
 | [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) | all-moving tail / trim / stability contract insertion | 需要把水平尾、垂尾、配平、靜穩定、控制 authority、tail drag/mass 接進 pathfinder 的人 |
 | [2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | tail-aware rib / rear-spar and material-family sensitivity | 需要看 balsa baseline、EPS/XPS/structural foam rib family 對 mass / GJ / twist verdict 影響的人 |
 | [2026-05-09_tail_aware_aeroelastic_closure.md](reports/2026-05-09_tail_aware_aeroelastic_closure.md) | tail-aware aeroelastic closure verdict | 需要知道 current pathfinder 是否能進 FEM/APDL loadcase package 的人 |
+| [2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | materialized rib station/bay contract audit | 需要確認 0.30 m rib bay 是否真的 materialized，以及 hybrid rework 前哪些 skin/bond/FEM data 仍 blocked 的人 |
 | [legacy_blackcat004_downstream_reference.md](legacy_blackcat004_downstream_reference.md) | Black Cat 004 / OpenMDAO 舊 downstream 參考 | 需要查歷史工具、舊 quickstart、舊 DAG 的人 |
 | [mesh_native_cfd_line_freeze.v1.md](../hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 暫停中的主翼 mesh-native CFD / SU2 支線交接 | 需要接續 Gmsh/SU2/BL 網格與低雷諾數 CFD 的人 |
 
@@ -35,6 +36,7 @@
 | [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract / roadmap | 規定 all-moving H-tail / V-tail 不能最後才補，並定義 tail contract v0、full-aircraft AVL trim/stability audit、discrete tail-airfoil screening 的下一步 |
 | [2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | rib / rear-spar material family sensitivity | balsa baseline 保留；foam-only EPS/XPS/structural foam 目前不清除 current closure twist blocker |
 | [2026-05-09_tail_aware_aeroelastic_closure.md](reports/2026-05-09_tail_aware_aeroelastic_closure.md) | tail-aware aeroelastic closure | fixed-point closure 已收斂，但 direct spar-pair incidence stress-test 超出 twist bound；目前 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework` |
+| [2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | materialized rib station/bay audit | 121 full-wing stations / 120 bays 已 trace；skin sag、bond/collar、transition/control station 與 torque-zone FEM 仍 blocked / needs-data |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
 | [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |

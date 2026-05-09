@@ -320,9 +320,19 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。
    - 後續順序：tail / CG / trim / stability screening v1 basis ->
      tail-aware bounded rib/rear-spar sensitivity (done) -> tail-aware aeroelastic closure (done,
-     twist-source audit done) -> hybrid rib / shear cap / skin / stronger rear-spar participation
-     rerun, with qualified aero-surface mapping as verification -> root/wire/termination/rib/tail
-     hardware FEM detail。
+     twist-source audit done) -> materialized rib station/bay contract audit (done) ->
+     hybrid rib / shear cap / skin / stronger rear-spar participation rerun, with qualified
+     aero-surface mapping as verification -> root/wire/termination/rib/tail hardware FEM detail。
+   - Current pathfinder materialized rib contract audit 已建立：`scripts/current_pathfinder_materialized_rib_contract_audit.py`
+     與 `docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md`
+     會輸出 `rib_station_table.csv`、`rib_bay_table.csv`、mandatory/missing contract、
+     skin sag、bond/collar risk 與 `local_fem_trigger_report.json`。它確認 `121` full-wing
+     stations / `120` bays 已 materialized，max bay `0.297063 m`；但 verdict 是
+     `blocked_needs_materialized_bond_shape_data`，因為 transport joint、control station、
+     airfoil/twist transition 是 `missing_contract`，skin sag 是 `unknown_requires_test`，
+     bond/collar/spar contact 是 `needs_data`，y≈`2.328 m` 附近必須作 torque-critical
+     local FEM / hybrid reinforcement zone。這一步是 hybrid stiffness rework 的前置基礎，
+     不能被 warping-knockdown tuning 或 foam-only EPS/XPS pass claim 取代。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
@@ -332,12 +342,14 @@ sensitivity 已完成並選出下一階段 basis；tail-aware aeroelastic closur
 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。這代表 managed CG/tail
 screening row 仍可用，但 selected stiffness / geometry basis 還不能包成 FEM/APDL loadcase
 package；twist-source audit 已把下一步收斂成 hybrid rib / shear-transfer stiffness rework；
-尤其 CG 必須使用 final managed row，而不是未補償的 tail/rib mass shift。
+materialized rib contract audit 已把 0.30 m bay trace、missing transition/control data、
+skin sag、bond/collar 與 local FEM trigger 先鎖住；尤其 CG 必須使用 final managed row，
+而不是未補償的 tail/rib mass shift。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 的 twist-source audit 為起點，做 hybrid rib / shear cap / skin / stronger rear-spar participation stiffness rework rerun。必須保留 selected basis 的 audit trail：`0.30 m` physical rib station basis、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready，也不能把 direct spar-pair rotation -> AVL incidence stress-test 當 qualified aero-surface twist。foam-only EPS/XPS/structural foam 只能保留為 low-stiffness reference。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md` 和 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 為起點，做 hybrid rib / shear cap / skin / stronger rear-spar participation stiffness rework rerun。必須保留 selected basis 的 audit trail：`0.30 m` physical rib station basis、`121` full-wing materialized stations、max bay `0.297063 m`、torque-critical y≈`2.328 m` local FEM zone、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把 missing transition/control/bond/skin data 當 pass，不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready，也不能把 direct spar-pair rotation -> AVL incidence stress-test 當 qualified aero-surface twist。foam-only EPS/XPS/structural foam 只能保留為 low-stiffness reference。
 ```
 
 ## 8. 常用入口與角色
@@ -385,16 +397,21 @@ package；twist-source audit 已把下一步收斂成 hybrid rib / shear-transfe
   - `docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md`
   - `scripts/tail_aware_aeroelastic_closure.py`
   - `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md`
+  - `scripts/current_pathfinder_materialized_rib_contract_audit.py`
+  - `docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md`
 - 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
   warping knockdown、mass/CG bookkeeping 與 closure ranking 接成 tail-aware aeroelastic
-  screening basis。
+  screening basis，並把 current pathfinder 的 rib station / bay / missing contract / skin sag /
+  bond-collar / local FEM trigger materialize 成下一輪 hybrid rework 的前置 audit。
 - 注意：rib/rear-spar sensitivity verdict 是 `ready_for_tail_aware_aeroelastic_closure`；
   material-family verdict 是 `foam_only_families_do_not_clear_current_aeroelastic_closure`；
   twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。closure 第一輪 verdict 仍是
   `needs_aeroelastic_geometry_or_stiffness_rework`。final CG managed row `0.75 m` 保留；
   未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。direct spar-pair rotation -> AVL incidence
   目前只是 stress-test proxy，不是 qualified aero-surface twist；foam-only ribs cannot be used
-  to claim the current closure blocker is solved.
+  to claim the current closure blocker is solved。materialized rib audit 只確認 `121` stations /
+  `120` bays 與 max bay `0.297063 m`，但 transport/control/airfoil/twist transition、
+  skin sag、bond/collar/spar contact 和 torque-critical local FEM 仍是 blocked / needs-data。
 
 ### F. FEM/APDL / shell / load-factor spot-check
 

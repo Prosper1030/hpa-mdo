@@ -114,6 +114,18 @@ torque-only 分量，lift 在該站反而部分抵消。clear verdict 是
 下一步優先做 hybrid rib / shear cap / skin / stronger rear-spar participation rerun，同時保留
 qualified aero-surface mapping 作為驗證，不把 direct projection 當 final measurement。
 
+current pathfinder materialized rib contract audit 已建立，讀
+[docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md)
+與 `output/current_pathfinder_materialized_rib_contract_audit/`。這一步把 current balsa
+screening basis 展成可重跑的 `121` full-wing rib/station trace 與 `120` bays；max
+materialized bay 是 `0.297063 m`，所以 `0.30 m` bay 已被 physical ribs materialized。
+但 report verdict 仍是 `blocked_needs_materialized_bond_shape_data`：transport joint、
+control station、airfoil transition、twist transition 都是 `missing_contract`；skin sag
+是 `unknown_requires_test`，bond/collar/spar contact 是 `needs_data`，y=`2.327757 m`
+附近被標成 torque-critical local FEM / hybrid reinforcement zone。下一輪 hybrid stiffness
+sweep 應使用這些 local zones；不能跳過 materialized audit 直接把 EPS/XPS foam-only 或
+warping-knockdown tuning 宣稱成 closure pass。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -147,6 +159,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 conservative load remap / rib sensitivity 前置 load gate | [docs/reports/2026-05-09_conservative_load_mapper_foundation.md](docs/reports/2026-05-09_conservative_load_mapper_foundation.md) | load conservation foundation |
 | 看 tail-aware rib / rear-spar sensitivity verdict 與 material-family compare | [docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | balsa baseline ready-for-closure basis; foam-only families stay low-stiffness references; hybrid rework candidates are listed |
 | 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged; twist-source audit points to hybrid rib/stiffness rework |
+| 看 current pathfinder rib station/bay 是否真的 materialized | [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | 121 station / 120 bay trace; shape, bond, collar, transition data still blocked |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |

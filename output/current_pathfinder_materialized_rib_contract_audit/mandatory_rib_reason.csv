@@ -1,0 +1,9 @@
+contract_item,status,rib_ids,y_m,mandatory_reason,source,engineering_read
+root,materialized_mandatory,R060,0.000000,root,current spar rows / wire rigging / mirrored station table,Mandatory station is present in the materialized full-wing rib table.
+tip,materialized_mandatory,R000;R120,-17.324041;17.324041,tip_boundary,current spar rows / wire rigging / mirrored station table,Mandatory station is present in the materialized full-wing rib table.
+wire_attach,materialized_mandatory,R033;R034;R086;R087,-7.573654;-7.564741;7.564741;7.573654,wire_attach,current spar rows / wire rigging / mirrored station table,Mandatory station is present in the materialized full-wing rib table.
+spar_joint,materialized_mandatory,R013;R023;R033;R045;R055;R065;R075;R087;R097;R107,-13.462227;-10.509126;-7.573654;-4.365292;-1.454811;1.454811;4.365292;7.573654;10.509126;13.462227,spar_joint,current spar rows / wire rigging / mirrored station table,Mandatory station is present in the materialized full-wing rib table.
+transport_joint,missing_contract,,,transport_joint,no current pathfinder station/control/transition manifest found,Explicitly missing. Do not treat the current rib layout as passing this contract.
+control_station,missing_contract,,,control_station,no current pathfinder station/control/transition manifest found,Explicitly missing. Do not treat the current rib layout as passing this contract.
+airfoil_transition,missing_contract,,,airfoil_transition,no current pathfinder station/control/transition manifest found,Explicitly missing. Do not treat the current rib layout as passing this contract.
+twist_transition,missing_contract,,,twist_transition,no current pathfinder station/control/transition manifest found,Explicitly missing. Do not treat the current rib layout as passing this contract.

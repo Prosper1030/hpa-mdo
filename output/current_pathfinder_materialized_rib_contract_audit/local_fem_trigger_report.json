@@ -1,0 +1,132 @@
+{
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "conservative_bounded_physical_projection_max_abs_deg": 3.256324,
+  "direct_spar_pair_rotation_max_abs_deg": 5.413494,
+  "dominant_twist_source": "aerodynamic_torque_only",
+  "elastic_twist_screening_bound_deg": 3.0,
+  "engineering_read": "Peak twist is torque-dominant and the bounded physical projection still exceeds the 3 deg screening bound. Local rib/spar/bond/collar FEM and skin-shape evidence are required before a hybrid row can be called closed.",
+  "local_fem_bay_ids": [
+    "B000",
+    "B012",
+    "B013",
+    "B022",
+    "B023",
+    "B032",
+    "B033",
+    "B034",
+    "B044",
+    "B045",
+    "B050",
+    "B051",
+    "B052",
+    "B053",
+    "B054",
+    "B055",
+    "B059",
+    "B060",
+    "B064",
+    "B065",
+    "B066",
+    "B067",
+    "B068",
+    "B069",
+    "B074",
+    "B075",
+    "B085",
+    "B086",
+    "B087",
+    "B096",
+    "B097",
+    "B106",
+    "B107",
+    "B119"
+  ],
+  "local_fem_station_ids": [
+    "R000",
+    "R013",
+    "R023",
+    "R033",
+    "R034",
+    "R045",
+    "R051",
+    "R052",
+    "R053",
+    "R055",
+    "R060",
+    "R065",
+    "R067",
+    "R068",
+    "R069",
+    "R075",
+    "R086",
+    "R087",
+    "R097",
+    "R107",
+    "R120"
+  ],
+  "next_sweep_guidance": {
+    "candidate_families": [
+      "eps_balsa_cap_hybrid_10mm",
+      "structural_foam_glass_face_10mm",
+      "balsa_sheet_3mm_with_local_shear_cap_or_collar"
+    ],
+    "do_not_promote": [
+      "eps_hd_foam_cnc_10mm foam-only",
+      "xps_high_compressive_cnc_10mm foam-only",
+      "structural_foam_cnc_10mm foam-only as bracing pass"
+    ],
+    "use_zones": [
+      "positive_torque_critical_hybrid_reinforcement_zone",
+      "negative_torque_critical_hybrid_reinforcement_zone"
+    ]
+  },
+  "overall_verdict": "local_fem_required_before_hybrid_pass_claim",
+  "peak_twist_station_y_m": 2.327757,
+  "recommended_hybrid_reinforcement_zones": [
+    {
+      "bay_ids": [
+        "B066",
+        "B067",
+        "B068",
+        "B069"
+      ],
+      "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+      "station_ids": [
+        "R067",
+        "R068",
+        "R069"
+      ],
+      "y_end_m": 2.627757,
+      "y_start_m": 2.027757,
+      "zone_id": "positive_torque_critical_hybrid_reinforcement_zone"
+    },
+    {
+      "bay_ids": [
+        "B050",
+        "B051",
+        "B052",
+        "B053"
+      ],
+      "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+      "station_ids": [
+        "R051",
+        "R052",
+        "R053"
+      ],
+      "y_end_m": -2.027757,
+      "y_start_m": -2.627757,
+      "zone_id": "negative_torque_critical_hybrid_reinforcement_zone"
+    }
+  ],
+  "schema_version": "local_fem_trigger_report_v1",
+  "selected_rear_spar_participation": "bounded_50pct_screening",
+  "selected_rib_family": "balsa_sheet_3mm",
+  "trigger_rules": [
+    "torque_critical_audit_zone",
+    "mandatory_root_tip_wire_spar_joint_detail",
+    "skin_sag_unknown_requires_test",
+    "bond_collar_spar_contact_needs_data",
+    "do_not_tune_warping_knockdown_to_claim_pass"
+  ],
+  "warping_knockdown": 0.50246
+}
