@@ -1,0 +1,24 @@
+** Rib/torsion FEM calibration smoke, not final sign-off
+** sample_id: baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50
+*HEADING
+Rib torsion equivalent smoke
+*NODE
+1, 0.0, 0.0, 0.0
+2, 0.300000, 0.0, 0.0
+*ELEMENT, TYPE=B31, ELSET=RIB_TORSION_EQUIV
+1, 1, 2
+*MATERIAL, NAME=FAST_PROXY
+*ELASTIC
+4.50E8, 0.30
+*BEAM SECTION, ELSET=RIB_TORSION_EQUIV, MATERIAL=FAST_PROXY, SECTION=RECT
+0.050000, 0.003000
+0.0, 1.0, 0.0
+*BOUNDARY
+1, 1, 6, 0.0
+*STEP
+*STATIC
+*CLOAD
+2, 4, 1.0
+*NODE FILE
+U, RF
+*END STEP

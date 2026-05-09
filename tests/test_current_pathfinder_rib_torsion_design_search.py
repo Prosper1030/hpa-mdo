@@ -300,6 +300,30 @@ def test_calibration_samples_and_feedback_interface_are_written(tmp_path: Path) 
     ] == "screening_surrogate_ready_for_closure_rerun"
 
 
+def test_selected_fem_sample_tracks_selected_relaxed_carbon_rear75_candidate() -> None:
+    module = _load_script_module()
+
+    summary = module.build_rib_torsion_design_search(
+        sensitivity_payload=_sensitivity_payload(),
+        selected_closure_payload=_selected_closure_payload(),
+    )
+
+    selected = summary["selected_fast_candidate"]
+    samples_by_role = {
+        sample["sample_role"]: sample for sample in summary["fem_calibration_samples"]
+    }
+
+    assert selected["case_id"] == (
+        "eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__"
+        "carbon_face_collar_y2p328__rear75"
+    )
+    selected_sample = samples_by_role["selected_hybrid_10mm"]
+    assert selected_sample["source_case_id"] == selected["case_id"]
+    assert selected_sample["rib_spacing_profile"] == "manufacturing_relaxed_0p36"
+    assert selected_sample["local_reinforcement"] == "carbon_face_collar_y2p328"
+    assert selected_sample["rear_spar_participation"] == "bounded_75pct_screening"
+
+
 def test_calibration_results_generate_surrogate_correction_without_final_truth_claim() -> None:
     module = _load_script_module()
     summary = module.build_rib_torsion_design_search(

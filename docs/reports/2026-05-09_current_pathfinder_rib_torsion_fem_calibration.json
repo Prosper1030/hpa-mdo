@@ -1,0 +1,147 @@
+{
+  "artifact_manifest": {
+    "calibrated_search_summary_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_design_search_calibrated/rib_torsion_design_search_calibrated.json",
+    "calibrated_selected_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_design_search_calibrated/selected_fast_candidate_calibrated.json",
+    "calibrated_shortlist_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_design_search_calibrated/shortlist_calibrated.csv",
+    "calibration_update_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/fast_model_calibration_update.json",
+    "report_json": "/Volumes/Samsung SSD/hpa-mdo/docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.json",
+    "report_md": "/Volumes/Samsung SSD/hpa-mdo/docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md",
+    "results_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/fem_calibration_results.csv",
+    "results_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/fem_calibration_results.json",
+    "summary_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/rib_torsion_fem_calibration_summary.json",
+    "surrogate_feedback_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/surrogate_feedback.csv"
+  },
+  "calculix_smoke": {
+    "ccx_path": "/Volumes/Samsung SSD/homebrew-cellar/Cellar/calculix-ccx/2.23/bin/ccx_2.23",
+    "dat_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_smoke/baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50.dat",
+    "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_smoke/baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50.inp",
+    "frd_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_smoke/baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50.frd",
+    "log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_smoke/baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50.log",
+    "note": "CalculiX deck is an executable smoke for the local equivalent torsion probe; numeric calibration factors come from the local torsion-link FEM.",
+    "returncode": 0,
+    "solver": "calculix",
+    "status": "ran"
+  },
+  "calibration_decision": {
+    "calibrated_selected_bounded_twist_deg": 1.490536,
+    "calibrated_selected_case_id": "eps_balsa_cap_hybrid_10mm__t12p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75",
+    "engineering_read": "The original 10 mm selected candidate remains below the 3 deg bounded-twist screening line after calibration, but the calibrated fast rerun prefers the adjacent 12 mm relaxed carbon-collar/rear75 candidate for extra twist margin.",
+    "selected_bounded_twist_after_calibration_deg": 1.821554,
+    "selected_local_load_path_risk": "watch",
+    "selected_twist_factor": 1.238016,
+    "status": "selected_candidate_still_clears_but_calibrated_search_prefers_next"
+  },
+  "calibration_update": {
+    "claim_boundary": "calibration_correction_for_search_only_not_final_FEM_truth",
+    "family_correction_factors": {
+      "balsa_sheet_3mm": {
+        "mass_factor": 1.0,
+        "twist_factor": 1.0
+      },
+      "eps_balsa_cap_hybrid_10mm": {
+        "mass_factor": 1.0,
+        "twist_factor": 1.238016
+      },
+      "eps_hd_foam_cnc_10mm": {
+        "mass_factor": 1.0,
+        "twist_factor": 0.233224
+      },
+      "structural_foam_glass_face_10mm": {
+        "mass_factor": 1.0,
+        "twist_factor": 2.010986
+      }
+    },
+    "next_loop_action": "rerun_fast_search_with_calibrated_twist_factors",
+    "schema_version": "rib_torsion_fast_model_calibration_update_v1",
+    "status": "calibration_update_ready_for_fast_loop",
+    "used_result_rows": [
+      {
+        "family_key": "balsa_sheet_3mm",
+        "fast_model_bounded_twist_deg": 3.256324,
+        "fem_twist_deg": 3.256324,
+        "mass_factor": null,
+        "sample_id": "baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50",
+        "sample_role": "baseline_balsa_3mm",
+        "solver": "local_torsion_link_fem",
+        "twist_factor": 1.0
+      },
+      {
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "fast_model_bounded_twist_deg": 1.471349,
+        "fem_twist_deg": 1.821554,
+        "mass_factor": null,
+        "sample_id": "selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75",
+        "sample_role": "selected_hybrid_10mm",
+        "solver": "local_torsion_link_fem",
+        "twist_factor": 1.238016
+      },
+      {
+        "family_key": "structural_foam_glass_face_10mm",
+        "fast_model_bounded_twist_deg": 0.508631,
+        "fem_twist_deg": 1.02285,
+        "mass_factor": null,
+        "sample_id": "aggressive_plausible_hybrid__structural_foam_glass_face_10mm__t15p0mm__dense_torque_zone_0p20__carbon_face_collar_y2p328__rear75",
+        "sample_role": "aggressive_plausible_hybrid",
+        "solver": "local_torsion_link_fem",
+        "twist_factor": 2.010986
+      },
+      {
+        "family_key": "eps_hd_foam_cnc_10mm",
+        "fast_model_bounded_twist_deg": 19.944533,
+        "fem_twist_deg": 4.651547,
+        "mass_factor": null,
+        "sample_id": "lightweight_foam_core_reference__eps_hd_foam_cnc_10mm__t10p0mm__uniform_0p30__none__rear50",
+        "sample_role": "lightweight_foam_core_reference",
+        "solver": "local_torsion_link_fem",
+        "twist_factor": 0.233224
+      }
+    ]
+  },
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "claim_boundary": "First-pass FEM calibration evidence only. Do not treat this as final bond, collar, tube-wall, buckling, composite, or aircraft sign-off.",
+  "schema_version": "rib_torsion_fem_calibration_v1",
+  "selected_fast_candidate_after_calibration": {
+    "blockers": [],
+    "bounded_twist_status": "clears_bound",
+    "cap_face_collar_stiffness_proxy": 1.36,
+    "case_id": "eps_balsa_cap_hybrid_10mm__t12p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75",
+    "claim_boundary": "Fast-model candidate. Requires FEM calibration before any structural pass claim.",
+    "direct_stress_test_status": "clears_bound",
+    "effective_gj_ratio_vs_balsa_selected": 3.495841,
+    "effective_spacing_m": 0.345,
+    "evidence_status": "fast_model_result_needs_FEM_calibration",
+    "family_key": "eps_balsa_cap_hybrid_10mm",
+    "fast_model_bounded_twist_deg": 1.490536,
+    "fast_model_direct_twist_deg": 2.478006,
+    "fem_calibration_required": true,
+    "local_reinforcement": "carbon_face_collar_y2p328",
+    "manufacturability_score": 0.55,
+    "mass_delta_vs_balsa_baseline_kg": 2.985813,
+    "material_category": "capped_hybrid_foam_rib",
+    "material_family_group": "hybrid_foam_balsa_cap",
+    "pareto_front": true,
+    "rear_spar_participation": "bounded_75pct_screening",
+    "rear_stiffness_scale": 0.75,
+    "rib_core_thickness_m": 0.012,
+    "rib_core_thickness_mm": 12.0,
+    "rib_spacing_profile": "manufacturing_relaxed_0p36",
+    "selection_status": "candidate",
+    "structural_bracing_credit": true,
+    "torque_zone_spacing_m": 0.3,
+    "trade_metrics": {
+      "C_n_beta": 0.01403,
+      "cg_x_m": 0.75,
+      "forward_rebalance_mass_kg": 56.0,
+      "manufacturability_score": 0.55,
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "mass_kg": 6.015484,
+      "required_forward_rebalance_m": 0.079276,
+      "rib_mass_delta_vs_baseline_kg": 2.985813,
+      "static_margin": 0.094301,
+      "tail_delta_H_margin_deg": 4.792985,
+      "tail_delta_V_margin_deg": 16.716831,
+      "uncompensated_cg_x_m": 0.791139
+    },
+    "twist_bound_deg": 3.0
+  }
+}

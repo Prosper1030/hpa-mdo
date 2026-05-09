@@ -36,7 +36,7 @@ Verdict: `fast_design_loop_ready_for_fem_calibration`
 | role | family | fast bounded deg | solver | policy |
 |---|---|---:|---|---|
 | `baseline_balsa_3mm` | `balsa_sheet_3mm` | 3.256324 | `calculix` | `candidate_structural_credit_requires_FEM_calibration` |
-| `selected_hybrid_10mm` | `eps_balsa_cap_hybrid_10mm` | 2.070316 | `apdl_or_calculix` | `candidate_structural_credit_requires_FEM_calibration` |
+| `selected_hybrid_10mm` | `eps_balsa_cap_hybrid_10mm` | 1.471349 | `apdl_or_calculix` | `candidate_structural_credit_requires_FEM_calibration` |
 | `aggressive_plausible_hybrid` | `structural_foam_glass_face_10mm` | 0.508631 | `apdl` | `candidate_structural_credit_requires_FEM_calibration` |
 | `lightweight_foam_core_reference` | `eps_hd_foam_cnc_10mm` | 19.944533 | `calculix` | `shape_core_reference_only` |
 

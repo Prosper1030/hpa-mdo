@@ -378,6 +378,20 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      relaxed spacing / effective-GJ credit 必須由 calibration FEM、coupon、bond/collar、
      tube-wall 和 skin sag checks 校準。EPS/XPS foam-only 仍只可作 shape-core /
      lightweight reference，不可作 structural bracing pass。
+   - Rib / torsion fast-loop 第一輪 FEM calibration 已建立：
+     `scripts/current_pathfinder_rib_torsion_fem_calibration.py` 與
+     `docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md`。
+     這一步產出 local torsion-link FEM results、CalculiX executable smoke、surrogate
+     feedback JSON/CSV 與 calibrated fast-search rerun。10 mm relaxed carbon-collar/rear75
+     selected row 的 FEM/local factor 是 `1.238016`，表示 fast effective-GJ credit 偏樂觀
+     但仍可校準；bounded twist 由 `1.471 deg` 修正到 `1.822 deg`，仍低於 `3 deg`。
+     y≈`2.328 m` bond/collar/tube-wall 是 `watch`，tube-wall margin 約 `2.304`；
+     relaxed `0.36 m` spacing 在 first-pass local model 中仍是
+     `relaxed_spacing_reasonable_for_search_not_final`。Calibrated fast-search top row
+     轉為同構型 `12 mm` candidate，bounded twist `1.491 deg`，所以後續 search 應用
+     calibration factor 後把 12 mm 作為 margin-preferred row；10 mm 仍是 clears-screening
+     calibration candidate，不是 final release。aggressive carbon collar / rear75 row 顯示
+     factor `2.010986`，只能作上界/警示；foam-core reference 保持 downgrade reference。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
@@ -392,9 +406,10 @@ positive-zone package 的 supplier/coupon allowables 與 geometry detail，跑
 rib cap/face/collar/bond/tube-wall local margin、skin sag coupon/panel evidence，之後
 mirror/compare negative zone；同時 direct `3.449 deg` stress-test 仍要做 qualified
 aero-surface mapping。
-新的 fast design-search loop 已可用來產生 FEM calibration shortlist；它的 selected fast row
-closure rerun clears screening twist，但 carbon collar / relaxed spacing / effective-GJ 仍必須先
-校準，不能取代 positive-zone local margin 與 coupon work。
+新的 fast design-search loop 已完成第一輪 FEM calibration feedback：10 mm selected row
+修正後仍低於 `3 deg`，但 calibrated rerun 會偏好 12 mm 同構型作為 margin-preferred row。
+這只校準 fast surrogate 的 twist/stiffness factor，不能取代 positive-zone local margin、
+coupon work、skin sag evidence 或 APDL/CalculiX final sign-off。
 
 可直接用於新 goal 的 objective：
 
@@ -453,6 +468,8 @@ closure rerun clears screening twist，但 carbon collar / relaxed spacing / eff
   - `docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md`
   - `scripts/current_pathfinder_rib_torsion_design_search.py`
   - `docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md`
+  - `scripts/current_pathfinder_rib_torsion_fem_calibration.py`
+  - `docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md`
   - `scripts/current_pathfinder_positive_torque_zone_validation_package.py`
   - `docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md`
 - 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
@@ -476,8 +493,11 @@ closure rerun clears screening twist，但 carbon collar / relaxed spacing / eff
   fast design-search loop 會掃 material / thickness / spacing / local reinforcement /
   rear participation 的 candidates，並把 selected fast row 送回 tail-aware closure rerun；
   目前 fast selected closure bounded physical twist 是 `1.789 deg`，direct stress-test 是
-  `2.981 deg`。這表示 fast loop 可以進 FEM calibration，不表示 carbon collar /
-  relaxed spacing / effective-GJ 已被實體驗證。
+  `2.981 deg`。第一輪 FEM/local calibration 已回填 factor：10 mm selected row 的
+  factor 是 `1.238016`，修正後 bounded twist `1.822 deg`；calibrated search top row
+  轉為 12 mm relaxed carbon-collar/rear75，bounded twist `1.491 deg`。這表示 fast
+  effective-GJ credit 可校準後繼續 search，但 carbon collar / relaxed spacing /
+  bond/tube-wall 仍只是 watch，不是 final FEM truth。
   positive y≈`2.328 m` local package 已建立：R067/R068/R069、B066-B069、R066/R070
   boundary、APDL guarded skeleton、coupon matrix 和 missing-data register 都已輸出；它是
   `not_margin_pass` handoff，不是 FEM signoff。

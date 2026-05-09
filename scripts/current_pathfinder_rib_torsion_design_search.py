@@ -871,18 +871,17 @@ def _select_calibration_samples(
         spacing_profile="uniform_0p30",
         allow_rejected=True,
     )
-    selected_hybrid = (
-        _find_best_match(
+    selected_hybrid = selected
+    if not selected_hybrid or str(selected_hybrid.get("family_key")) != "eps_balsa_cap_hybrid_10mm":
+        selected_hybrid = _find_best_match(
             candidate_rows,
             family_key="eps_balsa_cap_hybrid_10mm",
             thickness_m=0.010,
-            rear_scale=0.65,
-            reinforcement="none",
-            spacing_profile="uniform_0p30",
+            rear_scale=0.75,
+            reinforcement="carbon_face_collar_y2p328",
+            spacing_profile="manufacturing_relaxed_0p36",
             allow_rejected=False,
         )
-        or selected
-    )
     aggressive = _best_aggressive_candidate(candidate_rows)
     foam = _best_foam_reference(candidate_rows)
     for role, row, solver, priority, purpose in (
@@ -938,14 +937,21 @@ def _sample_payload(
         "rib_core_thickness_m": row.get("rib_core_thickness_m"),
         "rib_spacing_profile": row.get("rib_spacing_profile"),
         "torque_zone_spacing_m": row.get("torque_zone_spacing_m"),
+        "effective_spacing_m": row.get("effective_spacing_m"),
         "local_reinforcement": row.get("local_reinforcement"),
         "rear_spar_participation": row.get("rear_spar_participation"),
+        "rear_stiffness_scale": row.get("rear_stiffness_scale"),
+        "cap_face_collar_stiffness_proxy": row.get("cap_face_collar_stiffness_proxy"),
+        "effective_gj_ratio_vs_balsa_selected": row.get("effective_gj_ratio_vs_balsa_selected"),
         "fast_model_direct_twist_deg": row.get("fast_model_direct_twist_deg"),
         "fast_model_bounded_twist_deg": row.get("fast_model_bounded_twist_deg"),
+        "twist_bound_deg": row.get("twist_bound_deg"),
         "mass_kg": trade.get("mass_kg"),
         "cg_x_m": trade.get("cg_x_m"),
         "static_margin": trade.get("static_margin"),
         "C_n_beta": trade.get("C_n_beta"),
+        "selection_status": row.get("selection_status"),
+        "blockers": row.get("blockers"),
         "calibration_priority": priority,
         "expected_solver": solver,
         "fem_purpose": purpose,
