@@ -30,7 +30,7 @@ def test_torsion_twist_closure_check_accepts_tip_ring_or_aeroelastic_inputs_only
                 "twist_limit_deg": "5.0",
                 "torque_balance_error_pct": "4.0",
                 "max_allowed_torque_balance_error_pct": "10.0",
-                "source": "FEM placeholder",
+                "source": "output/phase29/tip_ring_fem_closure_report.json",
             },
             {
                 "case_id": "single-node",
@@ -71,6 +71,27 @@ def test_torsion_twist_closure_check_requires_traceable_source() -> None:
 
     assert check.overall_status == "torsion_twist_closure_not_closed"
     assert check.rows[0].status == "source_missing"
+
+
+def test_torsion_twist_closure_rejects_placeholder_source_even_with_positive_margins() -> None:
+    check = build_torsion_twist_closure_check(
+        _torsion_audit(),
+        closure_inputs=(
+            {
+                "case_id": "tip-ring-placeholder-source",
+                "closure_method": "tip_ring_fem",
+                "measured_twist_deg": "2.2",
+                "twist_limit_deg": "5.0",
+                "torque_balance_error_pct": "4.0",
+                "max_allowed_torque_balance_error_pct": "10.0",
+                "source": "FEM placeholder",
+            },
+        ),
+    )
+
+    assert check.overall_status == "torsion_twist_closure_not_closed"
+    assert check.rows[0].status == "source_unqualified"
+    assert "qualified" in check.rows[0].engineering_note
 
 
 def test_torsion_twist_closure_check_marks_missing_inputs() -> None:

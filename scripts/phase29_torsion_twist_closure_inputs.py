@@ -191,6 +191,8 @@ def _status(
         return "invalid_twist_observable"
     if not source:
         return "source_missing"
+    if not _qualified_source(source):
+        return "source_unqualified"
     if (
         measured_twist is None
         or twist_limit is None
@@ -209,10 +211,48 @@ def _engineering_note(status: str) -> str:
             "Use tip-ring FEM, APDL tip-ring FEM, or aeroelastic-loop evidence; a single-node "
             "displacement or force-couple surrogate is not accepted."
         )
+    if status == "source_unqualified":
+        return (
+            "Source must point to a qualified FEM/APDL/aeroelastic closure artifact; "
+            "placeholder text is not closure evidence."
+        )
     return (
         "Input margin check only; not aeroelastic signoff unless the source is a qualified "
         "tip-ring FEM/APDL or aeroelastic-loop result."
     )
+
+
+def _qualified_source(source: str) -> bool:
+    value = str(source).strip()
+    if not value:
+        return False
+    lowered = value.lower()
+    placeholder_tokens = (
+        "placeholder",
+        "tbd",
+        "todo",
+        "n/a",
+        "none",
+        "unknown",
+        "unqualified",
+    )
+    if any(token in lowered for token in placeholder_tokens):
+        return False
+    qualified_tokens = (
+        "fem",
+        "apdl",
+        "ccx",
+        "calculix",
+        "aeroelastic",
+        "tip_ring",
+        "tip-ring",
+        ".json",
+        ".csv",
+        ".md",
+        ".frd",
+        ".dat",
+    )
+    return any(token in lowered for token in qualified_tokens)
 
 
 def _write_template(path: Path, torsion_audit: Any) -> Path:
