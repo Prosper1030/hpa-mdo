@@ -66,6 +66,13 @@ all-moving full-aircraft AVL audit v0 則在
 longitudinal trim 仍被 missing CG / wing AC 擋住，`V_V = 0.010145` 且
 `C_n_beta = 0.002236` 太小。下一步要先回 tail sizing / CG / reference-moment contract，
 不要直接跳 rib sensitivity。
+目前這一步已往下接出 V-tail / CG reference sizing sensitivity v0，讀
+[docs/reports/2026-05-09_vtail_cg_reference_sensitivity_v0.md](docs/reports/2026-05-09_vtail_cg_reference_sensitivity_v0.md)
+和 `output/current_pathfinder_vtail_sensitivity_v0/`。它只做 bounded V-tail area / aft-position
+AVL sensitivity，不做 rib / rear spar / ASWing-lite / FEM / tail airfoil NSGA2。結果顯示較大的
+V-tail area / tail arm 能把 `C_n_beta` 和 `C_n_deltaV` 往合理方向推，但 final verdict 仍是
+`blocked_by_missing_cg_or_reference_moment`：`Xref` 只是 AVL coefficient reference，`Xnp` 只是
+未驗證 convention 的 neutral-point candidate，current pathfinder 還沒有 promoted aircraft CG range。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -181,6 +188,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/loaded_shape_avl_recheck_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/tier2_loaded_shape_airfoil_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/aero_structure_closure_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/full_aircraft_tail_avl_audit_v0.py
+PYTHONPATH=src ./.venv/bin/python scripts/vtail_cg_reference_sensitivity_v0.py
 ```
 
 只有在明確做歷史診斷時，才可以加
@@ -225,6 +233,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
 | Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
 | Empennage / trim / stability | 已有 current pathfinder tail contract v0 foundation 與 all-moving full-aircraft AVL audit v0；目前 verdict 是 `blocked_by_directional_stability_or_vtail_authority`，尚未完成 trim/stability closure |
+| V-tail / CG reference sensitivity | 已有 bounded V-tail sizing/position AVL sensitivity v0；directional derivatives 可被 area/arm 推高，但整體仍 blocked by missing CG / x_ac / reference moment |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |

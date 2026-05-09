@@ -145,6 +145,15 @@ conservative screening candidate」，不是 final design。
   `delta_H_required` 仍被 CG / wing AC 缺口擋住，`V_V = 0.010145` 且
   `C_n_beta = 0.002236` 太小，下一步應先回 tail sizing / CG / reference-moment contract，
   不應直接進 rib sensitivity。
+- Current pathfinder V-tail / CG reference sizing sensitivity v0 已建立，位置在
+  `scripts/vtail_cg_reference_sensitivity_v0.py`、
+  `docs/reports/2026-05-09_vtail_cg_reference_sensitivity_v0.md` 與
+  `output/current_pathfinder_vtail_sensitivity_v0/`；它只掃描 bounded V-tail area /
+  aft-position authority，不做 rib、rear spar、ASWing-lite、FEM 或 tail airfoil NSGA2。
+  15 個 AVL geometry variant 顯示放大 V-tail / 增加 tail arm 會讓 `C_n_beta` 和
+  `C_n_deltaV` 往合理方向上升，但 final verdict 仍是
+  `blocked_by_missing_cg_or_reference_moment`，因為 `Xref` 不是 wing AC、`Xnp` 仍只是未驗證
+  neutral-point candidate，且 promoted aircraft CG range 尚未存在。
 - `scripts/fourier_avl_calibration_mvp.py` 提供 Fourier-AVL calibration artifacts；它現在要求
   明確 `--report-json`，舊 medium-search report 預設封鎖，只能用
   `--allow-legacy-medium-search` 做明確標示的歷史診斷。
@@ -247,11 +256,16 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 5. **回補 tail sizing / CG / reference moment，再重跑 all-moving full-aircraft AVL audit**
    - 目前：all-moving full-aircraft AVL audit v0 已可產生 deck 與 derivative artifact，但 verdict
      是 `blocked_by_directional_stability_or_vtail_authority`，且 longitudinal trim 仍被
-     missing CG / wing AC 擋住。
+     missing CG / wing AC 擋住。V-tail / CG reference sensitivity v0 已補上 bounded V-tail
+     area / aft-position 掃描，顯示 `S_V` 放大到 1.5x 以上或 nominal `S_V` 後移 1 m
+     可讓 v0 heuristic 出現方向穩定 / authority candidate，但沒有 promoted `C_n_beta_min`、
+     yaw beta case、yaw-roll coupling limit 或 CG/reference moment，因此不能宣稱 pass。
    - 目的：先補 promoted CG range、wing aerodynamic center / reference moment、yaw/turn beta case，
-     並重估 V-tail sizing / arm / area，讓 `C_n_beta` 和 V-tail authority 至少達到 screening floor。
-   - 原因：`V_V = 0.010145` 搭配 `C_n_beta = 0.002236` 表示方向穩定餘裕偏低；在這之前直接做
-     rib/rear-spar sensitivity，可能是在強化一個整機控制性不足的 candidate。
+     再選一個保守 V-tail sizing / arm / area box 重跑 all-moving audit。
+   - 原因：`V_V = 0.010145` 搭配 `C_n_beta = 0.002236` 表示原始 tail 偏弱；sensitivity 顯示
+     這個 blocker 可能可由 area/arm 改善，但 longitudinal trim / static margin 仍無法在缺 CG
+     與 reference moment 時求解。在這之前直接做 rib/rear-spar sensitivity，可能是在強化一個
+     全機 reference contract 尚未成立的 candidate。
 6. **然後做 tail-aware bounded rib/rear-spar sensitivity**
    - 目的：用同一個 locked pathfinder load/Z basis 跑 rear-soft/rear-stiff、finite-rib-link、
      no-rib/limited-rib 等 bounded sensitivity，確認 loaded tip Z、root-offset-removed AVL section Z、
@@ -268,14 +282,16 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      ASWing-like / equivalent tail-aware aeroelastic coupling -> root/wire/termination/rib/tail hardware FEM detail。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
-是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0 與 all-moving
-full-aircraft AVL audit v0 也已完成第一輪 artifact。接下來不是直接做 ASWing-like runner，
+是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
+full-aircraft AVL audit v0、以及 V-tail / CG reference sizing sensitivity v0 也已完成第一輪
+artifact。接下來不是直接做 ASWing-like runner，
 也不是直接跳 FEM 或 rib sensitivity，而是先回補 CG / wing AC / reference moment、yaw beta case
-與 V-tail sizing，再重跑 all-moving audit；之後才進 tail-aware bounded rib / rear-spar stiffness
+並選定保守 V-tail sizing box，再重跑 all-moving audit；之後才進 tail-aware bounded rib / rear-spar stiffness
 sensitivity，然後依序檢查 elastic twist / `alpha_eff` + trim、ASWing-like fixed-point coupling、
 FEM / joint / hardware / tailboom detail。
-目前 tail contract v0 foundation 和 all-moving full-aircraft AVL audit v0 已完成第一輪 artifact；
-下一步應先回補 CG / wing AC / reference moment 與 V-tail sizing，再重跑 audit。只有當
+目前 tail contract v0 foundation、all-moving full-aircraft AVL audit v0、V-tail / CG reference
+sensitivity v0 已完成第一輪 artifact；下一步應先回補 CG / wing AC / reference moment、yaw beta
+case，並從 sensitivity 內挑 conservative V-tail sizing box，再重跑 audit。只有當
 longitudinal trim、static-stability reference、directional stability / authority 都至少達到
 screening confidence 後，才適合進 tail-aware bounded rib / rear-spar stiffness sensitivity。
 其中 rib / rear-spar sensitivity 仍必須把 conservative remap diagnostics 當前置 gate，不能把

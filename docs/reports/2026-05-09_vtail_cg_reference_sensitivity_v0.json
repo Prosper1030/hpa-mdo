@@ -1,0 +1,1583 @@
+{
+  "artifact_manifest": {
+    "cases": [
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/neutral/sv1p0_xaft0p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/neutral/sv1p0_xaft0p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/neutral/sv1p0_xaft0p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv1p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/neutral/sv1p0_xaft0p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/neutral/sv1p0_xaft0p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_minus_small/sv1p0_xaft0p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_minus_small/sv1p0_xaft0p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_minus_small/sv1p0_xaft0p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv1p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_minus_small/sv1p0_xaft0p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_minus_small/sv1p0_xaft0p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_plus_small/sv1p0_xaft0p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_plus_small/sv1p0_xaft0p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_plus_small/sv1p0_xaft0p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv1p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_plus_small/sv1p0_xaft0p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p0_z0p0/v_delta_plus_small/sv1p0_xaft0p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/neutral/sv1p0_xaft0p5_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/neutral/sv1p0_xaft0p5_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/neutral/sv1p0_xaft0p5_z0p0_neutral_stdout.log"
+        },
+        "case": "sv1p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/neutral/sv1p0_xaft0p5_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/neutral/sv1p0_xaft0p5_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_minus_small/sv1p0_xaft0p5_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_minus_small/sv1p0_xaft0p5_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_minus_small/sv1p0_xaft0p5_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv1p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_minus_small/sv1p0_xaft0p5_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_minus_small/sv1p0_xaft0p5_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_plus_small/sv1p0_xaft0p5_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_plus_small/sv1p0_xaft0p5_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_plus_small/sv1p0_xaft0p5_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv1p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_plus_small/sv1p0_xaft0p5_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft0p5_z0p0/v_delta_plus_small/sv1p0_xaft0p5_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/neutral/sv1p0_xaft1p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/neutral/sv1p0_xaft1p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/neutral/sv1p0_xaft1p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv1p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/neutral/sv1p0_xaft1p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/neutral/sv1p0_xaft1p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_minus_small/sv1p0_xaft1p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_minus_small/sv1p0_xaft1p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_minus_small/sv1p0_xaft1p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv1p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_minus_small/sv1p0_xaft1p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_minus_small/sv1p0_xaft1p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_plus_small/sv1p0_xaft1p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_plus_small/sv1p0_xaft1p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_plus_small/sv1p0_xaft1p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv1p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_plus_small/sv1p0_xaft1p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p0_xaft1p0_z0p0/v_delta_plus_small/sv1p0_xaft1p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/neutral/sv1p5_xaft0p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/neutral/sv1p5_xaft0p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/neutral/sv1p5_xaft0p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv1p5_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/neutral/sv1p5_xaft0p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/neutral/sv1p5_xaft0p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_minus_small/sv1p5_xaft0p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_minus_small/sv1p5_xaft0p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_minus_small/sv1p5_xaft0p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv1p5_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_minus_small/sv1p5_xaft0p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_minus_small/sv1p5_xaft0p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_plus_small/sv1p5_xaft0p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_plus_small/sv1p5_xaft0p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_plus_small/sv1p5_xaft0p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv1p5_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_plus_small/sv1p5_xaft0p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p0_z0p0/v_delta_plus_small/sv1p5_xaft0p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/neutral/sv1p5_xaft0p5_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/neutral/sv1p5_xaft0p5_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/neutral/sv1p5_xaft0p5_z0p0_neutral_stdout.log"
+        },
+        "case": "sv1p5_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/neutral/sv1p5_xaft0p5_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/neutral/sv1p5_xaft0p5_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_minus_small/sv1p5_xaft0p5_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_minus_small/sv1p5_xaft0p5_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_minus_small/sv1p5_xaft0p5_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv1p5_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_minus_small/sv1p5_xaft0p5_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_minus_small/sv1p5_xaft0p5_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_plus_small/sv1p5_xaft0p5_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_plus_small/sv1p5_xaft0p5_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_plus_small/sv1p5_xaft0p5_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv1p5_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_plus_small/sv1p5_xaft0p5_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft0p5_z0p0/v_delta_plus_small/sv1p5_xaft0p5_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/neutral/sv1p5_xaft1p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/neutral/sv1p5_xaft1p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/neutral/sv1p5_xaft1p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv1p5_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/neutral/sv1p5_xaft1p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/neutral/sv1p5_xaft1p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_minus_small/sv1p5_xaft1p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_minus_small/sv1p5_xaft1p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_minus_small/sv1p5_xaft1p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv1p5_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_minus_small/sv1p5_xaft1p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_minus_small/sv1p5_xaft1p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_plus_small/sv1p5_xaft1p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_plus_small/sv1p5_xaft1p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_plus_small/sv1p5_xaft1p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv1p5_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_plus_small/sv1p5_xaft1p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv1p5_xaft1p0_z0p0/v_delta_plus_small/sv1p5_xaft1p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/neutral/sv2p0_xaft0p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/neutral/sv2p0_xaft0p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/neutral/sv2p0_xaft0p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv2p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/neutral/sv2p0_xaft0p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/neutral/sv2p0_xaft0p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_minus_small/sv2p0_xaft0p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_minus_small/sv2p0_xaft0p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_minus_small/sv2p0_xaft0p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv2p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_minus_small/sv2p0_xaft0p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_minus_small/sv2p0_xaft0p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_plus_small/sv2p0_xaft0p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_plus_small/sv2p0_xaft0p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_plus_small/sv2p0_xaft0p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv2p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_plus_small/sv2p0_xaft0p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p0_z0p0/v_delta_plus_small/sv2p0_xaft0p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/neutral/sv2p0_xaft0p5_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/neutral/sv2p0_xaft0p5_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/neutral/sv2p0_xaft0p5_z0p0_neutral_stdout.log"
+        },
+        "case": "sv2p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/neutral/sv2p0_xaft0p5_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/neutral/sv2p0_xaft0p5_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_minus_small/sv2p0_xaft0p5_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_minus_small/sv2p0_xaft0p5_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_minus_small/sv2p0_xaft0p5_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv2p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_minus_small/sv2p0_xaft0p5_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_minus_small/sv2p0_xaft0p5_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_plus_small/sv2p0_xaft0p5_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_plus_small/sv2p0_xaft0p5_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_plus_small/sv2p0_xaft0p5_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv2p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_plus_small/sv2p0_xaft0p5_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft0p5_z0p0/v_delta_plus_small/sv2p0_xaft0p5_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/neutral/sv2p0_xaft1p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/neutral/sv2p0_xaft1p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/neutral/sv2p0_xaft1p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv2p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/neutral/sv2p0_xaft1p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/neutral/sv2p0_xaft1p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_minus_small/sv2p0_xaft1p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_minus_small/sv2p0_xaft1p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_minus_small/sv2p0_xaft1p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv2p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_minus_small/sv2p0_xaft1p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_minus_small/sv2p0_xaft1p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_plus_small/sv2p0_xaft1p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_plus_small/sv2p0_xaft1p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_plus_small/sv2p0_xaft1p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv2p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_plus_small/sv2p0_xaft1p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p0_xaft1p0_z0p0/v_delta_plus_small/sv2p0_xaft1p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/neutral/sv2p5_xaft0p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/neutral/sv2p5_xaft0p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/neutral/sv2p5_xaft0p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv2p5_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/neutral/sv2p5_xaft0p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/neutral/sv2p5_xaft0p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_minus_small/sv2p5_xaft0p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_minus_small/sv2p5_xaft0p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_minus_small/sv2p5_xaft0p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv2p5_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_minus_small/sv2p5_xaft0p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_minus_small/sv2p5_xaft0p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_plus_small/sv2p5_xaft0p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_plus_small/sv2p5_xaft0p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_plus_small/sv2p5_xaft0p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv2p5_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_plus_small/sv2p5_xaft0p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p0_z0p0/v_delta_plus_small/sv2p5_xaft0p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/neutral/sv2p5_xaft0p5_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/neutral/sv2p5_xaft0p5_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/neutral/sv2p5_xaft0p5_z0p0_neutral_stdout.log"
+        },
+        "case": "sv2p5_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/neutral/sv2p5_xaft0p5_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/neutral/sv2p5_xaft0p5_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_minus_small/sv2p5_xaft0p5_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_minus_small/sv2p5_xaft0p5_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_minus_small/sv2p5_xaft0p5_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv2p5_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_minus_small/sv2p5_xaft0p5_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_minus_small/sv2p5_xaft0p5_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_plus_small/sv2p5_xaft0p5_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_plus_small/sv2p5_xaft0p5_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_plus_small/sv2p5_xaft0p5_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv2p5_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_plus_small/sv2p5_xaft0p5_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft0p5_z0p0/v_delta_plus_small/sv2p5_xaft0p5_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/neutral/sv2p5_xaft1p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/neutral/sv2p5_xaft1p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/neutral/sv2p5_xaft1p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv2p5_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/neutral/sv2p5_xaft1p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/neutral/sv2p5_xaft1p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_minus_small/sv2p5_xaft1p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_minus_small/sv2p5_xaft1p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_minus_small/sv2p5_xaft1p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv2p5_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_minus_small/sv2p5_xaft1p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_minus_small/sv2p5_xaft1p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_plus_small/sv2p5_xaft1p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_plus_small/sv2p5_xaft1p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_plus_small/sv2p5_xaft1p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv2p5_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_plus_small/sv2p5_xaft1p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv2p5_xaft1p0_z0p0/v_delta_plus_small/sv2p5_xaft1p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/neutral/sv3p0_xaft0p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/neutral/sv3p0_xaft0p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/neutral/sv3p0_xaft0p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv3p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/neutral/sv3p0_xaft0p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/neutral/sv3p0_xaft0p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_minus_small/sv3p0_xaft0p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_minus_small/sv3p0_xaft0p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_minus_small/sv3p0_xaft0p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv3p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_minus_small/sv3p0_xaft0p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_minus_small/sv3p0_xaft0p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_plus_small/sv3p0_xaft0p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_plus_small/sv3p0_xaft0p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_plus_small/sv3p0_xaft0p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv3p0_xaft0p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_plus_small/sv3p0_xaft0p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p0_z0p0/v_delta_plus_small/sv3p0_xaft0p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/neutral/sv3p0_xaft0p5_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/neutral/sv3p0_xaft0p5_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/neutral/sv3p0_xaft0p5_z0p0_neutral_stdout.log"
+        },
+        "case": "sv3p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/neutral/sv3p0_xaft0p5_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/neutral/sv3p0_xaft0p5_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_minus_small/sv3p0_xaft0p5_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_minus_small/sv3p0_xaft0p5_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_minus_small/sv3p0_xaft0p5_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv3p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_minus_small/sv3p0_xaft0p5_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_minus_small/sv3p0_xaft0p5_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_plus_small/sv3p0_xaft0p5_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_plus_small/sv3p0_xaft0p5_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_plus_small/sv3p0_xaft0p5_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv3p0_xaft0p5_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_plus_small/sv3p0_xaft0p5_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft0p5_z0p0/v_delta_plus_small/sv3p0_xaft0p5_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/neutral/sv3p0_xaft1p0_z0p0_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/neutral/sv3p0_xaft1p0_z0p0_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/neutral/sv3p0_xaft1p0_z0p0_neutral_stdout.log"
+        },
+        "case": "sv3p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/neutral/sv3p0_xaft1p0_z0p0_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/neutral/sv3p0_xaft1p0_z0p0_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_minus_small/sv3p0_xaft1p0_z0p0_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_minus_small/sv3p0_xaft1p0_z0p0_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_minus_small/sv3p0_xaft1p0_z0p0_v_delta_minus_small_stdout.log"
+        },
+        "case": "sv3p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_minus_small/sv3p0_xaft1p0_z0p0_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_minus_small/sv3p0_xaft1p0_z0p0_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_plus_small/sv3p0_xaft1p0_z0p0_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_plus_small/sv3p0_xaft1p0_z0p0_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_plus_small/sv3p0_xaft1p0_z0p0_v_delta_plus_small_stdout.log"
+        },
+        "case": "sv3p0_xaft1p0_z0p0",
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_plus_small/sv3p0_xaft1p0_z0p0_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0/sv3p0_xaft1p0_z0p0/v_delta_plus_small/sv3p0_xaft1p0_z0p0_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      }
+    ],
+    "deck_count": 45,
+    "output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_vtail_sensitivity_v0",
+    "schema_version": "vtail_cg_reference_sensitivity_manifest_v0"
+  },
+  "best_directional_box_candidates": [
+    {
+      "C_l_beta": -0.241236,
+      "C_l_deltaV": -0.002865,
+      "C_n_beta": 0.027276,
+      "C_n_deltaV": 0.060447,
+      "V_V": 0.036365,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 3.0,
+      "case": "sv3p0_xaft1p0_z0p0",
+      "warnings": [
+        "large_vtail_area_screening_only"
+      ]
+    },
+    {
+      "C_l_beta": -0.241117,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.024763,
+      "C_n_deltaV": 0.057869,
+      "V_V": 0.029984,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 2.5,
+      "case": "sv2p5_xaft1p0_z0p0",
+      "warnings": []
+    },
+    {
+      "C_l_beta": -0.241082,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.023658,
+      "C_n_deltaV": 0.057009,
+      "V_V": 0.034169,
+      "aft_shift_m": 0.5,
+      "area_multiplier": 3.0,
+      "case": "sv3p0_xaft0p5_z0p0",
+      "warnings": [
+        "large_vtail_area_screening_only"
+      ]
+    },
+    {
+      "C_l_beta": -0.24096,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.021287,
+      "C_n_deltaV": 0.054431,
+      "V_V": 0.028154,
+      "aft_shift_m": 0.5,
+      "area_multiplier": 2.5,
+      "case": "sv2p5_xaft0p5_z0p0",
+      "warnings": []
+    },
+    {
+      "C_l_beta": -0.240947,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.021131,
+      "C_n_deltaV": 0.054431,
+      "V_V": 0.023731,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 2.0,
+      "case": "sv2p0_xaft1p0_z0p0",
+      "warnings": []
+    }
+  ],
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "cg_reference_audit": {
+    "Xnp": {
+      "engineering_read": "Neutral point candidate only. Use for static margin only after parser, axis, reference point, and sign convention are verified.",
+      "status": "candidate_only_convention_not_verified",
+      "value_m": 0.694932
+    },
+    "Xref": {
+      "engineering_read": "AVL Xref is a coefficient reference, not x_ac_w or x_cg.",
+      "source": "output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.avl:#Xref",
+      "status": "reference_only_not_aerodynamic_center",
+      "value_m": 0.246277
+    },
+    "blocked_fields": [
+      "x_ac_w",
+      "x_cg"
+    ],
+    "mass_manifest": {
+      "engineering_read": "Estimated or ignored-output mass entries are useful clues, but they are not a promoted CG range or moment reference contract.",
+      "pilot_entry": {
+        "m_kg": 56.0,
+        "source": "estimated",
+        "xyz_m": [
+          0.4,
+          0.0,
+          -0.5
+        ]
+      },
+      "status": "estimated_or_untracked_not_promoted",
+      "tracked_by_git": false
+    },
+    "moment_reference": {
+      "engineering_read": "Static margin cannot be claimed unless coefficients are referenced about CG, or x_np and x_cg are both available with verified convention.",
+      "status": "reference_point_available_not_cg"
+    },
+    "overall_status": "blocked_by_missing_cg_or_reference_moment",
+    "required_relationships": {
+      "static_margin_from_derivatives": "SM ~= -C_m_alpha / C_L_alpha only if coefficients are referenced about CG and sign convention is verified.",
+      "static_margin_from_np": "SM ~= (x_np - x_cg) / cbar_W"
+    },
+    "schema_version": "cg_reference_contract_audit_v0",
+    "x_ac_w": {
+      "engineering_read": "Wing aerodynamic center remains missing unless explicit artifact exists.",
+      "status": "blocking_missing",
+      "value_m": null
+    },
+    "x_cg": {
+      "engineering_read": "Aircraft CG/range remains missing unless explicit manifest exists.",
+      "status": "blocking_missing",
+      "value_m": null
+    }
+  },
+  "claim_boundary": "This is bounded V-tail sizing/position/authority sensitivity plus CG/reference audit. It is not a rib sensitivity, ASWing run, FEM sign-off, tail airfoil optimization, or aircraft feasibility pass.",
+  "contract_id": "current_avl_compromise_conservative_closed_tail_contract_v0",
+  "engineering_verdict": "blocked_by_missing_cg_or_reference_moment",
+  "required_math": {
+    "C_n_deltaV": "C_n_deltaV ~= [C_n(+Delta delta_V) - C_n(-Delta delta_V)] / (2 Delta delta_V)",
+    "SM_derivatives": "SM ~= -C_m_alpha / C_L_alpha only if coefficients are referenced about CG and sign convention is verified.",
+    "SM_xnp": "SM ~= (x_np - x_cg) / cbar_W",
+    "V_V": "V_V = S_V l_V / (S_W b_W)",
+    "yaw_roll": "C_l,V ~ Y_V z_V / (q S_W b_W)"
+  },
+  "runner_status": "completed",
+  "schema_version": "vtail_cg_reference_sensitivity_v0",
+  "sensitivity_cases": [
+    {
+      "C_l_beta": -0.239945,
+      "C_l_deltaV": -0.001432,
+      "C_n_beta": 0.002236,
+      "C_n_deltaV": 0.035237,
+      "S_V_m2": 1.68,
+      "V_V": 0.010145,
+      "aft_shift_m": 0.0,
+      "area_multiplier": 1.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv1p0_xaft0p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": false,
+      "geometry_warnings": [],
+      "l_V_m": 6.928723,
+      "warnings": [
+        "low_V_V_directional_authority_risk",
+        "very_small_C_n_beta_return_to_tail_sizing"
+      ],
+      "x_ac_V_m": 7.175,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 107.309928,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.04065,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [
+          "roll_sideslip_derivative_large_relative_to_yaw_stability"
+        ],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.24016,
+      "C_l_deltaV": -0.001719,
+      "C_n_beta": 0.004683,
+      "C_n_deltaV": 0.037529,
+      "S_V_m2": 1.68,
+      "V_V": 0.010877,
+      "aft_shift_m": 0.5,
+      "area_multiplier": 1.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv1p0_xaft0p5_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": false,
+      "geometry_warnings": [],
+      "l_V_m": 7.428723,
+      "warnings": [
+        "low_V_V_directional_authority_risk",
+        "very_small_C_n_beta_return_to_tail_sizing"
+      ],
+      "x_ac_V_m": 7.675,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 51.283365,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.045802,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [
+          "roll_sideslip_derivative_large_relative_to_yaw_stability"
+        ],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240299,
+      "C_l_deltaV": -0.002005,
+      "C_n_beta": 0.007156,
+      "C_n_deltaV": 0.040107,
+      "S_V_m2": 1.68,
+      "V_V": 0.011609,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 1.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv1p0_xaft1p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 7.928723,
+      "warnings": [
+        "low_V_V_directional_authority_risk"
+      ],
+      "x_ac_V_m": 8.175,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 33.580073,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.05,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [
+          "roll_sideslip_derivative_large_relative_to_yaw_stability"
+        ],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240304,
+      "C_l_deltaV": -0.002005,
+      "C_n_beta": 0.009811,
+      "C_n_deltaV": 0.042685,
+      "S_V_m2": 2.52,
+      "V_V": 0.01541,
+      "aft_shift_m": 0.0,
+      "area_multiplier": 1.5,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv1p5_xaft0p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 7.016223,
+      "warnings": [],
+      "x_ac_V_m": 7.2625,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 24.493324,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.04698,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [
+          "roll_sideslip_derivative_large_relative_to_yaw_stability"
+        ],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.24054,
+      "C_l_deltaV": -0.002005,
+      "C_n_beta": 0.012724,
+      "C_n_deltaV": 0.045837,
+      "S_V_m2": 2.52,
+      "V_V": 0.016508,
+      "aft_shift_m": 0.5,
+      "area_multiplier": 1.5,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv1p5_xaft0p5_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 7.516223,
+      "warnings": [],
+      "x_ac_V_m": 7.7625,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 18.904433,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.04375,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240694,
+      "C_l_deltaV": -0.002292,
+      "C_n_beta": 0.015688,
+      "C_n_deltaV": 0.048701,
+      "S_V_m2": 2.52,
+      "V_V": 0.017606,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 1.5,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv1p5_xaft1p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 8.016223,
+      "warnings": [],
+      "x_ac_V_m": 8.2625,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 15.342555,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.047059,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240551,
+      "C_l_deltaV": -0.002005,
+      "C_n_beta": 0.014649,
+      "C_n_deltaV": 0.047842,
+      "S_V_m2": 3.36,
+      "V_V": 0.020802,
+      "aft_shift_m": 0.0,
+      "area_multiplier": 2.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv2p0_xaft0p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 7.103723,
+      "warnings": [],
+      "x_ac_V_m": 7.35,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 16.420984,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.041916,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240789,
+      "C_l_deltaV": -0.002292,
+      "C_n_beta": 0.017859,
+      "C_n_deltaV": 0.050993,
+      "S_V_m2": 3.36,
+      "V_V": 0.022267,
+      "aft_shift_m": 0.5,
+      "area_multiplier": 2.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv2p0_xaft0p5_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 7.603723,
+      "warnings": [],
+      "x_ac_V_m": 7.85,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 13.482782,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.044944,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240947,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.021131,
+      "C_n_deltaV": 0.054431,
+      "S_V_m2": 3.36,
+      "V_V": 0.023731,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 2.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv2p0_xaft1p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 8.103723,
+      "warnings": [],
+      "x_ac_V_m": 8.35,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 11.402537,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.047368,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240728,
+      "C_l_deltaV": -0.002292,
+      "C_n_beta": 0.017875,
+      "C_n_deltaV": 0.050993,
+      "S_V_m2": 4.2,
+      "V_V": 0.026323,
+      "aft_shift_m": 0.0,
+      "area_multiplier": 2.5,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv2p5_xaft0p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 7.191223,
+      "warnings": [],
+      "x_ac_V_m": 7.4375,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 13.467301,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.044944,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.24096,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.021287,
+      "C_n_deltaV": 0.054431,
+      "S_V_m2": 4.2,
+      "V_V": 0.028154,
+      "aft_shift_m": 0.5,
+      "area_multiplier": 2.5,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv2p5_xaft0p5_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 7.691223,
+      "warnings": [],
+      "x_ac_V_m": 7.9375,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 11.319585,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.047368,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.241117,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.024763,
+      "C_n_deltaV": 0.057869,
+      "S_V_m2": 4.2,
+      "V_V": 0.029984,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 2.5,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv2p5_xaft1p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [],
+      "l_V_m": 8.191223,
+      "warnings": [],
+      "x_ac_V_m": 8.4375,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 9.736987,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.044554,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.240858,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.020101,
+      "C_n_deltaV": 0.053285,
+      "S_V_m2": 5.04,
+      "V_V": 0.031972,
+      "aft_shift_m": 0.0,
+      "area_multiplier": 3.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv3p0_xaft0p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [
+        "large_vtail_area_screening_only"
+      ],
+      "l_V_m": 7.278723,
+      "warnings": [
+        "large_vtail_area_screening_only"
+      ],
+      "x_ac_V_m": 7.525,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 11.982389,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.048387,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.241082,
+      "C_l_deltaV": -0.002578,
+      "C_n_beta": 0.023658,
+      "C_n_deltaV": 0.057009,
+      "S_V_m2": 5.04,
+      "V_V": 0.034169,
+      "aft_shift_m": 0.5,
+      "area_multiplier": 3.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv3p0_xaft0p5_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [
+        "large_vtail_area_screening_only"
+      ],
+      "l_V_m": 7.778723,
+      "warnings": [
+        "large_vtail_area_screening_only"
+      ],
+      "x_ac_V_m": 8.025,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 10.190295,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.045226,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    },
+    {
+      "C_l_beta": -0.241236,
+      "C_l_deltaV": -0.002865,
+      "C_n_beta": 0.027276,
+      "C_n_deltaV": 0.060447,
+      "S_V_m2": 5.04,
+      "V_V": 0.036365,
+      "aft_shift_m": 1.0,
+      "area_multiplier": 3.0,
+      "authority_equation_status": {
+        "equation": "exists delta_V such that C_n(beta, delta_V) = 0",
+        "reason": "No promoted yaw/turn beta case is available.",
+        "status": "not_solved_without_beta_case"
+      },
+      "case": "sv3p0_xaft1p0_z0p0",
+      "deck_run_status": "completed",
+      "derivative_signs": {
+        "C_l_beta": {
+          "expected": "finite roll-with-sideslip derivative; sign is configuration-dependent",
+          "physically_plausible": true,
+          "status": "finite_configuration_dependent"
+        },
+        "C_n_beta": {
+          "expected": "positive directional stability derivative in AVL convention",
+          "physically_plausible": true,
+          "status": "expected_positive"
+        },
+        "C_n_deltaV": {
+          "expected": "finite all-moving V-tail yaw control derivative",
+          "physically_plausible": true,
+          "status": "finite_control_authority"
+        }
+      },
+      "directional_box_candidate": true,
+      "geometry_warnings": [
+        "large_vtail_area_screening_only"
+      ],
+      "l_V_m": 8.278723,
+      "warnings": [
+        "large_vtail_area_screening_only"
+      ],
+      "x_ac_V_m": 8.525,
+      "yaw_roll_coupling_warning": {
+        "abs_C_l_beta_over_C_n_beta": 8.844259,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.047393,
+        "formula": "C_l,V ~ Y_V z_V / (q S_W b_W)",
+        "notes": [],
+        "status": "warning_not_limit_checked"
+      },
+      "z_ac_V_m": 0.5,
+      "z_shift_m": 0.0
+    }
+  ],
+  "sensitivity_grid": {
+    "S_V_multipliers": [
+      1.0,
+      1.5,
+      2.0,
+      2.5,
+      3.0
+    ],
+    "aft_shifts_m": [
+      0.0,
+      0.5,
+      1.0
+    ],
+    "excluded_scopes": [
+      "rib_or_rear_spar_sensitivity",
+      "ASWing_lite",
+      "FEM",
+      "tail_airfoil_NSGA2"
+    ],
+    "small_delta_deg": 2.0,
+    "z_shifts_m": [
+      0.0
+    ]
+  }
+}
