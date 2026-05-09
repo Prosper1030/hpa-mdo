@@ -44,7 +44,7 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
    orientations:            0
    amplitudes:            2
    data points in all amplitudes:            2
-   print requests:            1
+   print requests:            2
    transformations:            0
    property cards:            0
 
@@ -90,7 +90,7 @@ You are using an executable made on Fri Apr 17 06:02:21 UTC 2026
 
 ________________________________________
 
-Total CalculiX Time: 0.009210
+Total CalculiX Time: 0.009619
 ________________________________________
 
 ===== ccx stderr =====

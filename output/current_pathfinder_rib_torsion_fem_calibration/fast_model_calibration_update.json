@@ -1,66 +1,101 @@
 {
-  "claim_boundary": "calibration_correction_for_search_only_not_final_FEM_truth",
-  "family_correction_factors": {
+  "claim_boundary": "diagnostic_only_fast_physics_revision_not_final_FEM_truth",
+  "diagnostic_legacy_family_twist_factors": {
     "balsa_sheet_3mm": {
-      "mass_factor": 1.0,
       "twist_factor": 1.0
     },
     "eps_balsa_cap_hybrid_10mm": {
-      "mass_factor": 1.0,
-      "twist_factor": 1.497702
+      "twist_factor": 1.354975
     },
     "eps_hd_foam_cnc_10mm": {
-      "mass_factor": 1.0,
       "twist_factor": 0.166651
     },
     "structural_foam_glass_face_10mm": {
-      "mass_factor": 1.0,
       "twist_factor": 1.490607
     }
   },
-  "next_loop_action": "rerun_fast_search_with_calibrated_twist_factors",
-  "schema_version": "rib_torsion_fast_model_calibration_update_v1",
-  "status": "calibration_update_ready_for_fast_loop",
+  "family_correction_factors": {},
+  "next_loop_action": "rerun_fast_search_with_revised_physical_model_no_family_factor",
+  "physical_model_id": "link_limited_torsion_cell_v2",
+  "schema_version": "rib_torsion_fast_physics_alignment_v2",
+  "status": "fast_physics_alignment_diagnostic_ready",
+  "structural_candidate_max_revised_factor_error_pct": 4.553811,
   "used_result_rows": [
     {
       "family_key": "balsa_sheet_3mm",
-      "fast_model_bounded_twist_deg": 3.256324,
       "fem_twist_deg": 3.256324,
+      "legacy_factor_error_pct": 0.0,
+      "legacy_fast_model_bounded_twist_deg": 3.256324,
+      "legacy_fast_vs_ccx_factor": 1.0,
       "mass_factor": null,
+      "revised_factor_error_pct": 0.0,
+      "revised_fast_model_bounded_twist_deg": 3.256324,
+      "revised_fast_vs_ccx_factor": 1.0,
       "sample_id": "baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50",
       "sample_role": "baseline_balsa_3mm",
       "solver": "calculix_ccx_local_frame_fem",
-      "twist_factor": 1.0
+      "structural_credit_policy": "candidate_structural_credit_requires_FEM_calibration"
     },
     {
       "family_key": "eps_balsa_cap_hybrid_10mm",
-      "fast_model_bounded_twist_deg": 1.471349,
       "fem_twist_deg": 2.203642,
+      "legacy_factor_error_pct": 49.770177,
+      "legacy_fast_model_bounded_twist_deg": 1.471349,
+      "legacy_fast_vs_ccx_factor": 1.497702,
       "mass_factor": null,
+      "revised_factor_error_pct": 4.553811,
+      "revised_fast_model_bounded_twist_deg": 2.107663,
+      "revised_fast_vs_ccx_factor": 1.045538,
       "sample_id": "selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75",
       "sample_role": "selected_hybrid_10mm",
       "solver": "calculix_ccx_local_frame_fem",
-      "twist_factor": 1.497702
+      "structural_credit_policy": "candidate_structural_credit_requires_FEM_calibration"
     },
     {
       "family_key": "structural_foam_glass_face_10mm",
-      "fast_model_bounded_twist_deg": 0.508631,
       "fem_twist_deg": 0.758169,
+      "legacy_factor_error_pct": 49.060714,
+      "legacy_fast_model_bounded_twist_deg": 0.508631,
+      "legacy_fast_vs_ccx_factor": 1.490607,
       "mass_factor": null,
+      "revised_factor_error_pct": 1.171351,
+      "revised_fast_model_bounded_twist_deg": 0.749391,
+      "revised_fast_vs_ccx_factor": 1.011714,
       "sample_id": "aggressive_plausible_hybrid__structural_foam_glass_face_10mm__t15p0mm__dense_torque_zone_0p20__carbon_face_collar_y2p328__rear75",
       "sample_role": "aggressive_plausible_hybrid",
       "solver": "calculix_ccx_local_frame_fem",
-      "twist_factor": 1.490607
+      "structural_credit_policy": "candidate_structural_credit_requires_FEM_calibration"
     },
     {
       "family_key": "eps_hd_foam_cnc_10mm",
-      "fast_model_bounded_twist_deg": 19.944533,
       "fem_twist_deg": 3.323776,
+      "legacy_factor_error_pct": 83.334902,
+      "legacy_fast_model_bounded_twist_deg": 19.944533,
+      "legacy_fast_vs_ccx_factor": 0.166651,
       "mass_factor": null,
+      "revised_factor_error_pct": 83.334902,
+      "revised_fast_model_bounded_twist_deg": 19.944533,
+      "revised_fast_vs_ccx_factor": 0.166651,
       "sample_id": "lightweight_foam_core_reference__eps_hd_foam_cnc_10mm__t10p0mm__uniform_0p30__none__rear50",
       "sample_role": "lightweight_foam_core_reference",
       "solver": "calculix_ccx_local_frame_fem",
-      "twist_factor": 0.166651
+      "structural_credit_policy": "shape_core_reference_only"
+    },
+    {
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "fem_twist_deg": 1.64095,
+      "legacy_factor_error_pct": 21.224904,
+      "legacy_fast_model_bounded_twist_deg": 1.353641,
+      "legacy_fast_vs_ccx_factor": 1.212249,
+      "mass_factor": null,
+      "revised_factor_error_pct": 1.950416,
+      "revised_fast_model_bounded_twist_deg": 1.673592,
+      "revised_fast_vs_ccx_factor": 0.980496,
+      "sample_id": "revised_selected_candidate__eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
+      "sample_role": "revised_selected_candidate",
+      "solver": "calculix_ccx_local_frame_fem",
+      "structural_credit_policy": "candidate_structural_credit_requires_FEM_calibration"
     }
-  ]
+  ],
+  "verification_verdict": "fast_physical_model_verified_within_5pct"
 }

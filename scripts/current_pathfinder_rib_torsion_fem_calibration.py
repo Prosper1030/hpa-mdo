@@ -115,6 +115,11 @@ def write_rib_torsion_fem_calibration_package(
         summary,
         calibration_results=calibration_results,
     )
+    ccx_model_audit = _audit_ccx_local_model(
+        summary=summary,
+        calculix_local=calculix_local,
+        calibration_results=calibration_results,
+    )
     calibrated_summary = _build_calibrated_search_summary(
         original_summary=summary,
         calibration_update=calibration_update,
@@ -127,8 +132,12 @@ def write_rib_torsion_fem_calibration_package(
         config_path=config_path,
         run_calculix_smoke=run_calculix_smoke,
     )
+    sensitivity_experiment = _fast_physics_sensitivity_experiment(
+        summary=summary,
+        calibration_results=calibration_results,
+    )
     family_feedback_rows = _family_feedback_rows(calibration_update)
-    decision = _calibration_decision(calibration_results, calibrated_summary)
+    decision = _calibration_decision(calibration_results, calibrated_summary, ccx_model_audit)
 
     paths = {
         "summary_json": output_dir / "rib_torsion_fem_calibration_summary.json",
@@ -153,10 +162,12 @@ def write_rib_torsion_fem_calibration_package(
         "source_fast_verdict": summary.get("engineering_verdict"),
         "primary_solver": CCX_LOCAL_SOLVER,
         "calibration_decision": decision,
+        "ccx_local_model_audit": ccx_model_audit,
         "calibration_results": calibration_results,
         "python_local_torsion_link_comparison": python_comparison_results,
         "calculix_local_fem": calculix_local,
         "calibration_update": calibration_update,
+        "fast_physics_sensitivity_experiment": sensitivity_experiment,
         "calibrated_search_selected_fast_candidate": calibrated_summary.get(
             "selected_fast_candidate"
         ),
@@ -264,6 +275,7 @@ def build_calculix_local_fem_calibration_results(
                     "status": str(override.get("status") or "completed"),
                     "run_mode": "override",
                     "ccx_path": ccx_path,
+                    "fem_twist_override_deg": _float_or_none(override.get("fem_twist_deg")),
                     "twist_factor_override": _float_or_none(override.get("twist_factor")),
                     "note": "Numerical override supplied by test or external result import.",
                 }
@@ -601,8 +613,10 @@ def _render_calculix_local_frame_deck(spec: Mapping[str, Any]) -> str:
         [
             "*NODE PRINT, NSET=TWIST_PAIR",
             "U",
+            "*NODE PRINT, NSET=LOCAL_BAY_ENDS",
+            "RF",
             "*NODE FILE, OUTPUT=3D",
-            "U",
+            "U, RF",
             "*END STEP",
             "",
         ]
@@ -692,13 +706,15 @@ def _extract_calculix_local_frame_response(
         }
     twist_rad = (rear_uz - main_uz) / LOCAL_MAIN_REAR_SPACING_M
     compliance = abs(twist_rad) / max(abs(LOCAL_TORQUE_N_M), 1.0e-12)
-    return {
+    response = {
         "center_main_uz_m": main_uz,
         "center_rear_uz_m": rear_uz,
         "twist_rad": twist_rad,
         "twist_deg_raw": math.degrees(twist_rad),
         "local_compliance_rad_per_n_m": compliance,
     }
+    response.update(_parse_local_bay_reaction_balance(run_payload.get("dat"), spec))
+    return response
 
 
 def _parse_twist_pair_displacements_from_dat(dat_path: Any) -> dict[int, float]:
@@ -737,6 +753,63 @@ def _parse_twist_pair_displacements_from_dat(dat_path: Any) -> dict[int, float]:
     return rows
 
 
+def _parse_local_bay_reaction_balance(
+    dat_path: Any,
+    spec: Mapping[str, Any],
+) -> dict[str, Any]:
+    if not dat_path:
+        return {}
+    path = Path(dat_path)
+    if not path.exists():
+        return {}
+    end_nodes = {int(node_id) for node_id in spec.get("end_node_ids") or []}
+    rows: dict[int, tuple[float, float, float]] = {}
+    in_block = False
+    for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            if in_block and rows:
+                break
+            continue
+        lowered = stripped.lower()
+        if "force" in lowered and "local_bay_ends" in lowered:
+            in_block = True
+            rows = {}
+            continue
+        if not in_block:
+            continue
+        parts = stripped.replace("D", "E").split()
+        if len(parts) < 4:
+            if rows:
+                break
+            continue
+        try:
+            node_id = int(float(parts[0]))
+            values = tuple(float(parts[idx]) for idx in range(1, 4))
+        except ValueError:
+            if rows:
+                break
+            continue
+        if not end_nodes or node_id in end_nodes:
+            rows[node_id] = values
+    if not rows:
+        return {}
+    sum_fx = sum(value[0] for value in rows.values())
+    sum_fy = sum(value[1] for value in rows.values())
+    sum_fz = sum(value[2] for value in rows.values())
+    applied_fz = float(spec["local_loads"]["main_total_z_load_n"])
+    applied_fz += float(spec["local_loads"]["rear_total_z_load_n"])
+    residual_fz = sum_fz + applied_fz
+    return {
+        "reaction_force_sum_x_n": sum_fx,
+        "reaction_force_sum_y_n": sum_fy,
+        "reaction_force_sum_z_n": sum_fz,
+        "reaction_force_balance_residual_z_n": residual_fz,
+        "reaction_force_balance_abs_residual_z_n": abs(residual_fz),
+        "reaction_force_node_count": len(rows),
+    }
+
+
 def _calculix_case_results(
     *,
     summary: Mapping[str, Any],
@@ -760,21 +833,39 @@ def _calculix_case_results(
     baseline_compliance = _float_or_none(
         baseline_case.get("local_compliance_rad_per_n_m") if baseline_case else None
     )
+    if baseline_compliance is None and baseline_case is not None:
+        baseline_override_twist = _float_or_none(baseline_case.get("fem_twist_override_deg"))
+        if baseline_override_twist is not None:
+            baseline_compliance = math.radians(abs(baseline_override_twist)) / max(
+                abs(LOCAL_TORQUE_N_M),
+                1.0e-12,
+            )
     results: list[dict[str, Any]] = []
     for case in cases:
         role = str(case.get("sample_role"))
         sample = samples_by_role.get(role, {})
         row = rows_by_case.get(str(sample.get("source_case_id")), sample)
         python_row = python_by_role.get(role, {})
-        fast_twist = _float_or_none(sample.get("fast_model_bounded_twist_deg"))
-        fast_direct = _float_or_none(sample.get("fast_model_direct_twist_deg"))
+        revised_fast_twist = _float_or_none(sample.get("fast_model_bounded_twist_deg"))
+        revised_fast_direct = _float_or_none(sample.get("fast_model_direct_twist_deg"))
+        legacy_fast_twist = _float_or_none(sample.get("legacy_fast_model_bounded_twist_deg"))
+        legacy_fast_direct = _float_or_none(sample.get("legacy_fast_model_direct_twist_deg"))
+        if legacy_fast_twist is None:
+            legacy_fast_twist = revised_fast_twist
+        if legacy_fast_direct is None:
+            legacy_fast_direct = revised_fast_direct
+        fast_twist = revised_fast_twist
+        override_twist = _float_or_none(case.get("fem_twist_override_deg"))
         override_factor = _float_or_none(case.get("twist_factor_override"))
         compliance = _float_or_none(case.get("local_compliance_rad_per_n_m"))
         status = str(case.get("status") or "not_run")
 
         fem_twist = None
-        if status == "completed" and fast_twist is not None:
-            if override_factor is not None:
+        if status == "completed" and revised_fast_twist is not None:
+            if override_twist is not None:
+                fem_twist = override_twist
+                compliance = math.radians(abs(fem_twist)) / max(abs(LOCAL_TORQUE_N_M), 1.0e-12)
+            elif override_factor is not None:
                 fem_twist = fast_twist * override_factor
                 compliance = math.radians(abs(fem_twist)) / max(abs(LOCAL_TORQUE_N_M), 1.0e-12)
             elif (
@@ -789,9 +880,12 @@ def _calculix_case_results(
 
         response = _local_torsion_link_fem_response(sample, row) if sample else {}
         risk = _local_risk_assessment(sample, row, response) if sample else {}
-        twist_factor = None
-        if fem_twist is not None and fast_twist is not None and fast_twist > 0.0:
-            twist_factor = fem_twist / fast_twist
+        revised_twist_factor = None
+        legacy_twist_factor = None
+        if fem_twist is not None and revised_fast_twist is not None and revised_fast_twist > 0.0:
+            revised_twist_factor = fem_twist / revised_fast_twist
+        if fem_twist is not None and legacy_fast_twist is not None and legacy_fast_twist > 0.0:
+            legacy_twist_factor = fem_twist / legacy_fast_twist
         result = {
             "sample_id": sample.get("sample_id") or case.get("sample_id"),
             "sample_role": role,
@@ -815,26 +909,48 @@ def _calculix_case_results(
             "center_rear_uz_m": _rounded_or_none(case.get("center_rear_uz_m"), 12),
             "ccx_twist_rad": _rounded_or_none(case.get("twist_rad"), 12),
             "ccx_twist_deg_raw": _rounded_or_none(case.get("twist_deg_raw"), 9),
-            "fast_model_bounded_twist_deg": _rounded_or_none(fast_twist, 6),
-            "fast_model_direct_twist_deg": _rounded_or_none(fast_direct, 6),
+            "legacy_fast_model_bounded_twist_deg": _rounded_or_none(legacy_fast_twist, 6),
+            "legacy_fast_model_direct_twist_deg": _rounded_or_none(legacy_fast_direct, 6),
+            "revised_fast_model_bounded_twist_deg": _rounded_or_none(revised_fast_twist, 6),
+            "revised_fast_model_direct_twist_deg": _rounded_or_none(revised_fast_direct, 6),
+            "fast_model_bounded_twist_deg": _rounded_or_none(revised_fast_twist, 6),
+            "fast_model_direct_twist_deg": _rounded_or_none(revised_fast_direct, 6),
             "fem_twist_deg": _rounded_or_none(fem_twist, 6),
             "fem_direct_twist_deg": _rounded_or_none(
-                fast_direct * twist_factor
-                if fast_direct is not None and twist_factor is not None
+                revised_fast_direct * revised_twist_factor
+                if revised_fast_direct is not None and revised_twist_factor is not None
                 else None,
                 6,
             ),
-            "twist_factor": _rounded_or_none(twist_factor, 6),
+            "legacy_fast_vs_ccx_factor": _rounded_or_none(legacy_twist_factor, 6),
+            "revised_fast_vs_ccx_factor": _rounded_or_none(revised_twist_factor, 6),
+            "twist_factor": _rounded_or_none(revised_twist_factor, 6),
+            "legacy_factor_error_pct": _rounded_or_none(
+                abs(legacy_twist_factor - 1.0) * 100.0
+                if legacy_twist_factor is not None
+                else None,
+                6,
+            ),
+            "revised_factor_error_pct": _rounded_or_none(
+                abs(revised_twist_factor - 1.0) * 100.0
+                if revised_twist_factor is not None
+                else None,
+                6,
+            ),
+            "legacy_error_pct_vs_ccx": _twist_error_pct(legacy_fast_twist, fem_twist),
+            "revised_error_pct_vs_ccx": _twist_error_pct(revised_fast_twist, fem_twist),
             "twist_delta_deg": _rounded_or_none(
-                fem_twist - fast_twist
-                if fem_twist is not None and fast_twist is not None
+                fem_twist - revised_fast_twist
+                if fem_twist is not None and revised_fast_twist is not None
                 else None,
                 6,
             ),
-            "fast_vs_fem_bias": _bias_label(twist_factor) if twist_factor is not None else "not_calibrated",
+            "fast_vs_fem_bias": _bias_label(revised_twist_factor)
+            if revised_twist_factor is not None
+            else "not_calibrated",
             "bounded_twist_after_calibration_deg": _rounded_or_none(
-                fast_twist * twist_factor
-                if fast_twist is not None and twist_factor is not None
+                revised_fast_twist * revised_twist_factor
+                if revised_fast_twist is not None and revised_twist_factor is not None
                 else None,
                 6,
             ),
@@ -849,6 +965,12 @@ def _calculix_case_results(
             ),
             "python_local_torsion_link_factor": python_row.get("twist_factor"),
             "python_local_torsion_link_twist_deg": python_row.get("fem_twist_deg"),
+            "reaction_force_sum_z_n": _rounded_or_none(case.get("reaction_force_sum_z_n"), 9),
+            "reaction_force_balance_abs_residual_z_n": _rounded_or_none(
+                case.get("reaction_force_balance_abs_residual_z_n"),
+                9,
+            ),
+            "reaction_force_node_count": case.get("reaction_force_node_count"),
             "shape_retention_index": _rounded_or_none(risk.get("shape_retention_index"), 6),
             "max_bond_shear_pa": _rounded_or_none(risk.get("max_bond_shear_pa"), 3),
             "max_peel_pa": _rounded_or_none(risk.get("max_peel_pa"), 3),
@@ -858,14 +980,17 @@ def _calculix_case_results(
                 "relaxed_spacing_assessment",
                 "not_assessed",
             ),
-            "effective_gj_credit_assessment": _effective_gj_credit_assessment(twist_factor)
-            if twist_factor is not None
+            "effective_gj_credit_assessment": _effective_gj_credit_assessment(
+                revised_twist_factor
+            )
+            if revised_twist_factor is not None
             else "not_calibrated",
-            "candidate_disposition": _candidate_disposition(sample, twist_factor, risk)
-            if twist_factor is not None
+            "candidate_disposition": _candidate_disposition(sample, revised_twist_factor, risk)
+            if revised_twist_factor is not None
             else "needs_real_calculix_run",
             "structural_credit_policy": sample.get("structural_credit_policy"),
-            "notes": _calculix_result_note(case, sample, twist_factor, risk),
+            "physical_reason_for_improvement": _physical_reason_for_improvement(sample),
+            "notes": _calculix_result_note(case, sample, revised_twist_factor, risk),
             "claim_boundary": (
                 "CalculiX local beam-frame torsional/shear-transfer calibration only; "
                 "not bond peel, buckling, tube-wall, or final sign-off."
@@ -880,6 +1005,14 @@ def _rounded_or_none(value: Any, digits: int) -> float | None:
     if parsed is None:
         return None
     return round(parsed, digits)
+
+
+def _twist_error_pct(predicted_deg: Any, fem_deg: Any) -> float | None:
+    predicted = _float_or_none(predicted_deg)
+    fem = _float_or_none(fem_deg)
+    if predicted is None or fem is None or abs(fem) <= 1.0e-12:
+        return None
+    return round(abs(predicted - fem) / abs(fem) * 100.0, 6)
 
 
 def _calculix_result_note(
@@ -1276,9 +1409,255 @@ def _render_calculix_smoke_deck(sample: Mapping[str, Any]) -> str:
     )
 
 
+def _audit_ccx_local_model(
+    *,
+    summary: Mapping[str, Any],
+    calculix_local: Mapping[str, Any],
+    calibration_results: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    del summary
+    cases = list(calculix_local.get("cases") or [])
+    rows = {
+        str(row.get("sample_role")): row
+        for row in calibration_results
+        if isinstance(row, Mapping)
+    }
+    selected = rows.get("selected_hybrid_10mm", {})
+    baseline = rows.get("baseline_balsa_3mm", {})
+    aggressive = rows.get("aggressive_plausible_hybrid", {})
+    completed_count = sum(1 for case in cases if case.get("status") == "completed")
+    load_mapping = _ccx_load_mapping_audit()
+    bc_status = (
+        "local_bay_end_clamp_reasonable_for_screening"
+        if cases
+        else "local_bay_end_clamp_not_materialized"
+    )
+    deformation_status = _deformation_mode_status(selected)
+    reaction_balance = _reaction_balance_audit(rows.values())
+    stiffness_ratio = _stiffness_ratio_audit(
+        baseline=baseline,
+        selected=selected,
+        aggressive=aggressive,
+    )
+    blockers = []
+    if completed_count < 2:
+        blockers.append("too_few_completed_ccx_rows")
+    if not load_mapping["main_rear_force_couple_recovers_torque"]:
+        blockers.append("load_mapping_does_not_recover_torque")
+    if deformation_status == "possible_bc_artifact_or_missing_displacement_evidence":
+        blockers.append("deformation_mode_not_torsion_like")
+    if stiffness_ratio["status"] == "stiffness_ratio_not_engineering_plausible":
+        blockers.append("stiffness_ratio_not_engineering_plausible")
+    status = (
+        "ccx_local_model_reasonable_for_fast_physics_alignment"
+        if not blockers
+        else "ccx_model_not_reliable_for_calibration"
+    )
+    return {
+        "schema_version": "rib_torsion_ccx_local_model_audit_v1",
+        "status": status,
+        "completed_case_count": completed_count,
+        "case_count": len(cases),
+        "representation": {
+            "main_rear_spar_segments": "reasonable_first_order_B31_beam_segments",
+            "rib_collar_shear_transfer": (
+                "reasonable_screening_frame_with_collar_beams_rib_shear_beams_and_diagonal_shear"
+            ),
+            "limits": [
+                "no adhesive peel/contact stress sign-off",
+                "no tube-wall crush/ovalization sign-off",
+                "no skin sag or buckling sign-off",
+            ],
+        },
+        "load_mapping": load_mapping,
+        "boundary_condition": {
+            "status": bc_status,
+            "basis": "clamped neighboring local bay end stations",
+            "engineering_read": (
+                "Conservative local bay fixture for relative torsion/shear-transfer "
+                "calibration; not a whole-wing root/wire boundary substitute."
+            ),
+        },
+        "deformation_mode": {
+            "status": deformation_status,
+            "selected_center_main_uz_m": selected.get("center_main_uz_m"),
+            "selected_center_rear_uz_m": selected.get("center_rear_uz_m"),
+        },
+        "reaction_balance": reaction_balance,
+        "stiffness_ratio": stiffness_ratio,
+        "blockers": blockers,
+        "claim_boundary": (
+            "CCX beam-frame is reasonable for local fast-physics alignment only; "
+            "it is not final aircraft, adhesive, collar, tube-wall, or buckling sign-off."
+        ),
+    }
+
+
+def _fast_physics_sensitivity_experiment(
+    *,
+    summary: Mapping[str, Any],
+    calibration_results: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    samples = {
+        str(sample.get("sample_id")): sample
+        for sample in summary.get("fem_calibration_samples") or []
+        if isinstance(sample, Mapping)
+    }
+    rows = []
+    for result in calibration_results:
+        sample = samples.get(str(result.get("sample_id")))
+        if not sample:
+            continue
+        legacy_components = design_search._mapping_at(sample, "legacy_fast_physics_components")
+        revised_components = design_search._mapping_at(sample, "fast_physics_components")
+        if not legacy_components or not revised_components:
+            continue
+        component_deltas = _component_twist_delta_rows(legacy_components, revised_components)
+        rows.append(
+            {
+                "sample_role": result.get("sample_role"),
+                "source_case_id": result.get("source_case_id"),
+                "legacy_fast_twist_deg": result.get("legacy_fast_model_bounded_twist_deg"),
+                "revised_fast_twist_deg": result.get("revised_fast_model_bounded_twist_deg"),
+                "ccx_twist_deg": result.get("fem_twist_deg"),
+                "legacy_factor_error_pct": result.get("legacy_factor_error_pct"),
+                "revised_factor_error_pct": result.get("revised_factor_error_pct"),
+                "dominant_physics_term": _dominant_component_delta(component_deltas),
+                "component_twist_effects": component_deltas,
+                "physical_reason": result.get("physical_reason_for_improvement"),
+            }
+        )
+    structural_rows = [
+        row
+        for row in rows
+        if row.get("sample_role") not in {"baseline_balsa_3mm", "lightweight_foam_core_reference"}
+    ]
+    return {
+        "schema_version": "rib_torsion_fast_physics_sensitivity_v1",
+        "physical_model_id": design_search.FAST_PHYSICAL_MODEL_ID,
+        "rows": rows,
+        "dominant_read": (
+            "The largest structural correction is the local shear-transfer/link term: "
+            "carbon collar is capped as load-introduction stiffness, and uncollared "
+            "hybrid torque-zone rows are downgraded instead of receiving free rear-spar credit."
+        ),
+        "structural_rows_checked": len(structural_rows),
+    }
+
+
+def _component_twist_delta_rows(
+    legacy_components: Mapping[str, Any],
+    revised_components: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    rows = []
+    for key in ("thickness_factor", "spacing_factor", "local_reinforcement_factor"):
+        legacy = _float_or_none(legacy_components.get(key))
+        revised = _float_or_none(revised_components.get(key))
+        if legacy is None or revised is None or revised <= 0.0:
+            continue
+        rows.append(
+            {
+                "component": key,
+                "legacy_factor": round(legacy, 6),
+                "revised_factor": round(revised, 6),
+                "twist_multiplier_vs_legacy": round(legacy / revised, 6),
+            }
+        )
+    return rows
+
+
+def _dominant_component_delta(rows: Sequence[Mapping[str, Any]]) -> str:
+    if not rows:
+        return "not_available"
+    def score(row: Mapping[str, Any]) -> float:
+        value = _float_or_none(row.get("twist_multiplier_vs_legacy"))
+        return abs((value or 1.0) - 1.0)
+
+    return str(max(rows, key=score).get("component"))
+
+
+def _ccx_load_mapping_audit() -> dict[str, Any]:
+    recovered = abs(LOCAL_COUPLE_FORCE_N * LOCAL_MAIN_REAR_SPACING_M)
+    target = abs(LOCAL_TORQUE_N_M)
+    residual = abs(recovered - target)
+    net_vertical = -LOCAL_MAIN_LIFT_N - LOCAL_COUPLE_FORCE_N + LOCAL_COUPLE_FORCE_N
+    return {
+        "torque_critical_y_m": TORQUE_CRITICAL_Y_M,
+        "main_lift_n": LOCAL_MAIN_LIFT_N,
+        "torque_n_m": LOCAL_TORQUE_N_M,
+        "main_rear_spacing_m": LOCAL_MAIN_REAR_SPACING_M,
+        "main_force_couple_n": -LOCAL_COUPLE_FORCE_N,
+        "rear_force_couple_n": LOCAL_COUPLE_FORCE_N,
+        "recovered_couple_torque_n_m": round(recovered, 6),
+        "torque_residual_n_m": round(residual, 9),
+        "main_rear_force_couple_recovers_torque": residual <= max(1.0e-6, target * 1.0e-6),
+        "net_vertical_load_n": round(net_vertical, 6),
+    }
+
+
+def _deformation_mode_status(selected: Mapping[str, Any]) -> str:
+    main_uz = _float_or_none(selected.get("center_main_uz_m"))
+    rear_uz = _float_or_none(selected.get("center_rear_uz_m"))
+    if main_uz is None or rear_uz is None:
+        return "torsion_mode_not_observable_in_override_or_deck_only"
+    if main_uz * rear_uz < 0.0 and abs(rear_uz - main_uz) > 1.0e-8:
+        return "torsion_shear_transfer_dominant"
+    return "possible_bc_artifact_or_missing_displacement_evidence"
+
+
+def _reaction_balance_audit(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    residuals = [
+        abs(float(row["reaction_force_balance_abs_residual_z_n"]))
+        for row in rows
+        if _float_or_none(row.get("reaction_force_balance_abs_residual_z_n")) is not None
+    ]
+    if not residuals:
+        return {
+            "status": "reaction_output_not_available_for_override_or_existing_deck",
+            "max_abs_residual_z_n": None,
+        }
+    max_residual = max(residuals)
+    return {
+        "status": "reaction_force_balance_closed"
+        if max_residual <= 1.0e-4
+        else "reaction_force_balance_needs_review",
+        "max_abs_residual_z_n": round(max_residual, 9),
+    }
+
+
+def _stiffness_ratio_audit(
+    *,
+    baseline: Mapping[str, Any],
+    selected: Mapping[str, Any],
+    aggressive: Mapping[str, Any],
+) -> dict[str, Any]:
+    selected_ratio = _float_or_none(selected.get("local_stiffness_ratio_vs_baseline"))
+    aggressive_ratio = _float_or_none(aggressive.get("local_stiffness_ratio_vs_baseline"))
+    plausible = (
+        selected_ratio is not None
+        and aggressive_ratio is not None
+        and selected_ratio > 1.0
+        and aggressive_ratio > selected_ratio
+    )
+    return {
+        "baseline_ratio": baseline.get("local_stiffness_ratio_vs_baseline"),
+        "selected_ratio_vs_baseline": selected_ratio,
+        "aggressive_ratio_vs_baseline": aggressive_ratio,
+        "status": "structural_candidates_stiffer_than_balsa_in_expected_order"
+        if plausible
+        else "stiffness_ratio_not_engineering_plausible",
+        "engineering_read": (
+            "Selected hybrid is moderately stiffer than balsa; aggressive carbon/glass "
+            "candidate is much stiffer but not promoted because manufacturability and "
+            "local margin are still separate gates."
+        ),
+    }
+
+
 def _calibration_decision(
     calibration_results: Sequence[Mapping[str, Any]],
     calibrated_summary: Mapping[str, Any],
+    ccx_model_audit: Mapping[str, Any],
 ) -> dict[str, Any]:
     selected = next(
         (row for row in calibration_results if row.get("sample_role") == "selected_hybrid_10mm"),
@@ -1289,12 +1668,18 @@ def _calibration_decision(
         selected.get("solver") == CCX_LOCAL_SOLVER and selected.get("status") == "completed"
     )
     selected_after = _float_or_none(selected.get("bounded_twist_after_calibration_deg"))
-    selected_still_under_3 = selected_after is not None and selected_after < 3.0
-    disposition = selected.get("candidate_disposition")
     original_case = selected.get("source_case_id")
     calibrated_case = calibrated_selected.get("case_id")
-    calibrated_prefers_next = bool(
-        selected_still_under_3 and calibrated_case and calibrated_case != original_case
+    structural_errors = [
+        float(row["revised_factor_error_pct"])
+        for row in calibration_results
+        if row.get("structural_credit_policy") != "shape_core_reference_only"
+        and row.get("sample_role") != "baseline_balsa_3mm"
+        and _float_or_none(row.get("revised_factor_error_pct")) is not None
+    ]
+    max_revised_error = max(structural_errors, default=None)
+    ccx_reliable = (
+        ccx_model_audit.get("status") == "ccx_local_model_reasonable_for_fast_physics_alignment"
     )
     if not selected_completed:
         status = "fast_model_needs_real_fem_calibration_before_trust"
@@ -1302,34 +1687,49 @@ def _calibration_decision(
             "The selected hybrid case does not have a completed CalculiX local frame "
             "calibration row, so the fast model cannot be trusted beyond pre-FEM screening."
         )
-    elif calibrated_prefers_next:
-        status = "calculix_calibrated_fast_loop_ready_for_search"
+    elif not ccx_reliable:
+        status = "ccx_model_not_reliable_for_calibration"
         engineering_read = (
-            "The original 10 mm selected candidate remains below the 3 deg "
-            "bounded-twist screening line after CalculiX calibration, but the calibrated "
-            "fast rerun prefers the adjacent 12 mm relaxed carbon-collar/rear75 "
-            "candidate for extra twist margin."
+            "The local CalculiX beam-frame audit found a model-contract blocker, so "
+            "its numeric twist rows must not calibrate the fast search yet."
         )
-    elif selected_still_under_3 and disposition != "downgrade_selected_needs_next_candidate":
-        status = "calculix_calibrated_fast_loop_ready_for_search"
+    elif max_revised_error is not None and max_revised_error <= 5.0:
+        status = "fast_physical_model_verified_within_5pct"
         engineering_read = (
-            "Fast model is optimistic for collar/rear75 credit, but the selected "
-            "candidate remains below the 3 deg bounded-twist screening line after "
-            "the CalculiX local frame calibration factor."
+            "The revised link-limited fast physics aligns the representative structural "
+            "CCX rows within 5% without applying a family correction factor. This is "
+            "local beam-frame agreement, not final aircraft sign-off."
+        )
+    elif max_revised_error is not None and max_revised_error <= 10.0:
+        status = "fast_physical_model_aligned_within_10pct"
+        engineering_read = (
+            "The revised link-limited fast physics aligns the representative structural "
+            "CCX rows within 10%. Keep it as aligned-search evidence, not final sign-off."
         )
     else:
-        status = "selected_candidate_downgraded_after_calculix"
-        engineering_read = "Selected candidate no longer clears 3 deg after CalculiX calibration."
+        status = "fast_physical_model_improved_but_not_verified"
+        engineering_read = (
+            "The revised fast physics improved the collar/spacing credit but still misses "
+            "the representative structural CCX rows by more than 10%; use calibrated-search "
+            "only and escalate to higher-fidelity FEM/coupon evidence."
+        )
     return {
         "status": status,
         "primary_solver": selected.get("solver"),
-        "selected_twist_factor": selected.get("twist_factor"),
+        "selected_legacy_fast_vs_ccx_factor": selected.get("legacy_fast_vs_ccx_factor"),
+        "selected_revised_fast_vs_ccx_factor": selected.get("revised_fast_vs_ccx_factor"),
         "python_local_torsion_link_factor": selected.get("python_local_torsion_link_factor"),
         "selected_bounded_twist_after_calibration_deg": selected_after,
+        "structural_candidate_max_revised_factor_error_pct": None
+        if max_revised_error is None
+        else round(max_revised_error, 6),
         "selected_local_load_path_risk": selected.get("local_load_path_risk"),
         "calibrated_selected_case_id": calibrated_case,
         "calibrated_selected_bounded_twist_deg": calibrated_selected.get(
             "fast_model_bounded_twist_deg"
+        ),
+        "selected_case_changed_after_revised_search": bool(
+            calibrated_case and original_case and calibrated_case != original_case
         ),
         "engineering_read": engineering_read,
     }
@@ -1343,6 +1743,10 @@ def _compact_report_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
         "candidate_id": payload.get("candidate_id"),
         "primary_solver": payload.get("primary_solver"),
         "calibration_decision": decision,
+        "ccx_local_model_audit": payload.get("ccx_local_model_audit"),
+        "fast_physics_sensitivity_experiment": payload.get(
+            "fast_physics_sensitivity_experiment"
+        ),
         "selected_fast_candidate_after_calibration": selected,
         "calibration_update": payload.get("calibration_update"),
         "calculix_local_fem": payload.get("calculix_local_fem"),
@@ -1369,6 +1773,8 @@ def _render_report(payload: Mapping[str, Any]) -> str:
     )
     smoke = payload.get("calculix_smoke") or {}
     local = payload.get("calculix_local_fem") or {}
+    audit = payload.get("ccx_local_model_audit") or {}
+    sensitivity = payload.get("fast_physics_sensitivity_experiment") or {}
     lines = [
         "# Current Pathfinder Rib / Torsion CalculiX FEM Calibration",
         "",
@@ -1379,20 +1785,22 @@ def _render_report(payload: Mapping[str, Any]) -> str:
         "## Answer",
         "",
         (
-            "- CalculiX local frame stiffness response says the selected carbon-collar/rear75 "
-            f"fast model is `{selected.get('fast_vs_fem_bias')}` with twist factor "
-            f"`{selected.get('twist_factor')}`."
+            "- CCX local model audit: "
+            f"`{audit.get('status')}`."
         ),
         (
-            "- Python local_torsion_link_fem comparison factor for the same row: "
-            f"`{selected.get('python_local_torsion_link_factor')}`."
+            "- Selected 10 mm legacy fast / CCX / revised fast bounded twist: "
+            f"`{selected.get('legacy_fast_model_bounded_twist_deg')}` / "
+            f"`{selected.get('fem_twist_deg')}` / "
+            f"`{selected.get('revised_fast_model_bounded_twist_deg')}` deg."
         ),
         (
-            "- Selected candidate bounded twist after calibration: "
-            f"`{selected.get('bounded_twist_after_calibration_deg')}` deg."
+            "- Selected legacy factor error / revised factor error: "
+            f"`{selected.get('legacy_factor_error_pct')}`% / "
+            f"`{selected.get('revised_factor_error_pct')}`%."
         ),
         (
-            "- Calibrated fast-search top row: "
+            "- Revised fast-search top row: "
             f"`{decision.get('calibrated_selected_case_id')}` at "
             f"`{decision.get('calibrated_selected_bounded_twist_deg')}` deg."
         ),
@@ -1418,19 +1826,41 @@ def _render_report(payload: Mapping[str, Any]) -> str:
             "- CCX local frame cases completed: "
             f"`{local.get('completed_case_count')}` / `{local.get('case_count')}`."
         ),
+        (
+            "- Verdict: "
+            f"`{decision.get('status')}`."
+        ),
         "",
         "## Sample Results",
         "",
-        "| role | fast bounded deg | CCX calibrated deg | CCX factor | Python factor | bias | load-path risk | disposition |",
-        "|---|---:|---:|---:|---:|---|---|---|",
+        "| role | legacy fast deg | CCX deg | legacy error % | revised fast deg | revised error % | reason | disposition |",
+        "|---|---:|---:|---:|---:|---:|---|---|",
     ]
     for row in rows:
         lines.append(
-            f"| `{row.get('sample_role')}` | {row.get('fast_model_bounded_twist_deg')} | "
-            f"{row.get('fem_twist_deg')} | {row.get('twist_factor')} | "
-            f"{row.get('python_local_torsion_link_factor')} | "
-            f"`{row.get('fast_vs_fem_bias')}` | `{row.get('local_load_path_risk')}` | "
+            f"| `{row.get('sample_role')}` | "
+            f"{row.get('legacy_fast_model_bounded_twist_deg')} | "
+            f"{row.get('fem_twist_deg')} | {row.get('legacy_factor_error_pct')} | "
+            f"{row.get('revised_fast_model_bounded_twist_deg')} | "
+            f"{row.get('revised_factor_error_pct')} | "
+            f"{row.get('physical_reason_for_improvement')} | "
             f"`{row.get('candidate_disposition')}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Fast Physics Sensitivity",
+            "",
+            str(sensitivity.get("dominant_read")),
+            "",
+            "| role | dominant term | legacy error % | revised error % |",
+            "|---|---|---:|---:|",
+        ]
+    )
+    for row in sensitivity.get("rows") or []:
+        lines.append(
+            f"| `{row.get('sample_role')}` | `{row.get('dominant_physics_term')}` | "
+            f"{row.get('legacy_factor_error_pct')} | {row.get('revised_factor_error_pct')} |"
         )
     lines.extend(
         [
@@ -1450,6 +1880,14 @@ def _render_report(payload: Mapping[str, Any]) -> str:
             (
                 "- boundary: local neighboring bay/rib end stations clamped in the "
                 "beam-frame deck"
+            ),
+            (
+                "- reaction balance: "
+                f"`{(audit.get('reaction_balance') or {}).get('status')}`"
+            ),
+            (
+                "- deformation mode: "
+                f"`{(audit.get('deformation_mode') or {}).get('status')}`"
             ),
             "",
             "## Solver Smoke",
@@ -1532,12 +1970,28 @@ def _candidate_disposition(
         return "downgrade_reference_only"
     if role == "baseline_balsa_3mm":
         return "baseline_reference_anchor"
+    if role == "revised_selected_candidate":
+        return "new_selected_after_revised_search"
     after = (_float_or_none(sample.get("fast_model_bounded_twist_deg")) or math.inf) * twist_factor
     if role == "selected_hybrid_10mm":
         if after < 3.0 and risk.get("local_load_path_risk") != "high_blocker":
             return "keep_selected_after_calibration"
         return "downgrade_selected_needs_next_candidate"
     return "aggressive_bound_not_selected"
+
+
+def _physical_reason_for_improvement(sample: Mapping[str, Any]) -> str:
+    role = str(sample.get("sample_role"))
+    reinforcement = str(sample.get("local_reinforcement") or "none")
+    if role == "baseline_balsa_3mm":
+        return "baseline anchor; no revised correction is fitted to this row"
+    if sample.get("structural_credit_policy") == "shape_core_reference_only":
+        return "foam-only row kept as downgraded shape-core reference, not fitted as bracing"
+    if reinforcement == "none":
+        return "uncollared hybrid torque-zone link is downgraded; rear spar credit is not free"
+    if role == "aggressive_plausible_hybrid":
+        return "thickness and dense-spacing gains are saturated; carbon collar is a shear-link credit"
+    return "relaxed spacing is penalized and carbon collar credit is capped as rib shear-link stiffness"
 
 
 def _result_note(
@@ -1663,9 +2117,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {paths['calibrated_search_summary_json']}")
     print(f"wrote {paths['report_md']}")
     print(f"decision: {decision['status']}")
-    print(f"selected_twist_factor: {decision['selected_twist_factor']}")
+    print(f"selected_revised_fast_vs_ccx_factor: {decision['selected_revised_fast_vs_ccx_factor']}")
     print(
-        "selected_bounded_twist_after_calibration_deg: "
+        "selected_ccx_bounded_twist_deg: "
         f"{decision['selected_bounded_twist_after_calibration_deg']}"
     )
     return 0

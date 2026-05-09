@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _FEM_SCRIPT_PATH = _REPO_ROOT / "scripts" / "current_pathfinder_rib_torsion_fem_calibration.py"
@@ -33,10 +35,10 @@ def _search_summary() -> dict:
 
 def _ccx_override_factors() -> dict[str, dict[str, float | str]]:
     return {
-        "baseline_balsa_3mm": {"status": "completed", "twist_factor": 1.0},
-        "selected_hybrid_10mm": {"status": "completed", "twist_factor": 1.31},
-        "aggressive_plausible_hybrid": {"status": "completed", "twist_factor": 1.72},
-        "lightweight_foam_core_reference": {"status": "completed", "twist_factor": 0.42},
+        "baseline_balsa_3mm": {"status": "completed", "fem_twist_deg": 3.256324},
+        "selected_hybrid_10mm": {"status": "completed", "fem_twist_deg": 2.203642},
+        "aggressive_plausible_hybrid": {"status": "completed", "fem_twist_deg": 0.758169},
+        "lightweight_foam_core_reference": {"status": "completed", "fem_twist_deg": 3.323776},
     }
 
 
@@ -65,9 +67,10 @@ def test_fem_calibration_package_writes_feedback_and_calibrated_search(tmp_path:
 
     selected = rows["selected_hybrid_10mm"]
     assert selected["source_case_id"].endswith("manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75")
-    assert selected["fast_vs_fem_bias"] == "fast_optimistic"
-    assert selected["twist_factor"] > 1.0
-    assert selected["bounded_twist_after_calibration_deg"] < 3.0
+    assert selected["legacy_fast_vs_ccx_factor"] == pytest.approx(1.497702, rel=0.01)
+    assert selected["legacy_factor_error_pct"] == pytest.approx(49.770177, rel=0.02)
+    assert selected["revised_fast_model_bounded_twist_deg"] == pytest.approx(2.116301, rel=0.01)
+    assert selected["revised_factor_error_pct"] < 5.0
     assert selected["local_load_path_risk"] in {"watch", "elevated_watch"}
 
     foam = rows["lightweight_foam_core_reference"]
@@ -75,14 +78,14 @@ def test_fem_calibration_package_writes_feedback_and_calibrated_search(tmp_path:
     assert foam["candidate_disposition"] == "downgrade_reference_only"
 
     update = json.loads(paths["calibration_update_json"].read_text(encoding="utf-8"))
-    assert update["status"] == "calibration_update_ready_for_fast_loop"
-    assert update["claim_boundary"] == "calibration_correction_for_search_only_not_final_FEM_truth"
-    assert update["family_correction_factors"]["eps_balsa_cap_hybrid_10mm"]["twist_factor"] > 1.0
+    assert update["status"] == "fast_physics_alignment_diagnostic_ready"
+    assert update["claim_boundary"] == "diagnostic_only_fast_physics_revision_not_final_FEM_truth"
+    assert update["structural_candidate_max_revised_factor_error_pct"] < 5.0
 
     calibrated = json.loads(paths["calibrated_search_summary_json"].read_text(encoding="utf-8"))
     assert calibrated["selected_fast_candidate"]["fast_model_bounded_twist_deg"] < 3.0
-    assert calibrated["applied_calibration_update"]["schema_version"] == (
-        "rib_torsion_fast_model_calibration_update_v1"
+    assert calibrated["fast_model_settings"]["physical_model_id"] == (
+        "link_limited_torsion_cell_v2"
     )
 
 
@@ -131,13 +134,13 @@ def test_calculix_local_frame_decks_materialize_rib_spar_load_path(
 
     payload = json.loads(paths["summary_json"].read_text(encoding="utf-8"))
     local_cases = payload["calculix_local_fem"]["cases"]
-    assert len(local_cases) == 4
-    assert {case["sample_role"] for case in local_cases} == {
+    assert len(local_cases) >= 4
+    assert {
         "baseline_balsa_3mm",
         "selected_hybrid_10mm",
         "aggressive_plausible_hybrid",
         "lightweight_foam_core_reference",
-    }
+    } <= {case["sample_role"] for case in local_cases}
 
     selected_case = next(
         case for case in local_cases if case["sample_role"] == "selected_hybrid_10mm"
@@ -150,10 +153,12 @@ def test_calculix_local_frame_decks_materialize_rib_spar_load_path(
     assert "2.327757" in deck
     assert "21.202" in deck
     assert "23.839" in deck
+    assert "*NODE PRINT, NSET=LOCAL_BAY_ENDS" in deck
+    assert "RF" in deck
     assert "RIB_TORSION_EQUIV" not in deck
 
 
-def test_calculix_rows_are_primary_feedback_and_python_rows_are_comparison_only(
+def test_ccx_audit_and_revised_physics_alignment_are_primary_feedback(
     tmp_path: Path,
 ) -> None:
     fem = _load_module(_FEM_SCRIPT_PATH, "current_pathfinder_rib_torsion_fem_calibration")
@@ -170,19 +175,19 @@ def test_calculix_rows_are_primary_feedback_and_python_rows_are_comparison_only(
     )
 
     payload = json.loads(paths["summary_json"].read_text(encoding="utf-8"))
+    audit = payload["ccx_local_model_audit"]
+    assert audit["status"] == "ccx_local_model_reasonable_for_fast_physics_alignment"
+    assert audit["load_mapping"]["main_rear_force_couple_recovers_torque"] is True
+    assert audit["boundary_condition"]["status"] == "local_bay_end_clamp_reasonable_for_screening"
+
     rows = {row["sample_role"]: row for row in payload["calibration_results"]}
     assert {row["solver"] for row in rows.values()} == {"calculix_ccx_local_frame_fem"}
     assert rows["selected_hybrid_10mm"]["python_local_torsion_link_factor"] > 1.0
-    assert rows["selected_hybrid_10mm"]["twist_factor"] == 1.31
+    assert rows["selected_hybrid_10mm"]["revised_factor_error_pct"] < 5.0
+    assert rows["aggressive_plausible_hybrid"]["revised_factor_error_pct"] < 5.0
 
     update = json.loads(paths["calibration_update_json"].read_text(encoding="utf-8"))
-    selected_update = next(
-        row for row in update["used_result_rows"] if row["sample_role"] == "selected_hybrid_10mm"
-    )
-    assert selected_update["solver"] == "calculix_ccx_local_frame_fem"
-    assert selected_update["twist_factor"] == 1.31
+    assert update["verification_verdict"] == "fast_physical_model_verified_within_5pct"
 
     calibrated = json.loads(paths["calibrated_search_summary_json"].read_text(encoding="utf-8"))
-    assert calibrated["fast_model_settings"]["fem_calibration_family_twist_factors"][
-        "eps_balsa_cap_hybrid_10mm"
-    ] == 1.31
+    assert calibrated["selected_fast_candidate"]["fast_model_bounded_twist_deg"] < 3.0

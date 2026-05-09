@@ -121,6 +121,8 @@ Current pathfinder rib torsion CCX local frame: baseline_balsa_3mm
 12, 3, 23.839000
 *NODE PRINT, NSET=TWIST_PAIR
 U
+*NODE PRINT, NSET=LOCAL_BAY_ENDS
+RF
 *NODE FILE, OUTPUT=3D
-U
+U, RF
 *END STEP

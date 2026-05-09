@@ -1,29 +1,43 @@
 # Current Pathfinder Rib / Torsion CalculiX FEM Calibration
 
 Candidate: `current_avl_compromise_conservative_closed`
-Decision: `calculix_calibrated_fast_loop_ready_for_search`
+Decision: `fast_physical_model_verified_within_5pct`
 Primary solver: `calculix_ccx_local_frame_fem`
 
 ## Answer
 
-- CalculiX local frame stiffness response says the selected carbon-collar/rear75 fast model is `fast_optimistic` with twist factor `1.497702`.
-- Python local_torsion_link_fem comparison factor for the same row: `1.238016`.
-- Selected candidate bounded twist after calibration: `2.203642` deg.
-- Calibrated fast-search top row: `eps_balsa_cap_hybrid_10mm__t12p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75` at `1.803191` deg.
+- CCX local model audit: `ccx_local_model_reasonable_for_fast_physics_alignment`.
+- Selected 10 mm legacy fast / CCX / revised fast bounded twist: `1.471349` / `2.203642` / `2.107663` deg.
+- Selected legacy factor error / revised factor error: `49.77021`% / `4.553835`%.
+- Revised fast-search top row: `eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75` at `1.673592` deg.
 - y=2.328 m bond/collar/tube-wall risk: `watch`; tube-wall margin `2.303946`.
 - Relaxed spacing 0.36 m assessment: `relaxed_spacing_reasonable_for_search_not_final`.
-- Aggressive carbon collar / rear75 bound case: `fast_optimistic`, disposition `aggressive_bound_not_selected`.
+- Aggressive carbon collar / rear75 bound case: `usable_close`, disposition `aggressive_bound_not_selected`.
 - Lightweight foam-core reference remains `downgrade_reference_only`.
-- CCX local frame cases completed: `4` / `4`.
+- CCX local frame cases completed: `5` / `5`.
+- Verdict: `fast_physical_model_verified_within_5pct`.
 
 ## Sample Results
 
-| role | fast bounded deg | CCX calibrated deg | CCX factor | Python factor | bias | load-path risk | disposition |
-|---|---:|---:|---:|---:|---|---|---|
-| `baseline_balsa_3mm` | 3.256324 | 3.256324 | 1.0 | 1.0 | `usable_close` | `watch` | `baseline_reference_anchor` |
-| `selected_hybrid_10mm` | 1.471349 | 2.203642 | 1.497702 | 1.238016 | `fast_optimistic` | `watch` | `keep_selected_after_calibration` |
-| `aggressive_plausible_hybrid` | 0.508631 | 0.758169 | 1.490608 | 2.010986 | `fast_optimistic` | `no_obvious_smoke_risk` | `aggressive_bound_not_selected` |
-| `lightweight_foam_core_reference` | 19.944533 | 3.323776 | 0.166651 | 0.233224 | `fast_conservative` | `elevated_watch` | `downgrade_reference_only` |
+| role | legacy fast deg | CCX deg | legacy error % | revised fast deg | revised error % | reason | disposition |
+|---|---:|---:|---:|---:|---:|---|---|
+| `baseline_balsa_3mm` | 3.256324 | 3.256324 | 0.0 | 3.256324 | 0.0 | baseline anchor; no revised correction is fitted to this row | `baseline_reference_anchor` |
+| `selected_hybrid_10mm` | 1.471349 | 2.203642 | 49.77021 | 2.107663 | 4.553835 | relaxed spacing is penalized and carbon collar credit is capped as rib shear-link stiffness | `keep_selected_after_calibration` |
+| `aggressive_plausible_hybrid` | 0.508631 | 0.758169 | 49.060796 | 0.749391 | 1.171407 | thickness and dense-spacing gains are saturated; carbon collar is a shear-link credit | `aggressive_bound_not_selected` |
+| `lightweight_foam_core_reference` | 19.944533 | 3.323776 | 83.334901 | 19.944533 | 83.334901 | foam-only row kept as downgraded shape-core reference, not fitted as bracing | `downgrade_reference_only` |
+| `revised_selected_candidate` | 1.353641 | 1.64095 | 21.224878 | 1.673592 | 1.950437 | relaxed spacing is penalized and carbon collar credit is capped as rib shear-link stiffness | `new_selected_after_revised_search` |
+
+## Fast Physics Sensitivity
+
+The largest structural correction is the local shear-transfer/link term: carbon collar is capped as load-introduction stiffness, and uncollared hybrid torque-zone rows are downgraded instead of receiving free rear-spar credit.
+
+| role | dominant term | legacy error % | revised error % |
+|---|---|---:|---:|
+| `baseline_balsa_3mm` | `thickness_factor` | 0.0 | 0.0 |
+| `selected_hybrid_10mm` | `local_reinforcement_factor` | 49.77021 | 4.553835 |
+| `aggressive_plausible_hybrid` | `local_reinforcement_factor` | 49.060796 | 1.171407 |
+| `lightweight_foam_core_reference` | `thickness_factor` | 83.334901 | 83.334901 |
+| `revised_selected_candidate` | `local_reinforcement_factor` | 21.224878 | 1.950437 |
 
 ## CalculiX Local Frame
 
@@ -32,6 +46,8 @@ Primary solver: `calculix_ccx_local_frame_fem`
 - model: main spar segment + rear spar segment + torque-zone collar beams + rib shear-transfer beams + diagonal shear-transfer braces
 - load: main lift `21.202 N` plus main/rear force couple `-23.839 / +23.839 N` at y=`2.327757 m`
 - boundary: local neighboring bay/rib end stations clamped in the beam-frame deck
+- reaction balance: `reaction_force_balance_closed`
+- deformation mode: `torsion_shear_transfer_dominant`
 
 ## Solver Smoke
 

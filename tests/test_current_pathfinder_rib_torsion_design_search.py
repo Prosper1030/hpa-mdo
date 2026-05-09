@@ -274,7 +274,7 @@ def test_calibration_samples_and_feedback_interface_are_written(tmp_path: Path) 
     } <= roles
     assert summary["calibration_interface"]["result_schema"]["fem_twist_deg"]["required"] is True
     assert summary["calibration_interface"]["update_policy"]["next_loop_action"] == (
-        "apply_family_and_zone_correction_factors_then_rerun_fast_search"
+        "compare revised fast physics against FEM, then rerun fast search without family correction if aligned"
     )
 
     assert paths["candidate_csv"].exists()
@@ -308,23 +308,57 @@ def test_selected_fem_sample_tracks_selected_relaxed_carbon_rear75_candidate() -
         selected_closure_payload=_selected_closure_payload(),
     )
 
-    selected = summary["selected_fast_candidate"]
     samples_by_role = {
         sample["sample_role"]: sample for sample in summary["fem_calibration_samples"]
     }
 
-    assert selected["case_id"] == (
+    selected_sample = samples_by_role["selected_hybrid_10mm"]
+    assert selected_sample["source_case_id"] == (
         "eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__"
         "carbon_face_collar_y2p328__rear75"
     )
-    selected_sample = samples_by_role["selected_hybrid_10mm"]
-    assert selected_sample["source_case_id"] == selected["case_id"]
+    assert selected_sample["legacy_fast_model_bounded_twist_deg"] == pytest.approx(
+        1.471349,
+        rel=0.01,
+    )
+    assert selected_sample["fast_model_bounded_twist_deg"] == pytest.approx(2.116301, rel=0.01)
     assert selected_sample["rib_spacing_profile"] == "manufacturing_relaxed_0p36"
     assert selected_sample["local_reinforcement"] == "carbon_face_collar_y2p328"
     assert selected_sample["rear_spar_participation"] == "bounded_75pct_screening"
+    assert samples_by_role["revised_selected_candidate"]["source_case_id"] == summary[
+        "selected_fast_candidate"
+    ]["case_id"]
 
 
-def test_calibration_results_generate_surrogate_correction_without_final_truth_claim() -> None:
+def test_link_limited_fast_physics_reduces_collar_spacing_double_credit() -> None:
+    module = _load_script_module()
+
+    summary = module.build_rib_torsion_design_search(
+        sensitivity_payload=_sensitivity_payload(),
+        selected_closure_payload=_selected_closure_payload(),
+    )
+    rows = {sample["sample_role"]: sample for sample in summary["fem_calibration_samples"]}
+    candidates = {row["case_id"]: row for row in summary["candidate_rows"]}
+
+    assert summary["fast_model_settings"]["physical_model_id"] == (
+        "link_limited_torsion_cell_v2"
+    )
+    selected = candidates[rows["selected_hybrid_10mm"]["source_case_id"]]
+    selected_components = selected["fast_physics_components"]
+    legacy_components = selected["legacy_fast_physics_components"]
+    assert selected_components["local_reinforcement_factor"] == pytest.approx(1.10)
+    assert selected_components["spacing_factor"] < legacy_components["spacing_factor"]
+    assert selected["fast_model_bounded_twist_deg"] == pytest.approx(2.116301, rel=0.01)
+
+    aggressive = candidates[rows["aggressive_plausible_hybrid"]["source_case_id"]]
+    assert aggressive["legacy_fast_model_bounded_twist_deg"] == pytest.approx(0.508631, rel=0.05)
+    assert aggressive["fast_model_bounded_twist_deg"] == pytest.approx(0.724125, rel=0.05)
+    assert aggressive["fast_model_bounded_twist_deg"] > aggressive[
+        "legacy_fast_model_bounded_twist_deg"
+    ]
+
+
+def test_calibration_results_generate_alignment_diagnostic_without_hidden_correction() -> None:
     module = _load_script_module()
     summary = module.build_rib_torsion_design_search(
         sensitivity_payload=_sensitivity_payload(),
@@ -342,17 +376,29 @@ def test_calibration_results_generate_surrogate_correction_without_final_truth_c
                 "fem_mass_kg": 3.10,
                 "status": "completed",
             },
-            {
-                "sample_id": sample_map["selected_hybrid_10mm"]["sample_id"],
-                "solver": "apdl",
-                "fem_twist_deg": 2.45,
-                "fem_mass_kg": 5.50,
-                "status": "completed",
-            },
-        ],
-    )
+                {
+                    "sample_id": sample_map["selected_hybrid_10mm"]["sample_id"],
+                    "solver": "apdl",
+                    "fem_twist_deg": 2.45,
+                    "fem_mass_kg": 5.50,
+                    "status": "completed",
+                },
+                {
+                    "sample_id": sample_map["aggressive_plausible_hybrid"]["sample_id"],
+                    "solver": "calculix",
+                    "fem_twist_deg": 0.78,
+                    "fem_mass_kg": 11.00,
+                    "status": "completed",
+                },
+            ],
+        )
 
-    assert update["status"] == "calibration_update_ready_for_fast_loop"
-    assert update["claim_boundary"] == "calibration_correction_for_search_only_not_final_FEM_truth"
-    assert update["family_correction_factors"]["eps_balsa_cap_hybrid_10mm"]["twist_factor"] > 1.0
-    assert update["next_loop_action"] == "rerun_fast_search_with_calibrated_twist_factors"
+    assert update["status"] == "fast_physics_alignment_diagnostic_ready"
+    assert update["claim_boundary"] == "diagnostic_only_fast_physics_revision_not_final_FEM_truth"
+    assert update["family_correction_factors"] == {}
+    assert update["diagnostic_legacy_family_twist_factors"][
+        "eps_balsa_cap_hybrid_10mm"
+    ]["twist_factor"] > 1.0
+    assert update["next_loop_action"] == (
+        "rerun_fast_search_with_revised_physical_model_no_family_factor"
+    )

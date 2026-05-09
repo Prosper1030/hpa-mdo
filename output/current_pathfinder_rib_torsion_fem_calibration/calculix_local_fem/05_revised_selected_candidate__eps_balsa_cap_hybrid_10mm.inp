@@ -1,38 +1,38 @@
 ** Current pathfinder rib/torsion CalculiX local frame calibration
 ** This deck calibrates torsional stiffness / shear-transfer response only.
 ** It is not bond peel, buckling, tube-wall, adhesive, or final sign-off.
-** sample_id: aggressive_plausible_hybrid__structural_foam_glass_face_10mm__t15p0mm__dense_torque_zone_0p20__carbon_face_collar_y2p328__rear75
-** source_case_id: structural_foam_glass_face_10mm__t15p0mm__dense_torque_zone_0p20__carbon_face_collar_y2p328__rear75
-** family_key: structural_foam_glass_face_10mm
-** material_family_group: hybrid_foam_glass_carbon_face
+** sample_id: revised_selected_candidate__eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75
+** source_case_id: eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75
+** family_key: eps_balsa_cap_hybrid_10mm
+** material_family_group: hybrid_foam_balsa_cap
 ** local_reinforcement: carbon_face_collar_y2p328
 ** torque-critical y = 2.327757 m
 ** main lift = 21.202 N
 ** torque = -12.716 N*m
 ** main/rear force couple = -23.839 / 23.839 N
 *HEADING
-Current pathfinder rib torsion CCX local frame: aggressive_plausible_hybrid
+Current pathfinder rib torsion CCX local frame: revised_selected_candidate
 *NODE
-1, 0.000000, 1.960257, 0.000000
-2, 0.055000, 1.960257, 0.000000
-3, 0.478412, 1.960257, 0.000000
-4, 0.533412, 1.960257, 0.000000
-5, 0.000000, 2.144007, 0.000000
-6, 0.055000, 2.144007, 0.000000
-7, 0.478412, 2.144007, 0.000000
-8, 0.533412, 2.144007, 0.000000
+1, 0.000000, 1.877757, 0.000000
+2, 0.055000, 1.877757, 0.000000
+3, 0.478412, 1.877757, 0.000000
+4, 0.533412, 1.877757, 0.000000
+5, 0.000000, 2.102757, 0.000000
+6, 0.055000, 2.102757, 0.000000
+7, 0.478412, 2.102757, 0.000000
+8, 0.533412, 2.102757, 0.000000
 9, 0.000000, 2.327757, 0.000000
 10, 0.055000, 2.327757, 0.000000
 11, 0.478412, 2.327757, 0.000000
 12, 0.533412, 2.327757, 0.000000
-13, 0.000000, 2.511507, 0.000000
-14, 0.055000, 2.511507, 0.000000
-15, 0.478412, 2.511507, 0.000000
-16, 0.533412, 2.511507, 0.000000
-17, 0.000000, 2.695257, 0.000000
-18, 0.055000, 2.695257, 0.000000
-19, 0.478412, 2.695257, 0.000000
-20, 0.533412, 2.695257, 0.000000
+13, 0.000000, 2.552757, 0.000000
+14, 0.055000, 2.552757, 0.000000
+15, 0.478412, 2.552757, 0.000000
+16, 0.533412, 2.552757, 0.000000
+17, 0.000000, 2.777757, 0.000000
+18, 0.055000, 2.777757, 0.000000
+19, 0.478412, 2.777757, 0.000000
+20, 0.533412, 2.777757, 0.000000
 *ELEMENT, TYPE=B31, ELSET=MAIN_SPAR
 1, 1, 5
 3, 5, 9
@@ -74,13 +74,13 @@ Current pathfinder rib torsion CCX local frame: aggressive_plausible_hybrid
 4.5e+10, 0.3
 *MATERIAL, NAME=RIB_SHEAR
 *ELASTIC
-4.8e+09, 0.3
+1.6e+09, 0.3
 *MATERIAL, NAME=COLLAR_TRANSFER
 *ELASTIC
 5.5e+10, 0.3
 *MATERIAL, NAME=DIAGONAL_SHEAR
 *ELASTIC
-1.18129421e+10, 0.3
+1.888e+09, 0.3
 *BEAM SECTION, ELSET=MAIN_SPAR, MATERIAL=SPAR_TUBE, SECTION=RECT
 0.030000, 0.006000
 0.0, 0.0, 1.0
@@ -88,13 +88,13 @@ Current pathfinder rib torsion CCX local frame: aggressive_plausible_hybrid
 0.024000, 0.004500
 0.0, 0.0, 1.0
 *BEAM SECTION, ELSET=RIB_SHEAR_TRANSFER, MATERIAL=RIB_SHEAR, SECTION=RECT
-0.055000, 0.015000
+0.055000, 0.010000
 0.0, 0.0, 1.0
 *BEAM SECTION, ELSET=TORQUE_ZONE_COLLAR, MATERIAL=COLLAR_TRANSFER, SECTION=RECT
 0.038000, 0.004000
 0.0, 0.0, 1.0
 *BEAM SECTION, ELSET=RIB_DIAGONAL_SHEAR, MATERIAL=DIAGONAL_SHEAR, SECTION=RECT
-0.030000, 0.009000
+0.030000, 0.006000
 0.0, 0.0, 1.0
 *NSET, NSET=LOCAL_BAY_ENDS
 1, 2, 3, 4, 17, 18, 19, 20

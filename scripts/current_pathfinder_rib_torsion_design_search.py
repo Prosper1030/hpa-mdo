@@ -49,6 +49,8 @@ DEFAULT_REPORT_MD = (
 
 
 SCHEMA_VERSION = "current_pathfinder_rib_torsion_design_search_v1"
+FAST_PHYSICAL_MODEL_ID = "link_limited_torsion_cell_v2"
+LEGACY_FAST_MODEL_ID = "hybrid_main_rear_torsion_cell_scale_v1"
 READY_FOR_FEM_CALIBRATION = "fast_design_loop_ready_for_fem_calibration"
 UNRELIABLE_NEEDS_CALIBRATION = "fast_model_unreliable_needs_calibration_before_search"
 NO_REASONABLE_CANDIDATE = "no_reasonable_rib_torsion_candidate_found"
@@ -161,9 +163,42 @@ def build_design_variable_contract() -> dict[str, Any]:
             ],
         },
         "cap_face_collar_stiffness_proxy": {
-            "proxy_id": "fast_effective_gj_multiplier_v1",
+            "proxy_id": FAST_PHYSICAL_MODEL_ID,
             "allowed_role": "search_and_shortlist_only",
             "must_be_calibrated_by": ["local rib-spar FEM", "coupon matrix", "APDL/CalculiX spot-check"],
+        },
+        "fast_physical_model": {
+            "model_id": FAST_PHYSICAL_MODEL_ID,
+            "legacy_model_id": LEGACY_FAST_MODEL_ID,
+            "physics_basis": (
+                "Rib thickness and spacing are treated as shear-transfer link terms "
+                "rather than full torsion-cell GJ multipliers. Local collar/carbon "
+                "reinforcement improves load introduction but is capped because the "
+                "rib web/link path still limits main-to-rear spar torque transfer."
+            ),
+            "thickness_exponents": {
+                "balsa": 1.10,
+                "hybrid_foam_balsa_cap": 0.78,
+                "hybrid_foam_glass_carbon_face": 0.78,
+                "eps_xps_foam_core_shape_only": 0.25,
+                "structural_foam_shape_core_reference": 0.25,
+            },
+            "spacing_exponents": {
+                "relaxed_spacing_penalty": 1.65,
+                "dense_spacing_reward": 0.55,
+            },
+            "local_reinforcement_link_factors": {
+                "none": 1.00,
+                "balsa_cap_collar_y2p328": 1.02,
+                "glass_face_collar_y2p328": 1.07,
+                "carbon_face_collar_y2p328": 1.10,
+            },
+            "uncollared_hybrid_torque_zone_factor": 0.64,
+            "do_not_fit": [
+                "foam-only shape-core rows",
+                "rear_spar_participation=1.0 selected basis",
+                "single empirical family correction factor",
+            ],
         },
         "aircraft_trade_outputs": [
             "mass_kg",
@@ -218,6 +253,7 @@ def build_rib_torsion_design_search(
         "selected_fast_candidate": selected,
         "design_variable_contract": contract,
         "fast_model_settings": {
+            "physical_model_id": FAST_PHYSICAL_MODEL_ID,
             "twist_bound_deg": _twist_bound_deg(sensitivity_payload, selected_closure_payload),
             "closure_anchor_twist_factors": closure_anchor,
             "fem_calibration_family_twist_factors": family_factors,
@@ -490,7 +526,7 @@ def derive_fast_model_calibration_update(
     *,
     calibration_results: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Build family correction factors from completed FEM calibration rows."""
+    """Build diagnostic fast-physics alignment feedback from completed FEM rows."""
 
     samples = {
         str(sample.get("sample_id")): sample
@@ -498,18 +534,28 @@ def derive_fast_model_calibration_update(
         if isinstance(sample, Mapping)
     }
     used_rows: list[dict[str, Any]] = []
-    family_values: dict[str, list[dict[str, float]]] = {}
+    legacy_family_values: dict[str, list[float]] = {}
     for result in calibration_results:
         sample = samples.get(str(result.get("sample_id")))
         if not sample or str(result.get("status", "")).lower() not in {"completed", "pass", "done"}:
             continue
         fem_twist = _float_or_none(result.get("fem_twist_deg"))
         fem_mass = _float_or_none(result.get("fem_mass_kg"))
-        fast_twist = _float_or_none(sample.get("fast_model_bounded_twist_deg"))
+        revised_fast_twist = _float_or_none(sample.get("fast_model_bounded_twist_deg"))
+        legacy_fast_twist = _float_or_none(sample.get("legacy_fast_model_bounded_twist_deg"))
+        if legacy_fast_twist is None:
+            legacy_fast_twist = revised_fast_twist
         fast_mass = _float_or_none(sample.get("mass_kg"))
-        if fem_twist is None or fast_twist is None or fast_twist <= 0.0:
+        if (
+            fem_twist is None
+            or revised_fast_twist is None
+            or revised_fast_twist <= 0.0
+            or legacy_fast_twist is None
+            or legacy_fast_twist <= 0.0
+        ):
             continue
-        twist_factor = fem_twist / fast_twist
+        revised_factor = fem_twist / revised_fast_twist
+        legacy_factor = fem_twist / legacy_fast_twist
         mass_factor = None
         if fem_mass is not None and fast_mass is not None and fast_mass > 0.0:
             mass_factor = fem_mass / fast_mass
@@ -518,43 +564,58 @@ def derive_fast_model_calibration_update(
             "sample_role": sample.get("sample_role"),
             "family_key": sample.get("family_key"),
             "solver": result.get("solver"),
-            "fast_model_bounded_twist_deg": fast_twist,
+            "legacy_fast_model_bounded_twist_deg": legacy_fast_twist,
+            "revised_fast_model_bounded_twist_deg": revised_fast_twist,
             "fem_twist_deg": fem_twist,
-            "twist_factor": round(twist_factor, 6),
+            "legacy_fast_vs_ccx_factor": round(legacy_factor, 6),
+            "revised_fast_vs_ccx_factor": round(revised_factor, 6),
+            "legacy_factor_error_pct": round(abs(legacy_factor - 1.0) * 100.0, 6),
+            "revised_factor_error_pct": round(abs(revised_factor - 1.0) * 100.0, 6),
             "mass_factor": None if mass_factor is None else round(mass_factor, 6),
+            "structural_credit_policy": sample.get("structural_credit_policy"),
         }
         used_rows.append(row)
-        family_values.setdefault(str(sample.get("family_key")), []).append(
-            {
-                "twist_factor": twist_factor,
-                "mass_factor": 1.0 if mass_factor is None else mass_factor,
-            }
-        )
-
-    family_factors: dict[str, dict[str, float]] = {}
-    for family, values in family_values.items():
-        family_factors[family] = {
-            "twist_factor": round(
-                sum(value["twist_factor"] for value in values) / len(values),
-                6,
-            ),
-            "mass_factor": round(
-                sum(value["mass_factor"] for value in values) / len(values),
-                6,
-            ),
-        }
+        legacy_family_values.setdefault(str(sample.get("family_key")), []).append(legacy_factor)
+    legacy_family_factors = {
+        family: {"twist_factor": round(sum(values) / len(values), 6)}
+        for family, values in legacy_family_values.items()
+    }
+    structural_rows = [
+        row
+        for row in used_rows
+        if row.get("structural_credit_policy") != "shape_core_reference_only"
+        and row.get("sample_role") != "baseline_balsa_3mm"
+    ]
+    max_revised_error = max(
+        (float(row["revised_factor_error_pct"]) for row in structural_rows),
+        default=None,
+    )
+    if max_revised_error is None:
+        verification_verdict = "fast_physical_model_improved_but_not_verified"
+    elif max_revised_error <= 5.0:
+        verification_verdict = "fast_physical_model_verified_within_5pct"
+    elif max_revised_error <= 10.0:
+        verification_verdict = "fast_physical_model_aligned_within_10pct"
+    else:
+        verification_verdict = "fast_physical_model_improved_but_not_verified"
     status = (
-        "calibration_update_ready_for_fast_loop"
-        if len(used_rows) >= 2
-        else "calibration_update_waiting_for_more_fem_samples"
+        "fast_physics_alignment_diagnostic_ready"
+        if len(structural_rows) >= 2
+        else "fast_physics_alignment_waiting_for_more_structural_fem_samples"
     )
     return {
-        "schema_version": "rib_torsion_fast_model_calibration_update_v1",
+        "schema_version": "rib_torsion_fast_physics_alignment_v2",
         "status": status,
+        "physical_model_id": FAST_PHYSICAL_MODEL_ID,
         "used_result_rows": used_rows,
-        "family_correction_factors": family_factors,
-        "next_loop_action": "rerun_fast_search_with_calibrated_twist_factors",
-        "claim_boundary": "calibration_correction_for_search_only_not_final_FEM_truth",
+        "family_correction_factors": {},
+        "diagnostic_legacy_family_twist_factors": legacy_family_factors,
+        "structural_candidate_max_revised_factor_error_pct": None
+        if max_revised_error is None
+        else round(max_revised_error, 6),
+        "verification_verdict": verification_verdict,
+        "next_loop_action": "rerun_fast_search_with_revised_physical_model_no_family_factor",
+        "claim_boundary": "diagnostic_only_fast_physics_revision_not_final_FEM_truth",
     }
 
 
@@ -570,6 +631,7 @@ def _build_candidate_rows(
     tail_metrics = _tail_metrics(selected_closure_payload, sensitivity_payload)
     baseline_mass = _baseline_rib_mass(sensitivity_payload)
     twist_bound = _twist_bound_deg(sensitivity_payload, selected_closure_payload)
+    physical_model = _mapping_at(contract, "fast_physical_model")
     spacing_profiles = contract["rib_spacing_zone_profiles"]
     reinforcements = contract["local_reinforcement_options"]["options"]
     thickness_values = tuple(float(value) for value in contract["rib_core_thickness_m"])
@@ -603,25 +665,42 @@ def _build_candidate_rows(
             base_thickness_m=base_thickness,
             thickness_values=thickness_values,
         ):
-            thickness_factor = _thickness_stiffness_factor(
-                group=group,
-                thickness_m=thickness_m,
-                base_thickness_m=base_thickness,
-            )
             for profile in spacing_profiles:
-                spacing_factor = float(profile["stiffness_factor"])
                 mass_factor = float(profile["mass_factor"])
                 for reinforcement in reinforcements:
-                    local_factor = _local_factor_for_group(group, reinforcement)
+                    legacy_components = _legacy_fast_physics_components(
+                        group=group,
+                        thickness_m=thickness_m,
+                        base_thickness_m=base_thickness,
+                        profile=profile,
+                        reinforcement=reinforcement,
+                    )
+                    physics_components = _fast_physics_components(
+                        group=group,
+                        thickness_m=thickness_m,
+                        base_thickness_m=base_thickness,
+                        effective_spacing_m=float(profile["effective_spacing_m"]),
+                        reinforcement=reinforcement,
+                        physical_model=physical_model,
+                    )
+                    local_factor = physics_components["local_reinforcement_factor"]
                     local_mass = _local_mass_for_group(group, reinforcement)
                     calibration_twist_factor = float(family_factors.get(family_key, 1.0))
                     anchor_twist_factor = float(closure_anchor.get(family_key, 1.0))
-                    total_stiffness_factor = thickness_factor * spacing_factor * local_factor
+                    total_stiffness_factor = physics_components["total_stiffness_factor"]
+                    legacy_total_stiffness_factor = legacy_components["total_stiffness_factor"]
                     total_twist_factor = max(0.05, total_stiffness_factor)
+                    legacy_total_twist_factor = max(0.05, legacy_total_stiffness_factor)
                     fast_direct = base_direct * anchor_twist_factor * calibration_twist_factor
                     fast_direct /= total_twist_factor
                     fast_bounded = base_bounded * anchor_twist_factor * calibration_twist_factor
                     fast_bounded /= total_twist_factor
+                    legacy_fast_direct = base_direct * anchor_twist_factor
+                    legacy_fast_direct *= calibration_twist_factor
+                    legacy_fast_direct /= legacy_total_twist_factor
+                    legacy_fast_bounded = base_bounded * anchor_twist_factor
+                    legacy_fast_bounded *= calibration_twist_factor
+                    legacy_fast_bounded /= legacy_total_twist_factor
                     mass = (
                         base_mass
                         * (thickness_m / max(base_thickness, 1.0e-12))
@@ -671,12 +750,31 @@ def _build_candidate_rows(
                             "rear_stiffness_scale": round(rear_scale, 6),
                             "rear_spar_participation": _rear_label(rear_scale),
                             "cap_face_collar_stiffness_proxy": round(local_factor, 6),
+                            "legacy_cap_face_collar_stiffness_proxy": round(
+                                legacy_components["local_reinforcement_factor"],
+                                6,
+                            ),
                             "effective_gj_ratio_vs_balsa_selected": round(
                                 base_gj * total_stiffness_factor,
                                 6,
                             ),
+                            "legacy_effective_gj_ratio_vs_balsa_selected": round(
+                                base_gj * legacy_total_stiffness_factor,
+                                6,
+                            ),
                             "fast_model_direct_twist_deg": round(fast_direct, 6),
                             "fast_model_bounded_twist_deg": round(fast_bounded, 6),
+                            "legacy_fast_model_direct_twist_deg": round(legacy_fast_direct, 6),
+                            "legacy_fast_model_bounded_twist_deg": round(
+                                legacy_fast_bounded,
+                                6,
+                            ),
+                            "fast_physics_components": _rounded_component_dict(
+                                physics_components,
+                            ),
+                            "legacy_fast_physics_components": _rounded_component_dict(
+                                legacy_components,
+                            ),
                             "twist_bound_deg": round(twist_bound, 6),
                             "direct_stress_test_status": _direct_status(fast_direct, twist_bound),
                             "bounded_twist_status": _bounded_status(fast_bounded, twist_bound),
@@ -871,17 +969,17 @@ def _select_calibration_samples(
         spacing_profile="uniform_0p30",
         allow_rejected=True,
     )
-    selected_hybrid = selected
-    if not selected_hybrid or str(selected_hybrid.get("family_key")) != "eps_balsa_cap_hybrid_10mm":
-        selected_hybrid = _find_best_match(
-            candidate_rows,
-            family_key="eps_balsa_cap_hybrid_10mm",
-            thickness_m=0.010,
-            rear_scale=0.75,
-            reinforcement="carbon_face_collar_y2p328",
-            spacing_profile="manufacturing_relaxed_0p36",
-            allow_rejected=False,
-        )
+    selected_hybrid = _find_best_match(
+        candidate_rows,
+        family_key="eps_balsa_cap_hybrid_10mm",
+        thickness_m=0.010,
+        rear_scale=0.75,
+        reinforcement="carbon_face_collar_y2p328",
+        spacing_profile="manufacturing_relaxed_0p36",
+        allow_rejected=True,
+    )
+    if selected_hybrid is None and selected and str(selected.get("family_key")) == "eps_balsa_cap_hybrid_10mm":
+        selected_hybrid = selected
     aggressive = _best_aggressive_candidate(candidate_rows)
     foam = _best_foam_reference(candidate_rows)
     for role, row, solver, priority, purpose in (
@@ -916,6 +1014,21 @@ def _select_calibration_samples(
     ):
         if row:
             samples.append(_sample_payload(role, row, solver, priority, purpose))
+    if (
+        selected
+        and selected_hybrid
+        and selected.get("case_id") != selected_hybrid.get("case_id")
+        and selected.get("material_family_group") not in _foam_reference_groups()
+    ):
+        samples.append(
+            _sample_payload(
+                "revised_selected_candidate",
+                selected,
+                "calculix",
+                1,
+                "validate the revised fast-search selected candidate after physics update",
+            )
+        )
     return samples
 
 
@@ -943,8 +1056,18 @@ def _sample_payload(
         "rear_stiffness_scale": row.get("rear_stiffness_scale"),
         "cap_face_collar_stiffness_proxy": row.get("cap_face_collar_stiffness_proxy"),
         "effective_gj_ratio_vs_balsa_selected": row.get("effective_gj_ratio_vs_balsa_selected"),
+        "legacy_cap_face_collar_stiffness_proxy": row.get(
+            "legacy_cap_face_collar_stiffness_proxy"
+        ),
+        "legacy_effective_gj_ratio_vs_balsa_selected": row.get(
+            "legacy_effective_gj_ratio_vs_balsa_selected"
+        ),
+        "fast_physics_components": row.get("fast_physics_components"),
+        "legacy_fast_physics_components": row.get("legacy_fast_physics_components"),
         "fast_model_direct_twist_deg": row.get("fast_model_direct_twist_deg"),
         "fast_model_bounded_twist_deg": row.get("fast_model_bounded_twist_deg"),
+        "legacy_fast_model_direct_twist_deg": row.get("legacy_fast_model_direct_twist_deg"),
+        "legacy_fast_model_bounded_twist_deg": row.get("legacy_fast_model_bounded_twist_deg"),
         "twist_bound_deg": row.get("twist_bound_deg"),
         "mass_kg": trade.get("mass_kg"),
         "cg_x_m": trade.get("cg_x_m"),
@@ -980,11 +1103,12 @@ def _calibration_interface() -> dict[str, Any]:
             "notes": {"required": False, "unit": "text"},
         },
         "update_policy": {
-            "twist_factor": "fem_twist_deg / fast_model_bounded_twist_deg",
+            "twist_factor": "fem_twist_deg / revised_fast_model_bounded_twist_deg",
+            "legacy_twist_factor": "fem_twist_deg / legacy_fast_model_bounded_twist_deg",
             "mass_factor": "fem_mass_kg / fast_model_mass_kg when supplied",
-            "next_loop_action": "apply_family_and_zone_correction_factors_then_rerun_fast_search",
+            "next_loop_action": "compare revised fast physics against FEM, then rerun fast search without family correction if aligned",
             "do_not_promote": [
-                "FEM calibration factor as final stress signoff",
+                "FEM calibration factor as a hidden replacement for physics terms",
                 "EPS/XPS foam-only as structural bracing pass",
                 "rear_spar_participation=1.0 as selected basis",
             ],
@@ -1209,7 +1333,11 @@ def _search_verdict(
 ) -> str:
     if selected is None:
         return NO_REASONABLE_CANDIDATE
-    if calibration_update and not _family_twist_correction_factors(calibration_update):
+    if (
+        calibration_update
+        and not _family_twist_correction_factors(calibration_update)
+        and calibration_update.get("status") != "fast_physics_alignment_diagnostic_ready"
+    ):
         return UNRELIABLE_NEEDS_CALIBRATION
     if not candidate_rows:
         return UNRELIABLE_NEEDS_CALIBRATION
@@ -1376,7 +1504,138 @@ def _thickness_stiffness_factor(
     return max(0.10, ratio**exponent)
 
 
+def _legacy_fast_physics_components(
+    *,
+    group: str,
+    thickness_m: float,
+    base_thickness_m: float,
+    profile: Mapping[str, Any],
+    reinforcement: Mapping[str, Any],
+) -> dict[str, float | str]:
+    thickness_factor = _thickness_stiffness_factor(
+        group=group,
+        thickness_m=thickness_m,
+        base_thickness_m=base_thickness_m,
+    )
+    spacing_factor = float(profile["stiffness_factor"])
+    local_factor = _legacy_local_factor_for_group(group, reinforcement)
+    total = thickness_factor * spacing_factor * local_factor
+    return {
+        "model_id": LEGACY_FAST_MODEL_ID,
+        "thickness_factor": thickness_factor,
+        "spacing_factor": spacing_factor,
+        "local_reinforcement_factor": local_factor,
+        "total_stiffness_factor": total,
+    }
+
+
+def _fast_physics_components(
+    *,
+    group: str,
+    thickness_m: float,
+    base_thickness_m: float,
+    effective_spacing_m: float,
+    reinforcement: Mapping[str, Any],
+    physical_model: Mapping[str, Any],
+) -> dict[str, float | str]:
+    """Return link-limited fast physics terms for rib torsion search.
+
+    The model intentionally gives collar material only a modest link-efficiency
+    credit. Carbon/glass collars help introduce load into the rib web, but they
+    do not turn the whole main/rear spar cell into a rigid closed section.
+    """
+
+    thickness_factor = _physics_thickness_factor(
+        group=group,
+        thickness_m=thickness_m,
+        base_thickness_m=base_thickness_m,
+        physical_model=physical_model,
+    )
+    spacing_factor = _physics_spacing_factor(
+        effective_spacing_m=effective_spacing_m,
+        physical_model=physical_model,
+    )
+    local_factor = _physics_local_reinforcement_factor(
+        group=group,
+        reinforcement=reinforcement,
+        physical_model=physical_model,
+    )
+    total = thickness_factor * spacing_factor * local_factor
+    return {
+        "model_id": FAST_PHYSICAL_MODEL_ID,
+        "thickness_factor": thickness_factor,
+        "spacing_factor": spacing_factor,
+        "local_reinforcement_factor": local_factor,
+        "total_stiffness_factor": max(0.05, total),
+    }
+
+
+def _physics_thickness_factor(
+    *,
+    group: str,
+    thickness_m: float,
+    base_thickness_m: float,
+    physical_model: Mapping[str, Any],
+) -> float:
+    ratio = thickness_m / max(base_thickness_m, 1.0e-12)
+    exponents = _mapping_at(physical_model, "thickness_exponents")
+    exponent = _float_or_none(exponents.get(group))
+    if exponent is None:
+        exponent = 0.78 if group.startswith("hybrid_") else 0.70
+    return max(0.10, ratio**exponent)
+
+
+def _physics_spacing_factor(
+    *,
+    effective_spacing_m: float,
+    physical_model: Mapping[str, Any],
+) -> float:
+    spacing = max(float(effective_spacing_m), 0.10)
+    ratio = 0.30 / spacing
+    exponents = _mapping_at(physical_model, "spacing_exponents")
+    if spacing >= 0.30:
+        exponent = _float_or_none(exponents.get("relaxed_spacing_penalty")) or 1.65
+    else:
+        exponent = _float_or_none(exponents.get("dense_spacing_reward")) or 0.55
+    return max(0.10, ratio**exponent)
+
+
+def _physics_local_reinforcement_factor(
+    *,
+    group: str,
+    reinforcement: Mapping[str, Any],
+    physical_model: Mapping[str, Any],
+) -> float:
+    key = str(reinforcement.get("key", "none"))
+    if group in _foam_reference_groups():
+        return 1.0
+    if key == "none" and group in {"hybrid_foam_balsa_cap", "hybrid_foam_glass_carbon_face"}:
+        factor = _float_or_none(physical_model.get("uncollared_hybrid_torque_zone_factor"))
+        return max(0.10, factor if factor is not None else 0.64)
+    if key == "none":
+        return 1.0
+    link_factors = _mapping_at(physical_model, "local_reinforcement_link_factors")
+    factor = _float_or_none(link_factors.get(key))
+    if factor is not None:
+        return max(1.0, factor)
+    return 1.0
+
+
+def _rounded_component_dict(components: Mapping[str, float | str]) -> dict[str, float | str]:
+    out: dict[str, float | str] = {}
+    for key, value in components.items():
+        if isinstance(value, float):
+            out[key] = round(value, 6)
+        else:
+            out[key] = value
+    return out
+
+
 def _local_factor_for_group(group: str, reinforcement: Mapping[str, Any]) -> float:
+    return _legacy_local_factor_for_group(group, reinforcement)
+
+
+def _legacy_local_factor_for_group(group: str, reinforcement: Mapping[str, Any]) -> float:
     key = str(reinforcement.get("key", ""))
     factor = float(reinforcement.get("stiffness_factor", 1.0))
     if key == "none":
