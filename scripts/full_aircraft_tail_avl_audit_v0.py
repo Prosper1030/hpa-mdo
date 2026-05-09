@@ -85,6 +85,8 @@ def build_full_aircraft_deck_text(
     contract: Mapping[str, Any],
     delta_h_deg: float,
     delta_v_deg: float,
+    moment_reference_x_m: float | None = None,
+    moment_reference_role: str = "source_wing_avl_reference",
 ) -> tuple[str, dict[str, Any]]:
     """Return an AVL deck with whole-surface all-moving tail geometry."""
 
@@ -93,6 +95,8 @@ def build_full_aircraft_deck_text(
     v_sections, v_manifest = _vertical_tail_sections(contract, delta_v_deg=delta_v_deg)
 
     h = wing.header
+    xref = h.xref if moment_reference_x_m is None else float(moment_reference_x_m)
+    xref_source = "source_wing_avl_header" if moment_reference_x_m is None else "moment_reference_x_m_override"
     lines: list[str] = [
         (
             "Current pathfinder full-aircraft tail AVL audit v0 "
@@ -105,7 +109,7 @@ def build_full_aircraft_deck_text(
         "#Sref  Cref  Bref",
         f"{h.sref:.9f}  {h.cref:.9f}  {h.bref:.9f}",
         "#Xref  Yref  Zref",
-        f"{h.xref:.9f}  {h.yref:.9f}  {h.zref:.9f}",
+        f"{xref:.9f}  {h.yref:.9f}  {h.zref:.9f}",
         "#CDp",
         f"{h.cdp:.6f}",
         "#",
@@ -129,9 +133,11 @@ def build_full_aircraft_deck_text(
             "Sref": h.sref,
             "Cref": h.cref,
             "Bref": h.bref,
-            "Xref": h.xref,
+            "Xref": xref,
             "Yref": h.yref,
             "Zref": h.zref,
+            "Xref_source": xref_source,
+            "Xref_role": str(moment_reference_role),
         },
         "deflections_deg": {
             "delta_H": float(delta_h_deg),

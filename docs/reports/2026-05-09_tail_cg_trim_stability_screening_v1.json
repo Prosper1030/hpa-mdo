@@ -1,0 +1,580 @@
+{
+  "artifact_manifest": {
+    "cases": [
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_neutral_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.68,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_minus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.68,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_minus_small.avl",
+        "delta_H_deg": -2.0,
+        "delta_V_deg": 0.0,
+        "sweep": "h_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_plus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.68,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_h_delta_plus_small.avl",
+        "delta_H_deg": 2.0,
+        "delta_V_deg": 0.0,
+        "sweep": "h_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_minus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.68,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_plus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.68,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p680/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p680_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_neutral_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.72,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_minus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.72,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_minus_small.avl",
+        "delta_H_deg": -2.0,
+        "delta_V_deg": 0.0,
+        "sweep": "h_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_plus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.72,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_h_delta_plus_small.avl",
+        "delta_H_deg": 2.0,
+        "delta_V_deg": 0.0,
+        "sweep": "h_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_minus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.72,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_plus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.72,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p720/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p720_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_neutral.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_neutral.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_neutral_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.75,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_neutral_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/neutral/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_neutral.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 0.0,
+        "sweep": "neutral"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_minus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.75,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_minus_small.avl",
+        "delta_H_deg": -2.0,
+        "delta_V_deg": 0.0,
+        "sweep": "h_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_plus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.75,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/h_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_h_delta_plus_small.avl",
+        "delta_H_deg": 2.0,
+        "delta_V_deg": 0.0,
+        "sweep": "h_delta_plus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_minus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_minus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_minus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.75,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_minus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_minus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_minus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": -2.0,
+        "sweep": "v_delta_minus_small"
+      },
+      {
+        "avl_run": {
+          "error": null,
+          "returncode": 0,
+          "run_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_plus_small.run",
+          "st_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_plus_small.st",
+          "stdout_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_plus_small_stdout.log"
+        },
+        "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+        "cg_x_m": 0.75,
+        "deck_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_plus_small_deck_manifest.json",
+        "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1/h1p250_xaft1p500_v2p000_xaft1p000/cg_0p750/v_delta_plus_small/h1p250_xaft1p500_v2p000_xaft1p000_cg0p750_v_delta_plus_small.avl",
+        "delta_H_deg": 0.0,
+        "delta_V_deg": 2.0,
+        "sweep": "v_delta_plus_small"
+      }
+    ],
+    "deck_count": 15,
+    "output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_cg_trim_stability_v1",
+    "schema_version": "tail_cg_trim_stability_screening_manifest_v1"
+  },
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "claim_boundary": "Screening-level AVL + algebraic basis only. This is not final FEM, hardware certification, tail polar signoff, or a measured CG manifest.",
+  "contract_id": "current_avl_compromise_conservative_closed_tail_contract_v0",
+  "engineering_verdict": "ready_for_tail_aware_rib_rear_spar_sensitivity",
+  "geometry_warnings": [],
+  "mass_cg_clue": {
+    "engineering_read": "This tracked M14 estimate suggests the current CG may be around the upper screening range, but it is not a current pathfinder measured CG manifest.",
+    "path": "/Volumes/Samsung SSD/hpa-mdo/configs/blackcat_004.yaml",
+    "point_mass_cg_x_m": 0.810822,
+    "point_mass_total_kg": 83.95,
+    "remainder_mass_kg": 12.05,
+    "remainder_x_m_assumption": 0.35,
+    "status": "estimated_clue_not_promoted_truth",
+    "target_total_cg_x_m_clue": 0.752979,
+    "target_total_mass_kg": 96.0
+  },
+  "rows": [
+    {
+      "blockers": [],
+      "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+      "cg_x_m": 0.68,
+      "directional": {
+        "C_l_beta": -0.240346,
+        "C_l_deltaV": -0.002005,
+        "C_n_beta": 0.016896,
+        "C_n_beta_min": 0.005,
+        "C_n_deltaV": 0.051566,
+        "C_n_deltaV_min_abs": 0.005,
+        "abs_C_l_beta_over_C_n_beta": 14.225024,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.038889,
+        "beta_screen_deg": 12.0,
+        "delta_V_margin_to_limit_deg": 16.068122,
+        "delta_V_required_deg": -3.931878,
+        "usable_delta_V_range_deg": [
+          -20.0,
+          20.0
+        ],
+        "yaw_roll_ratio_limit": 20.0
+      },
+      "geometry": {
+        "horizontal_tail": {
+          "S_H_m2": 4.5,
+          "V_H": 1.077895,
+          "l_H_m": 8.034973,
+          "mean_chord_m": 1.125,
+          "span_m": 4.0,
+          "x_ac_H_m": 8.28125,
+          "x_le_m": 8.0
+        },
+        "vertical_tail": {
+          "S_V_m2": 3.36,
+          "V_V": 0.023731,
+          "height_or_span_m": 2.4,
+          "l_V_m": 8.103723,
+          "mean_chord_m": 1.4,
+          "x_ac_V_m": 8.35,
+          "x_le_m": 8.0
+        }
+      },
+      "longitudinal_trim": {
+        "CL_required": 1.141757,
+        "C_L_alpha": 6.235315,
+        "C_L_deltaH": 0.481285,
+        "C_m_alpha": -0.986763,
+        "C_m_deltaH": -3.471838,
+        "H_tail_CL_utilization": {
+          "reason": "No promoted H-tail polar/strip-load CLmax exists yet.",
+          "status": "not_available_screening_uses_deflection_reserve"
+        },
+        "alpha_limit_deg": 12.0,
+        "alpha_required_deg": -0.508691,
+        "delta_H_margin_to_limit_deg": 7.01715,
+        "delta_H_required_deg": 7.98285,
+        "static_margin": 0.158254,
+        "static_margin_min": 0.05,
+        "trim_solution_status": "solved_linearized_screening",
+        "usable_delta_H_range_deg": [
+          -15.0,
+          15.0
+        ]
+      },
+      "moment_reference": {
+        "Xref_m": 0.68,
+        "Xref_role": "screening_cg_moment_reference",
+        "reason": "AVL pitch moments for this row are explicitly referenced about CG."
+      },
+      "status": "pass_screening",
+      "xnp_convention": {
+        "formula": "Xnp = Xref - C_m_alpha / C_L_alpha * Cref",
+        "residual_m": 0.0,
+        "status": "verified_by_Cma_CLa_reference_sweep_formula",
+        "tolerance_m": 0.001,
+        "xnp_from_derivatives_m": 0.838843,
+        "xnp_raw_m": 0.838843
+      }
+    },
+    {
+      "blockers": [],
+      "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+      "cg_x_m": 0.72,
+      "directional": {
+        "C_l_beta": -0.240346,
+        "C_l_deltaV": -0.002005,
+        "C_n_beta": 0.016471,
+        "C_n_beta_min": 0.005,
+        "C_n_deltaV": 0.05128,
+        "C_n_deltaV_min_abs": 0.005,
+        "abs_C_l_beta_over_C_n_beta": 14.592071,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.039106,
+        "beta_screen_deg": 12.0,
+        "delta_V_margin_to_limit_deg": 16.145611,
+        "delta_V_required_deg": -3.854389,
+        "usable_delta_V_range_deg": [
+          -20.0,
+          20.0
+        ],
+        "yaw_roll_ratio_limit": 20.0
+      },
+      "geometry": {
+        "horizontal_tail": {
+          "S_H_m2": 4.5,
+          "V_H": 1.077895,
+          "l_H_m": 8.034973,
+          "mean_chord_m": 1.125,
+          "span_m": 4.0,
+          "x_ac_H_m": 8.28125,
+          "x_le_m": 8.0
+        },
+        "vertical_tail": {
+          "S_V_m2": 3.36,
+          "V_V": 0.023731,
+          "height_or_span_m": 2.4,
+          "l_V_m": 8.103723,
+          "mean_chord_m": 1.4,
+          "x_ac_V_m": 8.35,
+          "x_le_m": 8.0
+        }
+      },
+      "longitudinal_trim": {
+        "CL_required": 1.141757,
+        "C_L_alpha": 6.235315,
+        "C_L_deltaH": 0.481285,
+        "C_m_alpha": -0.737793,
+        "C_m_deltaH": -3.452644,
+        "H_tail_CL_utilization": {
+          "reason": "No promoted H-tail polar/strip-load CLmax exists yet.",
+          "status": "not_available_screening_uses_deflection_reserve"
+        },
+        "alpha_limit_deg": 12.0,
+        "alpha_required_deg": -0.567954,
+        "delta_H_margin_to_limit_deg": 6.249361,
+        "delta_H_required_deg": 8.750639,
+        "static_margin": 0.118325,
+        "static_margin_min": 0.05,
+        "trim_solution_status": "solved_linearized_screening",
+        "usable_delta_H_range_deg": [
+          -15.0,
+          15.0
+        ]
+      },
+      "moment_reference": {
+        "Xref_m": 0.72,
+        "Xref_role": "screening_cg_moment_reference",
+        "reason": "AVL pitch moments for this row are explicitly referenced about CG."
+      },
+      "status": "pass_screening",
+      "xnp_convention": {
+        "formula": "Xnp = Xref - C_m_alpha / C_L_alpha * Cref",
+        "residual_m": 0.0,
+        "status": "verified_by_Cma_CLa_reference_sweep_formula",
+        "tolerance_m": 0.001,
+        "xnp_from_derivatives_m": 0.838765,
+        "xnp_raw_m": 0.838765
+      }
+    },
+    {
+      "blockers": [],
+      "case": "h1p250_xaft1p500_v2p000_xaft1p000",
+      "cg_x_m": 0.75,
+      "directional": {
+        "C_l_beta": -0.240346,
+        "C_l_deltaV": -0.002005,
+        "C_n_beta": 0.016153,
+        "C_n_beta_min": 0.005,
+        "C_n_deltaV": 0.05128,
+        "C_n_deltaV_min_abs": 0.005,
+        "abs_C_l_beta_over_C_n_beta": 14.879341,
+        "abs_C_l_deltaV_over_C_n_deltaV": 0.039106,
+        "beta_screen_deg": 12.0,
+        "delta_V_margin_to_limit_deg": 16.220026,
+        "delta_V_required_deg": -3.779974,
+        "usable_delta_V_range_deg": [
+          -20.0,
+          20.0
+        ],
+        "yaw_roll_ratio_limit": 20.0
+      },
+      "geometry": {
+        "horizontal_tail": {
+          "S_H_m2": 4.5,
+          "V_H": 1.077895,
+          "l_H_m": 8.034973,
+          "mean_chord_m": 1.125,
+          "span_m": 4.0,
+          "x_ac_H_m": 8.28125,
+          "x_le_m": 8.0
+        },
+        "vertical_tail": {
+          "S_V_m2": 3.36,
+          "V_V": 0.023731,
+          "height_or_span_m": 2.4,
+          "l_V_m": 8.103723,
+          "mean_chord_m": 1.4,
+          "x_ac_V_m": 8.35,
+          "x_le_m": 8.0
+        }
+      },
+      "longitudinal_trim": {
+        "CL_required": 1.141757,
+        "C_L_alpha": 6.235315,
+        "C_L_deltaH": 0.481285,
+        "C_m_alpha": -0.551066,
+        "C_m_deltaH": -3.438176,
+        "H_tail_CL_utilization": {
+          "reason": "No promoted H-tail polar/strip-load CLmax exists yet.",
+          "status": "not_available_screening_uses_deflection_reserve"
+        },
+        "alpha_limit_deg": 12.0,
+        "alpha_required_deg": -0.612404,
+        "delta_H_margin_to_limit_deg": 5.673498,
+        "delta_H_required_deg": 9.326502,
+        "static_margin": 0.088378,
+        "static_margin_min": 0.05,
+        "trim_solution_status": "solved_linearized_screening",
+        "usable_delta_H_range_deg": [
+          -15.0,
+          15.0
+        ]
+      },
+      "moment_reference": {
+        "Xref_m": 0.75,
+        "Xref_role": "screening_cg_moment_reference",
+        "reason": "AVL pitch moments for this row are explicitly referenced about CG."
+      },
+      "status": "pass_screening",
+      "xnp_convention": {
+        "formula": "Xnp = Xref - C_m_alpha / C_L_alpha * Cref",
+        "residual_m": 0.0,
+        "status": "verified_by_Cma_CLa_reference_sweep_formula",
+        "tolerance_m": 0.001,
+        "xnp_from_derivatives_m": 0.838707,
+        "xnp_raw_m": 0.838707
+      }
+    }
+  ],
+  "runner_status": "completed",
+  "schema_version": "tail_cg_trim_stability_screening_v1",
+  "screening_assumption_contract": {
+    "beta_screen_deg": 12.0,
+    "cg_basis": [
+      "AVL moments in this artifact are explicitly referenced about each CG row.",
+      "Tracked M14 mass-budget estimates are used only as a CG clue, not truth.",
+      "The next rib/rear-spar sensitivity must keep CG as an input range."
+    ],
+    "cg_grid_x_m": [
+      0.68,
+      0.72,
+      0.75
+    ],
+    "cg_range_x_m": [
+      0.68,
+      0.75
+    ],
+    "cg_status": "screening_assumption_not_measured_cg_truth",
+    "moment_reference_convention": "Set AVL Xref equal to the row CG for trim rows.",
+    "static_margin_min": 0.05,
+    "xnp_convention_gate": "Use Xnp only when Xnp = Xref - Cma/CLa*Cref is verified."
+  },
+  "selected_basis": {
+    "geometry": {
+      "horizontal_tail": {
+        "S_H_m2": 4.5,
+        "V_H": 1.077895,
+        "l_H_m": 8.034973,
+        "mean_chord_m": 1.125,
+        "span_m": 4.0,
+        "x_ac_H_m": 8.28125,
+        "x_le_m": 8.0
+      },
+      "vertical_tail": {
+        "S_V_m2": 3.36,
+        "V_V": 0.023731,
+        "height_or_span_m": 2.4,
+        "l_V_m": 8.103723,
+        "mean_chord_m": 1.4,
+        "x_ac_V_m": 8.35,
+        "x_le_m": 8.0
+      }
+    },
+    "max_abs_delta_H_required_deg": 9.326502,
+    "max_abs_delta_V_required_deg": 3.931878,
+    "pass_row_count": 3,
+    "recommended_cg_range_x_m": [
+      0.68,
+      0.75
+    ],
+    "row_count": 3,
+    "worst_delta_H_margin_to_limit_deg": 5.673498,
+    "worst_delta_V_margin_to_limit_deg": 16.068122,
+    "worst_static_margin": 0.088378
+  },
+  "sizing_case": {
+    "h_aft_shift_m": 1.5,
+    "h_area_multiplier": 1.25,
+    "name": "h1p250_xaft1p500_v2p000_xaft1p000",
+    "v_aft_shift_m": 1.0,
+    "v_area_multiplier": 2.0
+  },
+  "tail_drag_mass_treatment": {
+    "baseline_tail_area_m2": 5.28,
+    "baseline_tail_mass_kg_assumption": 2.4,
+    "cg_coupling_warning": "Selected tail mass is aft of the wing reference. Keep the next sensitivity inside the recommended CG range or rerun this screen with the aft-shifted CG; do not silently add tail mass and keep the same stability claim.",
+    "engineering_read": "Use as a screening penalty in the next sensitivity. It is not a measured tail structural mass, pivot mass, or full trim-induced drag model.",
+    "selected_tail_area_m2": 7.86,
+    "selected_tail_mass_kg_estimate": 3.572727,
+    "status": "screening_delta_not_charged_to_candidate_truth",
+    "tail_cd0_increment_estimate": 0.002352,
+    "tail_mass_delta_kg_estimate": 1.172727,
+    "tail_profile_cd0_assumption": 0.01,
+    "tail_profile_power_increment_w_estimate": 13.33234
+  }
+}

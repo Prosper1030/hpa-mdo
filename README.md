@@ -74,6 +74,16 @@ V-tail area / tail arm 能把 `C_n_beta` 和 `C_n_deltaV` 往合理方向推，�
 `blocked_by_missing_cg_or_reference_moment`：`Xref` 只是 AVL coefficient reference，`Xnp` 只是
 未驗證 convention 的 neutral-point candidate，current pathfinder 還沒有 promoted aircraft CG range。
 
+接著已建立 tail / CG / trim / stability screening v1，讀
+[docs/reports/2026-05-09_tail_cg_trim_stability_screening_v1.md](docs/reports/2026-05-09_tail_cg_trim_stability_screening_v1.md)
+與 `output/current_pathfinder_tail_cg_trim_stability_v1/`。這一步明確把 AVL `Xref`
+設為每個 screening CG row，不把原始 `Xref` 當 CG；`Xnp` 只有在
+`Xnp = Xref - Cma/CLa*Cref` 自洽時才使用。verdict 是
+`ready_for_tail_aware_rib_rear_spar_sensitivity`，但只限 screening：推薦下一步使用
+CG range `[0.68, 0.75] m`、H-tail `S_H=4.5 m^2 / x_ac_H=8.281 m`、V-tail
+`S_V=3.36 m^2 / x_ac_V=8.350 m`，並把 tail drag/mass penalty 帶進 sensitivity；
+這不是 measured CG manifest、tail polar sign-off、FEM 或硬體認證。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -132,9 +142,9 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
   confidence，不能直接進 rib sensitivity。
 - 建立 tail / CG / trim / stability 低階 contract，讓 all-moving horizontal tail / vertical tail
   在 mission、full-aircraft AVL recheck、tail-aware closure、tailboom/hardware validation 中有明確位置。
-  Current pathfinder v0 foundation 和 all-moving full-aircraft AVL audit v0 已存在；目前 audit
-  有 deck / derivatives，但仍缺 CG range、true wing AC、reference moment、yaw beta case、
-  tail drag/mass model，且 V-tail directional stability / authority 偏弱，不能當 trim/stability pass。
+  Current pathfinder v0 foundation、all-moving full-aircraft AVL audit v0、V-tail sensitivity v0
+  和 tail / CG / trim / stability screening v1 已存在；目前可進入 tail-aware rib / rear-spar
+  sensitivity 的是 v1 screening basis，不是 final trim/stability sign-off。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
 - 做 FEM/APDL、shell buckling、load-factor candidate spot-check。
@@ -232,8 +242,8 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Mission / concept search | 可用於新設計探索，但仍依賴 proxy 與 worker quality |
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
 | Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
-| Empennage / trim / stability | 已有 current pathfinder tail contract v0 foundation 與 all-moving full-aircraft AVL audit v0；目前 verdict 是 `blocked_by_directional_stability_or_vtail_authority`，尚未完成 trim/stability closure |
-| V-tail / CG reference sensitivity | 已有 bounded V-tail sizing/position AVL sensitivity v0；directional derivatives 可被 area/arm 推高，但整體仍 blocked by missing CG / x_ac / reference moment |
+| Empennage / trim / stability | 已有 tail contract v0、all-moving AVL audit v0、V-tail sensitivity v0，以及 tail/CG/trim/stability screening v1；v1 verdict 是 `ready_for_tail_aware_rib_rear_spar_sensitivity`，但只代表 screening basis |
+| V-tail / CG reference sensitivity | v0 顯示 directional derivatives 可被 area/arm 推高；v1 進一步用 explicit CG-referenced AVL rows 驗證 Xnp convention、longitudinal trim、static margin 與 yaw authority |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |

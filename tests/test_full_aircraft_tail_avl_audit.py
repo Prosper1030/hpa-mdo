@@ -137,6 +137,25 @@ def test_build_full_aircraft_deck_uses_whole_tail_rotation_without_control_proxy
     assert abs(v_root["y_le_m"]) > 0.0
 
 
+def test_build_full_aircraft_deck_can_reference_moments_about_screening_cg(tmp_path: Path) -> None:
+    module = _load_script_module()
+    wing = _write_minimal_wing_avl(tmp_path / "wing.avl")
+
+    text, manifest = module.build_full_aircraft_deck_text(
+        wing_avl_path=wing,
+        contract=_minimal_contract(),
+        delta_h_deg=0.0,
+        delta_v_deg=0.0,
+        moment_reference_x_m=0.72,
+        moment_reference_role="screening_cg_moment_reference",
+    )
+
+    assert "#Xref  Yref  Zref\n0.720000000  0.000000000  0.000000000" in text
+    assert manifest["reference"]["Xref"] == 0.72
+    assert manifest["reference"]["Xref_source"] == "moment_reference_x_m_override"
+    assert manifest["reference"]["Xref_role"] == "screening_cg_moment_reference"
+
+
 def test_compute_screening_blocks_trim_when_cg_or_wing_ac_is_missing() -> None:
     module = _load_script_module()
     screening = module.compute_screening(
