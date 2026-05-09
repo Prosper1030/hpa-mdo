@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import scripts.fourier_avl_calibration_mvp as calibration_mvp
 from hpa_mdo.aero.fourier_avl_calibration import (
     FourierAvlCalibrationCase,
     fit_case_to_fourier_bridge,
@@ -208,3 +209,23 @@ def test_artifact_writer_emits_mvp_contract_files(tmp_path: Path) -> None:
     assert rows[0]["case_id"] == "synthetic_artifact"
     assert rows[0]["source_artifact"] == "unit-test"
     assert rows[0]["source_report"] == "unit-test-report.json"
+
+
+def test_calibration_mvp_requires_current_report_source() -> None:
+    with pytest.raises(ValueError, match="--report-json is required"):
+        calibration_mvp.validate_report_source(None, allow_legacy_medium_search=False)
+
+
+def test_calibration_mvp_blocks_legacy_medium_search_by_default() -> None:
+    with pytest.raises(ValueError, match="legacy diagnostic evidence"):
+        calibration_mvp.validate_report_source(
+            calibration_mvp.LEGACY_MEDIUM_SEARCH_REPORT,
+            allow_legacy_medium_search=False,
+        )
+
+
+def test_calibration_mvp_allows_legacy_medium_search_only_by_explicit_opt_in() -> None:
+    assert calibration_mvp.validate_report_source(
+        calibration_mvp.LEGACY_MEDIUM_SEARCH_REPORT,
+        allow_legacy_medium_search=True,
+    ) == calibration_mvp.LEGACY_MEDIUM_SEARCH_REPORT

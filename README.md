@@ -34,6 +34,26 @@ Tier2 airfoil 與 closure 都已接出來。現在缺的是一份 promoted trace
 mission handoff 乾淨追到 `current_avl_compromise_conservative_closed`；所以目前 go-mode
 candidate 是 conservative screening candidate，不是 final aircraft。
 
+## 主線操作協議：Pathfinder First, Then Expansion
+
+目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
+candidate 當成全域最佳解。正確做法是先選一條最可信的 **pathfinder candidate**，把
+mission、Fourier/AVL、smooth geometry、loaded-Z、loaded-shape AVL、Tier2 airfoil、
+aero-structure closure、FEM/APDL spot-check 全部串通。
+
+這條 pathfinder 的用途是：
+
+- 先證明整條工程 pipeline 可以從任務需求一路走到可審查候選。
+- 在每個 stage 做局部工程修正與局部最佳化，暴露真實 blocker。
+- 讓 rib、rear spar、wire attach、root joint、beam-line / aero-surface、airfoil query
+  這些問題有同一個候選與同一組 load / geometry / mass basis 可以討論。
+- 等閉環穩定後，再擴大 search space：更多 span / AR / speed / airfoil / structure family /
+  rib-bracing 方案，而不是一開始就把所有維度全部打開。
+
+因此 `current_avl_compromise_conservative_closed` 應讀成目前的 pathfinder /
+conservative screening candidate：它是工程閉環的先行者，不是 final aircraft、不是全域最佳，
+也不是硬 gate 標準。
+
 ---
 
 ## 先看哪裡
@@ -57,6 +77,7 @@ candidate 是 conservative screening candidate，不是 final aircraft。
   committed config dry-run 為 `22464` cases，local generated handoff 目前是 ignored output。
 - Fourier-AVL calibration 工具與資料格式已存在；目前 committed calibration rows 仍是 legacy diagnostic，
   要做 current candidate ordering 前必須建立 current trace，而不是重用舊 medium-search top exports。
+  `scripts/fourier_avl_calibration_mvp.py` 現在要求明確 `--report-json`，舊 medium-search 來源預設封鎖。
 - Stage-2 Fourier spanload / MissionContract / FourierTarget machinery 已存在，但還缺一份 promoted
   current trace manifest 連到 go-mode candidate；不要把「缺 trace」誤讀成「Stage 0-2 不存在」。
 - 現有 downstream chain 可從 `smooth_tier2_production_baseline` 進入 smooth production geometry / AVL realization。
@@ -106,12 +127,17 @@ PYTHONPATH=src ./.venv/bin/python scripts/birdman_upstream_concept_design.py \
 [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md) 和 commit-history report，確認輸入 artifacts 是你要的版本。
 
 ```bash
-PYTHONPATH=src ./.venv/bin/python scripts/fourier_avl_calibration_mvp.py
+PYTHONPATH=src ./.venv/bin/python scripts/fourier_avl_calibration_mvp.py \
+  --report-json path/to/current_mission_coupled_spanload_search_report.json
 PYTHONPATH=src ./.venv/bin/python scripts/structure_budgeted_z_state_search.py
 PYTHONPATH=src ./.venv/bin/python scripts/loaded_shape_avl_recheck_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/tier2_loaded_shape_airfoil_mvp.py
 PYTHONPATH=src ./.venv/bin/python scripts/aero_structure_closure_mvp.py
 ```
+
+只有在明確做歷史診斷時，才可以加
+`--allow-legacy-medium-search` 讀 `birdman_mission_coupled_medium_search_20260503`；
+輸出必須標成 legacy diagnostic，不能當 current Phase J evidence。
 
 ### Candidate structural spot-checks
 
@@ -161,6 +187,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 
 - 先讀 [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md)，再讀本 README。
 - 不要從舊 Black Cat 004 文件、舊 OpenMDAO DAG 或 `examples/blackcat_004_optimize.py` 反推目前主線。
+- 不要把 ignored output 或 legacy diagnostic 直接升格成 current evidence；要先建立 promoted trace。
 - 如果完成一系列同屬同一個 idea 的任務，且它改變了目前主線、可用狀態、信任邊界或下一步優先順序，必須同步更新 README / CURRENT_MAINLINE。
 - 工程輸出拿到後，要用航空工程角度檢查物理合理性，不要只說測試通過。
 

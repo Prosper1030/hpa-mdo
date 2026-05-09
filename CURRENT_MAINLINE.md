@@ -29,7 +29,31 @@ Mission contract
 這條線的工程目的，是把 mission requirement、spanload、可製造 smooth
 geometry、loaded-Z、翼型選擇、結構預算與候選驗證收成同一條可追溯的設計鏈。
 
-## 2. 現在主線在解什麼
+## 2. 主線操作模式：Pathfinder First, Then Expansion
+
+目前不是要把所有 mission scan cases 一次全部推到 final FEM，也不是把單一候選說成全域最佳。
+主線的正確運作模式是：
+
+```text
+pick one credible pathfinder candidate
+-> make every stage physically and semantically coherent on that candidate
+-> expose and repair local engineering blockers
+-> only then widen the search space and rerun broader candidate families
+```
+
+這個 pathfinder candidate 的角色是「先行者」：
+
+- 它必須能從 mission contract 追到 geometry、load、airfoil、structure、closure。
+- 它用來驗證整條 pipeline 的資料契約、單位、load ownership、geometry basis 和工程語言。
+- 它可以在每個 stage 做局部最佳化和局部修正。
+- 它不是 hard gate、不是 final aircraft、也不是全域 optimum。
+- 它閉環後，下一步才是擴大 span / AR / speed / airfoil / structure / rib-bracing search space。
+
+目前 `current_avl_compromise_conservative_closed` 就是這個 pathfinder /
+conservative screening candidate。若後續有更好的 candidate，應該用同一套 pathfinder
+trace protocol 取代它，而不是另外開一條不相容敘事。
+
+## 3. 現在主線在解什麼
 
 目前核心問題不是「給定一個漂亮幾何後把 spar 做到 pass」，而是：
 
@@ -44,7 +68,7 @@ geometry、loaded-Z、翼型選擇、結構預算與候選驗證收成同一條�
 - 最後的 FEM/APDL、shell buckling、load-factor checks 能否支持 candidate-relevant
   review，同時避免把 spot-check 誤寫成 final aircraft sign-off。
 
-## 3. Canonical Workflow
+## 4. Canonical Workflow
 
 未來 agent 進 repo 後，請先用下面這條 pipeline 判斷任何任務的位置：
 
@@ -79,7 +103,7 @@ geometry、loaded-Z、翼型選擇、結構預算與候選驗證收成同一條�
     - 目前定位是 candidate-relevant equivalent-physics validation / spot-check。
     - 不等於 final composite aircraft、root fitting、wire hardware、rib joint sign-off。
 
-## 4. 目前做到哪裡
+## 5. 目前做到哪裡
 
 目前最接近 production-facing engineering review 的候選仍應理解為：
 
@@ -94,7 +118,9 @@ conservative screening candidate」，不是 final design。
 
 - Phase J pipeline 已把 mission contract、Fourier-AVL、smooth geometry、
   loaded-Z、Tier2 airfoil、aero-structure closure 與 FEM/APDL spot-check 串成同一條路。
-- `scripts/fourier_avl_calibration_mvp.py` 提供 Fourier-AVL calibration artifacts。
+- `scripts/fourier_avl_calibration_mvp.py` 提供 Fourier-AVL calibration artifacts；它現在要求
+  明確 `--report-json`，舊 medium-search report 預設封鎖，只能用
+  `--allow-legacy-medium-search` 做明確標示的歷史診斷。
 - `scripts/structure_budgeted_z_state_search.py` 提供 structure-budgeted loaded-Z search。
 - `scripts/aero_structure_closure_mvp.py` 提供 Tier2 後的 aero-structure closure。
 - Phase 14 Mac-local FEM / APDL package route 已建立，且修掉早期 FEM offset-rigid
@@ -113,7 +139,7 @@ conservative screening candidate」，不是 final design。
 - Rib 目前是下游 bracing / shell bay / load-transfer 實體化問題，不是主線 candidate
   generation 的短線最大優先，除非它被證明會改變 aero-structure closure 的候選排序。
 
-## 5. Phase J 後續補強的定位
+## 6. Phase J 後續補強的定位
 
 Phase J 之後新增了一系列 structural claim-boundary / engineering guardrail。這些工作有價值，
 但要正確理解：
@@ -138,7 +164,7 @@ Phase J 之後新增了一系列 structural claim-boundary / engineering guardra
 pipeline，確認目前 candidate 的 mission / Fourier-AVL / smooth realization / loaded-Z / airfoil /
 closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主線。
 
-## 6. 下一步優先順序
+## 7. 下一步優先順序
 
 目前已同意的短線順序如下：
 
@@ -155,7 +181,7 @@ Stage 2 machinery 存在，但還沒有一份 promoted current trace manifest �
 handoff 乾淨追到 go-mode candidate。因此 go-mode candidate 應讀成 conservative screening
 candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircraft。
 
-1. **先建立或明確標示 Stage 0-2 promoted trace**
+1. **先建立或明確標示 pathfinder promoted trace**
    - 目的：從 current mission design-space / drag-budget handoff 產生一份可提交的
      Fourier/Fourier-AVL candidate trace manifest，或明確寫出目前 go-mode candidate 是從
      `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。
@@ -177,7 +203,7 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md` 為起點，先建立或明確標示 Stage 0-2 promoted trace：commit history 已證明 mission design-space / drag-budget / MissionContract / FourierTarget / airfoil sidecar machinery 存在；現在要確認 current mission handoff 是否能被乾淨追到 current Fourier/Fourier-AVL candidate source 與 go-mode candidate。若不能，明確把 `current_avl_compromise_conservative_closed` 定位成從 `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。完成後再做 beam-line / aerodynamic surface / clearance 對齊，並確認 closure 是否仍在同一個 geometry / load / airfoil / structure basis 上成立；除非 rib / bracing sensitivity 被證明會改變 closure ranking，否則 rib 維持 downstream validation queue。
 ```
 
-## 7. 常用入口與角色
+## 8. 常用入口與角色
 
 ### A. Mission / upstream concept
 
@@ -190,6 +216,8 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 
 - 入口：`scripts/fourier_avl_calibration_mvp.py`
 - 角色：建立 Fourier command 與 AVL actual spanload 的 calibration evidence。
+- 注意：必須明確指定 current `--report-json`。舊
+  `birdman_mission_coupled_medium_search_20260503` 只可用於 legacy diagnostics，不能當 pathfinder evidence。
 
 ### C. Smooth geometry / loaded-Z / closure
 
@@ -221,7 +249,7 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 - 角色：提供外部 consumer / automation 用 machine-readable contract。
 - 注意：它是 integration boundary，不是主 physics 問題本身。
 
-## 8. 現在不該再當主線的敘事
+## 9. 現在不該再當主線的敘事
 
 - `equivalent_beam` 作為正式 structural truth。
 - 把 repo 描述成單純 OpenMDAO spar optimizer。
@@ -230,8 +258,11 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 - 把 producer / decision interface 當成 physics 主線本體。
 - 把 rib、wire hardware、root fitting detail FEM 提前成上游 candidate-generation 主線，
   除非它們已被證明會改變 aero-structure closure 的候選排序。
+- 把 `birdman_mission_coupled_medium_search_20260503`、`sample_1476`、`233 W`、`8642.9 m`
+  當成 current mission evidence。
+- 把舊的一維、舊 CFRP、legacy refresh、研究型 script output 當成目前 pathfinder 的 production truth。
 
-## 9. 對未來 AI Agent 的工作規則
+## 10. 對未來 AI Agent 的工作規則
 
 1. 先讀這份 `CURRENT_MAINLINE.md`，再讀 `README.md`。
 2. 需要 commit-history truth 時，讀
@@ -239,13 +270,16 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
    需要逐 stage artifact / trust boundary 時，再讀
    `docs/reports/2026-05-09_phase_j_evidence_map.md`。
 3. 不要用舊 prompt、舊 task pack 或舊 README 段落覆蓋 Phase J pipeline。
-4. 如果完成一系列同屬同一個 idea 的任務，而且它改變了目前主線、可用狀態、信任邊界或下一步優先順序，
+4. 若要使用舊 module / 舊 output，先判斷它屬於 current pathfinder evidence、
+   reusable module / tool、legacy diagnostic，還是 quarantined source。只有第一類可以直接用於目前主線；
+   第二類必須重新接 current contract；第三、四類不能變成 current claim。
+5. 如果完成一系列同屬同一個 idea 的任務，而且它改變了目前主線、可用狀態、信任邊界或下一步優先順序，
    必須同步更新 `README.md` 和 / 或 `CURRENT_MAINLINE.md`。
-5. 如果只做局部 test / script guardrail，請在文件中說清楚它是 claim-boundary / diagnostic，
+6. 如果只做局部 test / script guardrail，請在文件中說清楚它是 claim-boundary / diagnostic，
    還是真正工程 validation。
-6. 遇到工程問題時，不要只用軟體測試通過作結論；要用該領域工程師角度檢查物理假設是否合理。
+7. 遇到工程問題時，不要只用軟體測試通過作結論；要用該領域工程師角度檢查物理假設是否合理。
 
-## 10. 暫停中的主翼 mesh-native CFD / SU2 支線
+## 11. 暫停中的主翼 mesh-native CFD / SU2 支線
 
 這不是目前正式主線，也不是可用來背書人力飛機性能的 CFD 結果。它是 2026-05-01 凍結下來的高保真氣動支線：
 

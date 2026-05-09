@@ -16,7 +16,7 @@ from hpa_mdo.aero.fourier_avl_calibration import (
 )
 
 
-DEFAULT_REPORT_JSON = Path(
+LEGACY_MEDIUM_SEARCH_REPORT = Path(
     "output/birdman_mission_coupled_medium_search_20260503/"
     "mission_coupled_spanload_search_report.json"
 )
@@ -83,6 +83,34 @@ def load_cases_from_mission_report(
     return cases
 
 
+def validate_report_source(
+    report_json: str | Path | None,
+    *,
+    allow_legacy_medium_search: bool,
+) -> Path:
+    if report_json is None:
+        raise ValueError(
+            "--report-json is required. The old medium-search report is blocked "
+            "as a default source for current Phase J calibration."
+        )
+    report_path = Path(report_json)
+    if _is_legacy_medium_search_source(report_path) and not allow_legacy_medium_search:
+        raise ValueError(
+            "The birdman_mission_coupled_medium_search_20260503 report is legacy "
+            "diagnostic evidence, not current Phase J upstream truth. Pass "
+            "--allow-legacy-medium-search only for explicitly labeled legacy diagnostics."
+        )
+    return report_path
+
+
+def _is_legacy_medium_search_source(path: Path) -> bool:
+    normalized = path.as_posix()
+    return (
+        normalized == LEGACY_MEDIUM_SEARCH_REPORT.as_posix()
+        or "birdman_mission_coupled_medium_search_20260503" in path.parts
+    )
+
+
 def _records_by_sample(report: Mapping[str, Any]) -> dict[int, Mapping[str, Any]]:
     output: dict[int, Mapping[str, Any]] = {}
     for key in ("top_candidates", "ranked_records_compact"):
@@ -145,10 +173,34 @@ def _optional_int(value: Any) -> int | None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--report-json", type=Path, default=DEFAULT_REPORT_JSON)
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        default=None,
+        help=(
+            "Mission-coupled report JSON to calibrate. No legacy default is used; "
+            "provide a current report explicitly."
+        ),
+    )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--max-cases", type=int, default=10)
-    return parser.parse_args()
+    parser.add_argument(
+        "--allow-legacy-medium-search",
+        action="store_true",
+        help=(
+            "Opt in to the quarantined 2026-05-03 medium-search report for "
+            "legacy diagnostics only. Do not use for current candidate evidence."
+        ),
+    )
+    args = parser.parse_args()
+    try:
+        args.report_json = validate_report_source(
+            args.report_json,
+            allow_legacy_medium_search=bool(args.allow_legacy_medium_search),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+    return args
 
 
 def main() -> None:

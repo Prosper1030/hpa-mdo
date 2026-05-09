@@ -31,6 +31,9 @@
   production-facing screening candidate, but not a final end-to-end
   mission-derived aircraft. The important geometry gap remains beam-line Z
   proxy -> aerodynamic surface -> clearance.
+- The intended operating model is pathfinder-first: use one credible candidate
+  to close the complete engineering chain, expose blockers, and then widen the
+  search space. Do not treat that candidate as a global optimum or a hard gate.
 - Rib / rear-spar / root / wire-detail FEM remains downstream validation unless
   new evidence shows it can reorder the aero-structure closure candidates.
 
@@ -71,9 +74,31 @@ candidate packages. The correct interpretation is:
 
 ```text
 current_avl_compromise_conservative_closed
-= production-facing screening candidate for review,
+= production-facing pathfinder / screening candidate for review,
 not final mission-derived aircraft truth.
 ```
+
+## Pathfinder / Expansion Protocol
+
+The current workflow should be read as:
+
+```text
+single credible pathfinder candidate
+-> close mission / Fourier / AVL / geometry / loaded-Z / airfoil / structure basis
+-> repair local physics and data-contract blockers
+-> expand search space only after the closed loop is coherent
+```
+
+This protocol matters because the repo contains many useful but old experiments.
+A reusable module can be kept, but its output is not current evidence until it is
+rerun under the current pathfinder contract.
+
+| class | meaning | allowed current-mainline use |
+|---|---|---|
+| `current_pathfinder_evidence` | Artifacts tied to the current candidate/load/geometry/airfoil/structure basis | Can support current screening judgement |
+| `reusable_tool` | Code or method that can run on current inputs | Can be used after explicit current input/output trace is produced |
+| `legacy_diagnostic` | Old output useful for debugging method behavior | Cannot support current candidate claims |
+| `quarantined_source` | Known misleading source for current Phase J interpretation | Blocked unless explicitly opted into as legacy diagnostic |
 
 ## Where The Previous Map Went Wrong
 
@@ -91,7 +116,7 @@ not final mission-derived aircraft truth.
 |---|---|---|---|---|---|
 | Mission contract | `configs/mission_design_space_example.yaml`; `data/pilot_power_curves/current_pilot_power_curve.csv`; `data/pilot_power_curves/current_pilot_power_curve.metadata.yaml`; `scripts/mission_design_space_explorer.py`; `src/hpa_mdo/mission/design_space.py`; `docs/mission_design_space_explorer.md`; `docs/mission_drag_budget.md` | `reproducible_stage0_contract` | Current mission design-space source exists: target range `42.195 km`, target environment `33 C / 80%RH`, speed grid `5.8-7.0 m/s`, span grid `33-35 m`, AR grid `37-40`, mass grid `96-101 kg`, prop efficiency `0.86`, drivetrain efficiency `0.96`. Dry-run on the committed config reports `22464` cases. Generated local `output/mission_design_space/*` currently shows `1047` robust cases and `624` seed rows, but that directory is ignored rather than commit-tracked. | This proves a reproducible Stage-0 search contract and seed handoff language, not a promoted aircraft geometry. It does not by itself prove the go-mode candidate satisfies the full mission. | Keep it as Stage 0 source. Produce a promoted trace bundle from `optimizer_handoff.json` / seed rows into current candidate generation instead of old medium-search output. |
 | MissionContract / FourierTarget shadow layer | `docs/mission_drag_budget.md`; `src/hpa_mdo/mission/contract.py`; `src/hpa_mdo/aero/fourier_target.py`; `scripts/birdman_spanload_design_smoke.py` | `implemented_shadow_contract` | The repo has a contract adapter and FourierTarget language using `CL_req`, `AR`, `span_m`, `speed_mps`, `rho`, and `weight_n`. It also writes `mission_contract.*` and `fourier_target.*` bundles in sidecar runs. | The docs explicitly say shadow mode does not change ranking, objective, hard gates, or rejection behavior. | Promote only after a deliberate current run ties mission seed rows to candidate geometry and output bundles. |
-| Fourier-AVL calibration | `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/recommended_fourier_bridge.md`; `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/fourier_command_to_avl_realized.csv` | `diagnostic_legacy` | The calibration tool and output format exist. The sampled rows show `outer_underloaded_authority_limited`, `target_vs_avl_rms = 0.178-0.216`, `outer_delta = 0.241-0.306`, `e_fourier_realized = 0.846-0.873`, and `e_avl_cdi = 0.851-0.870`. | The actual CSV source paths are old `birdman_mission_coupled_medium_search_20260503/top_candidate_exports/rank_*` records. This is not current mission evidence. | Re-run or re-map Fourier-AVL calibration on current mission design-space / smooth/go-mode candidate artifacts. Until then, do not use this row to rank current candidates. |
+| Fourier-AVL calibration | `scripts/fourier_avl_calibration_mvp.py`; `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/recommended_fourier_bridge.md`; `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/fourier_command_to_avl_realized.csv` | `reusable_tool_with_legacy_committed_output` | The calibration tool and output format exist. The sampled committed rows show `outer_underloaded_authority_limited`, `target_vs_avl_rms = 0.178-0.216`, `outer_delta = 0.241-0.306`, `e_fourier_realized = 0.846-0.873`, and `e_avl_cdi = 0.851-0.870`. | The committed CSV source paths are old `birdman_mission_coupled_medium_search_20260503/top_candidate_exports/rank_*` records. This is not current mission evidence. The CLI now requires explicit `--report-json`; old medium-search input is blocked unless `--allow-legacy-medium-search` is passed. | Re-run or re-map Fourier-AVL calibration on current mission design-space / smooth/go-mode candidate artifacts. Until then, do not use the old rows to rank current candidates. |
 | Fourier spanload candidate generation | `scripts/birdman_mission_coupled_spanload_search.py`; `scripts/birdman_spanload_design_smoke.py`; `output/airfoil_db/*/sidecar*/top_candidate_exports/*/fourier_target.*` generated bundles; `output/pipeline_redesign_v2/complete_pipeline_v2.md` | `implemented_but_not_promoted_current_trace` | The repo has mission-coupled spanload and FourierTarget machinery. It can create per-candidate Fourier/mission bundles, and later pipeline-v2 docs specify the Stage-2 contract. | The promoted go-mode package does not contain a single clean trace from current Stage-0 seed -> Stage-2 generated candidate -> smooth geometry -> closure. Some generated bundles are ignored output, and some committed calibration rows are legacy diagnostics. | Build a current Stage-2 trace manifest and either connect it to `current_avl_compromise_conservative_closed` or state precisely where the current downstream screening branch begins. |
 | Smooth production geometry realization | `output/final_candidate_validation/smooth_tier2_production_baseline/validation_manifest.json`; `output/final_candidate_validation/smooth_tier2_production_baseline/aerodynamic_summary.md`; `output/phase9_structure_jig_smooth_planform/recommended_candidate.md` | `current_screening` | Smooth production geometry exists. Candidate: `smooth_tier2_production_baseline`, assignment `root:dae31|mid1:dae31|mid2:dae31|tip:cst_tip_nsga2_g06_child_0056_b3f9b7c4`, `P_crank = 171.160 W`, `P_crank_conservative = 175.291 W`, `CDi = 0.012501`, `profile_cd = 0.009510`, `target_vs_avl_rms = 0.0292`, `outer_delta = 0.0885`. | This baseline explicitly failed structure/jig proxy and was not final structure truth. It is also not proven to come from current Stage 2 mission/Fourier source. | Keep as the current geometry/AVL carrier for downstream screening while rebuilding upstream traceability. |
 | AVL realization check | `output/final_candidate_validation/smooth_tier2_production_baseline/aerodynamic_summary.md`; `output/phase10_2_canonical_inverse_design_check/smooth_tier2_candidate_avl_spanwise_loads.json`; candidate-owned AVL artifacts referenced by Z search contracts | `current_screening` | Candidate-owned AVL geometry, trim, strip-force, and spanwise-load artifacts exist and feed downstream structure-budgeted search. | Load ownership is good enough for screening, but mission/Fourier origin is not closed. | Preserve AVL actual spanload as the downstream aero owner. Do not replace it with raw commanded Fourier coefficients. |
@@ -115,6 +140,9 @@ Do not use these as current Phase J source truth:
 They may still be useful as historical diagnostics or examples of tool output
 format, but they must be labeled `legacy_diagnostic` or
 `invalid_for_current_phase_j` when used.
+`scripts/fourier_avl_calibration_mvp.py` now enforces this by requiring an
+explicit report JSON and by blocking the old medium-search report unless
+`--allow-legacy-medium-search` is explicitly passed.
 
 ## Engineering Judgement
 
@@ -129,9 +157,9 @@ format, but they must be labeled `legacy_diagnostic` or
 3. The current upper pipeline is not yet promoted as one clean trace: current
    mission design-space evidence has not been committed as a single
    Stage-0-to-Stage-2-to-go-mode manifest.
-4. The next short-line task should not be rib FEM. It should first produce that
-   promoted trace or explicitly declare the current go-mode candidate as a
-   lower-pipeline screening surrogate.
+4. The next short-line task should not be rib FEM. It should first produce a
+   pathfinder promoted trace or explicitly declare where the current go-mode
+   candidate begins as a lower-pipeline screening surrogate.
 5. After that source-chain decision, the most important physical ambiguity is
    still beam-line Z proxy versus aerodynamic surface and clearance.
 6. Rib / rear spar / joint / wire detail work remains important for final
