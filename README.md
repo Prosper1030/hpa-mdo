@@ -101,18 +101,17 @@ structural-foam+glass-face 與 stronger rear-spar participation / shear-transfer
 closure 只能使用 final CG 管理後的 `0.75 m` screening row；不能把 tail/rib mass 加上去後還
 沿用舊 ready verdict。
 
-tail-aware aeroelastic closure 已完成第一輪，讀
+tail-aware aeroelastic closure baseline 已完成第一輪，讀
 [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md)。
-目前 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`：fixed-point loop 收斂，final
+baseline verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`：fixed-point loop 收斂，final
 managed CG `0.75 m`、H-tail trim reserve、static margin、V-tail authority、mass/drag/power
 charge 與 conserved load remap 都保留；但 direct spar-pair rotation -> AVL incidence stress-test
 給出 `5.413 deg` max twist，超過 `3 deg` screening bound。新增 twist-source audit 顯示
 elastic-axis / quarter-chord consistent projection 仍約 `5.413 deg`，conservative bounded
 physical projection 仍約 `3.256 deg`，peak station 在 y≈`2.328 m`，主要來源是 aerodynamic
 torque-only 分量，lift 在該站反而部分抵消。clear verdict 是
-`ready_for_hybrid_rib_stiffness_rework`：selected basis 還不能升成 FEM/APDL loadcase package；
-下一步優先做 hybrid rib / shear cap / skin / stronger rear-spar participation rerun，同時保留
-qualified aero-surface mapping 作為驗證，不把 direct projection 當 final measurement。
+`ready_for_hybrid_rib_stiffness_rework`：這是 rework baseline，不是目前最新 closure-owned
+hybrid result；不要把 direct projection 當 final measurement。
 
 current pathfinder materialized rib contract audit 已建立，讀
 [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md)
@@ -131,12 +130,14 @@ rib / torsion rework verdict 已完成第一輪，讀
 與 `output/current_pathfinder_rib_torsion_rework_verdict/`。目前 verdict 是
 `candidate_ready_for_local_FEM_and_coupon_before_FEM_package`，不是
 `ready_for_FEM_loadcase_package`。下一個可用候選是
-`eps_balsa_cap_hybrid_10mm + bounded_65pct_screening`：projection 顯示 direct / bounded
-twist 可到約 `2.663 deg / 1.602 deg`，rib mass 約 `5.365 kg`，比 balsa baseline 多
-`2.335 kg`，CG/rebalance 已計入。但 closure rerun 目前只真正吃到 rear-spar participation，
-hybrid effective-GJ 尚未接進 structural kernel；該 rerun 仍是 direct `5.438 deg`、bounded
-`3.271 deg`，所以 FEM/APDL package gate 仍被 closure rerun、direct stress-test、missing
-transition/control stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m` local FEM 卡住。
+`eps_balsa_cap_hybrid_10mm + bounded_65pct_screening`。這一輪已讓 closure runner 真正吃到
+hybrid main/rear torsion-cell screening surrogate：actual closure bounded physical twist
+降到 `2.070 deg`，低於 `3 deg` bound；direct stress-test 從 baseline `5.413 deg`
+降到 `3.449 deg`，仍高於 `3 deg`，所以它是 conservative aero-surface mapping / local FEM
+檢查項，不是 final twist signoff。rib mass 約 `5.365 kg`，比 balsa baseline 多
+`2.335 kg`，CG/rebalance 已計入。FEM/APDL package gate 仍被 missing transition/control
+stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m` local FEM 卡住。下一站 artifact 是
+`output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_validation_package.md`。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -172,7 +173,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 tail-aware rib / rear-spar sensitivity verdict 與 material-family compare | [docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | balsa baseline ready-for-closure basis; foam-only families stay low-stiffness references; hybrid rework candidates are listed |
 | 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged; twist-source audit points to hybrid rib/stiffness rework |
 | 看 current pathfinder rib station/bay 是否真的 materialized | [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | 121 station / 120 bay trace; shape, bond, collar, transition data still blocked |
-| 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
+| 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | hybrid closure-owned bounded twist clears 3 deg; local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
@@ -204,8 +205,9 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
   和 tail / CG / trim / stability screening v1 已存在；tail-aware rib / rear-spar
   sensitivity 已選出可進 aeroelastic closure 的 balsa baseline screening basis，且 material
   family sensitivity 顯示 foam-only EPS/XPS/structural foam 不能直接解除 twist blocker；twist-source
-  audit 已把下一步判定為 `ready_for_hybrid_rib_stiffness_rework`；final CG 必須被管理在
-  `[0.68, 0.75] m`。
+  audit 的 baseline 判定為 `ready_for_hybrid_rib_stiffness_rework`；rib/torsion rework
+  verdict 已讓 selected hybrid closure-owned bounded twist 清到 `2.070 deg`，但 direct
+  stress-test 仍是 conservative mapping warning；final CG 必須被管理在 `[0.68, 0.75] m`。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
 - 做 FEM/APDL、shell buckling、load-factor candidate spot-check。

@@ -308,7 +308,7 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      會大幅移動 response；若先跑 ASWing，可能只是把錯的 stiffness basis 耦合得更漂亮。
      FEM detail 則應吃已鎖定的 load/geometry envelope，不應先決定哪個 beam-line / aero-surface
      state 才是真正設計狀態。
-   - tail-aware aeroelastic closure 已完成第一輪：`scripts/tail_aware_aeroelastic_closure.py`
+   - tail-aware aeroelastic closure baseline 已完成第一輪：`scripts/tail_aware_aeroelastic_closure.py`
      與 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 顯示 fixed-point loop
      3 次收斂，final managed CG `0.75 m`、H-tail reserve、static margin、V-tail authority、
      mass/drag/power charge 與 conserved load remap 都保留；但 direct spar-pair rotation
@@ -316,13 +316,14 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      bound。新增 twist-source audit 顯示 elastic-axis / quarter-chord consistent projection
      仍約 `5.413 deg`，conservative bounded physical projection 約 `3.256 deg`，peak
      y≈`2.328 m`，主因是 aerodynamic torque-only 分量；lift 在該 station 部分抵消。
-     closure verdict 仍是 `needs_aeroelastic_geometry_or_stiffness_rework`，但 clear
-     twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。
+     baseline closure verdict 仍是 `needs_aeroelastic_geometry_or_stiffness_rework`，但
+     clear twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。
    - 後續順序：tail / CG / trim / stability screening v1 basis ->
-     tail-aware bounded rib/rear-spar sensitivity (done) -> tail-aware aeroelastic closure (done,
-     twist-source audit done) -> materialized rib station/bay contract audit (done) ->
-     hybrid rib / shear cap / skin / stronger rear-spar participation rerun, with qualified
-     aero-surface mapping as verification -> root/wire/termination/rib/tail hardware FEM detail。
+     tail-aware bounded rib/rear-spar sensitivity (done) -> tail-aware aeroelastic closure baseline
+     (done, twist-source audit done) -> materialized rib station/bay contract audit (done) ->
+     hybrid rib / shear cap / skin / bounded rear-spar participation rerun (done for selected
+     hybrid screening surrogate) -> qualified aero-surface mapping plus local FEM/coupon package ->
+     root/wire/termination/rib/tail hardware FEM detail。
    - Current pathfinder materialized rib contract audit 已建立：`scripts/current_pathfinder_materialized_rib_contract_audit.py`
      與 `docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md`
      會輸出 `rib_station_table.csv`、`rib_bay_table.csv`、mandatory/missing contract、
@@ -339,30 +340,33 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      把 sensitivity、tail-aware closure、materialized rib audit 接成下一階段 gate。
      verdict 是 `candidate_ready_for_local_FEM_and_coupon_before_FEM_package`，不是
      `ready_for_FEM_loadcase_package`。選出的下一個 local FEM/coupon candidate 是
-     `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening`，projection direct / bounded
-     twist 約 `2.663 deg / 1.602 deg`，rib mass 約 `5.365 kg`，比 balsa baseline 多
-     `2.335 kg`，且 CG/rebalance 已計入。但 closure rerun 目前只真正吃到 rear-spar
-     participation，hybrid effective-GJ 尚未進 structural kernel；該 rerun 仍是 direct
-     `5.438 deg`、bounded `3.271 deg`，所以 FEM/APDL package gate 仍被 closure rerun、
-     direct stress-test、missing transition/control stations、skin sag、bond/collar/spar
-     contact 與 y≈`2.328 m` local FEM 卡住。
+     `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening`。closure runner 現在會把
+     selected hybrid effective-GJ 當作 main/rear torsion-cell screening surrogate 消耗，
+     actual closure bounded physical twist 是 `2.070 deg`，低於 `3 deg` bound；direct
+     stress-test 從 baseline `5.413 deg` 降到 `3.449 deg`，仍是 conservative mapping
+     warning，不是 final aero-surface twist signoff。rib mass 約 `5.365 kg`，比 balsa
+     baseline 多 `2.335 kg`，且 CG/rebalance 已計入。FEM/APDL package gate 仍被 missing
+     transition/control stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m`
+     local FEM 卡住。下一站 package 是
+     `output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_validation_package.md`。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
 full-aircraft AVL audit v0、V-tail / CG reference sizing sensitivity v0、以及 tail / CG /
 trim / stability screening v1 也已完成。tail-aware bounded rib / rear-spar stiffness
-sensitivity 已完成並選出下一階段 basis；tail-aware aeroelastic closure 第一輪已收斂但
+sensitivity 已完成並選出下一階段 basis；tail-aware aeroelastic closure baseline 第一輪已收斂但
 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。rib / torsion rework verdict
-第一輪也已完成，結論是 local FEM/coupon candidate 已可定義，但還不能進 FEM/APDL loadcase
-package。這代表 managed CG/tail screening row 仍可用，但 selected stiffness / geometry basis
-還不能包成 package；下一步不是擴大 search，而是把 hybrid rib effective-GJ 真的接進 structural
-kernel / closure rerun，並補 y≈`2.328 m` torque-critical zone 的 rib cap/face/collar/bond/
-tube-wall local FEM、skin sag coupon/panel evidence，以及 transition/control station manifest。
+已把 selected hybrid effective-GJ 接進 structural kernel / closure rerun，bounded physical
+twist 實際清到 `2.070 deg`；結論是 local FEM/coupon candidate 已可定義，但還不能進
+FEM/APDL loadcase package。下一步不是擴大 search，而是補 y≈`2.328 m` torque-critical
+zone 的 rib cap/face/collar/bond/tube-wall local FEM、skin sag coupon/panel evidence、
+transition/control station manifest，並針對 direct `3.449 deg` stress-test 做 qualified
+aero-surface mapping。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md` 為起點，把 selected local FEM/coupon candidate `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` 從 projection 變成 closure-owned stiffness model。必須補：hybrid rib cap/face/collar geometry、rib-to-main/rear-spar bondline/contact、tube-wall local bearing/crush/peel FEM 或 allowables、0.30 m bay skin sag coupon/panel evidence、transport/control/airfoil/twist transition station manifest，並讓 tail-aware aeroelastic closure rerun 真正吃到 selected hybrid effective-GJ。不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural foam-only 當 structural bracing pass，也不能把 GJ scaling projection 或 direct spar-pair stress-test proxy 包成 FEM/APDL package-ready。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_validation_package.md` 為起點，定義 selected local FEM/coupon candidate `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` 的 rib-spar bond/collar local FEM input deck 與 coupon matrix。必須補：hybrid rib cap/face/collar geometry、rib-to-main/rear-spar bondline/contact、tube-wall local bearing/crush/peel FEM 或 allowables、0.30 m bay skin sag coupon/panel evidence、transport/control/airfoil/twist transition station manifest，並保留 direct stress-test 是 conservative mapping proxy 的判讀。不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural foam-only 當 structural bracing pass，也不能把 GJ screening surrogate 或 direct spar-pair stress-test proxy 包成 FEM/APDL package-ready。
 ```
 
 ## 8. 常用入口與角色
@@ -421,17 +425,19 @@ tube-wall local FEM、skin sag coupon/panel evidence，以及 transition/control
   candidate trade / closure rerun boundary / FEM package blockers 輸出成可重跑 verdict。
 - 注意：rib/rear-spar sensitivity verdict 是 `ready_for_tail_aware_aeroelastic_closure`；
   material-family verdict 是 `foam_only_families_do_not_clear_current_aeroelastic_closure`；
-  twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。closure 第一輪 verdict 仍是
-  `needs_aeroelastic_geometry_or_stiffness_rework`。final CG managed row `0.75 m` 保留；
+  twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。closure baseline verdict 是
+  `needs_aeroelastic_geometry_or_stiffness_rework`，但 rework verdict 已讓 selected hybrid
+  basis 進入 closure-owned stiffness model。final CG managed row `0.75 m` 保留；
   未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。direct spar-pair rotation -> AVL incidence
   目前只是 stress-test proxy，不是 qualified aero-surface twist；foam-only ribs cannot be used
   to claim the current closure blocker is solved。materialized rib audit 只確認 `121` stations /
   `120` bays 與 max bay `0.297063 m`，但 transport/control/airfoil/twist transition、
   skin sag、bond/collar/spar contact 和 torque-critical local FEM 仍是 blocked / needs-data。
   rework verdict 選出 `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` 作為 local
-  FEM/coupon candidate；projection direct / bounded twist 約 `2.663 deg / 1.602 deg`，
-  但 actual closure rerun 還沒吃到 hybrid GJ，仍是 direct `5.438 deg` / bounded
-  `3.271 deg`，所以不是 FEM/APDL package-ready。
+  FEM/coupon candidate；actual closure-owned hybrid rerun bounded physical twist 是
+  `2.070 deg`，direct stress-test 是 `3.449 deg` 並保留為 conservative mapping warning。
+  因為 transition/control station、skin sag、bond/collar/spar contact 和 torque-critical
+  local FEM 還沒關，這仍不是 FEM/APDL package-ready。
 
 ### F. FEM/APDL / shell / load-factor spot-check
 
