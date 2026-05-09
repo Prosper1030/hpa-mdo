@@ -6,6 +6,7 @@ import pytest
 
 from scripts.phase30_full_wing_buckling_closure_inputs import (
     build_full_wing_buckling_closure_check,
+    read_full_wing_buckling_inputs_csv,
     write_full_wing_buckling_closure_input_package,
 )
 
@@ -256,6 +257,36 @@ def test_full_wing_buckling_closure_rejects_unusable_reference_load_factor() -> 
     assert row.first_global_buckling_load_factor is None
     assert row.load_factor_margin is None
     assert "reference load formulation" in row.engineering_note
+
+
+def test_generated_template_requires_explicit_review_statuses_before_pass(
+    tmp_path: Path,
+) -> None:
+    write_full_wing_buckling_closure_input_package(
+        tmp_path,
+        "sample",
+        closure_inputs=(),
+    )
+    template_rows = read_full_wing_buckling_inputs_csv(
+        tmp_path / "full_wing_buckling_closure_inputs_template.csv"
+    )
+    filled_rows = tuple(
+        {
+            **row,
+            "first_global_buckling_load_factor": "2.10",
+            "source": "operator-filled source only",
+        }
+        for row in template_rows
+    )
+
+    check = build_full_wing_buckling_closure_check(
+        "sample",
+        closure_inputs=filled_rows,
+    )
+
+    assert check.overall_status == "full_wing_global_buckling_not_closed"
+    assert {row.status for row in check.rows} == {"reference_load_review_missing"}
+    assert check.missing_required_claim_load_factors == "1.50;1.75"
 
 
 def test_full_wing_buckling_closure_marks_missing_inputs() -> None:
