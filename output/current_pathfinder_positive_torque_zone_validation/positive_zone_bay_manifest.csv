@@ -1,0 +1,5 @@
+bay_id,start_rib_id,end_rib_id,y_start_m,y_end_m,y_mid_m,bay_length_m,chord_mid_m,bay_length_over_chord,shape_sag_status,bond_risk_status,local_fem_required,fem_trigger_reasons,torque_critical_zone
+B066,R066,R067,1.745859,2.036907,1.891383,0.291048,1.198096,0.242925,unknown_requires_test_torque_zone,needs_data_torque_or_mandatory_zone,true,torque_critical_audit_zone,true
+B067,R067,R068,2.036907,2.327955,2.182431,0.291048,1.189067,0.24477,unknown_requires_test_torque_zone,needs_data_torque_or_mandatory_zone,true,torque_critical_audit_zone,true
+B068,R068,R069,2.327955,2.619003,2.473479,0.291048,1.180037,0.246643,unknown_requires_test_torque_zone,needs_data_torque_or_mandatory_zone,true,torque_critical_audit_zone,true
+B069,R069,R070,2.619003,2.910051,2.764527,0.291048,1.170991,0.248548,unknown_requires_test_torque_zone,needs_data_torque_or_mandatory_zone,true,torque_critical_audit_zone,true

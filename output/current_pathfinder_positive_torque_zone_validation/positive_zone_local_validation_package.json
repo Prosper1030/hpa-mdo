@@ -1,0 +1,596 @@
+{
+  "available_data_register": [
+    {
+      "data_key": "station_and_bay_ids",
+      "status": "available",
+      "value": "['R066', 'R067', 'R068', 'R069', 'R070'] / ['B066', 'B067', 'B068', 'B069']"
+    },
+    {
+      "data_key": "closure_twist_evidence",
+      "status": "available",
+      "value": "{'closure_verdict': 'ready_for_fem_apdl_loadcase_package', 'bounded_physical_twist_deg': 2.070316, 'direct_spar_pair_stress_test_deg': 3.449294, 'direct_stress_test_status': 'above_bound_conservative_stress_test', 'final_cg_x_m': 0.75, 'required_forward_rebalance_m': 0.079276, 'static_margin': 0.094301, 'C_n_beta': 0.01403, 'H_tail_reserve_deg': 4.792985, 'V_tail_reserve_deg': 16.716831, 'claim_boundary': 'Bounded twist closure is a screening pass; direct stress-test and local bond/collar/tube-wall validation remain open.'}"
+    },
+    {
+      "data_key": "screening_local_load_rows",
+      "status": "available",
+      "value": "5 station rows with lift/self-weight/torque-couple loads"
+    },
+    {
+      "data_key": "selected_hybrid_basis",
+      "status": "available",
+      "value": "eps_balsa_cap_hybrid_10mm + bounded_65pct_screening"
+    }
+  ],
+  "bay_manifest_rows": [
+    {
+      "bay_id": "B066",
+      "bay_length_m": 0.291048,
+      "bay_length_over_chord": 0.242925,
+      "bond_risk_status": "needs_data_torque_or_mandatory_zone",
+      "chord_mid_m": 1.198096,
+      "end_rib_id": "R067",
+      "fem_trigger_reasons": "torque_critical_audit_zone",
+      "local_fem_required": "true",
+      "shape_sag_status": "unknown_requires_test_torque_zone",
+      "start_rib_id": "R066",
+      "torque_critical_zone": "true",
+      "y_end_m": 2.036907,
+      "y_mid_m": 1.891383,
+      "y_start_m": 1.745859
+    },
+    {
+      "bay_id": "B067",
+      "bay_length_m": 0.291048,
+      "bay_length_over_chord": 0.24477,
+      "bond_risk_status": "needs_data_torque_or_mandatory_zone",
+      "chord_mid_m": 1.189067,
+      "end_rib_id": "R068",
+      "fem_trigger_reasons": "torque_critical_audit_zone",
+      "local_fem_required": "true",
+      "shape_sag_status": "unknown_requires_test_torque_zone",
+      "start_rib_id": "R067",
+      "torque_critical_zone": "true",
+      "y_end_m": 2.327955,
+      "y_mid_m": 2.182431,
+      "y_start_m": 2.036907
+    },
+    {
+      "bay_id": "B068",
+      "bay_length_m": 0.291048,
+      "bay_length_over_chord": 0.246643,
+      "bond_risk_status": "needs_data_torque_or_mandatory_zone",
+      "chord_mid_m": 1.180037,
+      "end_rib_id": "R069",
+      "fem_trigger_reasons": "torque_critical_audit_zone",
+      "local_fem_required": "true",
+      "shape_sag_status": "unknown_requires_test_torque_zone",
+      "start_rib_id": "R068",
+      "torque_critical_zone": "true",
+      "y_end_m": 2.619003,
+      "y_mid_m": 2.473479,
+      "y_start_m": 2.327955
+    },
+    {
+      "bay_id": "B069",
+      "bay_length_m": 0.291048,
+      "bay_length_over_chord": 0.248548,
+      "bond_risk_status": "needs_data_torque_or_mandatory_zone",
+      "chord_mid_m": 1.170991,
+      "end_rib_id": "R070",
+      "fem_trigger_reasons": "torque_critical_audit_zone",
+      "local_fem_required": "true",
+      "shape_sag_status": "unknown_requires_test_torque_zone",
+      "start_rib_id": "R069",
+      "torque_critical_zone": "true",
+      "y_end_m": 2.910051,
+      "y_mid_m": 2.764527,
+      "y_start_m": 2.619003
+    }
+  ],
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "claim_boundary": "This package validates the local load path for the already selected screening-closed hybrid rib basis. It does not retune full-wing twist and does not certify hardware.",
+  "closure_evidence": {
+    "C_n_beta": 0.01403,
+    "H_tail_reserve_deg": 4.792985,
+    "V_tail_reserve_deg": 16.716831,
+    "bounded_physical_twist_deg": 2.070316,
+    "claim_boundary": "Bounded twist closure is a screening pass; direct stress-test and local bond/collar/tube-wall validation remain open.",
+    "closure_verdict": "ready_for_fem_apdl_loadcase_package",
+    "direct_spar_pair_stress_test_deg": 3.449294,
+    "direct_stress_test_status": "above_bound_conservative_stress_test",
+    "final_cg_x_m": 0.75,
+    "required_forward_rebalance_m": 0.079276,
+    "static_margin": 0.094301
+  },
+  "coupon_test_matrix": [
+    {
+      "coupon_id": "C01_eps_balsa_cap_shear_transfer",
+      "load_mode": "in-plane shear / diagonal shear",
+      "measured_outputs": "shear stiffness, peak shear load, debond initiation",
+      "minimum_data_needed": "cap dimensions, adhesive, EPS density, balsa grain direction",
+      "pass_status": "not_tested",
+      "purpose": "EPS+balsa cap shear transfer",
+      "specimen": "representative hybrid rib web with balsa/cap strips and EPS core"
+    },
+    {
+      "coupon_id": "C02_main_spar_bond_shear",
+      "load_mode": "lap/shear with local collar load introduction",
+      "measured_outputs": "ultimate shear, stiffness, failure mode",
+      "minimum_data_needed": "bond width, adhesive, tube OD/wall/material, collar material",
+      "pass_status": "not_tested",
+      "purpose": "rib-to-main-spar bond shear",
+      "specimen": "main collar/bondline coupon on representative tube section"
+    },
+    {
+      "coupon_id": "C03_rear_spar_bond_shear",
+      "load_mode": "lap/shear with torque-couple load direction",
+      "measured_outputs": "ultimate shear, stiffness, failure mode",
+      "minimum_data_needed": "rear bond width, adhesive, tube OD/wall/material, collar material",
+      "pass_status": "not_tested",
+      "purpose": "rib-to-rear-spar bond shear",
+      "specimen": "rear collar/bondline coupon on representative tube section"
+    },
+    {
+      "coupon_id": "C04_bond_peel",
+      "load_mode": "peel / mixed-mode opening",
+      "measured_outputs": "peel load, crack initiation, process sensitivity",
+      "minimum_data_needed": "adhesive system, fillet radius, cure/process notes",
+      "pass_status": "not_tested",
+      "purpose": "peel",
+      "specimen": "collar tab to cap/bondline peel coupon"
+    },
+    {
+      "coupon_id": "C05_collar_bearing",
+      "load_mode": "bearing/compression through collar tab",
+      "measured_outputs": "bearing margin, collar local buckling, slip",
+      "minimum_data_needed": "collar thickness/material, contact width, tube material",
+      "pass_status": "not_tested",
+      "purpose": "collar bearing",
+      "specimen": "collar on spar tube with representative contact footprint"
+    },
+    {
+      "coupon_id": "C06_tube_wall_crush_ovalization",
+      "load_mode": "radial crush plus torque-couple vertical load",
+      "measured_outputs": "ovalization, local buckling, residual deformation",
+      "minimum_data_needed": "tube OD/wall/layup or alloy, collar footprint",
+      "pass_status": "not_tested",
+      "purpose": "local tube wall crushing / ovalization",
+      "specimen": "spar tube segment under collar point/patch load"
+    },
+    {
+      "coupon_id": "C07_skin_sag_shape_keeping_panel",
+      "load_mode": "pressure/handling load panel deflection",
+      "measured_outputs": "sag, shape tolerance, post-load recovery",
+      "minimum_data_needed": "skin material/thickness, attachment, allowable airfoil tolerance",
+      "pass_status": "not_tested",
+      "purpose": "0.30 m bay skin sag / shape keeping",
+      "specimen": "B067/B068 representative bay panel with rib cap support"
+    }
+  ],
+  "do_not_promote": [
+    "do_not_claim_FEM_pass_without_solver_margins",
+    "do_not_use_rear_spar_participation_1p00_as_selected_basis",
+    "do_not_credit_EPS_or_XPS_foam_only_as_structural_bracing",
+    "do_not_hide_direct_spar_pair_stress_test_warning"
+  ],
+  "fem_margin_claim": "No FEM margin is claimed; this is a guarded input package.",
+  "fem_margin_status": "not_run",
+  "load_path_decomposition": {
+    "load_path_read": "The desired structural bracing credit is owned by cap/collar/bond/tube-wall details. Foam-only stiffness is explicitly not credited.",
+    "steps": [
+      {
+        "description": "Final closure spanload supplies vertical lift. The current kernel places lift on the main spar line; the local model applies it at main collar/rib web entry points as a conservative load-owner basis.",
+        "step_id": "aero_lift_owner"
+      },
+      {
+        "description": "Span-axis aerodynamic torque is converted from kernel My into a main/rear vertical force couple at each collar: F=M/d.",
+        "step_id": "aero_torque_owner"
+      },
+      {
+        "description": "Balsa/cap faces transfer rib web shear between skin, main collar, rear collar, and cap strip. EPS is shape support only.",
+        "step_id": "rib_cap_shear_transfer"
+      },
+      {
+        "description": "Adhesive and collar transfer shear/peel/bearing into main and rear spar tubes; tube walls must clear bearing, local crush, and ovalization.",
+        "step_id": "bond_collar_tube_wall"
+      }
+    ]
+  },
+  "local_fem_model_contract": {
+    "analysis_type": "local static bond/collar/tube-wall check",
+    "boundary_conditions": [
+      {
+        "application": "At R066 and R070 spar cross-sections, constrain only rigid body modes through remote section nodes; carry axial/torsion/bending resultants from the global beam if available.",
+        "bc_id": "spar_tube_remote_section_boundaries"
+      },
+      {
+        "application": "Tie or bonded contact from collar inner surface to spar tube outer surface; run a peel-sensitive variant if adhesive thickness data exists.",
+        "bc_id": "collar_bonded_contact"
+      },
+      {
+        "application": "Bond rib cap/face strips to collar tabs and rib web; do not bond EPS core directly as a structural bracing member.",
+        "bc_id": "rib_cap_to_collar_transfer"
+      },
+      {
+        "application": "Include bay skin panel or equivalent pressure/handling load if the coupon plan is used to clear shape keeping.",
+        "bc_id": "skin_shape_sag_panel"
+      }
+    ],
+    "contacts_and_bonds": [
+      "main spar tube to main collar",
+      "rear spar tube to rear collar",
+      "collar tab to balsa/cap strip",
+      "cap strip to rib web/core",
+      "skin panel to rib cap if skin sag is modeled"
+    ],
+    "loads": [
+      "main collar vertical lift/self-weight nodal loads",
+      "main/rear equal-opposite torque force couple from kernel My",
+      "optional handling/skin-sag panel pressure after skin material is supplied"
+    ],
+    "materials_needed": [
+      "spar tube material, OD, wall thickness, and local laminate/metal allowables",
+      "collar material and thickness",
+      "adhesive shear/peel allowables and cured bondline thickness",
+      "balsa/cap face material, grain/fiber direction, and thickness",
+      "EPS density/modulus only for shape support, not structural bracing credit",
+      "skin material/thickness for bay sag variant"
+    ],
+    "model_extent": {
+      "active_bays": [
+        "B066",
+        "B067",
+        "B068",
+        "B069"
+      ],
+      "active_validation_ribs": [
+        "R067",
+        "R068",
+        "R069"
+      ],
+      "spanwise_boundary_ribs": [
+        "R066",
+        "R070"
+      ],
+      "spanwise_y_range_m": [
+        1.745859,
+        2.910051
+      ]
+    },
+    "recommended_solver_route": "APDL shell/solid local model or equivalent CalculiX model"
+  },
+  "local_load_decomposition": {
+    "critical_station_load_row": {
+      "aero_torque_component_direct_twist_deg": 4.787163,
+      "kernel_lift_main_fz_n": 21.202169,
+      "kernel_main_self_weight_fz_n": -1.585279,
+      "kernel_rear_self_weight_fz_n": -0.28653,
+      "kernel_torque_my_nm": -12.715548,
+      "lift_component_direct_twist_deg": -2.758891,
+      "load_application_note": "Apply lift/self-weight vertical loads to spar collar regions and replace kernel My with equal/opposite main/rear collar force couple.",
+      "local_torque_couple_main_fz_n": -23.839355,
+      "local_torque_couple_rear_fz_n": 23.839355,
+      "local_total_main_fz_n": -4.222466,
+      "local_total_rear_fz_n": 23.552825,
+      "nearest_kernel_y_m": 2.327757,
+      "rib_id": "R068",
+      "self_weight_component_direct_twist_deg": 0.607418,
+      "spar_separation_m": 0.533385,
+      "y_m": 2.327955,
+      "zone_role": "torque_critical_validation_rib"
+    },
+    "method": {
+      "engineering_boundary": "These are screening nodal loads for the local model contract. Final FEM loads must be regenerated if the closure load owner or selected stiffness changes.",
+      "load_update_basis": "Structural load ownership is preserved by scaling existing lift and pitch-torque distributions by AVL wing spanload ratios.",
+      "max_relaxed_ratio": 0.9968,
+      "min_relaxed_ratio": 0.746252,
+      "ratio_bounds": [
+        0.7,
+        1.3
+      ],
+      "relaxation_for_local_package": 1.0,
+      "source": "closure-owned selected dual-beam kernel plus final AVL spanload ratio",
+      "torque_to_couple_formula": "F_couple_N = M_y_Nm / spar_separation_m; apply +F at main spar and -F at rear spar"
+    },
+    "station_load_rows": [
+      {
+        "aero_torque_component_direct_twist_deg": 3.614397,
+        "kernel_lift_main_fz_n": 21.073349,
+        "kernel_main_self_weight_fz_n": -1.585201,
+        "kernel_rear_self_weight_fz_n": -0.286516,
+        "kernel_torque_my_nm": -12.549061,
+        "lift_component_direct_twist_deg": -4.219722,
+        "load_application_note": "Apply lift/self-weight vertical loads to spar collar regions and replace kernel My with equal/opposite main/rear collar force couple.",
+        "local_torque_couple_main_fz_n": -23.186516,
+        "local_torque_couple_rear_fz_n": 23.186516,
+        "local_total_main_fz_n": -3.698368,
+        "local_total_rear_fz_n": 22.9,
+        "nearest_kernel_y_m": 1.745789,
+        "rib_id": "R066",
+        "self_weight_component_direct_twist_deg": 0.943597,
+        "spar_separation_m": 0.541222,
+        "y_m": 1.745859,
+        "zone_role": "local_model_boundary_rib"
+      },
+      {
+        "aero_torque_component_direct_twist_deg": 4.39768,
+        "kernel_lift_main_fz_n": 21.157027,
+        "kernel_main_self_weight_fz_n": -1.58524,
+        "kernel_rear_self_weight_fz_n": -0.286523,
+        "kernel_torque_my_nm": -12.64328,
+        "lift_component_direct_twist_deg": -3.260903,
+        "load_application_note": "Apply lift/self-weight vertical loads to spar collar regions and replace kernel My with equal/opposite main/rear collar force couple.",
+        "local_torque_couple_main_fz_n": -23.524257,
+        "local_torque_couple_rear_fz_n": 23.524257,
+        "local_total_main_fz_n": -3.95247,
+        "local_total_rear_fz_n": 23.237734,
+        "nearest_kernel_y_m": 2.03677,
+        "rib_id": "R067",
+        "self_weight_component_direct_twist_deg": 0.717911,
+        "spar_separation_m": 0.537457,
+        "y_m": 2.036907,
+        "zone_role": "torque_critical_validation_rib"
+      },
+      {
+        "aero_torque_component_direct_twist_deg": 4.787163,
+        "kernel_lift_main_fz_n": 21.202169,
+        "kernel_main_self_weight_fz_n": -1.585279,
+        "kernel_rear_self_weight_fz_n": -0.28653,
+        "kernel_torque_my_nm": -12.715548,
+        "lift_component_direct_twist_deg": -2.758891,
+        "load_application_note": "Apply lift/self-weight vertical loads to spar collar regions and replace kernel My with equal/opposite main/rear collar force couple.",
+        "local_torque_couple_main_fz_n": -23.839355,
+        "local_torque_couple_rear_fz_n": 23.839355,
+        "local_total_main_fz_n": -4.222466,
+        "local_total_rear_fz_n": 23.552825,
+        "nearest_kernel_y_m": 2.327757,
+        "rib_id": "R068",
+        "self_weight_component_direct_twist_deg": 0.607418,
+        "spar_separation_m": 0.533385,
+        "y_m": 2.327955,
+        "zone_role": "torque_critical_validation_rib"
+      },
+      {
+        "aero_torque_component_direct_twist_deg": 4.734641,
+        "kernel_lift_main_fz_n": 21.224673,
+        "kernel_main_self_weight_fz_n": -1.585661,
+        "kernel_rear_self_weight_fz_n": -0.286599,
+        "kernel_torque_my_nm": -12.776065,
+        "lift_component_direct_twist_deg": -2.819407,
+        "load_application_note": "Apply lift/self-weight vertical loads to spar collar regions and replace kernel My with equal/opposite main/rear collar force couple.",
+        "local_torque_couple_main_fz_n": -24.140589,
+        "local_torque_couple_rear_fz_n": 24.140589,
+        "local_total_main_fz_n": -4.501578,
+        "local_total_rear_fz_n": 23.85399,
+        "nearest_kernel_y_m": 2.618751,
+        "rib_id": "R069",
+        "self_weight_component_direct_twist_deg": 0.63502,
+        "spar_separation_m": 0.529236,
+        "y_m": 2.619003,
+        "zone_role": "torque_critical_validation_rib"
+      },
+      {
+        "aero_torque_component_direct_twist_deg": 4.285255,
+        "kernel_lift_main_fz_n": 21.246778,
+        "kernel_main_self_weight_fz_n": -1.586411,
+        "kernel_rear_self_weight_fz_n": -0.286735,
+        "kernel_torque_my_nm": -12.836939,
+        "lift_component_direct_twist_deg": -3.148609,
+        "load_application_note": "Apply lift/self-weight vertical loads to spar collar regions and replace kernel My with equal/opposite main/rear collar force couple.",
+        "local_torque_couple_main_fz_n": -24.445286,
+        "local_torque_couple_rear_fz_n": 24.445286,
+        "local_total_main_fz_n": -4.784919,
+        "local_total_rear_fz_n": 24.158551,
+        "nearest_kernel_y_m": 2.909774,
+        "rib_id": "R070",
+        "self_weight_component_direct_twist_deg": 0.726918,
+        "spar_separation_m": 0.525129,
+        "y_m": 2.910051,
+        "zone_role": "local_model_boundary_rib"
+      }
+    ]
+  },
+  "missing_data_register": [
+    {
+      "blocks": "FEM/APDL margin claim",
+      "data_key": "adhesive_shear_allowable_pa",
+      "required_for": "rib-to-spar bond shear",
+      "status": "supplier_or_coupon_missing"
+    },
+    {
+      "blocks": "collar tab peel margin",
+      "data_key": "adhesive_peel_allowable_pa",
+      "required_for": "bond peel / mixed-mode opening",
+      "status": "supplier_or_coupon_missing"
+    },
+    {
+      "blocks": "mesh and stress concentration definition",
+      "data_key": "bondline_width_thickness_fillet",
+      "required_for": "bond shear/peel stress extraction",
+      "status": "geometry_missing"
+    },
+    {
+      "blocks": "collar bearing margin",
+      "data_key": "collar_material_thickness_contact_width",
+      "required_for": "collar bearing and tab load transfer",
+      "status": "geometry_and_allowable_missing"
+    },
+    {
+      "blocks": "tube-wall local FEM margin",
+      "data_key": "spar_tube_od_wall_material",
+      "required_for": "collar bearing and local tube wall crush/ovalization",
+      "status": "supplier_or_design_missing"
+    },
+    {
+      "blocks": "hybrid effective-GJ credit",
+      "data_key": "balsa_cap_face_properties",
+      "required_for": "EPS+balsa cap shear transfer",
+      "status": "supplier_or_coupon_missing"
+    },
+    {
+      "blocks": "skin sag and manufacturing repeatability read",
+      "data_key": "eps_core_properties",
+      "required_for": "shape support and process repeatability",
+      "status": "supplier_missing_for_shape_only_role"
+    },
+    {
+      "blocks": "shape-keeping validation",
+      "data_key": "skin_material_thickness_attachment",
+      "required_for": "0.30 m bay skin sag / shape keeping",
+      "status": "design_missing"
+    }
+  ],
+  "next_blocker_if_not_closed": "supplier/coupon allowables and collar/tube-wall detail are still missing; do not export a FEM/APDL margin package until these values replace guarded placeholders",
+  "next_recommended_task": "Fill supplier/coupon allowables for the positive zone APDL skeleton, run local bond/collar/tube-wall FEM or hand/FEM margins, then mirror the same contract to the negative torque-critical zone.",
+  "package_verdict": "positive_zone_ready_for_local_FEM_and_coupon_definition_not_margin_pass",
+  "positive_zone": {
+    "bay_ids": [
+      "B066",
+      "B067",
+      "B068",
+      "B069"
+    ],
+    "critical_station_id": "R068",
+    "critical_y_m": 2.327757,
+    "engineering_scope": "Positive torque-critical hybrid rib zone only; negative zone should be mirrored after this contract is stable.",
+    "local_model_boundary_rib_ids": [
+      "R066",
+      "R067",
+      "R068",
+      "R069",
+      "R070"
+    ],
+    "local_model_boundary_y_m": [
+      1.745859,
+      2.910051
+    ],
+    "rib_ids": [
+      "R067",
+      "R068",
+      "R069"
+    ],
+    "y_end_m": 2.627757,
+    "y_start_m": 2.027757,
+    "zone_id": "positive_torque_critical_hybrid_reinforcement_zone"
+  },
+  "schema_version": "current_pathfinder_positive_torque_zone_validation_package_v1",
+  "selected_basis": {
+    "eps_core_role": "shape/core support only; balsa cap, collar, adhesive, and tube contact own structural bracing credit",
+    "rear_spar_participation": "bounded_65pct_screening",
+    "rear_spar_participation_role": "bounded stiffness participation, not a direct load-split fraction",
+    "rib_family": "eps_balsa_cap_hybrid_10mm",
+    "structural_kernel_stiffness_override": {
+      "assumption_basis": {
+        "bond_and_coupon_boundary": "Requires rib-spar bond/collar local FEM and coupon data before FEM/APDL package or hardware signoff.",
+        "cap_face_collar_basis": "Hybrid rib/cap/collar screening effective-GJ is applied as an equivalent main-rear torsion-cell scale because the current dual-beam kernel has no local rib shell/collar elements.",
+        "eps_core_role": "EPS core is shape/core support only; balsa/cap/collar detail owns the structural bracing credit.",
+        "material_category": "capped_hybrid_foam_rib",
+        "rear_spar_participation": "bounded_65pct_screening",
+        "rib_family_key": "eps_balsa_cap_hybrid_10mm"
+      },
+      "claim_boundary": "Screening closure rerun surrogate only. Local FEM/coupon/bond/collar evidence is still required before FEM/APDL package readiness.",
+      "global_torsion_cell_scale": 2.032971,
+      "model_id": "hybrid_main_rear_torsion_cell_scale_v1",
+      "scaled_properties": [
+        "main_j_m4",
+        "rear_j_m4"
+      ],
+      "status": "screening_surrogate_ready_for_closure_rerun"
+    }
+  },
+  "station_manifest_rows": [
+    {
+      "bay_next_m": 0.291048,
+      "bay_prev_m": 0.291048,
+      "bond_risk_status": "needs_data",
+      "chord_m": 1.202611,
+      "existing_audit_material_family": "balsa_sheet_3mm",
+      "fem_trigger_reasons": "",
+      "local_fem_required": "false",
+      "main_spar_xc": 0.25024,
+      "rear_spar_xc": 0.700278,
+      "rib_id": "R066",
+      "shape_sag_status": "unknown_requires_test",
+      "torque_critical_zone": "false",
+      "validation_material_category": "capped_hybrid_foam_rib",
+      "validation_material_family": "eps_balsa_cap_hybrid_10mm",
+      "y_m": 1.745859,
+      "zone_role": "local_model_boundary_rib"
+    },
+    {
+      "bay_next_m": 0.291048,
+      "bay_prev_m": 0.291048,
+      "bond_risk_status": "needs_data_torque_or_mandatory_zone",
+      "chord_m": 1.193581,
+      "existing_audit_material_family": "balsa_sheet_3mm",
+      "fem_trigger_reasons": "torque_critical_audit_zone;bounded_physical_twist_exceeds_screening_bound",
+      "local_fem_required": "true",
+      "main_spar_xc": 0.250008,
+      "rear_spar_xc": 0.700296,
+      "rib_id": "R067",
+      "shape_sag_status": "unknown_requires_test_torque_zone",
+      "torque_critical_zone": "true",
+      "validation_material_category": "capped_hybrid_foam_rib",
+      "validation_material_family": "eps_balsa_cap_hybrid_10mm",
+      "y_m": 2.036907,
+      "zone_role": "torque_critical_validation_rib"
+    },
+    {
+      "bay_next_m": 0.291048,
+      "bay_prev_m": 0.291048,
+      "bond_risk_status": "needs_data_torque_or_mandatory_zone",
+      "chord_m": 1.184552,
+      "existing_audit_material_family": "balsa_sheet_3mm",
+      "fem_trigger_reasons": "torque_critical_audit_zone;bounded_physical_twist_exceeds_screening_bound",
+      "local_fem_required": "true",
+      "main_spar_xc": 0.249972,
+      "rear_spar_xc": 0.700253,
+      "rib_id": "R068",
+      "shape_sag_status": "unknown_requires_test_torque_zone",
+      "torque_critical_zone": "true",
+      "validation_material_category": "capped_hybrid_foam_rib",
+      "validation_material_family": "eps_balsa_cap_hybrid_10mm",
+      "y_m": 2.327955,
+      "zone_role": "torque_critical_validation_rib"
+    },
+    {
+      "bay_next_m": 0.291048,
+      "bay_prev_m": 0.291048,
+      "bond_risk_status": "needs_data_torque_or_mandatory_zone",
+      "chord_m": 1.175523,
+      "existing_audit_material_family": "balsa_sheet_3mm",
+      "fem_trigger_reasons": "torque_critical_audit_zone;bounded_physical_twist_exceeds_screening_bound",
+      "local_fem_required": "true",
+      "main_spar_xc": 0.25009,
+      "rear_spar_xc": 0.7003,
+      "rib_id": "R069",
+      "shape_sag_status": "unknown_requires_test_torque_zone",
+      "torque_critical_zone": "true",
+      "validation_material_category": "capped_hybrid_foam_rib",
+      "validation_material_family": "eps_balsa_cap_hybrid_10mm",
+      "y_m": 2.619003,
+      "zone_role": "torque_critical_validation_rib"
+    },
+    {
+      "bay_next_m": 0.291048,
+      "bay_prev_m": 0.291048,
+      "bond_risk_status": "needs_data",
+      "chord_m": 1.166341,
+      "existing_audit_material_family": "balsa_sheet_3mm",
+      "fem_trigger_reasons": "",
+      "local_fem_required": "false",
+      "main_spar_xc": 0.249999,
+      "rear_spar_xc": 0.700233,
+      "rib_id": "R070",
+      "shape_sag_status": "unknown_requires_test",
+      "torque_critical_zone": "false",
+      "validation_material_category": "capped_hybrid_foam_rib",
+      "validation_material_family": "eps_balsa_cap_hybrid_10mm",
+      "y_m": 2.910051,
+      "zone_role": "local_model_boundary_rib"
+    }
+  ],
+  "warnings": [
+    "direct_spar_pair_stress_test_above_bound_conservative_mapping"
+  ]
+}

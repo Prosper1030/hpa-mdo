@@ -21,6 +21,7 @@
 | [2026-05-09_tail_aware_aeroelastic_closure.md](reports/2026-05-09_tail_aware_aeroelastic_closure.md) | tail-aware aeroelastic closure baseline | 需要看 balsa/50% baseline twist-source blocker 的人 |
 | [2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | materialized rib station/bay contract audit | 需要確認 0.30 m rib bay 是否真的 materialized，以及 hybrid rework 前哪些 skin/bond/FEM data 仍 blocked 的人 |
 | [2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | closure-owned hybrid rib / torsion verdict | 需要知道 selected hybrid basis 是否真的讓 bounded twist 過 3 deg，以及 local FEM/coupon 下一站的人 |
+| [2026-05-09_positive_torque_zone_local_validation_package.md](reports/2026-05-09_positive_torque_zone_local_validation_package.md) | positive y≈2.328 m local FEM / coupon input package | 需要接 positive torque-critical rib-spar bond/collar FEM skeleton、coupon matrix、missing-data register 的人 |
 | [legacy_blackcat004_downstream_reference.md](legacy_blackcat004_downstream_reference.md) | Black Cat 004 / OpenMDAO 舊 downstream 參考 | 需要查歷史工具、舊 quickstart、舊 DAG 的人 |
 | [mesh_native_cfd_line_freeze.v1.md](../hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 暫停中的主翼 mesh-native CFD / SU2 支線交接 | 需要接續 Gmsh/SU2/BL 網格與低雷諾數 CFD 的人 |
 
@@ -39,6 +40,7 @@
 | [2026-05-09_tail_aware_aeroelastic_closure.md](reports/2026-05-09_tail_aware_aeroelastic_closure.md) | tail-aware aeroelastic closure baseline | fixed-point baseline 已收斂，但 balsa/50% direct spar-pair incidence stress-test 與 bounded physical projection 超出 twist bound |
 | [2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | materialized rib station/bay audit | 121 full-wing stations / 120 bays 已 trace；skin sag、bond/collar、transition/control station 與 torque-zone FEM 仍 blocked / needs-data |
 | [2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | rib / torsion rework verdict | `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` actual bounded twist clears 3 deg; direct stress-test remains conservative mapping warning; FEM/APDL package still blocked by local detail evidence |
+| [2026-05-09_positive_torque_zone_local_validation_package.md](reports/2026-05-09_positive_torque_zone_local_validation_package.md) | positive torque-zone local package | R067/R068/R069 and B066-B069 FEM/coupon handoff with APDL guarded skeleton; no FEM margin claimed |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
 | [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |

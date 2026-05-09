@@ -136,8 +136,18 @@ hybrid main/rear torsion-cell screening surrogate：actual closure bounded physi
 降到 `3.449 deg`，仍高於 `3 deg`，所以它是 conservative aero-surface mapping / local FEM
 檢查項，不是 final twist signoff。rib mass 約 `5.365 kg`，比 balsa baseline 多
 `2.335 kg`，CG/rebalance 已計入。FEM/APDL package gate 仍被 missing transition/control
-stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m` local FEM 卡住。下一站 artifact 是
-`output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_validation_package.md`。
+stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m` local FEM 卡住。
+
+positive y≈`2.328 m` torque-critical local validation package 已建立，讀
+[docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md)
+與 `output/current_pathfinder_positive_torque_zone_validation/`。這份 package 鎖定
+R067 / R068 / R069 與 B066 / B067 / B068 / B069，並把 R066 / R070 當 local model
+boundary；critical R068 的 local load row 約為 main lift `21.202 N`、kernel torque
+`-12.716 N*m`，轉成 main/rear torque-couple `-23.839 / +23.839 N`。它輸出 APDL guarded
+skeleton、station/bay manifest、load decomposition、coupon matrix 與 missing-data register；
+verdict 是 `positive_zone_ready_for_local_FEM_and_coupon_definition_not_margin_pass`，不是 FEM
+margin pass。下一步是填 adhesive/collar/tube-wall/cap/skin supplier 或 coupon allowables，
+再跑 positive-zone local margin；穩定後 mirror/compare negative zone。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -174,6 +184,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged; twist-source audit points to hybrid rib/stiffness rework |
 | 看 current pathfinder rib station/bay 是否真的 materialized | [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | 121 station / 120 bay trace; shape, bond, collar, transition data still blocked |
 | 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | hybrid closure-owned bounded twist clears 3 deg; local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
+| 接 positive torque-zone local FEM / coupon package | [docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md) | R067/R068/R069 + B066-B069 package; APDL skeleton and coupon/missing-data register; no FEM margin claimed |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |

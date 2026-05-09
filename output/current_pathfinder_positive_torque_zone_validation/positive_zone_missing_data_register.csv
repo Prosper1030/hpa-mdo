@@ -1,0 +1,9 @@
+data_key,status,required_for,blocks
+adhesive_shear_allowable_pa,supplier_or_coupon_missing,rib-to-spar bond shear,FEM/APDL margin claim
+adhesive_peel_allowable_pa,supplier_or_coupon_missing,bond peel / mixed-mode opening,collar tab peel margin
+bondline_width_thickness_fillet,geometry_missing,bond shear/peel stress extraction,mesh and stress concentration definition
+collar_material_thickness_contact_width,geometry_and_allowable_missing,collar bearing and tab load transfer,collar bearing margin
+spar_tube_od_wall_material,supplier_or_design_missing,collar bearing and local tube wall crush/ovalization,tube-wall local FEM margin
+balsa_cap_face_properties,supplier_or_coupon_missing,EPS+balsa cap shear transfer,hybrid effective-GJ credit
+eps_core_properties,supplier_missing_for_shape_only_role,shape support and process repeatability,skin sag and manufacturing repeatability read
+skin_material_thickness_attachment,design_missing,0.30 m bay skin sag / shape keeping,shape-keeping validation

@@ -1,0 +1,77 @@
+! positive_torque_zone_local_fem_skeleton
+! Current pathfinder local FEM input skeleton for positive y~=2.328 m.
+! This file is guarded: it is not a margin-running deck until supplier/coupon data
+! replace the negative placeholder parameters below.
+/PREP7
+/COM, Selected basis: eps_balsa_cap_hybrid_10mm + bounded_65pct_screening
+/COM, Active ribs: R067 / R068 / R069
+/COM, Active bays: B066 / B067 / B068 / B069
+/COM, Boundary ribs: R066 / R067 / R068 / R069 / R070
+
+SUPPLIER_DATA_REQUIRED = 1
+MAIN_SPAR_OD_M = -1
+MAIN_SPAR_WALL_M = -1
+REAR_SPAR_OD_M = -1
+REAR_SPAR_WALL_M = -1
+COLLAR_THICKNESS_M = -1
+BONDLINE_WIDTH_M = -1
+BONDLINE_THICKNESS_M = -1
+ADHESIVE_SHEAR_ALLOWABLE_PA = -1
+ADHESIVE_PEEL_ALLOWABLE_PA = -1
+COLLAR_BEARING_ALLOWABLE_PA = -1
+TUBE_CRUSH_ALLOWABLE_PA = -1
+BALSACAP_SHEAR_ALLOWABLE_PA = -1
+SKIN_THICKNESS_M = -1
+
+*IF,MAIN_SPAR_OD_M,LE,0,THEN
+  /COM,SUPPLIER_DATA_REQUIRED: spar/collar/bond/coupon data missing. Stop before solve.
+  FINISH
+  *EXIT
+*ENDIF
+*IF,ADHESIVE_SHEAR_ALLOWABLE_PA,LE,0,THEN
+  /COM,SUPPLIER_DATA_REQUIRED: adhesive shear allowable missing. Stop before solve.
+  FINISH
+  *EXIT
+*ENDIF
+
+Y_START_M = 1.745859
+Y_END_M = 2.910051
+Y_TORQUE_CRITICAL_M = 2.327757
+M_TORQUE_CRITICAL_NM = -12.715548
+F_MAIN_TOTAL_R068_N = -4.222466
+F_REAR_TOTAL_R068_N = 23.552825
+F_MAIN_TORQUE_COUPLE_R068_N = -23.839355
+F_REAR_TORQUE_COUPLE_R068_N = 23.839355
+
+! Geometry to create after supplier data is filled:
+! - Main/rear spar tube shell/solid sections from R066 to R070.
+! - Collar patches at R067/R068/R069 on main and rear spar tubes.
+! - Rib web/cap/collar tab surfaces for EPS+balsa cap hybrid path.
+! - Optional B067/B068 skin panel for skin-sag variant.
+
+! Named components expected by the load step:
+! CM,MAIN_COLLAR_R068,NODE
+! CM,REAR_COLLAR_R068,NODE
+! CM,BOUNDARY_R066_MAIN,NODE
+! CM,BOUNDARY_R070_MAIN,NODE
+! CM,BOUNDARY_R066_REAR,NODE
+! CM,BOUNDARY_R070_REAR,NODE
+
+! Boundary condition intent:
+! Use remote section nodes at R066/R070 to remove rigid body motion only.
+! Do not fully clamp the local bay unless running a deliberately conservative bracket.
+
+! Load application intent:
+! CMSEL,S,MAIN_COLLAR_R068
+! F,ALL,FZ,F_MAIN_TOTAL_R068_N
+! CMSEL,S,REAR_COLLAR_R068
+! F,ALL,FZ,F_REAR_TOTAL_R068_N
+! ALLSEL,ALL
+
+! Required postprocessing:
+! - adhesive shear and peel margin
+! - collar bearing margin
+! - tube wall crush/ovalization margin
+! - rib cap/web shear transfer margin
+! - optional skin sag deflection margin
+FINISH

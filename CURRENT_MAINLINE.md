@@ -347,8 +347,18 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      warning，不是 final aero-surface twist signoff。rib mass 約 `5.365 kg`，比 balsa
      baseline 多 `2.335 kg`，且 CG/rebalance 已計入。FEM/APDL package gate 仍被 missing
      transition/control stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m`
-     local FEM 卡住。下一站 package 是
-     `output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_validation_package.md`。
+     local FEM 卡住。positive-zone package 已推進到
+     `scripts/current_pathfinder_positive_torque_zone_validation_package.py` 與
+     `docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md`：
+     R067/R068/R069 與 B066-B069 是 active validation set，R066/R070 是 local model
+     boundary；critical R068 的 extracted local load row 是 main lift `21.202 N`、
+     kernel torque `-12.716 N*m`，轉成 main/rear torque-couple `-23.839 / +23.839 N`。
+     package verdict 是
+     `positive_zone_ready_for_local_FEM_and_coupon_definition_not_margin_pass`，並輸出
+     guarded APDL skeleton、station/bay manifest、load decomposition、coupon matrix、
+     missing-data register。這不是 FEM margin pass；下一步是補 supplier/coupon
+     allowables 與 collar/tube-wall/bond/cap/skin dimensions 後跑 local margin，再 mirror
+     negative zone。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
@@ -357,16 +367,17 @@ trim / stability screening v1 也已完成。tail-aware bounded rib / rear-spar 
 sensitivity 已完成並選出下一階段 basis；tail-aware aeroelastic closure baseline 第一輪已收斂但
 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。rib / torsion rework verdict
 已把 selected hybrid effective-GJ 接進 structural kernel / closure rerun，bounded physical
-twist 實際清到 `2.070 deg`；結論是 local FEM/coupon candidate 已可定義，但還不能進
-FEM/APDL loadcase package。下一步不是擴大 search，而是補 y≈`2.328 m` torque-critical
-zone 的 rib cap/face/collar/bond/tube-wall local FEM、skin sag coupon/panel evidence、
-transition/control station manifest，並針對 direct `3.449 deg` stress-test 做 qualified
+twist 實際清到 `2.070 deg`；positive y≈`2.328 m` package 已定義 local FEM/coupon
+handoff，但還不能進 FEM/APDL margin package。下一步不是擴大 search，而是填這份
+positive-zone package 的 supplier/coupon allowables 與 geometry detail，跑
+rib cap/face/collar/bond/tube-wall local margin、skin sag coupon/panel evidence，之後
+mirror/compare negative zone；同時 direct `3.449 deg` stress-test 仍要做 qualified
 aero-surface mapping。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_validation_package.md` 為起點，定義 selected local FEM/coupon candidate `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` 的 rib-spar bond/collar local FEM input deck 與 coupon matrix。必須補：hybrid rib cap/face/collar geometry、rib-to-main/rear-spar bondline/contact、tube-wall local bearing/crush/peel FEM 或 allowables、0.30 m bay skin sag coupon/panel evidence、transport/control/airfoil/twist transition station manifest，並保留 direct stress-test 是 conservative mapping proxy 的判讀。不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural foam-only 當 structural bracing pass，也不能把 GJ screening surrogate 或 direct spar-pair stress-test proxy 包成 FEM/APDL package-ready。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `output/current_pathfinder_positive_torque_zone_validation/positive_zone_local_validation_package.md` 為起點，把 positive y≈2.328 m torque-critical local FEM / coupon package 從 guarded skeleton 推到 first local margin run。必須填：adhesive shear/peel allowables、bondline width/thickness/fillet、collar material/thickness/contact width、spar tube OD/wall/material、balsa/cap properties、EPS shape-only properties、skin material/thickness/attachment；然後跑 rib-to-main/rear-spar bond shear、peel、collar bearing、tube-wall crush/ovalization、EPS+balsa cap shear transfer、skin sag panel checks。仍不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural foam-only 當 structural bracing pass，也不能把 guarded APDL skeleton 或 direct spar-pair stress-test proxy 包成 FEM/APDL package-ready。
 ```
 
 ## 8. 常用入口與角色
@@ -418,6 +429,8 @@ aero-surface mapping。
   - `docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md`
   - `scripts/current_pathfinder_rib_torsion_rework_verdict.py`
   - `docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md`
+  - `scripts/current_pathfinder_positive_torque_zone_validation_package.py`
+  - `docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md`
 - 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
   warping knockdown、mass/CG bookkeeping 與 closure ranking 接成 tail-aware aeroelastic
   screening basis，並把 current pathfinder 的 rib station / bay / missing contract / skin sag /
@@ -436,6 +449,9 @@ aero-surface mapping。
   rework verdict 選出 `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` 作為 local
   FEM/coupon candidate；actual closure-owned hybrid rerun bounded physical twist 是
   `2.070 deg`，direct stress-test 是 `3.449 deg` 並保留為 conservative mapping warning。
+  positive y≈`2.328 m` local package 已建立：R067/R068/R069、B066-B069、R066/R070
+  boundary、APDL guarded skeleton、coupon matrix 和 missing-data register 都已輸出；它是
+  `not_margin_pass` handoff，不是 FEM signoff。
   因為 transition/control station、skin sag、bond/collar/spar contact 和 torque-critical
   local FEM 還沒關，這仍不是 FEM/APDL package-ready。
 
