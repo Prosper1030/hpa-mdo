@@ -258,7 +258,7 @@ def _build_row(
         derate_factor=derate_factor,
         termination_efficiency=termination_efficiency,
     )
-    margins = [
+    status_margins = [
         value
         for value in (
             load_margin,
@@ -268,11 +268,20 @@ def _build_row(
         )
         if value is not None
     ]
+    force_like_margins = [
+        value
+        for value in (
+            load_margin,
+            mbl_margin,
+            effective_termination_load_margin,
+        )
+        if value is not None
+    ]
     status = _status(
         parent_key=parent_key,
         required_values=(required_load, required_moment, required_mbl),
         provided_values=(provided_load, provided_moment, provided_mbl),
-        margins=margins,
+        margins=status_margins,
         traceability_status=traceability_status,
     )
     return LocalDetailSubcomponentMarginRow(
@@ -293,7 +302,7 @@ def _build_row(
         mbl_margin_n=mbl_margin,
         effective_termination_load_n=effective_termination_load,
         effective_termination_load_margin_n=effective_termination_load_margin,
-        worst_margin=None if not margins else min(margins),
+        worst_margin=None if not force_like_margins else min(force_like_margins),
         allowable_basis=allowable_basis,
         evidence_type=evidence_type,
         derate_factor=derate_factor,

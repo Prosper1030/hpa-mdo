@@ -357,17 +357,18 @@ def _local_gap_summary(parent_key: str, check: Any) -> str:
     positive = sum(
         1 for row in rows if getattr(row, "status", "") == "margin_positive_input_check_only"
     )
-    worst_values = [
+    force_like_values = [
         _attr_float(row, name)
         for row in rows
         for name in (
             "load_margin_n",
-            "moment_margin_n_m",
             "mbl_margin_n",
             "effective_termination_load_margin_n",
         )
     ]
-    finite = [value for value in worst_values if value is not None]
+    moment_values = [_attr_float(row, "moment_margin_n_m") for row in rows]
+    finite_force_like = [value for value in force_like_values if value is not None]
+    finite_moment = [value for value in moment_values if value is not None]
     return (
         "local subcomponents="
         f"{len(rows)}; "
@@ -381,8 +382,10 @@ def _local_gap_summary(parent_key: str, check: Any) -> str:
         f"{traceability_gap}; "
         "positive input rows="
         f"{positive}; "
-        "worst local margin="
-        f"{_fmt(min(finite) if finite else None)}."
+        "worst force-like margin="
+        f"{_fmt(min(finite_force_like) if finite_force_like else None)} N; "
+        "worst moment margin="
+        f"{_fmt(min(finite_moment) if finite_moment else None)} N*m."
     )
 
 

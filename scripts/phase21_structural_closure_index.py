@@ -1100,15 +1100,20 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
     positive = sum(
         1 for row in rows if getattr(row, "status", "") == "margin_positive_input_check_only"
     )
-    worst_values = [
+    force_like_values = [
         value
         for row in rows
         for value in (
             getattr(row, "load_margin_n", None),
-            getattr(row, "moment_margin_n_m", None),
             getattr(row, "mbl_margin_n", None),
             getattr(row, "effective_termination_load_margin_n", None),
         )
+        if value is not None
+    ]
+    moment_values = [
+        value
+        for row in rows
+        for value in (getattr(row, "moment_margin_n_m", None),)
         if value is not None
     ]
     return (
@@ -1126,8 +1131,10 @@ def _local_detail_subcomponent_summary(parent_key: str, check: Any) -> str:
         f"{traceability_gap}; "
         "positive input rows="
         f"{positive}; "
-        "worst margin="
-        f"{_fmt(min(worst_values) if worst_values else None)}."
+        "worst force-like margin="
+        f"{_fmt(min(force_like_values) if force_like_values else None)} N; "
+        "worst moment margin="
+        f"{_fmt(min(moment_values) if moment_values else None)} N*m."
     )
 
 

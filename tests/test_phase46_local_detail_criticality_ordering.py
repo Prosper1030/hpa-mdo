@@ -224,6 +224,37 @@ def test_local_detail_criticality_ranks_work_priority_without_signoff() -> None:
     )
 
 
+def test_local_detail_criticality_reports_force_and_moment_margins_separately() -> None:
+    local_detail_subcomponent_check = SimpleNamespace(
+        overall_status="local_detail_subcomponent_margins_not_closed",
+        rows=(
+            SimpleNamespace(
+                parent_key="root_joint",
+                subcomponent_key="root_fitting_or_clamp",
+                status="margin_negative",
+                load_margin_n=30.0,
+                moment_margin_n_m=-100.0,
+                mbl_margin_n=None,
+                effective_termination_load_margin_n=None,
+            ),
+        ),
+    )
+
+    ordering = build_local_detail_criticality_ordering(
+        "sample",
+        detail_requirements=_detail_requirements(),
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+        root_joint_load_envelope=_root_joint_load_envelope(),
+        wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
+        existing_detail_allowable_evidence_triage=_existing_detail_allowable_evidence_triage(),
+    )
+
+    root = {row.blocker_key: row for row in ordering.rows}["root_joint"]
+    assert "worst force-like margin=30.0000 N" in root.local_allowable_gap_summary
+    assert "worst moment margin=-100.0000 N*m" in root.local_allowable_gap_summary
+
+
 def test_write_local_detail_criticality_ordering_package_creates_handoff_files(
     tmp_path: Path,
 ) -> None:

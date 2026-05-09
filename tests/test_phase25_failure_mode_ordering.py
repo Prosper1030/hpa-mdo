@@ -887,7 +887,30 @@ def test_failure_mode_ordering_includes_derated_termination_margin_in_worst_loca
         "wire_termination",
         check,
     )
-    assert "worst local margin=-600.0000" in evidence
+    assert "worst force-like local margin=-600.0000 N" in evidence
+
+
+def test_failure_mode_ordering_reports_force_and_moment_local_margins_separately() -> None:
+    check = SimpleNamespace(
+        rows=(
+            SimpleNamespace(
+                parent_key="root_joint",
+                subcomponent_key="root_fitting_or_clamp",
+                status="margin_negative",
+                load_margin_n=30.0,
+                moment_margin_n_m=-100.0,
+                mbl_margin_n=None,
+                effective_termination_load_margin_n=None,
+            ),
+        )
+    )
+
+    evidence = phase25._local_detail_subcomponent_evidence(  # noqa: SLF001
+        "root_joint",
+        check,
+    )
+    assert "worst force-like local margin=30.0000 N" in evidence
+    assert "worst local moment margin=-100.0000 N*m" in evidence
 
 
 def test_failure_mode_ordering_aggregates_duplicate_wire_attach_components() -> None:

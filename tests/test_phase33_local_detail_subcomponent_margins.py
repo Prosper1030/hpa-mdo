@@ -112,6 +112,31 @@ def test_subcomponent_margin_check_expands_detail_requirements_without_signoff()
     assert "not local FEM signoff" in termination.engineering_note
 
 
+def test_subcomponent_worst_margin_keeps_force_and_moment_units_separate() -> None:
+    check = build_local_detail_subcomponent_margin_check(
+        _requirements(),
+        subcomponent_allowables=(
+            {
+                "parent_key": "root_joint",
+                "subcomponent_key": "root_fitting_or_clamp",
+                "component_id": "root-clamp-a",
+                "allowable_load_n": "50",
+                "allowable_moment_n_m": "9900",
+                "allowable_basis": "root_clamp_hand_calc",
+                "evidence_type": "hand_calc",
+                "source": "prelim hand calc",
+            },
+        ),
+    )
+
+    by_key = {(row.parent_key, row.subcomponent_key): row for row in check.rows}
+    root = by_key[("root_joint", "root_fitting_or_clamp")]
+    assert root.status == "margin_negative"
+    assert root.load_margin_n == pytest.approx(30.0)
+    assert root.moment_margin_n_m == pytest.approx(-100.0)
+    assert root.worst_margin == pytest.approx(30.0)
+
+
 def test_subcomponent_margin_check_marks_every_required_segment_missing() -> None:
     check = build_local_detail_subcomponent_margin_check(
         _requirements(),

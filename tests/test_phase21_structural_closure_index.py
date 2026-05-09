@@ -262,6 +262,30 @@ def _local_detail_subcomponent_check() -> SimpleNamespace:
     )
 
 
+def test_closure_index_local_detail_summary_keeps_force_and_moment_units_separate() -> None:
+    check = SimpleNamespace(
+        overall_status="local_detail_subcomponent_margins_not_closed",
+        rows=(
+            SimpleNamespace(
+                parent_key="root_joint",
+                subcomponent_key="root_fitting_or_clamp",
+                status="margin_negative",
+                load_margin_n=30.0,
+                moment_margin_n_m=-100.0,
+                mbl_margin_n=None,
+                effective_termination_load_margin_n=None,
+            ),
+        ),
+    )
+
+    summary = phase21._local_detail_subcomponent_summary(  # noqa: SLF001
+        "root_joint",
+        check,
+    )
+    assert "worst force-like margin=30.0000 N" in summary
+    assert "worst moment margin=-100.0000 N*m" in summary
+
+
 def _wire_attach_load_decomposition() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="wire_attach_load_components_defined_not_signoff",
