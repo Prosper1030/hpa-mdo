@@ -1,55 +1,140 @@
 # Phase J Evidence Map
 
-> Status: report-only evidence inventory from current repo artifacts on 2026-05-09.
-> Reading rule: `CURRENT_MAINLINE.md`, `README.md`, and `docs/reports/2026-05-08_commit_history_report.md`
-> define the framing; this file maps that framing back to the actual artifacts currently carrying each
-> Phase J stage.
+> Status: deep refresh after source-contamination audit on 2026-05-09.
+> Canonical use: read this with `CURRENT_MAINLINE.md` and
+> `docs/reports/2026-05-08_commit_history_report.md`.
+> Hard rule: do not use old medium-search artifacts as current Phase J upstream
+> truth.
 
-## Current Read
+## Executive Finding
 
-- The current production-facing screening candidate is
+- The current production-facing review candidate is still
   `current_avl_compromise_conservative_closed`.
-- That candidate is closed only at `daily_screening_not_final_truth` level.
-- The older `birdman_mission_coupled_medium_search_20260503` / `sample_1476`
-  route is not current Phase J upstream evidence. Its `233 W / max range 8642.9 m`
-  record belongs to a superseded diagnostic search and must not be used as
-  evidence for the current mission contract, Fourier candidate source, or
-  `current_avl_compromise_conservative_closed`.
-- Current mission-facing evidence should be traced through the later
-  mission-design-space / mission-drag-budget contract line, then forward into
-  the go-mode candidate package.
-- The strongest current short-line engineering question is still
-  `beam-line Z proxy <-> aerodynamic surface <-> clearance` alignment, not rib FEM.
+- That candidate is only `screening_closed_compromise_candidate` /
+  `daily_screening_not_final_truth`.
+- The previous evidence map was contaminated by the older
+  `output/birdman_mission_coupled_medium_search_20260503` route. The
+  `sample_1476`, `233.47 W`, and `8642.9 m` records are not current upstream
+  evidence.
+- The current mission-side source is the later mission-design-space /
+  mission-drag-budget contract line, especially `output/mission_design_space/`
+  and `docs/mission_drag_budget.md`.
+- The current go-mode candidate is not a fully end-to-end candidate generated
+  from the current mission handoff through a clean current Fourier spanload
+  generator. It is a downstream screening closure built around the existing
+  `smooth_tier2_production_baseline` AVL/geometry carrier.
+- Therefore the important unresolved source-chain gap is upstream:
+  current mission contract -> current Fourier/Fourier-AVL candidate source ->
+  smooth realization. The important geometry gap remains
+  beam-line Z proxy -> aerodynamic surface -> clearance.
+- Rib / rear-spar / root / wire-detail FEM remains downstream validation unless
+  new evidence shows it can reorder the aero-structure closure candidates.
 
-## Stage Table
+## Actual Pipeline State
 
-| pipeline_stage | current_artifact | command_or_script | candidate_or_case | key_numbers | trust_level | open_gap | next_action |
-|---|---|---|---|---|---|---|---|
-| Mission contract | `docs/mission_drag_budget.md`<br>`output/mission_design_space/report.md`<br>`output/mission_design_space/optimizer_handoff.json`<br>`output/mission_design_space/candidate_seed_pool.csv` | Mission design-space / drag-budget contract line | Mission definition and optimizer handoff only; not a promoted aircraft candidate | Current checked mission-space evidence uses `42.195 km`, target environment `33 C / 80%RH`, speed grid `5.8-7.0 m/s`, span grid `33-35 m`, AR grid `37-40`, mass grid `96-101 kg`, and reports `1047` robust cases with robust speed envelope `[6.1, 7.0] m/s`. | source_contract_screening | This row defines the current mission design-space contract and seed region. It does not prove that any later realized wing geometry satisfies the full aircraft mission. | Treat this as the current mission-side source until a newer contract is identified. Do not substitute `sample_1476`, `233 W`, or `8642.9 m` from the superseded medium-search route. |
-| Fourier-AVL calibration | `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/recommended_fourier_bridge.md`<br>`output/pipeline_redesign_v2/fourier_avl_calibration_mvp/fourier_command_to_avl_realized.csv` | `scripts/fourier_avl_calibration_mvp.py` | Existing calibration artifact appears tied to legacy upstream records such as `rank_01_sample_1476`; it is not confirmed as current mission-contract evidence | `10` cases, `9` stations each.<br>`target_vs_avl_rms = 0.178-0.216`, `outer_delta = 0.241-0.306`.<br>`e_fourier_command = 0.990-0.998`, `e_fourier_realized = 0.846-0.873`, `e_avl_cdi = 0.851-0.870`. | diagnostic_legacy | The tool capability is useful, but this artifact should not be treated as current Phase J source truth until the candidate seeds are traced back to the current mission design-space / drag-budget contract. | Rebuild or re-map the Fourier-AVL row from the current mission handoff before using it to justify candidate ordering. |
-| Fourier spanload candidate generation | Superseded source to remove from current evidence: `output/birdman_mission_coupled_medium_search_20260503/mission_coupled_spanload_search_report.md`<br>`output/birdman_mission_coupled_medium_search_20260503/top_candidate_exports/` | `scripts/birdman_upstream_concept_design.py` on the older route | `rank_01_sample_1476` and related top-ten bundles are legacy diagnostic data, not current Phase J closure candidates | Legacy diagnostic search result: `68` evaluated, `11` physically accepted, `0` with `e_CDi >= 0.88`; top record `P req = 233.47 W`, `max range = 8642.9 m`. These numbers are invalid as current upstream evidence. | invalid_for_current_phase_j | This was the contaminated row in the previous map. It confuses a superseded mission-coupled diagnostic search with the later mission design-space / go-mode pipeline. | Replace this row with the actual current Fourier spanload candidate source after tracing from `output/mission_design_space/optimizer_handoff.json` into the Phase J go-mode package. Until then, do not use this stage as evidence. |
-| Smooth production geometry realization | `output/final_candidate_validation/smooth_tier2_production_baseline/validation_manifest.json`<br>`output/final_candidate_validation/smooth_tier2_production_baseline/geometry_exports/production_inspection/smooth_tier2_production_baseline/`<br>`output/phase9_structure_jig_smooth_planform/recommended_candidate.md` | `scripts/phase9_structure_jig_smooth_planform.py`<br>`scripts/validate_smooth_tier2_production_baseline.py` | `smooth_tier2_production_baseline` from the conservative smooth baseline line | Geometry/airfoil package: `root:dae31|mid1:dae31|mid2:dae31|tip:cst_tip_nsga2_g06_child_0056_b3f9b7c4`.<br>Aero snapshot: `P_crank = 171.16 W`, `CDi = 0.012501`, `profile_cd = 0.009510`.<br>Smooth-vs-target spanload metrics: `target_vs_avl_rms = 0.0292`, `outer_delta = 0.0885`.<br>Parity and production-inspection VSP/AVL exports are written. | spot_check | This proves the repo can materialize a smooth, exportable geometry baseline, but it does not by itself prove structure/jig closure; the same baseline still carried structure-proxy failure. | Keep `smooth_tier2_production_baseline` as the pre-Z-search geometry/aero baseline; do not confuse it with the later screened closure candidate. |
-| AVL realization check | `output/final_candidate_validation/smooth_tier2_production_baseline/aerodynamic_summary.md`<br>`output/phase10_2_canonical_inverse_design_check/smooth_tier2_candidate_avl_spanwise_loads.json`<br>`output/phase10_2_canonical_inverse_design_check/mainline_workflow_summary.md` | `scripts/validate_smooth_tier2_production_baseline.py`<br>`scripts/direct_dual_beam_inverse_design.py` | `smooth_tier2_production_baseline` realized AVL strip-force package, later reused as `candidate_avl_spanwise` owner | Realized AVL basis keeps `CL = 1.16853`, `CDi = 0.012501`, `P_crank = 171.16 W`.<br>Candidate-owned strip-force artifacts exist under `smooth_tier2_production_baseline/avl_runs/...`.<br>Phase 10.2 canonical route proves the smooth baseline can be rerun with `candidate_avl_spanwise`; selected cruise AoA is anchored back to the structural state while using the smooth AVL lift-shape artifact. | screening | Load ownership is still mixed: the strip-force shape is candidate-owned, but structural selected-state ownership still leans on the legacy refresh path. This is good enough for screening, not for final geometry truth. | Preserve the realized AVL strip-force artifact as the aero owner for downstream Z-search, then resolve beam-line/aero-surface mapping before treating realized dihedral as settled. |
-| structure-budgeted loaded-Z search | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/recommended_loaded_z_states.md`<br>`output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/z_state_structure_budget_sweep.csv` | `scripts/structure_budgeted_z_state_search.py` | Selected row `target_main_tip_z_2p700m`; sensitivity rows `1.804 m`, `2.108 m`, `2.725 m`, `2.750 m` | Budget basis: `tube target = 12.0 kg`, `canonical total structural mass target = 14.5 kg`, healthy clearance `20 mm`.<br>Selected pass: `2.700 m`, `8.939 deg` beam-line proxy, `tube = 10.874 kg`, `total = 13.374 kg`, `clearance = 42.4 mm`, `wire = 3024 N`.<br>Blocked low-Z samples: `6.0 deg / 1.804 m` mass+clearance, `6.5 deg / 1.956 m` mass+clearance, `7.0 deg / 2.108 m` clearance. | screening | This is the current gating stage, but its Z basis is still a spar beam-line proxy. The selected state is plausible for screening, yet it is not the same thing as final aerodynamic-surface dihedral. | Make `beam-line / aerodynamic surface / clearance` alignment the next engineering task before promoting any low-Z claim or reopening rib priority. |
-| AVL recheck on realizable loaded shape | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_loaded_shape_avl_recheck/loaded_shape_aero_recheck_report.md`<br>`output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_loaded_shape_avl_recheck/loaded_shape_avl_recheck.csv` | `scripts/loaded_shape_avl_recheck_mvp.py` | Selected recheck row `target_main_tip_z_2p700m`; sensitivity at `2.725 m` and `2.750 m` | Selected row: `CDi pre = 0.0127613`, `CDi loaded = 0.0127613`, `e_CDi = 0.9564`, `max Cl = 1.341`, `Re min = 291577`, `stall margin min = -0.141`, `root bending ratio = 1.000`.<br>All rows carry `beam_line_z_proxy_not_aero_surface_truth`. | screening | The recheck answers the aero consequence question, but it still uses beam-line loaded shape as the AVL section-Z proxy. Negative stall margin here is diagnostic warning, not a standalone gate. | Carry this stage forward into airfoil selection as screening evidence only, and keep the Z-basis warning explicit. |
-| Tier2 full-alpha airfoil selection | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/tier2_loaded_shape_airfoil_report.md`<br>`output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/tier2_loaded_shape_selected_avl_recheck.csv` | `scripts/tier2_loaded_shape_airfoil_mvp.py` | `conservative_best` is the only promotable row; `raw_best` is rejected | `conservative_best`: `root:dae31|mid1:dae31|mid2:dae31|tip:cst_tip_nsga2_g05_child_0032_70ef8136`, `profile_cd = 0.009369`, `CD0_total = 0.013259`, `P_crank = 174.60 W`, `P_crank_cons = 178.88 W`, `stall margin = 1.589`, `actual_loaded_shape_query_pass`.<br>`raw_best`: `P_crank = 276.10 W`, `stall margin = -3.107`, query warning. | screening | This stage is only as trustworthy as the loaded-shape `Cl/Re` basis; it still sits on the beam-line proxy and must not collapse raw-best and conservative-best into one ranking. | Carry only `conservative_best` into closure. Keep raw-best as diagnostic evidence, not as a production-facing candidate. |
-| aero-structure closure | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_closure/aero_structure_closure_report.md`<br>`output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_closure/aero_structure_closure_summary.csv`<br>`output/go_mode_main_wing_candidate/final_candidate_package/GO_MODE_DECISION.md` | `scripts/aero_structure_closure_mvp.py` | Final screening endpoint `current_avl_compromise_conservative_closed`; raw comparator `raw_best` loops back | `conservative_best`: `closure_status = closed_for_screening`, `e_CDi delta = 0%`, `spanload delta = 0%`, `mass delta = 0%`, `deflection delta = 0%`, `clearance = 0.0424 m`, query pass.<br>`raw_best`: `e_CDi delta = -20.94%`, `spanload delta = 23.85%`, `clearance = 0.0068 m`, loops back to airfoil selection. | screening | Closure is real at screening level, but only for the conservative row and only under the present geometry/load/Z proxy contract. It is not final structural truth or final aircraft truth. | Next verify whether beam-line/aero-surface/clearance reinterpretation changes this ranking. Only escalate rib/bracing if that sensitivity can reorder closure candidates. |
-| FEM/APDL / shell buckling / load-factor checks | `output/go_mode_fem_validation_repair/phase14_maclocal/maclocal_fem_fidelity_ladder/final_report.md`<br>`output/phase15_candidate_load_factor_buckling_check/candidate_limit_load_recommendation.md`<br>`output/phase16_ccx_buckling_wire6_ramp/ccx_buckling_capability_report.md`<br>`output/phase16_ccx_buckling_wire6_ramp/wire6_load_factor_ramp_report.md`<br>`output/phase17_candidate_shell_buckling_tip_review/candidate_shell_buckling_report.md` | `scripts/phase14_maclocal_fem_package.py`<br>`scripts/phase15_candidate_load_factor_buckling_check.py`<br>`scripts/phase16_ccx_buckling_wire6_ramp.py`<br>`scripts/phase17_candidate_shell_buckling_tip_review.py` | Candidate-specific checks for `current_avl_compromise_conservative_closed` plus Phase 14 benchmark ladders | Phase 14: B2 shell vs internal beam `2.410%` error; B5 shell torsion vs closed form `0.070%` error; APDL still required.<br>Phase 15: recommend `1.75G` internal fixed-design boundary; `2.0G` still only FEM-ran reference context; estimated first fail `wire_tension` at `n = 3.030`.<br>Phase 16: CCX buckle verification `lambda_1 = 48.1546` matches reference; with `6 kN` wire, tip-deflection gate reaches first at about `n = 3.305`, wire allowable at `n = 3.968`.<br>Phase 17: rib-bay coupon local-wall buckling about `n = 15.427`, but isolated main-spar shell global mode is about `n = 1.404`. | spot_check | These checks are candidate-relevant spot-checks, not final aircraft sign-off. Rear spar/rib bracing, global load transfer, root fitting, wire attach, termination, local composite orthotropy, and APDL external confirmation remain open. | Keep them in the validation queue and do not let them displace the current next task. The next short-line engineering move is still beam-line/aero-surface/clearance alignment, not more rib-first FEM. |
+### Intended Phase J Pipeline
 
-## Cross-Stage Engineering Judgement
+```text
+Mission contract
+-> Fourier-AVL calibration
+-> Fourier spanload candidate generation
+-> smooth production geometry realization
+-> AVL realization check
+-> structure-budgeted loaded-Z search
+-> AVL recheck on realizable loaded shape
+-> Tier2 full-alpha airfoil selection
+-> aero-structure closure
+-> FEM/APDL / shell buckling / load-factor checks
+```
 
-1. The current chain does not support a claim that the aircraft is "done"; it supports one conservative
-   screening candidate plus a specific blocker on the stricter low-Z interpretation of the present model.
-2. The most important trust-boundary mismatch is linguistic and geometric: `8.939 deg` is a
-   beam-line proxy, not yet confirmed aerodynamic-surface dihedral truth.
-3. The Phase 14-17 structural stack is useful because it narrows what is and is not plausible, but it still
-   does not certify local composite details, joints, hardware, or full-wing global bracing.
-4. Rib / bracing should move upstream only if new evidence shows it can reorder
-   `aero-structure closure` candidates. If it only fills sign-off gaps, it stays downstream.
+### Implemented Evidence Chain Today
+
+```text
+Mission design-space / drag-budget contract
+-> current gap: no clean current mission-to-Fourier-to-candidate source chain
+-> existing smooth_tier2_production_baseline geometry and AVL actual loads
+-> go-mode structure-budgeted loaded-Z search
+-> loaded-shape AVL recheck on beam-line Z proxy
+-> Tier2 loaded-shape airfoil selection
+-> aero-structure closure
+-> candidate FEM/APDL/shell/load-factor spot-checks
+```
+
+This means the downstream go-mode chain is useful, but the upstream evidence
+chain is not yet closed. The correct interpretation is:
+
+```text
+current_avl_compromise_conservative_closed
+= production-facing screening candidate for review,
+not final mission-derived aircraft truth.
+```
+
+## Where The Previous Map Went Wrong
+
+| issue | root cause | affected rows | corrected reading |
+|---|---|---|---|
+| `233.47 W / 8642.9 m` looked like current evidence | Old `birdman_mission_coupled_medium_search_20260503` was read as if it were current Phase J source truth | Mission contract, Fourier candidate generation | Superseded diagnostic only; do not use for current mission or current candidate |
+| `rank_01_sample_1476` looked like current Fourier evidence | `fourier_avl_calibration_mvp` was built from old top-candidate exports | Fourier-AVL calibration | Tool is useful, but current artifact is `diagnostic_legacy` until rebuilt from current mission handoff |
+| Stage 2 looked implemented as a current artifact | Pipeline spec says Stage 2 exists, but `output/pipeline_redesign_v2` has no clean current Stage 2 generator output | Fourier spanload candidate generation | Current Stage 2 is a gap, not a validated handoff |
+| Downstream closure looked like full aircraft closure | Go-mode package closes the downstream screening loop, but inherits upstream and Z-basis gaps | Smooth geometry onward | Valid screening evidence only, not final design sign-off |
+
+## Stage Evidence Table
+
+| pipeline stage | current evidence | trust level | what it proves | open gap | next action |
+|---|---|---|---|---|---|
+| Mission contract | `docs/mission_drag_budget.md`; `docs/mission_design_space_explorer.md`; `output/mission_design_space/report.md`; `output/mission_design_space/summary.json`; `output/mission_design_space/optimizer_handoff.json`; `output/mission_design_space/candidate_seed_pool.csv` | `source_contract_screening` | Current mission design-space exists: target range `42.195 km`, target environment `33 C / 80%RH`, speed grid `5.8-7.0 m/s`, span grid `33-35 m`, AR grid `37-40`, mass grid `96-101 kg`, `1047` robust cases, robust speed envelope `[6.1, 7.0] m/s`, `624` seed rows. | This is search-bound / pre-gate evidence, not a promoted aircraft geometry. It does not prove the go-mode candidate satisfies the full mission. | Keep it as Stage 0 source. Rebuild downstream source chain from `optimizer_handoff.json` instead of old medium-search output. |
+| MissionContract / FourierTarget shadow layer | `docs/mission_drag_budget.md`; `src/hpa_mdo/mission/contract.py`; `src/hpa_mdo/aero/fourier_target.py`; `scripts/birdman_spanload_design_smoke.py` | `shadow_contract` | The repo has a contract adapter and FourierTarget language using `CL_req`, `AR`, `span_m`, `speed_mps`, `rho`, and `weight_n`. | The docs explicitly say shadow mode does not change ranking, objective, hard gates, or rejection behavior. | Promote only after a deliberate current run ties mission seed rows to candidate geometry and output bundles. |
+| Fourier-AVL calibration | `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/recommended_fourier_bridge.md`; `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/fourier_command_to_avl_realized.csv` | `diagnostic_legacy` | The calibration tool and output format exist. The sampled rows show `outer_underloaded_authority_limited`, `target_vs_avl_rms = 0.178-0.216`, `outer_delta = 0.241-0.306`, `e_fourier_realized = 0.846-0.873`, and `e_avl_cdi = 0.851-0.870`. | The actual CSV source paths are old `birdman_mission_coupled_medium_search_20260503/top_candidate_exports/rank_*` records. This is not current mission evidence. | Re-run or re-map Fourier-AVL calibration on current mission design-space / smooth/go-mode candidate artifacts. Until then, do not use this row to rank current candidates. |
+| Fourier spanload candidate generation | No clean current Phase J Stage 2 artifact found under `output/pipeline_redesign_v2/` or `output/go_mode_main_wing_candidate/`. Superseded source quarantined: `output/birdman_mission_coupled_medium_search_20260503/`. | `missing_current_evidence` | The pipeline spec defines the stage, but current repo artifacts do not show a current mission-handoff-derived Stage 2 candidate generator result. | This is the main upstream break. The go-mode candidate cannot be claimed as mission -> Fourier -> smooth end-to-end truth. | Build a current Stage 2 handoff from mission seed rows and calibrated AVL actual-load evidence, or explicitly document that the current candidate starts from existing smooth baseline evidence. |
+| Smooth production geometry realization | `output/final_candidate_validation/smooth_tier2_production_baseline/validation_manifest.json`; `output/final_candidate_validation/smooth_tier2_production_baseline/aerodynamic_summary.md`; `output/phase9_structure_jig_smooth_planform/recommended_candidate.md` | `current_screening` | Smooth production geometry exists. Candidate: `smooth_tier2_production_baseline`, assignment `root:dae31|mid1:dae31|mid2:dae31|tip:cst_tip_nsga2_g06_child_0056_b3f9b7c4`, `P_crank = 171.160 W`, `P_crank_conservative = 175.291 W`, `CDi = 0.012501`, `profile_cd = 0.009510`, `target_vs_avl_rms = 0.0292`, `outer_delta = 0.0885`. | This baseline explicitly failed structure/jig proxy and was not final structure truth. It is also not proven to come from current Stage 2 mission/Fourier source. | Keep as the current geometry/AVL carrier for downstream screening while rebuilding upstream traceability. |
+| AVL realization check | `output/final_candidate_validation/smooth_tier2_production_baseline/aerodynamic_summary.md`; `output/phase10_2_canonical_inverse_design_check/smooth_tier2_candidate_avl_spanwise_loads.json`; candidate-owned AVL artifacts referenced by Z search contracts | `current_screening` | Candidate-owned AVL geometry, trim, strip-force, and spanwise-load artifacts exist and feed downstream structure-budgeted search. | Load ownership is good enough for screening, but mission/Fourier origin is not closed. | Preserve AVL actual spanload as the downstream aero owner. Do not replace it with raw commanded Fourier coefficients. |
+| Structure-budgeted loaded-Z search | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/recommended_loaded_z_states.md`; `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/z_state_structure_budget_sweep.csv` | `current_screening` | Selected row `target_main_tip_z_2p700m`: main tip Z `2.700 m`, rear tip Z `2.684757 m`, beam-line effective dihedral proxy `8.938613 deg`, tube mass `10.873637 kg`, total structural mass `13.373637 kg`, clearance `42.39 mm`, wire tension about `3024 N`. Low-Z samples fail: `6.0 deg / 1.804 m` mass+clearance, `6.5 deg / 1.956 m` mass+clearance, `7.0 deg / 2.108 m` clearance. | Z is still a spar beam-line proxy, not aerodynamic-surface truth. | Next physical task is beam-line / aerodynamic surface / clearance alignment. |
+| AVL recheck on realizable loaded shape | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_loaded_shape_avl_recheck/loaded_shape_aero_recheck_report.md`; `loaded_shape_avl_recheck.csv` | `current_screening` | Recheck exists for `2.700`, `2.725`, and `2.750 m`. Selected row keeps `CDi = 0.012761`, `e_CDi = 0.9564`, `max Cl = 1.341`, `Re min = 291577`, and carries `beam_line_z_proxy_not_aero_surface_truth`. | Negative diagnostic stall margin is a warning, not a gate. Z transfer still uses main-beam loaded shape as AVL section-Z proxy. | Use this only as screening input to airfoil selection. |
+| Tier2 full-alpha airfoil selection | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/tier2_loaded_shape_airfoil_report.md`; `tier2_loaded_shape_selected_avl_recheck.csv` | `current_screening` | Loaded-shape `Cl/Re` based Tier2 selection exists. `conservative_best` is `root:dae31|mid1:dae31|mid2:dae31|tip:cst_tip_nsga2_g05_child_0032_70ef8136`, `profile_cd = 0.009369`, `CD0_total = 0.013259`, `P_crank = 174.60 W`, `P_crank_cons = 178.88 W`, `stall margin = 1.589`, query quality `actual_loaded_shape_query_pass`. `raw_best` is rejected with query warning and `P_crank = 276.10 W`. | Only as trustworthy as the loaded-shape `Cl/Re` basis. | Keep raw/conservative split. Carry only `conservative_best` into closure. |
+| Aero-structure closure | `output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_closure/aero_structure_closure_report.md`; `aero_structure_closure_summary.csv`; `output/go_mode_main_wing_candidate/final_candidate_package/GO_MODE_DECISION.md`; `artifact_manifest.json`; `candidate_summary.csv` | `current_screening_closed` | `current_avl_compromise_conservative_closed` is the single production-facing screening candidate. `conservative_best` has `closed_for_screening`, `P_crank = 174.600 W`, conservative `178.882 W`, `e_CDi = 0.9564`, total structural mass `13.3736 kg`, clearance `42.39 mm`, wire `3024 N`, tip deflection `1.543 m`, beam-line proxy `8.939 deg`. | This is not final production truth and does not replace production ranking. It inherits upstream Stage 1/2 traceability gap and beam-line Z proxy gap. | Use for manual geometry inspection and FEM/APDL spot-check only. |
+| FEM/APDL / shell buckling / load-factor checks | `output/go_mode_fem_validation_repair/phase14_maclocal/maclocal_fem_fidelity_ladder/final_report.md`; `output/phase15_candidate_load_factor_buckling_check/candidate_limit_load_recommendation.md`; `output/phase16_ccx_buckling_wire6_ramp/wire6_load_factor_ramp_report.md`; `output/phase17_candidate_shell_buckling_tip_review/candidate_shell_buckling_report.md` | `spot_check_guardrail` | Phase 14 shell diagnostic passes B2/B5 ladder (`2.410%` B2 shell vs internal beam, `0.070%` B5 torsion vs closed form) but still needs APDL. Phase 15 recommends `1.75G` internal fixed-design boundary only. Phase 16 with 6 kN wire shifts first limiter to tip deflection around `n = 3.305`, wire allowable around `n = 3.968`. Phase 17 local wall coupon clears conditionally, but isolated main-spar shell global mode is about `n = 1.404G`. | Not final aircraft sign-off. Missing rear spar, rib load transfer, root fitting, wire attach, termination, local composite orthotropy, and external APDL confirmation. | Keep as downstream validation queue. Do not let local coupon pass become full-wing buckling pass. |
+
+## Quarantined Or Legacy Sources
+
+Do not use these as current Phase J source truth:
+
+- `output/birdman_mission_coupled_medium_search_20260503/`
+- `output/birdman_mission_coupled_*_20260503/`
+- `rank_01_sample_1476` and related top-ten medium-search exports
+- `233.47 W` / `8642.9 m` medium-search records
+- `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/*` as current
+  candidate ranking evidence
+
+They may still be useful as historical diagnostics or examples of tool output
+format, but they must be labeled `legacy_diagnostic` or
+`invalid_for_current_phase_j` when used.
+
+## Engineering Judgement
+
+1. The current lower pipeline is meaningful: smooth geometry, AVL actual loads,
+   loaded-Z search, loaded-shape AVL recheck, Tier2 airfoil selection, closure,
+   and structural spot-checks form a usable screening chain.
+2. The current upper pipeline is not yet clean: current mission design-space
+   evidence has not been traced through a current Fourier spanload generator
+   into the go-mode candidate.
+3. The next short-line task should not be rib FEM. It should first decide
+   whether to rebuild the upstream mission/Fourier candidate chain or to
+   explicitly declare the current go-mode candidate as a lower-pipeline
+   screening surrogate.
+4. After that source-chain decision, the most important physical ambiguity is
+   still beam-line Z proxy versus aerodynamic surface and clearance.
+5. Rib / rear spar / joint / wire detail work remains important for final
+   validation, but it should move upstream only if it can change candidate
+   ordering or closure status.
 
 ## Recommended Immediate Order
 
-1. Beam-line / aerodynamic surface / clearance alignment.
-2. Recheck `current_avl_compromise_conservative_closed` closure credibility on that aligned geometry basis.
-3. Only then ask whether rib / bracing sensitivity can reorder closure candidates.
-4. Keep APDL, dual-spar/rib/joint FEM, and local composite detail work in the downstream validation queue unless step 3 proves they now control ranking.
+1. Rebuild the Stage 0-2 evidence chain from current mission design-space /
+   drag-budget sources, or write an explicit waiver that the current go-mode
+   candidate begins at `smooth_tier2_production_baseline`.
+2. Align beam-line Z, aerodynamic surface Z, dihedral language, and clearance
+   for `current_avl_compromise_conservative_closed`.
+3. Recheck whether the aligned geometry changes closure metrics or candidate
+   ordering.
+4. Only then decide whether rib / bracing sensitivity belongs in candidate
+   selection or remains downstream FEM/detail validation.

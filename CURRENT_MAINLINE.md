@@ -142,16 +142,28 @@ closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主�
 
 目前已同意的短線順序如下：
 
-Phase J evidence map 已完成，位置在 `docs/reports/2026-05-09_phase_j_evidence_map.md`。
-它現在是判斷每個 stage 目前 artifact / candidate / trust boundary 的對照表。
+Phase J evidence map 已重新深度審核，位置在
+`docs/reports/2026-05-09_phase_j_evidence_map.md`。它現在是判斷每個 stage
+目前 artifact / candidate / trust boundary 的對照表，也是舊 medium-search source 的
+quarantine 文件。
 
-1. **先處理 beam-line / aerodynamic surface / clearance 對齊**
+最新判讀：目前 Stage 0 mission design-space / drag-budget contract 是可用 source；Stage 1
+Fourier-AVL calibration artifact 仍綁著 legacy medium-search top candidates；Stage 2
+Fourier spanload candidate generation 沒有乾淨 current artifact。因此 go-mode candidate
+應讀成 downstream screening closure，而不是完整 mission -> Fourier -> smooth end-to-end final design。
+
+1. **先修正或明確標示 Stage 0-2 source chain**
+   - 目的：從 current mission design-space / drag-budget handoff 重建 Fourier/Fourier-AVL candidate
+     evidence，或明確寫出目前 go-mode candidate 是從 `smooth_tier2_production_baseline`
+     開始的 downstream screening surrogate。
+   - 原因：如果上游來源不清，後續 beam-line、rib、FEM 都可能在替錯誤的 candidate narrative 背書。
+2. **再處理 beam-line / aerodynamic surface / clearance 對齊**
    - 目的：釐清 beam-line Z proxy、真實 aerodynamic surface、clearance、dihedral 定義是不是在同一個幾何語言下。
    - 原因：如果這層沒對齊，後面的 rib、root、wire、FEM 可能都在驗證錯對象。
-2. **之後才看 aero-structure closure 的工程可信度**
+3. **之後才看 aero-structure closure 的工程可信度**
    - 目的：確認 `current_avl_compromise_conservative_closed` 是否真的在同一個 geometry / load /
      airfoil / structure state 上閉合。
-3. **rib 先停在工程模型研究與 contract 定義**
+4. **rib 先停在工程模型研究與 contract 定義**
    - 目的：等 GPT Pro 或外部工程研究回來後，再決定 rib 要放在 surrogate、closure input、
      還是 FEM detail validation。
    - 除非 rib / bracing sensitivity 被證明會改變 closure candidate 排序，否則不要取代短線第一優先。
@@ -159,7 +171,7 @@ Phase J evidence map 已完成，位置在 `docs/reports/2026-05-09_phase_j_evid
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md` 為起點，先做 beam-line / aerodynamic surface / clearance 對齊，再確認 `current_avl_compromise_conservative_closed` 的 aero-structure closure 是否仍在同一個 geometry / load / airfoil / structure basis 上成立；除非 rib / bracing sensitivity 被證明會改變 closure ranking，否則 rib 維持 downstream validation queue。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md` 為起點，先重建或明確標示 Stage 0-2 source chain：確認 current mission design-space / drag-budget handoff 是否能追到 current Fourier/Fourier-AVL candidate source；若不能，明確把 `current_avl_compromise_conservative_closed` 定位成從 `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。完成後再做 beam-line / aerodynamic surface / clearance 對齊，並確認 closure 是否仍在同一個 geometry / load / airfoil / structure basis 上成立；除非 rib / bracing sensitivity 被證明會改變 closure ranking，否則 rib 維持 downstream validation queue。
 ```
 
 ## 7. 常用入口與角色
