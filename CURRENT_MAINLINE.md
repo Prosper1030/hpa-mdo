@@ -4,6 +4,7 @@
 > 舊報告、歷史 prompt 互相衝突時，以這份文件為準。
 > **更新基準**：2026-05-09 repo 現況；核心基準來自
 > `docs/reports/2026-05-08_commit_history_report.md` 的 Phase J pipeline，
+> `docs/reports/2026-05-09_phase_j_evidence_map.md` 的 stage-by-stage artifact mapping，
 > 並納入 Phase J 後續結構宣稱 / FEM claim-boundary 補強。
 > **適用對象**：使用者、協作開發者、AI agent。
 
@@ -141,30 +142,24 @@ closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主�
 
 目前已同意的短線順序如下：
 
-1. **先建立 Phase J evidence map**
-   - 目的：整理 Phase J pipeline 每一步目前到底用了哪些 artifacts、哪個 candidate、
-     哪些關鍵數字、信任邊界與缺口。
-   - 輸出：一張人和 agent 都能讀的表格，至少涵蓋
-     `Mission contract -> Fourier-AVL calibration -> Fourier spanload candidate generation ->
-     smooth production geometry realization -> AVL realization check -> structure-budgeted loaded-Z search ->
-     AVL recheck on realizable loaded shape -> Tier2 full-alpha airfoil selection -> aero-structure closure ->
-     FEM/APDL / shell buckling / load-factor checks`。
-   - 這是下一個專門 goal 的第一任務；不要先跳去 rib FEM。
-2. **再處理 beam-line / aerodynamic surface / clearance 對齊**
+Phase J evidence map 已完成，位置在 `docs/reports/2026-05-09_phase_j_evidence_map.md`。
+它現在是判斷每個 stage 目前 artifact / candidate / trust boundary 的對照表。
+
+1. **先處理 beam-line / aerodynamic surface / clearance 對齊**
    - 目的：釐清 beam-line Z proxy、真實 aerodynamic surface、clearance、dihedral 定義是不是在同一個幾何語言下。
    - 原因：如果這層沒對齊，後面的 rib、root、wire、FEM 可能都在驗證錯對象。
-3. **之後才看 aero-structure closure 的工程可信度**
+2. **之後才看 aero-structure closure 的工程可信度**
    - 目的：確認 `current_avl_compromise_conservative_closed` 是否真的在同一個 geometry / load /
      airfoil / structure state 上閉合。
-4. **rib 先停在工程模型研究與 contract 定義**
+3. **rib 先停在工程模型研究與 contract 定義**
    - 目的：等 GPT Pro 或外部工程研究回來後，再決定 rib 要放在 surrogate、closure input、
      還是 FEM detail validation。
-   - rib 不應取代 Phase J evidence map 成為短線第一優先。
+   - 除非 rib / bracing sensitivity 被證明會改變 closure candidate 排序，否則不要取代短線第一優先。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 建立 Phase J evidence map：整理 Mission contract -> Fourier-AVL calibration -> Fourier spanload candidate generation -> smooth production geometry realization -> AVL realization check -> structure-budgeted loaded-Z search -> AVL recheck on realizable loaded shape -> Tier2 full-alpha airfoil selection -> aero-structure closure -> FEM/APDL / shell buckling / load-factor checks 各階段目前使用的 artifact、candidate、關鍵數字、信任邊界與缺口，輸出成可讀表格，並標出下一步應先處理 beam-line / aerodynamic surface / clearance 對齊，而不是直接做 rib FEM。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md` 為起點，先做 beam-line / aerodynamic surface / clearance 對齊，再確認 `current_avl_compromise_conservative_closed` 的 aero-structure closure 是否仍在同一個 geometry / load / airfoil / structure basis 上成立；除非 rib / bracing sensitivity 被證明會改變 closure ranking，否則 rib 維持 downstream validation queue。
 ```
 
 ## 7. 常用入口與角色
@@ -226,6 +221,8 @@ closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主�
 1. 先讀這份 `CURRENT_MAINLINE.md`，再讀 `README.md`。
 2. 需要 commit-history truth 時，讀
    `docs/reports/2026-05-08_commit_history_report.md`，特別是 Phase J 和後續 addendum。
+   需要逐 stage artifact / trust boundary 時，再讀
+   `docs/reports/2026-05-09_phase_j_evidence_map.md`。
 3. 不要用舊 prompt、舊 task pack 或舊 README 段落覆蓋 Phase J pipeline。
 4. 如果完成一系列同屬同一個 idea 的任務，而且它改變了目前主線、可用狀態、信任邊界或下一步優先順序，
    必須同步更新 `README.md` 和 / 或 `CURRENT_MAINLINE.md`。
