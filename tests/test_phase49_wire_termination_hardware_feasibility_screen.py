@@ -119,6 +119,31 @@ def test_wire_termination_hardware_screen_flags_negative_and_traceability_gaps()
     assert by_id["no-source"].traceability_status == "source_missing"
 
 
+def test_wire_termination_hardware_screen_requires_explicit_derate() -> None:
+    screen = build_wire_termination_hardware_feasibility_screen(
+        _sensitivity(),
+        termination_hardware=(
+            {
+                "hardware_id": "swage-missing-derate",
+                "minimum_breaking_load_n": "13000",
+                "termination_efficiency": "0.60",
+                "end_anchor_or_pin_allowable_load_n": "7200",
+                "fixture_allowable_load_n": "7600",
+                "bend_creep_abrasion_allowable_load_n": "7000",
+                "evidence_type": "vendor_datasheet",
+                "source": "vendor sheet",
+            },
+        ),
+    )
+
+    row = screen.rows[0]
+    assert screen.overall_status == "wire_termination_hardware_feasibility_not_closed"
+    assert row.status == "hardware_allowables_missing"
+    assert row.derate_factor is None
+    assert row.effective_termination_load_n is None
+    assert row.effective_termination_margin_n is None
+
+
 def test_wire_termination_hardware_screen_rejects_invalid_efficiency() -> None:
     with pytest.raises(ValueError, match="termination_efficiency"):
         build_wire_termination_hardware_feasibility_screen(

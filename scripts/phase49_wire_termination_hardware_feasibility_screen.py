@@ -285,9 +285,9 @@ def _effective_termination_load(
     efficiency: float | None,
     derate: float | None,
 ) -> float | None:
-    if mbl is None or efficiency is None:
+    if mbl is None or efficiency is None or derate is None:
         return None
-    return mbl * efficiency * (1.0 if derate is None else derate)
+    return mbl * efficiency * derate
 
 
 def _required_mbl_for_efficiency(sensitivity: Any, efficiency: float) -> float | None:
