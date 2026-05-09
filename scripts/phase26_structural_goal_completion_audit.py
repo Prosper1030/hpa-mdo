@@ -226,6 +226,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "layout_plus_model_link_spacing_not_physical_signoff"
+    if _phase50_wire_attach_detail_gap(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "wire_attach_detail_geometry_allowables_missing"
     if _phase48_root_joint_concept_gap(
         key,
         evidence_artifacts=evidence_artifacts,
@@ -359,6 +365,20 @@ def _phase45_model_spacing_not_physical_signoff(
         and "phase41_rib_spacing_model_matches_nominal_not_physical_signoff"
         in evidence_summary
         and "physical signoff rows=0" in evidence_summary
+    )
+
+
+def _phase50_wire_attach_detail_gap(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "wire_attach_local_load_path"
+        and "Phase50" in evidence_artifacts
+        and "wire_attach_detail_feasibility_not_closed" in evidence_summary
+        and "missing concept rows=1" in evidence_summary
     )
 
 

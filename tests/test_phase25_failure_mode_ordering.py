@@ -134,9 +134,34 @@ def _wire_attach_load_decomposition() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="wire_attach_load_components_defined_not_signoff",
         max_resultant_design_load_n=6048.0,
+        max_resultant_design_local_moment_n_m=None,
         rows=(
             SimpleNamespace(component_key="spanwise_y", design_load_n=5839.2),
             SimpleNamespace(component_key="transverse_xz", design_load_n=1576.2),
+        ),
+    )
+
+
+def _wire_attach_detail_feasibility_screen() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="wire_attach_detail_feasibility_not_closed",
+        local_moment_status="attach_eccentricity_missing",
+        required_resultant_load_n=6048.0,
+        required_spanwise_load_n=5839.2,
+        required_transverse_load_n=1576.2,
+        required_local_moment_n_m=None,
+        concept_count=1,
+        positive_input_concept_count=0,
+        negative_margin_concept_count=0,
+        missing_input_concept_count=1,
+        traceability_gap_concept_count=0,
+        rows=(
+            SimpleNamespace(
+                concept_id="wire_attach_detail_concept_input_required",
+                status="detail_geometry_and_allowables_missing",
+                closes_wire_attach_margin=False,
+                traceability_status="concept_input_missing",
+            ),
         ),
     )
 
@@ -509,6 +534,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+        wire_attach_detail_feasibility_screen=_wire_attach_detail_feasibility_screen(),
         root_joint_load_envelope=_root_joint_load_envelope(),
         root_joint_detail_feasibility_screen=_root_joint_detail_feasibility_screen(),
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
@@ -561,6 +587,15 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         "wire_attach_local_load_path"
     ].evidence
     assert "attach transverse design=1576.2000 N" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "wire attach detail feasibility status=wire_attach_detail_feasibility_not_closed" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "local moment status=attach_eccentricity_missing" in by_key[
+        "wire_attach_local_load_path"
+    ].evidence
+    assert "missing concept rows=1" in by_key[
         "wire_attach_local_load_path"
     ].evidence
     assert "root design moment=10833.2000 N*m" in by_key["root_joint"].evidence

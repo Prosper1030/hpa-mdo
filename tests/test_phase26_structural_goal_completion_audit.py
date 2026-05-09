@@ -293,6 +293,39 @@ def test_goal_completion_audit_tracks_local_detail_work_priority_without_closure
         assert by_key[key].completion_blocker != "none"
 
 
+def test_goal_completion_audit_tracks_wire_attach_detail_gap_without_closure() -> None:
+    closure_index = _closure_index()
+    items = []
+    for item in closure_index.items:
+        if item.key == "wire_attach_local_load_path":
+            item = SimpleNamespace(
+                key=item.key,
+                evidence_artifacts=f"{item.evidence_artifacts}; Phase50",
+                current_evidence=(
+                    f"{item.current_evidence} Phase50: wire attach detail feasibility "
+                    "status=wire_attach_detail_feasibility_not_closed; "
+                    "local moment status=attach_eccentricity_missing; "
+                    "concept rows=1; missing concept rows=1."
+                ),
+                remaining_blocker=item.remaining_blocker,
+                next_action=item.next_action,
+            )
+        items.append(item)
+
+    audit = build_structural_goal_completion_audit(
+        SimpleNamespace(
+            candidate_id=closure_index.candidate_id,
+            items=tuple(items),
+        ),
+        failure_mode_ordering=_failure_mode_ordering(),
+    )
+
+    row = {row.key: row for row in audit.rows}["wire_attach_local_load_path"]
+    assert row.completion_status == "blocked"
+    assert row.evidence_strength == "wire_attach_detail_geometry_allowables_missing"
+    assert row.completion_blocker == "attach_detail_fem_or_hand_margin_missing"
+
+
 def test_goal_completion_audit_tracks_root_joint_concept_gap_without_closure() -> None:
     closure_index = _closure_index()
     items = []

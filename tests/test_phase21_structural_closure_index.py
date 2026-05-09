@@ -267,6 +267,7 @@ def _wire_attach_load_decomposition() -> SimpleNamespace:
         overall_status="wire_attach_load_components_defined_not_signoff",
         max_resultant_service_load_n=3024.0,
         max_resultant_design_load_n=6048.0,
+        max_resultant_design_local_moment_n_m=None,
         rows=(
             SimpleNamespace(
                 wire_identifier="wire-2",
@@ -291,6 +292,30 @@ def _wire_attach_load_decomposition() -> SimpleNamespace:
                 component_key="transverse_xz",
                 service_load_n=788.1,
                 design_load_n=1576.2,
+            ),
+        ),
+    )
+
+
+def _wire_attach_detail_feasibility_screen() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="wire_attach_detail_feasibility_not_closed",
+        local_moment_status="attach_eccentricity_missing",
+        required_resultant_load_n=6048.0,
+        required_spanwise_load_n=7200.0,
+        required_transverse_load_n=1800.0,
+        required_local_moment_n_m=None,
+        concept_count=1,
+        positive_input_concept_count=0,
+        negative_margin_concept_count=0,
+        missing_input_concept_count=1,
+        traceability_gap_concept_count=0,
+        rows=(
+            SimpleNamespace(
+                concept_id="wire_attach_detail_concept_input_required",
+                status="detail_geometry_and_allowables_missing",
+                closes_wire_attach_margin=False,
+                traceability_status="concept_input_missing",
             ),
         ),
     )
@@ -822,6 +847,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         detail_margin_check=_detail_margin_check(),
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
+        wire_attach_detail_feasibility_screen=_wire_attach_detail_feasibility_screen(),
         root_joint_load_envelope=_root_joint_load_envelope(),
         root_joint_detail_feasibility_screen=_root_joint_detail_feasibility_screen(),
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
@@ -864,6 +890,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "wire_attach_local_load_path"
     ].current_evidence
     assert "Phase34" in by_key["wire_attach_local_load_path"].evidence_artifacts
+    assert "Phase50" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "Phase43" in by_key["wire_attach_local_load_path"].evidence_artifacts
     assert "spanwise design=7200.0000 N" in by_key[
         "wire_attach_local_load_path"
@@ -872,6 +899,15 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "wire_attach_local_load_path"
     ].current_evidence
     assert "existing detail allowable triage status=existing_detail_allowables_do_not_close_goal" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "wire attach detail feasibility status=wire_attach_detail_feasibility_not_closed" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "local moment status=attach_eccentricity_missing" in by_key[
+        "wire_attach_local_load_path"
+    ].current_evidence
+    assert "missing concept rows=1" in by_key[
         "wire_attach_local_load_path"
     ].current_evidence
     assert "row status=local_subcomponent_allowables_missing" in by_key[

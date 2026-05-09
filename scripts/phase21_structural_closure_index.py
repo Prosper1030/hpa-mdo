@@ -116,6 +116,9 @@ from scripts.phase48_root_joint_detail_feasibility_screen import (  # noqa: E402
 from scripts.phase49_wire_termination_hardware_feasibility_screen import (  # noqa: E402
     build_current_wire_termination_hardware_feasibility_screen,
 )
+from scripts.phase50_wire_attach_detail_feasibility_screen import (  # noqa: E402
+    build_current_wire_attach_detail_feasibility_screen,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -152,6 +155,7 @@ def build_structural_closure_index(
     detail_margin_check: Any | None = None,
     local_detail_subcomponent_check: Any | None = None,
     wire_attach_load_decomposition: Any | None = None,
+    wire_attach_detail_feasibility_screen: Any | None = None,
     root_joint_load_envelope: Any | None = None,
     root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
@@ -192,6 +196,9 @@ def build_structural_closure_index(
             detail_margin_check=detail_margin_check,
             local_detail_subcomponent_check=local_detail_subcomponent_check,
             wire_attach_load_decomposition=wire_attach_load_decomposition,
+            wire_attach_detail_feasibility_screen=(
+                wire_attach_detail_feasibility_screen
+            ),
             root_joint_load_envelope=root_joint_load_envelope,
             root_joint_detail_feasibility_screen=(
                 root_joint_detail_feasibility_screen
@@ -248,6 +255,7 @@ def write_structural_closure_index_package(
     detail_margin_check: Any | None = None,
     local_detail_subcomponent_check: Any | None = None,
     wire_attach_load_decomposition: Any | None = None,
+    wire_attach_detail_feasibility_screen: Any | None = None,
     root_joint_load_envelope: Any | None = None,
     root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
@@ -281,6 +289,7 @@ def write_structural_closure_index_package(
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
+        wire_attach_detail_feasibility_screen=wire_attach_detail_feasibility_screen,
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
@@ -338,6 +347,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     wire_attach_load_decomposition = build_wire_attach_load_decomposition(
         reference.candidate_id,
         wire_rigging=load_current_wire_rigging(),
+    )
+    wire_attach_detail_feasibility_screen = (
+        build_current_wire_attach_detail_feasibility_screen()
     )
     local_detail_subcomponent_check = build_local_detail_subcomponent_margin_check(
         detail_requirements,
@@ -424,6 +436,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
+        wire_attach_detail_feasibility_screen=wire_attach_detail_feasibility_screen,
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
@@ -456,6 +469,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         detail_margin_check=detail_margin_check,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
+        wire_attach_detail_feasibility_screen=wire_attach_detail_feasibility_screen,
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
@@ -498,6 +512,7 @@ def _build_item(
     detail_margin_check: Any | None,
     local_detail_subcomponent_check: Any | None,
     wire_attach_load_decomposition: Any | None,
+    wire_attach_detail_feasibility_screen: Any | None,
     root_joint_load_envelope: Any | None,
     root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
@@ -532,6 +547,7 @@ def _build_item(
         detail_margin_entry,
         local_detail_subcomponent_check,
         wire_attach_load_decomposition,
+        wire_attach_detail_feasibility_screen,
         root_joint_load_envelope,
         root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity,
@@ -568,6 +584,7 @@ def _build_item(
         detail_margin_entry=detail_margin_entry,
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
+        wire_attach_detail_feasibility_screen=wire_attach_detail_feasibility_screen,
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
@@ -640,6 +657,7 @@ def _evidence_artifacts(
     detail_margin_entry: Any | None,
     local_detail_subcomponent_check: Any | None,
     wire_attach_load_decomposition: Any | None,
+    wire_attach_detail_feasibility_screen: Any | None,
     root_joint_load_envelope: Any | None,
     root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
@@ -688,6 +706,8 @@ def _evidence_artifacts(
         artifacts.append("Phase33 local_detail_subcomponent_margins")
     if wire_attach_load_decomposition is not None and key == "wire_attach_local_load_path":
         artifacts.append("Phase34 wire_attach_load_decomposition")
+    if wire_attach_detail_feasibility_screen is not None and key == "wire_attach_local_load_path":
+        artifacts.append("Phase50 wire_attach_detail_feasibility_screen")
     if root_joint_load_envelope is not None and key == "root_joint":
         artifacts.append("Phase35 root_joint_load_envelope")
     if root_joint_detail_feasibility_screen is not None and key == "root_joint":
@@ -788,6 +808,7 @@ def _evidence_for_key(
     detail_margin_entry: Any | None,
     local_detail_subcomponent_check: Any | None,
     wire_attach_load_decomposition: Any | None,
+    wire_attach_detail_feasibility_screen: Any | None,
     root_joint_load_envelope: Any | None,
     root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
@@ -877,6 +898,14 @@ def _evidence_for_key(
         )
     if wire_attach_load_decomposition is not None and key == "wire_attach_local_load_path":
         parts.append(f"Phase34: {_wire_attach_load_decomposition_summary(wire_attach_load_decomposition)}")
+    if (
+        wire_attach_detail_feasibility_screen is not None
+        and key == "wire_attach_local_load_path"
+    ):
+        parts.append(
+            "Phase50: "
+            f"{_wire_attach_detail_feasibility_summary(wire_attach_detail_feasibility_screen)}"
+        )
     if root_joint_load_envelope is not None and key == "root_joint":
         parts.append(f"Phase35: {_root_joint_load_envelope_summary(root_joint_load_envelope)}")
     if root_joint_detail_feasibility_screen is not None and key == "root_joint":
@@ -1118,6 +1147,29 @@ def _wire_attach_load_decomposition_summary(decomposition: Any) -> str:
         f"{_fmt(transverse_design)} N; "
         "vertical design="
         f"{_fmt(vertical_design)} N."
+    )
+
+
+def _wire_attach_detail_feasibility_summary(screen: Any) -> str:
+    return (
+        "wire attach detail feasibility status="
+        f"{getattr(screen, 'overall_status', 'unknown')}; "
+        "local moment status="
+        f"{getattr(screen, 'local_moment_status', 'unknown')}; "
+        "concept rows="
+        f"{int(getattr(screen, 'concept_count', 0))}; "
+        "positive concept rows="
+        f"{int(getattr(screen, 'positive_input_concept_count', 0))}; "
+        "negative concept rows="
+        f"{int(getattr(screen, 'negative_margin_concept_count', 0))}; "
+        "missing concept rows="
+        f"{int(getattr(screen, 'missing_input_concept_count', 0))}; "
+        "traceability gap concept rows="
+        f"{int(getattr(screen, 'traceability_gap_concept_count', 0))}; "
+        "required resultant="
+        f"{_fmt(getattr(screen, 'required_resultant_load_n', None))} N; "
+        "required local moment="
+        f"{_fmt(getattr(screen, 'required_local_moment_n_m', None))} N*m."
     )
 
 
