@@ -67,7 +67,7 @@ def test_tip_deflection_revalidation_accepts_submission_relaxation_only_with_all
                 "aeroelastic_rechecked": "true",
                 "clearance_rechecked": "true",
                 "load_path_rechecked": "true",
-                "source": "qualified recheck placeholder",
+                "source": "output/phase31/submission-2p75-revalidation-report.json",
             },
         ),
     )
@@ -77,6 +77,43 @@ def test_tip_deflection_revalidation_accepts_submission_relaxation_only_with_all
     assert row.status == "submission_revalidation_input_check_only"
     assert row.proposed_effective_tip_limit_m == pytest.approx(2.805)
     assert row.deflection_limit_load_factor == pytest.approx(3.6353, rel=1e-4)
+
+
+def test_tip_deflection_revalidation_requires_traceable_source_for_submission_relaxation() -> None:
+    check = build_tip_deflection_revalidation_check(
+        _reference(),
+        revalidation_inputs=(
+            {
+                "case_id": "submission-2p75-placeholder-source",
+                "usage_context": "submission",
+                "proposed_raw_tip_limit_m": "2.75",
+                "loaded_shape_rechecked": "true",
+                "aeroelastic_rechecked": "true",
+                "clearance_rechecked": "true",
+                "load_path_rechecked": "true",
+                "source": "placeholder",
+            },
+            {
+                "case_id": "submission-2p75-blank-source",
+                "usage_context": "submission",
+                "proposed_raw_tip_limit_m": "2.75",
+                "loaded_shape_rechecked": "true",
+                "aeroelastic_rechecked": "true",
+                "clearance_rechecked": "true",
+                "load_path_rechecked": "true",
+                "source": "",
+            },
+        ),
+    )
+
+    assert check.overall_status == "tip_deflection_submission_gate_not_revalidated"
+    by_case = {row.case_id: row for row in check.rows}
+    assert by_case["submission-2p75-placeholder-source"].status == (
+        "submission_revalidation_source_missing"
+    )
+    assert by_case["submission-2p75-blank-source"].status == (
+        "submission_revalidation_source_missing"
+    )
 
 
 def test_tip_deflection_revalidation_marks_missing_input_as_current_gate_retained() -> None:

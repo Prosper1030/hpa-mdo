@@ -149,6 +149,7 @@ def _build_row(
         proposed_raw=proposed_raw,
         current_raw=current_raw,
         missing_rechecks=missing_rechecks,
+        source=str(raw.get("source", "")),
     )
     return TipDeflectionRevalidationRow(
         case_id=str(raw.get("case_id", "")),
@@ -198,6 +199,7 @@ def _status(
     proposed_raw: float | None,
     current_raw: float,
     missing_rechecks: str,
+    source: str,
 ) -> str:
     if usage_context not in ACCEPTED_USAGE_CONTEXTS:
         return "invalid_usage_context"
@@ -211,6 +213,8 @@ def _status(
         return "exploration_only_not_submission"
     if missing_rechecks:
         return "submission_revalidation_missing"
+    if not _traceable_source(source):
+        return "submission_revalidation_source_missing"
     return "submission_revalidation_input_check_only"
 
 
@@ -225,11 +229,33 @@ def _engineering_note(status: str) -> str:
             "A relaxed submission gate must include loaded-shape, aeroelastic, clearance, "
             "and load-path revalidation evidence."
         )
+    if status == "submission_revalidation_source_missing":
+        return (
+            "A relaxed submission gate also needs a traceable revalidation source; "
+            "checkboxes alone are not submission evidence."
+        )
     if status == "relaxation_not_recommended":
         return "Relaxation beyond 3.0 m raw is not recommended without a new validation basis."
     if status == "invalid_usage_context":
         return "Use usage_context exploration or submission."
     return "Input check only; this is not a fracture point or standalone submission signoff."
+
+
+def _traceable_source(source: str) -> bool:
+    value = str(source).strip()
+    if not value:
+        return False
+    lowered = value.lower()
+    placeholder_tokens = (
+        "placeholder",
+        "tbd",
+        "todo",
+        "n/a",
+        "none",
+        "unknown",
+        "unqualified",
+    )
+    return not any(token in lowered for token in placeholder_tokens)
 
 
 def _write_template(path: Path, check: TipDeflectionRevalidationCheck) -> Path:
