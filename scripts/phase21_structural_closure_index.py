@@ -317,11 +317,6 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         spar_rows=load_current_spar_rows(),
         wire_rigging=load_current_wire_rigging(),
     )
-    failure_mode_ordering = build_failure_mode_ordering(
-        review,
-        detail_requirements=detail_requirements,
-        rib_spacing_requirements=rib_spacing_requirements,
-    )
     candidate_model = build_current_candidate_model()
     bracing_audit = build_bracing_sensitivity_audit(reference.candidate_id, candidate_model)
     bracing_diagnostic = build_rear_spar_rib_bracing_diagnostic(bracing_audit)
@@ -366,6 +361,27 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         revalidation_check=tip_deflection_revalidation_check,
     )
     existing_fem_evidence_triage = build_current_existing_fem_evidence_triage()
+    failure_mode_ordering = build_failure_mode_ordering(
+        review,
+        detail_requirements=detail_requirements,
+        rib_spacing_requirements=rib_spacing_requirements,
+        detail_margin_check=detail_margin_check,
+        local_detail_subcomponent_check=local_detail_subcomponent_check,
+        wire_attach_load_decomposition=wire_attach_load_decomposition,
+        root_joint_load_envelope=root_joint_load_envelope,
+        wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        rib_bracing_margin_check=rib_bracing_margin_check,
+        torsion_twist_closure_check=torsion_twist_closure_check,
+        torsion_twist_screening=torsion_twist_screening,
+        full_wing_buckling_closure_check=full_wing_buckling_closure_check,
+        full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
+        braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
+        phase41_reference_load_review=phase41_reference_load_review,
+        phase41_mode_shape_review=phase41_mode_shape_review,
+        phase41_rib_spacing_link_review=phase41_rib_spacing_link_review,
+        tip_deflection_revalidation_check=tip_deflection_revalidation_check,
+        tip_deflection_claim_boundary=tip_deflection_claim_boundary,
+    )
     return build_structural_closure_index(
         review,
         local_ledger=local_ledger,
@@ -1213,6 +1229,10 @@ def _tip_deflection_claim_boundary_summary(boundary: Any) -> str:
 
 
 def _failure_ordering_summary(ordering: Any) -> str:
+    rows = {
+        str(getattr(row, "mode_key", "")): row
+        for row in getattr(ordering, "rows", ())
+    }
     return (
         "status="
         f"{getattr(ordering, 'overall_status', 'unknown')}; "
@@ -1221,7 +1241,17 @@ def _failure_ordering_summary(ordering: Any) -> str:
         "current wire first="
         f"{getattr(ordering, 'modeled_first_limiter_with_current_wire', 'unknown')}; "
         "6 kN wire first="
-        f"{getattr(ordering, 'modeled_first_limiter_with_6kn_wire', 'unknown')}."
+        f"{getattr(ordering, 'modeled_first_limiter_with_6kn_wire', 'unknown')}; "
+        "full-wing row status="
+        f"{getattr(rows.get('full_wing_global_buckling'), 'status', 'unknown')}; "
+        "rib row status="
+        f"{getattr(rows.get('rib_load_transfer'), 'status', 'unknown')}; "
+        "wire-attach row status="
+        f"{getattr(rows.get('wire_attach_local_load_path'), 'status', 'unknown')}; "
+        "root row status="
+        f"{getattr(rows.get('root_joint'), 'status', 'unknown')}; "
+        "termination row status="
+        f"{getattr(rows.get('wire_termination'), 'status', 'unknown')}."
     )
 
 

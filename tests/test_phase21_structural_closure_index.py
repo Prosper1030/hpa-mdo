@@ -500,6 +500,20 @@ def _failure_mode_ordering() -> SimpleNamespace:
         known_unranked_mode_count=7,
         modeled_first_limiter_with_current_wire="wire_tension_body_allowable",
         modeled_first_limiter_with_6kn_wire="tip_deflection",
+        rows=(
+            SimpleNamespace(
+                mode_key="full_wing_global_buckling",
+                status="unranked_global_buckling_mode_screened_manual_mesh_review_required",
+            ),
+            SimpleNamespace(
+                mode_key="rib_load_transfer",
+                status="unranked_stiffness_and_allowable_missing",
+            ),
+            SimpleNamespace(
+                mode_key="wire_attach_local_load_path",
+                status="unranked_detail_subcomponent_allowable_missing",
+            ),
+        ),
     )
 
 
@@ -829,6 +843,12 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
     assert "detail modes are listed as unranked" in by_key[
+        "failure_mode_ordering"
+    ].current_evidence
+    assert "full-wing row status=unranked_global_buckling_mode_screened_manual_mesh_review_required" in by_key[
+        "failure_mode_ordering"
+    ].current_evidence
+    assert "rib row status=unranked_stiffness_and_allowable_missing" in by_key[
         "failure_mode_ordering"
     ].current_evidence
     assert "reference review status=phase41_reference_load_formulation_not_rankable" in by_key[
