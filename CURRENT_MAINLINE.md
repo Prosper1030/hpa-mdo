@@ -381,17 +381,22 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
    - Rib / torsion fast-loop 第一輪 FEM calibration 已建立：
      `scripts/current_pathfinder_rib_torsion_fem_calibration.py` 與
      `docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md`。
-     這一步產出 local torsion-link FEM results、CalculiX executable smoke、surrogate
-     feedback JSON/CSV 與 calibrated fast-search rerun。10 mm relaxed carbon-collar/rear75
-     selected row 的 FEM/local factor 是 `1.238016`，表示 fast effective-GJ credit 偏樂觀
-     但仍可校準；bounded twist 由 `1.471 deg` 修正到 `1.822 deg`，仍低於 `3 deg`。
+     這一步已把 CalculiX/CCX 從 2-node smoke 升級成 local beam-frame calibration
+     solver：main/rear spar segment、torque-zone collar、rib shear-transfer /
+     diagonal shear-transfer beams、y=`2.327757 m` local lift 與 main/rear
+     torque-couple 都寫進 sample decks。10 mm relaxed carbon-collar/rear75 selected
+     row 的 CCX local-frame factor 是 `1.497702`，比 Python `local_torsion_link_fem`
+     comparison factor `1.238016` 更保守；bounded twist 由 `1.471 deg` 修正到
+     `2.204 deg`，仍低於 `3 deg`。
      y≈`2.328 m` bond/collar/tube-wall 是 `watch`，tube-wall margin 約 `2.304`；
      relaxed `0.36 m` spacing 在 first-pass local model 中仍是
      `relaxed_spacing_reasonable_for_search_not_final`。Calibrated fast-search top row
-     轉為同構型 `12 mm` candidate，bounded twist `1.491 deg`，所以後續 search 應用
-     calibration factor 後把 12 mm 作為 margin-preferred row；10 mm 仍是 clears-screening
-     calibration candidate，不是 final release。aggressive carbon collar / rear75 row 顯示
-     factor `2.010986`，只能作上界/警示；foam-core reference 保持 downgrade reference。
+     轉為同構型 `12 mm` candidate，bounded twist `1.803 deg`，所以後續 search 應用
+     CCX calibration factor 後把 12 mm 作為 margin-preferred row；10 mm 仍是
+     clears-screening calibration candidate，不是 final release。aggressive carbon collar /
+     rear75 row 顯示 CCX factor `1.490607`，仍只能作上界/警示；foam-core reference
+     保持 downgrade reference。這個 simplified CCX model 只校準 torsional stiffness /
+     shear-transfer response，不是 bond peel / buckling / tube-wall final truth。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
@@ -493,11 +498,12 @@ coupon work、skin sag evidence 或 APDL/CalculiX final sign-off。
   fast design-search loop 會掃 material / thickness / spacing / local reinforcement /
   rear participation 的 candidates，並把 selected fast row 送回 tail-aware closure rerun；
   目前 fast selected closure bounded physical twist 是 `1.789 deg`，direct stress-test 是
-  `2.981 deg`。第一輪 FEM/local calibration 已回填 factor：10 mm selected row 的
-  factor 是 `1.238016`，修正後 bounded twist `1.822 deg`；calibrated search top row
-  轉為 12 mm relaxed carbon-collar/rear75，bounded twist `1.491 deg`。這表示 fast
-  effective-GJ credit 可校準後繼續 search，但 carbon collar / relaxed spacing /
-  bond/tube-wall 仍只是 watch，不是 final FEM truth。
+  `2.981 deg`。第一輪 CCX local-frame calibration 已回填 factor：10 mm selected row 的
+  CCX factor 是 `1.497702`，Python local torsion-link comparison factor 是 `1.238016`，
+  修正後 bounded twist `2.204 deg`；calibrated search top row 轉為 12 mm relaxed
+  carbon-collar/rear75，bounded twist `1.803 deg`。這表示 fast effective-GJ credit 可用
+  CCX correction 後繼續 search，但 carbon collar / relaxed spacing / bond/tube-wall
+  仍只是 watch，不是 final FEM truth。
   positive y≈`2.328 m` local package 已建立：R067/R068/R069、B066-B069、R066/R070
   boundary、APDL guarded skeleton、coupon matrix 和 missing-data register 都已輸出；它是
   `not_margin_pass` handoff，不是 FEM signoff。

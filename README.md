@@ -157,14 +157,18 @@ foam-only 仍只可當 shape-core / lightweight reference，不可當 structural
 
 rib / torsion fast-loop 第一輪 FEM calibration 已完成，讀
 [docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md)
-與 `output/current_pathfinder_rib_torsion_fem_calibration/`。這一步跑 local torsion-link FEM
-與 CalculiX executable smoke，並輸出
+與 `output/current_pathfinder_rib_torsion_fem_calibration/`。這一步已把 CalculiX/CCX 從
+2-node smoke 升級成 local beam-frame calibration：main/rear spar segment、torque-zone
+collar、rib shear-transfer / diagonal shear-transfer beams、y=`2.327757 m` local lift
+與 main/rear torque-couple 都寫進 sample decks，並輸出
 `output/current_pathfinder_rib_torsion_fem_calibration/fast_model_calibration_update.json`
 和 `surrogate_feedback.csv` 給 fast search 讀回。10 mm relaxed carbon-collar/rear75
-selected row 的 FEM/local twist factor 是 `1.238016`，表示 effective-GJ credit 偏樂觀但
-可校準；bounded twist 從 `1.471 deg` 修正到 `1.822 deg`，仍低於 `3 deg`。校準後
-fast-search top row 轉為同構型 12 mm candidate，bounded twist `1.491 deg`。y≈`2.328 m`
-bond/collar/tube-wall 是 `watch`，relaxed spacing 是 search-usable but not final；這不是
+selected row 的 CCX local-frame twist factor 是 `1.497702`，比 Python
+`local_torsion_link_fem` comparison factor `1.238016` 更保守；bounded twist 從
+`1.471 deg` 修正到 `2.204 deg`，仍低於 `3 deg`。校準後 fast-search top row
+轉為同構型 12 mm candidate，bounded twist `1.803 deg`。y≈`2.328 m`
+bond/collar/tube-wall 是 `watch`，relaxed spacing 是 search-usable but not final；
+這個 simplified CCX model 校準 torsional stiffness / shear-transfer response，不是
 adhesive / collar / tube-wall / skin sag / buckling sign-off。
 
 positive y≈`2.328 m` torque-critical local validation package 已建立，讀
@@ -214,7 +218,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 current pathfinder rib station/bay 是否真的 materialized | [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | 121 station / 120 bay trace; shape, bond, collar, transition data still blocked |
 | 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | hybrid closure-owned bounded twist clears 3 deg; local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
 | 跑 rib / torsion fast design-search loop 與 FEM calibration sample set | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md) | reusable search runner; selected fast candidate closure rerun clears screening twist; FEM calibration required |
-| 看 rib / torsion fast-loop 第一輪 FEM calibration feedback | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md) | effective-GJ factor 1.238 for selected 10 mm row; calibrated search prefers 12 mm row; not final sign-off |
+| 看 rib / torsion fast-loop 第一輪 CCX local-frame calibration feedback | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md) | CCX factor 1.497702 for selected 10 mm row; Python comparison factor 1.238016; calibrated search prefers 12 mm row; not final sign-off |
 | 接 positive torque-zone local FEM / coupon package | [docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md) | R067/R068/R069 + B066-B069 package; APDL skeleton and coupon/missing-data register; no FEM margin claimed |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |

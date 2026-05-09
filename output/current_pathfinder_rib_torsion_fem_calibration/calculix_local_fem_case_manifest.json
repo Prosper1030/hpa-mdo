@@ -1,5 +1,5 @@
 {
-  "rows": [
+  "calibration_results": [
     {
       "bounded_twist_after_calibration_deg": 3.256324,
       "candidate_disposition": "baseline_reference_anchor",
@@ -188,5 +188,171 @@
       "twist_delta_deg": -16.620757,
       "twist_factor": 0.166651
     }
-  ]
+  ],
+  "case_count": 4,
+  "cases": [
+    {
+      "boundary_condition_basis": "Clamp all DOF on the two neighboring rib/bay end stations of the local main/rear/collar frame; load and twist are read at y=2.327757 m.",
+      "calibrates": "torsional_stiffness_and_rib_shear_transfer_response",
+      "ccx_path": "/Volumes/Samsung SSD/homebrew-cellar/Cellar/calculix-ccx/2.23/bin/ccx_2.23",
+      "center_main_uz_m": -0.0001883845,
+      "center_rear_uz_m": 0.0002493827,
+      "critical_y_m": 2.327757,
+      "dat_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/01_baseline_balsa_3mm__balsa_sheet_3mm.dat",
+      "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/01_baseline_balsa_3mm__balsa_sheet_3mm.inp",
+      "does_not_calibrate": [
+        "bond_peel",
+        "tube_wall_crush_or_ovalization",
+        "buckling",
+        "adhesive_allowables",
+        "final_aircraft_signoff"
+      ],
+      "frd_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/01_baseline_balsa_3mm__balsa_sheet_3mm.frd",
+      "local_compliance_rad_per_n_m": 6.454018616686792e-05,
+      "local_loads": {
+        "main_force_couple_n": -23.839,
+        "main_lift_n": 21.202,
+        "main_rear_spacing_m": 0.533411636394144,
+        "main_total_z_load_n": -45.041,
+        "rear_force_couple_n": 23.839,
+        "rear_total_z_load_n": 23.839,
+        "torque_critical_y_m": 2.327757,
+        "torque_n_m": -12.716
+      },
+      "log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/01_baseline_balsa_3mm__balsa_sheet_3mm.log",
+      "main_rear_spacing_m": 0.533412,
+      "returncode": 0,
+      "sample_id": "baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50",
+      "sample_role": "baseline_balsa_3mm",
+      "solver": "calculix_ccx_local_frame_fem",
+      "source_case_id": "balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50",
+      "status": "completed",
+      "twist_deg_raw": 0.04702224559406851,
+      "twist_rad": 0.0008206930072978925
+    },
+    {
+      "boundary_condition_basis": "Clamp all DOF on the two neighboring rib/bay end stations of the local main/rear/collar frame; load and twist are read at y=2.327757 m.",
+      "calibrates": "torsional_stiffness_and_rib_shear_transfer_response",
+      "ccx_path": "/Volumes/Samsung SSD/homebrew-cellar/Cellar/calculix-ccx/2.23/bin/ccx_2.23",
+      "center_main_uz_m": -0.0001827224,
+      "center_rear_uz_m": 0.0001135265,
+      "critical_y_m": 2.327757,
+      "dat_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/02_selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm.dat",
+      "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/02_selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm.inp",
+      "does_not_calibrate": [
+        "bond_peel",
+        "tube_wall_crush_or_ovalization",
+        "buckling",
+        "adhesive_allowables",
+        "final_aircraft_signoff"
+      ],
+      "frd_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/02_selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm.frd",
+      "local_compliance_rad_per_n_m": 4.367608892975499e-05,
+      "local_loads": {
+        "main_force_couple_n": -23.839,
+        "main_lift_n": 21.202,
+        "main_rear_spacing_m": 0.533411636394144,
+        "main_total_z_load_n": -45.041,
+        "rear_force_couple_n": 23.839,
+        "rear_total_z_load_n": 23.839,
+        "torque_critical_y_m": 2.327757,
+        "torque_n_m": -12.716
+      },
+      "log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/02_selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm.log",
+      "main_rear_spacing_m": 0.533412,
+      "returncode": 0,
+      "sample_id": "selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75",
+      "sample_role": "selected_hybrid_10mm",
+      "solver": "calculix_ccx_local_frame_fem",
+      "source_case_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75",
+      "status": "completed",
+      "twist_deg_raw": 0.031821224917656335,
+      "twist_rad": 0.0005553851468307645
+    },
+    {
+      "boundary_condition_basis": "Clamp all DOF on the two neighboring rib/bay end stations of the local main/rear/collar frame; load and twist are read at y=2.327757 m.",
+      "calibrates": "torsional_stiffness_and_rib_shear_transfer_response",
+      "ccx_path": "/Volumes/Samsung SSD/homebrew-cellar/Cellar/calculix-ccx/2.23/bin/ccx_2.23",
+      "center_main_uz_m": -6.37698e-05,
+      "center_rear_uz_m": 3.815547e-05,
+      "critical_y_m": 2.327757,
+      "dat_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/03_aggressive_plausible_hybrid__structural_foam_glass_face_10mm.dat",
+      "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/03_aggressive_plausible_hybrid__structural_foam_glass_face_10mm.inp",
+      "does_not_calibrate": [
+        "bond_peel",
+        "tube_wall_crush_or_ovalization",
+        "buckling",
+        "adhesive_allowables",
+        "final_aircraft_signoff"
+      ],
+      "frd_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/03_aggressive_plausible_hybrid__structural_foam_glass_face_10mm.frd",
+      "local_compliance_rad_per_n_m": 1.5026881641448418e-05,
+      "local_loads": {
+        "main_force_couple_n": -23.839,
+        "main_lift_n": 21.202,
+        "main_rear_spacing_m": 0.533411636394144,
+        "main_total_z_load_n": -45.041,
+        "rear_force_couple_n": 23.839,
+        "rear_total_z_load_n": 23.839,
+        "torque_critical_y_m": 2.327757,
+        "torque_n_m": -12.716
+      },
+      "log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/03_aggressive_plausible_hybrid__structural_foam_glass_face_10mm.log",
+      "main_rear_spacing_m": 0.533412,
+      "returncode": 0,
+      "sample_id": "aggressive_plausible_hybrid__structural_foam_glass_face_10mm__t15p0mm__dense_torque_zone_0p20__carbon_face_collar_y2p328__rear75",
+      "sample_role": "aggressive_plausible_hybrid",
+      "solver": "calculix_ccx_local_frame_fem",
+      "source_case_id": "structural_foam_glass_face_10mm__t15p0mm__dense_torque_zone_0p20__carbon_face_collar_y2p328__rear75",
+      "status": "completed",
+      "twist_deg_raw": 0.010948182226036449,
+      "twist_rad": 0.00019108182695265808
+    },
+    {
+      "boundary_condition_basis": "Clamp all DOF on the two neighboring rib/bay end stations of the local main/rear/collar frame; load and twist are read at y=2.327757 m.",
+      "calibrates": "torsional_stiffness_and_rib_shear_transfer_response",
+      "ccx_path": "/Volumes/Samsung SSD/homebrew-cellar/Cellar/calculix-ccx/2.23/bin/ccx_2.23",
+      "center_main_uz_m": -0.0001908621,
+      "center_rear_uz_m": 0.0002559731,
+      "critical_y_m": 2.327757,
+      "dat_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/04_lightweight_foam_core_reference__eps_hd_foam_cnc_10mm.dat",
+      "deck_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/04_lightweight_foam_core_reference__eps_hd_foam_cnc_10mm.inp",
+      "does_not_calibrate": [
+        "bond_peel",
+        "tube_wall_crush_or_ovalization",
+        "buckling",
+        "adhesive_allowables",
+        "final_aircraft_signoff"
+      ],
+      "frd_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/04_lightweight_foam_core_reference__eps_hd_foam_cnc_10mm.frd",
+      "local_compliance_rad_per_n_m": 6.587708488417967e-05,
+      "local_loads": {
+        "main_force_couple_n": -23.839,
+        "main_lift_n": 21.202,
+        "main_rear_spacing_m": 0.533411636394144,
+        "main_total_z_load_n": -45.041,
+        "rear_force_couple_n": 23.839,
+        "rear_total_z_load_n": 23.839,
+        "torque_critical_y_m": 2.327757,
+        "torque_n_m": -12.716
+      },
+      "log_path": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_fem_calibration/calculix_local_fem/04_lightweight_foam_core_reference__eps_hd_foam_cnc_10mm.log",
+      "main_rear_spacing_m": 0.533412,
+      "returncode": 0,
+      "sample_id": "lightweight_foam_core_reference__eps_hd_foam_cnc_10mm__t10p0mm__uniform_0p30__none__rear50",
+      "sample_role": "lightweight_foam_core_reference",
+      "solver": "calculix_ccx_local_frame_fem",
+      "source_case_id": "eps_hd_foam_cnc_10mm__t10p0mm__uniform_0p30__none__rear50",
+      "status": "completed",
+      "twist_deg_raw": 0.04799627408009262,
+      "twist_rad": 0.0008376930113872288
+    }
+  ],
+  "ccx_path": "/Volumes/Samsung SSD/homebrew-cellar/Cellar/calculix-ccx/2.23/bin/ccx_2.23",
+  "claim_boundary": "Simplified CalculiX beam-frame calibration of torsional stiffness and rib/collar shear-transfer only; not bond peel, buckling, tube-wall, or final stress sign-off.",
+  "completed_case_count": 4,
+  "run_requested": true,
+  "schema_version": "rib_torsion_calculix_local_frame_fem_v1",
+  "solver": "calculix_ccx_local_frame_fem",
+  "status": "ccx_local_frame_completed"
 }

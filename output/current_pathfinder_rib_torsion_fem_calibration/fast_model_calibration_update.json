@@ -7,15 +7,15 @@
     },
     "eps_balsa_cap_hybrid_10mm": {
       "mass_factor": 1.0,
-      "twist_factor": 1.238016
+      "twist_factor": 1.497702
     },
     "eps_hd_foam_cnc_10mm": {
       "mass_factor": 1.0,
-      "twist_factor": 0.233224
+      "twist_factor": 0.166651
     },
     "structural_foam_glass_face_10mm": {
       "mass_factor": 1.0,
-      "twist_factor": 2.010986
+      "twist_factor": 1.490607
     }
   },
   "next_loop_action": "rerun_fast_search_with_calibrated_twist_factors",
@@ -29,38 +29,38 @@
       "mass_factor": null,
       "sample_id": "baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50",
       "sample_role": "baseline_balsa_3mm",
-      "solver": "local_torsion_link_fem",
+      "solver": "calculix_ccx_local_frame_fem",
       "twist_factor": 1.0
     },
     {
       "family_key": "eps_balsa_cap_hybrid_10mm",
       "fast_model_bounded_twist_deg": 1.471349,
-      "fem_twist_deg": 1.821554,
+      "fem_twist_deg": 2.203642,
       "mass_factor": null,
       "sample_id": "selected_hybrid_10mm__eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75",
       "sample_role": "selected_hybrid_10mm",
-      "solver": "local_torsion_link_fem",
-      "twist_factor": 1.238016
+      "solver": "calculix_ccx_local_frame_fem",
+      "twist_factor": 1.497702
     },
     {
       "family_key": "structural_foam_glass_face_10mm",
       "fast_model_bounded_twist_deg": 0.508631,
-      "fem_twist_deg": 1.02285,
+      "fem_twist_deg": 0.758169,
       "mass_factor": null,
       "sample_id": "aggressive_plausible_hybrid__structural_foam_glass_face_10mm__t15p0mm__dense_torque_zone_0p20__carbon_face_collar_y2p328__rear75",
       "sample_role": "aggressive_plausible_hybrid",
-      "solver": "local_torsion_link_fem",
-      "twist_factor": 2.010986
+      "solver": "calculix_ccx_local_frame_fem",
+      "twist_factor": 1.490607
     },
     {
       "family_key": "eps_hd_foam_cnc_10mm",
       "fast_model_bounded_twist_deg": 19.944533,
-      "fem_twist_deg": 4.651547,
+      "fem_twist_deg": 3.323776,
       "mass_factor": null,
       "sample_id": "lightweight_foam_core_reference__eps_hd_foam_cnc_10mm__t10p0mm__uniform_0p30__none__rear50",
       "sample_role": "lightweight_foam_core_reference",
-      "solver": "local_torsion_link_fem",
-      "twist_factor": 0.233224
+      "solver": "calculix_ccx_local_frame_fem",
+      "twist_factor": 0.166651
     }
   ]
 }

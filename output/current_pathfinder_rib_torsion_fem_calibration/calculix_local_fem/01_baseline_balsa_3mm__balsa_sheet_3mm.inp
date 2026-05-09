@@ -1,0 +1,126 @@
+** Current pathfinder rib/torsion CalculiX local frame calibration
+** This deck calibrates torsional stiffness / shear-transfer response only.
+** It is not bond peel, buckling, tube-wall, adhesive, or final sign-off.
+** sample_id: baseline_balsa_3mm__balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50
+** source_case_id: balsa_sheet_3mm__t3p0mm__uniform_0p30__none__rear50
+** family_key: balsa_sheet_3mm
+** material_family_group: balsa
+** local_reinforcement: none
+** torque-critical y = 2.327757 m
+** main lift = 21.202 N
+** torque = -12.716 N*m
+** main/rear force couple = -23.839 / 23.839 N
+*HEADING
+Current pathfinder rib torsion CCX local frame: baseline_balsa_3mm
+*NODE
+1, 0.000000, 1.877757, 0.000000
+2, 0.055000, 1.877757, 0.000000
+3, 0.478412, 1.877757, 0.000000
+4, 0.533412, 1.877757, 0.000000
+5, 0.000000, 2.102757, 0.000000
+6, 0.055000, 2.102757, 0.000000
+7, 0.478412, 2.102757, 0.000000
+8, 0.533412, 2.102757, 0.000000
+9, 0.000000, 2.327757, 0.000000
+10, 0.055000, 2.327757, 0.000000
+11, 0.478412, 2.327757, 0.000000
+12, 0.533412, 2.327757, 0.000000
+13, 0.000000, 2.552757, 0.000000
+14, 0.055000, 2.552757, 0.000000
+15, 0.478412, 2.552757, 0.000000
+16, 0.533412, 2.552757, 0.000000
+17, 0.000000, 2.777757, 0.000000
+18, 0.055000, 2.777757, 0.000000
+19, 0.478412, 2.777757, 0.000000
+20, 0.533412, 2.777757, 0.000000
+*ELEMENT, TYPE=B31, ELSET=MAIN_SPAR
+1, 1, 5
+3, 5, 9
+5, 9, 13
+7, 13, 17
+*ELEMENT, TYPE=B31, ELSET=REAR_SPAR
+2, 4, 8
+4, 8, 12
+6, 12, 16
+8, 16, 20
+*ELEMENT, TYPE=B31, ELSET=TORQUE_ZONE_COLLAR
+9, 1, 2
+11, 3, 4
+12, 5, 6
+14, 7, 8
+15, 9, 10
+17, 11, 12
+18, 13, 14
+20, 15, 16
+21, 17, 18
+23, 19, 20
+*ELEMENT, TYPE=B31, ELSET=RIB_SHEAR_TRANSFER
+10, 2, 3
+13, 6, 7
+16, 10, 11
+19, 14, 15
+22, 18, 19
+*ELEMENT, TYPE=B31, ELSET=RIB_DIAGONAL_SHEAR
+24, 2, 7
+25, 3, 6
+26, 6, 11
+27, 7, 10
+28, 10, 15
+29, 11, 14
+30, 14, 19
+31, 15, 18
+*MATERIAL, NAME=SPAR_TUBE
+*ELASTIC
+4.5e+10, 0.3
+*MATERIAL, NAME=RIB_SHEAR
+*ELASTIC
+2.8e+09, 0.3
+*MATERIAL, NAME=COLLAR_TRANSFER
+*ELASTIC
+1.2e+09, 0.3
+*MATERIAL, NAME=DIAGONAL_SHEAR
+*ELASTIC
+956097561, 0.3
+*BEAM SECTION, ELSET=MAIN_SPAR, MATERIAL=SPAR_TUBE, SECTION=RECT
+0.030000, 0.006000
+0.0, 0.0, 1.0
+*BEAM SECTION, ELSET=REAR_SPAR, MATERIAL=SPAR_TUBE, SECTION=RECT
+0.024000, 0.004500
+0.0, 0.0, 1.0
+*BEAM SECTION, ELSET=RIB_SHEAR_TRANSFER, MATERIAL=RIB_SHEAR, SECTION=RECT
+0.055000, 0.003000
+0.0, 0.0, 1.0
+*BEAM SECTION, ELSET=TORQUE_ZONE_COLLAR, MATERIAL=COLLAR_TRANSFER, SECTION=RECT
+0.038000, 0.002500
+0.0, 0.0, 1.0
+*BEAM SECTION, ELSET=RIB_DIAGONAL_SHEAR, MATERIAL=DIAGONAL_SHEAR, SECTION=RECT
+0.030000, 0.001800
+0.0, 0.0, 1.0
+*NSET, NSET=LOCAL_BAY_ENDS
+1, 2, 3, 4, 17, 18, 19, 20
+*NSET, NSET=TWIST_PAIR
+9, 12
+*BOUNDARY
+1, 1, 6, 0.0
+2, 1, 6, 0.0
+3, 1, 6, 0.0
+4, 1, 6, 0.0
+17, 1, 6, 0.0
+18, 1, 6, 0.0
+19, 1, 6, 0.0
+20, 1, 6, 0.0
+*STEP, NAME=local_torque_zone_calibration
+*STATIC
+1.0, 1.0
+*CLOAD
+** main_lift_at_collar
+9, 3, -21.202000
+** torque_couple_main_force
+9, 3, -23.839000
+** torque_couple_rear_force
+12, 3, 23.839000
+*NODE PRINT, NSET=TWIST_PAIR
+U
+*NODE FILE, OUTPUT=3D
+U
+*END STEP

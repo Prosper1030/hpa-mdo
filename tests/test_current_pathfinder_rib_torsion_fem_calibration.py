@@ -31,6 +31,15 @@ def _search_summary() -> dict:
     )
 
 
+def _ccx_override_factors() -> dict[str, dict[str, float | str]]:
+    return {
+        "baseline_balsa_3mm": {"status": "completed", "twist_factor": 1.0},
+        "selected_hybrid_10mm": {"status": "completed", "twist_factor": 1.31},
+        "aggressive_plausible_hybrid": {"status": "completed", "twist_factor": 1.72},
+        "lightweight_foam_core_reference": {"status": "completed", "twist_factor": 0.42},
+    }
+
+
 def test_fem_calibration_package_writes_feedback_and_calibrated_search(tmp_path: Path) -> None:
     fem = _load_module(_FEM_SCRIPT_PATH, "current_pathfinder_rib_torsion_fem_calibration")
 
@@ -41,6 +50,8 @@ def test_fem_calibration_package_writes_feedback_and_calibrated_search(tmp_path:
         report_md=tmp_path / "report.md",
         calibrated_search_output_dir=tmp_path / "calibrated_search",
         run_calculix_smoke=False,
+        run_calculix_local=False,
+        calculix_result_overrides=_ccx_override_factors(),
     )
 
     payload = json.loads(paths["summary_json"].read_text(encoding="utf-8"))
@@ -87,6 +98,8 @@ def test_fem_calibration_package_contains_solver_skeleton_and_trust_boundary(
         report_md=tmp_path / "report.md",
         calibrated_search_output_dir=tmp_path / "calibrated_search",
         run_calculix_smoke=False,
+        run_calculix_local=False,
+        calculix_result_overrides=_ccx_override_factors(),
     )
 
     payload = json.loads(paths["summary_json"].read_text(encoding="utf-8"))
@@ -98,3 +111,78 @@ def test_fem_calibration_package_contains_solver_skeleton_and_trust_boundary(
     report = paths["report_md"].read_text(encoding="utf-8")
     assert "not final sign-off" in report
     assert "bond/collar/tube-wall" in report
+
+
+def test_calculix_local_frame_decks_materialize_rib_spar_load_path(
+    tmp_path: Path,
+) -> None:
+    fem = _load_module(_FEM_SCRIPT_PATH, "current_pathfinder_rib_torsion_fem_calibration")
+
+    paths = fem.write_rib_torsion_fem_calibration_package(
+        search_summary=_search_summary(),
+        output_dir=tmp_path,
+        report_json=tmp_path / "report.json",
+        report_md=tmp_path / "report.md",
+        calibrated_search_output_dir=tmp_path / "calibrated_search",
+        run_calculix_smoke=False,
+        run_calculix_local=False,
+        calculix_result_overrides=_ccx_override_factors(),
+    )
+
+    payload = json.loads(paths["summary_json"].read_text(encoding="utf-8"))
+    local_cases = payload["calculix_local_fem"]["cases"]
+    assert len(local_cases) == 4
+    assert {case["sample_role"] for case in local_cases} == {
+        "baseline_balsa_3mm",
+        "selected_hybrid_10mm",
+        "aggressive_plausible_hybrid",
+        "lightweight_foam_core_reference",
+    }
+
+    selected_case = next(
+        case for case in local_cases if case["sample_role"] == "selected_hybrid_10mm"
+    )
+    deck = Path(selected_case["deck_path"]).read_text(encoding="utf-8")
+    assert "TYPE=B31, ELSET=MAIN_SPAR" in deck
+    assert "TYPE=B31, ELSET=REAR_SPAR" in deck
+    assert "TYPE=B31, ELSET=TORQUE_ZONE_COLLAR" in deck
+    assert "TYPE=B31, ELSET=RIB_SHEAR_TRANSFER" in deck
+    assert "2.327757" in deck
+    assert "21.202" in deck
+    assert "23.839" in deck
+    assert "RIB_TORSION_EQUIV" not in deck
+
+
+def test_calculix_rows_are_primary_feedback_and_python_rows_are_comparison_only(
+    tmp_path: Path,
+) -> None:
+    fem = _load_module(_FEM_SCRIPT_PATH, "current_pathfinder_rib_torsion_fem_calibration")
+
+    paths = fem.write_rib_torsion_fem_calibration_package(
+        search_summary=_search_summary(),
+        output_dir=tmp_path,
+        report_json=tmp_path / "report.json",
+        report_md=tmp_path / "report.md",
+        calibrated_search_output_dir=tmp_path / "calibrated_search",
+        run_calculix_smoke=False,
+        run_calculix_local=False,
+        calculix_result_overrides=_ccx_override_factors(),
+    )
+
+    payload = json.loads(paths["summary_json"].read_text(encoding="utf-8"))
+    rows = {row["sample_role"]: row for row in payload["calibration_results"]}
+    assert {row["solver"] for row in rows.values()} == {"calculix_ccx_local_frame_fem"}
+    assert rows["selected_hybrid_10mm"]["python_local_torsion_link_factor"] > 1.0
+    assert rows["selected_hybrid_10mm"]["twist_factor"] == 1.31
+
+    update = json.loads(paths["calibration_update_json"].read_text(encoding="utf-8"))
+    selected_update = next(
+        row for row in update["used_result_rows"] if row["sample_role"] == "selected_hybrid_10mm"
+    )
+    assert selected_update["solver"] == "calculix_ccx_local_frame_fem"
+    assert selected_update["twist_factor"] == 1.31
+
+    calibrated = json.loads(paths["calibrated_search_summary_json"].read_text(encoding="utf-8"))
+    assert calibrated["fast_model_settings"]["fem_calibration_family_twist_factors"][
+        "eps_balsa_cap_hybrid_10mm"
+    ] == 1.31
