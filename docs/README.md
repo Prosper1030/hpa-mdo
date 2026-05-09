@@ -26,6 +26,7 @@
 |---|---|---|
 | [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 最高優先的現況真值 | 定義現在 repo 真正主線、入口、legacy 邊界、能力上限 |
 | [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived 現況報告 | Phase J pipeline 與 Phase K guardrail addendum 的來源 |
+| [2026-05-09_phase_j_evidence_map_plan.md](reports/2026-05-09_phase_j_evidence_map_plan.md) | 下一個專門 goal 計畫 | 建立 Phase J evidence map，先整理 artifacts / candidate / trust boundary |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
 | [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |

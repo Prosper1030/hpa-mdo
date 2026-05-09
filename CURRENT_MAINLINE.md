@@ -137,7 +137,37 @@ Phase J 之後新增了一系列 structural claim-boundary / engineering guardra
 pipeline，確認目前 candidate 的 mission / Fourier-AVL / smooth realization / loaded-Z / airfoil /
 closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主線。
 
-## 6. 常用入口與角色
+## 6. 下一步優先順序
+
+目前已同意的短線順序如下：
+
+1. **先建立 Phase J evidence map**
+   - 目的：整理 Phase J pipeline 每一步目前到底用了哪些 artifacts、哪個 candidate、
+     哪些關鍵數字、信任邊界與缺口。
+   - 輸出：一張人和 agent 都能讀的表格，至少涵蓋
+     `Mission contract -> Fourier-AVL calibration -> Fourier spanload candidate generation ->
+     smooth production geometry realization -> AVL realization check -> structure-budgeted loaded-Z search ->
+     AVL recheck on realizable loaded shape -> Tier2 full-alpha airfoil selection -> aero-structure closure ->
+     FEM/APDL / shell buckling / load-factor checks`。
+   - 這是下一個專門 goal 的第一任務；不要先跳去 rib FEM。
+2. **再處理 beam-line / aerodynamic surface / clearance 對齊**
+   - 目的：釐清 beam-line Z proxy、真實 aerodynamic surface、clearance、dihedral 定義是不是在同一個幾何語言下。
+   - 原因：如果這層沒對齊，後面的 rib、root、wire、FEM 可能都在驗證錯對象。
+3. **之後才看 aero-structure closure 的工程可信度**
+   - 目的：確認 `current_avl_compromise_conservative_closed` 是否真的在同一個 geometry / load /
+     airfoil / structure state 上閉合。
+4. **rib 先停在工程模型研究與 contract 定義**
+   - 目的：等 GPT Pro 或外部工程研究回來後，再決定 rib 要放在 surrogate、closure input、
+     還是 FEM detail validation。
+   - rib 不應取代 Phase J evidence map 成為短線第一優先。
+
+可直接用於新 goal 的 objective：
+
+```text
+在 /Volumes/Samsung SSD/hpa-mdo 建立 Phase J evidence map：整理 Mission contract -> Fourier-AVL calibration -> Fourier spanload candidate generation -> smooth production geometry realization -> AVL realization check -> structure-budgeted loaded-Z search -> AVL recheck on realizable loaded shape -> Tier2 full-alpha airfoil selection -> aero-structure closure -> FEM/APDL / shell buckling / load-factor checks 各階段目前使用的 artifact、candidate、關鍵數字、信任邊界與缺口，輸出成可讀表格，並標出下一步應先處理 beam-line / aerodynamic surface / clearance 對齊，而不是直接做 rib FEM。
+```
+
+## 7. 常用入口與角色
 
 ### A. Mission / upstream concept
 
@@ -181,7 +211,7 @@ closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主�
 - 角色：提供外部 consumer / automation 用 machine-readable contract。
 - 注意：它是 integration boundary，不是主 physics 問題本身。
 
-## 7. 現在不該再當主線的敘事
+## 8. 現在不該再當主線的敘事
 
 - `equivalent_beam` 作為正式 structural truth。
 - 把 repo 描述成單純 OpenMDAO spar optimizer。
@@ -191,7 +221,7 @@ closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主�
 - 把 rib、wire hardware、root fitting detail FEM 提前成上游 candidate-generation 主線，
   除非它們已被證明會改變 aero-structure closure 的候選排序。
 
-## 8. 對未來 AI Agent 的工作規則
+## 9. 對未來 AI Agent 的工作規則
 
 1. 先讀這份 `CURRENT_MAINLINE.md`，再讀 `README.md`。
 2. 需要 commit-history truth 時，讀
@@ -203,7 +233,7 @@ closure 是否該繼續推進，而不是直接把 rib detail FEM 當作新主�
    還是真正工程 validation。
 6. 遇到工程問題時，不要只用軟體測試通過作結論；要用該領域工程師角度檢查物理假設是否合理。
 
-## 9. 暫停中的主翼 mesh-native CFD / SU2 支線
+## 10. 暫停中的主翼 mesh-native CFD / SU2 支線
 
 這不是目前正式主線，也不是可用來背書人力飛機性能的 CFD 結果。它是 2026-05-01 凍結下來的高保真氣動支線：
 
