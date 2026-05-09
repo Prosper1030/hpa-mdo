@@ -1224,16 +1224,26 @@ def _closure_evidence(check: Any | None) -> str:
     if check is None:
         return "closure input is not available."
     rows = tuple(getattr(check, "rows", ()))
-    first = rows[0] if rows else None
     parts = [
         "closure status="
-        f"{getattr(first, 'status', 'missing') if first is not None else 'missing'}",
+        f"{_representative_closure_status(check, rows)}",
         f"overall={getattr(check, 'overall_status', 'unknown')}",
     ]
     missing_claims = getattr(check, "missing_required_claim_load_factors", None)
     if missing_claims is not None:
         parts.append(f"missing claim n={missing_claims}")
     return "; ".join(parts) + "."
+
+
+def _representative_closure_status(check: Any, rows: tuple[Any, ...]) -> str:
+    if not rows:
+        return "missing"
+    for row in rows:
+        status = str(getattr(row, "status", "unknown"))
+        if status != "margin_positive_input_check_only":
+            return status
+    overall_status = str(getattr(check, "overall_status", "")).strip()
+    return overall_status or str(getattr(rows[0], "status", "unknown"))
 
 
 def _torsion_twist_screening_evidence(screening: Any | None) -> str:

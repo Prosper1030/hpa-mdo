@@ -955,6 +955,24 @@ def test_failure_mode_ordering_reports_worst_root_couple_row() -> None:
     assert "root max couple case=moment_couple_arm_0p050m" in evidence
 
 
+def test_failure_mode_ordering_closure_evidence_reports_blocking_row_not_first_positive() -> None:
+    check = SimpleNamespace(
+        overall_status="torsion_twist_closure_not_closed",
+        missing_required_claim_load_factors="1.75",
+        rows=(
+            SimpleNamespace(status="margin_positive_input_check_only"),
+            SimpleNamespace(status="margin_negative"),
+        ),
+    )
+
+    evidence = phase25._closure_evidence(check)  # noqa: SLF001
+
+    assert "closure status=margin_negative" in evidence
+    assert "closure status=margin_positive_input_check_only" not in evidence
+    assert "overall=torsion_twist_closure_not_closed" in evidence
+    assert "missing claim n=1.75" in evidence
+
+
 def test_write_failure_mode_ordering_package_creates_handoff_files(tmp_path: Path) -> None:
     outputs = write_failure_mode_ordering_package(
         tmp_path,
