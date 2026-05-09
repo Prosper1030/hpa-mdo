@@ -87,6 +87,9 @@ from scripts.phase45_phase41_rib_spacing_link_review import (  # noqa: E402
 from scripts.phase46_local_detail_criticality_ordering import (  # noqa: E402
     build_local_detail_criticality_ordering,
 )
+from scripts.phase47_existing_torsion_twist_evidence_triage import (  # noqa: E402
+    build_current_existing_torsion_twist_evidence_triage,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase25_failure_mode_ordering"
@@ -133,6 +136,7 @@ def build_failure_mode_ordering(
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
+    existing_torsion_twist_evidence_triage: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
@@ -159,6 +163,7 @@ def build_failure_mode_ordering(
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
+        existing_torsion_twist_evidence_triage=existing_torsion_twist_evidence_triage,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
@@ -196,6 +201,7 @@ def write_failure_mode_ordering_package(
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
+    existing_torsion_twist_evidence_triage: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
@@ -219,6 +225,7 @@ def write_failure_mode_ordering_package(
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
+        existing_torsion_twist_evidence_triage=existing_torsion_twist_evidence_triage,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
@@ -289,6 +296,9 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
     phase41_reference_load_review = build_current_phase41_reference_load_review()
     phase41_mode_shape_review = build_current_phase41_mode_shape_review()
     phase41_rib_spacing_link_review = build_current_phase41_rib_spacing_link_review()
+    existing_torsion_twist_evidence_triage = (
+        build_current_existing_torsion_twist_evidence_triage()
+    )
     return build_failure_mode_ordering(
         claim_review,
         detail_requirements=detail_requirements,
@@ -302,6 +312,9 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
         torsion_twist_screening=build_current_torsion_twist_screening(),
+        existing_torsion_twist_evidence_triage=(
+            existing_torsion_twist_evidence_triage
+        ),
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=build_current_full_wing_buckling_claim_boundary(),
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
@@ -393,6 +406,7 @@ def _unranked_real_structure_rows(
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
+    existing_torsion_twist_evidence_triage: Any | None,
     full_wing_buckling_closure_check: Any | None,
     full_wing_buckling_claim_boundary: Any | None,
     braced_subassembly_fem_evidence: Any | None,
@@ -475,6 +489,7 @@ def _unranked_real_structure_rows(
                 "local wall and beam twist checks do not close aeroelastic torque/twist coupling. "
                 f"{_closure_evidence(torsion_twist_closure_check)} "
                 f"{_torsion_twist_screening_evidence(torsion_twist_screening)}"
+                f" {_existing_torsion_twist_evidence_triage_evidence(existing_torsion_twist_evidence_triage)}"
             ),
             next_evidence="Torque-couple FEM or aeroelastic twist loop with load redistribution.",
         ),
@@ -1065,6 +1080,30 @@ def _torsion_twist_screening_evidence(screening: Any | None) -> str:
         f"{_fmt(_attr_float(screening, 'rear_soft_angle_delta_deg'))} deg; "
         "accepted methods="
         f"{'; '.join(str(method) for method in getattr(screening, 'accepted_closure_methods', ()))}."
+    )
+
+
+def _existing_torsion_twist_evidence_triage_evidence(triage: Any | None) -> str:
+    if triage is None:
+        return "existing torsion/twist evidence triage is not available."
+    direct_my_status = "missing"
+    for row in getattr(triage, "rows", ()):
+        if str(getattr(row, "evidence_key", "")) == "phase14_b5_solution_hunt":
+            direct_my_status = str(getattr(row, "status", "unknown"))
+            break
+    return (
+        "existing torsion/twist evidence status="
+        f"{getattr(triage, 'overall_status', 'unknown')}; "
+        "rows="
+        f"{int(getattr(triage, 'row_count', 0))}; "
+        "torque-observable rows="
+        f"{int(getattr(triage, 'torque_observable_evidence_count', 0))}; "
+        "aeroelastic closure rows="
+        f"{int(getattr(triage, 'aeroelastic_closure_evidence_count', 0))}; "
+        "closing rows="
+        f"{int(getattr(triage, 'closing_evidence_count', 0))}; "
+        "direct MY row status="
+        f"{direct_my_status}."
     )
 
 

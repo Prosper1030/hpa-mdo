@@ -238,6 +238,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "detail_work_priority_ranked_but_failure_order_unclosed"
+    if _phase47_existing_torque_observable_without_twist_closure(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "existing_torque_observable_but_aeroelastic_twist_unclosed"
     return EVIDENCE_STRENGTH_BY_KEY[key]
 
 
@@ -369,6 +375,21 @@ def _phase46_failure_ordering_local_priority_ranked(
         and "Phase46" in evidence_artifacts
         and "local detail priority top=" in evidence_summary
         and "work_priority_only_not_failure_load_factor_rank" in evidence_summary
+    )
+
+
+def _phase47_existing_torque_observable_without_twist_closure(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "torsion_twist_coupling"
+        and "Phase47" in evidence_artifacts
+        and "existing_torsion_twist_evidence_does_not_close_goal" in evidence_summary
+        and "torque-observable rows=2" in evidence_summary
+        and "aeroelastic closure rows=0" in evidence_summary
     )
 
 

@@ -107,6 +107,9 @@ from scripts.phase45_phase41_rib_spacing_link_review import (  # noqa: E402
 from scripts.phase46_local_detail_criticality_ordering import (  # noqa: E402
     build_local_detail_criticality_ordering,
 )
+from scripts.phase47_existing_torsion_twist_evidence_triage import (  # noqa: E402
+    build_current_existing_torsion_twist_evidence_triage,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -150,6 +153,7 @@ def build_structural_closure_index(
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
+    existing_torsion_twist_evidence_triage: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
@@ -187,6 +191,9 @@ def build_structural_closure_index(
             rib_bracing_margin_check=rib_bracing_margin_check,
             torsion_twist_closure_check=torsion_twist_closure_check,
             torsion_twist_screening=torsion_twist_screening,
+            existing_torsion_twist_evidence_triage=(
+                existing_torsion_twist_evidence_triage
+            ),
             full_wing_buckling_closure_check=full_wing_buckling_closure_check,
             full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
             tip_deflection_revalidation_check=tip_deflection_revalidation_check,
@@ -234,6 +241,7 @@ def write_structural_closure_index_package(
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
     torsion_twist_screening: Any | None = None,
+    existing_torsion_twist_evidence_triage: Any | None = None,
     full_wing_buckling_closure_check: Any | None = None,
     full_wing_buckling_claim_boundary: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
@@ -264,6 +272,7 @@ def write_structural_closure_index_package(
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
+        existing_torsion_twist_evidence_triage=existing_torsion_twist_evidence_triage,
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
@@ -348,6 +357,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     existing_detail_allowable_evidence_triage = (
         build_current_existing_detail_allowable_evidence_triage()
     )
+    existing_torsion_twist_evidence_triage = (
+        build_current_existing_torsion_twist_evidence_triage()
+    )
     local_detail_criticality_ordering = build_local_detail_criticality_ordering(
         reference.candidate_id,
         detail_requirements=detail_requirements,
@@ -392,6 +404,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
+        existing_torsion_twist_evidence_triage=(
+            existing_torsion_twist_evidence_triage
+        ),
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
@@ -418,6 +433,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
+        existing_torsion_twist_evidence_triage=(
+            existing_torsion_twist_evidence_triage
+        ),
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
@@ -453,6 +471,7 @@ def _build_item(
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
+    existing_torsion_twist_evidence_triage: Any | None,
     full_wing_buckling_closure_check: Any | None,
     full_wing_buckling_claim_boundary: Any | None,
     tip_deflection_revalidation_check: Any | None,
@@ -484,6 +503,7 @@ def _build_item(
         rib_bracing_margin_check,
         torsion_twist_closure_check,
         torsion_twist_screening,
+        existing_torsion_twist_evidence_triage,
         full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check,
@@ -517,6 +537,9 @@ def _build_item(
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
         torsion_twist_screening=torsion_twist_screening,
+        existing_torsion_twist_evidence_triage=(
+            existing_torsion_twist_evidence_triage
+        ),
         full_wing_buckling_closure_check=full_wing_buckling_closure_check,
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
@@ -582,6 +605,7 @@ def _evidence_artifacts(
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
+    existing_torsion_twist_evidence_triage: Any | None,
     full_wing_buckling_closure_check: Any | None,
     full_wing_buckling_claim_boundary: Any | None,
     tip_deflection_revalidation_check: Any | None,
@@ -645,6 +669,11 @@ def _evidence_artifacts(
         artifacts.append("Phase29 torsion_twist_closure_inputs")
     if torsion_twist_screening is not None and key == "torsion_twist_coupling":
         artifacts.append("Phase37 torsion_twist_screening")
+    if (
+        existing_torsion_twist_evidence_triage is not None
+        and key == "torsion_twist_coupling"
+    ):
+        artifacts.append("Phase47 existing_torsion_twist_evidence_triage")
     if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
         artifacts.append("Phase30 full_wing_buckling_closure_inputs")
     if full_wing_buckling_claim_boundary is not None and key == "full_wing_global_buckling":
@@ -718,6 +747,7 @@ def _evidence_for_key(
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
     torsion_twist_screening: Any | None,
+    existing_torsion_twist_evidence_triage: Any | None,
     full_wing_buckling_closure_check: Any | None,
     full_wing_buckling_claim_boundary: Any | None,
     tip_deflection_revalidation_check: Any | None,
@@ -827,6 +857,14 @@ def _evidence_for_key(
         parts.append(f"Phase29: {_torsion_twist_closure_summary(torsion_twist_closure_check)}")
     if torsion_twist_screening is not None and key == "torsion_twist_coupling":
         parts.append(f"Phase37: {_torsion_twist_screening_summary(torsion_twist_screening)}")
+    if (
+        existing_torsion_twist_evidence_triage is not None
+        and key == "torsion_twist_coupling"
+    ):
+        parts.append(
+            "Phase47: "
+            f"{_existing_torsion_twist_evidence_triage_summary(existing_torsion_twist_evidence_triage)}"
+        )
     if full_wing_buckling_closure_check is not None and key == "full_wing_global_buckling":
         parts.append(
             f"Phase30: {_full_wing_buckling_closure_summary(full_wing_buckling_closure_check)}"
@@ -1217,6 +1255,28 @@ def _torsion_twist_screening_summary(screening: Any) -> str:
         f"{getattr(screening, 'closure_input_status', 'unknown')}; "
         "accepted methods="
         f"{'; '.join(str(method) for method in getattr(screening, 'accepted_closure_methods', ()))}."
+    )
+
+
+def _existing_torsion_twist_evidence_triage_summary(triage: Any) -> str:
+    direct_my_status = "missing"
+    for row in getattr(triage, "rows", ()):
+        if str(getattr(row, "evidence_key", "")) == "phase14_b5_solution_hunt":
+            direct_my_status = str(getattr(row, "status", "unknown"))
+            break
+    return (
+        "existing torsion/twist evidence status="
+        f"{getattr(triage, 'overall_status', 'unknown')}; "
+        "rows="
+        f"{int(getattr(triage, 'row_count', 0))}; "
+        "torque-observable rows="
+        f"{int(getattr(triage, 'torque_observable_evidence_count', 0))}; "
+        "aeroelastic closure rows="
+        f"{int(getattr(triage, 'aeroelastic_closure_evidence_count', 0))}; "
+        "closing rows="
+        f"{int(getattr(triage, 'closing_evidence_count', 0))}; "
+        "direct MY row status="
+        f"{direct_my_status}."
     )
 
 

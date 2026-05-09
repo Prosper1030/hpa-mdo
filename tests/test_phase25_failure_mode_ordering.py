@@ -242,6 +242,32 @@ def _torsion_twist_screening() -> SimpleNamespace:
     )
 
 
+def _existing_torsion_twist_evidence_triage() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="existing_torsion_twist_evidence_does_not_close_goal",
+        row_count=4,
+        closing_evidence_count=0,
+        torque_observable_evidence_count=2,
+        aeroelastic_closure_evidence_count=0,
+        rows=(
+            SimpleNamespace(
+                evidence_key="phase14_b5_solution_hunt",
+                status="direct_my_torque_observable_surrogate_policy_open",
+                closes_torsion_twist_claim=False,
+                supports_torque_observable=True,
+                supports_aeroelastic_twist=False,
+            ),
+            SimpleNamespace(
+                evidence_key="phase14_single_beam_torsion_probe",
+                status="section_force_torque_observable_not_candidate_closure",
+                closes_torsion_twist_claim=False,
+                supports_torque_observable=True,
+                supports_aeroelastic_twist=False,
+            ),
+        ),
+    )
+
+
 def _full_wing_buckling_closure_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="full_wing_global_buckling_not_closed",
@@ -445,6 +471,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         torsion_twist_screening=_torsion_twist_screening(),
+        existing_torsion_twist_evidence_triage=_existing_torsion_twist_evidence_triage(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         braced_subassembly_fem_evidence=_braced_subassembly_fem_evidence(),
@@ -524,6 +551,11 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "accepted methods=tip_ring_fem; aeroelastic_loop; apdl_tip_ring_fem" in by_key[
         "torsion_twist_coupling"
     ].evidence
+    assert "existing torsion/twist evidence status=existing_torsion_twist_evidence_does_not_close_goal" in by_key[
+        "torsion_twist_coupling"
+    ].evidence
+    assert "torque-observable rows=2" in by_key["torsion_twist_coupling"].evidence
+    assert "aeroelastic closure rows=0" in by_key["torsion_twist_coupling"].evidence
     assert by_key["full_wing_global_buckling"].load_factor is None
     assert by_key["full_wing_global_buckling"].status == (
         "unranked_global_buckling_reference_load_formulation_not_rankable"

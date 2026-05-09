@@ -443,6 +443,32 @@ def _torsion_twist_screening() -> SimpleNamespace:
     )
 
 
+def _existing_torsion_twist_evidence_triage() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="existing_torsion_twist_evidence_does_not_close_goal",
+        row_count=4,
+        closing_evidence_count=0,
+        torque_observable_evidence_count=2,
+        aeroelastic_closure_evidence_count=0,
+        rows=(
+            SimpleNamespace(
+                evidence_key="phase14_b5_solution_hunt",
+                status="direct_my_torque_observable_surrogate_policy_open",
+                closes_torsion_twist_claim=False,
+                supports_torque_observable=True,
+                supports_aeroelastic_twist=False,
+            ),
+            SimpleNamespace(
+                evidence_key="phase14_single_beam_torsion_probe",
+                status="section_force_torque_observable_not_candidate_closure",
+                closes_torsion_twist_claim=False,
+                supports_torque_observable=True,
+                supports_aeroelastic_twist=False,
+            ),
+        ),
+    )
+
+
 def _full_wing_buckling_closure_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="full_wing_global_buckling_not_closed",
@@ -759,6 +785,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         rib_bracing_margin_check=_rib_bracing_margin_check(),
         torsion_twist_closure_check=_torsion_twist_closure_check(),
         torsion_twist_screening=_torsion_twist_screening(),
+        existing_torsion_twist_evidence_triage=_existing_torsion_twist_evidence_triage(),
         full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
@@ -838,6 +865,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase22" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase29" in by_key["torsion_twist_coupling"].evidence_artifacts
     assert "Phase37" in by_key["torsion_twist_coupling"].evidence_artifacts
+    assert "Phase47" in by_key["torsion_twist_coupling"].evidence_artifacts
     assert "rear_stiffness_5pct" in by_key["rear_spar_stiffness"].current_evidence
     assert "Phase32" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase40" in by_key["rear_spar_stiffness"].evidence_artifacts
@@ -858,6 +886,12 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "torsion_twist_coupling"
     ].current_evidence
     assert "dense finite rib angle delta=-8.3000 deg" in by_key[
+        "torsion_twist_coupling"
+    ].current_evidence
+    assert "existing torsion/twist evidence status=existing_torsion_twist_evidence_does_not_close_goal" in by_key[
+        "torsion_twist_coupling"
+    ].current_evidence
+    assert "torque-observable rows=2" in by_key[
         "torsion_twist_coupling"
     ].current_evidence
     assert "dense_finite_rib_surrogate" in by_key["rib_load_transfer"].current_evidence
