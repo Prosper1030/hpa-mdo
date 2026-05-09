@@ -216,7 +216,12 @@ def _closure_input_status(closure_check: Any | None) -> str:
     rows = tuple(getattr(closure_check, "rows", ()))
     if not rows:
         return "closure_input_missing"
-    return str(getattr(rows[0], "status", "unknown"))
+    for row in rows:
+        status = str(getattr(row, "status", "unknown"))
+        if status != "margin_positive_input_check_only":
+            return status
+    overall_status = str(getattr(closure_check, "overall_status", "")).strip()
+    return overall_status or str(getattr(rows[0], "status", "unknown"))
 
 
 def _attr_float(obj: Any | None, name: str) -> float | None:

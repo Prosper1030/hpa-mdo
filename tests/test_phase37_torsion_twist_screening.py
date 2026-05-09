@@ -56,6 +56,27 @@ def _closure_check() -> SimpleNamespace:
     )
 
 
+def _mixed_closure_check() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="torsion_twist_closure_not_closed",
+        accepted_closure_methods=("tip_ring_fem", "aeroelastic_loop", "apdl_tip_ring_fem"),
+        rows=(
+            SimpleNamespace(
+                status="margin_positive_input_check_only",
+                measured_twist_deg=2.0,
+                twist_margin_deg=1.0,
+                torque_balance_margin_pct=3.0,
+            ),
+            SimpleNamespace(
+                status="margin_negative",
+                measured_twist_deg=6.0,
+                twist_margin_deg=-1.0,
+                torque_balance_margin_pct=3.0,
+            ),
+        ),
+    )
+
+
 def test_torsion_twist_screening_collects_internal_signals_without_signoff() -> None:
     screening = build_torsion_twist_screening(
         _torsion_audit(),
@@ -84,6 +105,18 @@ def test_torsion_twist_screening_collects_internal_signals_without_signoff() -> 
     assert by_key["closure_input"].status == "closure_input_missing"
     assert "not aeroelastic signoff" in by_key["spar_pair_line_angle"].signoff_boundary
     assert "tip-ring FEM" in by_key["closure_input"].next_evidence
+
+
+def test_torsion_twist_screening_reports_blocked_closure_row_not_first_positive() -> None:
+    screening = build_torsion_twist_screening(
+        _torsion_audit(),
+        bracing_audit=_bracing_audit(),
+        closure_check=_mixed_closure_check(),
+    )
+
+    assert screening.closure_input_status == "margin_negative"
+    by_key = {row.signal_key: row for row in screening.rows}
+    assert by_key["closure_input"].status == "margin_negative"
 
 
 def test_write_torsion_twist_screening_package_creates_handoff_files(tmp_path: Path) -> None:
