@@ -90,6 +90,9 @@ from scripts.phase46_local_detail_criticality_ordering import (  # noqa: E402
 from scripts.phase47_existing_torsion_twist_evidence_triage import (  # noqa: E402
     build_current_existing_torsion_twist_evidence_triage,
 )
+from scripts.phase48_root_joint_detail_feasibility_screen import (  # noqa: E402
+    build_current_root_joint_detail_feasibility_screen,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase25_failure_mode_ordering"
@@ -131,6 +134,7 @@ def build_failure_mode_ordering(
     local_detail_subcomponent_check: Any | None = None,
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
+    root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
     local_detail_criticality_ordering: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
@@ -158,6 +162,7 @@ def build_failure_mode_ordering(
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
+        root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
@@ -196,6 +201,7 @@ def write_failure_mode_ordering_package(
     local_detail_subcomponent_check: Any | None = None,
     wire_attach_load_decomposition: Any | None = None,
     root_joint_load_envelope: Any | None = None,
+    root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
     local_detail_criticality_ordering: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
@@ -220,6 +226,7 @@ def write_failure_mode_ordering_package(
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
+        root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
@@ -270,6 +277,9 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         wire_attach_load_decomposition=wire_attach_load_decomposition,
     )
     root_joint_load_envelope = build_root_joint_load_envelope(reference)
+    root_joint_detail_feasibility_screen = (
+        build_current_root_joint_detail_feasibility_screen()
+    )
     wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
         detail_requirements
     )
@@ -307,6 +317,7 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         local_detail_subcomponent_check=local_detail_subcomponent_check,
         wire_attach_load_decomposition=wire_attach_load_decomposition,
         root_joint_load_envelope=root_joint_load_envelope,
+        root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
@@ -401,6 +412,7 @@ def _unranked_real_structure_rows(
     local_detail_subcomponent_check: Any | None,
     wire_attach_load_decomposition: Any | None,
     root_joint_load_envelope: Any | None,
+    root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
     local_detail_criticality_ordering: Any | None,
     rib_bracing_margin_check: Any | None,
@@ -439,7 +451,10 @@ def _unranked_real_structure_rows(
             detail_margin=detail_margins.get("root_joint"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
             local_detail_criticality_ordering=local_detail_criticality_ordering,
-            extra_evidence=_root_joint_load_envelope_evidence(root_joint_load_envelope),
+            extra_evidence=(
+                f"{_root_joint_load_envelope_evidence(root_joint_load_envelope)} "
+                f"{_root_joint_detail_feasibility_evidence(root_joint_detail_feasibility_screen)}"
+            ),
             next_evidence="Root fitting, clamp, bonded insert, bearing, and tube-wall load-introduction margins.",
         ),
         _detail_row(
@@ -994,6 +1009,29 @@ def _root_joint_load_envelope_evidence(envelope: Any | None) -> str:
         f"{_fmt(max_couple[0])} N; "
         "root max couple case="
         f"{max_couple[1]}."
+    )
+
+
+def _root_joint_detail_feasibility_evidence(screen: Any | None) -> str:
+    if screen is None:
+        return "root joint detail feasibility screen is not available."
+    return (
+        "root joint detail feasibility status="
+        f"{getattr(screen, 'overall_status', 'unknown')}; "
+        "root joint concept rows="
+        f"{int(getattr(screen, 'concept_count', 0))}; "
+        "positive concept rows="
+        f"{int(getattr(screen, 'positive_input_concept_count', 0))}; "
+        "negative concept rows="
+        f"{int(getattr(screen, 'negative_margin_concept_count', 0))}; "
+        "missing concept rows="
+        f"{int(getattr(screen, 'missing_input_concept_count', 0))}; "
+        "traceability gap concept rows="
+        f"{int(getattr(screen, 'traceability_gap_concept_count', 0))}; "
+        "root joint max required couple="
+        f"{_fmt(_attr_float(screen, 'envelope_worst_couple_force_n'))} N; "
+        "root joint max required case="
+        f"{getattr(screen, 'envelope_worst_couple_case', 'unknown')}."
     )
 
 

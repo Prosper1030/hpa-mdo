@@ -156,6 +156,28 @@ def _root_joint_load_envelope() -> SimpleNamespace:
     )
 
 
+def _root_joint_detail_feasibility_screen() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="root_joint_detail_feasibility_not_closed",
+        envelope_worst_couple_force_n=216664.0,
+        envelope_worst_couple_case="moment_couple_arm_0p050m",
+        concept_count=1,
+        positive_input_concept_count=0,
+        negative_margin_concept_count=0,
+        missing_input_concept_count=1,
+        traceability_gap_concept_count=0,
+        rows=(
+            SimpleNamespace(
+                concept_id="root_joint_concept_input_required",
+                status="concept_geometry_and_allowables_missing",
+                required_couple_force_n=216664.0,
+                worst_margin_n=None,
+                traceability_status="concept_input_missing",
+            ),
+        ),
+    )
+
+
 def _wire_termination_efficiency_sensitivity() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="termination_efficiency_sensitivity_defined_not_signoff",
@@ -466,6 +488,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         root_joint_load_envelope=_root_joint_load_envelope(),
+        root_joint_detail_feasibility_screen=_root_joint_detail_feasibility_screen(),
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         local_detail_criticality_ordering=_local_detail_criticality_ordering(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
@@ -521,6 +544,14 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "root max couple force=108332.0000 N" in by_key["root_joint"].evidence
     assert "root max couple case=moment_couple_arm_0p100m" in by_key["root_joint"].evidence
     assert "force-only misleading=True" in by_key["root_joint"].evidence
+    assert "root joint detail feasibility status=root_joint_detail_feasibility_not_closed" in by_key[
+        "root_joint"
+    ].evidence
+    assert "root joint concept rows=1" in by_key["root_joint"].evidence
+    assert "missing concept rows=1" in by_key["root_joint"].evidence
+    assert "root joint max required couple=216664.0000 N" in by_key[
+        "root_joint"
+    ].evidence
     assert "termination eta 0.60 MBL=10000.0000 N" in by_key["wire_termination"].evidence
     assert "termination eta 0.80 MBL=7500.0000 N" in by_key["wire_termination"].evidence
     assert "local detail priority rank=1" in by_key["root_joint"].evidence

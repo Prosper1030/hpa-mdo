@@ -315,6 +315,28 @@ def _root_joint_load_envelope() -> SimpleNamespace:
     )
 
 
+def _root_joint_detail_feasibility_screen() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="root_joint_detail_feasibility_not_closed",
+        envelope_worst_couple_force_n=216664.0,
+        envelope_worst_couple_case="moment_couple_arm_0p050m",
+        concept_count=1,
+        positive_input_concept_count=0,
+        negative_margin_concept_count=0,
+        missing_input_concept_count=1,
+        traceability_gap_concept_count=0,
+        rows=(
+            SimpleNamespace(
+                concept_id="root_joint_concept_input_required",
+                status="concept_geometry_and_allowables_missing",
+                required_couple_force_n=216664.0,
+                worst_margin_n=None,
+                traceability_status="concept_input_missing",
+            ),
+        ),
+    )
+
+
 def _wire_termination_efficiency_sensitivity() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="termination_efficiency_sensitivity_defined_not_signoff",
@@ -779,6 +801,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         local_detail_subcomponent_check=_local_detail_subcomponent_check(),
         wire_attach_load_decomposition=_wire_attach_load_decomposition(),
         root_joint_load_envelope=_root_joint_load_envelope(),
+        root_joint_detail_feasibility_screen=_root_joint_detail_feasibility_screen(),
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
         local_detail_criticality_ordering=_local_detail_criticality_ordering(),
         rib_spacing_requirements=_rib_spacing_requirements(),
@@ -840,6 +863,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "wire_attach_local_load_path"
     ].current_evidence
     assert "Phase35" in by_key["root_joint"].evidence_artifacts
+    assert "Phase48" in by_key["root_joint"].evidence_artifacts
     assert "Phase43" in by_key["root_joint"].evidence_artifacts
     assert "Phase46" in by_key["root_joint"].evidence_artifacts
     assert "required moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
@@ -847,6 +871,13 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "design moment=10833.2000 N*m" in by_key["root_joint"].current_evidence
     assert "max couple force=216664.0000 N" in by_key["root_joint"].current_evidence
     assert "max couple case=moment_couple_arm_0p050m" in by_key["root_joint"].current_evidence
+    assert "root joint detail feasibility status=root_joint_detail_feasibility_not_closed" in by_key[
+        "root_joint"
+    ].current_evidence
+    assert "missing concept rows=1" in by_key["root_joint"].current_evidence
+    assert "max required couple=216664.0000 N" in by_key[
+        "root_joint"
+    ].current_evidence
     assert "priority rank=1" in by_key["root_joint"].current_evidence
     assert "required MBL=10080.3000 N" in by_key["wire_termination"].current_evidence
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence

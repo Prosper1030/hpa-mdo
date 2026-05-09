@@ -226,6 +226,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "layout_plus_model_link_spacing_not_physical_signoff"
+    if _phase48_root_joint_concept_gap(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "root_joint_concept_geometry_allowables_missing"
     if _phase46_local_detail_work_priority_ranked(
         key,
         evidence_artifacts=evidence_artifacts,
@@ -361,6 +367,20 @@ def _phase46_local_detail_work_priority_ranked(
         and "Phase46" in evidence_artifacts
         and "local_detail_work_priority_ranked_allowables_missing" in evidence_summary
         and "work_priority_only_not_failure_load_factor_rank" in evidence_summary
+    )
+
+
+def _phase48_root_joint_concept_gap(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "root_joint"
+        and "Phase48" in evidence_artifacts
+        and "root_joint_detail_feasibility_not_closed" in evidence_summary
+        and "missing concept rows=1" in evidence_summary
     )
 
 

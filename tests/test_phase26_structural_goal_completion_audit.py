@@ -293,6 +293,39 @@ def test_goal_completion_audit_tracks_local_detail_work_priority_without_closure
         assert by_key[key].completion_blocker != "none"
 
 
+def test_goal_completion_audit_tracks_root_joint_concept_gap_without_closure() -> None:
+    closure_index = _closure_index()
+    items = []
+    for item in closure_index.items:
+        if item.key == "root_joint":
+            item = SimpleNamespace(
+                key=item.key,
+                evidence_artifacts=f"{item.evidence_artifacts}; Phase48",
+                current_evidence=(
+                    f"{item.current_evidence} Phase48: root joint detail feasibility "
+                    "status=root_joint_detail_feasibility_not_closed; "
+                    "concept rows=1; missing concept rows=1; "
+                    "max required couple=216664.0000 N."
+                ),
+                remaining_blocker=item.remaining_blocker,
+                next_action=item.next_action,
+            )
+        items.append(item)
+
+    audit = build_structural_goal_completion_audit(
+        SimpleNamespace(
+            candidate_id=closure_index.candidate_id,
+            items=tuple(items),
+        ),
+        failure_mode_ordering=_failure_mode_ordering(),
+    )
+
+    row = {row.key: row for row in audit.rows}["root_joint"]
+    assert row.completion_status == "blocked"
+    assert row.evidence_strength == "root_joint_concept_geometry_allowables_missing"
+    assert row.completion_blocker == "root_fitting_clamp_bonded_insert_margin_missing"
+
+
 def test_goal_completion_audit_tracks_existing_torque_observability_without_twist_closure() -> None:
     closure_index = _closure_index()
     items = []
