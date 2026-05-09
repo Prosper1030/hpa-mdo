@@ -1,8 +1,28 @@
 # HPA-MDO：人力飛機多學科設計最佳化框架
 
-一套用於人力飛機巡航外形、逆向求形與結構落地的 Python 框架，整合了氣動力載荷解析、inverse design、有限元素分析與 CAE 匯出功能。專為 **Black Cat 004**（翼展 33 m 的人力飛機）而建。
+一套用於人力飛機任務概念、Fourier / AVL spanload、smooth production geometry、loaded-shape
+結構閉合、翼型選擇與 FEM/APDL 候選驗證的 Python 框架。它保留 Black Cat 004 / dual-beam
+結構基礎，但目前正式主線已經升級成 mission-driven 的 HPA wing pipeline。
 
-目前這個 repo 的正式主線不是舊的單梁 parity 路線，也不只是 decision producer 包裝層，而是 **`VSP / target cruise shape -> inverse design -> jig shape -> realizable loaded shape -> CFRP / discrete layup`** 這條可持續擴充的工程主線。第一次進 repo 時，請把它當成「可執行的設計引擎 + 正式輸出 contract」，不要把 `equivalent_beam` 或零散研究型 script 當成目前 sign-off 入口。
+目前這個 repo 的正式主線不是舊的單梁 parity 路線，也不是簡化版
+`VSP -> inverse design -> jig shape -> CFRP` 敘事，而是 Phase J 收斂出的這條鏈：
+
+```text
+Mission contract
+-> Fourier-AVL calibration
+-> Fourier spanload candidate generation
+-> smooth production geometry realization
+-> AVL realization check
+-> structure-budgeted loaded-Z search
+-> AVL recheck on realizable loaded shape
+-> Tier2 full-alpha airfoil selection
+-> aero-structure closure
+-> FEM/APDL / shell buckling / load-factor checks
+```
+
+第一次進 repo 時，請先把它當成「mission-to-candidate engineering pipeline + review package」，
+再依任務進入 inverse-design、CFRP/discrete layup、FEM/APDL 或 downstream detail validation。
+不要把 `equivalent_beam`、舊 README 段落、零散研究型 script 或單次 FEM pass 當成目前 sign-off 入口。
 
 ---
 
@@ -12,6 +32,7 @@
 |---|---|---|
 | 想先知道「現在真正主線到底是什麼」 | [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md) | 這份是目前正式主線的單一真相文件 |
 | 第一次進 repo，想知道怎麼開始 | [README.md](README.md) | 這份就是 landing page，先用它判斷正式入口與第一個指令 |
+| 想看目前主線為什麼變成 Phase J pipeline | [docs/reports/2026-05-08_commit_history_report.md](docs/reports/2026-05-08_commit_history_report.md) | commit-derived report，Phase J 是目前主線基準 |
 | 想直接拿可畫圖的正式輸出 package | [docs/drawing_ready_package.md](docs/drawing_ready_package.md) | 這份會直接告訴你哪個 STEP 拿去畫、哪些只是參考 |
 | 想快速找到所有重要文件 | [docs/README.md](docs/README.md) | 文件索引，會告訴你哪些是正式 contract、哪些是研究/歷史文件 |
 | 想知道最近該做什麼、不該先做什麼 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期路線圖與優先順序 |
@@ -29,7 +50,7 @@
 2. 跑一次 `python examples/blackcat_004_optimize.py` 或 `python scripts/run_optimization.py --config configs/blackcat_004.yaml`。
 3. 如果要理解正式工程主線，再讀：
    - [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md)
-   - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
+   - [docs/reports/2026-05-08_commit_history_report.md](docs/reports/2026-05-08_commit_history_report.md)
    - [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
 
 ### 協作開發
@@ -37,7 +58,7 @@
 - 先以本頁的「目前正式判準」為準，確認不要沿用 legacy parity path。
 - 接著讀：
   - [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md)
-  - [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
+  - [docs/reports/2026-05-08_commit_history_report.md](docs/reports/2026-05-08_commit_history_report.md)
   - [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md)
   - [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
 
@@ -67,59 +88,23 @@
 
 ---
 
-## 架構概觀
+## 目前主線概觀
 
+```mermaid
+flowchart LR
+    M["Mission contract"] --> C["Fourier-AVL calibration"]
+    C --> S["Fourier spanload candidate generation"]
+    S --> G["Smooth production geometry realization"]
+    G --> A["AVL realization check"]
+    A --> Z["Structure-budgeted loaded-Z search"]
+    Z --> R["AVL recheck on realizable loaded shape"]
+    R --> T["Tier2 full-alpha airfoil selection"]
+    T --> X["Aero-structure closure"]
+    X --> F["FEM/APDL, shell buckling, load-factor checks"]
 ```
-         configs/blackcat_004.yaml         參考 .vsp3（幾何真值）
-                   |                              |
-                   v                              v
-          +-----------------+             +------------------+
-          | Config (Pydantic)|  ───────▶  | VSPBuilder       |
-          | core/config.py   |            | aero/vsp_builder |
-          +-----------------+             +------------------+
-                   |                              |
-                   v                              v
-          +-----------------+             +------------------+
-          | VSPAero Parser  |             | Aircraft Builder  |
-          | aero/vsp_aero   |             | core/aircraft     |
-          +-----------------+             +------------------+
-                        \                /
-                         v              v
-                    +------------------------+
-                    |   Load Mapper           |
-                    |   aero/load_mapper      |
-                    +------------------------+
-                                |
-                                v
-                    +------------------------+
-                    |  OpenMDAO FEM Solver    |
-                    |  (6-DOF Timoshenko)     |
-                    |  structure/oas_struct   |
-                    +------------------------+
-                                |
-                                v
-                    +------------------------+
-                    |  Spar Optimizer         |  → disp (uz, θy)
-                    |  structure/optimizer    |
-                    +------------------------+
-                        |        |         |
-                        v        v         v
-          +----------------+  +--------+  +-----------------------+
-          | ANSYS Export   |  | Plots  |  | CruiseVSPBuilder       |
-          | APDL/CSV/BDF  |  +--------+  | aero/cruise_vsp_builder|
-          +----------------+              +-----------------------+
-                                                    |
-                                                    v
-                                          +-----------------+
-                                          | vsp_to_cfd.py   |
-                                          | STEP / STL      |
-                                          +-----------------+
-                                                    |
-                                                    v
-                        [Hi-Fi 驗證層：local structural spot-check]
-                               Gmsh → CalculiX → ParaView
-                               ASWING（依本機 binary） / SU2（長期）
-```
+
+舊的 inverse-design / jig-shape / CFRP / discrete-layup 能力仍然重要，但它們現在是上面這條
+pipeline 裡的子階段或下游 realization / validation 工具，不是單獨的主線敘事。
 
 ### OpenMDAO Component DAG
 
@@ -154,19 +139,31 @@ graph LR
 
 ## 目前正式判準
 
-這個 repo 目前有兩條容易混淆的結構路線，請以這裡為準：
+請用下面幾條判斷任何結果能不能被拿來宣稱：
 
-- **正式 structural truth / 設計判準**：`src/hpa_mdo/structure/dual_beam_mainline/` 的 `dual_beam_production` 模式，以及其上游的 joint workflow / producer 輸出。
-- **正式對外 consumer contract**：`python -m hpa_mdo.producer` 產出的 decision interface JSON。
-- **legacy parity path**：`equivalent_beam` 與 `scripts/ansys_crossval.py --export-mode equivalent_beam` 只保留為歷史 Phase I parity / regression 參考，不應再當成目前的設計 sign-off、排名基準或高保真比對目標。
-- **高保真幾何/驗證目標**：應優先對齊 dual-beam production / inverse-design artifacts，例如 production check report、selected design summary、`spar_jig_shape.step`、loaded-shape artifacts；不要預設拿 `output/blackcat_004/optimization_summary.txt` 或 `spar_model.step` 當最後真值。
-- **tip deflection 2.5 m gate**：目前是設計有效性 / submission / aeroelastic-assumption gate，不是斷裂點、材料強度 margin 或 root/joint/hardware sign-off。若要放寬到 submission 判準，必須先補 loaded-shape、aeroelastic twist、clearance、load-path recheck；Phase31/Phase39 artifacts 只允許 exploration relaxation，不允許直接宣稱 submission pass。
+- **正式主線基準**：Phase J pipeline，也就是
+  `Mission contract -> Fourier-AVL -> smooth production geometry -> loaded-Z -> Tier2 airfoil -> aero-structure closure -> FEM/APDL checks`。
+- **目前 candidate 定位**：`current_avl_compromise_conservative_closed` 是 conservative screening candidate，
+  可供幾何 / 結構 / 製造審查，不是 final production aircraft。
+- **FEM/APDL / shell / load-factor 定位**：目前是 candidate-relevant equivalent-physics validation / spot-check，
+  不等於 final composite/root/wire/rib/hardware sign-off。
+- **legacy parity path**：`equivalent_beam` 與 `scripts/ansys_crossval.py --export-mode equivalent_beam`
+  只保留為歷史 Phase I parity / regression 參考，不應再當成目前設計 sign-off 或排名基準。
+- **tip deflection 2.5 m gate**：是 design-validity / submission / aeroelastic-assumption gate，
+  不是斷裂點、材料強度 margin 或 root/joint/hardware sign-off。
+- **rib / rear spar / wire detail**：這些是下游 bracing、local load path、joint / hardware validation 問題。
+  除非它們被證明會改變 aero-structure closure 的候選排序，否則不應取代 Phase J 主線成為短線第一優先。
 
-如果你是人或 AI 代理，對 Black Cat 004 的後續開發請優先讀：
+Phase J 之後新增的結構補強主要是 claim-boundary / engineering guardrail：它們讓
+rear spar stiffness、rib bracing、wire attach、root joint、torsion/twist、wire termination、
+rib spacing、full-wing buckling、failure mode ordering 等問題不再被過度宣稱，但尚未把這些
+detail validation 全部做完。
 
-- [docs/dual_beam_workflow_architecture_overview.md](docs/dual_beam_workflow_architecture_overview.md)
-- [docs/dual_beam_consumer_integration_guide.md](docs/dual_beam_consumer_integration_guide.md)
-- [docs/GRAND_BLUEPRINT.md](docs/GRAND_BLUEPRINT.md)
+如果你是人或 AI 代理，後續開發請優先讀：
+
+- [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md)
+- [docs/reports/2026-05-08_commit_history_report.md](docs/reports/2026-05-08_commit_history_report.md)
+- [docs/README.md](docs/README.md)
 
 ---
 

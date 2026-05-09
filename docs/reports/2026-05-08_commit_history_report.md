@@ -1,9 +1,10 @@
 # HPA-MDO Commit History Report
 
-> 產出日期：2026-05-08
+> 產出日期：2026-05-08；Phase J 後續補強更新：2026-05-09
 > 目的：用 git commit history 重建目前飛機設計脈絡，供日本側機體設計概念文件使用。
 > 主要依據：目前 `HEAD/main` 的 commit subject 全量索引、現行 truth 文件、最新 candidate / FEM / Go Mode 輸出。
-> 注意：本報告不是所有舊 README 或舊研究文件的合併摘要。當舊文件與現行主線衝突時，以 `CURRENT_MAINLINE.md`、`project_state.yaml`、最新 candidate package 與 commit history 為準。
+> 注意：本報告不是所有舊 README 或舊研究文件的合併摘要。當舊文件與現行主線衝突時，以 `CURRENT_MAINLINE.md`、Phase J pipeline、最新 candidate package 與 commit history 為準。
+> 2026-05-09 補記：索引檔仍是 2026-05-08 原始快照；本報告正文另外補上 `0a754030..5580f35f` 的 Phase J 後續結構宣稱 / guardrail 工作。
 
 ## 0. 產出檔案
 
@@ -20,14 +21,19 @@
 
 本報告的工程敘事以 `HEAD/main` 的 1090 筆 commit 為主。`all_refs` 只作為「確實還有其他歷史/分支 commit」的保留索引，不直接拿來定義目前機體狀態。
 
+2026-05-09 補記沒有重新產生 TSV / CSV 索引；它只把 Phase J 之後的 99 筆主線 commit
+作為 addendum 納入本文工程判讀，避免 README / CURRENT_MAINLINE 繼續停在舊主線敘事。
+
 ## 1. Raw Commit Facts
 
 ### 1.1 範圍
 
-- `HEAD/main` commit 數：1090
+- 原始 `HEAD/main` commit 數：1090
+- 2026-05-09 補記時 `HEAD/main` commit 數：1189
 - `git log --all` unique commit 數：1217
-- `HEAD/main` 時間範圍：2026-04-06 14:11:48 +0800 到 2026-05-08 22:24:55 +0800
-- 最新 `HEAD/main` commit：`0a754030` - `fix: 修正 candidate shell buckling 載重步驟`
+- 原始 `HEAD/main` 時間範圍：2026-04-06 14:11:48 +0800 到 2026-05-08 22:24:55 +0800
+- 原始最新 `HEAD/main` commit：`0a754030` - `fix: 修正 candidate shell buckling 載重步驟`
+- 2026-05-09 補記最新 commit：`5580f35f` - `fix: 要求 rib bracing 來源可追溯`
 - 第一筆 commit：`70f8255e` - `Initial commit`
 
 ### 1.2 Prefix 統計
@@ -63,22 +69,23 @@
 
 1. `feat` 不等於工程已驗證。很多 `feat` 是把 route、diagnostic、report、candidate contract 接起來，必須再看後面的 `test`、`fix`、`docs: trust policy`。
 2. `docs` 不一定只是輔助說明。這個 repo 裡很多工程判斷是以報告、handoff、policy 文件作為正式產物。
-3. 舊文件不能直接代表現在。`README.md` 已經比早期可靠，但正式判準仍應先看 `CURRENT_MAINLINE.md` 與最新 candidate / FEM 輸出。
+3. `README.md` 和 `CURRENT_MAINLINE.md` 必須跟著 commit history 回寫更新；若它們與 Phase J pipeline 或最新 candidate / FEM 輸出衝突，先以 commit-derived evidence 修正主文件，而不是沿用舊敘事。
 
 ## 3. Executive Bottom Line
 
 目前這個專案已經不是「拿一台既有 Black Cat 004 幾何，做 spar sizing」的單純結構最佳化工具。commit history 顯示它逐步變成一條更完整的機體設計流程：
 
 ```text
-Mission / design requirement
--> spanload and planform concept
--> AVL / lightweight aero screening
--> target loaded shape
--> inverse design to jig shape
--> realizable loaded shape check
--> airfoil / local Cl-Re selection
--> CFRP tube / discrete layup / wire / rib / clearance checks
--> candidate package and FEM/APDL spot-check
+Mission contract
+-> Fourier-AVL calibration
+-> Fourier spanload candidate generation
+-> smooth production geometry realization
+-> AVL realization check
+-> structure-budgeted loaded-Z search
+-> AVL recheck on realizable loaded shape
+-> Tier2 full-alpha airfoil selection
+-> aero-structure closure
+-> FEM/APDL / shell buckling / load-factor checks
 ```
 
 重新設計飛機的理由不是「想換外型」而已，而是目前證據顯示：
@@ -86,7 +93,7 @@ Mission / design requirement
 - 舊的 airfoil-first 或 geometry-first 流程會把 local `Cl/Re`、spanload、loaded shape、結構可行性分開看，容易得到漂亮但不可製造/不可實現的結果。
 - 現行 6-7 deg 低 beam-line Z interpretation，在目前 beam-line contract 與 selected-airfoil spanload 下沒有通過 mass + ground-clearance screening。
 - 目前可推進的是 `current_avl_compromise_conservative_closed` 這個 screening candidate，不是 final production truth。
-- 最新 FEM / CalculiX / shell buckling 工作已把很多工具錯配修掉，但 candidate 仍停在「internal screening + candidate-relevant equivalent-physics validation」層級，還不到 composite/root-joint/flight sign-off。
+- 最新 FEM / CalculiX / shell buckling 工作已把很多工具錯配修掉，Phase J 後續也新增一系列 structural claim-boundary / engineering guardrail；但 candidate 仍停在「internal screening + candidate-relevant equivalent-physics validation」層級，還不到 composite/root-joint/rib-joint/wire-hardware/flight sign-off。
 - Birdman upstream concept 線的舊 real Julia/XFOIL run 沒有找到可完成 42.195 km 的完全可行解，最佳診斷點航程約 16.1 km，因此新的機體概念不能只沿用舊假設，必須重新整理 mission、span cap、wing area、airfoil、prop、wire-braced structure。
 
 ## 4. Development Phases From Commit History
@@ -369,6 +376,49 @@ Mission contract
 工程意義：
 
 這不是「所有問題解完」，而是第一次把 airfoil、loaded shape、structure budget、closure 和 validation package 以一條相對一致的 pipeline 收起來。它很適合拿去跟日本側說明目前狀態，也很適合指出還缺哪些工程驗證。
+
+### Phase K - 2026-05-09: Structural Claim-Boundary / Guardrail Addendum
+
+代表 commit：
+
+- `feat: 新增結構 closure index`
+- `feat: 新增後梁扭轉剛性 audit`
+- `feat: 新增局部載荷路徑 ledger`
+- `feat: 新增 rib spacing requirements`
+- `feat: 新增 failure mode ordering ledger`
+- `feat: 新增 detail margin input checker`
+- `feat: 新增 rib bracing margin input checker`
+- `feat: 新增 torsion twist closure input checker`
+- `feat: 新增 full wing buckling closure input checker`
+- `feat: 新增 tip deflection revalidation checker`
+- `feat: 新增 wire attach 載荷分解`
+- `feat: 新增 root joint 載荷 envelope`
+- `feat: 新增 wire termination efficiency sensitivity`
+- `feat: 補上 braced subassembly fem evidence route`
+- `feat: 補上 phase44 mode shape review`
+- `feat: 補上 phase45 rib spacing link review`
+- `feat: 補上 local detail criticality ordering`
+- `feat: 補上 root joint / wire termination / wire attach detail feasibility screen`
+- `fix: 要求 rib bracing 來源可追溯`
+
+這一波不是新的上游 aircraft concept pipeline，也不是把 detail FEM 全部做完。它的實際價值是：
+
+- 把 rear spar stiffness、rib load transfer、wire attach local load path、root joint、
+  torsion/twist、wire termination、rib spacing、tip deflection、full-wing buckling、
+  failure mode ordering 這些「容易被過度宣稱」的項目整理成可審查的 evidence / blocker。
+- 讓 Phase J 的 FEM/APDL / shell buckling / load-factor checks 不會被誤讀成 final aircraft sign-off。
+- 把 2.5 m tip deflection 明確維持在 design-validity / submission gate，而不是斷裂點。
+- 要求 full-wing 1.5G / 1.75G claim 必須有 global evidence，不能只靠 local wall buckling pass。
+- 要求 rib bracing / shell bay assumption 能追到實體 station、link 或 FEM evidence，避免把 0.30 m rib-bay 當成自動成立。
+- 要求 wire attach、root joint、termination、insert、bond、local tube wall 等 detail path 不只看單一 cable tensile allowable。
+- 要求 failure mode ordering 在 wire 升級後重新由 global bracing / joint / detail evidence 排序。
+
+工程意義：
+
+Phase K 讓 candidate review 更安全，因為它會在證據不足時 fail closed；但它不是主線優先順序的替代品。
+若要決定下一步是否做 rib FEM，應先問：rib / bracing assumption 是否已經會改變 Phase J pipeline
+裡的 aero-structure closure candidate 排序？如果只是 final sign-off gap，它應留在 downstream validation
+queue，而不是取代 mission / Fourier-AVL / smooth realization / loaded-Z / airfoil / closure 主線。
 
 ## 5. Current Aircraft Status From Latest Evidence
 
