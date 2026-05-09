@@ -78,6 +78,12 @@ from scripts.phase41_braced_subassembly_fem_evidence import (  # noqa: E402
 from scripts.phase42_phase41_reference_load_review import (  # noqa: E402
     build_current_phase41_reference_load_review,
 )
+from scripts.phase44_phase41_mode_shape_review import (  # noqa: E402
+    build_current_phase41_mode_shape_review,
+)
+from scripts.phase45_phase41_rib_spacing_link_review import (  # noqa: E402
+    build_current_phase41_rib_spacing_link_review,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase25_failure_mode_ordering"
@@ -127,6 +133,8 @@ def build_failure_mode_ordering(
     full_wing_buckling_claim_boundary: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
     phase41_reference_load_review: Any | None = None,
+    phase41_mode_shape_review: Any | None = None,
+    phase41_rib_spacing_link_review: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
 ) -> FailureModeOrdering:
@@ -150,6 +158,8 @@ def build_failure_mode_ordering(
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        phase41_mode_shape_review=phase41_mode_shape_review,
+        phase41_rib_spacing_link_review=phase41_rib_spacing_link_review,
     )
     rows = (*ranked, *unranked)
     return FailureModeOrdering(
@@ -184,6 +194,8 @@ def write_failure_mode_ordering_package(
     full_wing_buckling_claim_boundary: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
     phase41_reference_load_review: Any | None = None,
+    phase41_mode_shape_review: Any | None = None,
+    phase41_rib_spacing_link_review: Any | None = None,
     tip_deflection_revalidation_check: Any | None = None,
     tip_deflection_claim_boundary: Any | None = None,
 ) -> list[Path]:
@@ -204,6 +216,8 @@ def write_failure_mode_ordering_package(
         full_wing_buckling_claim_boundary=full_wing_buckling_claim_boundary,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        phase41_mode_shape_review=phase41_mode_shape_review,
+        phase41_rib_spacing_link_review=phase41_rib_spacing_link_review,
         tip_deflection_revalidation_check=tip_deflection_revalidation_check,
         tip_deflection_claim_boundary=tip_deflection_claim_boundary,
     )
@@ -258,6 +272,8 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         ),
     )
     phase41_reference_load_review = build_current_phase41_reference_load_review()
+    phase41_mode_shape_review = build_current_phase41_mode_shape_review()
+    phase41_rib_spacing_link_review = build_current_phase41_rib_spacing_link_review()
     return build_failure_mode_ordering(
         claim_review,
         detail_requirements=detail_requirements,
@@ -274,6 +290,8 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         full_wing_buckling_claim_boundary=build_current_full_wing_buckling_claim_boundary(),
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        phase41_mode_shape_review=phase41_mode_shape_review,
+        phase41_rib_spacing_link_review=phase41_rib_spacing_link_review,
         tip_deflection_revalidation_check=build_tip_deflection_revalidation_check(
             reference,
             revalidation_inputs=[],
@@ -362,6 +380,8 @@ def _unranked_real_structure_rows(
     full_wing_buckling_claim_boundary: Any | None,
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    phase41_mode_shape_review: Any | None,
+    phase41_rib_spacing_link_review: Any | None,
 ) -> tuple[FailureModeOrderingRow, ...]:
     details = _detail_entries(detail_requirements)
     detail_margins = _detail_entries(detail_margin_check)
@@ -410,6 +430,7 @@ def _unranked_real_structure_rows(
             evidence=(
                 f"{_rib_spacing_evidence(rib_spacing_requirements)} "
                 f"{_rib_bracing_margin_evidence(rib_bracing_margin_check)}"
+                f" {_phase41_rib_spacing_link_review_evidence(phase41_rib_spacing_link_review)}"
             ),
             next_evidence="Finite-stiffness rib/link model plus rib shear, cap, bond, and spar-attach allowables.",
         ),
@@ -445,6 +466,7 @@ def _unranked_real_structure_rows(
             status=_full_wing_global_buckling_status(
                 braced_subassembly_fem_evidence,
                 phase41_reference_load_review,
+                phase41_mode_shape_review,
             ),
             basis="local/internal buckling checks only",
             evidence=(
@@ -453,9 +475,11 @@ def _unranked_real_structure_rows(
                 f" {_full_wing_buckling_claim_boundary_evidence(full_wing_buckling_claim_boundary)}"
                 f" {_braced_subassembly_fem_evidence(braced_subassembly_fem_evidence)}"
                 f" {_phase41_reference_load_review_evidence(phase41_reference_load_review)}"
+                f" {_phase41_mode_shape_review_evidence(phase41_mode_shape_review)}"
             ),
             next_evidence=_full_wing_global_buckling_next_evidence(
-                phase41_reference_load_review
+                phase41_reference_load_review,
+                phase41_mode_shape_review,
             ),
         ),
     )
@@ -495,22 +519,31 @@ def _detail_row(
 def _full_wing_global_buckling_status(
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    phase41_mode_shape_review: Any | None,
 ) -> str:
     if _phase41_reference_not_rankable_count(phase41_reference_load_review) > 0:
         return "unranked_global_buckling_reference_load_formulation_not_rankable"
     if _braced_reference_load_review_count(braced_subassembly_fem_evidence) > 0:
         return "unranked_global_buckling_reference_load_review_required"
+    if _phase41_mode_shape_review_required(phase41_mode_shape_review):
+        return "unranked_global_buckling_mode_screened_manual_mesh_review_required"
     return "unranked_global_buckling_fem_missing"
 
 
 def _full_wing_global_buckling_next_evidence(
     phase41_reference_load_review: Any | None,
+    phase41_mode_shape_review: Any | None,
 ) -> str:
     if _phase41_reference_not_rankable_count(phase41_reference_load_review) > 0:
         return (
             "Replace Phase41's transverse lift/moment reference with a qualified "
             "global/prestress buckling load case, then repeat mode review, "
             "mesh/link sensitivity, and braced/full-wing promotion."
+        )
+    if _phase41_mode_shape_review_required(phase41_mode_shape_review):
+        return (
+            "Complete manual mode identity review, boundary-condition review, "
+            "mesh/link sensitivity, and then promote a qualified braced/full-wing row."
         )
     return (
         "Resolve Phase41 reference-load/sign convention, mode review, "
@@ -598,6 +631,78 @@ def _phase41_reference_load_review_evidence(review: Any | None) -> str:
         f"{implausible_lambda}; "
         "support-opposes rows="
         f"{support_opposes}."
+    )
+
+
+def _phase41_mode_shape_review_evidence(review: Any | None) -> str:
+    if review is None:
+        return "phase41 mode shape review is not available."
+    rows = tuple(getattr(review, "rows", ()))
+    spar_balances = [
+        _attr_float(row, "spar_mean_participation_ratio")
+        for row in rows
+        if _attr_float(row, "spar_mean_participation_ratio") is not None
+    ]
+    tip_ratios = [
+        _attr_float(row, "tip_to_max_ratio")
+        for row in rows
+        if _attr_float(row, "tip_to_max_ratio") is not None
+    ]
+    root_ratios = [
+        _attr_float(row, "root_to_max_ratio")
+        for row in rows
+        if _attr_float(row, "root_to_max_ratio") is not None
+    ]
+    return (
+        "phase41 mode shape review status="
+        f"{getattr(review, 'overall_status', 'unknown')}; "
+        "review-required rows="
+        f"{int(getattr(review, 'review_required_count', 0))}; "
+        "missing rows="
+        f"{int(getattr(review, 'missing_count', 0))}; "
+        "min spar balance="
+        f"{_fmt(min(spar_balances) if spar_balances else None)}; "
+        "max tip/max="
+        f"{_fmt(max(tip_ratios) if tip_ratios else None)}; "
+        "max root/max="
+        f"{_fmt(max(root_ratios) if root_ratios else None)}."
+    )
+
+
+def _phase41_mode_shape_review_required(review: Any | None) -> bool:
+    return (
+        review is not None
+        and getattr(review, "overall_status", "")
+        == "phase41_mode_shape_engineering_review_required"
+        and int(getattr(review, "missing_count", 0)) == 0
+    )
+
+
+def _phase41_rib_spacing_link_review_evidence(review: Any | None) -> str:
+    if review is None:
+        return "phase41 rib spacing link review is not available."
+    rows = tuple(getattr(review, "rows", ()))
+    subbays = [
+        _attr_float(row, "max_model_link_subbay_m")
+        for row in rows
+        if _attr_float(row, "max_model_link_subbay_m") is not None
+    ]
+    margins = [
+        _attr_float(row, "link_spacing_margin_m")
+        for row in rows
+        if _attr_float(row, "link_spacing_margin_m") is not None
+    ]
+    return (
+        "rib spacing link review status="
+        f"{getattr(review, 'overall_status', 'unknown')}; "
+        "nominal spacing met rows="
+        f"{int(getattr(review, 'nominal_spacing_met_count', 0))}; "
+        "physical signoff rows="
+        f"{int(getattr(review, 'physical_signoff_count', 0))}; "
+        "max model subbay="
+        f"{_fmt(max(subbays) if subbays else None)} m; "
+        "min spacing margin="
+        f"{_fmt(min(margins) if margins else None)} m."
     )
 
 

@@ -282,6 +282,75 @@ def _phase41_reference_load_review() -> SimpleNamespace:
     )
 
 
+def _phase41_reference_load_review_required() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="phase41_reference_load_review_required",
+        row_count=2,
+        not_rankable_count=0,
+        balanced_count=2,
+        rows=(
+            SimpleNamespace(
+                status="mode_review_still_required",
+                axial_reference_load_status="no_axial_compression_reference",
+                lambda_plausibility_status="screening_range",
+                sign_convention_read="support_reaction_opposes_applied_fz",
+            ),
+            SimpleNamespace(
+                status="mode_review_still_required",
+                axial_reference_load_status="no_axial_compression_reference",
+                lambda_plausibility_status="screening_range",
+                sign_convention_read="support_reaction_opposes_applied_fz",
+            ),
+        ),
+    )
+
+
+def _phase41_mode_shape_review() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="phase41_mode_shape_engineering_review_required",
+        row_count=2,
+        review_required_count=2,
+        missing_count=0,
+        rows=(
+            SimpleNamespace(
+                status="mode_shape_engineering_review_required",
+                spar_mean_participation_ratio=0.9763,
+                tip_to_max_ratio=1.0,
+                root_to_max_ratio=0.000026,
+            ),
+            SimpleNamespace(
+                status="mode_shape_engineering_review_required",
+                spar_mean_participation_ratio=0.9763,
+                tip_to_max_ratio=1.0,
+                root_to_max_ratio=0.000026,
+            ),
+        ),
+    )
+
+
+def _phase41_rib_spacing_link_review() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="phase41_rib_spacing_model_matches_nominal_not_physical_signoff",
+        row_count=2,
+        nominal_spacing_met_count=2,
+        physical_signoff_count=0,
+        rows=(
+            SimpleNamespace(
+                status="phase41_link_spacing_matches_nominal_not_physical_signoff",
+                max_model_link_subbay_m=0.2977,
+                link_spacing_margin_m=0.0023,
+                station_count_delta=-1,
+            ),
+            SimpleNamespace(
+                status="phase41_link_spacing_matches_nominal_not_physical_signoff",
+                max_model_link_subbay_m=0.2977,
+                link_spacing_margin_m=0.0023,
+                station_count_delta=-1,
+            ),
+        ),
+    )
+
+
 def _tip_deflection_revalidation_check() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="tip_deflection_current_submission_gate_retained",
@@ -341,6 +410,8 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
         braced_subassembly_fem_evidence=_braced_subassembly_fem_evidence(),
         phase41_reference_load_review=_phase41_reference_load_review(),
+        phase41_mode_shape_review=_phase41_mode_shape_review(),
+        phase41_rib_spacing_link_review=_phase41_rib_spacing_link_review(),
         tip_deflection_revalidation_check=_tip_deflection_revalidation_check(),
         tip_deflection_claim_boundary=_tip_deflection_claim_boundary(),
     )
@@ -391,6 +462,11 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
     assert "rib traceability gaps=1" in by_key["rib_load_transfer"].evidence
     assert "rib station coverage gaps=1" in by_key["rib_load_transfer"].evidence
+    assert "rib spacing link review status=phase41_rib_spacing_model_matches_nominal_not_physical_signoff" in by_key[
+        "rib_load_transfer"
+    ].evidence
+    assert "max model subbay=0.2977 m" in by_key["rib_load_transfer"].evidence
+    assert "physical signoff rows=0" in by_key["rib_load_transfer"].evidence
     assert "closure status=closure_input_missing" in by_key["torsion_twist_coupling"].evidence
     assert "missing claim n=unknown" not in by_key["torsion_twist_coupling"].evidence
     assert "screening status=torsion_twist_screening_not_aeroelastic_signoff" in by_key[
@@ -433,9 +509,46 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
         "full_wing_global_buckling"
     ].evidence
     assert "support-opposes rows=2" in by_key["full_wing_global_buckling"].evidence
+    assert "phase41 mode shape review status=phase41_mode_shape_engineering_review_required" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
+    assert "min spar balance=0.9763" in by_key["full_wing_global_buckling"].evidence
     assert "transverse lift/moment reference" in by_key[
         "full_wing_global_buckling"
     ].next_evidence
+
+
+def test_failure_mode_ordering_uses_phase44_after_reference_load_review_is_rankable() -> None:
+    ordering = build_failure_mode_ordering(
+        _claim_review(),
+        full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
+        braced_subassembly_fem_evidence=SimpleNamespace(
+            overall_status="braced_subassembly_solver_ran_mode_review_required",
+            solver_ran_count=2,
+            mode_reviewed_count=0,
+            claim_load_factor_coverage="1.50;1.75",
+            rows=(
+                SimpleNamespace(
+                    first_eigen_multiplier=2.7857,
+                    reference_load_status="screening_range",
+                    phase30_closure_status="reference_load_review_missing",
+                ),
+                SimpleNamespace(
+                    first_eigen_multiplier=2.3877,
+                    reference_load_status="screening_range",
+                    phase30_closure_status="reference_load_review_missing",
+                ),
+            ),
+        ),
+        phase41_reference_load_review=_phase41_reference_load_review_required(),
+        phase41_mode_shape_review=_phase41_mode_shape_review(),
+    )
+
+    row = {row.mode_key: row for row in ordering.rows}["full_wing_global_buckling"]
+    assert row.status == "unranked_global_buckling_mode_screened_manual_mesh_review_required"
+    assert "phase41 mode shape review status=phase41_mode_shape_engineering_review_required" in row.evidence
+    assert "manual mode identity" in row.next_evidence
 
 
 def test_failure_mode_ordering_surfaces_local_subcomponent_traceability_gaps() -> None:
