@@ -728,12 +728,20 @@ def _phase41_reference_load_review() -> SimpleNamespace:
             SimpleNamespace(
                 status="reference_load_formulation_not_rankable",
                 axial_reference_load_status="no_axial_compression_reference",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status=(
+                    "bending_moment_reference_present_unreviewed"
+                ),
                 lambda_plausibility_status="implausibly_high_for_claim_margin",
                 sign_convention_read="support_reaction_opposes_applied_fz",
             ),
             SimpleNamespace(
                 status="reference_load_formulation_not_rankable",
                 axial_reference_load_status="no_axial_compression_reference",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status=(
+                    "bending_moment_reference_present_unreviewed"
+                ),
                 lambda_plausibility_status="implausibly_high_for_claim_margin",
                 sign_convention_read="support_reaction_opposes_applied_fz",
             ),
@@ -1079,6 +1087,9 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "full_wing_global_buckling"
     ].current_evidence
     assert "no axial compression reference rows=2" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
+    assert "bending compression path review rows=2" in by_key[
         "full_wing_global_buckling"
     ].current_evidence
     assert "mode shape review status=phase41_mode_shape_engineering_review_required" in by_key[

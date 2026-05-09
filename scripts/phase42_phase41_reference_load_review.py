@@ -46,6 +46,8 @@ class Phase41ReferenceLoadReviewRow:
     first_eigen_multiplier: float | None
     lambda_plausibility_status: str
     axial_reference_load_status: str
+    bending_reference_load_status: str
+    compressive_reference_path_status: str
     phase41_status: str
     phase30_closure_status: str
     engineering_read: str
@@ -129,12 +131,17 @@ def _build_row(phase41_row: Any) -> Phase41ReferenceLoadReviewRow:
     first_lambda = _first_lambda(phase41_row, dat_path)
     lambda_status = _lambda_status(first_lambda)
     axial_status = _axial_reference_status(applied_fy)
+    bending_status = _bending_reference_status(applied_my)
+    compressive_reference_path_status = _compressive_reference_path_status(
+        axial_status=axial_status,
+        bending_status=bending_status,
+    )
     balance_status = _balance_status(fz_balance_error)
     sign_read = _sign_convention_read(applied_fz, support_fz)
     status = _row_status(
         balance_status=balance_status,
         lambda_status=lambda_status,
-        axial_status=axial_status,
+        compressive_reference_path_status=compressive_reference_path_status,
     )
     return Phase41ReferenceLoadReviewRow(
         case_id=str(phase41_row.case_id),
@@ -152,6 +159,8 @@ def _build_row(phase41_row: Any) -> Phase41ReferenceLoadReviewRow:
         first_eigen_multiplier=first_lambda,
         lambda_plausibility_status=lambda_status,
         axial_reference_load_status=axial_status,
+        bending_reference_load_status=bending_status,
+        compressive_reference_path_status=compressive_reference_path_status,
         phase41_status=str(phase41_row.status),
         phase30_closure_status=str(phase41_row.phase30_closure_status),
         engineering_read=_engineering_read(
@@ -159,6 +168,8 @@ def _build_row(phase41_row: Any) -> Phase41ReferenceLoadReviewRow:
             balance_status=balance_status,
             lambda_status=lambda_status,
             axial_status=axial_status,
+            bending_status=bending_status,
+            compressive_reference_path_status=compressive_reference_path_status,
         ),
         next_action=_next_action(status),
     )
@@ -248,22 +259,41 @@ def _axial_reference_status(applied_fy: float | None) -> str:
     return "axial_reference_load_present"
 
 
+def _bending_reference_status(applied_my: float | None) -> str:
+    if applied_my is None or abs(applied_my) <= 1.0e-12:
+        return "no_bending_moment_reference"
+    return "bending_moment_reference_present"
+
+
+def _compressive_reference_path_status(
+    *,
+    axial_status: str,
+    bending_status: str,
+) -> str:
+    if axial_status == "axial_reference_load_present":
+        return "direct_axial_reference_present"
+    if bending_status == "bending_moment_reference_present":
+        return "bending_moment_reference_present_unreviewed"
+    return "compressive_reference_path_missing"
+
+
 def _row_status(
     *,
     balance_status: str,
     lambda_status: str,
-    axial_status: str,
+    compressive_reference_path_status: str,
 ) -> str:
     if balance_status == "load_balance_review_required":
         return "load_balance_or_sign_review_required"
     if (
         lambda_status == "implausibly_high_for_claim_margin"
-        and axial_status == "no_axial_compression_reference"
+        and compressive_reference_path_status
+        != "direct_axial_reference_present"
     ):
         return "reference_load_formulation_not_rankable"
     if lambda_status == "not_available":
         return "solver_eigenvalue_missing"
-    if axial_status == "no_axial_compression_reference":
+    if compressive_reference_path_status != "direct_axial_reference_present":
         return "reference_load_compression_path_review_required"
     return "mode_review_still_required"
 
@@ -274,21 +304,25 @@ def _engineering_read(
     balance_status: str,
     lambda_status: str,
     axial_status: str,
+    bending_status: str,
+    compressive_reference_path_status: str,
 ) -> str:
     if status == "reference_load_formulation_not_rankable":
         return (
             "The vertical reaction balance is acceptable, so a simple FZ sign flip is not the primary issue. "
-            "The Phase41 deck is a transverse lift/moment reference with no axial compression reference, "
-            "and the very large eigen multiplier is not usable buckling margin."
+            "The Phase41 deck is a transverse lift/moment reference with "
+            f"{axial_status}, {bending_status}, and "
+            f"{compressive_reference_path_status}; the very large eigen multiplier "
+            "is not usable buckling margin."
         )
     if status == "load_balance_or_sign_review_required":
         return "The applied vertical load and support reaction do not balance closely enough for buckling ranking."
     if status == "reference_load_compression_path_review_required":
         return (
-            "The eigen multiplier is in a screening range, but the deck has no direct axial "
-            "compression reference. Bending moment may create compression, so this needs a "
-            "reviewed compressive reference path before mode-shape review can be treated as "
-            "rankable buckling evidence."
+            "The eigen multiplier is in a screening range, and the deck has "
+            f"{bending_status}, but its compressive reference path is "
+            f"{compressive_reference_path_status}. Review the bending/axial prestress "
+            "path before mode-shape review can be treated as rankable buckling evidence."
         )
     return (
         "Reference load still needs mode review before ranking. "
@@ -344,14 +378,16 @@ def _write_markdown(path: Path, review: Phase41ReferenceLoadReview) -> Path:
         f"- compression-path review rows: `{review.compression_path_review_count}`",
         f"- balanced rows: `{review.balanced_count}`",
         "",
-        "| case | status | Fz N | RFz N | balance % | axial ref | lambda status | lambda |",
-        "|---|---|---:|---:|---:|---|---|---:|",
+        "| case | status | Fz N | RFz N | balance % | axial ref | bending ref | compression path | lambda status | lambda |",
+        "|---|---|---:|---:|---:|---|---|---|---|---:|",
     ]
     for row in review.rows:
         lines.append(
             f"| {row.case_id} | `{row.status}` | {_fmt(row.applied_fz_n)} | "
             f"{_fmt(row.support_reaction_fz_n)} | {_fmt(row.fz_balance_error_pct)} | "
-            f"{row.axial_reference_load_status} | {row.lambda_plausibility_status} | "
+            f"{row.axial_reference_load_status} | {row.bending_reference_load_status} | "
+            f"{row.compressive_reference_path_status} | "
+            f"{row.lambda_plausibility_status} | "
             f"{_fmt(row.first_eigen_multiplier)} |"
         )
     lines.extend(

@@ -402,12 +402,20 @@ def _phase41_reference_load_review() -> SimpleNamespace:
             SimpleNamespace(
                 status="reference_load_formulation_not_rankable",
                 axial_reference_load_status="no_axial_compression_reference",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status=(
+                    "bending_moment_reference_present_unreviewed"
+                ),
                 lambda_plausibility_status="implausibly_high_for_claim_margin",
                 sign_convention_read="support_reaction_opposes_applied_fz",
             ),
             SimpleNamespace(
                 status="reference_load_formulation_not_rankable",
                 axial_reference_load_status="no_axial_compression_reference",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status=(
+                    "bending_moment_reference_present_unreviewed"
+                ),
                 lambda_plausibility_status="implausibly_high_for_claim_margin",
                 sign_convention_read="support_reaction_opposes_applied_fz",
             ),
@@ -425,12 +433,20 @@ def _phase41_reference_load_review_required() -> SimpleNamespace:
             SimpleNamespace(
                 status="mode_review_still_required",
                 axial_reference_load_status="no_axial_compression_reference",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status=(
+                    "bending_moment_reference_present_unreviewed"
+                ),
                 lambda_plausibility_status="screening_range",
                 sign_convention_read="support_reaction_opposes_applied_fz",
             ),
             SimpleNamespace(
                 status="mode_review_still_required",
                 axial_reference_load_status="no_axial_compression_reference",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status=(
+                    "bending_moment_reference_present_unreviewed"
+                ),
                 lambda_plausibility_status="screening_range",
                 sign_convention_read="support_reaction_opposes_applied_fz",
             ),
@@ -680,6 +696,9 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     ].evidence
     assert "not-rankable rows=2" in by_key["full_wing_global_buckling"].evidence
     assert "no axial compression reference rows=2" in by_key[
+        "full_wing_global_buckling"
+    ].evidence
+    assert "bending compression path review rows=2" in by_key[
         "full_wing_global_buckling"
     ].evidence
     assert "support-opposes rows=2" in by_key["full_wing_global_buckling"].evidence

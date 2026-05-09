@@ -702,6 +702,18 @@ def _phase41_reference_load_review_evidence(review: Any | None) -> str:
         if getattr(row, "lambda_plausibility_status", "")
         == "implausibly_high_for_claim_margin"
     )
+    bending_path_unreviewed = sum(
+        1
+        for row in rows
+        if getattr(row, "compressive_reference_path_status", "")
+        == "bending_moment_reference_present_unreviewed"
+    )
+    compression_path_missing = sum(
+        1
+        for row in rows
+        if getattr(row, "compressive_reference_path_status", "")
+        == "compressive_reference_path_missing"
+    )
     return (
         "phase41 reference review status="
         f"{getattr(review, 'overall_status', 'unknown')}; "
@@ -713,6 +725,10 @@ def _phase41_reference_load_review_evidence(review: Any | None) -> str:
         f"{int(getattr(review, 'balanced_count', 0))}; "
         "no axial compression reference rows="
         f"{no_axial}; "
+        "bending compression path review rows="
+        f"{bending_path_unreviewed}; "
+        "compression path missing rows="
+        f"{compression_path_missing}; "
         "implausible lambda rows="
         f"{implausible_lambda}; "
         "support-opposes rows="

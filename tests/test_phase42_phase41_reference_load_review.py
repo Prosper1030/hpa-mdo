@@ -120,6 +120,10 @@ def test_phase42_classifies_balanced_transverse_reference_as_not_rankable(
     assert row.fz_balance_error_pct == 2.0
     assert row.fz_balance_status == "balanced"
     assert row.axial_reference_load_status == "no_axial_compression_reference"
+    assert row.bending_reference_load_status == "bending_moment_reference_present"
+    assert row.compressive_reference_path_status == (
+        "bending_moment_reference_present_unreviewed"
+    )
     assert row.lambda_plausibility_status == "implausibly_high_for_claim_margin"
     assert row.sign_convention_read == "support_reaction_opposes_applied_fz"
     assert "transverse lift/moment reference" in row.engineering_read
@@ -142,6 +146,10 @@ def test_phase42_separates_no_axial_reference_from_mode_shape_review(
     assert row.status == "reference_load_compression_path_review_required"
     assert row.lambda_plausibility_status == "screening_range"
     assert row.axial_reference_load_status == "no_axial_compression_reference"
+    assert row.bending_reference_load_status == "bending_moment_reference_present"
+    assert row.compressive_reference_path_status == (
+        "bending_moment_reference_present_unreviewed"
+    )
     assert "compressive reference path" in row.engineering_read
 
 
@@ -166,3 +174,4 @@ def test_phase42_writes_handoff_files(tmp_path: Path) -> None:
         encoding="utf-8"
     )
     assert "not usable buckling margin" in report
+    assert "bending_moment_reference_present_unreviewed" in report
