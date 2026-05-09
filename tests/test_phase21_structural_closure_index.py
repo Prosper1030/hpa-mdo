@@ -617,6 +617,33 @@ def _phase41_mode_shape_review() -> SimpleNamespace:
     )
 
 
+def _phase41_rib_spacing_link_review() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="phase41_rib_spacing_model_matches_nominal_not_physical_signoff",
+        row_count=2,
+        nominal_spacing_met_count=2,
+        physical_signoff_count=0,
+        rows=(
+            SimpleNamespace(
+                status="phase41_link_spacing_matches_nominal_not_physical_signoff",
+                max_model_link_subbay_m=0.2977,
+                link_spacing_margin_m=0.0023,
+                model_bracing_station_count=60,
+                recommended_station_count=61,
+                station_count_delta=-1,
+            ),
+            SimpleNamespace(
+                status="phase41_link_spacing_matches_nominal_not_physical_signoff",
+                max_model_link_subbay_m=0.2977,
+                link_spacing_margin_m=0.0023,
+                model_bracing_station_count=60,
+                recommended_station_count=61,
+                station_count_delta=-1,
+            ),
+        ),
+    )
+
+
 def _existing_detail_allowable_evidence_triage() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="existing_detail_allowables_do_not_close_goal",
@@ -688,6 +715,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         braced_subassembly_fem_evidence=_braced_subassembly_fem_evidence(),
         phase41_reference_load_review=_phase41_reference_load_review(),
         phase41_mode_shape_review=_phase41_mode_shape_review(),
+        phase41_rib_spacing_link_review=_phase41_rib_spacing_link_review(),
         existing_detail_allowable_evidence_triage=_existing_detail_allowable_evidence_triage(),
     )
 
@@ -772,12 +800,14 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase40" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase41" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase44" in by_key["rib_load_transfer"].evidence_artifacts
+    assert "Phase45" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase43" in by_key["rib_load_transfer"].evidence_artifacts
     assert "diagnostic status=surrogate_load_transfer_not_signoff" in by_key[
         "rib_load_transfer"
     ].current_evidence
     assert "Phase24" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert "Phase28" in by_key["rib_load_transfer"].evidence_artifacts
+    assert "Phase45" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert "Phase43" in by_key["rib_spacing_assumption"].evidence_artifacts
     assert "added stations=15" in by_key["rib_spacing_assumption"].current_evidence
     assert "max recommended subbay=0.2970 m" in by_key["rib_load_transfer"].current_evidence
@@ -785,6 +815,12 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "traceability-gap bays=1" in by_key["rib_load_transfer"].current_evidence
     assert "station-coverage-gap bays=1" in by_key["rib_load_transfer"].current_evidence
     assert "missing bays=2" in by_key["rib_spacing_assumption"].current_evidence
+    assert "rib spacing link review status=phase41_rib_spacing_model_matches_nominal_not_physical_signoff" in by_key[
+        "rib_spacing_assumption"
+    ].current_evidence
+    assert "max model subbay=0.2977 m" in by_key[
+        "rib_spacing_assumption"
+    ].current_evidence
     assert "Phase25" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase40" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase41" in by_key["failure_mode_ordering"].evidence_artifacts

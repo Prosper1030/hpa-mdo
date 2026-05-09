@@ -220,6 +220,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "claim_boundary_plus_braced_route_unreviewed"
+    if _phase45_model_spacing_not_physical_signoff(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "layout_plus_model_link_spacing_not_physical_signoff"
     return EVIDENCE_STRENGTH_BY_KEY[key]
 
 
@@ -308,6 +314,21 @@ def _phase44_mode_shape_review_required(
         and "Phase44" in evidence_artifacts
         and "phase41_mode_shape_engineering_review_required" in evidence_summary
         and "missing rows=0" in evidence_summary
+    )
+
+
+def _phase45_model_spacing_not_physical_signoff(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "rib_spacing_assumption"
+        and "Phase45" in evidence_artifacts
+        and "phase41_rib_spacing_model_matches_nominal_not_physical_signoff"
+        in evidence_summary
+        and "physical signoff rows=0" in evidence_summary
     )
 
 

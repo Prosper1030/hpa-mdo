@@ -219,6 +219,41 @@ def test_goal_completion_audit_tracks_mode_screened_but_not_signed_off() -> None
     )
 
 
+def test_goal_completion_audit_tracks_model_spacing_without_physical_signoff() -> None:
+    closure_index = _closure_index()
+    items = []
+    for item in closure_index.items:
+        if item.key == "rib_spacing_assumption":
+            item = SimpleNamespace(
+                key=item.key,
+                evidence_artifacts="Phase20; Phase24; Phase28; Phase43; Phase45",
+                current_evidence=(
+                    "Phase45: rib spacing link review status="
+                    "phase41_rib_spacing_model_matches_nominal_not_physical_signoff; "
+                    "nominal spacing met rows=2; physical signoff rows=0; "
+                    "max model subbay=0.2977 m."
+                ),
+                remaining_blocker=item.remaining_blocker,
+                next_action="Add finite rib stiffness and attach margins",
+            )
+        items.append(item)
+    audit = build_structural_goal_completion_audit(
+        SimpleNamespace(
+            candidate_id=closure_index.candidate_id,
+            items=tuple(items),
+        ),
+        failure_mode_ordering=_failure_mode_ordering(),
+    )
+
+    row = {row.key: row for row in audit.rows}["rib_spacing_assumption"]
+    assert row.evidence_strength == (
+        "layout_plus_model_link_spacing_not_physical_signoff"
+    )
+    assert row.completion_blocker == (
+        "physical_rib_stiffness_and_attachment_margin_missing"
+    )
+
+
 def test_write_goal_completion_audit_package_creates_handoff_files(tmp_path: Path) -> None:
     outputs = write_structural_goal_completion_audit_package(
         tmp_path,
