@@ -126,6 +126,18 @@ control station、airfoil transition、twist transition 都是 `missing_contract
 sweep 應使用這些 local zones；不能跳過 materialized audit 直接把 EPS/XPS foam-only 或
 warping-knockdown tuning 宣稱成 closure pass。
 
+rib / torsion rework verdict 已完成第一輪，讀
+[docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md)
+與 `output/current_pathfinder_rib_torsion_rework_verdict/`。目前 verdict 是
+`candidate_ready_for_local_FEM_and_coupon_before_FEM_package`，不是
+`ready_for_FEM_loadcase_package`。下一個可用候選是
+`eps_balsa_cap_hybrid_10mm + bounded_65pct_screening`：projection 顯示 direct / bounded
+twist 可到約 `2.663 deg / 1.602 deg`，rib mass 約 `5.365 kg`，比 balsa baseline 多
+`2.335 kg`，CG/rebalance 已計入。但 closure rerun 目前只真正吃到 rear-spar participation，
+hybrid effective-GJ 尚未接進 structural kernel；該 rerun 仍是 direct `5.438 deg`、bounded
+`3.271 deg`，所以 FEM/APDL package gate 仍被 closure rerun、direct stress-test、missing
+transition/control stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m` local FEM 卡住。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -160,6 +172,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 tail-aware rib / rear-spar sensitivity verdict 與 material-family compare | [docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | balsa baseline ready-for-closure basis; foam-only families stay low-stiffness references; hybrid rework candidates are listed |
 | 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged; twist-source audit points to hybrid rib/stiffness rework |
 | 看 current pathfinder rib station/bay 是否真的 materialized | [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | 121 station / 120 bay trace; shape, bond, collar, transition data still blocked |
+| 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |

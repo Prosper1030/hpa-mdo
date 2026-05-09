@@ -333,23 +333,36 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      bond/collar/spar contact 是 `needs_data`，y≈`2.328 m` 附近必須作 torque-critical
      local FEM / hybrid reinforcement zone。這一步是 hybrid stiffness rework 的前置基礎，
      不能被 warping-knockdown tuning 或 foam-only EPS/XPS pass claim 取代。
+   - Current pathfinder rib / torsion rework verdict 已建立：
+     `scripts/current_pathfinder_rib_torsion_rework_verdict.py` 與
+     `docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md`
+     把 sensitivity、tail-aware closure、materialized rib audit 接成下一階段 gate。
+     verdict 是 `candidate_ready_for_local_FEM_and_coupon_before_FEM_package`，不是
+     `ready_for_FEM_loadcase_package`。選出的下一個 local FEM/coupon candidate 是
+     `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening`，projection direct / bounded
+     twist 約 `2.663 deg / 1.602 deg`，rib mass 約 `5.365 kg`，比 balsa baseline 多
+     `2.335 kg`，且 CG/rebalance 已計入。但 closure rerun 目前只真正吃到 rear-spar
+     participation，hybrid effective-GJ 尚未進 structural kernel；該 rerun 仍是 direct
+     `5.438 deg`、bounded `3.271 deg`，所以 FEM/APDL package gate 仍被 closure rerun、
+     direct stress-test、missing transition/control stations、skin sag、bond/collar/spar
+     contact 與 y≈`2.328 m` local FEM 卡住。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
 full-aircraft AVL audit v0、V-tail / CG reference sizing sensitivity v0、以及 tail / CG /
 trim / stability screening v1 也已完成。tail-aware bounded rib / rear-spar stiffness
 sensitivity 已完成並選出下一階段 basis；tail-aware aeroelastic closure 第一輪已收斂但
-verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。這代表 managed CG/tail
-screening row 仍可用，但 selected stiffness / geometry basis 還不能包成 FEM/APDL loadcase
-package；twist-source audit 已把下一步收斂成 hybrid rib / shear-transfer stiffness rework；
-materialized rib contract audit 已把 0.30 m bay trace、missing transition/control data、
-skin sag、bond/collar 與 local FEM trigger 先鎖住；尤其 CG 必須使用 final managed row，
-而不是未補償的 tail/rib mass shift。
+verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。rib / torsion rework verdict
+第一輪也已完成，結論是 local FEM/coupon candidate 已可定義，但還不能進 FEM/APDL loadcase
+package。這代表 managed CG/tail screening row 仍可用，但 selected stiffness / geometry basis
+還不能包成 package；下一步不是擴大 search，而是把 hybrid rib effective-GJ 真的接進 structural
+kernel / closure rerun，並補 y≈`2.328 m` torque-critical zone 的 rib cap/face/collar/bond/
+tube-wall local FEM、skin sag coupon/panel evidence，以及 transition/control station manifest。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md` 和 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 為起點，做 hybrid rib / shear cap / skin / stronger rear-spar participation stiffness rework rerun。必須保留 selected basis 的 audit trail：`0.30 m` physical rib station basis、`121` full-wing materialized stations、max bay `0.297063 m`、torque-critical y≈`2.328 m` local FEM zone、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把 missing transition/control/bond/skin data 當 pass，不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready，也不能把 direct spar-pair rotation -> AVL incidence stress-test 當 qualified aero-surface twist。foam-only EPS/XPS/structural foam 只能保留為 low-stiffness reference。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md` 為起點，把 selected local FEM/coupon candidate `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` 從 projection 變成 closure-owned stiffness model。必須補：hybrid rib cap/face/collar geometry、rib-to-main/rear-spar bondline/contact、tube-wall local bearing/crush/peel FEM 或 allowables、0.30 m bay skin sag coupon/panel evidence、transport/control/airfoil/twist transition station manifest，並讓 tail-aware aeroelastic closure rerun 真正吃到 selected hybrid effective-GJ。不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural foam-only 當 structural bracing pass，也不能把 GJ scaling projection 或 direct spar-pair stress-test proxy 包成 FEM/APDL package-ready。
 ```
 
 ## 8. 常用入口與角色
@@ -399,10 +412,13 @@ skin sag、bond/collar 與 local FEM trigger 先鎖住；尤其 CG 必須使用 
   - `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md`
   - `scripts/current_pathfinder_materialized_rib_contract_audit.py`
   - `docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md`
+  - `scripts/current_pathfinder_rib_torsion_rework_verdict.py`
+  - `docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md`
 - 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
   warping knockdown、mass/CG bookkeeping 與 closure ranking 接成 tail-aware aeroelastic
   screening basis，並把 current pathfinder 的 rib station / bay / missing contract / skin sag /
-  bond-collar / local FEM trigger materialize 成下一輪 hybrid rework 的前置 audit。
+  bond-collar / local FEM trigger materialize 成下一輪 hybrid rework 的前置 audit，再把
+  candidate trade / closure rerun boundary / FEM package blockers 輸出成可重跑 verdict。
 - 注意：rib/rear-spar sensitivity verdict 是 `ready_for_tail_aware_aeroelastic_closure`；
   material-family verdict 是 `foam_only_families_do_not_clear_current_aeroelastic_closure`；
   twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。closure 第一輪 verdict 仍是
@@ -412,6 +428,10 @@ skin sag、bond/collar 與 local FEM trigger 先鎖住；尤其 CG 必須使用 
   to claim the current closure blocker is solved。materialized rib audit 只確認 `121` stations /
   `120` bays 與 max bay `0.297063 m`，但 transport/control/airfoil/twist transition、
   skin sag、bond/collar/spar contact 和 torque-critical local FEM 仍是 blocked / needs-data。
+  rework verdict 選出 `eps_balsa_cap_hybrid_10mm + bounded_65pct_screening` 作為 local
+  FEM/coupon candidate；projection direct / bounded twist 約 `2.663 deg / 1.602 deg`，
+  但 actual closure rerun 還沒吃到 hybrid GJ，仍是 direct `5.438 deg` / bounded
+  `3.271 deg`，所以不是 FEM/APDL package-ready。
 
 ### F. FEM/APDL / shell / load-factor spot-check
 

@@ -1,0 +1,55 @@
+{
+  "do_not_promote": [
+    "rear_spar_participation_1p00_as_selected_basis",
+    "EPS/XPS/structural-foam-only as structural bracing",
+    "GJ scaling projection as FEM-ready evidence"
+  ],
+  "dominant_twist_source": "aerodynamic_torque_only",
+  "recommended_hybrid_reinforcement_zones": [
+    {
+      "bay_ids": [
+        "B066",
+        "B067",
+        "B068",
+        "B069"
+      ],
+      "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+      "station_ids": [
+        "R067",
+        "R068",
+        "R069"
+      ],
+      "y_end_m": 2.627757,
+      "y_start_m": 2.027757,
+      "zone_id": "positive_torque_critical_hybrid_reinforcement_zone"
+    },
+    {
+      "bay_ids": [
+        "B050",
+        "B051",
+        "B052",
+        "B053"
+      ],
+      "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+      "station_ids": [
+        "R051",
+        "R052",
+        "R053"
+      ],
+      "y_end_m": -2.027757,
+      "y_start_m": -2.627757,
+      "zone_id": "negative_torque_critical_hybrid_reinforcement_zone"
+    }
+  ],
+  "required_before_fem_apdl_package": [
+    "hybrid rib cap/face/collar geometry at y\u22482.328 m torque-critical zone",
+    "rib-to-main/rear-spar bondline and collar/contact geometry",
+    "tube-wall local bearing/crush/peel allowables or local FEM",
+    "skin sag coupon/panel evidence for 0.30 m bays",
+    "transport/control/airfoil/twist transition station manifest",
+    "closure rerun with the selected effective stiffness model wired in"
+  ],
+  "selected_family_key": "eps_balsa_cap_hybrid_10mm",
+  "selected_rear_spar_participation": "bounded_65pct_screening",
+  "torque_critical_y_m": 2.327757
+}

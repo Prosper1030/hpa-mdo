@@ -1,0 +1,463 @@
+{
+  "baseline_state": {
+    "baseline_bounded_physical_twist_deg": 3.256324201634334,
+    "baseline_direct_spar_pair_twist_deg": 5.41349407833138,
+    "baseline_elastic_twist_max_abs_deg": 5.41361724091341,
+    "baseline_rear_spar_participation": "bounded_50pct_screening",
+    "baseline_rear_stiffness_scale": 0.5,
+    "baseline_rib_family": "balsa_sheet_3mm",
+    "baseline_warping_knockdown": 0.50246,
+    "current_closure_blockers": [
+      "elastic_twist_exceeds_screening_bound"
+    ],
+    "current_closure_verdict": "needs_aeroelastic_geometry_or_stiffness_rework",
+    "dominant_twist_source": "aerodynamic_torque_only",
+    "final_cg_x_m": 0.75,
+    "forward_rebalance_mass_kg": 56.0,
+    "materialized_audit_verdict": "blocked_needs_materialized_bond_shape_data",
+    "rear_spar_mass_delta_kg": 0.0,
+    "required_forward_rebalance_m": 0.091302,
+    "rib_mass_kg": 3.029671,
+    "rib_spacing_m": 0.3,
+    "selected_case_id": "finite_rib_rear_0p50_selected_screening_basis",
+    "tail_mass_delta_kg": 1.172727,
+    "torque_critical_y_m": 2.32775736816,
+    "twist_bound_deg": 3.0,
+    "uncompensated_cg_x_m": 0.801026
+  },
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "candidate_trade_rows": [
+    {
+      "candidate_rib_mass_kg": 3.029671,
+      "effective_gj_ratio_vs_balsa_selected": 1.0,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Balsa baseline retained as the comparison datum; do not treat it as clearing the current twist blocker without a rerun.",
+      "family_key": "balsa_sheet_3mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "balsa_baseline",
+      "projected_bounded_physical_twist_deg": 3.256324,
+      "projected_direct_spar_pair_twist_deg": 5.413617,
+      "projection_blockers": [
+        "bounded_physical_twist_still_exceeds_screening_bound"
+      ],
+      "projection_verdict": "candidate_rework_still_needs_more_stiffness_or_mapping",
+      "rear_spar_participation": "bounded_50pct_screening",
+      "rear_stiffness_scale": 0.5,
+      "rejection_reasons": [
+        "projection_not_ready_for_tail_aware_closure_rerun",
+        "bounded_physical_twist_still_exceeds_screening_bound"
+      ],
+      "rib_mass_delta_vs_baseline_kg": 0.0,
+      "selection_status": "rejected",
+      "warping_knockdown": 0.50246
+    },
+    {
+      "candidate_rib_mass_kg": 3.029671,
+      "effective_gj_ratio_vs_balsa_selected": 1.248502,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Balsa baseline retained as the comparison datum; do not treat it as clearing the current twist blocker without a rerun.",
+      "family_key": "balsa_sheet_3mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "balsa_baseline",
+      "projected_bounded_physical_twist_deg": 2.608186,
+      "projected_direct_spar_pair_twist_deg": 4.336092,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_65pct_screening",
+      "rear_stiffness_scale": 0.65,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 0.0,
+      "selection_status": "candidate",
+      "warping_knockdown": 0.50246
+    },
+    {
+      "candidate_rib_mass_kg": 3.029671,
+      "effective_gj_ratio_vs_balsa_selected": 1.403825,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Balsa baseline retained as the comparison datum; do not treat it as clearing the current twist blocker without a rerun.",
+      "family_key": "balsa_sheet_3mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "balsa_baseline",
+      "projected_bounded_physical_twist_deg": 2.319608,
+      "projected_direct_spar_pair_twist_deg": 3.856333,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_75pct_screening",
+      "rear_stiffness_scale": 0.75,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 0.0,
+      "selection_status": "candidate",
+      "warping_knockdown": 0.50246
+    },
+    {
+      "candidate_rib_mass_kg": 5.365042,
+      "effective_gj_ratio_vs_balsa_selected": 1.627734,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "capped_hybrid_foam_rib",
+      "projected_bounded_physical_twist_deg": 2.000526,
+      "projected_direct_spar_pair_twist_deg": 3.32586,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_50pct_screening",
+      "rear_stiffness_scale": 0.5,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 2.335371,
+      "selection_status": "candidate",
+      "warping_knockdown": 0.819399
+    },
+    {
+      "candidate_rib_mass_kg": 5.365042,
+      "effective_gj_ratio_vs_balsa_selected": 2.032971,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "capped_hybrid_foam_rib",
+      "projected_bounded_physical_twist_deg": 1.601756,
+      "projected_direct_spar_pair_twist_deg": 2.662909,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_65pct_screening",
+      "rear_stiffness_scale": 0.65,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 2.335371,
+      "selection_status": "selected",
+      "warping_knockdown": 0.819399
+    },
+    {
+      "candidate_rib_mass_kg": 5.365042,
+      "effective_gj_ratio_vs_balsa_selected": 2.28626,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "capped_hybrid_foam_rib",
+      "projected_bounded_physical_twist_deg": 1.424302,
+      "projected_direct_spar_pair_twist_deg": 2.367892,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_75pct_screening",
+      "rear_stiffness_scale": 0.75,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 2.335371,
+      "selection_status": "candidate",
+      "warping_knockdown": 0.819399
+    },
+    {
+      "candidate_rib_mass_kg": 11.361265,
+      "effective_gj_ratio_vs_balsa_selected": 1.833651,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "structural_foam_glass_face_10mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "structural_foam_caps_faces",
+      "projected_bounded_physical_twist_deg": 1.775869,
+      "projected_direct_spar_pair_twist_deg": 2.952371,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_50pct_screening",
+      "rear_stiffness_scale": 0.5,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 8.331593999999999,
+      "selection_status": "candidate",
+      "warping_knockdown": 0.923365
+    },
+    {
+      "candidate_rib_mass_kg": 11.361265,
+      "effective_gj_ratio_vs_balsa_selected": 2.290302,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "structural_foam_glass_face_10mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "structural_foam_caps_faces",
+      "projected_bounded_physical_twist_deg": 1.421788,
+      "projected_direct_spar_pair_twist_deg": 2.363714,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_65pct_screening",
+      "rear_stiffness_scale": 0.65,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 8.331593999999999,
+      "selection_status": "candidate",
+      "warping_knockdown": 0.923365
+    },
+    {
+      "candidate_rib_mass_kg": 11.361265,
+      "effective_gj_ratio_vs_balsa_selected": 2.575726,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "structural_foam_glass_face_10mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "material_category": "structural_foam_caps_faces",
+      "projected_bounded_physical_twist_deg": 1.264235,
+      "projected_direct_spar_pair_twist_deg": 2.101783,
+      "projection_blockers": [],
+      "projection_verdict": "candidate_for_tail_aware_closure_rerun",
+      "rear_spar_participation": "bounded_75pct_screening",
+      "rear_stiffness_scale": 0.75,
+      "rejection_reasons": [],
+      "rib_mass_delta_vs_baseline_kg": 8.331593999999999,
+      "selection_status": "candidate",
+      "warping_knockdown": 0.923365
+    }
+  ],
+  "claim_boundary": "This is a next-stage engineering verdict. Hybrid effective-GJ rows are projection-only unless a closure rerun explicitly owns that stiffness model. FEM/APDL loadcase packaging also remains blocked by bond, collar, skin sag, transition-station, and local tube-wall evidence.",
+  "closure_rerun_assessment": {
+    "blockers": [
+      "closure_rerun_not_package_ready",
+      "closure_rerun_elastic_twist_exceeds_bound",
+      "closure_rerun_bounded_twist_exceeds_bound",
+      "direct_spar_pair_stress_test_still_above_bound"
+    ],
+    "bounded_twist_status": "still_high",
+    "claim_boundary": "Closure rerun evidence is still not enough for package readiness if detail, bond, collar, skin sag, transition stations, or local FEM are missing.",
+    "closure_verdict": "needs_aeroelastic_geometry_or_stiffness_rework",
+    "conservative_bounded_physical_projection_max_abs_deg": 3.2709893834806536,
+    "direct_spar_pair_rotation_max_abs_deg": 5.437781096737553,
+    "direct_stress_test_status": "still_above_screening_bound",
+    "elastic_twist_max_abs_deg": 5.437878619079375,
+    "elastic_twist_screening_bound_deg": 3.0,
+    "status": "rerun_supplied"
+  },
+  "engineering_read": "The next useful candidate is eps_balsa_cap_hybrid_10mm with bounded_65pct_screening. It projects direct and bounded twist below 3 deg with mass/CG carried, but it is not FEM/APDL-loadcase ready because the hybrid stiffness is projection-only and materialized bond/collar/skin sag/transition/local FEM data are still open: ['missing_transition_or_control_station_contract', 'skin_sag_unknown_requires_test', 'bond_collar_spar_contact_needs_data', 'torque_critical_local_fem_required']. Closure rerun status is rerun_supplied.",
+  "engineering_verdict": "candidate_ready_for_local_FEM_and_coupon_before_FEM_package",
+  "fem_apdl_package_gate": {
+    "blockers": [
+      "closure_rerun_not_package_ready",
+      "closure_rerun_elastic_twist_exceeds_bound",
+      "closure_rerun_bounded_twist_exceeds_bound",
+      "direct_spar_pair_stress_test_still_above_bound",
+      "missing_transition_or_control_station_contract",
+      "skin_sag_unknown_requires_test",
+      "bond_collar_spar_contact_needs_data",
+      "torque_critical_local_fem_required",
+      "hybrid_effective_gj_is_projection_only_not_closure_rerun"
+    ],
+    "claim_boundary": "A ready gate requires a closure rerun that owns the selected stiffness plus no missing local detail, bond/collar, skin sag, transition station, or local FEM blockers.",
+    "ready": false,
+    "verdict_if_ready": "ready_for_FEM_loadcase_package"
+  },
+  "local_fem_coupon_requirements": {
+    "do_not_promote": [
+      "rear_spar_participation_1p00_as_selected_basis",
+      "EPS/XPS/structural-foam-only as structural bracing",
+      "GJ scaling projection as FEM-ready evidence"
+    ],
+    "dominant_twist_source": "aerodynamic_torque_only",
+    "recommended_hybrid_reinforcement_zones": [
+      {
+        "bay_ids": [
+          "B066",
+          "B067",
+          "B068",
+          "B069"
+        ],
+        "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+        "station_ids": [
+          "R067",
+          "R068",
+          "R069"
+        ],
+        "y_end_m": 2.627757,
+        "y_start_m": 2.027757,
+        "zone_id": "positive_torque_critical_hybrid_reinforcement_zone"
+      },
+      {
+        "bay_ids": [
+          "B050",
+          "B051",
+          "B052",
+          "B053"
+        ],
+        "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+        "station_ids": [
+          "R051",
+          "R052",
+          "R053"
+        ],
+        "y_end_m": -2.027757,
+        "y_start_m": -2.627757,
+        "zone_id": "negative_torque_critical_hybrid_reinforcement_zone"
+      }
+    ],
+    "required_before_fem_apdl_package": [
+      "hybrid rib cap/face/collar geometry at y\u22482.328 m torque-critical zone",
+      "rib-to-main/rear-spar bondline and collar/contact geometry",
+      "tube-wall local bearing/crush/peel allowables or local FEM",
+      "skin sag coupon/panel evidence for 0.30 m bays",
+      "transport/control/airfoil/twist transition station manifest",
+      "closure rerun with the selected effective stiffness model wired in"
+    ],
+    "selected_family_key": "eps_balsa_cap_hybrid_10mm",
+    "selected_rear_spar_participation": "bounded_65pct_screening",
+    "torque_critical_y_m": 2.327757
+  },
+  "materialized_contract_assessment": {
+    "blockers": [
+      "missing_transition_or_control_station_contract",
+      "skin_sag_unknown_requires_test",
+      "bond_collar_spar_contact_needs_data",
+      "torque_critical_local_fem_required"
+    ],
+    "bond_collar_statuses": [
+      "needs_data",
+      "needs_data_torque_or_mandatory_zone"
+    ],
+    "dominant_twist_source": "aerodynamic_torque_only",
+    "missing_contract_items": [
+      "transport_joint",
+      "control_station",
+      "airfoil_transition",
+      "twist_transition"
+    ],
+    "overall_verdict": "blocked_needs_materialized_bond_shape_data",
+    "ready_for_fem_package_detail_basis": false,
+    "recommended_hybrid_reinforcement_zones": [
+      {
+        "bay_ids": [
+          "B066",
+          "B067",
+          "B068",
+          "B069"
+        ],
+        "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+        "station_ids": [
+          "R067",
+          "R068",
+          "R069"
+        ],
+        "y_end_m": 2.627757,
+        "y_start_m": 2.027757,
+        "zone_id": "positive_torque_critical_hybrid_reinforcement_zone"
+      },
+      {
+        "bay_ids": [
+          "B050",
+          "B051",
+          "B052",
+          "B053"
+        ],
+        "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+        "station_ids": [
+          "R051",
+          "R052",
+          "R053"
+        ],
+        "y_end_m": -2.027757,
+        "y_start_m": -2.627757,
+        "zone_id": "negative_torque_critical_hybrid_reinforcement_zone"
+      }
+    ],
+    "skin_sag_statuses": [
+      "unknown_requires_test",
+      "unknown_requires_test_torque_zone"
+    ],
+    "station_bay_trace": {
+      "full_wing_bay_count": 120,
+      "full_wing_station_count": 121,
+      "half_wing_station_count": 61,
+      "max_materialized_bay_m": 0.297063,
+      "target_spacing_m": 0.3,
+      "target_spacing_materialized": true,
+      "trace_status": "physical_rib_stations_materialized"
+    },
+    "torque_critical_y_m": 2.327757
+  },
+  "schema_version": "current_pathfinder_rib_torsion_rework_verdict_v1",
+  "selected_rework_candidate": {
+    "claim_boundary": "Selected as the next local FEM/coupon candidate, not as FEM/APDL loadcase-package pass. Hybrid stiffness is still projection-only here.",
+    "effective_gj_ratio_vs_balsa_selected": 2.032971,
+    "elastic_twist_screening_bound_deg": 3.0,
+    "family_key": "eps_balsa_cap_hybrid_10mm",
+    "mass_cg_tail_trim_impact": {
+      "baseline_rib_mass_kg": 3.029671,
+      "candidate_rib_mass_kg": 5.365042,
+      "final_cg_x_m": 0.75,
+      "forward_rebalance_mass_kg": 56.0,
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "required_forward_rebalance_m": 0.079276,
+      "rib_mass_delta_vs_baseline_kg": 2.335371,
+      "tail_mass_delta_kg": 1.172727,
+      "uncompensated_cg_x_m": 0.793296
+    },
+    "material_category": "capped_hybrid_foam_rib",
+    "projected_bounded_physical_twist_deg": 1.601756,
+    "projected_bounded_twist_status": "clears_bound",
+    "projected_direct_spar_pair_twist_deg": 2.662909,
+    "projected_direct_stress_test_status": "clears_bound",
+    "projection": {
+      "baseline_bounded_physical_twist_deg": 3.256324,
+      "baseline_direct_spar_pair_twist_deg": 5.413617,
+      "blockers": [],
+      "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+      "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+      "effective_gj_ratio_vs_balsa_selected": 2.032971,
+      "elastic_twist_screening_bound_deg": 3.0,
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+      "projected_bounded_physical_twist_deg": 1.601756,
+      "projected_direct_spar_pair_twist_deg": 2.662909,
+      "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+      "rear_spar_participation": "bounded_65pct_screening",
+      "structural_status": "pass_screening_sensitivity"
+    },
+    "rear_spar_participation": "bounded_65pct_screening",
+    "rear_stiffness_scale": 0.65,
+    "rib_basis": {
+      "added_half_wing_station_count_from_phase24": 53,
+      "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+      "estimated_full_wing_rib_mass_kg": 5.365042,
+      "estimated_rib_pack_cg_x_m": 0.461633,
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "full_wing_rib_count": 121,
+      "half_wing_station_count": 61,
+      "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+      "material_basis": {
+        "compressive_or_shear_basis": "compressive_strength_pa=4e+06; shear_strength_pa=1.2e+06",
+        "compressive_strength_pa": 4000000.0,
+        "density_kgpm3": 85.0,
+        "description": "EPS CNC core rib with balsa edge strips, cap strips, or local gussets carrying rotational fixity.",
+        "family_category": "capped_hybrid_foam_rib",
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "intended_use": "Next stiffness-rework candidate when foam-only ribs are too soft but shop workflow still wants CNC foam cores.",
+        "label": "EPS foam rib with balsa/cap hybrid 10 mm",
+        "material_key": "eps_balsa_cap_hybrid_proxy",
+        "notes": "This is not EPS foam-only credit. Mass and stiffness are effective screening proxies until cap geometry and coupons are supplied.",
+        "shear_modulus_pa": 60000000.0,
+        "shear_strength_pa": 1200000.0,
+        "source_note": "Engineering-screening effective proxy: EPS core plus balsa/cap local reinforcement; keep foam-only EPS as the low-stiffness reference.",
+        "spacing_guidance": {
+          "max_m": 0.32,
+          "min_m": 0.18,
+          "nominal_m": 0.28
+        },
+        "stiffness_proxy": {
+          "construction_factor": 1.1,
+          "rotational_fixity_factor": 1.15,
+          "shear_transfer_factor": 1.2
+        },
+        "thickness_m": 0.01,
+        "trust_level": "rework_candidate_coupon_and_detail_required",
+        "young_modulus_pa": 450000000.0
+      },
+      "max_recommended_subbay_m": 0.297063,
+      "spacing_m": 0.3,
+      "warping_knockdown": 0.819399,
+      "warping_knockdown_details": {
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "raw_score": 4.53706161531891,
+        "relative_bending_scale": 5.637254901960786,
+        "relative_shear_scale": 1.2,
+        "relative_stiffness": 4.492637254901962,
+        "spacing_factor": 1.0098882589215223,
+        "spacing_m": 0.2970625684076923,
+        "warping_knockdown": 0.8193987949793828
+      }
+    },
+    "selection_basis": "Lowest added rib mass among non-foam, non-upper-bound rework candidates that project both direct stress-test and bounded physical twist below the screening bound.",
+    "warping_knockdown": 0.819399
+  }
+}
