@@ -628,7 +628,7 @@ def test_failure_mode_ordering_keeps_ranked_model_modes_separate_from_unranked_h
     assert "work priority only, not failure-load rank" in by_key["root_joint"].evidence
     assert "gate status=current_submission_gate_retained" in by_key["tip_deflection_limit"].evidence
     assert "added stations=53" in by_key["rib_load_transfer"].evidence
-    assert "rib allowables missing=2" in by_key["rib_load_transfer"].evidence
+    assert "rib stiffness/allowables missing=2" in by_key["rib_load_transfer"].evidence
     assert "rib traceability gaps=1" in by_key["rib_load_transfer"].evidence
     assert "rib station coverage gaps=1" in by_key["rib_load_transfer"].evidence
     assert "rib spacing link review status=phase41_rib_spacing_model_matches_nominal_not_physical_signoff" in by_key[

@@ -1335,7 +1335,12 @@ def _rib_spacing_summary(requirements: Any) -> str:
 
 def _rib_bracing_summary(check: Any) -> str:
     rows = tuple(getattr(check, "rows", ()))
-    missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
+    missing = sum(
+        1
+        for row in rows
+        if getattr(row, "status", "")
+        in {"rib_allowable_missing", "rib_stiffness_or_allowable_missing"}
+    )
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
     traceability_gap = sum(1 for row in rows if getattr(row, "status", "") == "rib_traceability_missing")
     station_coverage_gap = sum(
@@ -1344,7 +1349,7 @@ def _rib_bracing_summary(check: Any) -> str:
     return (
         "required link force="
         f"{_fmt(getattr(check, 'required_link_force_n', None))} N; "
-        "missing bays="
+        "missing input bays="
         f"{missing}; "
         "negative-margin bays="
         f"{negative}; "

@@ -49,7 +49,7 @@ def _rib_bracing_check() -> SimpleNamespace:
     return SimpleNamespace(
         required_link_force_n=934.5,
         rows=(
-            SimpleNamespace(status="rib_allowable_missing"),
+            SimpleNamespace(status="rib_stiffness_or_allowable_missing"),
             SimpleNamespace(status="rib_allowable_missing"),
             SimpleNamespace(status="rib_station_coverage_missing"),
         ),

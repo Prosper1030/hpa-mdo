@@ -266,7 +266,12 @@ def _rib_row(
     next_action: str,
 ) -> ExistingDetailAllowableEvidenceRow:
     rows = tuple(getattr(check, "rows", ()))
-    missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
+    missing = sum(
+        1
+        for row in rows
+        if getattr(row, "status", "")
+        in {"rib_allowable_missing", "rib_stiffness_or_allowable_missing"}
+    )
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
     traceability_gap = sum(1 for row in rows if getattr(row, "status", "") == "rib_traceability_missing")
     station_gap = sum(

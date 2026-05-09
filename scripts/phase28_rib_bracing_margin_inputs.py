@@ -48,10 +48,18 @@ class RibBracingMarginRow:
     link_margin_n: float | None
     allowable_shear_force_n: float | None
     shear_margin_n: float | None
+    allowable_cap_force_n: float | None
+    cap_margin_n: float | None
     allowable_bond_force_n: float | None
     bond_margin_n: float | None
+    allowable_main_spar_attach_force_n: float | None
+    main_spar_attach_margin_n: float | None
+    allowable_rear_spar_attach_force_n: float | None
+    rear_spar_attach_margin_n: float | None
+    rib_lateral_stiffness_n_per_m: float | None
     worst_margin_n: float | None
     allowable_basis: str
+    stiffness_basis: str
     evidence_type: str
     attachment_basis: str
     traceability_status: str
@@ -156,14 +164,33 @@ def _build_row(
 ) -> RibBracingMarginRow:
     allowable_link = _dict_float(allowable, "allowable_link_force_n")
     allowable_shear = _dict_float(allowable, "allowable_shear_force_n")
+    allowable_cap = _dict_float(allowable, "allowable_cap_force_n")
     allowable_bond = _dict_float(allowable, "allowable_bond_force_n")
+    allowable_main_attach = _dict_float(allowable, "allowable_main_spar_attach_force_n")
+    allowable_rear_attach = _dict_float(allowable, "allowable_rear_spar_attach_force_n")
+    rib_lateral_stiffness = _dict_float(allowable, "rib_lateral_stiffness_n_per_m")
     link_margin = _margin(allowable_link, required_link_force_n)
     shear_margin = _margin(allowable_shear, required_link_force_n)
+    cap_margin = _margin(allowable_cap, required_link_force_n)
     bond_margin = _margin(allowable_bond, required_link_force_n)
-    margins = [value for value in (link_margin, shear_margin, bond_margin) if value is not None]
+    main_attach_margin = _margin(allowable_main_attach, required_link_force_n)
+    rear_attach_margin = _margin(allowable_rear_attach, required_link_force_n)
+    margins = [
+        value
+        for value in (
+            link_margin,
+            shear_margin,
+            cap_margin,
+            bond_margin,
+            main_attach_margin,
+            rear_attach_margin,
+        )
+        if value is not None
+    ]
     rib_family = str((allowable or {}).get("rib_family", "")).strip()
     source = str((allowable or {}).get("source", "")).strip()
     allowable_basis = str((allowable or {}).get("allowable_basis", "")).strip()
+    stiffness_basis = str((allowable or {}).get("stiffness_basis", "")).strip()
     evidence_type = str((allowable or {}).get("evidence_type", "")).strip()
     attachment_basis = str((allowable or {}).get("attachment_basis", "")).strip()
     covered_station_count = _dict_int(allowable, "covered_intermediate_station_count")
@@ -190,11 +217,20 @@ def _build_row(
         rib_family=rib_family,
         source=source,
         allowable_basis=allowable_basis,
+        stiffness_basis=stiffness_basis,
         evidence_type=evidence_type,
         attachment_basis=attachment_basis,
     )
     status = _status(
-        provided=(allowable_link, allowable_shear, allowable_bond),
+        provided=(
+            allowable_link,
+            allowable_shear,
+            allowable_cap,
+            allowable_bond,
+            allowable_main_attach,
+            allowable_rear_attach,
+            rib_lateral_stiffness,
+        ),
         margins=margins,
         traceability_status=traceability_status,
         station_coverage_status=station_coverage_status,
@@ -218,17 +254,26 @@ def _build_row(
         link_margin_n=link_margin,
         allowable_shear_force_n=allowable_shear,
         shear_margin_n=shear_margin,
+        allowable_cap_force_n=allowable_cap,
+        cap_margin_n=cap_margin,
         allowable_bond_force_n=allowable_bond,
         bond_margin_n=bond_margin,
+        allowable_main_spar_attach_force_n=allowable_main_attach,
+        main_spar_attach_margin_n=main_attach_margin,
+        allowable_rear_spar_attach_force_n=allowable_rear_attach,
+        rear_spar_attach_margin_n=rear_attach_margin,
+        rib_lateral_stiffness_n_per_m=rib_lateral_stiffness,
         worst_margin_n=None if not margins else min(margins),
         allowable_basis=allowable_basis,
+        stiffness_basis=stiffness_basis,
         evidence_type=evidence_type,
         attachment_basis=attachment_basis,
         traceability_status=traceability_status,
         source=source,
         engineering_note=(
-            "Input margin check only; not finite-rib FEM signoff and not a substitute for rib stiffness, "
-            "station-by-station spar-attach, cap, web, bond, traceability, or manufacturing evidence."
+            "Input margin check only; not finite-rib FEM signoff and not a substitute for "
+            "station-by-station rib stiffness, spar-attach, cap, web, bond, traceability, "
+            "or manufacturing evidence."
         ),
     )
 
@@ -248,7 +293,7 @@ def _status(
     station_coverage_status: str,
 ) -> str:
     if any(value is None for value in provided):
-        return "rib_allowable_missing"
+        return "rib_stiffness_or_allowable_missing"
     if any(value < 0.0 for value in margins):
         return "margin_negative"
     if traceability_status != "traceable_input":
@@ -300,6 +345,7 @@ def _traceability_status(
     rib_family: str,
     source: str,
     allowable_basis: str,
+    stiffness_basis: str,
     evidence_type: str,
     attachment_basis: str,
 ) -> str:
@@ -309,6 +355,8 @@ def _traceability_status(
         return "source_missing"
     if not allowable_basis:
         return "allowable_basis_missing"
+    if not stiffness_basis:
+        return "stiffness_basis_missing"
     if not evidence_type:
         return "evidence_type_missing"
     if not attachment_basis:
@@ -332,8 +380,13 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
         "rib_family",
         "allowable_link_force_n",
         "allowable_shear_force_n",
+        "allowable_cap_force_n",
         "allowable_bond_force_n",
+        "allowable_main_spar_attach_force_n",
+        "allowable_rear_spar_attach_force_n",
+        "rib_lateral_stiffness_n_per_m",
         "allowable_basis",
+        "stiffness_basis",
         "evidence_type",
         "attachment_basis",
         "source",
@@ -359,8 +412,13 @@ def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
                     "rib_family": "",
                     "allowable_link_force_n": "",
                     "allowable_shear_force_n": "",
+                    "allowable_cap_force_n": "",
                     "allowable_bond_force_n": "",
+                    "allowable_main_spar_attach_force_n": "",
+                    "allowable_rear_spar_attach_force_n": "",
+                    "rib_lateral_stiffness_n_per_m": "",
                     "allowable_basis": "",
+                    "stiffness_basis": "",
                     "evidence_type": "",
                     "attachment_basis": "",
                     "source": "",
@@ -399,8 +457,8 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
         f"- traceability-gap bays: `{check.traceability_gap_count}`",
         f"- station-coverage-gap bays: `{check.station_coverage_gap_count}`",
         "",
-        "| bay | y start m | y end m | required stations | covered stations | station ids | station y m | max unsupported m | status | traceability | station coverage | required link N | link margin N | shear margin N | bond margin N | allowable basis | evidence type | attachment basis | source |",
-        "|---:|---:|---:|---:|---:|---|---|---:|---|---|---|---:|---:|---:|---:|---|---|---|---|",
+        "| bay | y start m | y end m | required stations | covered stations | station ids | station y m | max unsupported m | status | traceability | station coverage | required link N | link margin N | shear margin N | cap margin N | bond margin N | main attach margin N | rear attach margin N | rib stiffness N/m | allowable basis | stiffness basis | evidence type | attachment basis | source |",
+        "|---:|---:|---:|---:|---:|---|---|---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|---|---|---|",
     ]
     for row in check.rows:
         lines.append(
@@ -412,8 +470,12 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
             f"{_fmt(row.max_unsupported_subbay_m)} | "
             f"`{row.status}` | `{row.traceability_status}` | "
             f"`{row.station_coverage_status}` | {row.required_link_force_n:.3f} | "
-            f"{_fmt(row.link_margin_n)} | {_fmt(row.shear_margin_n)} | {_fmt(row.bond_margin_n)} | "
-            f"{row.allowable_basis or 'n/a'} | {row.evidence_type or 'n/a'} | "
+            f"{_fmt(row.link_margin_n)} | {_fmt(row.shear_margin_n)} | "
+            f"{_fmt(row.cap_margin_n)} | {_fmt(row.bond_margin_n)} | "
+            f"{_fmt(row.main_spar_attach_margin_n)} | {_fmt(row.rear_spar_attach_margin_n)} | "
+            f"{_fmt(row.rib_lateral_stiffness_n_per_m)} | "
+            f"{row.allowable_basis or 'n/a'} | {row.stiffness_basis or 'n/a'} | "
+            f"{row.evidence_type or 'n/a'} | "
             f"{row.attachment_basis or 'n/a'} | "
             f"{row.source or 'n/a'} |"
         )
@@ -422,8 +484,8 @@ def _write_markdown(path: Path, check: RibBracingMarginCheck) -> Path:
             "",
             "## Boundary",
             "",
-            "- Positive margins here only mean supplied rib/link/bond numbers exceed the Phase 22 surrogate link-force requirement.",
-            "- A traceable rib input requires rib family, source, allowable basis, evidence type, and attachment basis for each bay.",
+            "- Positive margins here only mean supplied rib/link/cap/bond/spar-attach numbers exceed the Phase 22 surrogate link-force requirement and a rib stiffness input exists.",
+            "- A traceable rib input requires rib family, source, allowable basis, stiffness basis, evidence type, and attachment basis for each bay.",
             "- Each bay-level input must identify station count, station IDs, physical station y positions, and a maximum unsupported sub-bay no larger than the Phase 24 recommendation.",
             "- This is not finite-rib FEM signoff and does not close bracing stiffness, station-level spar attachment, cap/web sizing, or full-wing buckling by itself.",
             "",

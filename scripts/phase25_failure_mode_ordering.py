@@ -1146,7 +1146,12 @@ def _rib_bracing_margin_evidence(check: Any | None) -> str:
     if check is None:
         return "rib bracing margin input is not available."
     rows = tuple(getattr(check, "rows", ()))
-    missing = sum(1 for row in rows if getattr(row, "status", "") == "rib_allowable_missing")
+    missing = sum(
+        1
+        for row in rows
+        if getattr(row, "status", "")
+        in {"rib_allowable_missing", "rib_stiffness_or_allowable_missing"}
+    )
     negative = sum(1 for row in rows if getattr(row, "status", "") == "margin_negative")
     traceability_gap = sum(1 for row in rows if getattr(row, "status", "") == "rib_traceability_missing")
     station_coverage_gap = sum(
@@ -1155,7 +1160,7 @@ def _rib_bracing_margin_evidence(check: Any | None) -> str:
     return (
         "required link force="
         f"{_fmt(_attr_float(check, 'required_link_force_n'))} N; "
-        "rib allowables missing="
+        "rib stiffness/allowables missing="
         f"{missing}; "
         "negative rib margins="
         f"{negative}; "

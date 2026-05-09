@@ -1013,7 +1013,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "required link force=934.5000 N" in by_key["rib_load_transfer"].current_evidence
     assert "traceability-gap bays=1" in by_key["rib_load_transfer"].current_evidence
     assert "station-coverage-gap bays=1" in by_key["rib_load_transfer"].current_evidence
-    assert "missing bays=2" in by_key["rib_spacing_assumption"].current_evidence
+    assert "missing input bays=2" in by_key["rib_spacing_assumption"].current_evidence
     assert "rib spacing link review status=phase41_rib_spacing_model_matches_nominal_not_physical_signoff" in by_key[
         "rib_spacing_assumption"
     ].current_evidence
