@@ -5,6 +5,7 @@
 > **更新基準**：2026-05-09 repo 現況；核心基準來自
 > `docs/reports/2026-05-08_commit_history_report.md` 的 Phase J pipeline，
 > `docs/reports/2026-05-09_phase_j_evidence_map.md` 的 stage-by-stage artifact mapping，
+> `docs/reports/2026-05-09_pathfinder_basis_lock.md` 的 pathfinder geometry/load basis lock，
 > 並納入 Phase J 後續結構宣稱 / FEM claim-boundary 補強。
 > **適用對象**：使用者、協作開發者、AI agent。
 
@@ -173,6 +174,14 @@ Phase J evidence map 已重新深度審核，位置在
 目前 artifact / candidate / trust boundary 的對照表，也是舊 medium-search source 的
 quarantine 文件。
 
+Pathfinder Basis Lock 已建立，位置在
+`docs/reports/2026-05-09_pathfinder_basis_lock.md`。它把
+`current_avl_compromise_conservative_closed` 鎖定為 downstream screening pathfinder：
+從 `smooth_tier2_production_baseline` 經 loaded-Z、loaded-shape AVL、Tier2 airfoil、
+aero-structure closure 到 final candidate package 的 artifact chain 是可追溯的；但
+current mission -> promoted Fourier/Fourier-AVL trace -> 這個 exact candidate 尚未鎖定，
+physical aerodynamic surface / quarter-chord / clearance 也還不能等同 beam-line Z proxy。
+
 最新判讀：目前 Stage 0 mission design-space / drag-budget contract 是可用 source，且
 commit history 已包含 pilot power / thermal derate、mission design-space scan、drag budget、
 MissionContract / FourierTarget、airfoil sidecar、smooth geometry、loaded-Z、Tier2 airfoil
@@ -192,10 +201,16 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 3. **之後才看 aero-structure closure 的工程可信度**
    - 目的：確認 `current_avl_compromise_conservative_closed` 是否真的在同一個 geometry / load /
      airfoil / structure state 上閉合。
-4. **rib 先停在工程模型研究與 contract 定義**
-   - 目的：等 GPT Pro 或外部工程研究回來後，再決定 rib 要放在 surrogate、closure input、
-     還是 FEM detail validation。
-   - 除非 rib / bracing sensitivity 被證明會改變 closure candidate 排序，否則不要取代短線第一優先。
+4. **在 ASWing coupling / rib sensitivity / FEM detail 三者中，先做 bounded rib/rear-spar sensitivity**
+   - 目的：用同一個 locked pathfinder load/Z basis 跑 rear-soft/rear-stiff、finite-rib-link、
+     no-rib/limited-rib 等 bounded sensitivity，確認 loaded tip Z、root-offset-removed AVL section Z、
+     clearance、twist、tube mass、wire tension 與 closure ranking 會不會被 bracing 假設改變。
+   - 原因：現有 Phase32 / structural closure evidence 已顯示 rear spar / rib assumptions
+     會大幅移動 response；若先跑 ASWing，可能只是把錯的 stiffness basis 耦合得更漂亮。
+     FEM detail 則應吃已鎖定的 load/geometry envelope，不應先決定哪個 beam-line / aero-surface
+     state 才是真正設計狀態。
+   - 後續順序：bounded rib/rear-spar sensitivity -> ASWing / equivalent aeroelastic coupling ->
+     root/wire/termination/rib hardware FEM detail。
 
 可直接用於新 goal 的 objective：
 

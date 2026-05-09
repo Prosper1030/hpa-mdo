@@ -34,6 +34,12 @@ Tier2 airfoil 與 closure 都已接出來。現在缺的是一份 promoted trace
 mission handoff 乾淨追到 `current_avl_compromise_conservative_closed`；所以目前 go-mode
 candidate 是 conservative screening candidate，不是 final aircraft。
 
+如果要看目前 pathfinder 本身的 basis lock，讀
+[docs/reports/2026-05-09_pathfinder_basis_lock.md](docs/reports/2026-05-09_pathfinder_basis_lock.md)。
+它把 `current_avl_compromise_conservative_closed` 的 downstream artifact chain、
+beam-line proxy / aerodynamic surface / clearance / loaded-Z 一致性、以及下一步
+ASWing coupling / rib sensitivity / FEM detail 的優先順序鎖清楚。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -63,6 +69,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 判斷目前真正主線 | [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md) | 單一真相文件 |
 | 理解主線為什麼變成 Phase J | [docs/reports/2026-05-08_commit_history_report.md](docs/reports/2026-05-08_commit_history_report.md) | commit-derived pipeline report |
 | 看 Phase J 每一步目前到底靠哪些 artifact / candidate / trust boundary | [docs/reports/2026-05-09_phase_j_evidence_map.md](docs/reports/2026-05-09_phase_j_evidence_map.md) | stage-by-stage evidence map |
+| 看目前 pathfinder 的 locked basis / geometry-state 一致性 / 下一步優先序 | [docs/reports/2026-05-09_pathfinder_basis_lock.md](docs/reports/2026-05-09_pathfinder_basis_lock.md) | candidate basis lock |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
 | 接續任務包 | [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md) | 多 agent handoff |
