@@ -1,6 +1,6 @@
 """HPA-MDO: Human-Powered Aircraft Multidisciplinary Design Optimization Framework."""
 
-from hpa_mdo.aero.load_mapper import LoadMapper
+from hpa_mdo.aero.load_mapper import ConservativeLoadMapper, LoadMapper
 from hpa_mdo.core.config import load_config
 from hpa_mdo.core.errors import ErrorCode, HPAError
 from hpa_mdo.core.materials import MaterialDB
@@ -11,6 +11,7 @@ __version__ = "0.1.0"
 __all__ = [
     "ErrorCode",
     "HPAError",
+    "ConservativeLoadMapper",
     "LoadMapper",
     "MaterialDB",
     "OptimizationResult",

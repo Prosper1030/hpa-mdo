@@ -40,6 +40,12 @@ candidate 是 conservative screening candidate，不是 final aircraft。
 beam-line proxy / aerodynamic surface / clearance / loaded-Z 一致性、以及下一步
 ASWing coupling / rib sensitivity / FEM detail 的優先順序鎖清楚。
 
+如果要做 rib / rear-spar sensitivity，先讀
+[docs/reports/2026-05-09_conservative_load_mapper_foundation.md](docs/reports/2026-05-09_conservative_load_mapper_foundation.md)。
+`ConservativeLoadMapper` 是 aero grid -> structural grid 的 opt-in conservative remap foundation；
+它守恆 total lift、root bending moment、total pitching torque，並輸出 correction diagnostics。
+它是 sensitivity 前置基礎，不是 aeroelastic sign-off。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -70,6 +76,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 理解主線為什麼變成 Phase J | [docs/reports/2026-05-08_commit_history_report.md](docs/reports/2026-05-08_commit_history_report.md) | commit-derived pipeline report |
 | 看 Phase J 每一步目前到底靠哪些 artifact / candidate / trust boundary | [docs/reports/2026-05-09_phase_j_evidence_map.md](docs/reports/2026-05-09_phase_j_evidence_map.md) | stage-by-stage evidence map |
 | 看目前 pathfinder 的 locked basis / geometry-state 一致性 / 下一步優先序 | [docs/reports/2026-05-09_pathfinder_basis_lock.md](docs/reports/2026-05-09_pathfinder_basis_lock.md) | candidate basis lock |
+| 看 conservative load remap / rib sensitivity 前置 load gate | [docs/reports/2026-05-09_conservative_load_mapper_foundation.md](docs/reports/2026-05-09_conservative_load_mapper_foundation.md) | load conservation foundation |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
 | 接續任務包 | [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md) | 多 agent handoff |
@@ -91,6 +98,9 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 - 對 realized geometry 做 AVL realization check。
 - 做 structure-budgeted loaded-Z search，檢查 mass、clearance、wire、loaded shape 的折衝。
 - 對 realizable loaded shape 重跑 AVL，避免拿 requested shape 的漂亮結果當真。
+- 用 `ConservativeLoadMapper` 將 AVL/aero grid loads remap 到 structural grid，並檢查 total lift、
+  root bending moment、torque 的 conservation diagnostics；large correction 要降級 load basis
+  confidence，不能直接進 rib sensitivity。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
 - 做 FEM/APDL、shell buckling、load-factor candidate spot-check。
@@ -182,6 +192,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 |---|---|
 | Mission / concept search | 可用於新設計探索，但仍依賴 proxy 與 worker quality |
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
+| Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |

@@ -119,6 +119,9 @@ conservative screening candidate」，不是 final design。
 
 - Phase J pipeline 已把 mission contract、Fourier-AVL、smooth geometry、
   loaded-Z、Tier2 airfoil、aero-structure closure 與 FEM/APDL spot-check 串成同一條路。
+- `ConservativeLoadMapper` 已建立 aero-grid -> structural-grid 的 opt-in conservative remap foundation；
+  它守恆 total lift、root bending moment、total pitching torque，並輸出 correction / sign reversal /
+  peak ratio diagnostics。它是 rib / rear-spar sensitivity 前置基礎，不是 aeroelastic sign-off。
 - `scripts/fourier_avl_calibration_mvp.py` 提供 Fourier-AVL calibration artifacts；它現在要求
   明確 `--report-json`，舊 medium-search report 預設封鎖，只能用
   `--allow-legacy-medium-search` 做明確標示的歷史診斷。
@@ -182,6 +185,12 @@ aero-structure closure 到 final candidate package 的 artifact chain 是可追�
 current mission -> promoted Fourier/Fourier-AVL trace -> 這個 exact candidate 尚未鎖定，
 physical aerodynamic surface / quarter-chord / clearance 也還不能等同 beam-line Z proxy。
 
+Conservative load mapper foundation 已建立，位置在
+`docs/reports/2026-05-09_conservative_load_mapper_foundation.md`。目前 current pathfinder
+AVL spanload -> structural grid smoke 的 projection status 是 `conserved`，correction 很小且沒有
+sign reversal；但這只代表 remap conservation foundation 可用，不代表 aeroelastic / rib / rear-spar
+stiffness 已經 sign-off。
+
 最新判讀：目前 Stage 0 mission design-space / drag-budget contract 是可用 source，且
 commit history 已包含 pilot power / thermal derate、mission design-space scan、drag budget、
 MissionContract / FourierTarget、airfoil sidecar、smooth geometry、loaded-Z、Tier2 airfoil
@@ -205,12 +214,20 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
    - 目的：用同一個 locked pathfinder load/Z basis 跑 rear-soft/rear-stiff、finite-rib-link、
      no-rib/limited-rib 等 bounded sensitivity，確認 loaded tip Z、root-offset-removed AVL section Z、
      clearance、twist、tube mass、wire tension 與 closure ranking 會不會被 bracing 假設改變。
+   - load 前提：使用 conservative remap diagnostics 檢查 total lift、root bending moment、torque
+     是否守恆；如果出現 large correction 或 unphysical status，先降級 loading confidence，不要直接進 rib sensitivity。
    - 原因：現有 Phase32 / structural closure evidence 已顯示 rear spar / rib assumptions
      會大幅移動 response；若先跑 ASWing，可能只是把錯的 stiffness basis 耦合得更漂亮。
      FEM detail 則應吃已鎖定的 load/geometry envelope，不應先決定哪個 beam-line / aero-surface
      state 才是真正設計狀態。
    - 後續順序：bounded rib/rear-spar sensitivity -> ASWing / equivalent aeroelastic coupling ->
      root/wire/termination/rib hardware FEM detail。
+
+針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
+是第 1 步且已完成；接下來才是 bounded rib / rear-spar stiffness sensitivity，然後依序檢查
+elastic twist / `alpha_eff`、ASWing-like fixed-point coupling、FEM / joint / hardware detail。
+其中 rib / rear-spar sensitivity 必須把 conservative remap diagnostics 當前置 gate，而不能把
+large correction 當成已修復的乾淨 load basis。
 
 可直接用於新 goal 的 objective：
 

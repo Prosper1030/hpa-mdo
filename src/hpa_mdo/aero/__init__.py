@@ -39,7 +39,7 @@ from hpa_mdo.aero.avl_stability_parser import (
     parse_st_file,
     parse_st_text,
 )
-from hpa_mdo.aero.load_mapper import LoadMapper
+from hpa_mdo.aero.load_mapper import ConservativeLoadMapper, LoadMapper
 from hpa_mdo.aero.origin_aero import run_origin_aero_sweep, write_origin_aero_artifacts
 from hpa_mdo.aero.origin_geometry_contract import (
     build_origin_geometry_contract,
@@ -65,6 +65,7 @@ __all__ = [
     "AvlRunResult",
     "AvlAeroGateSettings",
     "LoadMapper",
+    "ConservativeLoadMapper",
     "StabilityDerivatives",
     "VSPAeroParser",
     "VSPBuilder",
