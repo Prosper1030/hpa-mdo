@@ -296,23 +296,30 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      會大幅移動 response；若先跑 ASWing，可能只是把錯的 stiffness basis 耦合得更漂亮。
      FEM detail 則應吃已鎖定的 load/geometry envelope，不應先決定哪個 beam-line / aero-surface
      state 才是真正設計狀態。
+   - tail-aware aeroelastic closure 已完成第一輪：`scripts/tail_aware_aeroelastic_closure.py`
+     與 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 顯示 fixed-point loop
+     3 次收斂，final managed CG `0.75 m`、H-tail reserve、static margin、V-tail authority、
+     mass/drag/power charge 與 conserved load remap 都保留；但 direct spar-pair rotation
+     -> AVL incidence stress-test 給出 max twist 約 `5.414 deg`，超過 `3 deg` screening
+     bound。verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。
    - 後續順序：tail / CG / trim / stability screening v1 basis ->
-     tail-aware bounded rib/rear-spar sensitivity (done) -> elastic twist / `alpha_eff` + trim audit ->
-     ASWing-like / equivalent tail-aware aeroelastic coupling -> root/wire/termination/rib/tail hardware FEM detail。
+     tail-aware bounded rib/rear-spar sensitivity (done) -> tail-aware aeroelastic closure (done,
+     needs geometry/stiffness rework) -> qualified aero-surface twist mapping or stiffness/geometry
+     rework -> root/wire/termination/rib/tail hardware FEM detail。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
 full-aircraft AVL audit v0、V-tail / CG reference sizing sensitivity v0、以及 tail / CG /
 trim / stability screening v1 也已完成。tail-aware bounded rib / rear-spar stiffness
-sensitivity 已完成並選出下一階段 basis；接下來要做 elastic twist / `alpha_eff` + trim audit
-與 tail-aware aeroelastic closure。這個 ready verdict 仍是 screening ready，不是 final
-CG/mass contract、tail polar、ASWing-like coupling、FEM 或硬體 sign-off；尤其 CG 必須使用
-final managed row，而不是未補償的 tail/rib mass shift。
+sensitivity 已完成並選出下一階段 basis；tail-aware aeroelastic closure 第一輪已收斂但
+verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。這代表 managed CG/tail
+screening row 仍可用，但 selected stiffness / geometry basis 還不能包成 FEM/APDL loadcase
+package；尤其 CG 必須使用 final managed row，而不是未補償的 tail/rib mass shift。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md` 為起點，執行下一步 elastic twist / `alpha_eff` + trim audit 與 tail-aware aeroelastic closure。必須使用 selected basis：`0.30 m` physical rib station basis、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 為起點，做 qualified aero-surface twist mapping 或 bounded stiffness/geometry rework。必須保留 selected basis 的 audit trail：`0.30 m` physical rib station basis、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready，也不能把 direct spar-pair rotation -> AVL incidence stress-test 當 qualified aero-surface twist。
 ```
 
 ## 8. 常用入口與角色
@@ -358,11 +365,15 @@ final managed row，而不是未補償的 tail/rib mass shift。
 - 入口：
   - `scripts/tail_aware_rib_rear_spar_sensitivity.py`
   - `docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md`
+  - `scripts/tail_aware_aeroelastic_closure.py`
+  - `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md`
 - 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
-  warping knockdown、mass/CG bookkeeping 與 closure ranking 接成下一步 aeroelastic closure
-  的 screening basis。
-- 注意：目前 verdict 是 `ready_for_tail_aware_aeroelastic_closure`，但只在 final CG managed
-  row `0.75 m` 下成立；未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。
+  warping knockdown、mass/CG bookkeeping 與 closure ranking 接成 tail-aware aeroelastic
+  screening basis。
+- 注意：rib/rear-spar sensitivity verdict 是 `ready_for_tail_aware_aeroelastic_closure`；
+  closure 第一輪 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。final CG managed
+  row `0.75 m` 保留；未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。direct spar-pair
+  rotation -> AVL incidence 目前只是 stress-test proxy，不是 qualified aero-surface twist。
 
 ### F. FEM/APDL / shell / load-factor spot-check
 

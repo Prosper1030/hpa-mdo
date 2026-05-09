@@ -17,6 +17,7 @@
 | [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived Phase J pipeline report | 需要理解目前主線來源的人 |
 | [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md) | Phase J deep evidence map / source quarantine | 需要逐 stage 看 artifact / candidate / trust boundary / gap，並避免舊 medium-search 資料污染的人 |
 | [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) | all-moving tail / trim / stability contract insertion | 需要把水平尾、垂尾、配平、靜穩定、控制 authority、tail drag/mass 接進 pathfinder 的人 |
+| [2026-05-09_tail_aware_aeroelastic_closure.md](reports/2026-05-09_tail_aware_aeroelastic_closure.md) | tail-aware aeroelastic closure verdict | 需要知道 current pathfinder 是否能進 FEM/APDL loadcase package 的人 |
 | [legacy_blackcat004_downstream_reference.md](legacy_blackcat004_downstream_reference.md) | Black Cat 004 / OpenMDAO 舊 downstream 參考 | 需要查歷史工具、舊 quickstart、舊 DAG 的人 |
 | [mesh_native_cfd_line_freeze.v1.md](../hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | 暫停中的主翼 mesh-native CFD / SU2 支線交接 | 需要接續 Gmsh/SU2/BL 網格與低雷諾數 CFD 的人 |
 
@@ -31,6 +32,7 @@
 | [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md) | Phase J 實際證據地圖 | 把每個 stage 對回目前 artifact / candidate / key number / trust boundary / next action，並標出 Stage 0-2 promoted-trace gap |
 | [2026-05-09_phase_j_evidence_map_plan.md](reports/2026-05-09_phase_j_evidence_map_plan.md) | evidence map 前置計畫 | 這份 report 的 planning predecessor；保留設計意圖與優先順序來源 |
 | [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract / roadmap | 規定 all-moving H-tail / V-tail 不能最後才補，並定義 tail contract v0、full-aircraft AVL trim/stability audit、discrete tail-airfoil screening 的下一步 |
+| [2026-05-09_tail_aware_aeroelastic_closure.md](reports/2026-05-09_tail_aware_aeroelastic_closure.md) | tail-aware aeroelastic closure | fixed-point closure 已收斂，但 direct spar-pair incidence stress-test 超出 twist bound；目前 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework` |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
 | [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |
