@@ -31,7 +31,7 @@
     "uncompensated_cg_x_m": 0.801026,
     "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
   },
-  "material_family_future_note": "EPS/XPS plus balsa leading-edge strips, glass caps, or carbon caps are intentionally out of v1; add them later as explicit hybrid families.",
+  "material_family_future_note": "Foam-only EPS/XPS/structural foam remain low-stiffness references; capped/hybrid foam and rear-spar shear-transfer scenarios are separate rework candidates.",
   "material_family_sensitivity": [
     {
       "absolute_effective_ei_ratio_vs_balsa_selected": 1.0,
@@ -270,6 +270,31 @@
           "tip_rear_m": 0.5489410853887743,
           "warping_knockdown": 0.50246,
           "wire_tension_max_n": 1042.1752700111088
+        },
+        {
+          "angle_delta_vs_baseline_deg": 0.2746728837388108,
+          "blockers": [],
+          "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+          "effective_ei_flap_nm2": 254781.73679486438,
+          "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+          "effective_gj_nm2": 668834.2493074683,
+          "effective_gj_ratio_vs_baseline": 0.7974969390688034,
+          "full_wing_rib_count": 121,
+          "link_force_max_n": 796.7684821420232,
+          "link_mode": "dense_finite_rib",
+          "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+          "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+          "max_vertical_displacement_m": 0.5060753741173099,
+          "physical_rib_station_count": 61,
+          "rear_spar_participation": "bounded_75pct_screening",
+          "rear_stiffness_scale": 0.75,
+          "status": "pass_screening_sensitivity",
+          "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+          "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+          "tip_main_m": 0.5030867881179746,
+          "tip_rear_m": 0.5060753741173099,
+          "warping_knockdown": 0.50246,
+          "wire_tension_max_n": 963.294264370016
         },
         {
           "angle_delta_vs_baseline_deg": 0.0,
@@ -539,6 +564,31 @@
           "wire_tension_max_n": 1042.1752700111088
         },
         {
+          "angle_delta_vs_baseline_deg": 0.2746728837388108,
+          "blockers": [],
+          "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+          "effective_ei_flap_nm2": 254781.73679486438,
+          "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+          "effective_gj_nm2": 108434.36026194374,
+          "effective_gj_ratio_vs_baseline": 0.8003210008587939,
+          "full_wing_rib_count": 121,
+          "link_force_max_n": 796.7684821420232,
+          "link_mode": "dense_finite_rib",
+          "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+          "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+          "max_vertical_displacement_m": 0.5060753741173099,
+          "physical_rib_station_count": 61,
+          "rear_spar_participation": "bounded_75pct_screening",
+          "rear_stiffness_scale": 0.75,
+          "status": "pass_screening_sensitivity",
+          "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+          "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+          "tip_main_m": 0.5030867881179746,
+          "tip_rear_m": 0.5060753741173099,
+          "warping_knockdown": 0.08,
+          "wire_tension_max_n": 963.294264370016
+        },
+        {
           "angle_delta_vs_baseline_deg": 0.0,
           "blockers": [
             "rear_spar_participation_above_selection_bound"
@@ -804,6 +854,31 @@
           "tip_rear_m": 0.5489410853887743,
           "warping_knockdown": 0.08,
           "wire_tension_max_n": 1042.1752700111088
+        },
+        {
+          "angle_delta_vs_baseline_deg": 0.2746728837388108,
+          "blockers": [],
+          "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+          "effective_ei_flap_nm2": 254781.73679486438,
+          "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+          "effective_gj_nm2": 108434.36026194374,
+          "effective_gj_ratio_vs_baseline": 0.8003210008587939,
+          "full_wing_rib_count": 121,
+          "link_force_max_n": 796.7684821420232,
+          "link_mode": "dense_finite_rib",
+          "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+          "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+          "max_vertical_displacement_m": 0.5060753741173099,
+          "physical_rib_station_count": 61,
+          "rear_spar_participation": "bounded_75pct_screening",
+          "rear_stiffness_scale": 0.75,
+          "status": "pass_screening_sensitivity",
+          "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+          "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+          "tip_main_m": 0.5030867881179746,
+          "tip_rear_m": 0.5060753741173099,
+          "warping_knockdown": 0.08,
+          "wire_tension_max_n": 963.294264370016
         },
         {
           "angle_delta_vs_baseline_deg": 0.0,
@@ -1073,6 +1148,31 @@
           "wire_tension_max_n": 1042.1752700111088
         },
         {
+          "angle_delta_vs_baseline_deg": 0.2746728837388108,
+          "blockers": [],
+          "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+          "effective_ei_flap_nm2": 254781.73679486438,
+          "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+          "effective_gj_nm2": 388132.8817906729,
+          "effective_gj_ratio_vs_baseline": 0.7978909302332755,
+          "full_wing_rib_count": 121,
+          "link_force_max_n": 796.7684821420232,
+          "link_mode": "dense_finite_rib",
+          "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+          "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+          "max_vertical_displacement_m": 0.5060753741173099,
+          "physical_rib_station_count": 61,
+          "rear_spar_participation": "bounded_75pct_screening",
+          "rear_stiffness_scale": 0.75,
+          "status": "pass_screening_sensitivity",
+          "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+          "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+          "tip_main_m": 0.5030867881179746,
+          "tip_rear_m": 0.5060753741173099,
+          "warping_knockdown": 0.290852,
+          "wire_tension_max_n": 963.294264370016
+        },
+        {
           "angle_delta_vs_baseline_deg": 0.0,
           "blockers": [
             "rear_spar_participation_above_selection_bound"
@@ -1235,6 +1335,1163 @@
     "warping_knockdown": 0.50246
   },
   "selected_case_id": "finite_rib_rear_0p50_selected_screening_basis",
+  "stiffness_rework_candidates": [
+    {
+      "engineering_read": "Balsa baseline retained as the comparison datum; do not treat it as clearing the current twist blocker without a rerun.",
+      "family_key": "balsa_sheet_3mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 3.029671,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.091302,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 100.202398,
+        "uncompensated_cg_x_m": 0.801026,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "balsa_baseline",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [
+          "bounded_physical_twist_still_exceeds_screening_bound"
+        ],
+        "candidate_rework_verdict": "candidate_rework_still_needs_more_stiffness_or_mapping",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 1.0,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "balsa_sheet_3mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 3.256324,
+        "projected_direct_spar_pair_twist_deg": 5.413617,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_50pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_50pct_screening",
+      "rear_stiffness_scale": 0.5,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 3.029671,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "balsa_sheet_3mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=1.2e+07",
+          "compressive_strength_pa": 12000000.0,
+          "density_kgpm3": 160.0,
+          "description": "Simple sheet-balsa rib bay used as the baseline rib family.",
+          "family_category": "balsa_baseline",
+          "family_key": "balsa_sheet_3mm",
+          "intended_use": "Legacy-compatible baseline for current dual-spar screening and jig studies.",
+          "label": "Balsa sheet 3 mm",
+          "material_key": "balsa",
+          "notes": "Anchored so nominal spacing reproduces the current conservative-middle assumption of about 0.5 warping knockdown.",
+          "shear_modulus_pa": 200000000.0,
+          "shear_strength_pa": null,
+          "source_note": "Existing repo baseline: balsa_sheet_3mm at 0.30 m target spacing; keep as the current pathfinder reference, not a final rib drawing.",
+          "spacing_guidance": {
+            "max_m": 0.38,
+            "min_m": 0.25,
+            "nominal_m": 0.3
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.0,
+            "rotational_fixity_factor": 1.0,
+            "shear_transfer_factor": 1.0
+          },
+          "thickness_m": 0.003,
+          "trust_level": "baseline_legacy_screening",
+          "young_modulus_pa": 3400000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.50246,
+        "warping_knockdown_details": {
+          "family_key": "balsa_sheet_3mm",
+          "raw_score": 1.0098882589215223,
+          "relative_bending_scale": 1.0,
+          "relative_shear_scale": 1.0,
+          "relative_stiffness": 1.0,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.5024599026532022
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.17946266635208552,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p50_selected_screening_basis",
+        "effective_ei_flap_nm2": 187668.32842097062,
+        "effective_ei_flap_ratio_vs_baseline": 0.5992789173659128,
+        "effective_gj_nm2": 476437.0397217085,
+        "effective_gj_ratio_vs_baseline": 0.5680885529269527,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 626.6635497570447,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.233830765022125,
+        "max_vertical_delta_vs_baseline_pct": 48.226766012261564,
+        "max_vertical_displacement_m": 0.6344525722340335,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_50pct_screening",
+        "rear_stiffness_scale": 0.5,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 48.2276994690109,
+        "tip_main_m": 0.6306898474780979,
+        "tip_rear_m": 0.6344525722340335,
+        "warping_knockdown": 0.50246,
+        "wire_tension_max_n": 1194.281001095612
+      }
+    },
+    {
+      "engineering_read": "Balsa baseline retained as the comparison datum; do not treat it as clearing the current twist blocker without a rerun.",
+      "family_key": "balsa_sheet_3mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 3.029671,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.091302,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 100.202398,
+        "uncompensated_cg_x_m": 0.801026,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "balsa_baseline",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 1.248502,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "balsa_sheet_3mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 2.608186,
+        "projected_direct_spar_pair_twist_deg": 4.336092,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_65pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_65pct_screening",
+      "rear_stiffness_scale": 0.65,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 3.029671,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "balsa_sheet_3mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=1.2e+07",
+          "compressive_strength_pa": 12000000.0,
+          "density_kgpm3": 160.0,
+          "description": "Simple sheet-balsa rib bay used as the baseline rib family.",
+          "family_category": "balsa_baseline",
+          "family_key": "balsa_sheet_3mm",
+          "intended_use": "Legacy-compatible baseline for current dual-spar screening and jig studies.",
+          "label": "Balsa sheet 3 mm",
+          "material_key": "balsa",
+          "notes": "Anchored so nominal spacing reproduces the current conservative-middle assumption of about 0.5 warping knockdown.",
+          "shear_modulus_pa": 200000000.0,
+          "shear_strength_pa": null,
+          "source_note": "Existing repo baseline: balsa_sheet_3mm at 0.30 m target spacing; keep as the current pathfinder reference, not a final rib drawing.",
+          "spacing_guidance": {
+            "max_m": 0.38,
+            "min_m": 0.25,
+            "nominal_m": 0.3
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.0,
+            "rotational_fixity_factor": 1.0,
+            "shear_transfer_factor": 1.0
+          },
+          "thickness_m": 0.003,
+          "trust_level": "baseline_legacy_screening",
+          "young_modulus_pa": 3400000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.50246,
+        "warping_knockdown_details": {
+          "family_key": "balsa_sheet_3mm",
+          "raw_score": 1.0098882589215223,
+          "relative_bending_scale": 1.0,
+          "relative_shear_scale": 1.0,
+          "relative_stiffness": 1.0,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.5024599026532022
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.31318231504307725,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p65_confirmation",
+        "effective_ei_flap_nm2": 229094.86478112935,
+        "effective_ei_flap_ratio_vs_baseline": 0.7315657559018572,
+        "effective_gj_nm2": 594832.3689885376,
+        "effective_gj_ratio_vs_baseline": 0.7092594226724908,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 734.6005411303597,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.367550413713117,
+        "max_vertical_delta_vs_baseline_pct": 28.248769694362956,
+        "max_vertical_displacement_m": 0.5489410853887743,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_65pct_screening",
+        "rear_stiffness_scale": 0.65,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 28.253106818036066,
+        "tip_main_m": 0.545700517969451,
+        "tip_rear_m": 0.5489410853887743,
+        "warping_knockdown": 0.50246,
+        "wire_tension_max_n": 1042.1752700111088
+      }
+    },
+    {
+      "engineering_read": "Balsa baseline retained as the comparison datum; do not treat it as clearing the current twist blocker without a rerun.",
+      "family_key": "balsa_sheet_3mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 3.029671,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.091302,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 100.202398,
+        "uncompensated_cg_x_m": 0.801026,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "balsa_baseline",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 1.403825,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "balsa_sheet_3mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 2.319608,
+        "projected_direct_spar_pair_twist_deg": 3.856333,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_75pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_75pct_screening",
+      "rear_stiffness_scale": 0.75,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 3.029671,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "balsa_sheet_3mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=1.2e+07",
+          "compressive_strength_pa": 12000000.0,
+          "density_kgpm3": 160.0,
+          "description": "Simple sheet-balsa rib bay used as the baseline rib family.",
+          "family_category": "balsa_baseline",
+          "family_key": "balsa_sheet_3mm",
+          "intended_use": "Legacy-compatible baseline for current dual-spar screening and jig studies.",
+          "label": "Balsa sheet 3 mm",
+          "material_key": "balsa",
+          "notes": "Anchored so nominal spacing reproduces the current conservative-middle assumption of about 0.5 warping knockdown.",
+          "shear_modulus_pa": 200000000.0,
+          "shear_strength_pa": null,
+          "source_note": "Existing repo baseline: balsa_sheet_3mm at 0.30 m target spacing; keep as the current pathfinder reference, not a final rib drawing.",
+          "spacing_guidance": {
+            "max_m": 0.38,
+            "min_m": 0.25,
+            "nominal_m": 0.3
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.0,
+            "rotational_fixity_factor": 1.0,
+            "shear_transfer_factor": 1.0
+          },
+          "thickness_m": 0.003,
+          "trust_level": "baseline_legacy_screening",
+          "young_modulus_pa": 3400000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.50246,
+        "warping_knockdown_details": {
+          "family_key": "balsa_sheet_3mm",
+          "raw_score": 1.0098882589215223,
+          "relative_bending_scale": 1.0,
+          "relative_shear_scale": 1.0,
+          "relative_stiffness": 1.0,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.5024599026532022
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.2746728837388108,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+        "effective_ei_flap_nm2": 254781.73679486438,
+        "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+        "effective_gj_nm2": 668834.2493074683,
+        "effective_gj_ratio_vs_baseline": 0.7974969390688034,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 796.7684821420232,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+        "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+        "max_vertical_displacement_m": 0.5060753741173099,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_75pct_screening",
+        "rear_stiffness_scale": 0.75,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+        "tip_main_m": 0.5030867881179746,
+        "tip_rear_m": 0.5060753741173099,
+        "warping_knockdown": 0.50246,
+        "wire_tension_max_n": 963.294264370016
+      }
+    },
+    {
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 5.365042,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.079276,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 102.537769,
+        "uncompensated_cg_x_m": 0.793296,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "capped_hybrid_foam_rib",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 1.627734,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 2.000526,
+        "projected_direct_spar_pair_twist_deg": 3.32586,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_50pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_50pct_screening",
+      "rear_stiffness_scale": 0.5,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 5.365042,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=4e+06; shear_strength_pa=1.2e+06",
+          "compressive_strength_pa": 4000000.0,
+          "density_kgpm3": 85.0,
+          "description": "EPS CNC core rib with balsa edge strips, cap strips, or local gussets carrying rotational fixity.",
+          "family_category": "capped_hybrid_foam_rib",
+          "family_key": "eps_balsa_cap_hybrid_10mm",
+          "intended_use": "Next stiffness-rework candidate when foam-only ribs are too soft but shop workflow still wants CNC foam cores.",
+          "label": "EPS foam rib with balsa/cap hybrid 10 mm",
+          "material_key": "eps_balsa_cap_hybrid_proxy",
+          "notes": "This is not EPS foam-only credit. Mass and stiffness are effective screening proxies until cap geometry and coupons are supplied.",
+          "shear_modulus_pa": 60000000.0,
+          "shear_strength_pa": 1200000.0,
+          "source_note": "Engineering-screening effective proxy: EPS core plus balsa/cap local reinforcement; keep foam-only EPS as the low-stiffness reference.",
+          "spacing_guidance": {
+            "max_m": 0.32,
+            "min_m": 0.18,
+            "nominal_m": 0.28
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.1,
+            "rotational_fixity_factor": 1.15,
+            "shear_transfer_factor": 1.2
+          },
+          "thickness_m": 0.01,
+          "trust_level": "rework_candidate_coupon_and_detail_required",
+          "young_modulus_pa": 450000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.819399,
+        "warping_knockdown_details": {
+          "family_key": "eps_balsa_cap_hybrid_10mm",
+          "raw_score": 4.53706161531891,
+          "relative_bending_scale": 5.637254901960786,
+          "relative_shear_scale": 1.2,
+          "relative_stiffness": 4.492637254901962,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.8193987949793828
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.17946266635208552,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p50_selected_screening_basis",
+        "effective_ei_flap_nm2": 187668.32842097062,
+        "effective_ei_flap_ratio_vs_baseline": 0.5992789173659128,
+        "effective_gj_nm2": 775512.9158063317,
+        "effective_gj_ratio_vs_baseline": 0.5676393882536528,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 626.6635497570447,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.233830765022125,
+        "max_vertical_delta_vs_baseline_pct": 48.226766012261564,
+        "max_vertical_displacement_m": 0.6344525722340335,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_50pct_screening",
+        "rear_stiffness_scale": 0.5,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 48.2276994690109,
+        "tip_main_m": 0.6306898474780979,
+        "tip_rear_m": 0.6344525722340335,
+        "warping_knockdown": 0.819399,
+        "wire_tension_max_n": 1194.281001095612
+      }
+    },
+    {
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 5.365042,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.079276,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 102.537769,
+        "uncompensated_cg_x_m": 0.793296,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "capped_hybrid_foam_rib",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 2.032971,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 1.601756,
+        "projected_direct_spar_pair_twist_deg": 2.662909,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_65pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_65pct_screening",
+      "rear_stiffness_scale": 0.65,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 5.365042,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=4e+06; shear_strength_pa=1.2e+06",
+          "compressive_strength_pa": 4000000.0,
+          "density_kgpm3": 85.0,
+          "description": "EPS CNC core rib with balsa edge strips, cap strips, or local gussets carrying rotational fixity.",
+          "family_category": "capped_hybrid_foam_rib",
+          "family_key": "eps_balsa_cap_hybrid_10mm",
+          "intended_use": "Next stiffness-rework candidate when foam-only ribs are too soft but shop workflow still wants CNC foam cores.",
+          "label": "EPS foam rib with balsa/cap hybrid 10 mm",
+          "material_key": "eps_balsa_cap_hybrid_proxy",
+          "notes": "This is not EPS foam-only credit. Mass and stiffness are effective screening proxies until cap geometry and coupons are supplied.",
+          "shear_modulus_pa": 60000000.0,
+          "shear_strength_pa": 1200000.0,
+          "source_note": "Engineering-screening effective proxy: EPS core plus balsa/cap local reinforcement; keep foam-only EPS as the low-stiffness reference.",
+          "spacing_guidance": {
+            "max_m": 0.32,
+            "min_m": 0.18,
+            "nominal_m": 0.28
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.1,
+            "rotational_fixity_factor": 1.15,
+            "shear_transfer_factor": 1.2
+          },
+          "thickness_m": 0.01,
+          "trust_level": "rework_candidate_coupon_and_detail_required",
+          "young_modulus_pa": 450000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.819399,
+        "warping_knockdown_details": {
+          "family_key": "eps_balsa_cap_hybrid_10mm",
+          "raw_score": 4.53706161531891,
+          "relative_bending_scale": 5.637254901960786,
+          "relative_shear_scale": 1.2,
+          "relative_stiffness": 4.492637254901962,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.8193987949793828
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.31318231504307725,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p65_confirmation",
+        "effective_ei_flap_nm2": 229094.86478112935,
+        "effective_ei_flap_ratio_vs_baseline": 0.7315657559018572,
+        "effective_gj_nm2": 968582.6876643668,
+        "effective_gj_ratio_vs_baseline": 0.7089574823228123,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 734.6005411303597,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.367550413713117,
+        "max_vertical_delta_vs_baseline_pct": 28.248769694362956,
+        "max_vertical_displacement_m": 0.5489410853887743,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_65pct_screening",
+        "rear_stiffness_scale": 0.65,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 28.253106818036066,
+        "tip_main_m": 0.545700517969451,
+        "tip_rear_m": 0.5489410853887743,
+        "warping_knockdown": 0.819399,
+        "wire_tension_max_n": 1042.1752700111088
+      }
+    },
+    {
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "eps_balsa_cap_hybrid_10mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 5.365042,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.079276,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 102.537769,
+        "uncompensated_cg_x_m": 0.793296,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "capped_hybrid_foam_rib",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 2.28626,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 1.424302,
+        "projected_direct_spar_pair_twist_deg": 2.367892,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_75pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_75pct_screening",
+      "rear_stiffness_scale": 0.75,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 5.365042,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=4e+06; shear_strength_pa=1.2e+06",
+          "compressive_strength_pa": 4000000.0,
+          "density_kgpm3": 85.0,
+          "description": "EPS CNC core rib with balsa edge strips, cap strips, or local gussets carrying rotational fixity.",
+          "family_category": "capped_hybrid_foam_rib",
+          "family_key": "eps_balsa_cap_hybrid_10mm",
+          "intended_use": "Next stiffness-rework candidate when foam-only ribs are too soft but shop workflow still wants CNC foam cores.",
+          "label": "EPS foam rib with balsa/cap hybrid 10 mm",
+          "material_key": "eps_balsa_cap_hybrid_proxy",
+          "notes": "This is not EPS foam-only credit. Mass and stiffness are effective screening proxies until cap geometry and coupons are supplied.",
+          "shear_modulus_pa": 60000000.0,
+          "shear_strength_pa": 1200000.0,
+          "source_note": "Engineering-screening effective proxy: EPS core plus balsa/cap local reinforcement; keep foam-only EPS as the low-stiffness reference.",
+          "spacing_guidance": {
+            "max_m": 0.32,
+            "min_m": 0.18,
+            "nominal_m": 0.28
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.1,
+            "rotational_fixity_factor": 1.15,
+            "shear_transfer_factor": 1.2
+          },
+          "thickness_m": 0.01,
+          "trust_level": "rework_candidate_coupon_and_detail_required",
+          "young_modulus_pa": 450000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.819399,
+        "warping_knockdown_details": {
+          "family_key": "eps_balsa_cap_hybrid_10mm",
+          "raw_score": 4.53706161531891,
+          "relative_bending_scale": 5.637254901960786,
+          "relative_shear_scale": 1.2,
+          "relative_stiffness": 4.492637254901962,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.8193987949793828
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.2746728837388108,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+        "effective_ei_flap_nm2": 254781.73679486438,
+        "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+        "effective_gj_nm2": 1089258.8585821907,
+        "effective_gj_ratio_vs_baseline": 0.7972868272510835,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 796.7684821420232,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+        "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+        "max_vertical_displacement_m": 0.5060753741173099,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_75pct_screening",
+        "rear_stiffness_scale": 0.75,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+        "tip_main_m": 0.5030867881179746,
+        "tip_rear_m": 0.5060753741173099,
+        "warping_knockdown": 0.819399,
+        "wire_tension_max_n": 963.294264370016
+      }
+    },
+    {
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "structural_foam_glass_face_10mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 11.361265,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.048399,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 108.533992,
+        "uncompensated_cg_x_m": 0.774972,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "structural_foam_caps_faces",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 1.833651,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "structural_foam_glass_face_10mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 1.775869,
+        "projected_direct_spar_pair_twist_deg": 2.952371,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_50pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_50pct_screening",
+      "rear_stiffness_scale": 0.5,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 11.361265,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "structural_foam_glass_face_10mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=3.5e+07; shear_strength_pa=1.2e+07",
+          "compressive_strength_pa": 35000000.0,
+          "density_kgpm3": 180.0,
+          "description": "Structural foam rib with thin glass/carbon face sheets or cap strips for torsion/shear transfer.",
+          "family_category": "structural_foam_caps_faces",
+          "family_key": "structural_foam_glass_face_10mm",
+          "intended_use": "Higher-stiffness rework candidate for clearing the current aeroelastic twist blocker before FEM loadcase packaging.",
+          "label": "Structural foam rib with glass faces 10 mm",
+          "material_key": "structural_foam_glass_face_proxy",
+          "notes": "Represents capped/faced rib construction, not bare H60 foam. Requires laminate/coupon and rib-spar attachment details.",
+          "shear_modulus_pa": 160000000.0,
+          "shear_strength_pa": 12000000.0,
+          "source_note": "Effective screening proxy for foam-core rib with face/cap reinforcement; not a final sandwich rib laminate.",
+          "spacing_guidance": {
+            "max_m": 0.32,
+            "min_m": 0.18,
+            "nominal_m": 0.28
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.05,
+            "rotational_fixity_factor": 1.2,
+            "shear_transfer_factor": 1.25
+          },
+          "thickness_m": 0.01,
+          "trust_level": "rework_candidate_laminate_detail_required",
+          "young_modulus_pa": 1200000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.923365,
+        "warping_knockdown_details": {
+          "family_key": "structural_foam_glass_face_10mm",
+          "raw_score": 12.048858006809283,
+          "relative_bending_scale": 15.686274509803924,
+          "relative_shear_scale": 3.333333333333334,
+          "relative_stiffness": 11.930882352941179,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.9233649412478724
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.17946266635208552,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p50_selected_screening_basis",
+        "effective_ei_flap_nm2": 187668.32842097062,
+        "effective_ei_flap_ratio_vs_baseline": 0.5992789173659128,
+        "effective_gj_nm2": 873619.247097255,
+        "effective_gj_ratio_vs_baseline": 0.5675591096835978,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 626.6635497570447,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.233830765022125,
+        "max_vertical_delta_vs_baseline_pct": 48.226766012261564,
+        "max_vertical_displacement_m": 0.6344525722340335,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_50pct_screening",
+        "rear_stiffness_scale": 0.5,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 48.2276994690109,
+        "tip_main_m": 0.6306898474780979,
+        "tip_rear_m": 0.6344525722340335,
+        "warping_knockdown": 0.923365,
+        "wire_tension_max_n": 1194.281001095612
+      }
+    },
+    {
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "structural_foam_glass_face_10mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 11.361265,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.048399,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 108.533992,
+        "uncompensated_cg_x_m": 0.774972,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "structural_foam_caps_faces",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 2.290302,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "structural_foam_glass_face_10mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 1.421788,
+        "projected_direct_spar_pair_twist_deg": 2.363714,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_65pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_65pct_screening",
+      "rear_stiffness_scale": 0.65,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 11.361265,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "structural_foam_glass_face_10mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=3.5e+07; shear_strength_pa=1.2e+07",
+          "compressive_strength_pa": 35000000.0,
+          "density_kgpm3": 180.0,
+          "description": "Structural foam rib with thin glass/carbon face sheets or cap strips for torsion/shear transfer.",
+          "family_category": "structural_foam_caps_faces",
+          "family_key": "structural_foam_glass_face_10mm",
+          "intended_use": "Higher-stiffness rework candidate for clearing the current aeroelastic twist blocker before FEM loadcase packaging.",
+          "label": "Structural foam rib with glass faces 10 mm",
+          "material_key": "structural_foam_glass_face_proxy",
+          "notes": "Represents capped/faced rib construction, not bare H60 foam. Requires laminate/coupon and rib-spar attachment details.",
+          "shear_modulus_pa": 160000000.0,
+          "shear_strength_pa": 12000000.0,
+          "source_note": "Effective screening proxy for foam-core rib with face/cap reinforcement; not a final sandwich rib laminate.",
+          "spacing_guidance": {
+            "max_m": 0.32,
+            "min_m": 0.18,
+            "nominal_m": 0.28
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.05,
+            "rotational_fixity_factor": 1.2,
+            "shear_transfer_factor": 1.25
+          },
+          "thickness_m": 0.01,
+          "trust_level": "rework_candidate_laminate_detail_required",
+          "young_modulus_pa": 1200000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.923365,
+        "warping_knockdown_details": {
+          "family_key": "structural_foam_glass_face_10mm",
+          "raw_score": 12.048858006809283,
+          "relative_bending_scale": 15.686274509803924,
+          "relative_shear_scale": 3.333333333333334,
+          "relative_stiffness": 11.930882352941179,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.9233649412478724
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.31318231504307725,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p65_confirmation",
+        "effective_ei_flap_nm2": 229094.86478112935,
+        "effective_ei_flap_ratio_vs_baseline": 0.7315657559018572,
+        "effective_gj_nm2": 1091184.5941241314,
+        "effective_gj_ratio_vs_baseline": 0.708903516948964,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 734.6005411303597,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.367550413713117,
+        "max_vertical_delta_vs_baseline_pct": 28.248769694362956,
+        "max_vertical_displacement_m": 0.5489410853887743,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_65pct_screening",
+        "rear_stiffness_scale": 0.65,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 28.253106818036066,
+        "tip_main_m": 0.545700517969451,
+        "tip_rear_m": 0.5489410853887743,
+        "warping_knockdown": 0.923365,
+        "wire_tension_max_n": 1042.1752700111088
+      }
+    },
+    {
+      "engineering_read": "Candidate has enough projected bounded physical twist margin to justify a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping still own final acceptance.",
+      "family_key": "structural_foam_glass_face_10mm",
+      "mass_cg_assessment": {
+        "base_cg_x_m": 0.72,
+        "base_mass_kg": 96.0,
+        "cg_range_x_m": [
+          0.68,
+          0.75
+        ],
+        "engineering_read": "If the uncompensated CG exceeds the committed range, aeroelastic closure must use the final screening CG row only with an explicit mass-budget rebalance. Do not add tail/rib/rear-spar mass after the fact and keep the old tail verdict silently.",
+        "final_screening_cg_x_m": 0.75,
+        "forward_rebalance_limit_m": 0.2,
+        "forward_rebalance_mass_kg": 56.0,
+        "mass_items": [
+          {
+            "mass_kg": 1.172727,
+            "name": "selected_tail_screening_delta",
+            "x_m": 8.3106393129771
+          },
+          {
+            "mass_kg": 11.361265,
+            "name": "physical_rib_station_pack",
+            "x_m": 0.461633
+          }
+        ],
+        "required_forward_rebalance_m": 0.048399,
+        "screening_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "total_mass_after_items_kg": 108.533992,
+        "uncompensated_cg_x_m": 0.774972,
+        "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
+      },
+      "material_category": "structural_foam_caps_faces",
+      "projection": {
+        "baseline_bounded_physical_twist_deg": 3.256324,
+        "baseline_direct_spar_pair_twist_deg": 5.413617,
+        "blockers": [],
+        "candidate_rework_verdict": "candidate_for_tail_aware_closure_rerun",
+        "claim_boundary": "Projection only. A candidate row must be rerun through tail_aware_aeroelastic_closure and then FEM/shell mapping before being treated as package-ready.",
+        "effective_gj_ratio_vs_balsa_selected": 2.575726,
+        "elastic_twist_screening_bound_deg": 3.0,
+        "family_key": "structural_foam_glass_face_10mm",
+        "mass_cg_status": "final_cg_screening_row_remains_available_with_rebalance",
+        "projected_bounded_physical_twist_deg": 1.264235,
+        "projected_direct_spar_pair_twist_deg": 2.101783,
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "rear_spar_participation": "bounded_75pct_screening",
+        "structural_status": "pass_screening_sensitivity"
+      },
+      "rear_spar_participation": "bounded_75pct_screening",
+      "rear_stiffness_scale": 0.75,
+      "rib_basis": {
+        "added_half_wing_station_count_from_phase24": 53,
+        "engineering_read": "The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.",
+        "estimated_full_wing_rib_mass_kg": 11.361265,
+        "estimated_rib_pack_cg_x_m": 0.461633,
+        "family_key": "structural_foam_glass_face_10mm",
+        "full_wing_rib_count": 121,
+        "half_wing_station_count": 61,
+        "mass_model": "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap fraction, 15% adhesive/cap factor; screening only.",
+        "material_basis": {
+          "compressive_or_shear_basis": "compressive_strength_pa=3.5e+07; shear_strength_pa=1.2e+07",
+          "compressive_strength_pa": 35000000.0,
+          "density_kgpm3": 180.0,
+          "description": "Structural foam rib with thin glass/carbon face sheets or cap strips for torsion/shear transfer.",
+          "family_category": "structural_foam_caps_faces",
+          "family_key": "structural_foam_glass_face_10mm",
+          "intended_use": "Higher-stiffness rework candidate for clearing the current aeroelastic twist blocker before FEM loadcase packaging.",
+          "label": "Structural foam rib with glass faces 10 mm",
+          "material_key": "structural_foam_glass_face_proxy",
+          "notes": "Represents capped/faced rib construction, not bare H60 foam. Requires laminate/coupon and rib-spar attachment details.",
+          "shear_modulus_pa": 160000000.0,
+          "shear_strength_pa": 12000000.0,
+          "source_note": "Effective screening proxy for foam-core rib with face/cap reinforcement; not a final sandwich rib laminate.",
+          "spacing_guidance": {
+            "max_m": 0.32,
+            "min_m": 0.18,
+            "nominal_m": 0.28
+          },
+          "stiffness_proxy": {
+            "construction_factor": 1.05,
+            "rotational_fixity_factor": 1.2,
+            "shear_transfer_factor": 1.25
+          },
+          "thickness_m": 0.01,
+          "trust_level": "rework_candidate_laminate_detail_required",
+          "young_modulus_pa": 1200000000.0
+        },
+        "max_recommended_subbay_m": 0.297063,
+        "spacing_m": 0.3,
+        "warping_knockdown": 0.923365,
+        "warping_knockdown_details": {
+          "family_key": "structural_foam_glass_face_10mm",
+          "raw_score": 12.048858006809283,
+          "relative_bending_scale": 15.686274509803924,
+          "relative_shear_scale": 3.333333333333334,
+          "relative_stiffness": 11.930882352941179,
+          "spacing_factor": 1.0098882589215223,
+          "spacing_m": 0.2970625684076923,
+          "warping_knockdown": 0.9233649412478724
+        }
+      },
+      "selected_case": {
+        "angle_delta_vs_baseline_deg": 0.2746728837388108,
+        "blockers": [],
+        "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+        "effective_ei_flap_nm2": 254781.73679486438,
+        "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+        "effective_gj_nm2": 1227171.406194999,
+        "effective_gj_ratio_vs_baseline": 0.7972492742615435,
+        "full_wing_rib_count": 121,
+        "link_force_max_n": 796.7684821420232,
+        "link_mode": "dense_finite_rib",
+        "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+        "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+        "max_vertical_displacement_m": 0.5060753741173099,
+        "physical_rib_station_count": 61,
+        "rear_spar_participation": "bounded_75pct_screening",
+        "rear_stiffness_scale": 0.75,
+        "status": "pass_screening_sensitivity",
+        "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+        "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+        "tip_main_m": 0.5030867881179746,
+        "tip_rear_m": 0.5060753741173099,
+        "warping_knockdown": 0.923365,
+        "wire_tension_max_n": 963.294264370016
+      }
+    }
+  ],
+  "stiffness_rework_verdict": "ready_for_hybrid_rib_stiffness_rework",
   "structural_cases": [
     {
       "angle_delta_vs_baseline_deg": 8.337161851259467,
@@ -1342,6 +2599,31 @@
       "tip_rear_m": 0.5489410853887743,
       "warping_knockdown": 0.50246,
       "wire_tension_max_n": 1042.1752700111088
+    },
+    {
+      "angle_delta_vs_baseline_deg": 0.2746728837388108,
+      "blockers": [],
+      "case_id": "finite_rib_rear_0p75_shear_transfer_rework",
+      "effective_ei_flap_nm2": 254781.73679486438,
+      "effective_ei_flap_ratio_vs_baseline": 0.8135913218587167,
+      "effective_gj_nm2": 668834.2493074683,
+      "effective_gj_ratio_vs_baseline": 0.7974969390688034,
+      "full_wing_rib_count": 121,
+      "link_force_max_n": 796.7684821420232,
+      "link_mode": "dense_finite_rib",
+      "max_spar_pair_line_angle_delta_deg": 5.32904098240885,
+      "max_vertical_delta_vs_baseline_pct": 18.234079814217356,
+      "max_vertical_displacement_m": 0.5060753741173099,
+      "physical_rib_station_count": 61,
+      "rear_spar_participation": "bounded_75pct_screening",
+      "rear_stiffness_scale": 0.75,
+      "status": "pass_screening_sensitivity",
+      "structural_read": "Finite-rib surrogate with bounded rear-spar participation; screening only.",
+      "tip_main_delta_vs_baseline_pct": 18.237827252436883,
+      "tip_main_m": 0.5030867881179746,
+      "tip_rear_m": 0.5060753741173099,
+      "warping_knockdown": 0.50246,
+      "wire_tension_max_n": 963.294264370016
     },
     {
       "angle_delta_vs_baseline_deg": 0.0,

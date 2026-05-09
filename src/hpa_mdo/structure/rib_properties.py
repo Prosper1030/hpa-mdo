@@ -75,6 +75,7 @@ class RibPropertiesCatalog:
     default_family: str
     default_spacing_m: float
     material_sensitivity_families: tuple[str, ...]
+    stiffness_rework_families: tuple[str, ...]
     future_material_note: str
     derivation: RibDerivationSettings
     families: Mapping[str, RibFamily]
@@ -176,6 +177,18 @@ def build_default_rib_catalog(path: Path | None = None) -> RibPropertiesCatalog:
                 f"Rib catalog material_sensitivity_families includes unknown "
                 f"family '{family_key}'."
             )
+    stiffness_rework_raw = metadata.get("stiffness_rework_families") or (
+        default_family,
+    )
+    if not isinstance(stiffness_rework_raw, list | tuple):
+        raise ValueError("metadata.stiffness_rework_families must be a sequence.")
+    stiffness_rework_families = tuple(str(key) for key in stiffness_rework_raw)
+    for family_key in stiffness_rework_families:
+        if family_key not in families:
+            raise ValueError(
+                f"Rib catalog stiffness_rework_families includes unknown "
+                f"family '{family_key}'."
+            )
 
     return RibPropertiesCatalog(
         description=str(metadata.get("description", "")),
@@ -183,6 +196,7 @@ def build_default_rib_catalog(path: Path | None = None) -> RibPropertiesCatalog:
         default_family=default_family,
         default_spacing_m=_as_float(metadata, "default_spacing_m"),
         material_sensitivity_families=material_sensitivity_families,
+        stiffness_rework_families=stiffness_rework_families,
         future_material_note=str(metadata.get("future_material_note", "")),
         derivation=derivation,
         families=families,
@@ -278,6 +292,15 @@ def default_material_sensitivity_family_keys(
 
     resolved_catalog = catalog or build_default_rib_catalog()
     return resolved_catalog.material_sensitivity_families
+
+
+def default_stiffness_rework_family_keys(
+    catalog: RibPropertiesCatalog | None = None,
+) -> tuple[str, ...]:
+    """Return candidate family order for the next stiffness rework study."""
+
+    resolved_catalog = catalog or build_default_rib_catalog()
+    return resolved_catalog.stiffness_rework_families
 
 
 def rib_family_material_basis(

@@ -72,6 +72,86 @@ def test_elastic_twist_rows_use_main_rear_loaded_spar_pair_rotation() -> None:
     assert summary["elastic_twist_max_abs_deg"] == pytest.approx(rows[1]["elastic_twist_deg"])
 
 
+def test_twist_source_audit_compares_direct_qc_and_bounded_physical_projection() -> None:
+    module = _load_script_module()
+
+    y = np.asarray([0.0, 1.0])
+    main_nodes = np.asarray([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    rear_nodes = np.asarray([[1.0, 0.0, 0.0], [1.0, 1.0, 0.0]])
+    disp_main = np.zeros((2, 6))
+    disp_rear = np.zeros((2, 6))
+    disp_rear[1, 2] = 0.10
+
+    rows, summary = module.twist_source_interpretation_rows(
+        y_nodes_m=y,
+        nodes_main_m=main_nodes,
+        nodes_rear_m=rear_nodes,
+        disp_main_m=disp_main,
+        disp_rear_m=disp_rear,
+        aero_y_m=np.asarray([0.0, 1.0]),
+        aero_x_le_m=np.asarray([-0.25, -0.25]),
+        aero_chord_m=np.asarray([2.0, 2.0]),
+        screening_bound_deg=3.0,
+    )
+
+    direct = np.degrees(np.arctan2(0.10, 1.0))
+    bounded = np.degrees(np.arctan2(0.10, 1.5))
+    assert rows[1]["direct_spar_pair_rotation_deg"] == pytest.approx(direct)
+    assert rows[1]["elastic_axis_quarter_chord_projection_deg"] == pytest.approx(direct)
+    assert rows[1]["conservative_bounded_physical_projection_deg"] == pytest.approx(bounded)
+    assert summary["direct_spar_pair_rotation_max_abs_deg"] == pytest.approx(direct)
+    assert summary["conservative_bounded_physical_projection_max_abs_deg"] == pytest.approx(
+        bounded
+    )
+    assert summary["source_verdict"] == "ready_for_hybrid_rib_stiffness_rework"
+
+
+def test_twist_source_audit_marks_mapping_fix_when_only_direct_stress_test_fails() -> None:
+    module = _load_script_module()
+
+    y = np.asarray([0.0, 1.0])
+    main_nodes = np.asarray([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    rear_nodes = np.asarray([[1.0, 0.0, 0.0], [1.0, 1.0, 0.0]])
+    disp_main = np.zeros((2, 6))
+    disp_rear = np.zeros((2, 6))
+    disp_rear[1, 2] = 0.08
+
+    _rows, summary = module.twist_source_interpretation_rows(
+        y_nodes_m=y,
+        nodes_main_m=main_nodes,
+        nodes_rear_m=rear_nodes,
+        disp_main_m=disp_main,
+        disp_rear_m=disp_rear,
+        aero_y_m=np.asarray([0.0, 1.0]),
+        aero_x_le_m=np.asarray([-0.25, -0.25]),
+        aero_chord_m=np.asarray([4.0, 4.0]),
+        screening_bound_deg=3.0,
+    )
+
+    assert summary["direct_spar_pair_rotation_max_abs_deg"] > 3.0
+    assert summary["conservative_bounded_physical_projection_max_abs_deg"] < 3.0
+    assert summary["source_verdict"] == "ready_for_aeroelastic_mapping_fix"
+
+
+def test_dominant_twist_source_uses_component_at_direct_max_station() -> None:
+    module = _load_script_module()
+
+    component_rows = {
+        "lift_only": [{"y_m": 0.0, "direct_spar_pair_rotation_deg": -0.2}],
+        "aerodynamic_torque_only": [{"y_m": 0.0, "direct_spar_pair_rotation_deg": 1.4}],
+        "self_weight_only": [{"y_m": 0.0, "direct_spar_pair_rotation_deg": 0.1}],
+    }
+
+    source = module.dominant_twist_source_at_station(
+        y_m=0.0,
+        component_rows=component_rows,
+    )
+
+    assert source["dominant_component"] == "aerodynamic_torque_only"
+    assert source["component_twist_deg"]["lift_only"] == pytest.approx(-0.2)
+    assert source["component_twist_deg"]["aerodynamic_torque_only"] == pytest.approx(1.4)
+
+
 def test_structural_load_rescale_uses_avl_ratio_with_relaxation_and_bounds() -> None:
     module = _load_script_module()
 

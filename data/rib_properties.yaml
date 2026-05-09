@@ -8,7 +8,11 @@ metadata:
     - "eps_hd_foam_cnc_10mm"
     - "xps_high_compressive_cnc_10mm"
     - "structural_foam_cnc_10mm"
-  future_material_note: "EPS/XPS plus balsa leading-edge strips, glass caps, or carbon caps are intentionally out of v1; add them later as explicit hybrid families."
+  stiffness_rework_families:
+    - "balsa_sheet_3mm"
+    - "eps_balsa_cap_hybrid_10mm"
+    - "structural_foam_glass_face_10mm"
+  future_material_note: "Foam-only EPS/XPS/structural foam remain low-stiffness references; capped/hybrid foam and rear-spar shear-transfer scenarios are separate rework candidates."
   derivation:
     formula: "weighted_material_thickness_proxy_v1"
     reference_family: "balsa_sheet_3mm"
@@ -95,6 +99,44 @@ families:
       min_m: 0.18
       nominal_m: 0.30
       max_m: 0.30
+
+  eps_balsa_cap_hybrid_10mm:
+    label: "EPS foam rib with balsa/cap hybrid 10 mm"
+    material: "eps_balsa_cap_hybrid_proxy"
+    thickness_m: 0.010
+    family_category: "capped_hybrid_foam_rib"
+    description: "EPS CNC core rib with balsa edge strips, cap strips, or local gussets carrying rotational fixity."
+    intended_use: "Next stiffness-rework candidate when foam-only ribs are too soft but shop workflow still wants CNC foam cores."
+    notes: "This is not EPS foam-only credit. Mass and stiffness are effective screening proxies until cap geometry and coupons are supplied."
+    trust_level: "rework_candidate_coupon_and_detail_required"
+    source_note: "Engineering-screening effective proxy: EPS core plus balsa/cap local reinforcement; keep foam-only EPS as the low-stiffness reference."
+    stiffness_proxy:
+      construction_factor: 1.10
+      rotational_fixity_factor: 1.15
+      shear_transfer_factor: 1.20
+    spacing_guidance:
+      min_m: 0.18
+      nominal_m: 0.28
+      max_m: 0.32
+
+  structural_foam_glass_face_10mm:
+    label: "Structural foam rib with glass faces 10 mm"
+    material: "structural_foam_glass_face_proxy"
+    thickness_m: 0.010
+    family_category: "structural_foam_caps_faces"
+    description: "Structural foam rib with thin glass/carbon face sheets or cap strips for torsion/shear transfer."
+    intended_use: "Higher-stiffness rework candidate for clearing the current aeroelastic twist blocker before FEM loadcase packaging."
+    notes: "Represents capped/faced rib construction, not bare H60 foam. Requires laminate/coupon and rib-spar attachment details."
+    trust_level: "rework_candidate_laminate_detail_required"
+    source_note: "Effective screening proxy for foam-core rib with face/cap reinforcement; not a final sandwich rib laminate."
+    stiffness_proxy:
+      construction_factor: 1.05
+      rotational_fixity_factor: 1.20
+      shear_transfer_factor: 1.25
+    spacing_guidance:
+      min_m: 0.18
+      nominal_m: 0.28
+      max_m: 0.32
 
   foam_core_glass_cap_5mm:
     label: "Foam core with light glass caps 5 mm"

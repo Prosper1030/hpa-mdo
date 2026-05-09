@@ -293,6 +293,11 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      `foam_only_families_do_not_clear_current_aeroelastic_closure`：EPS/XPS effective GJ 約為
      balsa selected basis 的 `0.163x`、projected twist 約 `33.16 deg`；structural foam 約
      `0.581x`、projected twist 約 `9.32 deg`。三者都沒有過 `3 deg` twist screening bound。
+   - stiffness rework candidates：同一 runner 現在另外輸出
+     `stiffness_rework_candidates`，把 foam-only reference 與下一輪 stiffness rework 分開。
+     balsa baseline 保留比較用；`eps_balsa_cap_hybrid_10mm`、
+     `structural_foam_glass_face_10mm` 和 stronger rear-spar participation / shear-transfer
+     rows 是可重跑的下一版 candidate family，不是 final closure pass。
    - CG 限制：未補償的 selected tail delta + physical rib pack 會把 CG 推到約 `0.801 m`；
      aeroelastic closure 只能使用 final CG 管理後的 `0.75 m` screening row。需要約
      `0.091 m` forward rebalance on 56 kg equivalent pilot/cockpit mass；不能把 tail/rib mass
@@ -307,12 +312,17 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      與 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 顯示 fixed-point loop
      3 次收斂，final managed CG `0.75 m`、H-tail reserve、static margin、V-tail authority、
      mass/drag/power charge 與 conserved load remap 都保留；但 direct spar-pair rotation
-     -> AVL incidence stress-test 給出 max twist 約 `5.414 deg`，超過 `3 deg` screening
-     bound。verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。
+     -> AVL incidence stress-test 給出 max twist 約 `5.413 deg`，超過 `3 deg` screening
+     bound。新增 twist-source audit 顯示 elastic-axis / quarter-chord consistent projection
+     仍約 `5.413 deg`，conservative bounded physical projection 約 `3.256 deg`，peak
+     y≈`2.328 m`，主因是 aerodynamic torque-only 分量；lift 在該 station 部分抵消。
+     closure verdict 仍是 `needs_aeroelastic_geometry_or_stiffness_rework`，但 clear
+     twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。
    - 後續順序：tail / CG / trim / stability screening v1 basis ->
      tail-aware bounded rib/rear-spar sensitivity (done) -> tail-aware aeroelastic closure (done,
-     needs geometry/stiffness rework) -> qualified aero-surface twist mapping or stiffness/geometry
-     rework -> root/wire/termination/rib/tail hardware FEM detail。
+     twist-source audit done) -> hybrid rib / shear cap / skin / stronger rear-spar participation
+     rerun, with qualified aero-surface mapping as verification -> root/wire/termination/rib/tail
+     hardware FEM detail。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
@@ -321,12 +331,13 @@ trim / stability screening v1 也已完成。tail-aware bounded rib / rear-spar 
 sensitivity 已完成並選出下一階段 basis；tail-aware aeroelastic closure 第一輪已收斂但
 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。這代表 managed CG/tail
 screening row 仍可用，但 selected stiffness / geometry basis 還不能包成 FEM/APDL loadcase
-package；尤其 CG 必須使用 final managed row，而不是未補償的 tail/rib mass shift。
+package；twist-source audit 已把下一步收斂成 hybrid rib / shear-transfer stiffness rework；
+尤其 CG 必須使用 final managed row，而不是未補償的 tail/rib mass shift。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 為起點，做 qualified aero-surface twist mapping 或 bounded stiffness/geometry rework。必須保留 selected basis 的 audit trail：`0.30 m` physical rib station basis、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready，也不能把 direct spar-pair rotation -> AVL incidence stress-test 當 qualified aero-surface twist。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md` 的 twist-source audit 為起點，做 hybrid rib / shear cap / skin / stronger rear-spar participation stiffness rework rerun。必須保留 selected basis 的 audit trail：`0.30 m` physical rib station basis、`bounded_50pct_screening` rear-spar participation、warping knockdown `0.50246`、final managed CG row `0.75 m`、tail CD0 penalty `+0.002352`、tail mass delta `+1.17 kg`；不能把未補償 CG=`0.801 m` 的 mass bookkeeping 當成 ready，也不能把 direct spar-pair rotation -> AVL incidence stress-test 當 qualified aero-surface twist。foam-only EPS/XPS/structural foam 只能保留為 low-stiffness reference。
 ```
 
 ## 8. 常用入口與角色
@@ -379,10 +390,11 @@ package；尤其 CG 必須使用 final managed row，而不是未補償的 tail/
   screening basis。
 - 注意：rib/rear-spar sensitivity verdict 是 `ready_for_tail_aware_aeroelastic_closure`；
   material-family verdict 是 `foam_only_families_do_not_clear_current_aeroelastic_closure`；
-  closure 第一輪 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。final CG managed
-  row `0.75 m` 保留；未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。direct spar-pair
-  rotation -> AVL incidence 目前只是 stress-test proxy，不是 qualified aero-surface twist；
-  foam-only ribs cannot be used to claim the current closure blocker is solved.
+  twist-source verdict 是 `ready_for_hybrid_rib_stiffness_rework`。closure 第一輪 verdict 仍是
+  `needs_aeroelastic_geometry_or_stiffness_rework`。final CG managed row `0.75 m` 保留；
+  未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。direct spar-pair rotation -> AVL incidence
+  目前只是 stress-test proxy，不是 qualified aero-surface twist；foam-only ribs cannot be used
+  to claim the current closure blocker is solved.
 
 ### F. FEM/APDL / shell / load-factor spot-check
 

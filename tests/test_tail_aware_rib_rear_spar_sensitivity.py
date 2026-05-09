@@ -146,6 +146,35 @@ def test_projected_material_family_closure_verdict_blocks_lower_gj_foam() -> Non
     assert "elastic_twist_exceeds_screening_bound" in projection["blockers"]
 
 
+def test_projected_stiffness_rework_candidate_uses_direct_and_bounded_twist_audit() -> None:
+    module = _load_script_module()
+
+    projection = module.project_stiffness_rework_candidate(
+        family_key="structural_foam_glass_face_10mm",
+        rear_spar_participation="bounded_75pct_rework",
+        baseline_closure_basis={
+            "aeroelastic_effects": {
+                "elastic_twist_max_abs_deg": 5.4,
+                "elastic_twist_screening_bound_deg": 3.0,
+            },
+            "aeroelastic_twist_source_audit": {
+                "interpretation_summary": {
+                    "conservative_bounded_physical_projection_max_abs_deg": 3.2,
+                }
+            },
+        },
+        balsa_selected_effective_gj_nm2=100.0,
+        candidate_effective_gj_nm2=180.0,
+        structural_status="pass_screening_sensitivity",
+        mass_cg_status="final_cg_screening_row_remains_available_with_rebalance",
+    )
+
+    assert projection["projected_direct_spar_pair_twist_deg"] == pytest.approx(3.0)
+    assert projection["projected_bounded_physical_twist_deg"] == pytest.approx(1.777778)
+    assert projection["candidate_rework_verdict"] == "candidate_for_tail_aware_closure_rerun"
+    assert projection["claim_boundary"] != ""
+
+
 def test_sensitivity_case_requires_finite_rib_basis_and_reports_effective_stiffness_changes() -> None:
     module = _load_script_module()
     model = _simple_model(

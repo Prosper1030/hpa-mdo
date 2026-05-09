@@ -2,6 +2,7 @@
 
 Candidate: `current_avl_compromise_conservative_closed`
 Verdict: `needs_aeroelastic_geometry_or_stiffness_rework`
+Twist-source verdict: `ready_for_hybrid_rib_stiffness_rework`
 Blockers: `['elastic_twist_exceeds_screening_bound']`
 Warnings: `['negative_diagnostic_stall_margin_not_gate']`
 
@@ -16,6 +17,15 @@ Warnings: `['negative_diagnostic_stall_margin_not_gate']`
 - Twist projection: `direct_spar_pair_rotation_to_avl_ainc_stress_test`.
 - Stall margin min: `-0.223400` Cl using `diagnostic_constant_section_cl_limit_not_gate`.
 - Root bending ratio vs baseline AVL load: `0.863504`.
+
+## Twist Source Audit
+
+- Direct spar-pair rotation max: `5.413494` deg at y=`2.328` m.
+- Elastic-axis / quarter-chord projection max: `5.413494` deg.
+- Conservative bounded physical projection max: `3.256324` deg at y=`2.328` m.
+- Dominant component at direct max station: `aerodynamic_torque_only` with component twists `{'lift_only': -3.379273438640107, 'aerodynamic_torque_only': 9.146825876915425, 'self_weight_only': 0.8477222910034373}` deg.
+- Audit CSV: `/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_aware_aeroelastic_closure/final/twist_source_audit.csv`; component CSV: `/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_tail_aware_aeroelastic_closure/final/twist_source_components.csv`.
+- Engineering read: The direct spar-pair stress-test is high and the bounded physical projection still exceeds the screening bound. Treat this as a real torsional stiffness / shear-transfer blocker, with aerodynamic_torque_only as the dominant component at the peak station, until a qualified shell/FEM mapping proves otherwise.
 
 ## Selected Basis Audit For FEM/APDL Package
 

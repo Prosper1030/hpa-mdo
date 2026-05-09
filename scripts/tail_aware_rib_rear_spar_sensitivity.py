@@ -28,6 +28,7 @@ from hpa_mdo.structure.dual_beam_mainline import (  # noqa: E402
 from hpa_mdo.structure.rib_properties import (  # noqa: E402
     build_default_rib_catalog,
     default_material_sensitivity_family_keys,
+    default_stiffness_rework_family_keys,
     derive_warping_knockdown_details,
     rib_family_material_basis,
 )
@@ -306,6 +307,8 @@ def build_summary_payload(
     closure_rows: Sequence[Mapping[str, Any]],
     material_family_sensitivity: Sequence[Mapping[str, Any]] = (),
     material_family_sensitivity_verdict: str | None = None,
+    stiffness_rework_candidates: Sequence[Mapping[str, Any]] = (),
+    stiffness_rework_verdict: str | None = None,
     material_family_future_note: str = "",
 ) -> dict[str, Any]:
     """Build the committed verdict payload."""
@@ -375,6 +378,8 @@ def build_summary_payload(
         "structural_cases": [asdict(case) for case in structural_cases],
         "material_family_sensitivity": [dict(row) for row in material_family_sensitivity],
         "material_family_future_note": material_family_future_note,
+        "stiffness_rework_verdict": stiffness_rework_verdict,
+        "stiffness_rework_candidates": [dict(row) for row in stiffness_rework_candidates],
         "selected_basis": selected_basis,
         "claim_boundary": (
             "Engineering screening only: not final FEM, not hardware certification, not "
@@ -441,6 +446,20 @@ def run_tail_aware_rib_rear_spar_sensitivity(
         family_keys=default_material_sensitivity_family_keys(catalog),
         balsa_selected_case=selected,
     )
+    stiffness_rework_candidates = build_stiffness_rework_candidates(
+        tail_basis=tail_basis,
+        baseline_closure_basis=baseline_closure_basis,
+        spacing_requirements=spacing_requirements,
+        model=model,
+        config_path=Path(config_path),
+        base_mass_kg=float(base_mass_kg),
+        base_cg_x_m=float(base_cg_x_m),
+        final_screening_cg_x_m=float(final_screening_cg_x_m),
+        forward_rebalance_mass_kg=float(forward_rebalance_mass_kg),
+        forward_rebalance_limit_m=float(forward_rebalance_limit_m),
+        family_keys=default_stiffness_rework_family_keys(catalog),
+        balsa_selected_case=selected,
+    )
     summary = build_summary_payload(
         candidate_id=CANDIDATE_ID,
         tail_basis=tail_basis,
@@ -453,6 +472,8 @@ def run_tail_aware_rib_rear_spar_sensitivity(
         material_family_sensitivity_verdict=_material_family_sensitivity_verdict(
             material_family_sensitivity
         ),
+        stiffness_rework_candidates=stiffness_rework_candidates,
+        stiffness_rework_verdict=_stiffness_rework_verdict(stiffness_rework_candidates),
         material_family_future_note=catalog.future_material_note,
     )
     report_json_path.parent.mkdir(parents=True, exist_ok=True)
@@ -614,6 +635,175 @@ def build_material_family_sensitivity(
     return rows
 
 
+def build_stiffness_rework_candidates(
+    *,
+    tail_basis: Mapping[str, Any],
+    baseline_closure_basis: Mapping[str, Any],
+    spacing_requirements: RibSpacingRequirements,
+    model: DualBeamMainlineModel,
+    config_path: Path,
+    base_mass_kg: float,
+    base_cg_x_m: float,
+    final_screening_cg_x_m: float,
+    forward_rebalance_mass_kg: float,
+    forward_rebalance_limit_m: float,
+    family_keys: Sequence[str],
+    balsa_selected_case: StructuralSensitivityCase | None,
+) -> list[dict[str, Any]]:
+    """Build candidate stiffness-family rows for the next aeroelastic rerun."""
+
+    balsa_gj = (
+        float(balsa_selected_case.effective_gj_nm2)
+        if balsa_selected_case is not None and balsa_selected_case.effective_gj_nm2 > 0.0
+        else 0.0
+    )
+    rows: list[dict[str, Any]] = []
+    for family_key in family_keys:
+        rib_basis = build_rib_basis(
+            spacing_requirements=spacing_requirements,
+            model=model,
+            config_path=config_path,
+            family_key=str(family_key),
+        )
+        rib_item = MassItem(
+            "physical_rib_station_pack",
+            float(rib_basis["estimated_full_wing_rib_mass_kg"]),
+            float(rib_basis["estimated_rib_pack_cg_x_m"]),
+        )
+        tail_item = MassItem(
+            "selected_tail_screening_delta",
+            _tail_mass_delta(tail_basis),
+            _tail_cg_x(tail_basis),
+        )
+        mass_cg = assess_mass_cg_coupling(
+            base_mass_kg=float(base_mass_kg),
+            base_cg_x_m=float(base_cg_x_m),
+            cg_range_x_m=tuple(_cg_range(tail_basis)),
+            final_screening_cg_x_m=float(final_screening_cg_x_m),
+            mass_items=(tail_item, rib_item),
+            forward_rebalance_mass_kg=float(forward_rebalance_mass_kg),
+            forward_rebalance_limit_m=float(forward_rebalance_limit_m),
+        )
+        cases, selected, _baseline = _evaluate_rib_rear_spar_cases(
+            model=model,
+            rib_basis=rib_basis,
+        )
+        candidate_cases = [
+            case
+            for case in cases
+            if case.status == "pass_screening_sensitivity"
+            and case.link_mode == LinkMode.DENSE_FINITE_RIB.value
+            and 0.50 <= case.rear_stiffness_scale <= 0.75
+        ]
+        if not candidate_cases and selected is not None:
+            candidate_cases = [selected]
+        for case in candidate_cases:
+            projection = project_stiffness_rework_candidate(
+                family_key=str(family_key),
+                rear_spar_participation=case.rear_spar_participation,
+                baseline_closure_basis=baseline_closure_basis,
+                balsa_selected_effective_gj_nm2=balsa_gj,
+                candidate_effective_gj_nm2=float(case.effective_gj_nm2),
+                structural_status=case.status,
+                mass_cg_status=str(mass_cg.get("screening_status", "")),
+            )
+            rows.append(
+                {
+                    "family_key": str(family_key),
+                    "material_category": _mapping_at(rib_basis, "material_basis").get(
+                        "family_category"
+                    ),
+                    "rear_stiffness_scale": case.rear_stiffness_scale,
+                    "rear_spar_participation": case.rear_spar_participation,
+                    "rib_basis": rib_basis,
+                    "mass_cg_assessment": mass_cg,
+                    "selected_case": asdict(case),
+                    "projection": projection,
+                    "engineering_read": _stiffness_rework_engineering_read(
+                        family_key=str(family_key),
+                        projection=projection,
+                    ),
+                }
+            )
+    return rows
+
+
+def project_stiffness_rework_candidate(
+    *,
+    family_key: str,
+    rear_spar_participation: str,
+    baseline_closure_basis: Mapping[str, Any],
+    balsa_selected_effective_gj_nm2: float,
+    candidate_effective_gj_nm2: float,
+    structural_status: str,
+    mass_cg_status: str,
+) -> dict[str, Any]:
+    """Project direct and bounded twist for a candidate stiffness rework row."""
+
+    aero = _mapping_at(baseline_closure_basis, "aeroelastic_effects")
+    audit_summary = _mapping_at(
+        baseline_closure_basis,
+        "aeroelastic_twist_source_audit",
+        "interpretation_summary",
+    )
+    direct_twist = _float_from_mapping(
+        aero,
+        "elastic_twist_max_abs_deg",
+        default=0.0,
+    )
+    bounded_twist = _float_from_mapping(
+        audit_summary,
+        "conservative_bounded_physical_projection_max_abs_deg",
+        default=direct_twist,
+    )
+    twist_bound = _float_from_mapping(aero, "elastic_twist_screening_bound_deg", default=3.0)
+    gj_ratio = _safe_ratio(
+        float(candidate_effective_gj_nm2),
+        float(balsa_selected_effective_gj_nm2),
+    )
+    projected_direct = float("inf") if gj_ratio <= 0.0 else float(direct_twist) / gj_ratio
+    projected_bounded = float("inf") if gj_ratio <= 0.0 else float(bounded_twist) / gj_ratio
+
+    blockers: list[str] = []
+    if not aero:
+        blockers.append("baseline_aeroelastic_closure_basis_missing")
+    if structural_status != "pass_screening_sensitivity":
+        blockers.append("selected_rib_rear_spar_stiffness_not_screening_pass")
+    if mass_cg_status not in (
+        "final_cg_screening_row_available_without_rebalance",
+        "final_cg_screening_row_remains_available_with_rebalance",
+    ):
+        blockers.append("final_cg_management_not_closed")
+    if projected_bounded > twist_bound + 1.0e-12:
+        blockers.append("bounded_physical_twist_still_exceeds_screening_bound")
+
+    if not blockers:
+        verdict = "candidate_for_tail_aware_closure_rerun"
+    else:
+        verdict = "candidate_rework_still_needs_more_stiffness_or_mapping"
+
+    return {
+        "projection_method": "current_twist_source_audit_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "family_key": str(family_key),
+        "rear_spar_participation": str(rear_spar_participation),
+        "baseline_direct_spar_pair_twist_deg": round(float(direct_twist), 6),
+        "baseline_bounded_physical_twist_deg": round(float(bounded_twist), 6),
+        "elastic_twist_screening_bound_deg": round(float(twist_bound), 6),
+        "effective_gj_ratio_vs_balsa_selected": round(float(gj_ratio), 6),
+        "projected_direct_spar_pair_twist_deg": round(float(projected_direct), 6),
+        "projected_bounded_physical_twist_deg": round(float(projected_bounded), 6),
+        "mass_cg_status": mass_cg_status,
+        "structural_status": structural_status,
+        "blockers": blockers,
+        "candidate_rework_verdict": verdict,
+        "claim_boundary": (
+            "Projection only. A candidate row must be rerun through "
+            "tail_aware_aeroelastic_closure and then FEM/shell mapping before "
+            "being treated as package-ready."
+        ),
+    }
+
+
 def project_material_family_aeroelastic_closure(
     *,
     family_key: str,
@@ -749,6 +939,17 @@ def _evaluate_rib_rear_spar_cases(
             full_wing_rib_count=int(rib_basis["full_wing_rib_count"]),
             baseline=baseline,
         ),
+        evaluate_structural_case(
+            case_id="finite_rib_rear_0p75_shear_transfer_rework",
+            model=model,
+            rear_stiffness_scale=0.75,
+            link_mode=LinkMode.DENSE_FINITE_RIB,
+            warping_knockdown=float(rib_basis["warping_knockdown"]),
+            require_physical_rib_stations=True,
+            physical_rib_station_count=int(rib_basis["half_wing_station_count"]),
+            full_wing_rib_count=int(rib_basis["full_wing_rib_count"]),
+            baseline=baseline,
+        ),
         baseline,
     ]
     return cases, _select_case(cases), baseline
@@ -793,6 +994,45 @@ def _material_family_sensitivity_verdict(rows: Sequence[Mapping[str, Any]]) -> s
         "at_least_one_foam_only_family_projects_ready_for_current_aeroelastic_closure"
         if ready
         else "foam_only_families_do_not_clear_current_aeroelastic_closure"
+    )
+
+
+def _stiffness_rework_verdict(rows: Sequence[Mapping[str, Any]]) -> str:
+    if not rows:
+        return "stiffness_rework_candidates_not_built"
+    ready = [
+        row
+        for row in rows
+        if _mapping_at(row, "projection").get("candidate_rework_verdict")
+        == "candidate_for_tail_aware_closure_rerun"
+    ]
+    return (
+        "ready_for_hybrid_rib_stiffness_rework"
+        if ready
+        else "still_blocked_by_rework_candidate_stiffness"
+    )
+
+
+def _stiffness_rework_engineering_read(
+    *,
+    family_key: str,
+    projection: Mapping[str, Any],
+) -> str:
+    verdict = projection.get("candidate_rework_verdict")
+    if family_key == "balsa_sheet_3mm":
+        return (
+            "Balsa baseline retained as the comparison datum; do not treat it as "
+            "clearing the current twist blocker without a rerun."
+        )
+    if verdict == "candidate_for_tail_aware_closure_rerun":
+        return (
+            "Candidate has enough projected bounded physical twist margin to justify "
+            "a tail-aware aeroelastic rerun, but direct stress-test and FEM mapping "
+            "still own final acceptance."
+        )
+    return (
+        "Candidate is useful for trend comparison but still needs more torsional "
+        "stiffness, shear-transfer detail, or a qualified mapping fix."
     )
 
 
@@ -1130,6 +1370,36 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
                 "",
                 "Engineering read: foam-only families are evaluated as CNC-cut rib proxies only. "
                 "No balsa leading edge, glass cap, or carbon cap stiffness credit is included in this v1 sensitivity.",
+            ]
+        )
+    rework_rows = summary.get("stiffness_rework_candidates", [])
+    if rework_rows:
+        lines.extend(
+            [
+                "",
+                "## Stiffness Rework Candidates",
+                "",
+                f"Verdict: `{summary.get('stiffness_rework_verdict')}`",
+                "",
+                "| family | role | rear scale | GJ vs balsa | projected direct deg | projected bounded deg | candidate verdict |",
+                "|---|---|---:|---:|---:|---:|---|",
+            ]
+        )
+        for row in rework_rows:
+            projection = _mapping_at(row, "projection")
+            lines.append(
+                f"| {row.get('family_key')} | {row.get('material_category')} | "
+                f"{_fmt_number(row.get('rear_stiffness_scale'), 2)} | "
+                f"{_fmt_number(projection.get('effective_gj_ratio_vs_balsa_selected'), 3)} | "
+                f"{_fmt_number(projection.get('projected_direct_spar_pair_twist_deg'), 3)} | "
+                f"{_fmt_number(projection.get('projected_bounded_physical_twist_deg'), 3)} | "
+                f"`{projection.get('candidate_rework_verdict')}` |"
+            )
+        lines.extend(
+            [
+                "",
+                "Engineering read: these are next-rerun stiffness families, not closure results. "
+                "Foam-only rows above remain low-stiffness references and are not promoted by this table.",
             ]
         )
     lines.extend(

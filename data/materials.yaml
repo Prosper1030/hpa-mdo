@@ -153,6 +153,28 @@ structural_foam_pvc_h60:
   poisson_ratio: 0.40
   description: "Rohacell/Divinycell-like closed-cell structural foam rib proxy; H60-class density, compressive and shear basis."
 
+eps_balsa_cap_hybrid_proxy:
+  name: "EPS foam rib with balsa/cap hybrid screening proxy"
+  E: 0.45e9
+  G: 60.0e6
+  density: 85.0
+  tensile_strength: 8.0e6
+  compressive_strength: 4.0e6
+  shear_strength: 1.2e6
+  poisson_ratio: 0.30
+  description: "Effective rib-family proxy for EPS CNC core with balsa edge strips/caps/gussets; not a foam-only material coupon."
+
+structural_foam_glass_face_proxy:
+  name: "Structural foam rib with light glass faces screening proxy"
+  E: 1.2e9
+  G: 160.0e6
+  density: 180.0
+  tensile_strength: 55.0e6
+  compressive_strength: 35.0e6
+  shear_strength: 12.0e6
+  poisson_ratio: 0.28
+  description: "Effective rib-family proxy for structural foam core with thin glass/carbon face or cap reinforcement; coupon and laminate detail required."
+
 kevlar_49_ud:
   name: "Kevlar 49 Unidirectional"
   E: 125.0e9

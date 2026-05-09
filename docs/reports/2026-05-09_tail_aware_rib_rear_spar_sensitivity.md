@@ -30,9 +30,27 @@ Verdict: `foam_only_families_do_not_clear_current_aeroelastic_closure`
 | xps_high_compressive_cnc_10mm | 32.000 | 10.00 | 2.020 | 0.080 | 0.163 | 33.158 | `foam_only_not_selectable_for_current_aeroelastic_closure` | `low_screening_supplier_coupon_required` |
 | structural_foam_cnc_10mm | 60.000 | 10.00 | 3.787 | 0.291 | 0.581 | 9.320 | `foam_only_not_selectable_for_current_aeroelastic_closure` | `medium_screening_datasheet_like_supplier_coupon_required` |
 
-Future note: EPS/XPS plus balsa leading-edge strips, glass caps, or carbon caps are intentionally out of v1; add them later as explicit hybrid families.
+Future note: Foam-only EPS/XPS/structural foam remain low-stiffness references; capped/hybrid foam and rear-spar shear-transfer scenarios are separate rework candidates.
 
 Engineering read: foam-only families are evaluated as CNC-cut rib proxies only. No balsa leading edge, glass cap, or carbon cap stiffness credit is included in this v1 sensitivity.
+
+## Stiffness Rework Candidates
+
+Verdict: `ready_for_hybrid_rib_stiffness_rework`
+
+| family | role | rear scale | GJ vs balsa | projected direct deg | projected bounded deg | candidate verdict |
+|---|---|---:|---:|---:|---:|---|
+| balsa_sheet_3mm | balsa_baseline | 0.50 | 1.000 | 5.414 | 3.256 | `candidate_rework_still_needs_more_stiffness_or_mapping` |
+| balsa_sheet_3mm | balsa_baseline | 0.65 | 1.249 | 4.336 | 2.608 | `candidate_for_tail_aware_closure_rerun` |
+| balsa_sheet_3mm | balsa_baseline | 0.75 | 1.404 | 3.856 | 2.320 | `candidate_for_tail_aware_closure_rerun` |
+| eps_balsa_cap_hybrid_10mm | capped_hybrid_foam_rib | 0.50 | 1.628 | 3.326 | 2.001 | `candidate_for_tail_aware_closure_rerun` |
+| eps_balsa_cap_hybrid_10mm | capped_hybrid_foam_rib | 0.65 | 2.033 | 2.663 | 1.602 | `candidate_for_tail_aware_closure_rerun` |
+| eps_balsa_cap_hybrid_10mm | capped_hybrid_foam_rib | 0.75 | 2.286 | 2.368 | 1.424 | `candidate_for_tail_aware_closure_rerun` |
+| structural_foam_glass_face_10mm | structural_foam_caps_faces | 0.50 | 1.834 | 2.952 | 1.776 | `candidate_for_tail_aware_closure_rerun` |
+| structural_foam_glass_face_10mm | structural_foam_caps_faces | 0.65 | 2.290 | 2.364 | 1.422 | `candidate_for_tail_aware_closure_rerun` |
+| structural_foam_glass_face_10mm | structural_foam_caps_faces | 0.75 | 2.576 | 2.102 | 1.264 | `candidate_for_tail_aware_closure_rerun` |
+
+Engineering read: these are next-rerun stiffness families, not closure results. Foam-only rows above remain low-stiffness references and are not promoted by this table.
 
 ## Structural Cases
 
@@ -42,6 +60,7 @@ Engineering read: foam-only families are evaluated as CNC-cut rib proxies only. 
 | finite_rib_rear_0p30_stress_case | `blocked` | `('rear_spar_participation_below_reasonable_screening_bound',)` | 0.30 | `dense_finite_rib` | 0.821 | 6.990 | 616.1 | 1498.9 | 0.403 | 0.361 |
 | finite_rib_rear_0p50_selected_screening_basis | `pass_screening_sensitivity` | `()` | 0.50 | `dense_finite_rib` | 0.631 | 5.234 | 626.7 | 1194.3 | 0.599 | 0.568 |
 | finite_rib_rear_0p65_confirmation | `pass_screening_sensitivity` | `()` | 0.65 | `dense_finite_rib` | 0.546 | 5.368 | 734.6 | 1042.2 | 0.732 | 0.709 |
+| finite_rib_rear_0p75_shear_transfer_rework | `pass_screening_sensitivity` | `()` | 0.75 | `dense_finite_rib` | 0.503 | 5.329 | 796.8 | 963.3 | 0.814 | 0.797 |
 | finite_rib_rear_1p00_upper_bound | `blocked` | `('rear_spar_participation_above_selection_bound',)` | 1.00 | `dense_finite_rib` | 0.425 | 5.054 | 934.5 | 817.6 | 1.000 | 1.000 |
 
 ## Engineering Boundary

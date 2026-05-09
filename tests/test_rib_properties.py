@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from hpa_mdo.structure import rib_properties
 from hpa_mdo.core.config import load_config
 from hpa_mdo.structure.rib_properties import (
     build_default_rib_catalog,
@@ -55,6 +56,29 @@ def test_default_rib_catalog_includes_foam_only_material_sensitivity_families() 
     assert not any("hybrid" in key or "balsa_cap" in key for key in family_keys)
 
 
+def test_default_rib_catalog_keeps_foam_only_reference_separate_from_rework_families() -> None:
+    catalog = build_default_rib_catalog()
+
+    assert default_material_sensitivity_family_keys(catalog) == (
+        "balsa_sheet_3mm",
+        "eps_hd_foam_cnc_10mm",
+        "xps_high_compressive_cnc_10mm",
+        "structural_foam_cnc_10mm",
+    )
+    assert hasattr(rib_properties, "default_stiffness_rework_family_keys")
+    assert rib_properties.default_stiffness_rework_family_keys(catalog) == (
+        "balsa_sheet_3mm",
+        "eps_balsa_cap_hybrid_10mm",
+        "structural_foam_glass_face_10mm",
+    )
+    assert catalog.family("eps_balsa_cap_hybrid_10mm").family_category == (
+        "capped_hybrid_foam_rib"
+    )
+    assert catalog.family("structural_foam_glass_face_10mm").family_category == (
+        "structural_foam_caps_faces"
+    )
+
+
 def test_reference_family_reproduces_legacy_middle_knockdown() -> None:
     details = derive_warping_knockdown_details("balsa_sheet_3mm", 0.30)
 
@@ -80,6 +104,14 @@ def test_foam_only_screening_families_do_not_silently_match_balsa_knockdown() ->
     assert derive_warping_knockdown("eps_hd_foam_cnc_10mm", 0.30) < baseline
     assert derive_warping_knockdown("xps_high_compressive_cnc_10mm", 0.30) < baseline
     assert derive_warping_knockdown("structural_foam_cnc_10mm", 0.30) < baseline
+
+
+def test_stiffness_rework_families_increase_warping_knockdown_without_touching_foam_only() -> None:
+    baseline = derive_warping_knockdown("balsa_sheet_3mm", 0.30)
+
+    assert derive_warping_knockdown("eps_hd_foam_cnc_10mm", 0.30) < baseline
+    assert derive_warping_knockdown("eps_balsa_cap_hybrid_10mm", 0.30) > baseline
+    assert derive_warping_knockdown("structural_foam_glass_face_10mm", 0.30) > baseline
 
 
 def test_load_config_preserves_explicit_legacy_warping_knockdown() -> None:

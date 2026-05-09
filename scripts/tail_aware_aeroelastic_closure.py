@@ -53,6 +53,10 @@ READY_VERDICT = "ready_for_fem_apdl_loadcase_package"
 NEEDS_AEROELASTIC_REWORK = "needs_aeroelastic_geometry_or_stiffness_rework"
 NEEDS_TAIL_CG_REBALANCE = "needs_tail_cg_rebalance_redesign"
 NOT_VIABLE = "pathfinder_not_viable_under_tail_aware_aeroelastic_closure"
+READY_FOR_HYBRID_STIFFNESS_REWORK = "ready_for_hybrid_rib_stiffness_rework"
+READY_FOR_AEROELASTIC_MAPPING_FIX = "ready_for_aeroelastic_mapping_fix"
+READY_FOR_FEM_LOADCASE_PACKAGE = "ready_for_FEM_loadcase_package"
+STILL_BLOCKED_BY_UNRESOLVED_TWIST_SOURCE = "still_blocked_by_unresolved_twist_source"
 
 DEFAULT_SELECTED_BASIS_JSON = (
     REPO_ROOT / "docs" / "reports" / "2026-05-09_tail_aware_rib_rear_spar_sensitivity.json"
@@ -203,6 +207,246 @@ def elastic_twist_distribution_rows(
         "alpha_eff_max_deg": float(np.max(alpha_eff)),
     }
     return rows, summary
+
+
+def twist_source_interpretation_rows(
+    *,
+    y_nodes_m: Sequence[float],
+    nodes_main_m: np.ndarray,
+    nodes_rear_m: np.ndarray,
+    disp_main_m: np.ndarray,
+    disp_rear_m: np.ndarray,
+    aero_y_m: Sequence[float],
+    aero_x_le_m: Sequence[float],
+    aero_chord_m: Sequence[float],
+    screening_bound_deg: float = 3.0,
+) -> tuple[list[dict[str, float]], dict[str, Any]]:
+    """Compare direct, quarter-chord-consistent, and bounded physical twist reads."""
+
+    y = np.asarray(y_nodes_m, dtype=float)
+    main = np.asarray(nodes_main_m, dtype=float)
+    rear = np.asarray(nodes_rear_m, dtype=float)
+    disp_main = np.asarray(disp_main_m, dtype=float)
+    disp_rear = np.asarray(disp_rear_m, dtype=float)
+    aero_y = np.asarray(aero_y_m, dtype=float)
+    aero_x_le = np.asarray(aero_x_le_m, dtype=float)
+    aero_chord = np.asarray(aero_chord_m, dtype=float)
+    if main.shape[0] != y.size or rear.shape[0] != y.size:
+        raise ValueError("node arrays must align with y_nodes_m.")
+    if disp_main.shape[0] != y.size or disp_rear.shape[0] != y.size:
+        raise ValueError("displacement arrays must align with y_nodes_m.")
+    if aero_y.ndim != 1 or aero_x_le.shape != aero_y.shape or aero_chord.shape != aero_y.shape:
+        raise ValueError("AVL aerodynamic reference arrays must be one-dimensional and aligned.")
+
+    loaded_main = main[:, :3] + disp_main[:, :3]
+    loaded_rear = rear[:, :3] + disp_rear[:, :3]
+    x_le = np.interp(y, aero_y, aero_x_le)
+    chord = np.maximum(np.interp(y, aero_y, aero_chord), 1.0e-9)
+    quarter_chord_x = x_le + 0.25 * chord
+    elastic_axis_x = 0.5 * (main[:, 0] + rear[:, 0])
+
+    rows: list[dict[str, float]] = []
+    for idx, y_m in enumerate(y):
+        base_dx = float(rear[idx, 0] - main[idx, 0])
+        loaded_dx = float(loaded_rear[idx, 0] - loaded_main[idx, 0])
+        base_chordwise = max(abs(base_dx), 1.0e-12)
+        loaded_chordwise = max(abs(loaded_dx), 1.0e-12)
+        base_dz = float(rear[idx, 2] - main[idx, 2])
+        loaded_dz = float(loaded_rear[idx, 2] - loaded_main[idx, 2])
+        base_angle = math.atan2(base_dz, base_chordwise)
+        loaded_angle = math.atan2(loaded_dz, loaded_chordwise)
+        direct_deg = math.degrees(loaded_angle - base_angle)
+
+        qc_x = float(quarter_chord_x[idx])
+        base_qc_denom = abs(float(rear[idx, 0]) - qc_x)
+        loaded_qc_denom = abs(float(loaded_rear[idx, 0]) - qc_x)
+        if base_qc_denom <= 0.05 * float(chord[idx]) or loaded_qc_denom <= 1.0e-12:
+            qc_deg = direct_deg
+        else:
+            base_slope = base_dz / base_chordwise
+            loaded_slope = loaded_dz / loaded_chordwise
+            base_qc_z = float(main[idx, 2]) + base_slope * (qc_x - float(main[idx, 0]))
+            loaded_qc_z = float(loaded_main[idx, 2]) + loaded_slope * (
+                qc_x - float(loaded_main[idx, 0])
+            )
+            base_qc_angle = math.atan2(float(rear[idx, 2]) - base_qc_z, base_qc_denom)
+            loaded_qc_angle = math.atan2(
+                float(loaded_rear[idx, 2]) - loaded_qc_z,
+                loaded_qc_denom,
+            )
+            qc_deg = math.degrees(loaded_qc_angle - base_qc_angle)
+
+        delta_z_change = loaded_dz - base_dz
+        bounded_lever_m = max(0.75 * float(chord[idx]), base_chordwise, 1.0e-12)
+        bounded_deg = math.degrees(math.atan2(delta_z_change, bounded_lever_m))
+        spar_sep_over_chord = base_chordwise / float(chord[idx])
+        rows.append(
+            {
+                "station_index": float(idx),
+                "y_m": float(y_m),
+                "main_x_m": float(main[idx, 0]),
+                "rear_x_m": float(rear[idx, 0]),
+                "quarter_chord_x_m": qc_x,
+                "elastic_axis_x_m": float(elastic_axis_x[idx]),
+                "aero_chord_m": float(chord[idx]),
+                "spar_separation_m": base_chordwise,
+                "spar_sep_over_chord": float(spar_sep_over_chord),
+                "spar_pair_delta_z_change_m": float(delta_z_change),
+                "direct_spar_pair_rotation_deg": float(direct_deg),
+                "elastic_axis_quarter_chord_projection_deg": float(qc_deg),
+                "conservative_bounded_physical_projection_deg": float(bounded_deg),
+                "bounded_projection_lever_m": float(bounded_lever_m),
+            }
+        )
+
+    direct_max = _max_abs_metric(rows, "direct_spar_pair_rotation_deg")
+    qc_max = _max_abs_metric(rows, "elastic_axis_quarter_chord_projection_deg")
+    bounded_max = _max_abs_metric(rows, "conservative_bounded_physical_projection_deg")
+    source_verdict = _classify_twist_source_verdict(
+        direct_max_abs_deg=direct_max["abs_value_deg"],
+        bounded_max_abs_deg=bounded_max["abs_value_deg"],
+        screening_bound_deg=float(screening_bound_deg),
+    )
+    return rows, {
+        "direct_spar_pair_rotation_max_abs_deg": direct_max["abs_value_deg"],
+        "direct_spar_pair_rotation_max_station_y_m": direct_max["y_m"],
+        "direct_spar_pair_rotation_max_signed_deg": direct_max["signed_value_deg"],
+        "elastic_axis_quarter_chord_projection_max_abs_deg": qc_max["abs_value_deg"],
+        "elastic_axis_quarter_chord_projection_max_station_y_m": qc_max["y_m"],
+        "conservative_bounded_physical_projection_max_abs_deg": bounded_max["abs_value_deg"],
+        "conservative_bounded_physical_projection_max_station_y_m": bounded_max["y_m"],
+        "conservative_bounded_physical_projection_max_signed_deg": bounded_max[
+            "signed_value_deg"
+        ],
+        "screening_bound_deg": float(screening_bound_deg),
+        "source_verdict": source_verdict,
+        "interpretation_read": (
+            "Direct spar-pair rotation is the rigid-section AVL Ainc stress-test. "
+            "Quarter-chord projection checks the aerodynamic reference consistency. "
+            "The bounded physical projection spreads the measured spar-pair vertical "
+            "differential over at least 75% of local AVL chord; if it still exceeds "
+            "the bound, the blocker is not just a narrow spar-reference artifact."
+        ),
+    }
+
+
+def dominant_twist_source_at_station(
+    *,
+    y_m: float,
+    component_rows: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> dict[str, Any]:
+    """Return the dominant load component at a station by direct twist magnitude."""
+
+    values: dict[str, float] = {}
+    for component, rows in component_rows.items():
+        if not rows:
+            continue
+        nearest = min(rows, key=lambda row: abs(float(row.get("y_m", 0.0)) - float(y_m)))
+        values[str(component)] = float(nearest.get("direct_spar_pair_rotation_deg", 0.0))
+    if not values:
+        return {"dominant_component": None, "component_twist_deg": {}}
+    dominant = max(values, key=lambda key: abs(values[key]))
+    return {
+        "dominant_component": dominant,
+        "component_twist_deg": values,
+        "dominant_abs_twist_deg": abs(values[dominant]),
+        "station_y_m": float(y_m),
+    }
+
+
+def build_aeroelastic_twist_source_audit(
+    *,
+    model,
+    structural,
+    source_wing_avl: Path,
+    screening_bound_deg: float = 3.0,
+) -> dict[str, Any]:
+    """Build a rerunnable audit package for the current aeroelastic twist source."""
+
+    aero = tail_avl.parse_wing_avl_basis(Path(source_wing_avl))
+    aero_y = np.asarray([section.y_le_m for section in aero.sections], dtype=float)
+    aero_x_le = np.asarray([section.x_le_m for section in aero.sections], dtype=float)
+    aero_chord = np.asarray([section.chord_m for section in aero.sections], dtype=float)
+    station_rows, interpretation_summary = twist_source_interpretation_rows(
+        y_nodes_m=model.y_nodes_m,
+        nodes_main_m=model.nodes_main_m,
+        nodes_rear_m=model.nodes_rear_m,
+        disp_main_m=structural.disp_main_m,
+        disp_rear_m=structural.disp_rear_m,
+        aero_y_m=aero_y,
+        aero_x_le_m=aero_x_le,
+        aero_chord_m=aero_chord,
+        screening_bound_deg=float(screening_bound_deg),
+    )
+    component_models = {
+        "lift_only": replace(
+            model,
+            torque_per_span_nmpm=np.zeros_like(model.torque_per_span_nmpm, dtype=float),
+            gravity_scale=0.0,
+        ),
+        "aerodynamic_torque_only": replace(
+            model,
+            lift_per_span_npm=np.zeros_like(model.lift_per_span_npm, dtype=float),
+            gravity_scale=0.0,
+        ),
+        "self_weight_only": replace(
+            model,
+            lift_per_span_npm=np.zeros_like(model.lift_per_span_npm, dtype=float),
+            torque_per_span_nmpm=np.zeros_like(model.torque_per_span_nmpm, dtype=float),
+        ),
+    }
+    component_rows: dict[str, list[dict[str, float]]] = {}
+    component_summary: dict[str, Any] = {}
+    for component, component_model in component_models.items():
+        component_result = run_dual_beam_mainline_kernel(
+            model=component_model,
+            mode=AnalysisModeName.DUAL_BEAM_ROBUSTNESS,
+            link_mode=LinkMode.DENSE_FINITE_RIB,
+        )
+        rows, summary = twist_source_interpretation_rows(
+            y_nodes_m=component_model.y_nodes_m,
+            nodes_main_m=component_model.nodes_main_m,
+            nodes_rear_m=component_model.nodes_rear_m,
+            disp_main_m=component_result.disp_main_m,
+            disp_rear_m=component_result.disp_rear_m,
+            aero_y_m=aero_y,
+            aero_x_le_m=aero_x_le,
+            aero_chord_m=aero_chord,
+            screening_bound_deg=float(screening_bound_deg),
+        )
+        component_rows[component] = rows
+        component_summary[component] = summary
+    direct_station_y = float(interpretation_summary["direct_spar_pair_rotation_max_station_y_m"])
+    dominant_source = dominant_twist_source_at_station(
+        y_m=direct_station_y,
+        component_rows=component_rows,
+    )
+    full_direct_at_station = _nearest_metric(
+        station_rows,
+        direct_station_y,
+        "direct_spar_pair_rotation_deg",
+    )
+    component_sum = sum(float(v) for v in dominant_source.get("component_twist_deg", {}).values())
+    dominant_source["component_sum_twist_deg"] = float(component_sum)
+    dominant_source["full_direct_twist_deg"] = float(full_direct_at_station)
+    dominant_source["linear_residual_deg"] = float(full_direct_at_station - component_sum)
+    return {
+        "schema_version": "aeroelastic_twist_source_audit_v1",
+        "interpretation_summary": interpretation_summary,
+        "dominant_source_at_direct_max_station": dominant_source,
+        "component_summary": component_summary,
+        "station_rows": station_rows,
+        "component_rows": component_rows,
+        "engineering_read": _twist_source_engineering_read(
+            interpretation_summary=interpretation_summary,
+            dominant_source=dominant_source,
+        ),
+        "claim_boundary": (
+            "This audit separates projection and load-component sources inside the "
+            "current beam/AVL screening closure. It is not a shell/FEM aero-surface "
+            "twist measurement and not hardware sign-off."
+        ),
+    }
 
 
 def rescale_structural_loads_by_avl_ratio(
@@ -510,9 +754,36 @@ def run_tail_aware_aeroelastic_closure(
     final_dir.mkdir(parents=True, exist_ok=True)
     _write_csv(final_dir / "elastic_twist_alpha_eff.csv", final_state["twist_rows"])
     _write_csv(final_dir / "wing_spanload_redistribution.csv", final_state["load_rows"])
+    twist_source_audit = build_aeroelastic_twist_source_audit(
+        model=final_state["model"],
+        structural=final_state["structural"],
+        source_wing_avl=Path(source_wing_avl),
+        screening_bound_deg=3.0,
+    )
+    _write_csv(final_dir / "twist_source_audit.csv", twist_source_audit["station_rows"])
+    _write_csv(
+        final_dir / "twist_source_components.csv",
+        _flatten_component_rows(twist_source_audit["component_rows"]),
+    )
     trim_row = final_state["trim_state"]["row"]
     aero_effects = {
         **final_state["twist_summary"],
+        "twist_source_verdict": _mapping_at(
+            twist_source_audit,
+            "interpretation_summary",
+        ).get("source_verdict"),
+        "direct_spar_pair_rotation_max_abs_deg": _mapping_at(
+            twist_source_audit,
+            "interpretation_summary",
+        ).get("direct_spar_pair_rotation_max_abs_deg"),
+        "elastic_axis_quarter_chord_projection_max_abs_deg": _mapping_at(
+            twist_source_audit,
+            "interpretation_summary",
+        ).get("elastic_axis_quarter_chord_projection_max_abs_deg"),
+        "conservative_bounded_physical_projection_max_abs_deg": _mapping_at(
+            twist_source_audit,
+            "interpretation_summary",
+        ).get("conservative_bounded_physical_projection_max_abs_deg"),
         "twist_projection_basis": "direct_spar_pair_rotation_to_avl_ainc_stress_test",
         "twist_proxy_claim_boundary": (
             "The main/rear spar-pair rotation is projected directly into AVL SECTION "
@@ -606,6 +877,7 @@ def run_tail_aware_aeroelastic_closure(
         "cg_management": cg_management,
         "trim_static_directional": trim_static_directional,
         "aeroelastic_effects": aero_effects,
+        "aeroelastic_twist_source_audit": twist_source_audit,
         "selected_stiffness_basis": selected_stiffness_basis,
         "mass_drag_power": mass_drag_power,
         "load_remap_diagnostics": dict(selected_basis.get("load_remap_diagnostics") or {}),
@@ -615,6 +887,10 @@ def run_tail_aware_aeroelastic_closure(
         "schema_version": SCHEMA_VERSION,
         "candidate_id": CANDIDATE_ID,
         "engineering_verdict": verdict["verdict"],
+        "twist_source_verdict": _mapping_at(
+            twist_source_audit,
+            "interpretation_summary",
+        ).get("source_verdict"),
         "blockers": verdict["blockers"],
         "warnings": verdict["warnings"],
         "basis": basis,
@@ -628,6 +904,12 @@ def run_tail_aware_aeroelastic_closure(
             ),
             "final_wing_spanload_redistribution_csv": str(
                 (final_dir / "wing_spanload_redistribution.csv").resolve()
+            ),
+            "final_twist_source_audit_csv": str(
+                (final_dir / "twist_source_audit.csv").resolve()
+            ),
+            "final_twist_source_components_csv": str(
+                (final_dir / "twist_source_components.csv").resolve()
             ),
             "selected_basis_json": str(Path(selected_basis_json).resolve()),
             "tail_screening_json": str(Path(tail_screening_json).resolve()),
@@ -925,6 +1207,79 @@ def _closure_ranking_effect(root_bending_ratio: Any, stall_margin_min: Any) -> s
     return "no_change_conservative_best_remains_screening_closed"
 
 
+def _classify_twist_source_verdict(
+    *,
+    direct_max_abs_deg: float,
+    bounded_max_abs_deg: float,
+    screening_bound_deg: float,
+) -> str:
+    if direct_max_abs_deg <= screening_bound_deg and bounded_max_abs_deg <= screening_bound_deg:
+        return READY_FOR_FEM_LOADCASE_PACKAGE
+    if direct_max_abs_deg > screening_bound_deg and bounded_max_abs_deg <= screening_bound_deg:
+        return READY_FOR_AEROELASTIC_MAPPING_FIX
+    if bounded_max_abs_deg > screening_bound_deg:
+        return READY_FOR_HYBRID_STIFFNESS_REWORK
+    return STILL_BLOCKED_BY_UNRESOLVED_TWIST_SOURCE
+
+
+def _max_abs_metric(rows: Sequence[Mapping[str, Any]], key: str) -> dict[str, float]:
+    if not rows:
+        return {"abs_value_deg": 0.0, "signed_value_deg": 0.0, "y_m": 0.0}
+    row = max(rows, key=lambda item: abs(float(item.get(key, 0.0))))
+    value = float(row.get(key, 0.0))
+    return {
+        "abs_value_deg": abs(value),
+        "signed_value_deg": value,
+        "y_m": float(row.get("y_m", 0.0)),
+    }
+
+
+def _nearest_metric(rows: Sequence[Mapping[str, Any]], y_m: float, key: str) -> float:
+    if not rows:
+        return 0.0
+    row = min(rows, key=lambda item: abs(float(item.get("y_m", 0.0)) - float(y_m)))
+    return float(row.get(key, 0.0))
+
+
+def _flatten_component_rows(
+    component_rows: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for component, values in component_rows.items():
+        for row in values:
+            rows.append({"component": component, **dict(row)})
+    return rows
+
+
+def _twist_source_engineering_read(
+    *,
+    interpretation_summary: Mapping[str, Any],
+    dominant_source: Mapping[str, Any],
+) -> str:
+    verdict = interpretation_summary.get("source_verdict")
+    dominant = dominant_source.get("dominant_component")
+    if verdict == READY_FOR_HYBRID_STIFFNESS_REWORK:
+        return (
+            "The direct spar-pair stress-test is high and the bounded physical "
+            "projection still exceeds the screening bound. Treat this as a real "
+            f"torsional stiffness / shear-transfer blocker, with {dominant} as the "
+            "dominant component at the peak station, until a qualified shell/FEM "
+            "mapping proves otherwise."
+        )
+    if verdict == READY_FOR_AEROELASTIC_MAPPING_FIX:
+        return (
+            "The direct spar-pair stress-test exceeds the bound but the bounded "
+            "physical projection clears it. Prioritize qualified aero-surface / "
+            "elastic-axis mapping before adding stiffness mass."
+        )
+    if verdict == READY_FOR_FEM_LOADCASE_PACKAGE:
+        return (
+            "All screening twist interpretations clear the bound; the remaining "
+            "work can move toward FEM/APDL loadcase packaging."
+        )
+    return "The twist source remains unresolved; do not promote the closure package."
+
+
 def _stall_margin_min(load: SpanwiseLoad, limit: float = 1.20) -> float:
     return float(limit - np.max(np.asarray(load.cl, dtype=float)))
 
@@ -1033,6 +1388,9 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
     cg = _mapping_at(basis, "cg_management")
     trim = _mapping_at(basis, "trim_static_directional")
     aero = _mapping_at(basis, "aeroelastic_effects")
+    twist_audit = _mapping_at(basis, "aeroelastic_twist_source_audit")
+    twist_summary = _mapping_at(twist_audit, "interpretation_summary")
+    dominant = _mapping_at(twist_audit, "dominant_source_at_direct_max_station")
     stiff = _mapping_at(basis, "selected_stiffness_basis")
     mass = _mapping_at(basis, "mass_drag_power")
     artifacts = _mapping_at(summary, "artifact_manifest")
@@ -1041,6 +1399,7 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
         "",
         f"Candidate: `{summary.get('candidate_id')}`",
         f"Verdict: `{summary.get('engineering_verdict')}`",
+        f"Twist-source verdict: `{summary.get('twist_source_verdict')}`",
         f"Blockers: `{summary.get('blockers')}`",
         f"Warnings: `{summary.get('warnings')}`",
         "",
@@ -1055,6 +1414,15 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
         f"- Twist projection: `{aero.get('twist_projection_basis')}`.",
         f"- Stall margin min: `{_fmt(aero.get('stall_margin_min'), 6)}` Cl using `{aero.get('stall_margin_basis')}`.",
         f"- Root bending ratio vs baseline AVL load: `{_fmt(aero.get('root_bending_moment_ratio_loaded_vs_baseline'), 6)}`.",
+        "",
+        "## Twist Source Audit",
+        "",
+        f"- Direct spar-pair rotation max: `{_fmt(twist_summary.get('direct_spar_pair_rotation_max_abs_deg'), 6)}` deg at y=`{_fmt(twist_summary.get('direct_spar_pair_rotation_max_station_y_m'), 3)}` m.",
+        f"- Elastic-axis / quarter-chord projection max: `{_fmt(twist_summary.get('elastic_axis_quarter_chord_projection_max_abs_deg'), 6)}` deg.",
+        f"- Conservative bounded physical projection max: `{_fmt(twist_summary.get('conservative_bounded_physical_projection_max_abs_deg'), 6)}` deg at y=`{_fmt(twist_summary.get('conservative_bounded_physical_projection_max_station_y_m'), 3)}` m.",
+        f"- Dominant component at direct max station: `{dominant.get('dominant_component')}` with component twists `{dominant.get('component_twist_deg')}` deg.",
+        f"- Audit CSV: `{artifacts.get('final_twist_source_audit_csv')}`; component CSV: `{artifacts.get('final_twist_source_components_csv')}`.",
+        f"- Engineering read: {twist_audit.get('engineering_read')}",
         "",
         "## Selected Basis Audit For FEM/APDL Package",
         "",

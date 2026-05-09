@@ -93,7 +93,10 @@ tail-aware bounded rib / rear-spar sensitivity 已完成，讀
 新增 foam-only EPS / XPS / structural foam families。v1 verdict 是
 `foam_only_families_do_not_clear_current_aeroelastic_closure`：EPS/XPS 的 projected twist 約
 `33.16 deg`，structural foam 約 `9.32 deg`，都高於 `3 deg` screening bound；第一版沒有
-EPS+balsa / glass / carbon hybrid stiffness credit。
+EPS+balsa / glass / carbon hybrid stiffness credit。runner 也新增下一輪
+`stiffness_rework_candidates`：balsa baseline 保留比較用，hybrid EPS+balsa/cap、
+structural-foam+glass-face 與 stronger rear-spar participation / shear-transfer rows 是
+下一輪 closure rerun candidates，不能把 foam-only rows 硬升級成 pass。
 重要限制：未補償的 tail+ribs mass bookkeeping 會把 CG 推到 `0.801 m`，所以 aeroelastic
 closure 只能使用 final CG 管理後的 `0.75 m` screening row；不能把 tail/rib mass 加上去後還
 沿用舊 ready verdict。
@@ -103,9 +106,13 @@ tail-aware aeroelastic closure 已完成第一輪，讀
 目前 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`：fixed-point loop 收斂，final
 managed CG `0.75 m`、H-tail trim reserve、static margin、V-tail authority、mass/drag/power
 charge 與 conserved load remap 都保留；但 direct spar-pair rotation -> AVL incidence stress-test
-給出 `5.414 deg` max twist，超過 `3 deg` screening bound。這表示 selected basis 還不能升成
-FEM/APDL loadcase package；下一步要做 qualified aero-surface twist mapping 或 stiffness/geometry
-rework。
+給出 `5.413 deg` max twist，超過 `3 deg` screening bound。新增 twist-source audit 顯示
+elastic-axis / quarter-chord consistent projection 仍約 `5.413 deg`，conservative bounded
+physical projection 仍約 `3.256 deg`，peak station 在 y≈`2.328 m`，主要來源是 aerodynamic
+torque-only 分量，lift 在該站反而部分抵消。clear verdict 是
+`ready_for_hybrid_rib_stiffness_rework`：selected basis 還不能升成 FEM/APDL loadcase package；
+下一步優先做 hybrid rib / shear cap / skin / stronger rear-spar participation rerun，同時保留
+qualified aero-surface mapping 作為驗證，不把 direct projection 當 final measurement。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -138,8 +145,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 Phase J 每一步目前到底靠哪些 artifact / candidate / trust boundary | [docs/reports/2026-05-09_phase_j_evidence_map.md](docs/reports/2026-05-09_phase_j_evidence_map.md) | stage-by-stage evidence map |
 | 看目前 pathfinder 的 locked basis / geometry-state 一致性 / 下一步優先序 | [docs/reports/2026-05-09_pathfinder_basis_lock.md](docs/reports/2026-05-09_pathfinder_basis_lock.md) | candidate basis lock |
 | 看 conservative load remap / rib sensitivity 前置 load gate | [docs/reports/2026-05-09_conservative_load_mapper_foundation.md](docs/reports/2026-05-09_conservative_load_mapper_foundation.md) | load conservation foundation |
-| 看 tail-aware rib / rear-spar sensitivity verdict 與 material-family compare | [docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | balsa baseline ready-for-closure basis; foam-only families do not clear current twist projection |
-| 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged but needs aeroelastic geometry/stiffness rework |
+| 看 tail-aware rib / rear-spar sensitivity verdict 與 material-family compare | [docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | balsa baseline ready-for-closure basis; foam-only families stay low-stiffness references; hybrid rework candidates are listed |
+| 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged; twist-source audit points to hybrid rib/stiffness rework |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
@@ -170,8 +177,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
   Current pathfinder v0 foundation、all-moving full-aircraft AVL audit v0、V-tail sensitivity v0
   和 tail / CG / trim / stability screening v1 已存在；tail-aware rib / rear-spar
   sensitivity 已選出可進 aeroelastic closure 的 balsa baseline screening basis，且 material
-  family sensitivity 顯示 foam-only EPS/XPS/structural foam 不能直接解除 twist blocker；第一輪
-  tail-aware closure 判定需要 aeroelastic geometry / stiffness rework；final CG 必須被管理在
+  family sensitivity 顯示 foam-only EPS/XPS/structural foam 不能直接解除 twist blocker；twist-source
+  audit 已把下一步判定為 `ready_for_hybrid_rib_stiffness_rework`；final CG 必須被管理在
   `[0.68, 0.75] m`。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
@@ -189,7 +196,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 - Horizontal / vertical tail 不是最後才補的外觀件；current pathfinder 已有 all-moving tail
   AVL audit v0、tail / CG / trim / stability screening v1 與 tail-aware closure evidence。
   目前 CG / trim / static / directional authority 可以在 managed CG row 下成立，但 aeroelastic
-  twist/stiffness 還沒過 package gate，不能宣稱整機 aircraft-feasible。
+  twist/stiffness 還沒過 package gate；下一步是 hybrid rib / shear-transfer stiffness rework，
+  不能宣稱整機 aircraft-feasible。
 - 主翼 mesh-native CFD / SU2 線仍暫停，不能拿來當 performance claim truth。
 
 ---
@@ -273,7 +281,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Mission / concept search | 可用於新設計探索，但仍依賴 proxy 與 worker quality |
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
 | Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
-| Empennage / trim / stability | 已有 tail contract v0、all-moving AVL audit v0、V-tail sensitivity v0，以及 tail/CG/trim/stability screening v1；tail-aware closure 顯示 managed CG、H-tail trim reserve、static margin、V-tail authority 保留，但 aeroelastic twist/stiffness 還需 rework；不可用未補償 mass shift |
+| Empennage / trim / stability | 已有 tail contract v0、all-moving AVL audit v0、V-tail sensitivity v0，以及 tail/CG/trim/stability screening v1；tail-aware closure 顯示 managed CG、H-tail trim reserve、static margin、V-tail authority 保留，但 twist-source audit 指向 hybrid rib/stiffness rework；不可用未補償 mass shift |
 | V-tail / CG reference sensitivity | v0 顯示 directional derivatives 可被 area/arm 推高；v1 進一步用 explicit CG-referenced AVL rows 驗證 Xnp convention、longitudinal trim、static margin 與 yaw authority |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
