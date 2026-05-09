@@ -6,6 +6,7 @@ Verdict: `ready_for_tail_aware_aeroelastic_closure`
 ## Selected Basis
 
 - case: `finite_rib_rear_0p50_selected_screening_basis`
+- rib family: `balsa_sheet_3mm`; density `160.0` kg/m3; trust `baseline_legacy_screening`
 - rib spacing / bay: `0.3` m target; max materialized subbay `0.297063` m
 - rib count basis: `121` full-wing ribs/stations
 - rear spar participation: `bounded_50pct_screening`
@@ -16,6 +17,22 @@ Verdict: `ready_for_tail_aware_aeroelastic_closure`
 - tail margins: SM `0.088378` MAC, delta_H reserve `5.673498` deg, C_n_beta min `0.016153`
 - load remap: `conserved`
 - closure ranking: `no_change_conservative_best_remains_screening_closed`
+- material source note: Existing repo baseline: balsa_sheet_3mm at 0.30 m target spacing; keep as the current pathfinder reference, not a final rib drawing.
+
+## Material Family Sensitivity
+
+Verdict: `foam_only_families_do_not_clear_current_aeroelastic_closure`
+
+| family | density kg/m3 | thickness mm | mass kg | knockdown | GJ vs balsa | projected twist deg | closure verdict | trust |
+|---|---:|---:|---:|---:|---:|---:|---|---|
+| balsa_sheet_3mm | 160.000 | 3.00 | 3.030 | 0.502 | 1.000 | 5.414 | `baseline_not_ready_for_current_aeroelastic_closure` | `baseline_legacy_screening` |
+| eps_hd_foam_cnc_10mm | 30.000 | 10.00 | 1.894 | 0.080 | 0.163 | 33.158 | `foam_only_not_selectable_for_current_aeroelastic_closure` | `low_screening_supplier_coupon_required` |
+| xps_high_compressive_cnc_10mm | 32.000 | 10.00 | 2.020 | 0.080 | 0.163 | 33.158 | `foam_only_not_selectable_for_current_aeroelastic_closure` | `low_screening_supplier_coupon_required` |
+| structural_foam_cnc_10mm | 60.000 | 10.00 | 3.787 | 0.291 | 0.581 | 9.320 | `foam_only_not_selectable_for_current_aeroelastic_closure` | `medium_screening_datasheet_like_supplier_coupon_required` |
+
+Future note: EPS/XPS plus balsa leading-edge strips, glass caps, or carbon caps are intentionally out of v1; add them later as explicit hybrid families.
+
+Engineering read: foam-only families are evaluated as CNC-cut rib proxies only. No balsa leading edge, glass cap, or carbon cap stiffness credit is included in this v1 sensitivity.
 
 ## Structural Cases
 

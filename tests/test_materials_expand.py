@@ -21,6 +21,9 @@ DB_PATH = REPO_ROOT / "data" / "materials.yaml"
 NEW_MATERIAL_KEYS: List[str] = [
     "rohacell_31",
     "rohacell_51",
+    "eps_hd_foam",
+    "xps_high_compressive_foam",
+    "structural_foam_pvc_h60",
     "kevlar_49_ud",
     "eglass_ud",
     "dyneema_sk75",
@@ -83,6 +86,20 @@ def test_eglass_woven_has_shear_strength(mat_db: MaterialDB) -> None:
     assert mat.shear_strength is not None and mat.shear_strength > 0, (
         f"eglass_woven shear_strength should be a positive float, got {mat.shear_strength}"
     )
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["eps_hd_foam", "xps_high_compressive_foam", "structural_foam_pvc_h60"],
+)
+def test_rib_foam_screening_materials_have_crushing_or_shear_basis(
+    mat_db: MaterialDB,
+    key: str,
+) -> None:
+    mat = mat_db.get(key)
+
+    assert mat.compressive_strength is not None and mat.compressive_strength > 0.0
+    assert mat.shear_strength is not None and mat.shear_strength > 0.0
 
 
 def test_original_materials_untouched(mat_db: MaterialDB) -> None:

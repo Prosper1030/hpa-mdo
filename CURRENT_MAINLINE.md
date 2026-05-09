@@ -277,7 +277,8 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 6. **tail-aware bounded rib/rear-spar sensitivity 已完成**
    - 目前：`scripts/tail_aware_rib_rear_spar_sensitivity.py` 與
      `docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md` 已建立。
-     current pathfinder verdict 是 `ready_for_tail_aware_aeroelastic_closure`。
+     current pathfinder balsa baseline verdict 是 `ready_for_tail_aware_aeroelastic_closure`；
+     同一個 report 現在也輸出 material family sensitivity verdict。
    - 目的：用同一個 locked pathfinder load/Z basis 跑 rear-soft/rear-stiff、finite-rib-link、
      no-rib/limited-rib 等 bounded sensitivity，確認 loaded tip Z、root-offset-removed AVL section Z、
      clearance、twist、tube mass、wire tension、`delta_H_required`、tail CL utilization、
@@ -286,6 +287,12 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      對應 `61` half-wing stations / `121` full-wing ribs or stations、`balsa_sheet_3mm`、
      warping knockdown `0.50246`、`bounded_50pct_screening` rear-spar participation；
      對 finite-rib rear=1.0 upper-bound，選定 case 約為 `EI_flap 0.599x / GJ 0.568x`。
+   - material family sensitivity：`balsa_sheet_3mm` 保留為 baseline；新增 foam-only
+     `eps_hd_foam_cnc_10mm`、`xps_high_compressive_cnc_10mm`、`structural_foam_cnc_10mm`。
+     v1 不包含 EPS+balsa、glass cap 或 carbon cap hybrid credit。latest verdict 是
+     `foam_only_families_do_not_clear_current_aeroelastic_closure`：EPS/XPS effective GJ 約為
+     balsa selected basis 的 `0.163x`、projected twist 約 `33.16 deg`；structural foam 約
+     `0.581x`、projected twist 約 `9.32 deg`。三者都沒有過 `3 deg` twist screening bound。
    - CG 限制：未補償的 selected tail delta + physical rib pack 會把 CG 推到約 `0.801 m`；
      aeroelastic closure 只能使用 final CG 管理後的 `0.75 m` screening row。需要約
      `0.091 m` forward rebalance on 56 kg equivalent pilot/cockpit mass；不能把 tail/rib mass
@@ -371,9 +378,11 @@ package；尤其 CG 必須使用 final managed row，而不是未補償的 tail/
   warping knockdown、mass/CG bookkeeping 與 closure ranking 接成 tail-aware aeroelastic
   screening basis。
 - 注意：rib/rear-spar sensitivity verdict 是 `ready_for_tail_aware_aeroelastic_closure`；
+  material-family verdict 是 `foam_only_families_do_not_clear_current_aeroelastic_closure`；
   closure 第一輪 verdict 是 `needs_aeroelastic_geometry_or_stiffness_rework`。final CG managed
   row `0.75 m` 保留；未補償 tail+ribs mass CG 約 `0.801 m`，不能靜音。direct spar-pair
-  rotation -> AVL incidence 目前只是 stress-test proxy，不是 qualified aero-surface twist。
+  rotation -> AVL incidence 目前只是 stress-test proxy，不是 qualified aero-surface twist；
+  foam-only ribs cannot be used to claim the current closure blocker is solved.
 
 ### F. FEM/APDL / shell / load-factor spot-check
 

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Any, Mapping
 
 import yaml
 
@@ -34,9 +34,12 @@ class RibFamily:
     label: str
     material: str
     thickness_m: float
+    family_category: str
     description: str
     intended_use: str
     notes: str
+    trust_level: str
+    source_note: str
     stiffness_proxy: RibStiffnessProxy
     spacing_guidance: RibSpacingGuidance
 
@@ -71,6 +74,8 @@ class RibPropertiesCatalog:
     catalog_version: int
     default_family: str
     default_spacing_m: float
+    material_sensitivity_families: tuple[str, ...]
+    future_material_note: str
     derivation: RibDerivationSettings
     families: Mapping[str, RibFamily]
 
@@ -134,9 +139,12 @@ def build_default_rib_catalog(path: Path | None = None) -> RibPropertiesCatalog:
             label=str(raw_family["label"]),
             material=str(raw_family["material"]),
             thickness_m=_as_float(raw_family, "thickness_m"),
+            family_category=str(raw_family.get("family_category", "")),
             description=str(raw_family.get("description", "")),
             intended_use=str(raw_family.get("intended_use", "")),
             notes=str(raw_family.get("notes", "")),
+            trust_level=str(raw_family.get("trust_level", "")),
+            source_note=str(raw_family.get("source_note", "")),
             stiffness_proxy=RibStiffnessProxy(
                 construction_factor=_as_float(stiffness_payload, "construction_factor"),
                 rotational_fixity_factor=_as_float(stiffness_payload, "rotational_fixity_factor"),
@@ -156,12 +164,26 @@ def build_default_rib_catalog(path: Path | None = None) -> RibPropertiesCatalog:
         raise ValueError(
             f"Rib catalog reference_family '{derivation.reference_family}' is not defined."
         )
+    material_sensitivity_raw = metadata.get("material_sensitivity_families") or (
+        default_family,
+    )
+    if not isinstance(material_sensitivity_raw, list | tuple):
+        raise ValueError("metadata.material_sensitivity_families must be a sequence.")
+    material_sensitivity_families = tuple(str(key) for key in material_sensitivity_raw)
+    for family_key in material_sensitivity_families:
+        if family_key not in families:
+            raise ValueError(
+                f"Rib catalog material_sensitivity_families includes unknown "
+                f"family '{family_key}'."
+            )
 
     return RibPropertiesCatalog(
         description=str(metadata.get("description", "")),
         catalog_version=int(metadata.get("catalog_version", 1)),
         default_family=default_family,
         default_spacing_m=_as_float(metadata, "default_spacing_m"),
+        material_sensitivity_families=material_sensitivity_families,
+        future_material_note=str(metadata.get("future_material_note", "")),
         derivation=derivation,
         families=families,
     )
@@ -247,6 +269,58 @@ def derive_warping_knockdown(
         catalog=catalog,
         material_db=material_db,
     ).warping_knockdown
+
+
+def default_material_sensitivity_family_keys(
+    catalog: RibPropertiesCatalog | None = None,
+) -> tuple[str, ...]:
+    """Return the default v1 family order for material sensitivity comparisons."""
+
+    resolved_catalog = catalog or build_default_rib_catalog()
+    return resolved_catalog.material_sensitivity_families
+
+
+def rib_family_material_basis(
+    family_key: str,
+    *,
+    catalog: RibPropertiesCatalog | None = None,
+    material_db: MaterialDB | None = None,
+) -> dict[str, Any]:
+    """Return the machine-readable material basis required by sensitivity reports."""
+
+    resolved_catalog = catalog or build_default_rib_catalog()
+    resolved_material_db = material_db or MaterialDB()
+    family = resolved_catalog.family(family_key)
+    material = resolved_material_db.get(family.material)
+    compressive = material.compressive_strength
+    shear = material.shear_strength
+    strength_basis_parts: list[str] = []
+    if compressive is not None:
+        strength_basis_parts.append(f"compressive_strength_pa={float(compressive):.6g}")
+    if shear is not None:
+        strength_basis_parts.append(f"shear_strength_pa={float(shear):.6g}")
+    if not strength_basis_parts:
+        strength_basis_parts.append("no_compressive_or_shear_strength_in_material_db")
+    return {
+        "family_key": family.key,
+        "label": family.label,
+        "family_category": family.family_category,
+        "material_key": family.material,
+        "thickness_m": float(family.thickness_m),
+        "density_kgpm3": float(material.density),
+        "young_modulus_pa": float(material.E),
+        "shear_modulus_pa": float(material.G),
+        "compressive_strength_pa": None if compressive is None else float(compressive),
+        "shear_strength_pa": None if shear is None else float(shear),
+        "compressive_or_shear_basis": "; ".join(strength_basis_parts),
+        "stiffness_proxy": asdict(family.stiffness_proxy),
+        "spacing_guidance": asdict(family.spacing_guidance),
+        "trust_level": family.trust_level,
+        "source_note": family.source_note,
+        "description": family.description,
+        "intended_use": family.intended_use,
+        "notes": family.notes,
+    }
 
 
 def resolve_rib_warping_knockdown(

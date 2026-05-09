@@ -120,6 +120,39 @@ rohacell_51:
   poisson_ratio: 0.38
   description: "Rib core — higher density/stiffness than Rohacell 31"
 
+eps_hd_foam:
+  name: "High-density EPS foam screening proxy"
+  E: 8.0e6
+  G: 3.0e6
+  density: 30.0
+  tensile_strength: 0.12e6
+  compressive_strength: 0.17e6
+  shear_strength: 0.08e6
+  poisson_ratio: 0.33
+  description: "CNC-cut high-density EPS rib proxy; ASTM C578 Type IX / 30 kg/m3 class screening values, supplier coupon required."
+
+xps_high_compressive_foam:
+  name: "High-compressive XPS foam screening proxy"
+  E: 8.5e6
+  G: 3.2e6
+  density: 32.0
+  tensile_strength: 0.15e6
+  compressive_strength: 0.276e6
+  shear_strength: 0.10e6
+  poisson_ratio: 0.33
+  description: "CNC-cut high-compressive XPS rib proxy; ASTM C578 Type VI / 40 psi class screening values, supplier coupon required."
+
+structural_foam_pvc_h60:
+  name: "Divinycell H60-like structural foam screening proxy"
+  E: 75.0e6
+  G: 20.0e6
+  density: 60.0
+  tensile_strength: 1.5e6
+  compressive_strength: 0.9e6
+  shear_strength: 0.63e6
+  poisson_ratio: 0.40
+  description: "Rohacell/Divinycell-like closed-cell structural foam rib proxy; H60-class density, compressive and shear basis."
+
 kevlar_49_ud:
   name: "Kevlar 49 Unidirectional"
   E: 125.0e9

@@ -3,6 +3,12 @@ metadata:
   catalog_version: 1
   default_family: "balsa_sheet_3mm"
   default_spacing_m: 0.30
+  material_sensitivity_families:
+    - "balsa_sheet_3mm"
+    - "eps_hd_foam_cnc_10mm"
+    - "xps_high_compressive_cnc_10mm"
+    - "structural_foam_cnc_10mm"
+  future_material_note: "EPS/XPS plus balsa leading-edge strips, glass caps, or carbon caps are intentionally out of v1; add them later as explicit hybrid families."
   derivation:
     formula: "weighted_material_thickness_proxy_v1"
     reference_family: "balsa_sheet_3mm"
@@ -18,9 +24,12 @@ families:
     label: "Balsa sheet 3 mm"
     material: "balsa"
     thickness_m: 0.003
+    family_category: "balsa_baseline"
     description: "Simple sheet-balsa rib bay used as the baseline rib family."
     intended_use: "Legacy-compatible baseline for current dual-spar screening and jig studies."
     notes: "Anchored so nominal spacing reproduces the current conservative-middle assumption of about 0.5 warping knockdown."
+    trust_level: "baseline_legacy_screening"
+    source_note: "Existing repo baseline: balsa_sheet_3mm at 0.30 m target spacing; keep as the current pathfinder reference, not a final rib drawing."
     stiffness_proxy:
       construction_factor: 1.0
       rotational_fixity_factor: 1.0
@@ -30,13 +39,73 @@ families:
       nominal_m: 0.30
       max_m: 0.38
 
+  eps_hd_foam_cnc_10mm:
+    label: "CNC-cut high-density EPS foam 10 mm"
+    material: "eps_hd_foam"
+    thickness_m: 0.010
+    family_category: "eps_foam_only"
+    description: "Foam-only high-density EPS rib screening family for practical CNC-cut rib comparisons."
+    intended_use: "Early shop-realistic foam-only rib sensitivity; no balsa leading edge, glass cap, or carbon cap credit in v1."
+    notes: "Low modulus and low rotational fixity are deliberate; do not tune this family to pass aeroelastic twist without added structure."
+    trust_level: "low_screening_supplier_coupon_required"
+    source_note: "ASTM C578 Type IX / high-density EPS class screening: about 30 kg/m3 density and 25 psi / 0.17 MPa compressive basis; E and shear are conservative proxy values."
+    stiffness_proxy:
+      construction_factor: 0.70
+      rotational_fixity_factor: 0.45
+      shear_transfer_factor: 0.45
+    spacing_guidance:
+      min_m: 0.18
+      nominal_m: 0.30
+      max_m: 0.30
+
+  xps_high_compressive_cnc_10mm:
+    label: "CNC-cut high-compressive XPS foam 10 mm"
+    material: "xps_high_compressive_foam"
+    thickness_m: 0.010
+    family_category: "xps_foam_only"
+    description: "Foam-only XPS rib screening family using a higher-compressive insulation/fixture-board class."
+    intended_use: "Practical high-compressive foam-only rib comparison where EPS crush margin may be too weak."
+    notes: "Still foam-only; no hybrid edge strip or cap credit is included in v1."
+    trust_level: "low_screening_supplier_coupon_required"
+    source_note: "ASTM C578 Type VI / FOAMULAR 400-like XPS class screening: 40 psi / 0.276 MPa compressive basis; density and modulus are conservative proxy values."
+    stiffness_proxy:
+      construction_factor: 0.80
+      rotational_fixity_factor: 0.50
+      shear_transfer_factor: 0.50
+    spacing_guidance:
+      min_m: 0.18
+      nominal_m: 0.30
+      max_m: 0.30
+
+  structural_foam_cnc_10mm:
+    label: "CNC-cut structural foam 10 mm"
+    material: "structural_foam_pvc_h60"
+    thickness_m: 0.010
+    family_category: "structural_foam_only"
+    description: "Foam-only Rohacell/Divinycell-like structural foam rib screening family."
+    intended_use: "Higher-stiffness foam-only comparison before adding local balsa/glass/carbon reinforcement in a later hybrid study."
+    notes: "Represents a structural core foam rib, not a capped sandwich rib; faces/caps remain future work."
+    trust_level: "medium_screening_datasheet_like_supplier_coupon_required"
+    source_note: "Divinycell H60 / Rohacell-like screening: about 60 kg/m3 density, 0.9 MPa compressive, and 0.63 MPa shear-strength basis."
+    stiffness_proxy:
+      construction_factor: 1.00
+      rotational_fixity_factor: 0.60
+      shear_transfer_factor: 0.75
+    spacing_guidance:
+      min_m: 0.18
+      nominal_m: 0.30
+      max_m: 0.30
+
   foam_core_glass_cap_5mm:
     label: "Foam core with light glass caps 5 mm"
     material: "rohacell_51"
     thickness_m: 0.005
+    family_category: "hybrid_future_reference"
     description: "Light sandwich-style rib with foam web and modest cap or face reinforcement."
     intended_use: "Mass-sensitive bays where the rib mainly preserves airfoil shape and transfers moderate torsion."
     notes: "The material key points at the dominant foam core; construction_factor captures the added cap or face-sheet contribution."
+    trust_level: "future_hybrid_reference_not_v1_default"
+    source_note: "Legacy catalog family retained for compatibility; excluded from v1 foam-only sensitivity defaults because it includes cap/face-sheet credit."
     stiffness_proxy:
       construction_factor: 1.75
       rotational_fixity_factor: 0.70
@@ -50,9 +119,12 @@ families:
     label: "Capped balsa box rib 4 mm"
     material: "balsa"
     thickness_m: 0.004
+    family_category: "balsa_hybrid_reference"
     description: "Stiffer built-up balsa rib with caps or gussets for better rotational fixity."
     intended_use: "Higher torsion-retention bays or local reinforcement near joints and wire-attachment regions."
     notes: "Still a screening-level proxy and not a replacement for the future finite-rib mainline mode."
+    trust_level: "legacy_hybrid_reference_not_v1_default"
+    source_note: "Legacy reinforced balsa reference retained for catalog continuity; excluded from v1 foam-only material family sensitivity defaults."
     stiffness_proxy:
       construction_factor: 1.25
       rotational_fixity_factor: 1.30

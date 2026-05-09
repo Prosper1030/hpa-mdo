@@ -86,6 +86,66 @@ def test_cg_assessment_flags_uncompensated_aft_tail_shift_without_silencing_read
     assert assessment["required_forward_rebalance_m"] == pytest.approx(0.098675, rel=1.0e-3)
 
 
+def test_rib_mass_estimate_uses_each_family_material_density_and_thickness(tmp_path) -> None:
+    module = _load_script_module()
+    config_path = tmp_path / "simple_wing.yaml"
+    config_path.write_text(
+        """
+wing:
+  span: 2.0
+  root_chord: 1.0
+  tip_chord: 1.0
+  airfoil_root_tc: 0.10
+  airfoil_tip_tc: 0.10
+""".lstrip(),
+        encoding="utf-8",
+    )
+    stations = (0.0, 0.5, 1.0)
+
+    balsa_mass = module._estimate_full_wing_rib_mass_kg(
+        stations_y_m=stations,
+        config_path=config_path,
+        family_key="balsa_sheet_3mm",
+    )
+    eps_mass = module._estimate_full_wing_rib_mass_kg(
+        stations_y_m=stations,
+        config_path=config_path,
+        family_key="eps_hd_foam_cnc_10mm",
+    )
+
+    assert eps_mass == pytest.approx(balsa_mass * (30.0 * 0.010) / (160.0 * 0.003))
+    assert eps_mass != pytest.approx(balsa_mass)
+
+
+def test_projected_material_family_closure_verdict_blocks_lower_gj_foam() -> None:
+    module = _load_script_module()
+
+    projection = module.project_material_family_aeroelastic_closure(
+        family_key="eps_hd_foam_cnc_10mm",
+        baseline_closure_basis={
+            "aeroelastic_effects": {
+                "elastic_twist_max_abs_deg": 5.4,
+                "elastic_twist_screening_bound_deg": 3.0,
+            },
+            "trim_static_directional": {
+                "status": "pass",
+                "delta_H_margin_to_limit_deg": 3.7,
+                "static_margin": 0.09,
+                "C_n_beta": 0.012,
+                "delta_V_margin_to_limit_deg": 17.0,
+            },
+        },
+        balsa_selected_effective_gj_nm2=100.0,
+        family_selected_effective_gj_nm2=50.0,
+        structural_status="pass_screening_sensitivity",
+        mass_cg_status="final_cg_screening_row_remains_available_with_rebalance",
+    )
+
+    assert projection["projected_elastic_twist_max_abs_deg"] == pytest.approx(10.8)
+    assert projection["aeroelastic_closure_verdict"] == "foam_only_not_selectable_for_current_aeroelastic_closure"
+    assert "elastic_twist_exceeds_screening_bound" in projection["blockers"]
+
+
 def test_sensitivity_case_requires_finite_rib_basis_and_reports_effective_stiffness_changes() -> None:
     module = _load_script_module()
     model = _simple_model(

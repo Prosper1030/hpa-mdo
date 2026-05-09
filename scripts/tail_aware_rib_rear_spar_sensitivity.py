@@ -25,7 +25,12 @@ from hpa_mdo.structure.dual_beam_mainline import (  # noqa: E402
     LinkMode,
     run_dual_beam_mainline_kernel,
 )
-from hpa_mdo.structure.rib_properties import derive_warping_knockdown  # noqa: E402
+from hpa_mdo.structure.rib_properties import (  # noqa: E402
+    build_default_rib_catalog,
+    default_material_sensitivity_family_keys,
+    derive_warping_knockdown_details,
+    rib_family_material_basis,
+)
 from scripts.phase15_candidate_load_factor_buckling_check import CANDIDATE_ID  # noqa: E402
 from scripts.phase22_bracing_sensitivity import (  # noqa: E402
     _max_spar_pair_line_angle_delta_deg,
@@ -66,6 +71,9 @@ DEFAULT_REPORT_MD = (
     / "docs"
     / "reports"
     / "2026-05-09_tail_aware_rib_rear_spar_sensitivity.md"
+)
+DEFAULT_AEROELASTIC_CLOSURE_JSON = (
+    REPO_ROOT / "docs" / "reports" / "2026-05-09_tail_aware_aeroelastic_closure.json"
 )
 
 READY_TAIL_VERDICT = "ready_for_tail_aware_rib_rear_spar_sensitivity"
@@ -296,6 +304,9 @@ def build_summary_payload(
     mass_cg_assessment: Mapping[str, Any],
     rib_basis: Mapping[str, Any],
     closure_rows: Sequence[Mapping[str, Any]],
+    material_family_sensitivity: Sequence[Mapping[str, Any]] = (),
+    material_family_sensitivity_verdict: str | None = None,
+    material_family_future_note: str = "",
 ) -> dict[str, Any]:
     """Build the committed verdict payload."""
 
@@ -353,14 +364,17 @@ def build_summary_payload(
             "closure_ranking_changes": _closure_ranking_read(closure_rows),
         }
     return {
-        "schema_version": "tail_aware_rib_rear_spar_sensitivity_v1",
+        "schema_version": "tail_aware_rib_material_family_sensitivity_v2",
         "candidate_id": str(candidate_id),
         "engineering_verdict": verdict,
+        "material_family_sensitivity_verdict": material_family_sensitivity_verdict,
         "selected_case_id": None if selected_case is None else selected_case.case_id,
         "tail_screening_basis": _tail_basis_summary(tail_basis),
         "rib_basis": dict(rib_basis),
         "mass_cg_assessment": dict(mass_cg_assessment),
         "structural_cases": [asdict(case) for case in structural_cases],
+        "material_family_sensitivity": [dict(row) for row in material_family_sensitivity],
+        "material_family_future_note": material_family_future_note,
         "selected_basis": selected_basis,
         "claim_boundary": (
             "Engineering screening only: not final FEM, not hardware certification, not "
@@ -374,6 +388,7 @@ def run_tail_aware_rib_rear_spar_sensitivity(
     tail_screening_json: Path = DEFAULT_TAIL_SCREENING_JSON,
     closure_csv: Path = DEFAULT_CLOSURE_CSV,
     config_path: Path = DEFAULT_CONFIG,
+    aeroelastic_closure_json: Path = DEFAULT_AEROELASTIC_CLOSURE_JSON,
     report_json_path: Path = DEFAULT_REPORT_JSON,
     report_md_path: Path = DEFAULT_REPORT_MD,
     base_mass_kg: float = 96.0,
@@ -386,10 +401,12 @@ def run_tail_aware_rib_rear_spar_sensitivity(
     _validate_tail_basis(tail_basis)
     model = build_current_candidate_model()
     spacing_requirements = build_current_rib_spacing_requirements()
+    catalog = build_default_rib_catalog()
     rib_basis = build_rib_basis(
         spacing_requirements=spacing_requirements,
         model=model,
         config_path=Path(config_path),
+        family_key=catalog.default_family,
     )
     tail_item = MassItem("selected_tail_screening_delta", _tail_mass_delta(tail_basis), _tail_cg_x(tail_basis))
     rib_item = MassItem(
@@ -407,6 +424,275 @@ def run_tail_aware_rib_rear_spar_sensitivity(
         forward_rebalance_limit_m=float(forward_rebalance_limit_m),
     )
 
+    cases, selected, _baseline = _evaluate_rib_rear_spar_cases(model=model, rib_basis=rib_basis)
+    closure_rows = _read_csv_rows(Path(closure_csv))
+    baseline_closure_basis = _read_optional_closure_basis(Path(aeroelastic_closure_json))
+    material_family_sensitivity = build_material_family_sensitivity(
+        tail_basis=tail_basis,
+        baseline_closure_basis=baseline_closure_basis,
+        spacing_requirements=spacing_requirements,
+        model=model,
+        config_path=Path(config_path),
+        base_mass_kg=float(base_mass_kg),
+        base_cg_x_m=float(base_cg_x_m),
+        final_screening_cg_x_m=float(final_screening_cg_x_m),
+        forward_rebalance_mass_kg=float(forward_rebalance_mass_kg),
+        forward_rebalance_limit_m=float(forward_rebalance_limit_m),
+        family_keys=default_material_sensitivity_family_keys(catalog),
+        balsa_selected_case=selected,
+    )
+    summary = build_summary_payload(
+        candidate_id=CANDIDATE_ID,
+        tail_basis=tail_basis,
+        structural_cases=tuple(cases),
+        selected_case=selected,
+        mass_cg_assessment=mass_cg,
+        rib_basis=rib_basis,
+        closure_rows=tuple(closure_rows),
+        material_family_sensitivity=material_family_sensitivity,
+        material_family_sensitivity_verdict=_material_family_sensitivity_verdict(
+            material_family_sensitivity
+        ),
+        material_family_future_note=catalog.future_material_note,
+    )
+    report_json_path.parent.mkdir(parents=True, exist_ok=True)
+    report_json_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    report_md_path.parent.mkdir(parents=True, exist_ok=True)
+    report_md_path.write_text(_render_markdown(summary), encoding="utf-8")
+    return summary
+
+
+def build_rib_basis(
+    *,
+    spacing_requirements: RibSpacingRequirements,
+    model: DualBeamMainlineModel,
+    config_path: Path,
+    family_key: str = "balsa_sheet_3mm",
+) -> dict[str, Any]:
+    """Make the rib spacing assumption physical enough for screening bookkeeping."""
+
+    spacing_m = float(spacing_requirements.target_bay_m)
+    max_subbay = float(spacing_requirements.max_recommended_subbay_m)
+    catalog = build_default_rib_catalog()
+    warping_details = derive_warping_knockdown_details(
+        family_key,
+        max_subbay,
+        catalog=catalog,
+    )
+    material_basis = rib_family_material_basis(family_key, catalog=catalog)
+    stations = _recommended_half_wing_stations(spacing_requirements)
+    rib_mass = _estimate_full_wing_rib_mass_kg(
+        stations_y_m=stations,
+        config_path=Path(config_path),
+        family_key=family_key,
+    )
+    rib_cg = _estimate_rib_pack_cg_x_m(stations_y_m=stations, model=model)
+    half_count = len(stations)
+    return {
+        "family_key": family_key,
+        "spacing_m": round(spacing_m, 6),
+        "max_recommended_subbay_m": round(max_subbay, 6),
+        "half_wing_station_count": int(half_count),
+        "full_wing_rib_count": int(2 * half_count - 1),
+        "added_half_wing_station_count_from_phase24": int(
+            spacing_requirements.total_added_bracing_stations
+        ),
+        "warping_knockdown": round(float(warping_details.warping_knockdown), 6),
+        "warping_knockdown_details": asdict(warping_details),
+        "material_basis": material_basis,
+        "estimated_full_wing_rib_mass_kg": round(float(rib_mass), 6),
+        "estimated_rib_pack_cg_x_m": round(float(rib_cg), 6),
+        "mass_model": (
+            "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap "
+            "fraction, 15% adhesive/cap factor; screening only."
+        ),
+        "engineering_read": (
+            "The 0.30 m bay is accepted only as this materialized station layout, "
+            "not as a naked local-wall-buckling assumption."
+        ),
+    }
+
+
+def build_material_family_sensitivity(
+    *,
+    tail_basis: Mapping[str, Any],
+    baseline_closure_basis: Mapping[str, Any],
+    spacing_requirements: RibSpacingRequirements,
+    model: DualBeamMainlineModel,
+    config_path: Path,
+    base_mass_kg: float,
+    base_cg_x_m: float,
+    final_screening_cg_x_m: float,
+    forward_rebalance_mass_kg: float,
+    forward_rebalance_limit_m: float,
+    family_keys: Sequence[str],
+    balsa_selected_case: StructuralSensitivityCase | None,
+) -> list[dict[str, Any]]:
+    """Evaluate the default balsa/EPS/XPS/structural-foam family sensitivity."""
+
+    balsa_gj = (
+        float(balsa_selected_case.effective_gj_nm2)
+        if balsa_selected_case is not None and balsa_selected_case.effective_gj_nm2 > 0.0
+        else 0.0
+    )
+    rows: list[dict[str, Any]] = []
+    for family_key in family_keys:
+        rib_basis = build_rib_basis(
+            spacing_requirements=spacing_requirements,
+            model=model,
+            config_path=config_path,
+            family_key=str(family_key),
+        )
+        rib_item = MassItem(
+            "physical_rib_station_pack",
+            float(rib_basis["estimated_full_wing_rib_mass_kg"]),
+            float(rib_basis["estimated_rib_pack_cg_x_m"]),
+        )
+        tail_item = MassItem(
+            "selected_tail_screening_delta",
+            _tail_mass_delta(tail_basis),
+            _tail_cg_x(tail_basis),
+        )
+        mass_cg = assess_mass_cg_coupling(
+            base_mass_kg=float(base_mass_kg),
+            base_cg_x_m=float(base_cg_x_m),
+            cg_range_x_m=tuple(_cg_range(tail_basis)),
+            final_screening_cg_x_m=float(final_screening_cg_x_m),
+            mass_items=(tail_item, rib_item),
+            forward_rebalance_mass_kg=float(forward_rebalance_mass_kg),
+            forward_rebalance_limit_m=float(forward_rebalance_limit_m),
+        )
+        cases, selected, _baseline = _evaluate_rib_rear_spar_cases(
+            model=model,
+            rib_basis=rib_basis,
+        )
+        projection = project_material_family_aeroelastic_closure(
+            family_key=str(family_key),
+            baseline_closure_basis=baseline_closure_basis,
+            balsa_selected_effective_gj_nm2=balsa_gj,
+            family_selected_effective_gj_nm2=(
+                0.0 if selected is None else float(selected.effective_gj_nm2)
+            ),
+            structural_status="no_selected_structural_case"
+            if selected is None
+            else selected.status,
+            mass_cg_status=str(mass_cg.get("screening_status", "")),
+        )
+        rows.append(
+            {
+                "family_key": str(family_key),
+                "material_category": _mapping_at(rib_basis, "material_basis").get(
+                    "family_category"
+                ),
+                "rib_basis": rib_basis,
+                "mass_cg_assessment": mass_cg,
+                "selected_case": None if selected is None else asdict(selected),
+                "structural_cases": [asdict(case) for case in cases],
+                "absolute_effective_gj_ratio_vs_balsa_selected": (
+                    None
+                    if balsa_gj <= 0.0 or selected is None
+                    else _safe_ratio(selected.effective_gj_nm2, balsa_gj)
+                ),
+                "absolute_effective_ei_ratio_vs_balsa_selected": (
+                    None
+                    if balsa_selected_case is None
+                    or balsa_selected_case.effective_ei_flap_nm2 <= 0.0
+                    or selected is None
+                    else _safe_ratio(
+                        selected.effective_ei_flap_nm2,
+                        balsa_selected_case.effective_ei_flap_nm2,
+                    )
+                ),
+                "aeroelastic_closure_projection": projection,
+                "engineering_read": _family_engineering_read(
+                    family_key=str(family_key),
+                    projection=projection,
+                    selected=selected,
+                ),
+            }
+        )
+    return rows
+
+
+def project_material_family_aeroelastic_closure(
+    *,
+    family_key: str,
+    baseline_closure_basis: Mapping[str, Any],
+    balsa_selected_effective_gj_nm2: float,
+    family_selected_effective_gj_nm2: float,
+    structural_status: str,
+    mass_cg_status: str,
+) -> dict[str, Any]:
+    """Project current closure twist using the family effective-GJ ratio.
+
+    This is a rerunnable sensitivity verdict, not a replacement for a qualified
+    aero-surface twist/FEM closure. If foam-only GJ worsens, the verdict should
+    stay blocked rather than tuning the material proxy to pass.
+    """
+
+    aero = _mapping_at(baseline_closure_basis, "aeroelastic_effects")
+    trim = _mapping_at(baseline_closure_basis, "trim_static_directional")
+    baseline_twist = _float_from_mapping(aero, "elastic_twist_max_abs_deg", default=0.0)
+    twist_bound = _float_from_mapping(aero, "elastic_twist_screening_bound_deg", default=3.0)
+    gj_ratio = _safe_ratio(
+        float(family_selected_effective_gj_nm2),
+        float(balsa_selected_effective_gj_nm2),
+    )
+    if gj_ratio <= 0.0:
+        projected_twist = float("inf")
+    else:
+        projected_twist = float(baseline_twist) / float(gj_ratio)
+
+    blockers: list[str] = []
+    if not aero:
+        blockers.append("baseline_aeroelastic_closure_basis_missing")
+    if structural_status != "pass_screening_sensitivity":
+        blockers.append("selected_rib_rear_spar_stiffness_not_screening_pass")
+    if mass_cg_status not in (
+        "final_cg_screening_row_available_without_rebalance",
+        "final_cg_screening_row_remains_available_with_rebalance",
+    ):
+        blockers.append("final_cg_management_not_closed")
+    if projected_twist > twist_bound + 1.0e-12:
+        blockers.append("elastic_twist_exceeds_screening_bound")
+    if trim and trim.get("status") != "pass":
+        blockers.append("tail_trim_static_directional_status_not_pass")
+
+    if not blockers:
+        verdict = "projected_ready_for_current_aeroelastic_closure"
+    elif family_key == "balsa_sheet_3mm":
+        verdict = "baseline_not_ready_for_current_aeroelastic_closure"
+    else:
+        verdict = "foam_only_not_selectable_for_current_aeroelastic_closure"
+
+    return {
+        "projection_method": "current_closure_elastic_twist_scaled_by_effective_GJ_ratio_vs_balsa_selected",
+        "baseline_elastic_twist_max_abs_deg": round(float(baseline_twist), 6),
+        "elastic_twist_screening_bound_deg": round(float(twist_bound), 6),
+        "effective_gj_ratio_vs_balsa_selected": round(float(gj_ratio), 6),
+        "projected_elastic_twist_max_abs_deg": round(float(projected_twist), 6),
+        "tail_trim_status": trim.get("status"),
+        "tail_delta_H_margin_to_limit_deg": trim.get("delta_H_margin_to_limit_deg"),
+        "tail_static_margin": trim.get("static_margin"),
+        "tail_C_n_beta": trim.get("C_n_beta"),
+        "tail_delta_V_margin_to_limit_deg": trim.get("delta_V_margin_to_limit_deg"),
+        "mass_cg_status": mass_cg_status,
+        "structural_status": structural_status,
+        "blockers": blockers,
+        "aeroelastic_closure_verdict": verdict,
+        "claim_boundary": (
+            "Sensitivity projection only. It uses the latest current-pathfinder closure "
+            "twist and scales by family effective GJ; it does not replace a rerun with "
+            "qualified aero-surface twist mapping, shell/FEM, or hardware detail."
+        ),
+    }
+
+
+def _evaluate_rib_rear_spar_cases(
+    *,
+    model: DualBeamMainlineModel,
+    rib_basis: Mapping[str, Any],
+) -> tuple[list[StructuralSensitivityCase], StructuralSensitivityCase | None, StructuralSensitivityCase]:
     baseline = evaluate_structural_case(
         case_id="finite_rib_rear_1p00_upper_bound",
         model=model,
@@ -465,65 +751,75 @@ def run_tail_aware_rib_rear_spar_sensitivity(
         ),
         baseline,
     ]
-    selected = _select_case(cases)
-    closure_rows = _read_csv_rows(Path(closure_csv))
-    summary = build_summary_payload(
-        candidate_id=CANDIDATE_ID,
-        tail_basis=tail_basis,
-        structural_cases=tuple(cases),
-        selected_case=selected,
-        mass_cg_assessment=mass_cg,
-        rib_basis=rib_basis,
-        closure_rows=tuple(closure_rows),
+    return cases, _select_case(cases), baseline
+
+
+def _read_optional_closure_basis(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    payload = _read_json(path)
+    basis = payload.get("basis", {})
+    return basis if isinstance(basis, dict) else {}
+
+
+def _float_from_mapping(mapping: Mapping[str, Any], key: str, *, default: float) -> float:
+    try:
+        value = float(mapping.get(key, default))
+    except (TypeError, ValueError):
+        return float(default)
+    return value if np.isfinite(value) else float(default)
+
+
+def _material_family_sensitivity_verdict(rows: Sequence[Mapping[str, Any]]) -> str:
+    if not rows:
+        return "material_family_sensitivity_not_run"
+    foam_rows = [
+        row
+        for row in rows
+        if str(row.get("family_key")) != "balsa_sheet_3mm"
+        and "foam" in str(row.get("material_category", ""))
+    ]
+    if not foam_rows:
+        return "no_foam_only_family_in_sensitivity"
+    ready = [
+        row
+        for row in foam_rows
+        if _mapping_at(row, "aeroelastic_closure_projection").get(
+            "aeroelastic_closure_verdict"
+        )
+        == "projected_ready_for_current_aeroelastic_closure"
+    ]
+    return (
+        "at_least_one_foam_only_family_projects_ready_for_current_aeroelastic_closure"
+        if ready
+        else "foam_only_families_do_not_clear_current_aeroelastic_closure"
     )
-    report_json_path.parent.mkdir(parents=True, exist_ok=True)
-    report_json_path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    report_md_path.parent.mkdir(parents=True, exist_ok=True)
-    report_md_path.write_text(_render_markdown(summary), encoding="utf-8")
-    return summary
 
 
-def build_rib_basis(
+def _family_engineering_read(
     *,
-    spacing_requirements: RibSpacingRequirements,
-    model: DualBeamMainlineModel,
-    config_path: Path,
-    family_key: str = "balsa_sheet_3mm",
-) -> dict[str, Any]:
-    """Make the rib spacing assumption physical enough for screening bookkeeping."""
-
-    spacing_m = float(spacing_requirements.target_bay_m)
-    max_subbay = float(spacing_requirements.max_recommended_subbay_m)
-    warping_knockdown = derive_warping_knockdown(family_key, max_subbay)
-    stations = _recommended_half_wing_stations(spacing_requirements)
-    rib_mass = _estimate_full_wing_rib_mass_kg(
-        stations_y_m=stations,
-        config_path=Path(config_path),
-        family_key=family_key,
+    family_key: str,
+    projection: Mapping[str, Any],
+    selected: StructuralSensitivityCase | None,
+) -> str:
+    if selected is None:
+        return "No selectable rear-spar/rib structural case exists for this family."
+    verdict = projection.get("aeroelastic_closure_verdict")
+    if family_key == "balsa_sheet_3mm":
+        return (
+            "Baseline retained for comparison. It still inherits the current closure "
+            "twist blocker and is not final package-ready."
+        )
+    if verdict == "projected_ready_for_current_aeroelastic_closure":
+        return (
+            "Foam-only family projects through the current twist bound in this "
+            "screening model, but still needs supplier coupons and FEM/shell mapping."
+        )
+    return (
+        "Foam-only family is lighter but lowers the effective GJ basis enough that "
+        "the current pathfinder should not enter aeroelastic closure on this rib "
+        "family without geometry/stiffness rework or an explicit future hybrid."
     )
-    rib_cg = _estimate_rib_pack_cg_x_m(stations_y_m=stations, model=model)
-    half_count = len(stations)
-    return {
-        "family_key": family_key,
-        "spacing_m": round(spacing_m, 6),
-        "max_recommended_subbay_m": round(max_subbay, 6),
-        "half_wing_station_count": int(half_count),
-        "full_wing_rib_count": int(2 * half_count - 1),
-        "added_half_wing_station_count_from_phase24": int(
-            spacing_requirements.total_added_bracing_stations
-        ),
-        "warping_knockdown": round(float(warping_knockdown), 6),
-        "estimated_full_wing_rib_mass_kg": round(float(rib_mass), 6),
-        "estimated_rib_pack_cg_x_m": round(float(rib_cg), 6),
-        "mass_model": (
-            "airfoil side-area proxy: 0.65 * t/c * chord^2, 55% solid web/cap "
-            "fraction, 15% adhesive/cap factor; screening only."
-        ),
-        "engineering_read": (
-            "The 0.30 m bay is accepted only as this materialized station layout, "
-            "not as a naked local-wall-buckling assumption."
-        ),
-    }
 
 
 def _effective_stiffness(
@@ -581,8 +877,10 @@ def _estimate_full_wing_rib_mass_kg(
     root_tc = float(wing.get("airfoil_root_tc", 0.14))
     tip_tc = float(wing.get("airfoil_tip_tc", root_tc))
     half_span = 0.5 * float(wing["span"])
-    catalog_material = MaterialDB().get("balsa" if family_key == "balsa_sheet_3mm" else "balsa")
-    thickness = 0.003 if family_key == "balsa_sheet_3mm" else 0.003
+    catalog = build_default_rib_catalog()
+    family = catalog.family(family_key)
+    catalog_material = MaterialDB().get(family.material)
+    thickness = float(family.thickness_m)
     total = 0.0
     for index, y_m in enumerate(stations_y_m):
         chord = _interp_schedule(chord_schedule, float(y_m))
@@ -767,9 +1065,13 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
         mass = _mapping_at(selected, "structural_mass_delta")
         cg = _mapping_at(selected, "cg_impact")
         tail = _mapping_at(selected, "tail_trim_static_directional_margins_after_mass_stiffness_changes")
+        material = _mapping_at(summary, "rib_basis", "material_basis")
         lines.extend(
             [
                 f"- case: `{selected.get('case_id')}`",
+                f"- rib family: `{_mapping_at(summary, 'rib_basis').get('family_key')}`; "
+                f"density `{material.get('density_kgpm3')}` kg/m3; "
+                f"trust `{material.get('trust_level')}`",
                 f"- rib spacing / bay: `{selected.get('rib_spacing_m')}` m target; "
                 f"max materialized subbay `{_mapping_at(selected, 'rib_count_or_bay_length_assumption').get('max_recommended_subbay_m')}` m",
                 f"- rib count basis: `{_mapping_at(selected, 'rib_count_or_bay_length_assumption').get('full_wing_rib_count')}` full-wing ribs/stations",
@@ -787,10 +1089,49 @@ def _render_markdown(summary: Mapping[str, Any]) -> str:
                 f"C_n_beta min `{tail.get('C_n_beta_min_row')}`",
                 f"- load remap: `{_mapping_at(selected, 'load_remap_diagnostics').get('status')}`",
                 f"- closure ranking: `{selected.get('closure_ranking_changes')}`",
+                f"- material source note: {material.get('source_note')}",
             ]
         )
     else:
         lines.append("- No selectable basis.")
+    material_rows = summary.get("material_family_sensitivity", [])
+    if material_rows:
+        lines.extend(
+            [
+                "",
+                "## Material Family Sensitivity",
+                "",
+                f"Verdict: `{summary.get('material_family_sensitivity_verdict')}`",
+                "",
+                "| family | density kg/m3 | thickness mm | mass kg | knockdown | GJ vs balsa | projected twist deg | closure verdict | trust |",
+                "|---|---:|---:|---:|---:|---:|---:|---|---|",
+            ]
+        )
+        for row in material_rows:
+            rib_basis = _mapping_at(row, "rib_basis")
+            material = _mapping_at(rib_basis, "material_basis")
+            projection = _mapping_at(row, "aeroelastic_closure_projection")
+            gj_ratio = row.get("absolute_effective_gj_ratio_vs_balsa_selected")
+            lines.append(
+                f"| {row.get('family_key')} | "
+                f"{_fmt_number(material.get('density_kgpm3'), 3)} | "
+                f"{_fmt_number(1000.0 * float(material.get('thickness_m', 0.0)), 2)} | "
+                f"{_fmt_number(rib_basis.get('estimated_full_wing_rib_mass_kg'), 3)} | "
+                f"{_fmt_number(rib_basis.get('warping_knockdown'), 3)} | "
+                f"{_fmt_number(gj_ratio, 3)} | "
+                f"{_fmt_number(projection.get('projected_elastic_twist_max_abs_deg'), 3)} | "
+                f"`{projection.get('aeroelastic_closure_verdict')}` | "
+                f"`{material.get('trust_level')}` |"
+            )
+        lines.extend(
+            [
+                "",
+                f"Future note: {summary.get('material_family_future_note')}",
+                "",
+                "Engineering read: foam-only families are evaluated as CNC-cut rib proxies only. "
+                "No balsa leading edge, glass cap, or carbon cap stiffness credit is included in this v1 sensitivity.",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -854,6 +1195,18 @@ def _safe_ratio(value: float, baseline: float) -> float:
     return float(value) / denom
 
 
+def _fmt_number(value: Any, digits: int) -> str:
+    if value is None:
+        return "n/a"
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return "n/a"
+    if not np.isfinite(parsed):
+        return "inf"
+    return f"{parsed:.{digits}f}"
+
+
 def _interp_schedule(schedule: Sequence[Sequence[float]], y_m: float) -> float:
     points = sorted((float(row[0]), float(row[1])) for row in schedule)
     ys = np.asarray([point[0] for point in points], dtype=float)
@@ -866,6 +1219,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tail-screening-json", type=Path, default=DEFAULT_TAIL_SCREENING_JSON)
     parser.add_argument("--closure-csv", type=Path, default=DEFAULT_CLOSURE_CSV)
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument("--aeroelastic-closure-json", type=Path, default=DEFAULT_AEROELASTIC_CLOSURE_JSON)
     parser.add_argument("--report-json", type=Path, default=DEFAULT_REPORT_JSON)
     parser.add_argument("--report-md", type=Path, default=DEFAULT_REPORT_MD)
     parser.add_argument("--base-mass-kg", type=float, default=96.0)
@@ -877,6 +1231,7 @@ def main(argv: list[str] | None = None) -> int:
         tail_screening_json=args.tail_screening_json,
         closure_csv=args.closure_csv,
         config_path=args.config,
+        aeroelastic_closure_json=args.aeroelastic_closure_json,
         report_json_path=args.report_json,
         report_md_path=args.report_md,
         base_mass_kg=float(args.base_mass_kg),
