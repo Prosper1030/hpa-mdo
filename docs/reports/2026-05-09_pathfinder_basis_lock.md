@@ -152,40 +152,69 @@ It does not mean the aircraft is physically signed off.
 
 ## Priority Decision
 
-Among ASWing coupling, rib sensitivity, and FEM detail, do bounded rib/rear-spar
-sensitivity first.
+The previous decision "rib/rear-spar before ASWing/FEM" remains correct inside
+the main-wing stiffness lane, but the pathfinder now has one earlier whole-aircraft
+contract step: all-moving tail / trim / stability.
+
+Current short-line order:
+
+```text
+Conservative load remap foundation
+-> tail / CG / trim / stability contract v0
+-> all-moving full-aircraft AVL trim / stability / authority audit
+-> tail-aware bounded rib / rear-spar sensitivity
+-> elastic twist / alpha_eff + trim audit
+-> ASWing-like / equivalent tail-aware aeroelastic coupling
+-> FEM / joint / hardware / tailboom validation
+```
 
 Reason:
 
-1. Existing current reports already show that rear-spar/rib assumptions move the
+1. The pathfinder is not aircraft-feasible just because the main-wing screening
+   loop closes. All-moving horizontal and vertical tails own trim, static
+   stability, control authority, tailboom loads, and tail drag/mass. If those
+   contracts are absent, later rib/FEM work may validate a wing state that still
+   cannot be trimmed or controlled as an aircraft.
+2. Existing current reports already show that rear-spar/rib assumptions move the
    structural response strongly: Phase32 records `rear_stiffness_5pct` changing
    tip response by about `292.6%` and spar-pair angle by `36.3 deg`, while
    `dense_finite_rib_surrogate` changes tip response by about `-17.7%` and
    spar-pair angle by `-8.34 deg`.
-2. ASWing coupling is valuable, but a nonlinear aeroelastic run on the wrong
+3. ASWing coupling is valuable, but a nonlinear aeroelastic run on the wrong
    structural stiffness basis would only make a cleaner-looking wrong answer.
    The repo has ASWing exporter/runner glue, but no current candidate ASWing
    artifact and no local `aswing` binary found in PATH during this lock pass.
-3. FEM detail is important, especially root joint, wire termination, wire attach,
+   ASWing-style ideas should be translated into an internal tail-aware
+   aeroelastic closure, not blocked on a missing binary.
+4. FEM detail is important, especially root joint, wire termination, wire attach,
    and rib hardware. But detail FEM should consume a locked load/geometry state;
-   it should not decide which beam-line/aero-surface state is real.
+   it should not decide which beam-line/aero-surface state is real, nor should it
+   discover at the end that trim or directional stability was never feasible.
 
 Recommended sequence:
 
-1. **Bounded rib/rear-spar sensitivity on the locked pathfinder**: run nominal,
+1. **Tail contract v0 on the locked pathfinder**: define CG range, horizontal /
+   vertical tail design boxes, all-moving travel and reserves, tail volume,
+   static-stability and authority gates, tail drag/mass placeholders, and
+   discrete symmetric tail-airfoil candidates.
+2. **All-moving full-aircraft AVL audit**: represent H-tail / V-tail deflection
+   by rotating the whole surfaces, then run or bracket trim / stability sweeps.
+   Output `delta_H_required`, H-tail CL utilization, `C_m_alpha`, static margin,
+   `C_n_beta`, `delta_V` authority, yaw-roll coupling, and tail load envelopes.
+3. **Tail-aware bounded rib/rear-spar sensitivity on the locked pathfinder**: run nominal,
    rear-soft/rear-stiff, finite-rib-link, and no-rib/limited-rib variants on the
    exact `current_avl_compromise_conservative_closed` load and Z basis. Output
    must report loaded tip Z, root-offset-removed AVL section Z, clearance,
-   equivalent twist, tube mass, wire tension, and whether closure ranking would
-   change.
-2. **ASWing coupling after the sensitivity envelope exists**: export the
-   pathfinder plus the sensitivity envelope to ASWing or an equivalent
-   aeroelastic loop, then check whether trim, twist, load redistribution, and
-   loaded surface Z still support the same candidate.
-3. **FEM detail after the coupled basis is stable**: root fitting, wire attach,
-   termination, rib/spar attach, and full-wing global buckling should then be
-   sized against the locked load envelope, not against a single unchallenged
-   beam-line proxy.
+   equivalent twist, tube mass, wire tension, `delta_H_required`, tail CL
+   utilization, and whether closure ranking would change.
+4. **ASWing-like coupling after the sensitivity envelope exists**: use an
+   equivalent internal aeroelastic loop if ASWing is unavailable; include
+   all-moving tail DOFs so trim, twist, load redistribution, and loaded surface
+   Z are checked in one aircraft state.
+5. **FEM detail after the coupled basis is stable**: root fitting, wire attach,
+   termination, rib/spar attach, tail spar, all-moving pivot, tailboom bending /
+   torsion, and full-wing global buckling should then be sized against the
+   locked load envelope, not against a single unchallenged beam-line proxy.
 
 ## Basis Lock Verdict
 

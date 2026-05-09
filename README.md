@@ -8,15 +8,16 @@ README 的主敘事，也不應被新 agent 當成目前 candidate 的設計真�
 
 ```text
 Mission contract
+-> tail / CG / trim / stability contract
 -> Fourier-AVL calibration
 -> Fourier spanload candidate generation
 -> smooth production geometry realization
--> AVL realization check
+-> AVL realization check with full-aircraft trim / stability context
 -> structure-budgeted loaded-Z search
--> AVL recheck on realizable loaded shape
--> Tier2 full-alpha airfoil selection
--> aero-structure closure
--> FEM/APDL / shell buckling / load-factor checks
+-> AVL recheck on realizable loaded shape and all-moving tail trim
+-> Tier2 full-alpha airfoil selection plus discrete tail-airfoil screening
+-> aero-structure closure with tail control DOFs
+-> FEM/APDL / shell buckling / load-factor / tailboom / hardware checks
 ```
 
 這條線的目標是把任務需求、spanload、可製造幾何、loaded shape、翼型選擇、結構預算與候選驗證
@@ -38,13 +39,21 @@ candidate 是 conservative screening candidate，不是 final aircraft。
 [docs/reports/2026-05-09_pathfinder_basis_lock.md](docs/reports/2026-05-09_pathfinder_basis_lock.md)。
 它把 `current_avl_compromise_conservative_closed` 的 downstream artifact chain、
 beam-line proxy / aerodynamic surface / clearance / loaded-Z 一致性、以及下一步
-ASWing coupling / rib sensitivity / FEM detail 的優先順序鎖清楚。
+tail contract / rib sensitivity / ASWing-like coupling / FEM detail 的優先順序鎖清楚。
 
 如果要做 rib / rear-spar sensitivity，先讀
 [docs/reports/2026-05-09_conservative_load_mapper_foundation.md](docs/reports/2026-05-09_conservative_load_mapper_foundation.md)。
 `ConservativeLoadMapper` 是 aero grid -> structural grid 的 opt-in conservative remap foundation；
 它守恆 total lift、root bending moment、total pitching torque，並輸出 correction diagnostics。
 它是 sensitivity 前置基礎，不是 aeroelastic sign-off。
+
+如果要把 horizontal tail / vertical tail 接進目前主線，先讀
+[docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md)。
+尾翼不是最後才補的 FEM 件；對 all-moving horizontal tail / all-moving vertical tail 來說，它是
+trim、stability、control authority、tailboom load、mission drag/mass 的共同 contract。主翼
+Fourier spanload 仍由主翼主導，但 mission contract 必須先有 tail / CG / stability 邊界，
+AVL realization 之後必須進 full-aircraft trim / stability context，aero-structure closure 之後
+all-moving tail 才能作為控制自由度。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -58,7 +67,7 @@ aero-structure closure、FEM/APDL spot-check 全部串通。
 - 先證明整條工程 pipeline 可以從任務需求一路走到可審查候選。
 - 在每個 stage 做局部工程修正與局部最佳化，暴露真實 blocker。
 - 讓 rib、rear spar、wire attach、root joint、beam-line / aero-surface、airfoil query
-  這些問題有同一個候選與同一組 load / geometry / mass basis 可以討論。
+  以及 empennage trim / stability 這些問題有同一個候選與同一組 load / geometry / mass basis 可以討論。
 - 等閉環穩定後，再擴大 search space：更多 span / AR / speed / airfoil / structure family /
   rib-bracing 方案，而不是一開始就把所有維度全部打開。
 
@@ -77,6 +86,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 Phase J 每一步目前到底靠哪些 artifact / candidate / trust boundary | [docs/reports/2026-05-09_phase_j_evidence_map.md](docs/reports/2026-05-09_phase_j_evidence_map.md) | stage-by-stage evidence map |
 | 看目前 pathfinder 的 locked basis / geometry-state 一致性 / 下一步優先序 | [docs/reports/2026-05-09_pathfinder_basis_lock.md](docs/reports/2026-05-09_pathfinder_basis_lock.md) | candidate basis lock |
 | 看 conservative load remap / rib sensitivity 前置 load gate | [docs/reports/2026-05-09_conservative_load_mapper_foundation.md](docs/reports/2026-05-09_conservative_load_mapper_foundation.md) | load conservation foundation |
+| 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
 | 接續任務包 | [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md) | 多 agent handoff |
@@ -101,6 +111,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 - 用 `ConservativeLoadMapper` 將 AVL/aero grid loads remap 到 structural grid，並檢查 total lift、
   root bending moment、torque 的 conservation diagnostics；large correction 要降級 load basis
   confidence，不能直接進 rib sensitivity。
+- 建立 tail / CG / trim / stability 低階 contract，讓 all-moving horizontal tail / vertical tail
+  在 mission、full-aircraft AVL recheck、tail-aware closure、tailboom/hardware validation 中有明確位置。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
 - 做 FEM/APDL、shell buckling、load-factor candidate spot-check。
@@ -114,6 +126,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 - `configs/blackcat_004.yaml`、`examples/blackcat_004_optimize.py`、舊 OpenMDAO component DAG、11 根管材描述等都是歷史 / downstream reference。
 - FEM/APDL / shell / load-factor checks 目前是 candidate-relevant equivalent-physics validation / spot-check，不是 final composite、root fitting、wire hardware、rib joint 或 flight sign-off。
 - Rib / rear spar / wire attach / root joint 是 downstream physical-realization 與 validation 問題；除非它們會改變 aero-structure closure candidate 排序，否則不要把它們升成上游主線。
+- Horizontal / vertical tail 不是最後才補的外觀件；current pathfinder 尚未完成 all-moving tail
+  trim / stability / control authority / tail drag-mass contract，不能宣稱整機 aircraft-feasible。
 - 主翼 mesh-native CFD / SU2 線仍暫停，不能拿來當 performance claim truth。
 
 ---
@@ -193,6 +207,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Mission / concept search | 可用於新設計探索，但仍依賴 proxy 與 worker quality |
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
 | Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
+| Empennage / trim / stability | 目前已定義 contract insertion；尚未完成 current pathfinder full-aircraft trim/stability closure |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |

@@ -6,8 +6,9 @@ Date: 2026-05-09
 
 This report documents the first conservative aero-grid to structural-grid load
 remap foundation for the current pathfinder line. It is infrastructure for the
-next bounded rib / rear-spar stiffness sensitivity work. It is not aeroelastic
-sign-off, not a rib FEM model, not an ASWing-like runner, and not a final
+next tail contract / full-aircraft trim audit and tail-aware bounded rib /
+rear-spar stiffness sensitivity work. It is not aeroelastic sign-off, not a rib
+FEM model, not a tail FEM model, not an ASWing-like runner, and not a final
 aircraft load validation.
 
 The implemented entry point is:
@@ -121,6 +122,12 @@ downgraded. In that case, do not proceed directly to rib sensitivity as if the
 load basis were clean; first inspect units, grid coverage, span station
 alignment, sign conventions, torque convention, and whether the aero artifact
 is the correct owner for the selected structure state.
+
+The same rule applies when the mapper is extended to tail load packages. H-tail
+lift / pitching moment, V-tail sideforce / yawing moment, and all-moving pivot
+moments are aircraft load-ownership quantities. If the projection needs a large
+or nonphysical correction, the pathfinder should be downgraded before using the
+tail loads for trim, tailboom, pivot, or hardware conclusions.
 
 ## Tests
 

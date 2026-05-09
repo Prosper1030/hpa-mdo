@@ -6,6 +6,8 @@
 > `docs/reports/2026-05-08_commit_history_report.md` 的 Phase J pipeline，
 > `docs/reports/2026-05-09_phase_j_evidence_map.md` 的 stage-by-stage artifact mapping，
 > `docs/reports/2026-05-09_pathfinder_basis_lock.md` 的 pathfinder geometry/load basis lock，
+> `docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md` 的 all-moving tail /
+> trim / stability contract insertion，
 > 並納入 Phase J 後續結構宣稱 / FEM claim-boundary 補強。
 > **適用對象**：使用者、協作開發者、AI agent。
 
@@ -16,15 +18,16 @@
 
 ```text
 Mission contract
+-> tail / CG / trim / stability contract
 -> Fourier-AVL calibration
 -> Fourier spanload candidate generation
 -> smooth production geometry realization
--> AVL realization check
+-> AVL realization check with full-aircraft trim / stability context
 -> structure-budgeted loaded-Z search
--> AVL recheck on realizable loaded shape
--> Tier2 full-alpha airfoil selection
--> aero-structure closure
--> FEM/APDL / shell buckling / load-factor checks
+-> AVL recheck on realizable loaded shape and all-moving tail trim
+-> Tier2 full-alpha airfoil selection plus discrete tail-airfoil screening
+-> aero-structure closure with tail control DOFs
+-> FEM/APDL / shell buckling / load-factor / tailboom / hardware checks
 ```
 
 這條線的工程目的，是把 mission requirement、spanload、可製造 smooth
@@ -75,34 +78,38 @@ trace protocol 取代它，而不是另外開一條不相容敘事。
 
 1. **Mission contract**
    - 定義任務、速度 / 功率 / span cap / mass budget / performance target。
-   - 不要在 mission 還沒定義清楚時先改下游 rib、wire 或 FEM。
-2. **Fourier-AVL calibration**
+   - 不要在 mission 還沒定義清楚時先改下游 rib、wire、tail hardware 或 FEM。
+2. **Tail / CG / trim / stability contract**
+   - 定義 CG range、水平尾 / 垂尾 design box、all-moving control travel、tail volume、
+     static stability、control authority、tail drag/mass placeholder 與 pass/fail criteria。
+   - 主翼 Fourier spanload 仍由主翼主導；尾翼在這一層是全機 feasibility / trim / stability contract。
+3. **Fourier-AVL calibration**
    - 把 Fourier spanload command 與 AVL actual spanload 對齊。
    - 這是下游 structure-budgeted search 的 load authority 來源。
-3. **Fourier spanload candidate generation**
+4. **Fourier spanload candidate generation**
    - 產生可比較的 spanload / planform / distribution 候選。
-   - 這裡仍是候選生成，不是 manufacturable aircraft。
-4. **Smooth production geometry realization**
+   - 這裡仍是候選生成，不是 manufacturable aircraft；尾翼只做 trim / authority feasibility filter。
+5. **Smooth production geometry realization**
    - 把候選落成 smooth、可製造、可匯出的幾何語言。
-   - 不能把連續 optimum 直接當圖紙。
-5. **AVL realization check**
-   - 對 realized geometry 做 AVL trim / stability / spanload 檢查。
+   - 不能把連續 optimum 直接當圖紙；此處也要 instantiate all-moving H-tail / V-tail 幾何與 pivot axes。
+6. **AVL realization check**
+   - 對 realized geometry 做 full-aircraft AVL trim / stability / spanload 檢查。
    - 若 realized geometry 不能維持原本氣動意義，要回上游修正。
-6. **Structure-budgeted loaded-Z search**
+7. **Structure-budgeted loaded-Z search**
    - 在結構質量、clearance、wire support、beam-line Z proxy 與 loaded shape 間找可行區。
-   - 這是目前 candidate 可不可推進的核心卡點之一。
-7. **AVL recheck on realizable loaded shape**
-   - 對真正可實現的 loaded shape 重做 AVL 檢查。
+   - 這是目前 candidate 可不可推進的核心卡點之一；tail mass、trim-load envelope、tailboom load 不能被丟到最後。
+8. **AVL recheck on realizable loaded shape**
+   - 對真正可實現的 loaded shape 重做 full-aircraft AVL 檢查，並求 all-moving H-tail trim。
    - 不要用 requested shape 的漂亮數字替代 realizable shape。
-8. **Tier2 full-alpha airfoil selection**
+9. **Tier2 full-alpha airfoil selection**
    - 用 actual loaded-shape 的 local `Cl/Re` 做 full-alpha airfoil selection。
-   - 不能只用 seed airfoil 或單點 polar 決定全翼翼型。
-9. **Aero-structure closure**
-   - 檢查氣動、loaded shape、翼型、結構、clearance、wire 是否在同一個候選上閉合。
+   - 不能只用 seed airfoil 或單點 polar 決定全翼翼型；尾翼翼型先用 NACA 00xx / curated symmetric set 做 discrete screening，不先開 NSGA2。
+10. **Aero-structure closure**
+   - 檢查氣動、loaded shape、翼型、結構、clearance、wire、tail trim/control DOFs 是否在同一個候選上閉合。
    - 這一步通過才適合進更重的 FEM/APDL review。
-10. **FEM/APDL / shell buckling / load-factor checks**
+11. **FEM/APDL / shell buckling / load-factor / tailboom / hardware checks**
     - 目前定位是 candidate-relevant equivalent-physics validation / spot-check。
-    - 不等於 final composite aircraft、root fitting、wire hardware、rib joint sign-off。
+    - 不等於 final composite aircraft、root fitting、wire hardware、rib joint、tail pivot 或 tailboom sign-off。
 
 ## 5. 目前做到哪裡
 
@@ -122,6 +129,10 @@ conservative screening candidate」，不是 final design。
 - `ConservativeLoadMapper` 已建立 aero-grid -> structural-grid 的 opt-in conservative remap foundation；
   它守恆 total lift、root bending moment、total pitching torque，並輸出 correction / sign reversal /
   peak ratio diagnostics。它是 rib / rear-spar sensitivity 前置基礎，不是 aeroelastic sign-off。
+- Empennage / trim / stability contract insertion 已建立，位置在
+  `docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md`。它把 all-moving
+  horizontal tail / vertical tail 定位成 trim、static stability、control authority、tailboom load、
+  mission drag/mass 的共同 contract，並規定 tail airfoil 先以 discrete symmetric candidates 進入。
 - `scripts/fourier_avl_calibration_mvp.py` 提供 Fourier-AVL calibration artifacts；它現在要求
   明確 `--report-json`，舊 medium-search report 預設封鎖，只能用
   `--allow-legacy-medium-search` 做明確標示的歷史診斷。
@@ -139,6 +150,8 @@ conservative screening candidate」，不是 final design。
   仍需要更高可信度的 detail model、coupon、外部工程審查或 FEM。
 - Ground clearance margin 對製造誤差、跑道不平、wire setup、joint compliance 仍偏薄。
 - Beam-line Z proxy 還不能直接等同 aerodynamic surface / final aircraft dihedral。
+- Current pathfinder 尚未完成 all-moving horizontal tail / vertical tail 的 full-aircraft trim、
+  static stability、control authority、tail drag/mass budget 或 tailboom/pivot load ownership。
 - SU2 / mesh-native CFD 支線仍是 paused validation route，不是目前 performance claim truth。
 - Rib 目前是下游 bracing / shell bay / load-transfer 實體化問題，不是主線 candidate
   generation 的短線最大優先，除非它被證明會改變 aero-structure closure 的候選排序。
@@ -210,29 +223,45 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 3. **之後才看 aero-structure closure 的工程可信度**
    - 目的：確認 `current_avl_compromise_conservative_closed` 是否真的在同一個 geometry / load /
      airfoil / structure state 上閉合。
-4. **在 ASWing coupling / rib sensitivity / FEM detail 三者中，先做 bounded rib/rear-spar sensitivity**
+4. **在 rib sensitivity / ASWing-like coupling / FEM detail 之前，先建立 tail contract v0**
+   - 目的：讓 pathfinder 先有 CG range、H-tail / V-tail design box、all-moving travel reserve、
+     tail volume、trim / static stability / control authority、tail drag/mass placeholder 與 tail airfoil
+     discrete screening policy。
+   - 原因：如果全機不能配平或方向穩定不足，主翼 loaded-Z / rib / FEM 局部 pass 沒有 aircraft-level 意義。
+     尾翼不應干擾 Fourier spanload generation，但從 mission contract 起必須存在。
+5. **接著做 all-moving full-aircraft AVL geometry / trim-stability audit**
+   - 目的：用整片旋轉的 all-moving H-tail / V-tail 幾何 sweep，而不是只用 hinged-control proxy，
+     建立 `delta_H_required`、`C_m_alpha`、static margin、`C_n_beta`、`delta_V` authority、
+     yaw-roll coupling 與 tail load envelope。
+   - 原因：AVL 適合作為 rigid full-aircraft screening；但 artifact 必須標明 all-moving geometry
+     semantics，不能把 elevator/rudder proxy 當作 final tail model。
+6. **然後做 tail-aware bounded rib/rear-spar sensitivity**
    - 目的：用同一個 locked pathfinder load/Z basis 跑 rear-soft/rear-stiff、finite-rib-link、
      no-rib/limited-rib 等 bounded sensitivity，確認 loaded tip Z、root-offset-removed AVL section Z、
-     clearance、twist、tube mass、wire tension 與 closure ranking 會不會被 bracing 假設改變。
+     clearance、twist、tube mass、wire tension、`delta_H_required`、tail CL utilization、
+     trim residual 與 closure ranking 會不會被 bracing 假設改變。
    - load 前提：使用 conservative remap diagnostics 檢查 total lift、root bending moment、torque
      是否守恆；如果出現 large correction 或 unphysical status，先降級 loading confidence，不要直接進 rib sensitivity。
    - 原因：現有 Phase32 / structural closure evidence 已顯示 rear spar / rib assumptions
      會大幅移動 response；若先跑 ASWing，可能只是把錯的 stiffness basis 耦合得更漂亮。
      FEM detail 則應吃已鎖定的 load/geometry envelope，不應先決定哪個 beam-line / aero-surface
      state 才是真正設計狀態。
-   - 後續順序：bounded rib/rear-spar sensitivity -> ASWing / equivalent aeroelastic coupling ->
-     root/wire/termination/rib hardware FEM detail。
+   - 後續順序：tail contract v0 -> all-moving full-aircraft AVL trim/stability audit ->
+     tail-aware bounded rib/rear-spar sensitivity -> elastic twist / `alpha_eff` + trim audit ->
+     ASWing-like / equivalent tail-aware aeroelastic coupling -> root/wire/termination/rib/tail hardware FEM detail。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
-是第 1 步且已完成；接下來才是 bounded rib / rear-spar stiffness sensitivity，然後依序檢查
-elastic twist / `alpha_eff`、ASWing-like fixed-point coupling、FEM / joint / hardware detail。
+是 load ownership 前置基礎且已完成；接下來不是直接做 ASWing-like runner，也不是直接跳 FEM，
+而是先建立 tail / CG / trim / stability contract，再做 all-moving full-aircraft AVL trim/stability audit，
+再進 tail-aware bounded rib / rear-spar stiffness sensitivity，然後依序檢查
+elastic twist / `alpha_eff` + trim、ASWing-like fixed-point coupling、FEM / joint / hardware / tailboom detail。
 其中 rib / rear-spar sensitivity 必須把 conservative remap diagnostics 當前置 gate，而不能把
 large correction 當成已修復的乾淨 load basis。
 
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md` 為起點，先建立或明確標示 Stage 0-2 promoted trace：commit history 已證明 mission design-space / drag-budget / MissionContract / FourierTarget / airfoil sidecar machinery 存在；現在要確認 current mission handoff 是否能被乾淨追到 current Fourier/Fourier-AVL candidate source 與 go-mode candidate。若不能，明確把 `current_avl_compromise_conservative_closed` 定位成從 `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。完成後再做 beam-line / aerodynamic surface / clearance 對齊，並確認 closure 是否仍在同一個 geometry / load / airfoil / structure basis 上成立；除非 rib / bracing sensitivity 被證明會改變 closure ranking，否則 rib 維持 downstream validation queue。
+在 /Volumes/Samsung SSD/hpa-mdo 以 `docs/reports/2026-05-09_phase_j_evidence_map.md`、`docs/reports/2026-05-09_pathfinder_basis_lock.md`、`docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md` 為起點，先建立或明確標示 Stage 0-2 promoted trace：commit history 已證明 mission design-space / drag-budget / MissionContract / FourierTarget / airfoil sidecar machinery 存在；現在要確認 current mission handoff 是否能被乾淨追到 current Fourier/Fourier-AVL candidate source 與 go-mode candidate。若不能，明確把 `current_avl_compromise_conservative_closed` 定位成從 `smooth_tier2_production_baseline` 開始的 downstream screening surrogate。完成 beam-line / aerodynamic surface / clearance 對齊後，建立 pathfinder 的 tail / CG / trim / stability contract v0 與 all-moving full-aircraft AVL trim/stability audit；再確認 closure 是否仍在同一個 geometry / load / airfoil / structure / tail-control basis 上成立。rib / bracing sensitivity 必須是 tail-aware 的，除非它被證明會改變 closure ranking 或 trim/stability feasibility，否則 rib 維持 downstream validation queue。
 ```
 
 ## 8. 常用入口與角色
@@ -259,7 +288,18 @@ large correction 當成已修復的乾淨 load basis。
   - `scripts/direct_dual_beam_inverse_design.py`
 - 角色：把 realized geometry、loaded-Z search、inverse route、Tier2 airfoil 與 closure 接起來。
 
-### D. FEM/APDL / shell / load-factor spot-check
+### D. Empennage / trim / stability
+
+- 入口：
+  - `docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md`
+  - `src/hpa_mdo/concept/safety.py::evaluate_trim_balance`
+  - `src/hpa_mdo/aero/avl_exporter.py`
+  - `src/hpa_mdo/aero/avl_stability_parser.py`
+- 角色：把 all-moving horizontal tail / vertical tail 變成全機 trim、static stability、
+  control authority、tail drag/mass、tailboom load 的 screening contract。
+- 注意：目前是 contract insertion / roadmap，不是 full flight dynamics，也不是 tail hardware sign-off。
+
+### E. FEM/APDL / shell / load-factor spot-check
 
 - 入口：
   - `scripts/phase14_maclocal_fem_package.py`
@@ -269,13 +309,13 @@ large correction 當成已修復的乾淨 load basis。
 - 角色：candidate-relevant equivalent-physics validation / review package。
 - 注意：這不是 final composite/root/wire/rib/hardware certification。
 
-### E. Drawing-ready package
+### F. Drawing-ready package
 
 - 入口：`scripts/export_drawing_ready_package.py`
 - 角色：把可畫圖 artifact 收成 handoff package。
 - 注意：drawing handoff boundary 不等於 external validation boundary。
 
-### F. Producer / decision interface
+### G. Producer / decision interface
 
 - 入口：`python -m hpa_mdo.producer`
 - 角色：提供外部 consumer / automation 用 machine-readable contract。
@@ -290,6 +330,8 @@ large correction 當成已修復的乾淨 load basis。
 - 把 producer / decision interface 當成 physics 主線本體。
 - 把 rib、wire hardware、root fitting detail FEM 提前成上游 candidate-generation 主線，
   除非它們已被證明會改變 aero-structure closure 的候選排序。
+- 把 horizontal / vertical tail 當成最後 FEM 才補的外觀件，或把 AVL hinged-control proxy
+  當成 all-moving tail 的 production model。
 - 把 `birdman_mission_coupled_medium_search_20260503`、`sample_1476`、`233 W`、`8642.9 m`
   當成 current mission evidence。
 - 把舊的一維、舊 CFRP、legacy refresh、研究型 script output 當成目前 pathfinder 的 production truth。

@@ -34,6 +34,9 @@
 - The intended operating model is pathfinder-first: use one credible candidate
   to close the complete engineering chain, expose blockers, and then widen the
   search space. Do not treat that candidate as a global optimum or a hard gate.
+- The pathfinder also needs an explicit empennage contract. All-moving
+  horizontal and vertical tails are trim / static-stability / control-authority /
+  tailboom-load / mission-drag-mass owners, not final FEM accessories.
 - Rib / rear-spar / root / wire-detail FEM remains downstream validation unless
   new evidence shows it can reorder the aero-structure closure candidates.
 
@@ -43,21 +46,23 @@
 
 ```text
 Mission contract
+-> tail / CG / trim / stability contract
 -> Fourier-AVL calibration
 -> Fourier spanload candidate generation
 -> smooth production geometry realization
--> AVL realization check
+-> AVL realization check with full-aircraft trim / stability context
 -> structure-budgeted loaded-Z search
--> AVL recheck on realizable loaded shape
--> Tier2 full-alpha airfoil selection
--> aero-structure closure
--> FEM/APDL / shell buckling / load-factor checks
+-> AVL recheck on realizable loaded shape and all-moving tail trim
+-> Tier2 full-alpha airfoil selection plus discrete tail-airfoil screening
+-> aero-structure closure with tail control DOFs
+-> FEM/APDL / shell buckling / load-factor / tailboom / hardware checks
 ```
 
 ### Implemented Evidence Chain Today
 
 ```text
 Mission design-space / drag-budget contract and reproducible Stage-0 scanner
+-> tail / CG / trim / stability contract gap for current pathfinder
 -> MissionContract / FourierTarget / profile-drag / airfoil sidecar language
 -> promotion gap: no single committed current trace manifest to go-mode candidate
 -> existing smooth_tier2_production_baseline geometry and AVL actual loads
@@ -115,6 +120,7 @@ rerun under the current pathfinder contract.
 | pipeline stage | current evidence | trust level | what it proves | open gap | next action |
 |---|---|---|---|---|---|
 | Mission contract | `configs/mission_design_space_example.yaml`; `data/pilot_power_curves/current_pilot_power_curve.csv`; `data/pilot_power_curves/current_pilot_power_curve.metadata.yaml`; `scripts/mission_design_space_explorer.py`; `src/hpa_mdo/mission/design_space.py`; `docs/mission_design_space_explorer.md`; `docs/mission_drag_budget.md` | `reproducible_stage0_contract` | Current mission design-space source exists: target range `42.195 km`, target environment `33 C / 80%RH`, speed grid `5.8-7.0 m/s`, span grid `33-35 m`, AR grid `37-40`, mass grid `96-101 kg`, prop efficiency `0.86`, drivetrain efficiency `0.96`. Dry-run on the committed config reports `22464` cases. Generated local `output/mission_design_space/*` currently shows `1047` robust cases and `624` seed rows, but that directory is ignored rather than commit-tracked. | This proves a reproducible Stage-0 search contract and seed handoff language, not a promoted aircraft geometry. It does not by itself prove the go-mode candidate satisfies the full mission. | Keep it as Stage 0 source. Produce a promoted trace bundle from `optimizer_handoff.json` / seed rows into current candidate generation instead of old medium-search output. |
+| Tail / CG / trim / stability contract | `src/hpa_mdo/concept/safety.py::evaluate_trim_balance`; `src/hpa_mdo/concept/config.py::TailModelConfig`; `src/hpa_mdo/aero/avl_exporter.py`; `src/hpa_mdo/aero/avl_stability_parser.py`; `docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md` | `contract_inserted_not_yet_promoted_current_pathfinder_artifact` | The repo has tail-volume trim proxy logic, config knobs, AVL H-tail / V-fin export support, and stability parsing primitives. The new audit defines how all-moving H-tail / V-tail enter the Phase J pipeline and why tail airfoils should start as discrete symmetric contract variables. | The current pathfinder does not yet have a committed `tail_contract_v0`, all-moving full-aircraft AVL geometry sweep, longitudinal trim sweep, directional stability sweep, or tail drag/mass budget tied to `current_avl_compromise_conservative_closed`. | Before tail-aware rib sensitivity, create `tail_contract_v0` and full-aircraft AVL trim/stability screening artifacts. |
 | MissionContract / FourierTarget shadow layer | `docs/mission_drag_budget.md`; `src/hpa_mdo/mission/contract.py`; `src/hpa_mdo/aero/fourier_target.py`; `scripts/birdman_spanload_design_smoke.py` | `implemented_shadow_contract` | The repo has a contract adapter and FourierTarget language using `CL_req`, `AR`, `span_m`, `speed_mps`, `rho`, and `weight_n`. It also writes `mission_contract.*` and `fourier_target.*` bundles in sidecar runs. | The docs explicitly say shadow mode does not change ranking, objective, hard gates, or rejection behavior. | Promote only after a deliberate current run ties mission seed rows to candidate geometry and output bundles. |
 | Fourier-AVL calibration | `scripts/fourier_avl_calibration_mvp.py`; `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/recommended_fourier_bridge.md`; `output/pipeline_redesign_v2/fourier_avl_calibration_mvp/fourier_command_to_avl_realized.csv` | `reusable_tool_with_legacy_committed_output` | The calibration tool and output format exist. The sampled committed rows show `outer_underloaded_authority_limited`, `target_vs_avl_rms = 0.178-0.216`, `outer_delta = 0.241-0.306`, `e_fourier_realized = 0.846-0.873`, and `e_avl_cdi = 0.851-0.870`. | The committed CSV source paths are old `birdman_mission_coupled_medium_search_20260503/top_candidate_exports/rank_*` records. This is not current mission evidence. The CLI now requires explicit `--report-json`; old medium-search input is blocked unless `--allow-legacy-medium-search` is passed. | Re-run or re-map Fourier-AVL calibration on current mission design-space / smooth/go-mode candidate artifacts. Until then, do not use the old rows to rank current candidates. |
 | Fourier spanload candidate generation | `scripts/birdman_mission_coupled_spanload_search.py`; `scripts/birdman_spanload_design_smoke.py`; `output/airfoil_db/*/sidecar*/top_candidate_exports/*/fourier_target.*` generated bundles; `output/pipeline_redesign_v2/complete_pipeline_v2.md` | `implemented_but_not_promoted_current_trace` | The repo has mission-coupled spanload and FourierTarget machinery. It can create per-candidate Fourier/mission bundles, and later pipeline-v2 docs specify the Stage-2 contract. | The promoted go-mode package does not contain a single clean trace from current Stage-0 seed -> Stage-2 generated candidate -> smooth geometry -> closure. Some generated bundles are ignored output, and some committed calibration rows are legacy diagnostics. | Build a current Stage-2 trace manifest and either connect it to `current_avl_compromise_conservative_closed` or state precisely where the current downstream screening branch begins. |
@@ -162,9 +168,12 @@ explicit report JSON and by blocking the old medium-search report unless
    candidate begins as a lower-pipeline screening surrogate.
 5. After that source-chain decision, the most important physical ambiguity is
    still beam-line Z proxy versus aerodynamic surface and clearance.
-6. Rib / rear spar / joint / wire detail work remains important for final
+6. Tail / CG / trim / stability is now an earlier whole-aircraft contract, not
+   a final FEM afterthought. Without it, a main-wing pathfinder can be locally
+   closed but not aircraft-feasible.
+7. Rib / rear spar / joint / wire detail work remains important for final
    validation, but it should move upstream only if it can change candidate
-   ordering or closure status.
+   ordering, closure status, or tail trim/stability feasibility.
 
 ## Recommended Immediate Order
 
@@ -174,7 +183,14 @@ explicit report JSON and by blocking the old medium-search report unless
    traceability/promotion task, not proof that Stage 0-2 does not exist.
 2. Align beam-line Z, aerodynamic surface Z, dihedral language, and clearance
    for `current_avl_compromise_conservative_closed`.
-3. Recheck whether the aligned geometry changes closure metrics or candidate
+3. Establish `tail_contract_v0` for the pathfinder: CG range, H-tail / V-tail
+   design boxes, all-moving travel reserves, tail volume, static stability,
+   authority gates, tail drag/mass placeholders, and discrete symmetric
+   tail-airfoil candidates.
+4. Run all-moving full-aircraft AVL trim / stability screening: solve or bracket
+   longitudinal trim, check static margin, directional stability, V-tail
+   authority, yaw-roll coupling, and tail load envelope.
+5. Recheck whether the aligned geometry and tail contract change closure metrics or candidate
    ordering.
-4. Only then decide whether rib / bracing sensitivity belongs in candidate
-   selection or remains downstream FEM/detail validation.
+6. Only then run tail-aware bounded rib / bracing sensitivity, and decide whether
+   it belongs in candidate selection or remains downstream FEM/detail validation.

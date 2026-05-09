@@ -1,8 +1,33 @@
 # HPA-MDO 近期藍圖 (Now / Next Blueprint)
 
 > **文件性質**：近期執行藍圖。這份文件只回答「repo 現在有效的是什麼」「近期有哪些工作軌道」「哪些事情暫時不要寫死」。
-> **更新基準**：2026-04-19 repo 現況
+> **更新基準**：2026-04-19 repo 現況；2026-05-09 起，本文件只保留歷史 track 參考，正式主線與近期優先序以
+> [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md)、
+> [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md)、
+> [2026-05-09_pathfinder_basis_lock.md](reports/2026-05-09_pathfinder_basis_lock.md)、
+> [2026-05-09_conservative_load_mapper_foundation.md](reports/2026-05-09_conservative_load_mapper_foundation.md)、
+> [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) 為準。
 > **搭配文件**：正式主線請看 [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md)，細化版進度規劃請看 [EXECUTION_ROADMAP.md](EXECUTION_ROADMAP.md)，目標標準的長程收斂請看 [TARGET_STANDARD_PROGRAM_PLAN.md](TARGET_STANDARD_PROGRAM_PLAN.md)，長期願景請看 [GRAND_BLUEPRINT.md](GRAND_BLUEPRINT.md)。
+
+## 0. 2026-05-09 Override
+
+這份文件下方的 Track V/W/Y/X/Z/R/M/N 敘事是舊 wave 的歷史整理，不應再覆蓋 Phase J
+pathfinder 主線。現在的近期順序是：
+
+```text
+Stage 0-2 promoted trace / downstream surrogate waiver
+-> beam-line / aerodynamic surface / clearance alignment
+-> tail / CG / trim / stability contract v0
+-> all-moving full-aircraft AVL trim / stability / authority audit
+-> tail-aware bounded rib / rear-spar sensitivity
+-> elastic twist / alpha_eff + trim audit
+-> ASWing-like / equivalent tail-aware aeroelastic closure
+-> FEM / joint / hardware / tailboom validation
+```
+
+`ConservativeLoadMapper` foundation 已完成，作為 load ownership 前置基礎。下一個工程重點不是直接
+跳 ASWing binary，也不是直接做 rib FEM，而是先讓 pathfinder 有全機配平 / 靜穩定 / 控制 authority /
+tail drag-mass contract，避免主翼局部 closure 先行但整機不可配平。
 
 ## 1. 目前正式主線
 
