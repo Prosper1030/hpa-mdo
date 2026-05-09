@@ -196,7 +196,16 @@ def _missing_components(closure_check: Any | None) -> str:
     rows = tuple(getattr(closure_check, "rows", ()))
     if not rows:
         return "unknown"
-    return str(getattr(rows[0], "missing_components", "") or "none")
+    missing = []
+    seen = set()
+    for row in rows:
+        for component in str(getattr(row, "missing_components", "")).split(";"):
+            component = component.strip()
+            if not component or component == "none" or component in seen:
+                continue
+            missing.append(component)
+            seen.add(component)
+    return ";".join(missing) if missing else "none"
 
 
 def _attr_float(obj: Any | None, name: str) -> float | None:
