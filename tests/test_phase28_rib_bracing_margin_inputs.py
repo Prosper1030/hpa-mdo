@@ -10,6 +10,8 @@ from scripts.phase28_rib_bracing_margin_inputs import (
     write_rib_bracing_margin_input_package,
 )
 
+RIB_TRACEABLE_SOURCE = "output/phase28/rib_coupon_test_report.json"
+
 
 def _spacing_requirements() -> SimpleNamespace:
     return SimpleNamespace(
@@ -67,7 +69,7 @@ def test_rib_bracing_margin_check_uses_finite_rib_surrogate_link_force_as_requir
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay0-rib1",
                 "covered_intermediate_station_y_m": "0.30",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
             {
                 "bay_index": "1",
@@ -86,7 +88,7 @@ def test_rib_bracing_margin_check_uses_finite_rib_surrogate_link_force_as_requir
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay1-rib1",
                 "covered_intermediate_station_y_m": "0.90",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
         ),
     )
@@ -139,7 +141,7 @@ def test_rib_bracing_margin_check_requires_stiffness_cap_and_spar_attach_inputs(
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay0-rib1",
                 "covered_intermediate_station_y_m": "0.30",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
         ),
     )
@@ -167,7 +169,7 @@ def test_rib_bracing_margin_check_requires_traceable_rib_inputs() -> None:
                 "allowable_main_spar_attach_force_n": "1100",
                 "allowable_rear_spar_attach_force_n": "1150",
                 "rib_lateral_stiffness_n_per_m": "25000",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
             {
                 "bay_index": "1",
@@ -183,7 +185,7 @@ def test_rib_bracing_margin_check_requires_traceable_rib_inputs() -> None:
                 "stiffness_basis": "finite_rib_beam_model",
                 "evidence_type": "coupon_test",
                 "attachment_basis": "bonded_spar_cap_shear_test",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
         ),
     )
@@ -195,6 +197,40 @@ def test_rib_bracing_margin_check_requires_traceable_rib_inputs() -> None:
     assert by_bay[0].traceability_status == "allowable_basis_missing"
     assert by_bay[1].status == "rib_traceability_missing"
     assert by_bay[1].traceability_status == "rib_family_missing"
+
+
+def test_rib_bracing_margin_check_rejects_placeholder_source_even_with_positive_margins() -> None:
+    check = build_rib_bracing_margin_check(
+        _spacing_requirements(),
+        _bracing_audit(),
+        rib_allowables=(
+            {
+                "bay_index": "0",
+                "rib_family": "balsa_sheet_3mm",
+                "allowable_link_force_n": "1200",
+                "allowable_shear_force_n": "1000",
+                "allowable_cap_force_n": "1050",
+                "allowable_bond_force_n": "950",
+                "allowable_main_spar_attach_force_n": "1100",
+                "allowable_rear_spar_attach_force_n": "1150",
+                "rib_lateral_stiffness_n_per_m": "25000",
+                "allowable_basis": "rib_link_coupon_limit_load",
+                "stiffness_basis": "finite_rib_beam_model",
+                "evidence_type": "coupon_test",
+                "attachment_basis": "bonded_spar_cap_shear_test",
+                "covered_intermediate_station_count": "1",
+                "covered_station_ids": "bay0-rib1",
+                "covered_intermediate_station_y_m": "0.30",
+                "source": "coupon placeholder",
+            },
+        ),
+    )
+
+    by_bay = {row.bay_index: row for row in check.rows}
+    assert check.overall_status == "rib_bracing_margins_not_closed"
+    assert check.traceability_gap_count == 1
+    assert by_bay[0].status == "rib_traceability_missing"
+    assert by_bay[0].traceability_status == "source_unqualified"
 
 
 def test_rib_bracing_margin_check_requires_station_level_coverage() -> None:
@@ -216,7 +252,7 @@ def test_rib_bracing_margin_check_requires_station_level_coverage() -> None:
                 "stiffness_basis": "finite_rib_beam_model",
                 "evidence_type": "coupon_test",
                 "attachment_basis": "bonded_spar_cap_shear_test",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
         ),
     )
@@ -250,7 +286,7 @@ def test_rib_bracing_margin_check_requires_physical_station_placement() -> None:
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay0-rib1",
                 "covered_intermediate_station_y_m": "0.10",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
         ),
     )
@@ -286,7 +322,7 @@ def test_write_rib_bracing_margin_input_package_creates_template_and_report(tmp_
                 "covered_intermediate_station_count": "1",
                 "covered_station_ids": "bay0-rib1",
                 "covered_intermediate_station_y_m": "0.30",
-                "source": "coupon placeholder",
+                "source": RIB_TRACEABLE_SOURCE,
             },
         ),
     )

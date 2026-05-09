@@ -361,7 +361,26 @@ def _traceability_status(
         return "evidence_type_missing"
     if not attachment_basis:
         return "attachment_basis_missing"
+    if not _traceable_source(source):
+        return "source_unqualified"
     return "traceable_input"
+
+
+def _traceable_source(source: str) -> bool:
+    value = str(source).strip()
+    if not value:
+        return False
+    lowered = value.lower()
+    placeholder_tokens = (
+        "placeholder",
+        "tbd",
+        "todo",
+        "n/a",
+        "none",
+        "unknown",
+        "unqualified",
+    )
+    return not any(token in lowered for token in placeholder_tokens)
 
 
 def _write_template(path: Path, check: RibBracingMarginCheck) -> Path:
