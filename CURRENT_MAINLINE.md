@@ -391,6 +391,20 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
      bond/collar/tube-wall 仍是 `watch`，tube-wall margin 約 `2.304`；這個 simplified
      CCX model 只代表 local torsional stiffness / shear-transfer response，不是 bond peel /
      buckling / tube-wall / skin sag / flight-load final truth。
+   - Current pathfinder rib / torsion detailed local validation shortlist 已鎖定：
+     `docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md`。
+     verdict 是 `selected_candidate_ready_for_detailed_local_validation`，不是 final pass。
+     鎖定 basis 是 revised fast-loop selected row
+     `eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75`
+     with revised bounded twist `1.673592 deg`。detailed validation shortlist 只保留三個
+     local FEM/coupon cases：P1 selected 10 mm uniform carbon-collar row、P2 12 mm
+     uniform carbon-collar heavier reserve、P3 10 mm uniform glass-face collar lower-complexity
+     alternate。8 mm dense torque-zone row 雖較輕，但因 manufacturability score 降到
+     `0.38` 且 direct fast twist 接近 `3 deg`，不升為 detailed validation priority。下一層
+     必須針對 y≈`2.328 m` rib/collar/bond/tube-wall、skin sag、rib-to-spar shear/peel、
+     carbon/glass collar與 balsa cap load path、tube crush/ovalization，以及代表 ordinary bay
+     做 detailed FEM/coupon/allowable；這仍不是 aircraft, FEM/APDL, adhesive, tube-wall,
+     skin sag, buckling, or manufacturing sign-off。
 
 針對已鎖定的 downstream pathfinder engineering lane，`ConservativeLoadMapper` foundation
 是 load ownership 前置基礎且已完成；tail / CG / trim / stability contract v0、all-moving
@@ -409,6 +423,9 @@ aero-surface mapping。
 rows 已在 local CCX beam-frame 內對齊到 `<=5%`，revised search 選出 uniform `0.30 m`
 carbon-collar / rear75 的 10 mm hybrid row，bounded twist 約 `1.674 deg`。這仍不能取代
 positive-zone local margin、coupon work、skin sag evidence 或 APDL/CalculiX final sign-off。
+Detailed local validation shortlist 已把這個 selected row 鎖成 P1，並把 12 mm carbon-collar
+reserve 與 10 mm glass-face collar manufacturability fallback 列成 P2/P3；目前 verdict 只到
+`selected_candidate_ready_for_detailed_local_validation`。
 
 可直接用於新 goal 的 objective：
 
@@ -469,6 +486,7 @@ positive-zone local margin、coupon work、skin sag evidence 或 APDL/CalculiX f
   - `docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md`
   - `scripts/current_pathfinder_rib_torsion_fem_calibration.py`
   - `docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md`
+  - `docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md`
   - `scripts/current_pathfinder_positive_torque_zone_validation_package.py`
   - `docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md`
 - 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
@@ -490,14 +508,14 @@ positive-zone local margin、coupon work、skin sag evidence 或 APDL/CalculiX f
   FEM/coupon candidate；actual closure-owned hybrid rerun bounded physical twist 是
   `2.070 deg`，direct stress-test 是 `3.449 deg` 並保留為 conservative mapping warning。
   fast design-search loop 會掃 material / thickness / spacing / local reinforcement /
-  rear participation 的 candidates，並把 selected fast row 送回 tail-aware closure rerun；
-  目前 fast selected closure bounded physical twist 是 `1.789 deg`，direct stress-test 是
-  `2.981 deg`。第一輪 CCX local-frame calibration 已回填 factor：10 mm selected row 的
-  CCX factor 是 `1.497702`，Python local torsion-link comparison factor 是 `1.238016`，
-  修正後 bounded twist `2.204 deg`；calibrated search top row 轉為 12 mm relaxed
-  carbon-collar/rear75，bounded twist `1.803 deg`。這表示 fast effective-GJ credit 可用
-  CCX correction 後繼續 search，但 carbon collar / relaxed spacing / bond/tube-wall
-  仍只是 watch，不是 final FEM truth。
+  rear participation 的 candidates，並把 selected fast row 送回 tail-aware closure rerun。
+  目前 revised fast-loop selected row 是 10 mm uniform `0.30 m` carbon-collar/rear75，
+  bounded twist `1.673592 deg`；CCX local-frame alignment verdict 是
+  `fast_physical_model_verified_within_5pct`，代表 structural rows 的 revised fast-vs-CCX
+  error 已壓到 `<=5%`，但 carbon/glass collar、bond/tube-wall、skin sag、buckling 仍不是
+  final FEM truth。detailed local validation shortlist 已鎖 P1 selected row、P2 12 mm
+  carbon-collar reserve、P3 10 mm glass-face collar manufacturability fallback；它只表示
+  `selected_candidate_ready_for_detailed_local_validation`。
   positive y≈`2.328 m` local package 已建立：R067/R068/R069、B066-B069、R066/R070
   boundary、APDL guarded skeleton、coupon matrix 和 missing-data register 都已輸出；它是
   `not_margin_pass` handoff，不是 FEM signoff。

@@ -169,6 +169,16 @@ carbon/glass collar row `1.171%`、revised selected row `1.950%`。verdict 是
 y≈`2.328 m` bond/collar/tube-wall 仍是 `watch`，不是 adhesive / collar / tube-wall /
 skin sag / buckling / flight-load final sign-off。
 
+rib / torsion detailed local validation shortlist 已鎖定，讀
+[docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md](docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md)。
+目前 verdict 是 `selected_candidate_ready_for_detailed_local_validation`，不是 final pass。
+P1 是 revised fast-loop selected row
+`eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75`，
+bounded twist `1.673592 deg`；P2 是 12 mm uniform carbon-collar heavier reserve；P3 是
+10 mm uniform glass-face collar lower-complexity alternate。下一層要做 y≈`2.328 m`
+rib/collar/bond/tube-wall detailed FEM、skin sag、rib-to-spar shear/peel、collar/cap load path、
+tube crush/ovalization、ordinary bay 和 coupon/allowable，不是再調 fast model。
+
 positive y≈`2.328 m` torque-critical local validation package 已建立，讀
 [docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md)
 與 `output/current_pathfinder_positive_torque_zone_validation/`。這份 package 鎖定
@@ -217,6 +227,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | hybrid closure-owned bounded twist clears 3 deg; local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
 | 跑 rib / torsion fast design-search loop 與 FEM calibration sample set | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md) | revised link-limited physical model; selected fast candidate is uniform 0.30 m carbon-collar rear75; FEM samples include original selected, aggressive, foam reference, and revised selected |
 | 看 rib / torsion fast-loop CCX local-frame physical alignment | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md) | representative structural rows aligned within 5% against local CCX beam-frame; no hidden family correction; not final bond/tube-wall/buckling sign-off |
+| 看 rib / torsion detailed local validation shortlist | [docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md](docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md) | selected 10 mm uniform carbon-collar basis locked; 12 mm reserve and 10 mm glass-collar fallback listed; no final aircraft pass |
 | 接 positive torque-zone local FEM / coupon package | [docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md) | R067/R068/R069 + B066-B069 package; APDL skeleton and coupon/missing-data register; no FEM margin claimed |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
