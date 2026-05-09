@@ -138,6 +138,23 @@ hybrid main/rear torsion-cell screening surrogate：actual closure bounded physi
 `2.335 kg`，CG/rebalance 已計入。FEM/APDL package gate 仍被 missing transition/control
 stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m` local FEM 卡住。
 
+rib / torsion fast design-search loop 已建立，讀
+[docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md)
+與 `output/current_pathfinder_rib_torsion_design_search/`。這是可重跑的 fast model search，
+不是單點 patch：它掃 rib/core thickness、material family、zone spacing、cap/face/collar
+local reinforcement、rear-spar participation `0.50 / 0.65 / 0.75`，並輸出 candidate table、
+Pareto / shortlist、FEM calibration sample set 與 APDL/CalculiX calibration skeletons。
+目前 fast-loop selected row 是
+`eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75`；
+fast bounded twist 約 `1.471 deg`，並已用 closure runner 對這個 fast selected basis 重跑：
+closure bounded physical twist `1.789 deg`、direct stress-test `2.981 deg`、static margin
+`0.092835`、`C_n_beta = 0.014556`。這只是
+`fast_design_loop_ready_for_fem_calibration`：carbon collar / relaxed spacing / effective-GJ
+credit 必須由 calibration FEM 與 coupon/local bond/tube-wall checks 校準，不能當 final
+FEM 或製造 release truth。Calibration sample set 包含 baseline balsa 3 mm、selected
+hybrid 10 mm、aggressive plausible hybrid、lightweight EPS foam-core reference；EPS/XPS
+foam-only 仍只可當 shape-core / lightweight reference，不可當 structural bracing pass。
+
 positive y≈`2.328 m` torque-critical local validation package 已建立，讀
 [docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md)
 與 `output/current_pathfinder_positive_torque_zone_validation/`。這份 package 鎖定
@@ -184,6 +201,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged; twist-source audit points to hybrid rib/stiffness rework |
 | 看 current pathfinder rib station/bay 是否真的 materialized | [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | 121 station / 120 bay trace; shape, bond, collar, transition data still blocked |
 | 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | hybrid closure-owned bounded twist clears 3 deg; local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
+| 跑 rib / torsion fast design-search loop 與 FEM calibration sample set | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md) | reusable search runner; selected fast candidate closure rerun clears screening twist; FEM calibration required |
 | 接 positive torque-zone local FEM / coupon package | [docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md) | R067/R068/R069 + B066-B069 package; APDL skeleton and coupon/missing-data register; no FEM margin claimed |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
@@ -277,6 +295,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/full_aircraft_tail_avl_audit_v0.py
 PYTHONPATH=src ./.venv/bin/python scripts/vtail_cg_reference_sensitivity_v0.py
 PYTHONPATH=src ./.venv/bin/python scripts/tail_aware_rib_rear_spar_sensitivity.py
 PYTHONPATH=src ./.venv/bin/python scripts/tail_aware_aeroelastic_closure.py
+PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_torsion_design_search.py
 ```
 
 只有在明確做歷史診斷時，才可以加
