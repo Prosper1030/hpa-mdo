@@ -594,6 +594,29 @@ def _phase41_reference_load_review() -> SimpleNamespace:
     )
 
 
+def _phase41_mode_shape_review() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="phase41_mode_shape_engineering_review_required",
+        row_count=2,
+        review_required_count=2,
+        missing_count=0,
+        rows=(
+            SimpleNamespace(
+                status="mode_shape_engineering_review_required",
+                tip_to_max_ratio=1.0,
+                root_to_max_ratio=0.000026,
+                spar_mean_participation_ratio=0.9763,
+            ),
+            SimpleNamespace(
+                status="mode_shape_engineering_review_required",
+                tip_to_max_ratio=1.0,
+                root_to_max_ratio=0.000026,
+                spar_mean_participation_ratio=0.9763,
+            ),
+        ),
+    )
+
+
 def _existing_detail_allowable_evidence_triage() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="existing_detail_allowables_do_not_close_goal",
@@ -664,6 +687,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         existing_fem_evidence_triage=_existing_fem_evidence_triage(),
         braced_subassembly_fem_evidence=_braced_subassembly_fem_evidence(),
         phase41_reference_load_review=_phase41_reference_load_review(),
+        phase41_mode_shape_review=_phase41_mode_shape_review(),
         existing_detail_allowable_evidence_triage=_existing_detail_allowable_evidence_triage(),
     )
 
@@ -725,6 +749,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase32" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase40" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "Phase41" in by_key["rear_spar_stiffness"].evidence_artifacts
+    assert "Phase44" in by_key["rear_spar_stiffness"].evidence_artifacts
     assert "diagnostic status=strong_model_sensitivity_not_signoff" in by_key[
         "rear_spar_stiffness"
     ].current_evidence
@@ -746,6 +771,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase32" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase40" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase41" in by_key["rib_load_transfer"].evidence_artifacts
+    assert "Phase44" in by_key["rib_load_transfer"].evidence_artifacts
     assert "Phase43" in by_key["rib_load_transfer"].evidence_artifacts
     assert "diagnostic status=surrogate_load_transfer_not_signoff" in by_key[
         "rib_load_transfer"
@@ -763,6 +789,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "Phase40" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase41" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "Phase42" in by_key["failure_mode_ordering"].evidence_artifacts
+    assert "Phase44" in by_key["failure_mode_ordering"].evidence_artifacts
     assert "unranked modes=7" in by_key["failure_mode_ordering"].current_evidence
     assert "tip_deflection" in by_key["failure_mode_ordering"].current_evidence
     assert "detail modes are listed as unranked" in by_key[
@@ -771,11 +798,15 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "reference review status=phase41_reference_load_formulation_not_rankable" in by_key[
         "failure_mode_ordering"
     ].current_evidence
+    assert "mode shape review status=phase41_mode_shape_engineering_review_required" in by_key[
+        "failure_mode_ordering"
+    ].current_evidence
     assert "Phase30" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase38" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase40" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase41" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "Phase42" in by_key["full_wing_global_buckling"].evidence_artifacts
+    assert "Phase44" in by_key["full_wing_global_buckling"].evidence_artifacts
     assert "closure status=closure_input_missing" in by_key["full_wing_global_buckling"].current_evidence
     assert "missing claim n=1.50;1.75" in by_key[
         "full_wing_global_buckling"
@@ -803,6 +834,12 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         "full_wing_global_buckling"
     ].current_evidence
     assert "no axial compression reference rows=2" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
+    assert "mode shape review status=phase41_mode_shape_engineering_review_required" in by_key[
+        "full_wing_global_buckling"
+    ].current_evidence
+    assert "min spar balance=0.9763" in by_key[
         "full_wing_global_buckling"
     ].current_evidence
     assert "Review Phase41 mode shape" in by_key[

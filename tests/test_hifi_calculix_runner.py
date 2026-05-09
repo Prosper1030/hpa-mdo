@@ -16,8 +16,13 @@ from hpa_mdo.hifi.calculix_runner import (
     run_static,
     tip_node_from_mesh,
 )
-from hpa_mdo.hifi.frd_parser import parse_buckle_eigenvalues, parse_displacement, parse_last_field_block
-from hpa_mdo.hifi.frd_parser import parse_nodal_coordinates
+from hpa_mdo.hifi.frd_parser import (
+    parse_buckle_eigenvalues,
+    parse_displacement,
+    parse_field_blocks,
+    parse_last_field_block,
+    parse_nodal_coordinates,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -433,6 +438,74 @@ def test_parse_last_field_block_reads_last_matching_result_block(tmp_path: Path)
             ]
         ),
     )
+
+
+def test_parse_field_blocks_preserves_each_disp_block_metadata(tmp_path: Path) -> None:
+    frd = tmp_path / "case.frd"
+    frd.write_text(
+        """
+    1PSTEP                         1           1           1
+  100CL  101 0.00000E+00           2                     4    1           1
+ -4  DISP        4    1
+ -5  D1          1    2    1    0
+ -5  D2          1    2    2    0
+ -5  D3          1    2    3    0
+ -1         1  1.00000E-03  2.00000E-03 -3.00000E-03
+ -3
+    1PSTEP                         2           1           1
+  100CL  102 2.50000E+00           2                     4    2           1
+ -4  DISP        4    1
+ -5  D1          1    2    1    0
+ -5  D2          1    2    2    0
+ -5  D3          1    2    3    0
+ -1         1  4.00000E-03  5.00000E-03 -6.00000E-03
+ -1         2  7.00000E-03  8.00000E-03 -9.00000E-03
+ -3
+""",
+        encoding="utf-8",
+    )
+
+    blocks = parse_field_blocks(frd, "DISP")
+
+    assert len(blocks) == 2
+    assert blocks[0].step_number == 1
+    assert blocks[0].result_set == 101
+    assert blocks[0].analysis_value == 0.0
+    np.testing.assert_allclose(blocks[0].rows, [[1.0, 1.0e-3, 2.0e-3, -3.0e-3]])
+    assert blocks[1].step_number == 2
+    assert blocks[1].result_set == 102
+    assert blocks[1].analysis_value == 2.5
+    np.testing.assert_allclose(
+        blocks[1].rows,
+        [
+            [1.0, 4.0e-3, 5.0e-3, -6.0e-3],
+            [2.0, 7.0e-3, 8.0e-3, -9.0e-3],
+        ],
+    )
+
+
+def test_parse_field_blocks_ignores_all_node_set_label(tmp_path: Path) -> None:
+    frd = tmp_path / "case.frd"
+    frd.write_text(
+        """
+    1PSTEP                         2           1           1
+  100CL  102 2.50000E+00           1                     4    2           1
+ -4  DISP        4    1
+ -5  D1          1    2    1    0
+ -5  D2          1    2    2    0
+ -5  D3          1    2    3    0
+ -5  ALL         1    2    0    0    1ALL
+ -1         1  4.00000E-03  5.00000E-03 -6.00000E-03
+ -3
+""",
+        encoding="utf-8",
+    )
+
+    blocks = parse_field_blocks(frd, "DISP")
+
+    assert len(blocks) == 1
+    assert blocks[0].labels == ("D1", "D2", "D3")
+    np.testing.assert_allclose(blocks[0].rows, [[1.0, 4.0e-3, 5.0e-3, -6.0e-3]])
 
 
 def test_parse_buckle_eigenvalues_reads_dat_table(tmp_path: Path) -> None:

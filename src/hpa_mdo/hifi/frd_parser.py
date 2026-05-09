@@ -18,6 +18,9 @@ class FRDFieldBlock:
     name: str
     labels: tuple[str, ...]
     rows: np.ndarray
+    step_number: int | None = None
+    result_set: int | None = None
+    analysis_value: float | None = None
 
 
 def parse_displacement(frd_path: str | Path, *, node_set: str = "ALL") -> np.ndarray:
@@ -91,12 +94,40 @@ def parse_nodal_coordinates(frd_path: str | Path) -> np.ndarray:
 def parse_last_field_block(frd_path: str | Path, field_name: str) -> FRDFieldBlock | None:
     """Parse the last matching FRD ``-4`` result block for one field name."""
 
+    blocks = parse_field_blocks(frd_path, field_name)
+    return blocks[-1] if blocks else None
+
+
+def parse_field_blocks(frd_path: str | Path, field_name: str) -> tuple[FRDFieldBlock, ...]:
+    """Parse all matching FRD ``-4`` result blocks for one field name."""
+
     target = str(field_name).strip().upper()
-    labels: list[str] = []
-    rows: list[list[float]] = []
+    blocks: list[FRDFieldBlock] = []
     current_labels: list[str] = []
     current_rows: list[list[float]] = []
+    current_step_number: int | None = None
+    current_result_set: int | None = None
+    current_analysis_value: float | None = None
+    pending_result_set: int | None = None
+    pending_analysis_value: float | None = None
     in_field = False
+
+    def finish_block() -> None:
+        nonlocal current_labels, current_rows, in_field
+        if current_labels and current_rows:
+            blocks.append(
+                FRDFieldBlock(
+                    name=target,
+                    labels=tuple(current_labels),
+                    rows=np.asarray(current_rows, dtype=float),
+                    step_number=current_step_number,
+                    result_set=current_result_set,
+                    analysis_value=current_analysis_value,
+                )
+            )
+        current_labels = []
+        current_rows = []
+        in_field = False
 
     for raw in Path(frd_path).read_text(encoding="utf-8", errors="ignore").splitlines():
         stripped = raw.strip()
@@ -104,11 +135,26 @@ def parse_last_field_block(frd_path: str | Path, field_name: str) -> FRDFieldBlo
             continue
         upper = stripped.upper()
 
+        if upper.startswith("1PSTEP"):
+            parts = stripped.split()
+            if len(parts) >= 2:
+                current_step_number = int(parts[1])
+            continue
+
+        if upper.startswith("100CL"):
+            parts = stripped.split()
+            pending_result_set = int(parts[1]) if len(parts) >= 2 else None
+            pending_analysis_value = (
+                float(parts[2].replace("D", "E")) if len(parts) >= 3 else None
+            )
+            continue
+
         if upper.startswith("-4"):
-            if in_field and current_labels and current_rows:
-                labels = current_labels
-                rows = current_rows
+            if in_field:
+                finish_block()
             in_field = target in upper
+            current_result_set = pending_result_set
+            current_analysis_value = pending_analysis_value
             current_labels = []
             current_rows = []
             continue
@@ -118,7 +164,7 @@ def parse_last_field_block(frd_path: str | Path, field_name: str) -> FRDFieldBlo
 
         if stripped.startswith("-5"):
             parts = stripped.split()
-            if len(parts) >= 2:
+            if len(parts) >= 2 and parts[1].upper() != "ALL":
                 current_labels.append(parts[1])
             continue
 
@@ -129,22 +175,12 @@ def parse_last_field_block(frd_path: str | Path, field_name: str) -> FRDFieldBlo
             continue
 
         if stripped.startswith("-3"):
-            if current_labels and current_rows:
-                labels = current_labels
-                rows = current_rows
-            in_field = False
+            finish_block()
 
-    if in_field and current_labels and current_rows:
-        labels = current_labels
-        rows = current_rows
+    if in_field:
+        finish_block()
 
-    if not labels or not rows:
-        return None
-    return FRDFieldBlock(
-        name=target,
-        labels=tuple(labels),
-        rows=np.asarray(rows, dtype=float),
-    )
+    return tuple(blocks)
 
 
 def parse_buckle_eigenvalues(dat_path: str | Path) -> list[float]:

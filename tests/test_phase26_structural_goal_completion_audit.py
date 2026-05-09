@@ -180,6 +180,45 @@ def test_goal_completion_audit_tracks_phase41_review_required_after_rankable_lam
     )
 
 
+def test_goal_completion_audit_tracks_mode_screened_but_not_signed_off() -> None:
+    closure_index = _closure_index()
+    items = []
+    for item in closure_index.items:
+        if item.key == "full_wing_global_buckling":
+            item = SimpleNamespace(
+                key=item.key,
+                evidence_artifacts=(
+                    "Phase18; Phase30; Phase38; Phase41; Phase42; Phase44"
+                ),
+                current_evidence=(
+                    "No full-wing global buckling eigen/FEM result. "
+                    "Phase41: braced subassembly status=braced_subassembly_solver_ran_mode_review_required; "
+                    "Phase42: reference review status=phase41_reference_load_review_required; "
+                    "not-rankable rows=0; balanced rows=2. "
+                    "Phase44: mode shape review status=phase41_mode_shape_engineering_review_required; "
+                    "review-required rows=2; missing rows=0; min spar balance=0.9763."
+                ),
+                remaining_blocker=item.remaining_blocker,
+                next_action="Manual mode identity and mesh sensitivity review",
+            )
+        items.append(item)
+    audit = build_structural_goal_completion_audit(
+        SimpleNamespace(
+            candidate_id=closure_index.candidate_id,
+            items=tuple(items),
+        ),
+        failure_mode_ordering=_failure_mode_ordering(),
+    )
+
+    row = {row.key: row for row in audit.rows}["full_wing_global_buckling"]
+    assert row.evidence_strength == (
+        "claim_boundary_plus_braced_route_mode_screened_review_required"
+    )
+    assert row.completion_blocker == (
+        "braced_subassembly_manual_mode_mesh_review_missing"
+    )
+
+
 def test_write_goal_completion_audit_package_creates_handoff_files(tmp_path: Path) -> None:
     outputs = write_structural_goal_completion_audit_package(
         tmp_path,

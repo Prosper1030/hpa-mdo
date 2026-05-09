@@ -98,6 +98,9 @@ from scripts.phase42_phase41_reference_load_review import (  # noqa: E402
 from scripts.phase43_existing_detail_allowable_evidence_triage import (  # noqa: E402
     build_current_existing_detail_allowable_evidence_triage,
 )
+from scripts.phase44_phase41_mode_shape_review import (  # noqa: E402
+    build_current_phase41_mode_shape_review,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -148,6 +151,7 @@ def build_structural_closure_index(
     existing_fem_evidence_triage: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
     phase41_reference_load_review: Any | None = None,
+    phase41_mode_shape_review: Any | None = None,
     existing_detail_allowable_evidence_triage: Any | None = None,
 ) -> StructuralClosureIndex:
     claim_by_key = _entry_map(claim_review.items)
@@ -182,6 +186,7 @@ def build_structural_closure_index(
             existing_fem_evidence_triage=existing_fem_evidence_triage,
             braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
             phase41_reference_load_review=phase41_reference_load_review,
+            phase41_mode_shape_review=phase41_mode_shape_review,
             existing_detail_allowable_evidence_triage=(
                 existing_detail_allowable_evidence_triage
             ),
@@ -226,6 +231,7 @@ def write_structural_closure_index_package(
     existing_fem_evidence_triage: Any | None = None,
     braced_subassembly_fem_evidence: Any | None = None,
     phase41_reference_load_review: Any | None = None,
+    phase41_mode_shape_review: Any | None = None,
     existing_detail_allowable_evidence_triage: Any | None = None,
 ) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -253,6 +259,7 @@ def write_structural_closure_index_package(
         existing_fem_evidence_triage=existing_fem_evidence_triage,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        phase41_mode_shape_review=phase41_mode_shape_review,
         existing_detail_allowable_evidence_triage=existing_detail_allowable_evidence_triage,
     )
     outputs = [
@@ -327,6 +334,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     )
     braced_subassembly_fem_evidence = load_current_braced_subassembly_fem_evidence()
     phase41_reference_load_review = build_current_phase41_reference_load_review()
+    phase41_mode_shape_review = build_current_phase41_mode_shape_review()
     existing_detail_allowable_evidence_triage = (
         build_current_existing_detail_allowable_evidence_triage()
     )
@@ -374,6 +382,7 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         existing_fem_evidence_triage=existing_fem_evidence_triage,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        phase41_mode_shape_review=phase41_mode_shape_review,
         existing_detail_allowable_evidence_triage=existing_detail_allowable_evidence_triage,
     )
 
@@ -406,6 +415,7 @@ def _build_item(
     existing_fem_evidence_triage: Any | None,
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    phase41_mode_shape_review: Any | None,
     existing_detail_allowable_evidence_triage: Any | None,
 ) -> StructuralClosureItem:
     detail_entry = _detail_entry_for_key(key, detail_requirements)
@@ -434,6 +444,7 @@ def _build_item(
         existing_fem_evidence_triage,
         braced_subassembly_fem_evidence,
         phase41_reference_load_review,
+        phase41_mode_shape_review,
         existing_detail_allowable_evidence_triage,
     )
     status = _status_for_key(key, local_entry, torsion_entry)
@@ -464,6 +475,7 @@ def _build_item(
         existing_fem_evidence_triage=existing_fem_evidence_triage,
         braced_subassembly_fem_evidence=braced_subassembly_fem_evidence,
         phase41_reference_load_review=phase41_reference_load_review,
+        phase41_mode_shape_review=phase41_mode_shape_review,
         existing_detail_allowable_evidence_triage=(
             existing_detail_allowable_evidence_triage
         ),
@@ -526,6 +538,7 @@ def _evidence_artifacts(
     existing_fem_evidence_triage: Any | None,
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    phase41_mode_shape_review: Any | None,
     existing_detail_allowable_evidence_triage: Any | None,
 ) -> str:
     artifacts = ["Phase18 structural_claim_readiness"]
@@ -601,6 +614,13 @@ def _evidence_artifacts(
         "failure_mode_ordering",
     }:
         artifacts.append("Phase42 phase41_reference_load_review")
+    if phase41_mode_shape_review is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "full_wing_global_buckling",
+        "failure_mode_ordering",
+    }:
+        artifacts.append("Phase44 phase41_mode_shape_review")
     if existing_detail_allowable_evidence_triage is not None and key in {
         "wire_attach_local_load_path",
         "root_joint",
@@ -640,6 +660,7 @@ def _evidence_for_key(
     existing_fem_evidence_triage: Any | None,
     braced_subassembly_fem_evidence: Any | None,
     phase41_reference_load_review: Any | None,
+    phase41_mode_shape_review: Any | None,
     existing_detail_allowable_evidence_triage: Any | None,
 ) -> str:
     parts = [str(claim.current_evidence)]
@@ -768,6 +789,15 @@ def _evidence_for_key(
     }:
         parts.append(
             f"Phase42: {_phase41_reference_load_review_summary(phase41_reference_load_review)}"
+        )
+    if phase41_mode_shape_review is not None and key in {
+        "rear_spar_stiffness",
+        "rib_load_transfer",
+        "full_wing_global_buckling",
+        "failure_mode_ordering",
+    }:
+        parts.append(
+            f"Phase44: {_phase41_mode_shape_review_summary(phase41_mode_shape_review)}"
         )
     if existing_detail_allowable_evidence_triage is not None and key in {
         "wire_attach_local_load_path",
@@ -1298,6 +1328,41 @@ def _phase41_reference_load_review_summary(review: Any) -> str:
         f"{implausible_lambda}; "
         "support-opposes rows="
         f"{support_opposes}."
+    )
+
+
+def _phase41_mode_shape_review_summary(review: Any) -> str:
+    rows = tuple(getattr(review, "rows", ()))
+    spar_balances = [
+        _optional_float(getattr(row, "spar_mean_participation_ratio", None))
+        for row in rows
+    ]
+    tip_ratios = [
+        _optional_float(getattr(row, "tip_to_max_ratio", None))
+        for row in rows
+    ]
+    root_ratios = [
+        _optional_float(getattr(row, "root_to_max_ratio", None))
+        for row in rows
+    ]
+    finite_spar_balances = [value for value in spar_balances if value is not None]
+    finite_tip_ratios = [value for value in tip_ratios if value is not None]
+    finite_root_ratios = [value for value in root_ratios if value is not None]
+    return (
+        "mode shape review status="
+        f"{getattr(review, 'overall_status', 'unknown')}; "
+        "rows="
+        f"{int(getattr(review, 'row_count', len(rows)))}; "
+        "review-required rows="
+        f"{int(getattr(review, 'review_required_count', 0))}; "
+        "missing rows="
+        f"{int(getattr(review, 'missing_count', 0))}; "
+        "min spar balance="
+        f"{_fmt(min(finite_spar_balances) if finite_spar_balances else None)}; "
+        "max tip/max="
+        f"{_fmt(max(finite_tip_ratios) if finite_tip_ratios else None)}; "
+        "max root/max="
+        f"{_fmt(max(finite_root_ratios) if finite_root_ratios else None)}."
     )
 
 
