@@ -354,6 +354,28 @@ def _wire_termination_efficiency_sensitivity() -> SimpleNamespace:
     )
 
 
+def _wire_termination_hardware_feasibility_screen() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="wire_termination_hardware_feasibility_not_closed",
+        required_allowable_load_n=6048.2,
+        required_mbl_at_eta_0p60_n=10080.3,
+        hardware_count=1,
+        positive_input_hardware_count=0,
+        negative_margin_hardware_count=0,
+        missing_input_hardware_count=1,
+        traceability_gap_hardware_count=0,
+        rows=(
+            SimpleNamespace(
+                hardware_id="wire_termination_hardware_input_required",
+                status="hardware_selection_and_allowables_missing",
+                effective_termination_load_n=None,
+                worst_margin_n=None,
+                traceability_status="hardware_input_missing",
+            ),
+        ),
+    )
+
+
 def _local_detail_criticality_ordering() -> SimpleNamespace:
     return SimpleNamespace(
         overall_status="local_detail_work_priority_ranked_allowables_missing",
@@ -803,6 +825,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
         root_joint_load_envelope=_root_joint_load_envelope(),
         root_joint_detail_feasibility_screen=_root_joint_detail_feasibility_screen(),
         wire_termination_efficiency_sensitivity=_wire_termination_efficiency_sensitivity(),
+        wire_termination_hardware_feasibility_screen=_wire_termination_hardware_feasibility_screen(),
         local_detail_criticality_ordering=_local_detail_criticality_ordering(),
         rib_spacing_requirements=_rib_spacing_requirements(),
         rib_bracing_margin_check=_rib_bracing_margin_check(),
@@ -883,12 +906,22 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "body margin=-1466.7000 N" in by_key["wire_termination"].current_evidence
     assert "subcomponents missing=1" in by_key["wire_termination"].current_evidence
     assert "Phase36" in by_key["wire_termination"].evidence_artifacts
+    assert "Phase49" in by_key["wire_termination"].evidence_artifacts
     assert "Phase43" in by_key["wire_termination"].evidence_artifacts
     assert "Phase46" in by_key["wire_termination"].evidence_artifacts
     assert "MBL at eta 0.60=10080.3000 N" in by_key[
         "wire_termination"
     ].current_evidence
     assert "MBL at eta 0.80=7560.2000 N" in by_key[
+        "wire_termination"
+    ].current_evidence
+    assert "wire termination hardware status=wire_termination_hardware_feasibility_not_closed" in by_key[
+        "wire_termination"
+    ].current_evidence
+    assert "missing hardware rows=1" in by_key[
+        "wire_termination"
+    ].current_evidence
+    assert "required MBL eta0.60=10080.3000 N" in by_key[
         "wire_termination"
     ].current_evidence
     assert "priority rank=2" in by_key["wire_termination"].current_evidence

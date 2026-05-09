@@ -113,6 +113,9 @@ from scripts.phase47_existing_torsion_twist_evidence_triage import (  # noqa: E4
 from scripts.phase48_root_joint_detail_feasibility_screen import (  # noqa: E402
     build_current_root_joint_detail_feasibility_screen,
 )
+from scripts.phase49_wire_termination_hardware_feasibility_screen import (  # noqa: E402
+    build_current_wire_termination_hardware_feasibility_screen,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase21_structural_closure_index"
@@ -152,6 +155,7 @@ def build_structural_closure_index(
     root_joint_load_envelope: Any | None = None,
     root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    wire_termination_hardware_feasibility_screen: Any | None = None,
     local_detail_criticality_ordering: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
@@ -193,6 +197,9 @@ def build_structural_closure_index(
                 root_joint_detail_feasibility_screen
             ),
             wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+            wire_termination_hardware_feasibility_screen=(
+                wire_termination_hardware_feasibility_screen
+            ),
             local_detail_criticality_ordering=local_detail_criticality_ordering,
             rib_spacing_requirements=rib_spacing_requirements,
             rib_bracing_margin_check=rib_bracing_margin_check,
@@ -244,6 +251,7 @@ def write_structural_closure_index_package(
     root_joint_load_envelope: Any | None = None,
     root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    wire_termination_hardware_feasibility_screen: Any | None = None,
     local_detail_criticality_ordering: Any | None = None,
     rib_spacing_requirements: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
@@ -276,6 +284,9 @@ def write_structural_closure_index_package(
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen=(
+            wire_termination_hardware_feasibility_screen
+        ),
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
@@ -339,6 +350,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
     )
     wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
         detail_requirements
+    )
+    wire_termination_hardware_feasibility_screen = (
+        build_current_wire_termination_hardware_feasibility_screen()
     )
     rib_spacing_requirements = build_rib_spacing_requirements(
         reference.candidate_id,
@@ -413,6 +427,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen=(
+            wire_termination_hardware_feasibility_screen
+        ),
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -442,6 +459,9 @@ def build_current_structural_closure_index() -> StructuralClosureIndex:
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen=(
+            wire_termination_hardware_feasibility_screen
+        ),
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
@@ -481,6 +501,7 @@ def _build_item(
     root_joint_load_envelope: Any | None,
     root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    wire_termination_hardware_feasibility_screen: Any | None,
     local_detail_criticality_ordering: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
@@ -514,6 +535,7 @@ def _build_item(
         root_joint_load_envelope,
         root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen,
         local_detail_criticality_ordering,
         rib_spacing_requirements,
         rib_bracing_margin_check,
@@ -549,6 +571,9 @@ def _build_item(
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen=(
+            wire_termination_hardware_feasibility_screen
+        ),
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_spacing_requirements=rib_spacing_requirements,
         rib_bracing_margin_check=rib_bracing_margin_check,
@@ -618,6 +643,7 @@ def _evidence_artifacts(
     root_joint_load_envelope: Any | None,
     root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    wire_termination_hardware_feasibility_screen: Any | None,
     local_detail_criticality_ordering: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
@@ -668,6 +694,8 @@ def _evidence_artifacts(
         artifacts.append("Phase48 root_joint_detail_feasibility_screen")
     if wire_termination_efficiency_sensitivity is not None and key == "wire_termination":
         artifacts.append("Phase36 wire_termination_efficiency_sensitivity")
+    if wire_termination_hardware_feasibility_screen is not None and key == "wire_termination":
+        artifacts.append("Phase49 wire_termination_hardware_feasibility_screen")
     if local_detail_criticality_ordering is not None and key in {
         "wire_attach_local_load_path",
         "root_joint",
@@ -763,6 +791,7 @@ def _evidence_for_key(
     root_joint_load_envelope: Any | None,
     root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    wire_termination_hardware_feasibility_screen: Any | None,
     local_detail_criticality_ordering: Any | None,
     rib_spacing_requirements: Any | None,
     rib_bracing_margin_check: Any | None,
@@ -859,6 +888,14 @@ def _evidence_for_key(
         parts.append(
             "Phase36: "
             f"{_wire_termination_efficiency_summary(wire_termination_efficiency_sensitivity)}"
+        )
+    if (
+        wire_termination_hardware_feasibility_screen is not None
+        and key == "wire_termination"
+    ):
+        parts.append(
+            "Phase49: "
+            f"{_wire_termination_hardware_feasibility_summary(wire_termination_hardware_feasibility_screen)}"
         )
     if local_detail_criticality_ordering is not None and key in {
         "wire_attach_local_load_path",
@@ -1164,6 +1201,27 @@ def _wire_termination_efficiency_summary(sensitivity: Any) -> str:
         f"{_fmt(getattr(eta_060, 'required_minimum_breaking_load_n', None) if eta_060 is not None else None)} N; "
         "MBL at eta 0.80="
         f"{_fmt(getattr(eta_080, 'required_minimum_breaking_load_n', None) if eta_080 is not None else None)} N."
+    )
+
+
+def _wire_termination_hardware_feasibility_summary(screen: Any) -> str:
+    return (
+        "wire termination hardware status="
+        f"{getattr(screen, 'overall_status', 'unknown')}; "
+        "hardware rows="
+        f"{int(getattr(screen, 'hardware_count', 0))}; "
+        "positive hardware rows="
+        f"{int(getattr(screen, 'positive_input_hardware_count', 0))}; "
+        "negative hardware rows="
+        f"{int(getattr(screen, 'negative_margin_hardware_count', 0))}; "
+        "missing hardware rows="
+        f"{int(getattr(screen, 'missing_input_hardware_count', 0))}; "
+        "traceability gap hardware rows="
+        f"{int(getattr(screen, 'traceability_gap_hardware_count', 0))}; "
+        "required load="
+        f"{_fmt(getattr(screen, 'required_allowable_load_n', None))} N; "
+        "required MBL eta0.60="
+        f"{_fmt(getattr(screen, 'required_mbl_at_eta_0p60_n', None))} N."
     )
 
 

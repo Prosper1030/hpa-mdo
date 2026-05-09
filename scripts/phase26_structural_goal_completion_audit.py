@@ -232,6 +232,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "root_joint_concept_geometry_allowables_missing"
+    if _phase49_wire_termination_hardware_gap(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "wire_termination_hardware_allowables_missing"
     if _phase46_local_detail_work_priority_ranked(
         key,
         evidence_artifacts=evidence_artifacts,
@@ -381,6 +387,20 @@ def _phase48_root_joint_concept_gap(
         and "Phase48" in evidence_artifacts
         and "root_joint_detail_feasibility_not_closed" in evidence_summary
         and "missing concept rows=1" in evidence_summary
+    )
+
+
+def _phase49_wire_termination_hardware_gap(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "wire_termination"
+        and "Phase49" in evidence_artifacts
+        and "wire_termination_hardware_feasibility_not_closed" in evidence_summary
+        and "missing hardware rows=1" in evidence_summary
     )
 
 

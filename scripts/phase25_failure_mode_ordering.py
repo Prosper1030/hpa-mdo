@@ -93,6 +93,9 @@ from scripts.phase47_existing_torsion_twist_evidence_triage import (  # noqa: E4
 from scripts.phase48_root_joint_detail_feasibility_screen import (  # noqa: E402
     build_current_root_joint_detail_feasibility_screen,
 )
+from scripts.phase49_wire_termination_hardware_feasibility_screen import (  # noqa: E402
+    build_current_wire_termination_hardware_feasibility_screen,
+)
 
 
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "phase25_failure_mode_ordering"
@@ -136,6 +139,7 @@ def build_failure_mode_ordering(
     root_joint_load_envelope: Any | None = None,
     root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    wire_termination_hardware_feasibility_screen: Any | None = None,
     local_detail_criticality_ordering: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -164,6 +168,9 @@ def build_failure_mode_ordering(
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen=(
+            wire_termination_hardware_feasibility_screen
+        ),
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -203,6 +210,7 @@ def write_failure_mode_ordering_package(
     root_joint_load_envelope: Any | None = None,
     root_joint_detail_feasibility_screen: Any | None = None,
     wire_termination_efficiency_sensitivity: Any | None = None,
+    wire_termination_hardware_feasibility_screen: Any | None = None,
     local_detail_criticality_ordering: Any | None = None,
     rib_bracing_margin_check: Any | None = None,
     torsion_twist_closure_check: Any | None = None,
@@ -228,6 +236,9 @@ def write_failure_mode_ordering_package(
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen=(
+            wire_termination_hardware_feasibility_screen
+        ),
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=torsion_twist_closure_check,
@@ -283,6 +294,9 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
     wire_termination_efficiency_sensitivity = build_wire_termination_efficiency_sensitivity(
         detail_requirements
     )
+    wire_termination_hardware_feasibility_screen = (
+        build_current_wire_termination_hardware_feasibility_screen()
+    )
     local_detail_criticality_ordering = build_local_detail_criticality_ordering(
         reference.candidate_id,
         detail_requirements=detail_requirements,
@@ -319,6 +333,9 @@ def build_current_failure_mode_ordering() -> FailureModeOrdering:
         root_joint_load_envelope=root_joint_load_envelope,
         root_joint_detail_feasibility_screen=root_joint_detail_feasibility_screen,
         wire_termination_efficiency_sensitivity=wire_termination_efficiency_sensitivity,
+        wire_termination_hardware_feasibility_screen=(
+            wire_termination_hardware_feasibility_screen
+        ),
         local_detail_criticality_ordering=local_detail_criticality_ordering,
         rib_bracing_margin_check=rib_bracing_margin_check,
         torsion_twist_closure_check=build_current_torsion_twist_closure_check(),
@@ -414,6 +431,7 @@ def _unranked_real_structure_rows(
     root_joint_load_envelope: Any | None,
     root_joint_detail_feasibility_screen: Any | None,
     wire_termination_efficiency_sensitivity: Any | None,
+    wire_termination_hardware_feasibility_screen: Any | None,
     local_detail_criticality_ordering: Any | None,
     rib_bracing_margin_check: Any | None,
     torsion_twist_closure_check: Any | None,
@@ -464,8 +482,9 @@ def _unranked_real_structure_rows(
             detail_margin=detail_margins.get("wire_termination"),
             local_detail_subcomponent_check=local_detail_subcomponent_check,
             local_detail_criticality_ordering=local_detail_criticality_ordering,
-            extra_evidence=_wire_termination_efficiency_evidence(
-                wire_termination_efficiency_sensitivity
+            extra_evidence=(
+                f"{_wire_termination_efficiency_evidence(wire_termination_efficiency_sensitivity)} "
+                f"{_wire_termination_hardware_feasibility_evidence(wire_termination_hardware_feasibility_screen)}"
             ),
             next_evidence="Selected termination hardware/process with efficiency, bend, anchor, and creep/abrasion reductions.",
         ),
@@ -1059,6 +1078,29 @@ def _wire_termination_efficiency_evidence(sensitivity: Any | None) -> str:
         f"{_fmt(_attr_float(eta_060, 'required_minimum_breaking_load_n') if eta_060 is not None else None)} N; "
         "termination eta 0.80 MBL="
         f"{_fmt(_attr_float(eta_080, 'required_minimum_breaking_load_n') if eta_080 is not None else None)} N."
+    )
+
+
+def _wire_termination_hardware_feasibility_evidence(screen: Any | None) -> str:
+    if screen is None:
+        return "wire termination hardware feasibility screen is not available."
+    return (
+        "wire termination hardware status="
+        f"{getattr(screen, 'overall_status', 'unknown')}; "
+        "hardware rows="
+        f"{int(getattr(screen, 'hardware_count', 0))}; "
+        "positive hardware rows="
+        f"{int(getattr(screen, 'positive_input_hardware_count', 0))}; "
+        "negative hardware rows="
+        f"{int(getattr(screen, 'negative_margin_hardware_count', 0))}; "
+        "missing hardware rows="
+        f"{int(getattr(screen, 'missing_input_hardware_count', 0))}; "
+        "traceability gap hardware rows="
+        f"{int(getattr(screen, 'traceability_gap_hardware_count', 0))}; "
+        "required load="
+        f"{_fmt(_attr_float(screen, 'required_allowable_load_n'))} N; "
+        "required MBL eta0.60="
+        f"{_fmt(_attr_float(screen, 'required_mbl_at_eta_0p60_n'))} N."
     )
 
 
