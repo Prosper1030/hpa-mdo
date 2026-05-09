@@ -1686,6 +1686,8 @@ def _phase41_reference_load_review_summary(review: Any) -> str:
         f"{int(getattr(review, 'row_count', len(rows)))}; "
         "not-rankable rows="
         f"{int(getattr(review, 'not_rankable_count', 0))}; "
+        "compression-path review rows="
+        f"{int(getattr(review, 'compression_path_review_count', 0))}; "
         "balanced rows="
         f"{int(getattr(review, 'balanced_count', 0))}; "
         "no axial compression reference rows="

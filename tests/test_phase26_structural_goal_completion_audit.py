@@ -180,6 +180,47 @@ def test_goal_completion_audit_tracks_phase41_review_required_after_rankable_lam
     )
 
 
+def test_goal_completion_audit_prioritizes_phase42_compression_path_review() -> None:
+    closure_index = _closure_index()
+    items = []
+    for item in closure_index.items:
+        if item.key == "full_wing_global_buckling":
+            item = SimpleNamespace(
+                key=item.key,
+                evidence_artifacts=(
+                    "Phase18; Phase30; Phase38; Phase41; Phase42; Phase44"
+                ),
+                current_evidence=(
+                    "No full-wing global buckling eigen/FEM result. "
+                    "Phase41: braced subassembly status=braced_subassembly_solver_ran_mode_review_required. "
+                    "Phase42: reference review status="
+                    "phase41_reference_load_compression_path_review_required; "
+                    "not-rankable rows=0; compression-path review rows=2; "
+                    "balanced rows=2; no axial compression reference rows=2. "
+                    "Phase44: mode shape review status=phase41_mode_shape_engineering_review_required; "
+                    "review-required rows=2; missing rows=0."
+                ),
+                remaining_blocker=item.remaining_blocker,
+                next_action="Qualify compressive reference load before mode review",
+            )
+        items.append(item)
+    audit = build_structural_goal_completion_audit(
+        SimpleNamespace(
+            candidate_id=closure_index.candidate_id,
+            items=tuple(items),
+        ),
+        failure_mode_ordering=_failure_mode_ordering(),
+    )
+
+    row = {row.key: row for row in audit.rows}["full_wing_global_buckling"]
+    assert row.evidence_strength == (
+        "claim_boundary_plus_braced_route_compression_path_review_required"
+    )
+    assert row.completion_blocker == (
+        "braced_subassembly_compressive_reference_load_review_missing"
+    )
+
+
 def test_goal_completion_audit_tracks_mode_screened_but_not_signed_off() -> None:
     closure_index = _closure_index()
     items = []

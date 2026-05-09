@@ -707,6 +707,8 @@ def _phase41_reference_load_review_evidence(review: Any | None) -> str:
         f"{getattr(review, 'overall_status', 'unknown')}; "
         "not-rankable rows="
         f"{int(getattr(review, 'not_rankable_count', 0))}; "
+        "compression-path review rows="
+        f"{int(getattr(review, 'compression_path_review_count', 0))}; "
         "balanced rows="
         f"{int(getattr(review, 'balanced_count', 0))}; "
         "no axial compression reference rows="

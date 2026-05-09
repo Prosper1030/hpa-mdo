@@ -58,6 +58,7 @@ class Phase41ReferenceLoadReview:
     overall_status: str
     row_count: int
     not_rankable_count: int
+    compression_path_review_count: int
     balanced_count: int
     rows: tuple[Phase41ReferenceLoadReviewRow, ...]
 
@@ -69,15 +70,23 @@ def build_phase41_reference_load_review(
     not_rankable_count = sum(
         1 for row in rows if row.status == "reference_load_formulation_not_rankable"
     )
+    compression_path_review_count = sum(
+        1
+        for row in rows
+        if row.status == "reference_load_compression_path_review_required"
+    )
     return Phase41ReferenceLoadReview(
         candidate_id=str(phase41_evidence.candidate_id),
         overall_status=(
             "phase41_reference_load_formulation_not_rankable"
             if not_rankable_count
+            else "phase41_reference_load_compression_path_review_required"
+            if compression_path_review_count
             else "phase41_reference_load_review_required"
         ),
         row_count=len(rows),
         not_rankable_count=not_rankable_count,
+        compression_path_review_count=compression_path_review_count,
         balanced_count=sum(1 for row in rows if row.fz_balance_status == "balanced"),
         rows=rows,
     )
@@ -254,6 +263,8 @@ def _row_status(
         return "reference_load_formulation_not_rankable"
     if lambda_status == "not_available":
         return "solver_eigenvalue_missing"
+    if axial_status == "no_axial_compression_reference":
+        return "reference_load_compression_path_review_required"
     return "mode_review_still_required"
 
 
@@ -272,6 +283,13 @@ def _engineering_read(
         )
     if status == "load_balance_or_sign_review_required":
         return "The applied vertical load and support reaction do not balance closely enough for buckling ranking."
+    if status == "reference_load_compression_path_review_required":
+        return (
+            "The eigen multiplier is in a screening range, but the deck has no direct axial "
+            "compression reference. Bending moment may create compression, so this needs a "
+            "reviewed compressive reference path before mode-shape review can be treated as "
+            "rankable buckling evidence."
+        )
     return (
         "Reference load still needs mode review before ranking. "
         f"balance={balance_status}; lambda={lambda_status}; axial={axial_status}."
@@ -286,6 +304,11 @@ def _next_action(status: str) -> str:
         )
     if status == "load_balance_or_sign_review_required":
         return "Fix load/sign convention and rerun Phase41 before mode review."
+    if status == "reference_load_compression_path_review_required":
+        return (
+            "Qualify the compressive prestress/reference-load path from the bending/axial "
+            "load state, then rerun Phase41/Phase42 before using the eigenvalue for ranking."
+        )
     return "Perform mode-shape review, mesh/link sensitivity, and Phase30 promotion only if the first mode is physical."
 
 
@@ -318,6 +341,7 @@ def _write_markdown(path: Path, review: Phase41ReferenceLoadReview) -> Path:
         "",
         f"- rows: `{review.row_count}`",
         f"- not-rankable rows: `{review.not_rankable_count}`",
+        f"- compression-path review rows: `{review.compression_path_review_count}`",
         f"- balanced rows: `{review.balanced_count}`",
         "",
         "| case | status | Fz N | RFz N | balance % | axial ref | lambda status | lambda |",

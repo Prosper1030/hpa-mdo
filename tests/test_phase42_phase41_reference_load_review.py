@@ -54,7 +54,11 @@ def _write_case_files(tmp_path: Path) -> tuple[Path, Path]:
     return deck_path, dat_path
 
 
-def _phase41_evidence(tmp_path: Path) -> BracedSubassemblyFemEvidence:
+def _phase41_evidence(
+    tmp_path: Path,
+    *,
+    first_eigen_multiplier: float = 2.7e6,
+) -> BracedSubassemblyFemEvidence:
     deck_path, dat_path = _write_case_files(tmp_path)
     return BracedSubassemblyFemEvidence(
         candidate_id="sample",
@@ -76,8 +80,8 @@ def _phase41_evidence(tmp_path: Path) -> BracedSubassemblyFemEvidence:
                 log_path="",
                 ccx_path="/opt/homebrew/bin/ccx_2.23",
                 returncode=0,
-                first_eigen_multiplier=2.7e6,
-                inferred_first_buckling_load_factor=4.05e6,
+                first_eigen_multiplier=first_eigen_multiplier,
+                inferred_first_buckling_load_factor=1.5 * first_eigen_multiplier,
                 eigenvalue_count=1,
                 reference_load_status="unphysical_or_load_sign_review_required",
                 joint_link_mode="offset_rigid",
@@ -119,6 +123,26 @@ def test_phase42_classifies_balanced_transverse_reference_as_not_rankable(
     assert row.lambda_plausibility_status == "implausibly_high_for_claim_margin"
     assert row.sign_convention_read == "support_reaction_opposes_applied_fz"
     assert "transverse lift/moment reference" in row.engineering_read
+
+
+def test_phase42_separates_no_axial_reference_from_mode_shape_review(
+    tmp_path: Path,
+) -> None:
+    review = build_phase41_reference_load_review(
+        _phase41_evidence(tmp_path, first_eigen_multiplier=2.8)
+    )
+
+    assert (
+        review.overall_status
+        == "phase41_reference_load_compression_path_review_required"
+    )
+    assert review.not_rankable_count == 0
+    assert review.compression_path_review_count == 1
+    row = review.rows[0]
+    assert row.status == "reference_load_compression_path_review_required"
+    assert row.lambda_plausibility_status == "screening_range"
+    assert row.axial_reference_load_status == "no_axial_compression_reference"
+    assert "compressive reference path" in row.engineering_read
 
 
 def test_phase42_writes_handoff_files(tmp_path: Path) -> None:
