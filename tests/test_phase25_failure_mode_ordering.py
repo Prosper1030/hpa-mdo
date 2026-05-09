@@ -428,10 +428,39 @@ def _phase41_reference_load_review_required() -> SimpleNamespace:
         overall_status="phase41_reference_load_review_required",
         row_count=2,
         not_rankable_count=0,
+        compression_path_review_count=0,
         balanced_count=2,
         rows=(
             SimpleNamespace(
                 status="mode_review_still_required",
+                axial_reference_load_status="axial_reference_load_present",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status="direct_axial_reference_present",
+                lambda_plausibility_status="screening_range",
+                sign_convention_read="support_reaction_opposes_applied_fz",
+            ),
+            SimpleNamespace(
+                status="mode_review_still_required",
+                axial_reference_load_status="axial_reference_load_present",
+                bending_reference_load_status="bending_moment_reference_present",
+                compressive_reference_path_status="direct_axial_reference_present",
+                lambda_plausibility_status="screening_range",
+                sign_convention_read="support_reaction_opposes_applied_fz",
+            ),
+        ),
+    )
+
+
+def _phase41_compression_path_review_required() -> SimpleNamespace:
+    return SimpleNamespace(
+        overall_status="phase41_reference_load_compression_path_review_required",
+        row_count=2,
+        not_rankable_count=0,
+        compression_path_review_count=2,
+        balanced_count=2,
+        rows=(
+            SimpleNamespace(
+                status="reference_load_compression_path_review_required",
                 axial_reference_load_status="no_axial_compression_reference",
                 bending_reference_load_status="bending_moment_reference_present",
                 compressive_reference_path_status=(
@@ -441,7 +470,7 @@ def _phase41_reference_load_review_required() -> SimpleNamespace:
                 sign_convention_read="support_reaction_opposes_applied_fz",
             ),
             SimpleNamespace(
-                status="mode_review_still_required",
+                status="reference_load_compression_path_review_required",
                 axial_reference_load_status="no_axial_compression_reference",
                 bending_reference_load_status="bending_moment_reference_present",
                 compressive_reference_path_status=(
@@ -742,6 +771,42 @@ def test_failure_mode_ordering_uses_phase44_after_reference_load_review_is_ranka
     assert row.status == "unranked_global_buckling_mode_screened_manual_mesh_review_required"
     assert "phase41 mode shape review status=phase41_mode_shape_engineering_review_required" in row.evidence
     assert "manual mode identity" in row.next_evidence
+
+
+def test_failure_mode_ordering_prioritizes_compressive_reference_path_review() -> None:
+    ordering = build_failure_mode_ordering(
+        _claim_review(),
+        full_wing_buckling_closure_check=_full_wing_buckling_closure_check(),
+        full_wing_buckling_claim_boundary=_full_wing_buckling_claim_boundary(),
+        braced_subassembly_fem_evidence=SimpleNamespace(
+            overall_status="braced_subassembly_solver_ran_mode_review_required",
+            solver_ran_count=2,
+            mode_reviewed_count=0,
+            claim_load_factor_coverage="1.50;1.75",
+            rows=(
+                SimpleNamespace(
+                    first_eigen_multiplier=2.7857,
+                    reference_load_status="screening_range",
+                    phase30_closure_status="reference_load_review_missing",
+                ),
+                SimpleNamespace(
+                    first_eigen_multiplier=2.3877,
+                    reference_load_status="screening_range",
+                    phase30_closure_status="reference_load_review_missing",
+                ),
+            ),
+        ),
+        phase41_reference_load_review=_phase41_compression_path_review_required(),
+        phase41_mode_shape_review=_phase41_mode_shape_review(),
+    )
+
+    row = {row.mode_key: row for row in ordering.rows}["full_wing_global_buckling"]
+    assert row.status == (
+        "unranked_global_buckling_compressive_reference_load_review_required"
+    )
+    assert "bending compression path review rows=2" in row.evidence
+    assert "compressive reference-load path" in row.next_evidence
+    assert "mode identity review" in row.next_evidence
 
 
 def test_failure_mode_ordering_surfaces_local_subcomponent_traceability_gaps() -> None:

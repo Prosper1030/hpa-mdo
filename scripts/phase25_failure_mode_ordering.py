@@ -607,6 +607,8 @@ def _full_wing_global_buckling_status(
 ) -> str:
     if _phase41_reference_not_rankable_count(phase41_reference_load_review) > 0:
         return "unranked_global_buckling_reference_load_formulation_not_rankable"
+    if _phase41_compression_path_review_count(phase41_reference_load_review) > 0:
+        return "unranked_global_buckling_compressive_reference_load_review_required"
     if _braced_reference_load_review_count(braced_subassembly_fem_evidence) > 0:
         return "unranked_global_buckling_reference_load_review_required"
     if _phase41_mode_shape_review_required(phase41_mode_shape_review):
@@ -622,6 +624,12 @@ def _full_wing_global_buckling_next_evidence(
         return (
             "Replace Phase41's transverse lift/moment reference with a qualified "
             "global/prestress buckling load case, then repeat mode review, "
+            "mesh/link sensitivity, and braced/full-wing promotion."
+        )
+    if _phase41_compression_path_review_count(phase41_reference_load_review) > 0:
+        return (
+            "Qualify the Phase41 bending/axial compressive reference-load path, "
+            "then repeat mode identity review, boundary-condition review, "
             "mesh/link sensitivity, and braced/full-wing promotion."
         )
     if _phase41_mode_shape_review_required(phase41_mode_shape_review):
@@ -812,6 +820,22 @@ def _phase41_reference_not_rankable_count(review: Any | None) -> int:
     if review is None:
         return 0
     return int(getattr(review, "not_rankable_count", 0))
+
+
+def _phase41_compression_path_review_count(review: Any | None) -> int:
+    if review is None:
+        return 0
+    explicit_count = int(getattr(review, "compression_path_review_count", 0))
+    row_count = sum(
+        1
+        for row in getattr(review, "rows", ())
+        if getattr(row, "compressive_reference_path_status", "")
+        in {
+            "bending_moment_reference_present_unreviewed",
+            "compressive_reference_path_missing",
+        }
+    )
+    return max(explicit_count, row_count)
 
 
 def _row(
