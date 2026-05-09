@@ -1,0 +1,295 @@
+schema_version: current_pathfinder_tail_contract_v0
+contract_id: current_avl_compromise_conservative_closed_tail_contract_v0
+status: foundation_required_inputs_missing
+created_date: 2026-05-09
+
+pathfinder:
+  candidate_id: current_avl_compromise_conservative_closed
+  role: downstream_screening_pathfinder_tail_contract_foundation
+  claim_boundary: >-
+    Low-order all-moving H-tail / V-tail contract foundation only. This is not
+    a trim pass, stability pass, ASWing run, tail FEM sign-off, or final
+    aircraft feasibility claim.
+  current_truth_sources:
+    - CURRENT_MAINLINE.md
+    - README.md
+    - docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md
+    - docs/reports/2026-05-09_phase_j_evidence_map.md
+    - docs/reports/2026-05-09_pathfinder_basis_lock.md
+    - docs/reports/2026-05-09_conservative_load_mapper_foundation.md
+  excluded_current_truth_sources:
+    - old Black Cat design narrative
+    - old root README narrative
+    - output/birdman_mission_coupled_medium_search_20260503
+    - old medium-search top-candidate exports
+
+reference:
+  wing:
+    S_w_m2:
+      value: 33.420059598
+      source: output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/geometry_manifest.json:Sref
+      status: filled_current_pathfinder_avl_parity_reference
+    b_w_m:
+      value: 34.332286
+      source: output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/geometry_manifest.json:Bref
+      status: filled_current_pathfinder_avl_parity_reference
+    cbar_w_m:
+      value: 1.003721543
+      source: output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/geometry_manifest.json:Cref
+      status: filled_current_pathfinder_avl_parity_reference
+    x_ref_avl_m:
+      value: 0.246276512
+      source: output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/current_avl_compromise_conservative_closed.avl:#Xref
+      status: reference_only_not_wing_aerodynamic_center
+    x_ac_w_m:
+      value: null
+      status: blocking_missing
+      reason: >-
+        No current pathfinder artifact directly identifies the wing aerodynamic
+        center. AVL Xref is available but is only a coefficient reference point.
+  cg_range_x_m:
+    value: null
+    status: blocking_missing
+    reason: No committed current pathfinder CG range / payload / pilot-seat manifest is present.
+  mission_cases:
+    cruise:
+      speed_mps:
+        value: 6.6
+        source: output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/smooth_tier2_canonical_config.yaml:flight.velocity
+      rho_kgpm3:
+        value: 1.18
+        source: output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/smooth_tier2_canonical_config.yaml:flight.air_density
+      dynamic_pressure_pa:
+        value: 25.7004
+        source: output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/candidate_avl_artifacts/target_main_tip_z_2p700m.json:dynamic_pressure_pa
+      mass_kg:
+        value: 100.0
+        source: output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/smooth_tier2_canonical_config.yaml:weight.max_takeoff_kg
+      load_factor:
+        value: 1.0
+        status: contract_case_definition
+    slow_or_launch:
+      speed_mps:
+        value: null
+        status: blocking_missing
+        reason: No current pathfinder slow/launch trim case has been promoted.
+      mass_kg:
+        value: 100.0
+        source: output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/smooth_tier2_canonical_config.yaml:weight.max_takeoff_kg
+      load_factor:
+        value: null
+        status: blocking_missing
+        reason: No current pathfinder slow/launch load factor has been promoted.
+    yaw_or_turn_correction:
+      beta_deg:
+        value: null
+        status: blocking_missing
+        reason: No current pathfinder yaw/turn correction case has been promoted.
+
+horizontal_tail:
+  type: all_moving_pitch_control_lifting_surface
+  implementation_warning: >-
+    Existing AVL control labels may say elevator; in this contract that label is
+    an implementation proxy only. The engineering surface is an all-moving
+    horizontal tail.
+  seed_source: output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/smooth_tier2_canonical_config.yaml:horizontal_tail
+  design_box:
+    S_H_m2:
+      nominal: 3.6
+      range: [3.6, 3.6]
+      status: seed_from_current_structural_config_not_tail_sized
+    span_m:
+      nominal: 4.0
+      range: [4.0, 4.0]
+    mean_chord_m:
+      nominal: 0.9
+    AR_H:
+      nominal: 4.444444444444445
+    x_le_m:
+      nominal: 6.5
+    x_ac_H_m:
+      nominal: 6.725
+      basis: quarter_chord_of_seed_tail_planform
+    z_ac_H_m:
+      nominal: 0.0
+      basis: seed_tail_root_z_no_tailboom_flex_model
+    l_H_m:
+      nominal: 6.478723488
+      status: screening_surrogate_from_tail_quarter_chord_to_avl_xref
+      reason: True l_H to wing aerodynamic center is blocked until x_ac_w_m is promoted.
+    incidence_zero_deg:
+      nominal: 0.0
+    theta_tailboom_deg:
+      value: 0.0
+      status: placeholder_assume_rigid_until_tailboom_model
+    deflection_range_deg: [-20.0, 20.0]
+    deflection_reserve_deg: 5.0
+    pivot_x_over_chord:
+      nominal: 0.25
+      range: [0.20, 0.30]
+      status: all_moving_screening_seed_not_hardware_signoff
+    airfoil_candidates:
+      default: naca0010
+      conservative: naca0012
+      optional_comparisons:
+        - naca0008
+        - naca63012
+        - fx76_100mp
+      policy: discrete_symmetric_candidates_only_no_nsga2
+    C_Lmax_H_safe:
+      value: null
+      status: blocking_missing
+      reason: No current tail polar / safe CLmax artifact exists for NACA 00xx candidates.
+    eta_H_tail:
+      value: 0.75
+      status: screening_contract_placeholder
+
+vertical_tail:
+  type: all_moving_yaw_control_lifting_surface
+  implementation_warning: >-
+    Existing AVL control labels may say rudder; in this contract that label is
+    an implementation proxy only. The engineering surface is an all-moving
+    vertical tail.
+  seed_source: output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_z_boundary/smooth_tier2_canonical_config.yaml:vertical_fin
+  design_box:
+    S_V_m2:
+      nominal: 1.68
+      range: [1.68, 1.68]
+      status: seed_from_current_structural_config_not_tail_sized
+    height_or_span_m:
+      nominal: 2.4
+      range: [2.4, 2.4]
+    mean_chord_m:
+      nominal: 0.7
+    AR_V:
+      nominal: 3.4285714285714284
+    x_le_m:
+      nominal: 7.0
+    x_ac_V_m:
+      nominal: 7.175
+      basis: quarter_chord_of_seed_vertical_planform
+    z_ac_V_m:
+      nominal: 0.5
+      basis: midpoint_of_seed_vertical_extent_from_z=-0.7_to_1.7_m
+    l_V_m:
+      nominal: 6.928723488
+      status: screening_surrogate_from_tail_quarter_chord_to_avl_xref
+      reason: True l_V to wing aerodynamic center is blocked until x_ac_w_m is promoted.
+    incidence_zero_deg:
+      nominal: 0.0
+    psi_tailboom_deg:
+      value: 0.0
+      status: placeholder_assume_rigid_until_tailboom_model
+    deflection_range_deg: [-25.0, 25.0]
+    deflection_reserve_deg: 5.0
+    pivot_x_over_chord:
+      nominal: 0.25
+      range: [0.20, 0.30]
+      status: all_moving_screening_seed_not_hardware_signoff
+    airfoil_candidates:
+      default:
+        - naca0009
+        - naca0010
+      conservative: naca0012
+      optional_comparisons:
+        - naca0008
+        - naca63012
+        - fx76_100mp
+      policy: discrete_symmetric_candidates_only_no_nsga2
+    C_Ymax_V_safe:
+      value: null
+      status: blocking_missing
+      reason: No current vertical-tail sideforce polar / safe CYmax artifact exists.
+    eta_V_tail:
+      value: 0.75
+      status: screening_contract_placeholder
+
+gates:
+  longitudinal:
+    require_trim_all_cases: true
+    static_margin_min:
+      value: null
+      status: blocking_missing
+      reason: No current full-aircraft static-margin / C_m_alpha artifact exists.
+    delta_H_reserve_deg:
+      value: 5.0
+    htail_cl_utilization_max:
+      value: 0.75
+      status: screening_contract_placeholder
+  directional:
+    C_n_beta_min:
+      value: null
+      status: blocking_missing
+      reason: No current full-aircraft C_n_beta artifact exists.
+    delta_V_reserve_deg:
+      value: 5.0
+    vtail_cy_utilization_max:
+      value: 0.75
+      status: screening_contract_placeholder
+    yaw_roll_coupling_limit:
+      value: null
+      status: blocking_missing
+      reason: No current yaw-roll coupling limit has been promoted.
+
+mission_budget_placeholders:
+  tail_drag:
+    status: placeholder_not_charged_to_current_candidate_power
+    budget_entry: >-
+      Add tail CD0/profile drag and induced trim drag as deltas to
+      candidate CD0_total / CD_total, then recompute P_crank and
+      P_crank_conservative for each trimmed case.
+    required_next_input: tail airfoil polar / AVL all-moving sweep / tail q-ratio.
+  tail_mass:
+    status: placeholder_not_charged_to_current_structural_mass_or_cg
+    budget_entry: >-
+      Add H-tail, V-tail, pivot, bearing, linkage, and tailboom increments to
+      total aircraft mass; update CG range before re-solving trim.
+    required_next_input: tail mass model, tailboom layout, pivot hardware allowance.
+
+equations:
+  horizontal_tail:
+    tail_volume: V_H = S_H * l_H / (S_W * cbar_W)
+    effective_alpha: alpha_H = alpha + i_H0 + delta_H + theta_tailboom - epsilon_W(alpha) - alpha0_H
+    trim_lift: L_W + L_H = W
+    trim_moment: C_m = C_m_WB + C_L_W * (x_cg - x_ac_W) / cbar_W - eta_H * (S_H / S_W) * (l_H / cbar_W) * C_L_H
+    deflection_reserve: delta_H_min + reserve <= delta_H_trim <= delta_H_max - reserve
+    utilization: abs(C_L_H / C_Lmax_H_safe) <= eta_H_tail
+    pivot_moment: C_m_p_H ~= C_m_ac_H + C_L_H * ((x_ac_H - x_p_H) / cbar_H)
+  vertical_tail:
+    tail_volume: V_V = S_V * l_V / (S_W * b_W)
+    effective_beta: beta_V = beta + i_V0 + delta_V + psi_tailboom - sigma_W(beta)
+    directional_stability: C_n_beta > C_n_beta_min
+    yaw_trim: exists delta_V such that C_n(beta, delta_V) = 0
+    deflection_reserve: delta_V_min + reserve <= delta_V_required <= delta_V_max - reserve
+    utilization: abs(C_Y_V / C_Ymax_V_safe) <= eta_V_tail
+    yaw_roll_coupling_warning: C_l_V ~ Y_V * z_V / (q * S_W * b_W)
+
+required_inputs_missing:
+  - field: reference.wing.x_ac_w_m
+    reason: No current artifact directly identifies wing aerodynamic center.
+  - field: reference.cg_range_x_m
+    reason: No current pathfinder CG range / pilot-seat / payload manifest is committed.
+  - field: reference.mission_cases.slow_or_launch.speed_mps
+    reason: No current slow/launch trim case has been promoted.
+  - field: reference.mission_cases.yaw_or_turn_correction.beta_deg
+    reason: No current yaw/turn correction case has been promoted.
+  - field: horizontal_tail.C_Lmax_H_safe
+    reason: No current tail polar / safe CLmax artifact exists for the discrete candidates.
+  - field: horizontal_tail.downwash_epsilon_W_alpha
+    reason: No current downwash model tied to the pathfinder wing exists.
+  - field: horizontal_tail.C_m_WB
+    reason: No current wing-body pitching moment contract exists for full-aircraft trim.
+  - field: horizontal_tail.C_m_deltaH_all_moving
+    reason: No all-moving H-tail geometry sweep / AVL derivative exists.
+  - field: vertical_tail.C_Ymax_V_safe
+    reason: No current vertical-tail sideforce polar / safe CYmax artifact exists.
+  - field: vertical_tail.C_n_beta
+    reason: No current full-aircraft directional stability derivative exists.
+  - field: vertical_tail.C_n_deltaV_all_moving
+    reason: No all-moving V-tail geometry sweep / AVL derivative exists.
+  - field: vertical_tail.yaw_roll_coupling_limit
+    reason: No current yaw-roll coupling limit or warning threshold has been promoted.
+  - field: mission_budget_placeholders.tail_drag.model
+    reason: Tail drag is not yet charged to candidate power / drag budget.
+  - field: mission_budget_placeholders.tail_mass.model
+    reason: Tail mass and hardware are not yet charged to mass / CG budget.

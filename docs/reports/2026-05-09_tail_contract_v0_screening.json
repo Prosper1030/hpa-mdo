@@ -1,0 +1,81 @@
+{
+  "candidate_id": "current_avl_compromise_conservative_closed",
+  "computed": {
+    "horizontal_tail": {
+      "tail_volume_coefficient": 0.6952987999439312,
+      "usable_deflection_range_deg": [
+        -15.0,
+        15.0
+      ]
+    },
+    "vertical_tail": {
+      "tail_volume_coefficient": 0.01014501211088028,
+      "usable_deflection_range_deg": [
+        -20.0,
+        20.0
+      ]
+    }
+  },
+  "contract_id": "current_avl_compromise_conservative_closed_tail_contract_v0",
+  "engineering_read": "Low-order tail volume/reserve bookkeeping is available, but this is not a trim or stability pass until the missing CG, moment, downwash, stability, drag, and mass inputs are supplied.",
+  "required_inputs_missing": [
+    {
+      "field": "reference.wing.x_ac_w_m",
+      "reason": "No current artifact directly identifies wing aerodynamic center."
+    },
+    {
+      "field": "reference.cg_range_x_m",
+      "reason": "No current pathfinder CG range / pilot-seat / payload manifest is committed."
+    },
+    {
+      "field": "reference.mission_cases.slow_or_launch.speed_mps",
+      "reason": "No current slow/launch trim case has been promoted."
+    },
+    {
+      "field": "reference.mission_cases.yaw_or_turn_correction.beta_deg",
+      "reason": "No current yaw/turn correction case has been promoted."
+    },
+    {
+      "field": "horizontal_tail.C_Lmax_H_safe",
+      "reason": "No current tail polar / safe CLmax artifact exists for the discrete candidates."
+    },
+    {
+      "field": "horizontal_tail.downwash_epsilon_W_alpha",
+      "reason": "No current downwash model tied to the pathfinder wing exists."
+    },
+    {
+      "field": "horizontal_tail.C_m_WB",
+      "reason": "No current wing-body pitching moment contract exists for full-aircraft trim."
+    },
+    {
+      "field": "horizontal_tail.C_m_deltaH_all_moving",
+      "reason": "No all-moving H-tail geometry sweep / AVL derivative exists."
+    },
+    {
+      "field": "vertical_tail.C_Ymax_V_safe",
+      "reason": "No current vertical-tail sideforce polar / safe CYmax artifact exists."
+    },
+    {
+      "field": "vertical_tail.C_n_beta",
+      "reason": "No current full-aircraft directional stability derivative exists."
+    },
+    {
+      "field": "vertical_tail.C_n_deltaV_all_moving",
+      "reason": "No all-moving V-tail geometry sweep / AVL derivative exists."
+    },
+    {
+      "field": "vertical_tail.yaw_roll_coupling_limit",
+      "reason": "No current yaw-roll coupling limit or warning threshold has been promoted."
+    },
+    {
+      "field": "mission_budget_placeholders.tail_drag.model",
+      "reason": "Tail drag is not yet charged to candidate power / drag budget."
+    },
+    {
+      "field": "mission_budget_placeholders.tail_mass.model",
+      "reason": "Tail mass and hardware are not yet charged to mass / CG budget."
+    }
+  ],
+  "schema_version": "tail_contract_v0_screening_v1",
+  "status": "required_inputs_missing"
+}

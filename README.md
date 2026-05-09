@@ -55,6 +55,12 @@ Fourier spanload 仍由主翼主導，但 mission contract 必須先有 tail / C
 AVL realization 之後必須進 full-aircraft trim / stability context，aero-structure closure 之後
 all-moving tail 才能作為控制自由度。
 
+目前 current pathfinder 的 tail contract v0 foundation 已建立，讀
+[docs/reports/2026-05-09_tail_contract_v0_foundation.md](docs/reports/2026-05-09_tail_contract_v0_foundation.md)
+和 [configs/current_pathfinder_tail_contract_v0.yaml](configs/current_pathfinder_tail_contract_v0.yaml)。
+它只完成 tail volume / reserve bookkeeping，screening output 仍是 `required_inputs_missing`；
+下一步仍是 all-moving full-aircraft AVL trim / stability audit。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -113,6 +119,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
   confidence，不能直接進 rib sensitivity。
 - 建立 tail / CG / trim / stability 低階 contract，讓 all-moving horizontal tail / vertical tail
   在 mission、full-aircraft AVL recheck、tail-aware closure、tailboom/hardware validation 中有明確位置。
+  Current pathfinder v0 foundation 已存在，但缺 CG range、true wing AC、downwash、stability derivatives、
+  tail drag/mass model，不能當 trim/stability pass。
 - 用 Tier2 full-alpha airfoil database 依 actual loaded-shape local `Cl/Re` 做翼型選擇。
 - 做 aero-structure closure，確認氣動、翼型、loaded shape、結構、clearance、wire 在同一個候選上閉合。
 - 做 FEM/APDL、shell buckling、load-factor candidate spot-check。
@@ -207,7 +215,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Mission / concept search | 可用於新設計探索，但仍依賴 proxy 與 worker quality |
 | Fourier-AVL / AVL realization | 目前主線氣動篩選與 spanload authority |
 | Conservative load remap | rib / rear-spar sensitivity 前置 load gate，不是 aeroelastic sign-off |
-| Empennage / trim / stability | 目前已定義 contract insertion；尚未完成 current pathfinder full-aircraft trim/stability closure |
+| Empennage / trim / stability | 已有 current pathfinder tail contract v0 foundation；目前 `required_inputs_missing`，尚未完成 full-aircraft trim/stability closure |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |

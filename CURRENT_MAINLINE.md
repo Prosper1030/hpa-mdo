@@ -133,6 +133,11 @@ conservative screening candidate」，不是 final design。
   `docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md`。它把 all-moving
   horizontal tail / vertical tail 定位成 trim、static stability、control authority、tailboom load、
   mission drag/mass 的共同 contract，並規定 tail airfoil 先以 discrete symmetric candidates 進入。
+- Current pathfinder tail contract v0 foundation 已建立，位置在
+  `configs/current_pathfinder_tail_contract_v0.yaml` 與
+  `docs/reports/2026-05-09_tail_contract_v0_foundation.md`；目前 screening status 是
+  `required_inputs_missing`，只完成 tail volume / reserve bookkeeping，尚未完成 full-aircraft
+  trim / stability pass。
 - `scripts/fourier_avl_calibration_mvp.py` 提供 Fourier-AVL calibration artifacts；它現在要求
   明確 `--report-json`，舊 medium-search report 預設封鎖，只能用
   `--allow-legacy-medium-search` 做明確標示的歷史診斷。
@@ -151,7 +156,8 @@ conservative screening candidate」，不是 final design。
 - Ground clearance margin 對製造誤差、跑道不平、wire setup、joint compliance 仍偏薄。
 - Beam-line Z proxy 還不能直接等同 aerodynamic surface / final aircraft dihedral。
 - Current pathfinder 尚未完成 all-moving horizontal tail / vertical tail 的 full-aircraft trim、
-  static stability、control authority、tail drag/mass budget 或 tailboom/pivot load ownership。
+  static stability、control authority、tail drag/mass budget 或 tailboom/pivot load ownership；
+  v0 foundation 已把缺口列出，但不是 aircraft-feasible sign-off。
 - SU2 / mesh-native CFD 支線仍是 paused validation route，不是目前 performance claim truth。
 - Rib 目前是下游 bracing / shell bay / load-transfer 實體化問題，不是主線 candidate
   generation 的短線最大優先，除非它被證明會改變 aero-structure closure 的候選排序。
@@ -223,10 +229,12 @@ candidate，而不是完整 mission -> Fourier -> smooth end-to-end final aircra
 3. **之後才看 aero-structure closure 的工程可信度**
    - 目的：確認 `current_avl_compromise_conservative_closed` 是否真的在同一個 geometry / load /
      airfoil / structure state 上閉合。
-4. **在 rib sensitivity / ASWing-like coupling / FEM detail 之前，先建立 tail contract v0**
-   - 目的：讓 pathfinder 先有 CG range、H-tail / V-tail design box、all-moving travel reserve、
-     tail volume、trim / static stability / control authority、tail drag/mass placeholder 與 tail airfoil
-     discrete screening policy。
+4. **在 rib sensitivity / ASWing-like coupling / FEM detail 之前，先完成 tail contract v0 -> all-moving audit**
+   - 目前：tail contract v0 foundation 已建立，包含 CG range 缺口、H-tail / V-tail seed design box、
+     all-moving travel reserve、tail volume、tail drag/mass placeholder 與 tail airfoil discrete screening policy；
+     screening output 明確是 `required_inputs_missing`。
+   - 目的：下一步要把 missing CG / true wing AC / downwash / stability derivatives / tail drag-mass
+     補成 full-aircraft trim / static stability / control authority audit。
    - 原因：如果全機不能配平或方向穩定不足，主翼 loaded-Z / rib / FEM 局部 pass 沒有 aircraft-level 意義。
      尾翼不應干擾 Fourier spanload generation，但從 mission contract 起必須存在。
 5. **接著做 all-moving full-aircraft AVL geometry / trim-stability audit**
