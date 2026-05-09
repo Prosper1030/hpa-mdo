@@ -304,10 +304,71 @@ def test_closure_rerun_still_reports_direct_stress_test_and_detail_blockers() ->
     )
     assert summary["closure_rerun_assessment"]["bounded_twist_status"] == "clears_bound"
     assert summary["closure_rerun_assessment"]["direct_stress_test_status"] == (
-        "still_above_screening_bound"
+        "above_bound_conservative_stress_test"
     )
     assert summary["fem_apdl_package_gate"]["ready"] is False
     assert "bond_collar_spar_contact_needs_data" in summary["fem_apdl_package_gate"]["blockers"]
+
+
+def test_kernel_owned_hybrid_closure_rerun_removes_projection_only_blocker() -> None:
+    module = _load_script_module()
+
+    closure_rerun = {
+        "engineering_verdict": "ready_for_fem_apdl_loadcase_package",
+        "basis": {
+            "aeroelastic_effects": {
+                "elastic_twist_max_abs_deg": 3.72,
+                "direct_spar_pair_rotation_max_abs_deg": 3.72,
+                "conservative_bounded_physical_projection_max_abs_deg": 2.24,
+                "elastic_twist_screening_bound_deg": 3.0,
+            },
+            "selected_stiffness_basis": {
+                "structural_kernel_stiffness_override": {
+                    "status": "applied_screening_surrogate",
+                    "applied_global_torsion_cell_scale": 2.032971,
+                }
+            },
+        },
+    }
+    summary = module.build_rib_torsion_rework_verdict(
+        sensitivity_payload=_sensitivity_payload(),
+        closure_payload=_closure_payload(),
+        audit_payload=_audit_payload(),
+        closure_rerun_payload=closure_rerun,
+    )
+
+    assert (
+        summary["engineering_verdict"]
+        == "candidate_ready_for_local_FEM_and_coupon_before_FEM_package"
+    )
+    assert summary["closure_rerun_assessment"]["bounded_twist_status"] == "clears_bound"
+    assert summary["closure_rerun_assessment"]["direct_stress_test_status"] == (
+        "above_bound_conservative_stress_test"
+    )
+    blockers = summary["fem_apdl_package_gate"]["blockers"]
+    assert "hybrid_effective_gj_is_projection_only_not_closure_rerun" not in blockers
+    assert "closure_rerun_elastic_twist_exceeds_bound" not in blockers
+    assert "direct_spar_pair_stress_test_still_above_bound" not in blockers
+    assert "bond_collar_spar_contact_needs_data" in blockers
+    required = summary["local_fem_coupon_requirements"]["required_before_fem_apdl_package"]
+    assert "closure rerun with the selected effective stiffness model wired in" not in required
+    carry_forward = summary["local_fem_coupon_requirements"]["closure_evidence_to_carry_forward"]
+    assert carry_forward["owns_selected_hybrid_stiffness_model"] is True
+    package = summary["local_fem_coupon_validation_package"]
+    assert package["package_verdict"] == (
+        "ready_to_start_local_FEM_and_coupon_definition_not_FEM_APDL_package"
+    )
+    assert package["closure_evidence"]["bounded_twist_status"] == "clears_bound"
+    assert "positive_torque_critical_hybrid_reinforcement_zone" in {
+        row["zone_id"] for row in package["local_fem_zones"]
+    }
+    workstreams = {row["workstream_id"] for row in package["validation_workstreams"]}
+    assert {
+        "rib_spar_bond_collar_local_fem",
+        "skin_sag_panel_coupon",
+        "direct_stress_test_aero_surface_mapping",
+    } <= workstreams
+    assert "EPS/XPS/structural-foam-only as structural bracing" in package["do_not_promote"]
 
 
 def test_builds_rear_spar_closure_rerun_basis_without_promoting_hybrid_projection() -> None:
@@ -322,12 +383,16 @@ def test_builds_rear_spar_closure_rerun_basis_without_promoting_hybrid_projectio
     assert payload["candidate_id"] == "current_avl_compromise_conservative_closed"
     assert payload["rib_basis"]["family_key"] == "eps_balsa_cap_hybrid_10mm"
     assert payload["selected_basis"]["case_id"] == (
-        "closure_rerun_eps_balsa_cap_hybrid_10mm_bounded_65pct_screening_projection_boundary"
+        "closure_rerun_eps_balsa_cap_hybrid_10mm_bounded_65pct_screening_structural_kernel_v1"
     )
     assert payload["selected_basis"]["rear_spar_participation"] == "bounded_65pct_screening"
     assert payload["selected_basis"]["rear_stiffness_scale"] == pytest.approx(0.65)
+    override = payload["selected_basis"]["structural_kernel_stiffness_override"]
+    assert override["status"] == "screening_surrogate_ready_for_closure_rerun"
+    assert override["model_id"] == "hybrid_main_rear_torsion_cell_scale_v1"
+    assert override["global_torsion_cell_scale"] == pytest.approx(2.03, rel=1.0e-3)
     assert payload["selected_basis"]["hybrid_effective_gj_claim_boundary"] == (
-        "projection_only_not_structural_kernel_rerun"
+        "screening_surrogate_consumed_by_structural_kernel"
     )
     assert payload["selected_basis"]["structural_mass_delta"][
         "estimated_full_wing_rib_mass_kg"

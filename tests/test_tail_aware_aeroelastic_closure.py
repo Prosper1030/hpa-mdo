@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 import sys
 
 import numpy as np
@@ -242,3 +243,73 @@ def test_negative_diagnostic_stall_margin_is_reported_but_not_a_hard_closure_gat
 
     assert result["verdict"] == "ready_for_fem_apdl_loadcase_package"
     assert result["warnings"] == ["negative_diagnostic_stall_margin_not_gate"]
+
+
+def test_selected_hybrid_stiffness_override_scales_main_rear_torsion_cell() -> None:
+    module = _load_script_module()
+
+    model = SimpleNamespace(
+        main_j_m4=np.asarray([1.0, 2.0]),
+        rear_j_m4=np.asarray([3.0, 4.0]),
+    )
+    selected_basis = {
+        "rear_spar_participation": "bounded_65pct_screening",
+        "structural_kernel_stiffness_override": {
+            "status": "screening_surrogate_ready_for_closure_rerun",
+            "model_id": "hybrid_main_rear_torsion_cell_scale_v1",
+            "global_torsion_cell_scale": 2.0,
+        },
+    }
+    rib_basis = {
+        "family_key": "eps_balsa_cap_hybrid_10mm",
+        "material_basis": {"family_category": "capped_hybrid_foam_rib"},
+    }
+
+    updated, diagnostics = module.apply_selected_stiffness_overrides(
+        model,
+        selected_basis=selected_basis,
+        rib_basis=rib_basis,
+    )
+
+    assert updated is not model
+    assert np.asarray(updated.main_j_m4) == pytest.approx([2.0, 4.0])
+    assert np.asarray(updated.rear_j_m4) == pytest.approx([6.0, 8.0])
+    assert diagnostics["status"] == "applied_screening_surrogate"
+    assert diagnostics["applied_global_torsion_cell_scale"] == pytest.approx(2.0)
+    assert "main_j_m4" in diagnostics["scaled_properties"]
+    assert "rear_j_m4" in diagnostics["scaled_properties"]
+
+
+def test_bounded_physical_twist_passes_with_direct_stress_test_warning() -> None:
+    module = _load_script_module()
+
+    result = module.classify_aeroelastic_closure(
+        {
+            "coupling": {"converged": True},
+            "cg_management": {"status": "managed_final_cg_pass"},
+            "trim_static_directional": {
+                "status": "pass",
+                "delta_H_margin_to_limit_deg": 3.8,
+                "static_margin": 0.092,
+                "C_n_beta": 0.014,
+                "delta_V_margin_to_limit_deg": 16.0,
+            },
+            "aeroelastic_effects": {
+                "elastic_twist_max_abs_deg": 3.72,
+                "direct_spar_pair_rotation_max_abs_deg": 3.72,
+                "conservative_bounded_physical_projection_max_abs_deg": 2.24,
+                "elastic_twist_screening_bound_deg": 3.0,
+                "stall_margin_min": -0.08,
+                "root_bending_moment_ratio_loaded_vs_baseline": 1.02,
+                "closure_ranking_effect": "no_change_conservative_best_remains_screening_closed",
+            },
+            "selected_stiffness_basis": {"status": "pass_screening_sensitivity"},
+            "mass_drag_power": {"status": "charged_to_screening_read"},
+            "load_remap_diagnostics": {"status": "conserved"},
+        }
+    )
+
+    assert result["verdict"] == "ready_for_fem_apdl_loadcase_package"
+    assert "bounded_physical_twist_exceeds_screening_bound" not in result["blockers"]
+    assert "direct_spar_pair_stress_test_above_bound_conservative_mapping" in result["warnings"]
+    assert "negative_diagnostic_stall_margin_not_gate" in result["warnings"]

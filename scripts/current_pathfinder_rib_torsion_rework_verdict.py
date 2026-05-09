@@ -118,6 +118,13 @@ def build_rib_torsion_rework_verdict(
     local_requirements = _local_fem_coupon_requirements(
         audit_payload=audit_payload,
         selected=selected,
+        closure_rerun=closure_rerun,
+    )
+    validation_package = _local_fem_coupon_validation_package(
+        selected=selected,
+        audit_assessment=audit_assessment,
+        closure_rerun=closure_rerun,
+        local_requirements=local_requirements,
     )
 
     summary = {
@@ -136,6 +143,7 @@ def build_rib_torsion_rework_verdict(
         "materialized_contract_assessment": audit_assessment,
         "closure_rerun_assessment": closure_rerun,
         "local_fem_coupon_requirements": local_requirements,
+        "local_fem_coupon_validation_package": validation_package,
         "fem_apdl_package_gate": fem_gate,
         "engineering_read": _engineering_read(
             verdict=engineering_verdict,
@@ -179,12 +187,24 @@ def write_rib_torsion_rework_verdict_package(
         "candidate_trade_csv": output_dir / "candidate_trade.csv",
         "local_fem_coupon_requirements_json": output_dir
         / "local_fem_coupon_requirements.json",
+        "local_fem_coupon_validation_package_json": output_dir
+        / "local_fem_coupon_validation_package.json",
+        "local_fem_coupon_validation_package_md": output_dir
+        / "local_fem_coupon_validation_package.md",
         "summary_json": output_dir / "rib_torsion_rework_verdict.json",
         "report_json": Path(report_json),
         "report_md": Path(report_md),
     }
     _write_csv(paths["candidate_trade_csv"], summary["candidate_trade_rows"])
     _write_json(paths["local_fem_coupon_requirements_json"], summary["local_fem_coupon_requirements"])
+    _write_json(
+        paths["local_fem_coupon_validation_package_json"],
+        summary["local_fem_coupon_validation_package"],
+    )
+    paths["local_fem_coupon_validation_package_md"].write_text(
+        _render_validation_package_markdown(summary["local_fem_coupon_validation_package"]),
+        encoding="utf-8",
+    )
     _write_json(paths["summary_json"], summary)
     _write_json(paths["report_json"], summary)
     paths["report_md"].parent.mkdir(parents=True, exist_ok=True)
@@ -200,10 +220,8 @@ def build_closure_rerun_selected_basis_payload(
 ) -> dict[str, Any]:
     """Build a selected-basis JSON usable by tail_aware_aeroelastic_closure.
 
-    The current closure kernel can rerun rear-spar participation, but it does
-    not yet consume hybrid rib effective-GJ as a structural stiffness override.
-    Hybrid selected-basis payloads therefore carry an explicit projection-only
-    claim boundary.
+    The closure kernel consumes hybrid effective-GJ as a main/rear torsion-cell
+    screening surrogate. This is still not a local rib/collar/bond signoff.
     """
 
     raw = _raw_candidate_by_family_and_rear(
@@ -222,7 +240,36 @@ def build_closure_rerun_selected_basis_payload(
     raw_case = dict(_mapping_at(raw, "selected_case"))
     family = str(raw.get("family_key") or family_key)
     rear = str(raw.get("rear_spar_participation") or rear_spar_participation)
-    case_id = f"closure_rerun_{family}_{rear}_projection_boundary"
+    case_id = f"closure_rerun_{family}_{rear}_structural_kernel_v1"
+    effective_gj_ratio = raw_projection.get("effective_gj_ratio_vs_balsa_selected")
+    stiffness_override = {
+        "status": "screening_surrogate_ready_for_closure_rerun",
+        "model_id": "hybrid_main_rear_torsion_cell_scale_v1",
+        "global_torsion_cell_scale": effective_gj_ratio,
+        "scaled_properties": ["main_j_m4", "rear_j_m4"],
+        "assumption_basis": {
+            "rib_family_key": family,
+            "material_category": raw.get("material_category"),
+            "rear_spar_participation": rear,
+            "cap_face_collar_basis": (
+                "Hybrid rib/cap/collar screening effective-GJ is applied as an "
+                "equivalent main-rear torsion-cell scale because the current "
+                "dual-beam kernel has no local rib shell/collar elements."
+            ),
+            "eps_core_role": (
+                "EPS core is shape/core support only; balsa/cap/collar detail owns "
+                "the structural bracing credit."
+            ),
+            "bond_and_coupon_boundary": (
+                "Requires rib-spar bond/collar local FEM and coupon data before "
+                "FEM/APDL package or hardware signoff."
+            ),
+        },
+        "claim_boundary": (
+            "Screening closure rerun surrogate only. Local FEM/coupon/bond/collar "
+            "evidence is still required before FEM/APDL package readiness."
+        ),
+    }
     selected_basis = {
         **baseline_selected,
         "case_id": case_id,
@@ -236,8 +283,9 @@ def build_closure_rerun_selected_basis_payload(
             "warping_knockdown",
             baseline_selected.get("warping_knockdown"),
         ),
+        "structural_kernel_stiffness_override": stiffness_override,
         "effective_changes_vs_finite_rib_rear_1p00": {
-            "GJ_ratio": raw_projection.get("effective_gj_ratio_vs_balsa_selected"),
+            "GJ_ratio": effective_gj_ratio,
             "projected_direct_spar_pair_twist_deg": raw_projection.get(
                 "projected_direct_spar_pair_twist_deg"
             ),
@@ -254,8 +302,8 @@ def build_closure_rerun_selected_basis_payload(
             ),
             "basis": (
                 "Rib mass follows the selected rework candidate. Hybrid effective GJ "
-                "is not consumed by tail_aware_aeroelastic_closure unless the "
-                "structural kernel is extended."
+                "is consumed by tail_aware_aeroelastic_closure as a screening "
+                "torsion-cell surrogate, not as local FEM/coupon signoff."
             ),
         },
         "cg_impact": dict(_mapping_at(raw, "mass_cg_assessment"))
@@ -263,10 +311,10 @@ def build_closure_rerun_selected_basis_payload(
     }
     if _is_hybrid_category(str(raw.get("material_category", ""))):
         selected_basis["hybrid_effective_gj_claim_boundary"] = (
-            "projection_only_not_structural_kernel_rerun"
+            "screening_surrogate_consumed_by_structural_kernel"
         )
         selected_basis["closure_rerun_basis_role"] = (
-            "rear_spar_participation_rerun_with_hybrid_projection_boundary"
+            "rear_spar_participation_rerun_with_hybrid_torsion_cell_surrogate"
         )
     else:
         selected_basis["hybrid_effective_gj_claim_boundary"] = "not_hybrid_candidate"
@@ -289,8 +337,9 @@ def build_closure_rerun_selected_basis_payload(
             "projection": raw_projection,
             "claim_boundary": (
                 "This selected-basis override is for closure rerun traceability. "
-                "For hybrid rows, effective-GJ remains projection-only until the "
-                "structural kernel consumes the rib stiffness model."
+                "For hybrid rows, effective-GJ is consumed by the closure structural "
+                "kernel only as a screening surrogate; local FEM/coupons still own "
+                "detail signoff."
             ),
         },
     }
@@ -629,38 +678,64 @@ def _closure_rerun_assessment(
             ),
         }
     aero = _mapping_at(payload, "basis", "aeroelastic_effects")
+    stiffness = _mapping_at(payload, "basis", "selected_stiffness_basis")
+    override = _mapping_at(stiffness, "structural_kernel_stiffness_override")
+    artifact_manifest = _mapping_at(payload, "artifact_manifest")
+    interpretation = _mapping_at(
+        payload,
+        "basis",
+        "aeroelastic_twist_source_audit",
+        "interpretation_summary",
+    )
     direct = _float_or_none(aero.get("direct_spar_pair_rotation_max_abs_deg"))
     bounded = _float_or_none(aero.get("conservative_bounded_physical_projection_max_abs_deg"))
     elastic = _float_or_none(aero.get("elastic_twist_max_abs_deg"))
     bound = _float_or_none(aero.get("elastic_twist_screening_bound_deg")) or float(twist_bound_deg)
     blockers: list[str] = []
+    warnings: list[str] = []
     if payload.get("engineering_verdict") not in {
         "ready_for_fem_apdl_loadcase_package",
         READY_FOR_FEM_LOADCASE_PACKAGE,
     }:
         blockers.append("closure_rerun_not_package_ready")
-    if elastic is None or elastic > bound + 1.0e-12:
-        blockers.append("closure_rerun_elastic_twist_exceeds_bound")
     if bounded is None or bounded > bound + 1.0e-12:
         blockers.append("closure_rerun_bounded_twist_exceeds_bound")
     if direct is not None and direct > bound + 1.0e-12:
-        blockers.append(DIRECT_STRESS_BLOCKER)
+        if bounded is not None and bounded <= bound + 1.0e-12:
+            warnings.append("direct_spar_pair_stress_test_above_bound_conservative_mapping")
+        else:
+            blockers.append(DIRECT_STRESS_BLOCKER)
+    owns_hybrid_override = override.get("status") == "applied_screening_surrogate"
     return {
         "status": "rerun_supplied",
         "closure_verdict": payload.get("engineering_verdict"),
         "elastic_twist_max_abs_deg": elastic,
         "direct_spar_pair_rotation_max_abs_deg": direct,
+        "direct_spar_pair_rotation_max_station_y_m": _float_or_none(
+            interpretation.get("direct_spar_pair_rotation_max_station_y_m")
+        ),
         "conservative_bounded_physical_projection_max_abs_deg": bounded,
+        "conservative_bounded_physical_projection_max_station_y_m": _float_or_none(
+            interpretation.get("conservative_bounded_physical_projection_max_station_y_m")
+        ),
         "elastic_twist_screening_bound_deg": bound,
+        "structural_kernel_stiffness_override_status": override.get("status"),
+        "structural_kernel_stiffness_override_model_id": override.get("model_id"),
+        "structural_kernel_stiffness_override_scale": override.get(
+            "applied_global_torsion_cell_scale"
+        ),
+        "owns_selected_hybrid_stiffness_model": bool(owns_hybrid_override),
         "bounded_twist_status": (
             "clears_bound" if bounded is not None and bounded <= bound + 1.0e-12 else "still_high"
         ),
-        "direct_stress_test_status": (
-            "clears_bound"
-            if direct is not None and direct <= bound + 1.0e-12
-            else "still_above_screening_bound"
+        "direct_stress_test_status": _direct_stress_test_status(
+            direct=direct,
+            bounded=bounded,
+            bound=bound,
         ),
         "blockers": blockers,
+        "warnings": warnings,
+        "artifact_manifest": dict(artifact_manifest),
         "claim_boundary": (
             "Closure rerun evidence is still not enough for package readiness if "
             "detail, bond, collar, skin sag, transition stations, or local FEM are missing."
@@ -680,7 +755,10 @@ def _fem_apdl_gate(
     if selected is None:
         blockers.append("no_selectable_rework_candidate")
     elif _is_hybrid_category(str(selected.get("material_category", ""))):
-        if HYBRID_PROJECTION_BLOCKER not in blockers:
+        if (
+            not _closure_rerun_owns_selected_hybrid_stiffness(closure_rerun)
+            and HYBRID_PROJECTION_BLOCKER not in blockers
+        ):
             blockers.append(HYBRID_PROJECTION_BLOCKER)
     blockers = _dedupe(blockers)
     return {
@@ -718,13 +796,184 @@ def _engineering_verdict(
     return STILL_BLOCKED_BY_BOND_OR_SHAPE_DATA
 
 
+def _direct_stress_test_status(
+    *,
+    direct: float | None,
+    bounded: float | None,
+    bound: float,
+) -> str:
+    if direct is None:
+        return "missing"
+    if direct <= bound + 1.0e-12:
+        return "clears_bound"
+    if bounded is not None and bounded <= bound + 1.0e-12:
+        return "above_bound_conservative_stress_test"
+    return "still_above_screening_bound"
+
+
+def _closure_rerun_owns_selected_hybrid_stiffness(closure_rerun: Mapping[str, Any]) -> bool:
+    return bool(closure_rerun.get("owns_selected_hybrid_stiffness_model"))
+
+
+def _local_fem_coupon_validation_package(
+    *,
+    selected: Mapping[str, Any] | None,
+    audit_assessment: Mapping[str, Any],
+    closure_rerun: Mapping[str, Any],
+    local_requirements: Mapping[str, Any],
+) -> dict[str, Any]:
+    closure_ready = (
+        closure_rerun.get("bounded_twist_status") == "clears_bound"
+        and _closure_rerun_owns_selected_hybrid_stiffness(closure_rerun)
+    )
+    package_verdict = (
+        "ready_to_start_local_FEM_and_coupon_definition_not_FEM_APDL_package"
+        if closure_ready
+        else "needs_hybrid_kernel_closure_before_local_FEM_coupon_package"
+    )
+    zones = list(audit_assessment.get("recommended_hybrid_reinforcement_zones") or [])
+    closure_artifacts = dict(_mapping_at(closure_rerun, "artifact_manifest"))
+    return {
+        "package_verdict": package_verdict,
+        "fem_apdl_package_ready": False,
+        "selected_family_key": None if selected is None else selected.get("family_key"),
+        "selected_rear_spar_participation": None
+        if selected is None
+        else selected.get("rear_spar_participation"),
+        "closure_evidence": dict(
+            _mapping_at(local_requirements, "closure_evidence_to_carry_forward")
+        ),
+        "load_owner_artifacts": {
+            "closure_summary_json": closure_artifacts.get("report_json")
+            or closure_artifacts.get("output_dir"),
+            "final_trimmed_wing_fs": closure_artifacts.get("final_trimmed_wing_fs"),
+            "final_wing_spanload_redistribution_csv": closure_artifacts.get(
+                "final_wing_spanload_redistribution_csv"
+            ),
+            "final_elastic_twist_alpha_eff_csv": closure_artifacts.get(
+                "final_elastic_twist_alpha_eff_csv"
+            ),
+            "final_twist_source_audit_csv": closure_artifacts.get(
+                "final_twist_source_audit_csv"
+            ),
+        },
+        "local_fem_zones": zones,
+        "validation_workstreams": [
+            {
+                "workstream_id": "rib_spar_bond_collar_local_fem",
+                "scope": (
+                    "Positive and negative torque-critical hybrid zones around "
+                    "y≈2.328 m, including rib-to-main/rear-spar bondline, collar/"
+                    "gusset geometry, tube-wall bearing/crush, and peel/shear load transfer."
+                ),
+                "inputs_needed": [
+                    "cap/face/collar dimensions and material allowables",
+                    "bondline width, adhesive system, cure/process notes",
+                    "main/rear spar OD, wall, local contact footprint, and collar fit",
+                    "closure load-owner spanload/twist artifacts listed in this package",
+                ],
+                "exit_condition": (
+                    "Local FEM or hand/FEM hybrid margins are positive for bond shear/"
+                    "peel, collar bearing, tube-wall crush, and rib cap/shear path."
+                ),
+            },
+            {
+                "workstream_id": "hybrid_rib_coupon_matrix",
+                "scope": (
+                    "Coupons for EPS+balsa/cap hybrid rib shear transfer; EPS core is "
+                    "not credited as structural bracing by itself."
+                ),
+                "inputs_needed": [
+                    "cap strip material and grain/fiber direction",
+                    "rib web/core thickness and adhesive interface",
+                    "coupon shear, compression, peel, and repeatability data",
+                ],
+                "exit_condition": (
+                    "Coupon allowables support the effective-GJ surrogate or force a "
+                    "lower stiffness scale before FEM/APDL packaging."
+                ),
+            },
+            {
+                "workstream_id": "skin_sag_panel_coupon",
+                "scope": (
+                    "0.30 m bay shape-keeping and skin sag check for the materialized "
+                    "121-station / 120-bay rib layout."
+                ),
+                "inputs_needed": [
+                    "skin material/thickness and attachment method",
+                    "representative pressure/handling load or conservative panel load",
+                    "allowable sag/twist tolerance tied to airfoil shape quality",
+                ],
+                "exit_condition": (
+                    "Sag/shape coupon or panel analysis clears the bay tolerance without "
+                    "relying on foam-only structural bracing."
+                ),
+            },
+            {
+                "workstream_id": "transition_control_station_manifest",
+                "scope": (
+                    "Transport joint, control station, airfoil transition, and twist "
+                    "transition station manifest."
+                ),
+                "inputs_needed": [
+                    "station IDs and y locations",
+                    "local rib type changes and reinforcement details",
+                    "control/transition hardware interfaces",
+                ],
+                "exit_condition": (
+                    "Missing transition/control station contract blockers are closed "
+                    "before FEM/APDL package export."
+                ),
+            },
+            {
+                "workstream_id": "direct_stress_test_aero_surface_mapping",
+                "scope": (
+                    "Map the conservative main/rear direct stress-test twist to a qualified "
+                    "aero-surface or elastic-axis twist observable."
+                ),
+                "inputs_needed": [
+                    "direct stress-test max station from closure rerun",
+                    "rib/shell/skin local geometry for aero-surface interpolation",
+                    "comparison against bounded physical projection and FEM shell mapping",
+                ],
+                "exit_condition": (
+                    "Either the direct 3+ deg stress-test is shown conservative for the "
+                    "aero surface, or the stiffness model is downgraded and rerun."
+                ),
+            },
+        ],
+        "do_not_promote": list(local_requirements.get("do_not_promote") or []),
+        "next_recommended_task": (
+            "Define the rib-spar bond/collar local FEM input deck and coupon matrix "
+            "for the positive y≈2.328 m torque-critical zone first; mirror the negative "
+            "zone after the geometry assumptions are stable."
+        ),
+        "claim_boundary": (
+            "This package starts local FEM/coupon definition. It is not FEM/APDL "
+            "package readiness and not flight hardware signoff."
+        ),
+    }
+
+
 def _local_fem_coupon_requirements(
     *,
     audit_payload: Mapping[str, Any],
     selected: Mapping[str, Any] | None,
+    closure_rerun: Mapping[str, Any],
 ) -> dict[str, Any]:
     local = _mapping_at(audit_payload, "local_fem_trigger_report")
     family = None if selected is None else selected.get("family_key")
+    required_before_package = [
+        "hybrid rib cap/face/collar geometry at y≈2.328 m torque-critical zone",
+        "rib-to-main/rear-spar bondline and collar/contact geometry",
+        "tube-wall local bearing/crush/peel allowables or local FEM",
+        "skin sag coupon/panel evidence for 0.30 m bays",
+        "transport/control/airfoil/twist transition station manifest",
+    ]
+    if not _closure_rerun_owns_selected_hybrid_stiffness(closure_rerun):
+        required_before_package.append(
+            "closure rerun with the selected effective stiffness model wired in"
+        )
     return {
         "selected_family_key": family,
         "selected_rear_spar_participation": None
@@ -735,14 +984,25 @@ def _local_fem_coupon_requirements(
         "recommended_hybrid_reinforcement_zones": list(
             local.get("recommended_hybrid_reinforcement_zones") or []
         ),
-        "required_before_fem_apdl_package": [
-            "hybrid rib cap/face/collar geometry at y≈2.328 m torque-critical zone",
-            "rib-to-main/rear-spar bondline and collar/contact geometry",
-            "tube-wall local bearing/crush/peel allowables or local FEM",
-            "skin sag coupon/panel evidence for 0.30 m bays",
-            "transport/control/airfoil/twist transition station manifest",
-            "closure rerun with the selected effective stiffness model wired in",
-        ],
+        "required_before_fem_apdl_package": required_before_package,
+        "closure_evidence_to_carry_forward": {
+            "status": closure_rerun.get("status"),
+            "closure_verdict": closure_rerun.get("closure_verdict"),
+            "owns_selected_hybrid_stiffness_model": bool(
+                closure_rerun.get("owns_selected_hybrid_stiffness_model")
+            ),
+            "bounded_twist_status": closure_rerun.get("bounded_twist_status"),
+            "direct_stress_test_status": closure_rerun.get("direct_stress_test_status"),
+            "conservative_bounded_physical_projection_max_abs_deg": closure_rerun.get(
+                "conservative_bounded_physical_projection_max_abs_deg"
+            ),
+            "direct_spar_pair_rotation_max_abs_deg": closure_rerun.get(
+                "direct_spar_pair_rotation_max_abs_deg"
+            ),
+            "structural_kernel_stiffness_override_scale": closure_rerun.get(
+                "structural_kernel_stiffness_override_scale"
+            ),
+        },
         "do_not_promote": [
             "rear_spar_participation_1p00_as_selected_basis",
             "EPS/XPS/structural-foam-only as structural bracing",
@@ -767,11 +1027,17 @@ def _engineering_read(
     family = selected.get("family_key")
     rear = selected.get("rear_spar_participation")
     if verdict == CANDIDATE_READY_FOR_LOCAL_FEM:
+        rerun_owns = bool(closure_rerun.get("owns_selected_hybrid_stiffness_model"))
+        stiffness_read = (
+            "the closure rerun now consumes the hybrid effective-GJ screening surrogate"
+            if rerun_owns
+            else "the hybrid stiffness is still projection-only"
+        )
         return (
             f"The next useful candidate is {family} with {rear}. It projects direct "
             "and bounded twist below 3 deg with mass/CG carried, but it is not "
-            "FEM/APDL-loadcase ready because the hybrid stiffness is projection-only "
-            "and materialized bond/collar/skin sag/transition/local FEM data are still "
+            f"FEM/APDL-loadcase ready because {stiffness_read} and materialized "
+            "bond/collar/skin sag/transition/local FEM data are still "
             f"open: {audit_assessment.get('blockers')}. Closure rerun status is "
             f"{closure_rerun.get('status')}."
         )
@@ -851,11 +1117,78 @@ def _render_markdown(summary: Mapping[str, Any], paths: Mapping[str, Path]) -> s
             "",
             f"- candidate trade CSV: `{paths.get('candidate_trade_csv')}`",
             f"- local FEM/coupon requirements: `{paths.get('local_fem_coupon_requirements_json')}`",
+            "- local FEM/coupon validation package: "
+            f"`{paths.get('local_fem_coupon_validation_package_json')}`",
             f"- summary JSON: `{paths.get('summary_json')}`",
             "",
             "## Engineering Read",
             "",
             str(summary.get("engineering_read", "")),
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_validation_package_markdown(package: Mapping[str, Any]) -> str:
+    closure = _mapping_at(package, "closure_evidence")
+    lines = [
+        "# Current Pathfinder Local FEM / Coupon Validation Package",
+        "",
+        f"Verdict: `{package.get('package_verdict')}`",
+        f"FEM/APDL package ready: `{package.get('fem_apdl_package_ready')}`",
+        "",
+        "## Closure Evidence",
+        "",
+        f"- Selected basis: `{package.get('selected_family_key')}` / "
+        f"`{package.get('selected_rear_spar_participation')}`.",
+        f"- Bounded twist status: `{closure.get('bounded_twist_status')}`; bounded twist "
+        f"`{_fmt(closure.get('conservative_bounded_physical_projection_max_abs_deg'))}` deg.",
+        f"- Direct stress-test status: `{closure.get('direct_stress_test_status')}`; "
+        f"direct twist `{_fmt(closure.get('direct_spar_pair_rotation_max_abs_deg'))}` deg.",
+        "- Hybrid stiffness model owned by closure: "
+        f"`{closure.get('owns_selected_hybrid_stiffness_model')}` at scale "
+        f"`{_fmt(closure.get('structural_kernel_stiffness_override_scale'))}`.",
+        "",
+        "## Local FEM Zones",
+        "",
+    ]
+    for zone in package.get("local_fem_zones") or []:
+        lines.append(
+            f"- `{zone.get('zone_id')}`: y `{_fmt(zone.get('y_start_m'), 3)}` to "
+            f"`{_fmt(zone.get('y_end_m'), 3)}` m; stations `{zone.get('station_ids')}`; "
+            f"bays `{zone.get('bay_ids')}`."
+        )
+    lines.extend(["", "## Workstreams", ""])
+    for row in package.get("validation_workstreams") or []:
+        lines.append(f"### {row.get('workstream_id')}")
+        lines.append("")
+        lines.append(str(row.get("scope", "")))
+        lines.append("")
+        lines.append("Inputs needed:")
+        for item in row.get("inputs_needed") or []:
+            lines.append(f"- {item}")
+        lines.append("")
+        lines.append(f"Exit condition: {row.get('exit_condition')}")
+        lines.append("")
+    lines.extend(
+        [
+            "## Do Not Promote",
+            "",
+        ]
+    )
+    for item in package.get("do_not_promote") or []:
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Next Task",
+            "",
+            str(package.get("next_recommended_task", "")),
+            "",
+            "## Claim Boundary",
+            "",
+            str(package.get("claim_boundary", "")),
             "",
         ]
     )

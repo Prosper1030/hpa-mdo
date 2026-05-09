@@ -1,4 +1,14 @@
 {
+  "closure_evidence_to_carry_forward": {
+    "bounded_twist_status": "clears_bound",
+    "closure_verdict": "ready_for_fem_apdl_loadcase_package",
+    "conservative_bounded_physical_projection_max_abs_deg": 2.0703159097751267,
+    "direct_spar_pair_rotation_max_abs_deg": 3.4492943682063077,
+    "direct_stress_test_status": "above_bound_conservative_stress_test",
+    "owns_selected_hybrid_stiffness_model": true,
+    "status": "rerun_supplied",
+    "structural_kernel_stiffness_override_scale": 2.032971
+  },
   "do_not_promote": [
     "rear_spar_participation_1p00_as_selected_basis",
     "EPS/XPS/structural-foam-only as structural bracing",
@@ -46,8 +56,7 @@
     "rib-to-main/rear-spar bondline and collar/contact geometry",
     "tube-wall local bearing/crush/peel allowables or local FEM",
     "skin sag coupon/panel evidence for 0.30 m bays",
-    "transport/control/airfoil/twist transition station manifest",
-    "closure rerun with the selected effective stiffness model wired in"
+    "transport/control/airfoil/twist transition station manifest"
   ],
   "selected_family_key": "eps_balsa_cap_hybrid_10mm",
   "selected_rear_spar_participation": "bounded_65pct_screening",

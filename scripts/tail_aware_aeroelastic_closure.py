@@ -10,6 +10,7 @@ hardware certification route.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 from dataclasses import replace
 import json
@@ -143,6 +144,89 @@ def assess_final_cg_management(selected_basis: Mapping[str, Any]) -> dict[str, A
         "engineering_read": (
             "Closure uses the managed final CG row. The uncompensated aft CG is "
             "recorded only as a rejected mass-bookkeeping state."
+        ),
+    }
+
+
+def apply_selected_stiffness_overrides(
+    model: Any,
+    *,
+    selected_basis: Mapping[str, Any],
+    rib_basis: Mapping[str, Any],
+) -> tuple[Any, dict[str, Any]]:
+    """Apply selected screening stiffness overrides consumed by this closure runner.
+
+    The dual-beam kernel has no explicit rib shell/collar elements. For a qualified
+    hybrid rib basis, this runner therefore consumes the selected effective-GJ
+    surrogate by scaling the main/rear torsion cell polar terms. This is a closure
+    screening surrogate only; local FEM/coupon evidence still owns detail signoff.
+    """
+
+    updated = copy.deepcopy(model)
+    override = _mapping_at(selected_basis, "structural_kernel_stiffness_override")
+    if not override:
+        return updated, {
+            "status": "not_requested",
+            "scaled_properties": [],
+            "claim_boundary": "No structural-kernel stiffness override was supplied.",
+        }
+
+    model_id = str(override.get("model_id", ""))
+    requested_status = str(override.get("status", ""))
+    category = str(
+        _mapping_at(rib_basis, "material_basis").get("family_category")
+        or rib_basis.get("material_category")
+        or ""
+    )
+    family_key = str(rib_basis.get("family_key", ""))
+    rear_scale = _rear_spar_scale_from_selected_basis(selected_basis)
+    scale = _float_or_none(override.get("global_torsion_cell_scale"))
+    blockers: list[str] = []
+
+    if requested_status != "screening_surrogate_ready_for_closure_rerun":
+        blockers.append("structural_kernel_stiffness_override_not_marked_rerun_ready")
+    if model_id != "hybrid_main_rear_torsion_cell_scale_v1":
+        blockers.append("unsupported_structural_kernel_stiffness_override_model")
+    if _is_foam_only_rib_family(family_key=family_key, category=category):
+        blockers.append("foam_only_rib_family_not_allowed_as_structural_bracing")
+    if rear_scale is None:
+        blockers.append("rear_spar_participation_missing")
+    elif rear_scale >= 0.999:
+        blockers.append("rear_spar_participation_1p00_is_upper_bound_only")
+    if scale is None or scale <= 0.0:
+        blockers.append("global_torsion_cell_scale_missing_or_nonpositive")
+
+    if blockers:
+        return updated, {
+            "status": "not_applied",
+            "blockers": blockers,
+            "requested_model_id": model_id,
+            "requested_status": requested_status,
+            "rib_family": family_key,
+            "rib_family_category": category,
+            "rear_spar_participation": selected_basis.get("rear_spar_participation"),
+            "scaled_properties": [],
+            "claim_boundary": (
+                "Stiffness override was rejected for closure rerun; do not promote "
+                "foam-only, rear=1.0, or unmarked projection rows into structural bracing."
+            ),
+        }
+
+    updated.main_j_m4 = np.asarray(updated.main_j_m4, dtype=float) * float(scale)
+    updated.rear_j_m4 = np.asarray(updated.rear_j_m4, dtype=float) * float(scale)
+    return updated, {
+        "status": "applied_screening_surrogate",
+        "model_id": model_id,
+        "rib_family": family_key,
+        "rib_family_category": category,
+        "rear_spar_participation": selected_basis.get("rear_spar_participation"),
+        "applied_global_torsion_cell_scale": float(scale),
+        "scaled_properties": ["main_j_m4", "rear_j_m4"],
+        "assumption_basis": dict(override.get("assumption_basis") or {}),
+        "claim_boundary": (
+            "Hybrid rib/cap/collar effective-GJ is consumed as a main/rear torsion "
+            "cell screening surrogate. It is not local rib-spar bond, collar, skin, "
+            "or coupon signoff."
         ),
     }
 
@@ -531,8 +615,25 @@ def classify_aeroelastic_closure(summary: Mapping[str, Any]) -> dict[str, Any]:
     aero = _mapping_at(basis, "aeroelastic_effects")
     if (_float_or_none(aero.get("stall_margin_min")) or -math.inf) < 0.0:
         warnings.append("negative_diagnostic_stall_margin_not_gate")
-    if (_float_or_none(aero.get("elastic_twist_max_abs_deg")) or math.inf) > 3.0:
-        blockers.append("elastic_twist_exceeds_screening_bound")
+    twist_bound = _float_or_none(aero.get("elastic_twist_screening_bound_deg")) or 3.0
+    elastic_twist = _float_or_none(aero.get("elastic_twist_max_abs_deg"))
+    direct_twist = _float_or_none(aero.get("direct_spar_pair_rotation_max_abs_deg"))
+    bounded_twist = _float_or_none(
+        aero.get("conservative_bounded_physical_projection_max_abs_deg")
+    )
+    gate_twist = bounded_twist if bounded_twist is not None else elastic_twist
+    if gate_twist is None or gate_twist > twist_bound + 1.0e-12:
+        if bounded_twist is not None:
+            blockers.append("bounded_physical_twist_exceeds_screening_bound")
+        else:
+            blockers.append("elastic_twist_exceeds_screening_bound")
+    if (
+        direct_twist is not None
+        and direct_twist > twist_bound + 1.0e-12
+        and gate_twist is not None
+        and gate_twist <= twist_bound + 1.0e-12
+    ):
+        warnings.append("direct_spar_pair_stress_test_above_bound_conservative_mapping")
     bending_ratio = _float_or_none(aero.get("root_bending_moment_ratio_loaded_vs_baseline"))
     if bending_ratio is not None and not (0.80 <= bending_ratio <= 1.20):
         blockers.append("aeroelastic_load_redistribution_exceeds_20pct_bending_bound")
@@ -594,9 +695,15 @@ def run_tail_aware_aeroelastic_closure(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    selected_rib_basis = _mapping_at(selected_payload, "rib_basis")
     base_model = clone_with_rear_stiffness_scale(
         build_current_candidate_model(),
         float(selected_basis.get("rear_stiffness_scale", 0.50)),
+    )
+    base_model, stiffness_override_diagnostics = apply_selected_stiffness_overrides(
+        base_model,
+        selected_basis=selected_basis,
+        rib_basis=selected_rib_basis,
     )
     payload, base_avl_load = _selected_spanwise_load(Path(candidate_spanwise_json))
     velocity_mps = float(payload["velocity_mps"])
@@ -832,7 +939,7 @@ def run_tail_aware_aeroelastic_closure(
     selected_stiffness_basis = {
         "status": "pass_screening_sensitivity",
         "case_id": selected_basis.get("case_id"),
-        "rib_family": _mapping_at(selected_payload, "rib_basis").get("family_key"),
+        "rib_family": selected_rib_basis.get("family_key"),
         "rib_target_spacing_m": selected_basis.get("rib_spacing_m"),
         "materialized_max_subbay_m": _mapping_at(
             selected_basis, "rib_count_or_bay_length_assumption"
@@ -859,6 +966,10 @@ def run_tail_aware_aeroelastic_closure(
         ),
         "selected_case_link_force_max_n": _selected_structural_case_value(
             selected_payload, "link_force_max_n"
+        ),
+        "structural_kernel_stiffness_override": stiffness_override_diagnostics,
+        "requested_structural_kernel_stiffness_override": dict(
+            _mapping_at(selected_basis, "structural_kernel_stiffness_override")
         ),
     }
     basis = {
@@ -1278,6 +1389,27 @@ def _twist_source_engineering_read(
             "work can move toward FEM/APDL loadcase packaging."
         )
     return "The twist source remains unresolved; do not promote the closure package."
+
+
+def _is_foam_only_rib_family(*, family_key: str, category: str) -> bool:
+    text = f"{family_key} {category}".lower()
+    return "foam_only" in text or ("eps" in text and "hybrid" not in text and "cap" not in text)
+
+
+def _rear_spar_scale_from_selected_basis(selected_basis: Mapping[str, Any]) -> float | None:
+    direct = _float_or_none(selected_basis.get("rear_stiffness_scale"))
+    if direct is not None:
+        return direct
+    label = str(selected_basis.get("rear_spar_participation", ""))
+    marker = "bounded_"
+    suffix = "pct"
+    if marker in label and suffix in label:
+        raw = label.split(marker, 1)[1].split(suffix, 1)[0]
+        try:
+            return float(raw) / 100.0
+        except ValueError:
+            return None
+    return None
 
 
 def _stall_margin_min(load: SpanwiseLoad, limit: float = 1.20) -> float:

@@ -1,0 +1,119 @@
+{
+  "claim_boundary": "This package starts local FEM/coupon definition. It is not FEM/APDL package readiness and not flight hardware signoff.",
+  "closure_evidence": {
+    "bounded_twist_status": "clears_bound",
+    "closure_verdict": "ready_for_fem_apdl_loadcase_package",
+    "conservative_bounded_physical_projection_max_abs_deg": 2.0703159097751267,
+    "direct_spar_pair_rotation_max_abs_deg": 3.4492943682063077,
+    "direct_stress_test_status": "above_bound_conservative_stress_test",
+    "owns_selected_hybrid_stiffness_model": true,
+    "status": "rerun_supplied",
+    "structural_kernel_stiffness_override_scale": 2.032971
+  },
+  "do_not_promote": [
+    "rear_spar_participation_1p00_as_selected_basis",
+    "EPS/XPS/structural-foam-only as structural bracing",
+    "GJ scaling projection as FEM-ready evidence"
+  ],
+  "fem_apdl_package_ready": false,
+  "load_owner_artifacts": {
+    "closure_summary_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/tail_aware_closure_rerun_hybrid_kernel",
+    "final_elastic_twist_alpha_eff_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/tail_aware_closure_rerun_hybrid_kernel/final/elastic_twist_alpha_eff.csv",
+    "final_trimmed_wing_fs": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/tail_aware_closure_rerun_hybrid_kernel/runs/iteration_03/tail_trim_avl/trimmed/concept_spanwise.fs",
+    "final_twist_source_audit_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/tail_aware_closure_rerun_hybrid_kernel/final/twist_source_audit.csv",
+    "final_wing_spanload_redistribution_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/tail_aware_closure_rerun_hybrid_kernel/final/wing_spanload_redistribution.csv"
+  },
+  "local_fem_zones": [
+    {
+      "bay_ids": [
+        "B066",
+        "B067",
+        "B068",
+        "B069"
+      ],
+      "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+      "station_ids": [
+        "R067",
+        "R068",
+        "R069"
+      ],
+      "y_end_m": 2.627757,
+      "y_start_m": 2.027757,
+      "zone_id": "positive_torque_critical_hybrid_reinforcement_zone"
+    },
+    {
+      "bay_ids": [
+        "B050",
+        "B051",
+        "B052",
+        "B053"
+      ],
+      "recommended_action": "Run local rib-spar-bond/collar FEM and include this as a hybrid reinforcement zone in the next stiffness sweep.",
+      "station_ids": [
+        "R051",
+        "R052",
+        "R053"
+      ],
+      "y_end_m": -2.027757,
+      "y_start_m": -2.627757,
+      "zone_id": "negative_torque_critical_hybrid_reinforcement_zone"
+    }
+  ],
+  "next_recommended_task": "Define the rib-spar bond/collar local FEM input deck and coupon matrix for the positive y\u22482.328 m torque-critical zone first; mirror the negative zone after the geometry assumptions are stable.",
+  "package_verdict": "ready_to_start_local_FEM_and_coupon_definition_not_FEM_APDL_package",
+  "selected_family_key": "eps_balsa_cap_hybrid_10mm",
+  "selected_rear_spar_participation": "bounded_65pct_screening",
+  "validation_workstreams": [
+    {
+      "exit_condition": "Local FEM or hand/FEM hybrid margins are positive for bond shear/peel, collar bearing, tube-wall crush, and rib cap/shear path.",
+      "inputs_needed": [
+        "cap/face/collar dimensions and material allowables",
+        "bondline width, adhesive system, cure/process notes",
+        "main/rear spar OD, wall, local contact footprint, and collar fit",
+        "closure load-owner spanload/twist artifacts listed in this package"
+      ],
+      "scope": "Positive and negative torque-critical hybrid zones around y\u22482.328 m, including rib-to-main/rear-spar bondline, collar/gusset geometry, tube-wall bearing/crush, and peel/shear load transfer.",
+      "workstream_id": "rib_spar_bond_collar_local_fem"
+    },
+    {
+      "exit_condition": "Coupon allowables support the effective-GJ surrogate or force a lower stiffness scale before FEM/APDL packaging.",
+      "inputs_needed": [
+        "cap strip material and grain/fiber direction",
+        "rib web/core thickness and adhesive interface",
+        "coupon shear, compression, peel, and repeatability data"
+      ],
+      "scope": "Coupons for EPS+balsa/cap hybrid rib shear transfer; EPS core is not credited as structural bracing by itself.",
+      "workstream_id": "hybrid_rib_coupon_matrix"
+    },
+    {
+      "exit_condition": "Sag/shape coupon or panel analysis clears the bay tolerance without relying on foam-only structural bracing.",
+      "inputs_needed": [
+        "skin material/thickness and attachment method",
+        "representative pressure/handling load or conservative panel load",
+        "allowable sag/twist tolerance tied to airfoil shape quality"
+      ],
+      "scope": "0.30 m bay shape-keeping and skin sag check for the materialized 121-station / 120-bay rib layout.",
+      "workstream_id": "skin_sag_panel_coupon"
+    },
+    {
+      "exit_condition": "Missing transition/control station contract blockers are closed before FEM/APDL package export.",
+      "inputs_needed": [
+        "station IDs and y locations",
+        "local rib type changes and reinforcement details",
+        "control/transition hardware interfaces"
+      ],
+      "scope": "Transport joint, control station, airfoil transition, and twist transition station manifest.",
+      "workstream_id": "transition_control_station_manifest"
+    },
+    {
+      "exit_condition": "Either the direct 3+ deg stress-test is shown conservative for the aero surface, or the stiffness model is downgraded and rerun.",
+      "inputs_needed": [
+        "direct stress-test max station from closure rerun",
+        "rib/shell/skin local geometry for aero-surface interpolation",
+        "comparison against bounded physical projection and FEM shell mapping"
+      ],
+      "scope": "Map the conservative main/rear direct stress-test twist to a qualified aero-surface or elastic-axis twist observable.",
+      "workstream_id": "direct_stress_test_aero_surface_mapping"
+    }
+  ]
+}

@@ -53,7 +53,7 @@
   },
   "schema_version": "tail_aware_selected_basis_override_v1",
   "selected_basis": {
-    "case_id": "closure_rerun_eps_balsa_cap_hybrid_10mm_bounded_65pct_screening_projection_boundary",
+    "case_id": "closure_rerun_eps_balsa_cap_hybrid_10mm_bounded_65pct_screening_structural_kernel_v1",
     "cg_impact": {
       "base_cg_x_m": 0.72,
       "base_mass_kg": 96.0,
@@ -84,14 +84,14 @@
       "uncompensated_status": "uncompensated_cg_exceeds_screening_range"
     },
     "closure_ranking_changes": "no_change_conservative_best_remains_screening_closed",
-    "closure_rerun_basis_role": "rear_spar_participation_rerun_with_hybrid_projection_boundary",
+    "closure_rerun_basis_role": "rear_spar_participation_rerun_with_hybrid_torsion_cell_surrogate",
     "effective_changes_vs_finite_rib_rear_1p00": {
       "GJ_ratio": 2.032971,
       "projected_bounded_physical_twist_deg": 1.601756,
       "projected_direct_spar_pair_twist_deg": 2.662909,
       "source": "current_pathfinder_rib_torsion_rework_verdict selected candidate projection"
     },
-    "hybrid_effective_gj_claim_boundary": "projection_only_not_structural_kernel_rerun",
+    "hybrid_effective_gj_claim_boundary": "screening_surrogate_consumed_by_structural_kernel",
     "load_remap_diagnostics": {
       "engineering_read": "Current committed smoke shows small conservative projection correction with no sign reversal; rerun if the aero load owner changes.",
       "source": "docs/reports/2026-05-09_conservative_load_mapper_foundation.md",
@@ -106,8 +106,26 @@
       "source": "Phase24 physical station layout, not bare local-wall bay assumption"
     },
     "rib_spacing_m": 0.3,
+    "structural_kernel_stiffness_override": {
+      "assumption_basis": {
+        "bond_and_coupon_boundary": "Requires rib-spar bond/collar local FEM and coupon data before FEM/APDL package or hardware signoff.",
+        "cap_face_collar_basis": "Hybrid rib/cap/collar screening effective-GJ is applied as an equivalent main-rear torsion-cell scale because the current dual-beam kernel has no local rib shell/collar elements.",
+        "eps_core_role": "EPS core is shape/core support only; balsa/cap/collar detail owns the structural bracing credit.",
+        "material_category": "capped_hybrid_foam_rib",
+        "rear_spar_participation": "bounded_65pct_screening",
+        "rib_family_key": "eps_balsa_cap_hybrid_10mm"
+      },
+      "claim_boundary": "Screening closure rerun surrogate only. Local FEM/coupon/bond/collar evidence is still required before FEM/APDL package readiness.",
+      "global_torsion_cell_scale": 2.032971,
+      "model_id": "hybrid_main_rear_torsion_cell_scale_v1",
+      "scaled_properties": [
+        "main_j_m4",
+        "rear_j_m4"
+      ],
+      "status": "screening_surrogate_ready_for_closure_rerun"
+    },
     "structural_mass_delta": {
-      "basis": "Rib mass follows the selected rework candidate. Hybrid effective GJ is not consumed by tail_aware_aeroelastic_closure unless the structural kernel is extended.",
+      "basis": "Rib mass follows the selected rework candidate. Hybrid effective GJ is consumed by tail_aware_aeroelastic_closure as a screening torsion-cell surrogate, not as local FEM/coupon signoff.",
       "estimated_full_wing_rib_mass_kg": 5.365042,
       "rear_spar_mass_delta_kg": 0.0,
       "tail_mass_delta_kg": 1.172727
@@ -133,7 +151,7 @@
     "warping_knockdown": 0.819399
   },
   "source_rework_candidate": {
-    "claim_boundary": "This selected-basis override is for closure rerun traceability. For hybrid rows, effective-GJ remains projection-only until the structural kernel consumes the rib stiffness model.",
+    "claim_boundary": "This selected-basis override is for closure rerun traceability. For hybrid rows, effective-GJ is consumed by the closure structural kernel only as a screening surrogate; local FEM/coupons still own detail signoff.",
     "family_key": "eps_balsa_cap_hybrid_10mm",
     "material_category": "capped_hybrid_foam_rib",
     "projection": {
@@ -158,7 +176,7 @@
     {
       "angle_delta_vs_baseline_deg": 0.31318231504307725,
       "blockers": [],
-      "case_id": "closure_rerun_eps_balsa_cap_hybrid_10mm_bounded_65pct_screening_projection_boundary",
+      "case_id": "closure_rerun_eps_balsa_cap_hybrid_10mm_bounded_65pct_screening_structural_kernel_v1",
       "effective_ei_flap_nm2": 229094.86478112935,
       "effective_ei_flap_ratio_vs_baseline": 0.7315657559018572,
       "effective_gj_nm2": 968582.6876643668,

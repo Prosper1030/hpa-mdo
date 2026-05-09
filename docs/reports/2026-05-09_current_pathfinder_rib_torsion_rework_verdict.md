@@ -3,7 +3,7 @@
 Candidate: `current_avl_compromise_conservative_closed`
 Verdict: `candidate_ready_for_local_FEM_and_coupon_before_FEM_package`
 FEM/APDL package ready: `False`
-Gate blockers: `['closure_rerun_not_package_ready', 'closure_rerun_elastic_twist_exceeds_bound', 'closure_rerun_bounded_twist_exceeds_bound', 'direct_spar_pair_stress_test_still_above_bound', 'missing_transition_or_control_station_contract', 'skin_sag_unknown_requires_test', 'bond_collar_spar_contact_needs_data', 'torque_critical_local_fem_required', 'hybrid_effective_gj_is_projection_only_not_closure_rerun']`
+Gate blockers: `['missing_transition_or_control_station_contract', 'skin_sag_unknown_requires_test', 'bond_collar_spar_contact_needs_data', 'torque_critical_local_fem_required']`
 
 ## Baseline Blocker
 
@@ -24,9 +24,9 @@ Gate blockers: `['closure_rerun_not_package_ready', 'closure_rerun_elastic_twist
 ## Closure Rerun Boundary
 
 - Rerun status: `rerun_supplied`.
-- Rerun verdict: `needs_aeroelastic_geometry_or_stiffness_rework`.
-- Bounded twist status: `still_high`.
-- Direct stress-test status: `still_above_screening_bound`.
+- Rerun verdict: `ready_for_fem_apdl_loadcase_package`.
+- Bounded twist status: `clears_bound`.
+- Direct stress-test status: `above_bound_conservative_stress_test`.
 
 ## Detail Blockers
 
@@ -43,14 +43,14 @@ Gate blockers: `['closure_rerun_not_package_ready', 'closure_rerun_elastic_twist
 - tube-wall local bearing/crush/peel allowables or local FEM
 - skin sag coupon/panel evidence for 0.30 m bays
 - transport/control/airfoil/twist transition station manifest
-- closure rerun with the selected effective stiffness model wired in
 
 ## Artifacts
 
 - candidate trade CSV: `/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/candidate_trade.csv`
 - local FEM/coupon requirements: `/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_requirements.json`
+- local FEM/coupon validation package: `/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/local_fem_coupon_validation_package.json`
 - summary JSON: `/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_torsion_rework_verdict/rib_torsion_rework_verdict.json`
 
 ## Engineering Read
 
-The next useful candidate is eps_balsa_cap_hybrid_10mm with bounded_65pct_screening. It projects direct and bounded twist below 3 deg with mass/CG carried, but it is not FEM/APDL-loadcase ready because the hybrid stiffness is projection-only and materialized bond/collar/skin sag/transition/local FEM data are still open: ['missing_transition_or_control_station_contract', 'skin_sag_unknown_requires_test', 'bond_collar_spar_contact_needs_data', 'torque_critical_local_fem_required']. Closure rerun status is rerun_supplied.
+The next useful candidate is eps_balsa_cap_hybrid_10mm with bounded_65pct_screening. It projects direct and bounded twist below 3 deg with mass/CG carried, but it is not FEM/APDL-loadcase ready because the closure rerun now consumes the hybrid effective-GJ screening surrogate and materialized bond/collar/skin sag/transition/local FEM data are still open: ['missing_transition_or_control_station_contract', 'skin_sag_unknown_requires_test', 'bond_collar_spar_contact_needs_data', 'torque_critical_local_fem_required']. Closure rerun status is rerun_supplied.
