@@ -40,7 +40,8 @@ def test_phase41_generates_buckle_decks_and_report_only_evidence(tmp_path: Path)
         encoding="utf-8"
     )
     assert "joint_link_mode=offset_rigid" in deck_text
-    assert "*STEP, NAME=buckle\n*BUCKLE" in deck_text
+    assert "*STEP, NAME=reference_static" not in deck_text
+    assert "*STEP\n*BUCKLE\n5\n*CLOAD" in deck_text
     assert "*NODE PRINT, NSET=HPA_SUPPORT_ROOT, TOTALS=ONLY" in deck_text
     assert "*NODE PRINT, NSET=HPA_SUPPORT_WIRE, TOTALS=ONLY" in deck_text
 

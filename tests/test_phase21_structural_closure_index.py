@@ -805,7 +805,7 @@ def test_closure_index_covers_requested_blockers_and_keeps_not_signed_off() -> N
     assert "no axial compression reference rows=2" in by_key[
         "full_wing_global_buckling"
     ].current_evidence
-    assert "transverse lift/moment reference" in by_key[
+    assert "Review Phase41 mode shape" in by_key[
         "full_wing_global_buckling"
     ].next_action
     assert "Phase31" in by_key["tip_deflection_limit"].evidence_artifacts

@@ -199,11 +199,10 @@ def test_write_dual_pipe_deck_can_export_buckle_reference_step(
     )
     text = deck.inp_path.read_text(encoding="utf-8")
 
-    assert "*STEP, NAME=reference_static" in text
-    assert "*CLOAD" in text
+    assert "*STEP, NAME=reference_static" not in text
+    assert "*STEP\n*BUCKLE\n3\n*CLOAD" in text
     assert f"{deck.node_sets['TIP_MAIN'][0]}, 3, -5" in text
-    assert "*STEP, NAME=buckle\n*BUCKLE\n3" in text
-    assert text.count("*END STEP") == 2
+    assert text.count("*END STEP") == 1
 
 
 def test_parse_total_force_from_dat_reads_named_set_totals(tmp_path: Path) -> None:

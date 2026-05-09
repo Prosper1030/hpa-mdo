@@ -1372,7 +1372,7 @@ def _next_action_for_key(key: str) -> str:
         "wire_termination": "Apply termination efficiency and hardware allowable, not just cable-body tensile allowable.",
         "rib_spacing_assumption": "Prove physical rib/bracing station spacing and stiffness before using the 0.30 m local-buckling bay.",
         "tip_deflection_limit": "Keep 2.5 m as a design-validity/submission gate unless a separate aeroelastic requirement changes it.",
-        "full_wing_global_buckling": "Replace Phase41 transverse lift/moment reference with a qualified global/prestress buckling load case before any 1.5G/1.75G global pass claim.",
+        "full_wing_global_buckling": "Review Phase41 mode shape, boundary conditions, reference-load physics, and mesh/link sensitivity before any 1.5G/1.75G global pass claim.",
         "failure_mode_ordering": "Re-rank with global bracing, joints, attachments, root fitting, and terminations included.",
     }
     return actions[key]

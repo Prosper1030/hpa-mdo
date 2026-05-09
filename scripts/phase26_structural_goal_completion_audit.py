@@ -202,6 +202,12 @@ def _evidence_strength_for_key(
         evidence_summary=evidence_summary,
     ):
         return "claim_boundary_plus_braced_route_not_rankable"
+    if _phase42_reference_load_review_required(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "claim_boundary_plus_braced_route_review_required"
     if _phase41_braced_route_unreviewed(
         key,
         evidence_artifacts=evidence_artifacts,
@@ -223,6 +229,12 @@ def _completion_blocker_for_key(
         evidence_summary=evidence_summary,
     ):
         return "braced_subassembly_reference_load_formulation_not_rankable"
+    if _phase42_reference_load_review_required(
+        key,
+        evidence_artifacts=evidence_artifacts,
+        evidence_summary=evidence_summary,
+    ):
+        return "braced_subassembly_reference_load_mode_mesh_review_missing"
     if _phase41_braced_route_unreviewed(
         key,
         evidence_artifacts=evidence_artifacts,
@@ -256,6 +268,20 @@ def _phase41_braced_route_unreviewed(
         and "Phase41" in evidence_artifacts
         and "braced_subassembly_reference_load_review_required" in evidence_summary
         and "Phase30 status=mode_review_missing" in evidence_summary
+    )
+
+
+def _phase42_reference_load_review_required(
+    key: str,
+    *,
+    evidence_artifacts: str,
+    evidence_summary: str,
+) -> bool:
+    return (
+        key == "full_wing_global_buckling"
+        and "Phase42" in evidence_artifacts
+        and "phase41_reference_load_review_required" in evidence_summary
+        and "not-rankable rows=0" in evidence_summary
     )
 
 

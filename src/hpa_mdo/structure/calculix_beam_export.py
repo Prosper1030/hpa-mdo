@@ -474,31 +474,27 @@ def _analysis_step_lines(
     analysis_kind: str,
     n_buckle_modes: int,
 ) -> list[str]:
-    reference_static = (
-        "*STEP, NAME=reference_static" if analysis_kind == "buckle" else "*STEP"
-    )
-    lines = [
-        reference_static,
-        "*STATIC",
-        "1.0, 1.0",
-        "*CLOAD",
-        *cload_lines,
-        *_reaction_output_block(node_sets),
-        "*END STEP",
-    ]
-    if analysis_kind == "static":
+    if analysis_kind == "buckle":
         return [
-            *lines[:-1],
+            "*STEP",
+            "*BUCKLE",
+            str(int(n_buckle_modes)),
+            "*CLOAD",
+            *cload_lines,
+            *_reaction_output_block(node_sets),
             "*NODE FILE, OUTPUT=2D",
             "U",
             "*END STEP",
             "",
         ]
+
     return [
-        *lines,
-        "*STEP, NAME=buckle",
-        "*BUCKLE",
-        str(int(n_buckle_modes)),
+        "*STEP",
+        "*STATIC",
+        "1.0, 1.0",
+        "*CLOAD",
+        *cload_lines,
+        *_reaction_output_block(node_sets),
         "*NODE FILE, OUTPUT=2D",
         "U",
         "*END STEP",
