@@ -1,0 +1,38 @@
+{
+  "schema_version": "rib_local_detail_geometry_freeze_v1",
+  "candidate_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
+  "station_id": "R068",
+  "station_y_m": 2.327955,
+  "spar_tubes_derived": {
+    "main_od_m": 0.1,
+    "main_wall_m": 0.001,
+    "rear_od_m": 0.08,
+    "rear_wall_m": 0.001
+  },
+  "preliminary_margin_summary": {
+    "C01_cap_shear_transfer": 128.921,
+    "C02_main_spar_bond_shear": 5039.653,
+    "C03_rear_spar_bond_shear": 4031.522,
+    "C04_bond_peel_main": 2.566,
+    "C05_collar_bearing": 355.553,
+    "C06_tube_crush_main": 1336.075,
+    "C06_tube_crush_rear": 1336.075,
+    "C07_skin_sag": 0.026
+  },
+  "worst_margin": 0.026,
+  "all_pass": true,
+  "missing_data_register_filled": {
+    "adhesive_shear_allowable_pa": "engineering_estimate_filled",
+    "adhesive_peel_allowable_pa": "engineering_estimate_filled",
+    "bondline_width_thickness_fillet": "engineering_estimate_filled",
+    "collar_material_thickness_contact_width": "design_intent_filled",
+    "spar_tube_od_wall_material": "design_derived_filled",
+    "balsa_cap_face_properties": "engineering_estimate_filled",
+    "eps_core_properties": "engineering_estimate_shape_support_only",
+    "skin_material_thickness_attachment": "engineering_estimate_filled"
+  },
+  "claim_boundary": "Geometry freeze and preliminary margins for P1 y=2.328 m local detail validation. Parameters tagged 'engineering_estimate' must be replaced with supplier or coupon data before qualified margin claims. This is not final bond, collar, tube-wall, buckling, or aircraft sign-off.",
+  "output_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_local_detail_geometry_freeze/geometry_allowable_freeze.json",
+  "output_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_local_detail_geometry_freeze/geometry_allowable_freeze.csv",
+  "output_report_md": "/Volumes/Samsung SSD/hpa-mdo/docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md"
+}

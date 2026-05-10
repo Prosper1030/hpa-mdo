@@ -427,10 +427,35 @@ Detailed local validation shortlist 已把這個 selected row 鎖成 P1，並把
 reserve 與 10 mm glass-face collar manufacturability fallback 列成 P2/P3；目前 verdict 只到
 `selected_candidate_ready_for_detailed_local_validation`。
 
+**Step 1 — Geometry and allowable freeze sheet 已完成（2026-05-11）：**
+`scripts/current_pathfinder_rib_local_detail_geometry_freeze.py` 已從 config
+thickness-fraction 推導出 y≈2.328 m 的 spar tube OD/wall（main CF-HM-100x98 100 mm /
+rear CF-HM-80x78 80 mm），填入全部八個 missing-data-register items（adhesive、
+bondline、collar、balsa cap、EPS、skin），並對 7 個 local failure modes 做 preliminary
+margin screen。所有 preliminary margin 均 pass；最緊的是 **C07 skin sag（margin 0.03）**
+與 **C04 bond peel（margin 2.57）**。C07 的緊是因為 process-sensitive pre-strain 假設，
+不是強度不足；adhesive / tube-wall / collar bearing 的裕度極大，這與 HPA 超輕載荷
+吻合。APDL skeleton 的所有 `= -1` placeholder 已用 v1 freeze 值填入，guarded flag
+改成 `SUPPLIER_DATA_REQUIRED = 0`。freeze sheet 位於
+`output/current_pathfinder_rib_local_detail_geometry_freeze/geometry_allowable_freeze.json`
+與 `docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md`。
+12 個 tests 通過。
+
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 `output/current_pathfinder_positive_torque_zone_validation/positive_zone_local_validation_package.md` 為起點，把 positive y≈2.328 m torque-critical local FEM / coupon package 從 guarded skeleton 推到 first local margin run。必須填：adhesive shear/peel allowables、bondline width/thickness/fillet、collar material/thickness/contact width、spar tube OD/wall/material、balsa/cap properties、EPS shape-only properties、skin material/thickness/attachment；然後跑 rib-to-main/rear-spar bond shear、peel、collar bearing、tube-wall crush/ovalization、EPS+balsa cap shear transfer、skin sag panel checks。仍不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural foam-only 當 structural bracing pass，也不能把 guarded APDL skeleton 或 direct spar-pair stress-test proxy 包成 FEM/APDL package-ready。
+在 /Volumes/Samsung SSD/hpa-mdo 以 geometry freeze sheet
+`output/current_pathfinder_rib_local_detail_geometry_freeze/geometry_allowable_freeze.json`
+為起點，繼續 Step 2：P1 local FEM pre-margin run at y≈2.328 m。
+重點確認：bond/collar/tube-wall FEM 反應是否符合 torsion/shear-transfer 預期；
+mesh refinement 下 stress extraction 是否穩定；skin sag panel FEM 是否再現 C07 的
+pre-strain 敏感性；C04 peel margin 是否在更精確幾何下仍 pass。
+supplier 資料確認優先順序：(1) adhesive datasheet、(2) 結構最佳化輸出的實際 spar tube
+OD（freeze 用的是 config 公式推算的上限值）、(3) balsa cap 實測剪切強度、(4) collar
+bearing coupon、(5) 覆膜工藝預緊應變規範。
+仍不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural
+foam-only 當 structural bracing pass，也不能把 preliminary margins 或 v1 freeze
+工程估算值包成 qualified FEM/APDL margin report。
 ```
 
 ## 8. 常用入口與角色
