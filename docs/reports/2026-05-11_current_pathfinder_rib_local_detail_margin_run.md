@@ -3,7 +3,7 @@
 > Date: 2026-05-11
 > Candidate: `eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75`
 > Station: R068 at y = 2.328 m
-> Schema: `rib_local_detail_margin_run_v1`
+> Schema: `rib_local_detail_margin_run_v2`
 
 ## Purpose
 
@@ -44,31 +44,36 @@ The eccentricity creates a peel moment M = F × r_spar per unit collar width.
 | peak peel stress | 747901 Pa = 0.7479 MPa |
 | peel force per width | 3739.5067 N/m |
 | peel allowable | 400 N/m |
-| **C04 margin** | **-0.893** (**CONCERN**) |
+| **C04 margin (rigid)** | **-0.893** (**CONCERN**) |
+| Theoretical min peel (any distribution) | 1870 N/m |
+| **Theoretical min margin** | **-0.786** (**CONCERN**) |
+| Min bondline needed to pass (theoretical) | 70 mm (current: 15 mm) |
 
 > Step 1 margin was 2.57 (peel_fraction=0.20). Step 2 eccentric moment gives -0.893.
-> If the geometry model is correct, this is still comfortable; if the bondline is narrower
-> or the collar does not wrap cleanly over the tube, this margin erodes quickly.
+> The theoretical minimum bound (independent of stress distribution) gives margin = -0.786: the 15 mm bondline is geometrically
+> insufficient. The bondline must be ≥ 70 mm, or the peel moment
+> must be redirected to a different load path (mechanical wrap, pin, bearing contact).
 
 ## C07 Skin Sag — Process Sensitivity Sweep
 
 The sag is inversely proportional to the covering pre-strain. This sweep shows the
 sensitivity over the realistic manufacturing range (0.005–0.20% pre-strain).
 
-| pre-strain % | membrane T N/m | sag mm | sag %chord | margin | pass |
-|---:|---:|---:|---:|---:|---|
-| 0.0050 | 5.62 | 57.70 | 4.871 | -0.897 | **FAIL** |
-| 0.0100 | 11.25 | 28.85 | 2.436 | -0.795 | **FAIL** |
-| 0.0200 | 22.50 | 14.43 | 1.218 | -0.589 | **FAIL** |
-| 0.0300 | 33.75 | 9.62 | 0.812 | -0.384 | **FAIL** |
-| 0.0500 | 56.25 | 5.77 | 0.487 | 0.026 | pass |
-| 0.0700 | 78.75 | 4.12 | 0.348 | 0.437 | pass |
-| 0.1000 | 112.50 | 2.88 | 0.244 | 1.053 | pass |
-| 0.1500 | 168.75 | 1.92 | 0.162 | 2.079 | pass |
-| 0.2000 | 225.00 | 1.44 | 0.122 | 3.106 | pass |
+| pre-strain % | T N/m | sag linear mm | sag NL mm | margin linear | margin NL | pass (NL) |
+|---:|---:|---:|---:|---:|---:|---|
+| 0.0050 | 5.62 | 57.70 | 4.39 | -0.897 | 0.349 | pass |
+| 0.0100 | 11.25 | 28.85 | 4.27 | -0.795 | 0.386 | pass |
+| 0.0200 | 22.50 | 14.43 | 4.04 | -0.589 | 0.466 | pass |
+| 0.0300 | 33.75 | 9.62 | 3.81 | -0.384 | 0.554 | pass |
+| 0.0500 | 56.25 | 5.77 | 3.37 | 0.026 | 0.759 | pass |
+| 0.0700 | 78.75 | 4.12 | 2.96 | 0.437 | 1.002 | pass |
+| 0.1000 | 112.50 | 2.88 | 2.43 | 1.053 | 1.435 | pass |
+| 0.1500 | 168.75 | 1.92 | 1.80 | 2.079 | 2.289 | pass |
+| 0.2000 | 225.00 | 1.44 | 1.40 | 3.106 | 3.232 | pass |
 
-Minimum viable pre-strain: **0.05 %**.
-Recommended process target (2× minimum): **0.1 %**.
+Linear model: minimum viable pre-strain **0.05 %** (nonlinear: **0.005 %**).
+Recommended process target (2× linear minimum): **0.1 %**.
+Nonlinear nominal margin (0.05% pre-strain): **0.759** (linear: 0.026). Linear is conservative by ~42%.
 
 > The process target pre-strain must be verified through a covering specification
 > (heat-shrink temperature / tension protocol) and panel test on a representative

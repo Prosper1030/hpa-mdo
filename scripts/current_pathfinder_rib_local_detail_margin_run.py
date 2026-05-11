@@ -37,7 +37,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
-SCHEMA_VERSION = "rib_local_detail_margin_run_v1"
+SCHEMA_VERSION = "rib_local_detail_margin_run_v2"
 CLAIM_BOUNDARY = (
     "Step 2 analytical margin run. Improvements over step-1 preliminary: SCF "
     "for bond shear ends, eccentric-moment peel model, Hertz bearing curvature "
@@ -63,6 +63,28 @@ PRESTRAIN_SWEEP_VALUES = [
     0.00005, 0.0001, 0.0002, 0.0003, 0.0005,
     0.0007, 0.001, 0.0015, 0.002,
 ]
+
+
+def _solve_membrane_nonlinear(p: float, E: float, t: float, L: float, eps0: float) -> float:
+    """Solve geometric-nonlinear membrane sag by bisection.
+
+    Governing equation (parabolic arc, fixed ends, uniform pressure):
+        p = (8Et/L²) * s * [eps0 + (8/3)*(s/L)²]
+
+    The geometric strain (8/3)*(s/L)² increases membrane tension as sag grows,
+    making the nonlinear sag smaller than the constant-tension linear estimate.
+    """
+    A = 8.0 * E * t * eps0 / L**2
+    B = 64.0 * E * t / (3.0 * L**4)
+    # Linear solution p = A*s gives the upper bound; 0 is the lower bound.
+    s_lo, s_hi = 0.0, p / max(A, 1e-30)
+    for _ in range(60):
+        s_mid = 0.5 * (s_lo + s_hi)
+        if A * s_mid + B * s_mid**3 > p:
+            s_hi = s_mid
+        else:
+            s_lo = s_mid
+    return 0.5 * (s_lo + s_hi)
 
 
 def _fval(v: Any, default: float) -> float:
@@ -174,6 +196,14 @@ def _compute_c04_peel_refined(
 
     margin = peel_allow_n_per_m / f_peel_per_width - 1.0
 
+    # Theoretical minimum: any peel distribution balancing the moment couple
+    # requires N+ >= m_per_width / a (best-case N+/N- couple at bondline ends).
+    # This lower bound is geometry-only and cannot be improved by material choice.
+    theoretical_min_peel = m_per_width / a
+    theoretical_min_margin = peel_allow_n_per_m / theoretical_min_peel - 1.0
+    # Minimum bondline width needed for theoretical lower bound to just pass.
+    min_bondline_for_pass_m = m_per_width / peel_allow_n_per_m
+
     return {
         "model": "eccentric_moment_rigid_adherend",
         "design_force_n": round(design_force, 4),
@@ -185,6 +215,10 @@ def _compute_c04_peel_refined(
         "peel_allowable_n_per_m": peel_allow_n_per_m,
         "C04_margin": round(margin, 3),
         "C04_status": "pass" if margin > 0 else "concern",
+        "c04_theoretical_min_peel_n_per_m": round(theoretical_min_peel, 4),
+        "c04_theoretical_min_margin": round(theoretical_min_margin, 3),
+        "c04_min_bondline_for_pass_m": round(min_bondline_for_pass_m, 5),
+        "c04_min_bondline_for_pass_mm": round(min_bondline_for_pass_m * 1000, 1),
         "step1_model": "peel_fraction_0.20_of_shear",
         "step1_margin": 2.57,
         "step2_improvement": "eccentric moment M=F*r_spar replaces empirical peel fraction",
@@ -292,16 +326,25 @@ def _compute_c07_skin_sag_sweep(
 
     sweep_results = []
     min_viable_prestrain = None
+    min_viable_prestrain_nl = None
     for prestrain in PRESTRAIN_SWEEP_VALUES:
         T = E_skin * t_skin * prestrain
         if T <= 0:
             continue
         sag_m = p_normal_per_span * bay_length_m**2 / (8.0 * T)
+        sag_nl_m = _solve_membrane_nonlinear(
+            p_normal_per_span, E_skin, t_skin, bay_length_m, prestrain
+        )
         sag_fraction = sag_m / chord_m
+        sag_nl_fraction = sag_nl_m / chord_m
         margin = sag_allow_m / sag_m - 1.0
+        margin_nl = sag_allow_m / sag_nl_m - 1.0
         passes = margin > 0
+        passes_nl = margin_nl > 0
         if passes and min_viable_prestrain is None:
             min_viable_prestrain = prestrain
+        if passes_nl and min_viable_prestrain_nl is None:
+            min_viable_prestrain_nl = prestrain
         sweep_results.append({
             "prestrain_pct": round(prestrain * 100, 4),
             "T_membrane_n_per_m": round(T, 4),
@@ -309,6 +352,10 @@ def _compute_c07_skin_sag_sweep(
             "sag_pct_chord": round(sag_fraction * 100, 4),
             "margin": round(margin, 4),
             "passes": passes,
+            "sag_nonlinear_m": round(sag_nl_m, 6),
+            "sag_nonlinear_pct_chord": round(sag_nl_fraction * 100, 4),
+            "margin_nonlinear": round(margin_nl, 4),
+            "passes_nonlinear": passes_nl,
         })
 
     nominal = next(r for r in sweep_results if abs(r["prestrain_pct"] - 0.05) < 0.001)
@@ -326,6 +373,9 @@ def _compute_c07_skin_sag_sweep(
         "nominal_sag_m": nominal["sag_m"],
         "nominal_sag_pct_chord": nominal["sag_pct_chord"],
         "nominal_margin": nominal["margin"],
+        "nominal_sag_nonlinear_m": nominal["sag_nonlinear_m"],
+        "nominal_sag_nonlinear_pct_chord": nominal["sag_nonlinear_pct_chord"],
+        "nominal_margin_nonlinear": nominal["margin_nonlinear"],
         "min_viable_prestrain_pct": (
             round(min_viable_prestrain * 100, 4) if min_viable_prestrain else None
         ),
@@ -333,10 +383,16 @@ def _compute_c07_skin_sag_sweep(
             round(min_viable_prestrain * 100 * 2.0, 4)
             if min_viable_prestrain else None
         ),
+        "min_viable_prestrain_nonlinear_pct": (
+            round(min_viable_prestrain_nl * 100, 4) if min_viable_prestrain_nl else None
+        ),
         "sweep": sweep_results,
         "C07_margin": nominal["margin"],
         "C07_status": "pass" if nominal["margin"] > 0 else "concern",
-        "step2_improvement": "parametric sweep; minimum viable pre-strain and 2x process target derived",
+        "step2_improvement": (
+            "parametric sweep with linear and geometric-nonlinear membrane models; "
+            "min viable pre-strain and 2x process target derived"
+        ),
     }
 
 
@@ -454,32 +510,42 @@ def _render_report_md(result: dict[str, Any], freeze: dict[str, Any]) -> str:
         f"| peak peel stress | {c04['peak_peel_stress_pa']:.0f} Pa = {c04['peak_peel_stress_pa']/1e6:.4f} MPa |",
         f"| peel force per width | {c04['f_peel_per_width_n_per_m']:.4f} N/m |",
         f"| peel allowable | {c04['peel_allowable_n_per_m']:.0f} N/m |",
-        f"| **C04 margin** | **{c04['C04_margin']:.3f}** ({_pf(c04['C04_margin'])}) |",
+        f"| **C04 margin (rigid)** | **{c04['C04_margin']:.3f}** ({_pf(c04['C04_margin'])}) |",
+        f"| Theoretical min peel (any distribution) | {c04['c04_theoretical_min_peel_n_per_m']:.0f} N/m |",
+        f"| **Theoretical min margin** | **{c04['c04_theoretical_min_margin']:.3f}** ({_pf(c04['c04_theoretical_min_margin'])}) |",
+        f"| Min bondline needed to pass (theoretical) | {c04['c04_min_bondline_for_pass_mm']:.0f} mm (current: 15 mm) |",
         "",
         f"> Step 1 margin was 2.57 (peel_fraction=0.20). Step 2 eccentric moment gives {c04['C04_margin']:.3f}.",
-        "> If the geometry model is correct, this is still comfortable; if the bondline is narrower",
-        "> or the collar does not wrap cleanly over the tube, this margin erodes quickly.",
+        "> The theoretical minimum bound (independent of stress distribution) gives"
+        f" margin = {c04['c04_theoretical_min_margin']:.3f}: the 15 mm bondline is geometrically",
+        f"> insufficient. The bondline must be ≥ {c04['c04_min_bondline_for_pass_mm']:.0f} mm, or the peel moment",
+        "> must be redirected to a different load path (mechanical wrap, pin, bearing contact).",
         "",
         "## C07 Skin Sag — Process Sensitivity Sweep",
         "",
         "The sag is inversely proportional to the covering pre-strain. This sweep shows the",
         f"sensitivity over the realistic manufacturing range ({PRESTRAIN_SWEEP_VALUES[0]*100:.3f}–{PRESTRAIN_SWEEP_VALUES[-1]*100:.2f}% pre-strain).",
         "",
-        "| pre-strain % | membrane T N/m | sag mm | sag %chord | margin | pass |",
-        "|---:|---:|---:|---:|---:|---|",
+        "| pre-strain % | T N/m | sag linear mm | sag NL mm | margin linear | margin NL | pass (NL) |",
+        "|---:|---:|---:|---:|---:|---:|---|",
     ]
 
     for row in c07["sweep"]:
         lines.append(
             f"| {row['prestrain_pct']:.4f} | {row['T_membrane_n_per_m']:.2f} | "
-            f"{row['sag_m']*1000:.2f} | {row['sag_pct_chord']:.3f} | "
-            f"{row['margin']:.3f} | {'pass' if row['passes'] else '**FAIL**'} |"
+            f"{row['sag_m']*1000:.2f} | {row['sag_nonlinear_m']*1000:.2f} | "
+            f"{row['margin']:.3f} | {row['margin_nonlinear']:.3f} | "
+            f"{'pass' if row['passes_nonlinear'] else '**FAIL**'} |"
         )
 
     lines += [
         "",
-        f"Minimum viable pre-strain: **{c07['min_viable_prestrain_pct']} %**.",
-        f"Recommended process target (2× minimum): **{c07['process_target_prestrain_pct']} %**.",
+        f"Linear model: minimum viable pre-strain **{c07['min_viable_prestrain_pct']} %**"
+        f" (nonlinear: **{c07['min_viable_prestrain_nonlinear_pct']} %**).",
+        f"Recommended process target (2× linear minimum): **{c07['process_target_prestrain_pct']} %**.",
+        f"Nonlinear nominal margin (0.05% pre-strain): **{c07['nominal_margin_nonlinear']:.3f}**"
+        f" (linear: {c07['nominal_margin']:.3f}). Linear is conservative by"
+        f" ~{(1 - c07['nominal_sag_nonlinear_m']/c07['nominal_sag_m'])*100:.0f}%.",
         "",
         "> The process target pre-strain must be verified through a covering specification",
         "> (heat-shrink temperature / tension protocol) and panel test on a representative",
@@ -569,7 +635,12 @@ def _write_sag_sweep_csv(result: dict[str, Any], path: Path) -> None:
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(
             fh,
-            fieldnames=["prestrain_pct", "T_membrane_n_per_m", "sag_m", "sag_pct_chord", "margin", "passes"],
+            fieldnames=[
+                "prestrain_pct", "T_membrane_n_per_m",
+                "sag_m", "sag_pct_chord", "margin", "passes",
+                "sag_nonlinear_m", "sag_nonlinear_pct_chord",
+                "margin_nonlinear", "passes_nonlinear",
+            ],
         )
         writer.writeheader()
         writer.writerows(sweep)
@@ -612,6 +683,12 @@ def write_margin_run_package(
         "c07_min_viable_prestrain_pct": result["C07_skin_sag"].get("min_viable_prestrain_pct"),
         "c07_process_target_prestrain_pct": result["C07_skin_sag"].get("process_target_prestrain_pct"),
         "c04_eccentric_moment_margin": result["C04_bond_peel"]["C04_margin"],
+        "c04_theoretical_min_margin": result["C04_bond_peel"]["c04_theoretical_min_margin"],
+        "c04_min_bondline_for_pass_mm": result["C04_bond_peel"]["c04_min_bondline_for_pass_mm"],
+        "c07_nominal_margin_nonlinear": result["C07_skin_sag"]["nominal_margin_nonlinear"],
+        "c07_nominal_sag_nonlinear_mm": round(
+            result["C07_skin_sag"]["nominal_sag_nonlinear_m"] * 1000, 3
+        ),
         "claim_boundary": CLAIM_BOUNDARY,
         "output_run_json": str(run_json_path),
         "output_margins_csv": str(margins_csv_path),

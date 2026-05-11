@@ -139,3 +139,32 @@ def test_report_md_contains_sweep_table(tmp_path: Path) -> None:
     md = paths["report_md"].read_text()
     assert "pre-strain" in md.lower()
     assert "min_viable_prestrain" in md or "Minimum viable" in md
+
+
+def test_c07_nonlinear_sag_less_than_linear(tmp_path: Path) -> None:
+    mod = _load_module()
+    freeze = json.loads(_FREEZE_JSON.read_text())
+    result = mod._run_all_margins(freeze)
+    c07 = result["C07_skin_sag"]
+    sag_lin = c07["nominal_sag_m"]
+    sag_nl = c07["nominal_sag_nonlinear_m"]
+    assert sag_nl < sag_lin, (
+        "Nonlinear sag must be smaller than linear (geometric strain stiffens membrane)"
+    )
+    assert c07["nominal_margin_nonlinear"] > c07["nominal_margin"], (
+        "Nonlinear margin must be larger than linear margin"
+    )
+
+
+def test_c04_theoretical_min_bondline_derived(tmp_path: Path) -> None:
+    report, _ = _run(tmp_path)
+    assert "c04_theoretical_min_margin" in report, (
+        "Theoretical minimum margin (geometry-only lower bound) must be in report JSON"
+    )
+    assert report["c04_theoretical_min_margin"] < 0, (
+        "Theoretical min margin must be negative: 15 mm bondline is geometrically insufficient"
+    )
+    assert "c04_min_bondline_for_pass_mm" in report
+    assert report["c04_min_bondline_for_pass_mm"] > 50, (
+        "Minimum bondline to pass must be >> current 15 mm (expect ~70 mm)"
+    )
