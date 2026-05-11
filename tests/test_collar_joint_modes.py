@@ -18,6 +18,8 @@ from collar_joint_modes import (  # noqa: E402
     LoadLineYoke,
     MU_REFERENCE,
     PeelBond,
+    SaddleRingYoke,
+    recommended_c04_fix,
     available_modes,
     joint_from_config,
     recommended_baseline,
@@ -447,3 +449,123 @@ def test_yoke_eliminates_most_peel_vs_original(reference_load: JointLoad) -> Non
     assert yoke > original, "Yoke should drastically improve over original peel design"
     assert yoke > 0, "Yoke at r_eff=3 mm must pass"
     assert original < 0, "Original 15 mm bondline must fail"
+
+
+# ---------------------------------------------------------------------------
+# SaddleRingYoke
+# ---------------------------------------------------------------------------
+
+def test_saddle_ring_passes_with_literature_geometry(reference_load: JointLoad) -> None:
+    mode = SaddleRingYoke(
+        arc_angle_rad=math.pi,
+        ring_width_m=0.030,
+        lug_height_m=0.005,
+        lug_width_m=0.012,
+        lug_foot_length_m=0.025,
+        tau_adhesive_pa=10.0e6,
+        k_concentration=2.0,
+        sigma_lug_bearing_pa=50.0e6,
+    )
+    r = mode.margin(reference_load)
+    assert r.margin > 0, f"Saddle ring must pass at literature geometry; got {r.margin:.3f}"
+    assert r.passes
+
+
+def test_saddle_ring_dramatically_better_than_peel_bond(reference_load: JointLoad) -> None:
+    saddle = SaddleRingYoke().margin(reference_load).margin
+    peel = PeelBond(c_factor=2.0).margin(reference_load).margin
+    assert saddle > peel, "Saddle ring must far outperform direct peel bond"
+    assert saddle > 0
+    assert peel < 0, "Original design must fail"
+
+
+def test_saddle_ring_lug_force_small(reference_load: JointLoad) -> None:
+    mode = SaddleRingYoke()
+    r = mode.margin(reference_load)
+    assert r.detail["F_lug_n"] < 30.0, (
+        f"Lug force should be ~24 N for 2.38 N·m at 50 mm radius; got {r.detail['F_lug_n']:.1f} N"
+    )
+
+
+def test_saddle_ring_avg_shear_very_low(reference_load: JointLoad) -> None:
+    mode = SaddleRingYoke()
+    r = mode.margin(reference_load)
+    assert r.detail["tau_ring_avg_mpa"] < 0.1, (
+        "Average ring shear must be << 0.1 MPa — area not the concern, end concentration is"
+    )
+
+
+def test_saddle_ring_higher_k_concentration_lower_margin(reference_load: JointLoad) -> None:
+    # The model captures end concentration, not lug-root peel explicitly.
+    # Higher k_concentration → higher effective shear demand → lower adhesive margin.
+    m_low_k = SaddleRingYoke(k_concentration=1.5).margin(reference_load).margin
+    m_high_k = SaddleRingYoke(k_concentration=3.0).margin(reference_load).margin
+    assert m_low_k > m_high_k, "Higher concentration factor must reduce adhesive margin"
+
+
+def test_saddle_ring_larger_arc_same_margins(reference_load: JointLoad) -> None:
+    m_180 = SaddleRingYoke(arc_angle_rad=math.pi).margin(reference_load).margin
+    m_360 = SaddleRingYoke(arc_angle_rad=2 * math.pi).margin(reference_load).margin
+    assert abs(m_180 - m_360) < 0.01, (
+        "Arc angle only affects average ring shear (info only); lug modes are identical"
+    )
+
+
+def test_saddle_ring_roundtrip(reference_load: JointLoad) -> None:
+    mode = SaddleRingYoke(arc_angle_rad=1.5 * math.pi, lug_height_m=0.006,
+                          tau_adhesive_pa=12.0e6)
+    restored = SaddleRingYoke.from_dict(mode.to_dict())
+    assert restored.arc_angle_rad == pytest.approx(1.5 * math.pi)
+    assert restored.tau_adhesive_pa == pytest.approx(12.0e6)
+    assert restored.margin(reference_load).margin == pytest.approx(
+        mode.margin(reference_load).margin, rel=1e-6
+    )
+
+
+def test_saddle_ring_factory(reference_load: JointLoad) -> None:
+    mode = joint_from_config({
+        "type": "saddle_ring_yoke",
+        "arc_angle_rad": math.pi,
+        "lug_height_m": 0.005,
+    })
+    assert isinstance(mode, SaddleRingYoke)
+    assert mode.margin(reference_load).passes
+
+
+def test_saddle_ring_in_registry() -> None:
+    assert "saddle_ring_yoke" in available_modes()
+
+
+# ---------------------------------------------------------------------------
+# recommended_c04_fix
+# ---------------------------------------------------------------------------
+
+def test_c04_fix_positive_margin(reference_load: JointLoad) -> None:
+    joint = recommended_c04_fix(reference_load)
+    r = joint.margin(reference_load)
+    assert r.margin > 0, (
+        f"C04 fix must yield positive governing margin; got {r.margin:.3f}"
+    )
+
+
+def test_c04_fix_all_pass(reference_load: JointLoad) -> None:
+    joint = recommended_c04_fix(reference_load)
+    r = joint.margin(reference_load)
+    assert r.passes
+    assert r.detail["all_pass"]
+
+
+def test_c04_fix_has_two_modes(reference_load: JointLoad) -> None:
+    joint = recommended_c04_fix(reference_load)
+    assert len(joint.modes) == 2
+    mode_ids = {m.mode_id for m in joint.modes}
+    assert "saddle_ring_yoke" in mode_ids
+    assert "friction_clamp" in mode_ids
+
+
+def test_c04_fix_better_than_original_peel(reference_load: JointLoad) -> None:
+    original = PeelBond(c_factor=2.0).margin(reference_load).margin
+    fix = recommended_c04_fix(reference_load).margin(reference_load).margin
+    assert fix > 0
+    assert original < 0
+    assert fix - original > 1.0, "Fix should improve margin by at least 1.0"

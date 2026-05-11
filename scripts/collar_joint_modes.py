@@ -583,6 +583,131 @@ class HybridJoint(CollarJointMode):
 
 
 # ---------------------------------------------------------------------------
+# Mode 6: SaddleRingYoke (C04 fix — conformal ring + low-profile tangential lugs)
+# ---------------------------------------------------------------------------
+
+class SaddleRingYoke(CollarJointMode):
+    """Conformal bonded saddle ring with diametrically-opposed tangential lugs.
+
+    Replaces the eccentric collar tab (C04 fix). A GFRP/CFRP ring wraps the
+    spar circumferentially; two low-profile lugs project tangentially; the rib
+    yoke pushes on the lugs to form a pure couple, eliminating the outward peel
+    moment that governs C04 failure.
+
+    Load path (no peel):
+        rib yoke arm → lug bearing (tangential)
+        → ring adhesive shear (large conformal area)
+        → spar OD surface shear
+
+    Literature basis (from search AI synthesis):
+      - Average ring shear at 48 N total force ≈ 0.012–0.024 MPa — not the
+        critical failure mode.
+      - Critical modes: concentrated adhesive shear at lug foot (use k_concentration
+        to capture non-uniform distribution) and lug bearing.
+      - h_lug must be << R_spar to keep lug-root peel small; ≤ 5–8 mm for 100 mm OD.
+      - Ring ends: taper + fillet; optional ±45° overwrap 20–30 mm past edge.
+    """
+    mode_id = "saddle_ring_yoke"
+
+    def __init__(
+        self,
+        *,
+        arc_angle_rad: float = math.pi,        # contact arc (π=180°, 2π=360°)
+        ring_width_m: float = 0.030,           # spanwise width of ring [m]
+        lug_height_m: float = 0.005,           # lug height above ring OD — keep ≤ 8 mm
+        lug_width_m: float = 0.012,            # lug width (span-direction) [m]
+        lug_foot_length_m: float = 0.025,      # adhesive bond length at lug base [m]
+        tau_adhesive_pa: float = 10.0e6,       # ring-to-spar adhesive shear allowable [Pa]
+        k_concentration: float = 2.0,          # shear concentration factor at lug foot
+        sigma_lug_bearing_pa: float = 50.0e6,  # rib yoke on lug bearing allowable [Pa]
+    ) -> None:
+        self.arc_angle_rad = arc_angle_rad
+        self.ring_width_m = ring_width_m
+        self.lug_height_m = lug_height_m
+        self.lug_width_m = lug_width_m
+        self.lug_foot_length_m = lug_foot_length_m
+        self.tau_adhesive_pa = tau_adhesive_pa
+        self.k_concentration = k_concentration
+        self.sigma_lug_bearing_pa = sigma_lug_bearing_pa
+
+    def _r_lug(self, load: JointLoad) -> float:
+        return load.R_m + self.lug_height_m / 2.0
+
+    def margin(self, load: JointLoad) -> JointResult:
+        r_lug = self._r_lug(load)
+        # Diametrically-opposed pair: M = 2 × F_lug × r_lug
+        F_lug = load.M_req_nm / (2.0 * r_lug)
+
+        # Mode 1: concentrated adhesive shear at lug foot
+        A_lug_foot = self.lug_width_m * self.lug_foot_length_m
+        tau_lug_foot = self.k_concentration * F_lug / A_lug_foot
+        m_adhesive = self.tau_adhesive_pa / tau_lug_foot - 1.0
+
+        # Mode 2: lug bearing (rib yoke face pushing tangentially on lug)
+        A_lug_bearing = self.lug_height_m * self.lug_width_m
+        sigma_bearing = F_lug / A_lug_bearing
+        m_bearing = self.sigma_lug_bearing_pa / sigma_bearing - 1.0
+
+        # Informational: average ring shear (much lower — large conformal area)
+        A_ring_total = self.arc_angle_rad * load.R_m * self.ring_width_m
+        tau_ring_avg = (load.M_req_nm / load.R_m) / A_ring_total
+
+        sub = {"adhesive_shear": m_adhesive, "lug_bearing": m_bearing}
+        ms = min(sub.values())
+        governs = min(sub, key=sub.__getitem__)
+        return JointResult(
+            margin=round(ms, 4),
+            governs=governs,
+            passes=ms > 0,
+            detail={
+                "r_lug_mm": round(r_lug * 1000, 2),
+                "F_lug_n": round(F_lug, 3),
+                "A_lug_foot_mm2": round(A_lug_foot * 1e6, 2),
+                "tau_lug_foot_mpa": round(tau_lug_foot / 1e6, 4),
+                "tau_adhesive_allow_mpa": self.tau_adhesive_pa / 1e6,
+                "sigma_bearing_mpa": round(sigma_bearing / 1e6, 4),
+                "sigma_bearing_allow_mpa": self.sigma_lug_bearing_pa / 1e6,
+                "A_ring_total_mm2": round(A_ring_total * 1e6, 1),
+                "tau_ring_avg_mpa": round(tau_ring_avg / 1e6, 6),
+                "arc_deg": round(math.degrees(self.arc_angle_rad), 1),
+                "lug_height_mm": round(self.lug_height_m * 1000, 1),
+                "k_concentration": self.k_concentration,
+                "sub_margins": {k: round(v, 3) for k, v in sub.items()},
+                "note": (
+                    "h_lug must be << R_spar to suppress root peel. "
+                    "Taper ring ends; optional ±45° overwrap 25 mm past ring edge."
+                ),
+            },
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": self.mode_id,
+            "arc_angle_rad": self.arc_angle_rad,
+            "ring_width_m": self.ring_width_m,
+            "lug_height_m": self.lug_height_m,
+            "lug_width_m": self.lug_width_m,
+            "lug_foot_length_m": self.lug_foot_length_m,
+            "tau_adhesive_pa": self.tau_adhesive_pa,
+            "k_concentration": self.k_concentration,
+            "sigma_lug_bearing_pa": self.sigma_lug_bearing_pa,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> SaddleRingYoke:
+        return cls(
+            arc_angle_rad=d.get("arc_angle_rad", math.pi),
+            ring_width_m=d.get("ring_width_m", 0.030),
+            lug_height_m=d.get("lug_height_m", 0.005),
+            lug_width_m=d.get("lug_width_m", 0.012),
+            lug_foot_length_m=d.get("lug_foot_length_m", 0.025),
+            tau_adhesive_pa=d.get("tau_adhesive_pa", 10.0e6),
+            k_concentration=d.get("k_concentration", 2.0),
+            sigma_lug_bearing_pa=d.get("sigma_lug_bearing_pa", 50.0e6),
+        )
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
@@ -592,6 +717,7 @@ _MODE_REGISTRY: dict[str, type[CollarJointMode]] = {
     FrictionClamp.mode_id: FrictionClamp,
     BondedShearKey.mode_id: BondedShearKey,
     HybridJoint.mode_id: HybridJoint,
+    SaddleRingYoke.mode_id: SaddleRingYoke,
 }
 
 
@@ -650,5 +776,39 @@ def recommended_baseline(load: JointLoad) -> HybridJoint:
             "Literature baseline: bonded shear key (primary) + "
             "yoke r_eff=3 mm (peel reduction) + "
             "split clamp N_c=600 N μ=0.15 (secondary positioning)"
+        ),
+    )
+
+
+def recommended_c04_fix(load: JointLoad) -> HybridJoint:
+    """C04-specific fix: saddle ring yoke (primary) + friction clamp (secondary).
+
+    Replaces the eccentric collar tab with a conformal saddle ring + tangential
+    lug pair. The rib yoke arms push on two diametrically-opposed low-profile
+    lugs, forming a pure couple with no outward peel moment.
+
+    Literature basis (Airglow, Google Patent US20130240671A1, Hart-Smith):
+      SaddleRingYoke: 30 mm wide GFRP ring, 180° arc, two 5 mm × 12 mm lugs,
+        tau_adhesive = 10 MPa (toughened epoxy), k_concentration = 2.0.
+      FrictionClamp: secondary positioning, mu = 0.15, N_c = 600 N.
+    """
+    return HybridJoint(
+        modes=[
+            SaddleRingYoke(
+                arc_angle_rad=math.pi,
+                ring_width_m=0.030,
+                lug_height_m=0.005,
+                lug_width_m=0.012,
+                lug_foot_length_m=0.025,
+                tau_adhesive_pa=10.0e6,
+                k_concentration=2.0,
+                sigma_lug_bearing_pa=50.0e6,
+            ),
+            FrictionClamp(mu=0.15, N_c_n=600.0, liner="cork_rubber_liner", role="secondary"),
+        ],
+        description=(
+            "C04 fix: saddle ring (conformal, no peel) + "
+            "low-profile tangential lug pair + "
+            "split clamp N_c=600 N (secondary positioning)"
         ),
     )
