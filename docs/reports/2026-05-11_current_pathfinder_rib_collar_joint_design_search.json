@@ -1,0 +1,13 @@
+{
+  "schema_version": "rib_collar_joint_design_search_v1",
+  "candidate_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
+  "station_id": "R068",
+  "baseline_margin_conservative": -0.893,
+  "baseline_margin_theoretical_min": -0.786,
+  "peel_bond_min_viable_bondline_mm": 110.0,
+  "yoke_max_viable_r_eff_mm": 1.0,
+  "friction_clamp_min_N_c_at_mu015": 400,
+  "shear_key_min_total_area_mm2": 50,
+  "recommended_governing_margin": 0.783,
+  "verdict": "redesign_required_viable_alternatives_identified"
+}
