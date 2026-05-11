@@ -1,0 +1,27 @@
+{
+  "schema_version": "rib_local_detail_margin_run_v1",
+  "candidate_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
+  "station_id": "R068",
+  "all_margins": {
+    "C01": 128.921,
+    "C02": 1679.218,
+    "C03": 1343.174,
+    "C04": -0.893,
+    "C05": 279.036,
+    "C06_main": 4157.539,
+    "C06_rear": 4147.037,
+    "C07": 0.0264
+  },
+  "worst_margin": -0.893,
+  "worst_coupon": "C04",
+  "all_pass": false,
+  "verdict": "step2_analytical_concern_review_needed",
+  "c07_min_viable_prestrain_pct": 0.05,
+  "c07_process_target_prestrain_pct": 0.1,
+  "c04_eccentric_moment_margin": -0.893,
+  "claim_boundary": "Step 2 analytical margin run. Improvements over step-1 preliminary: SCF for bond shear ends, eccentric-moment peel model, Hertz bearing curvature correction, Lame tube-wall, and parametric skin-sag sweep. This is still analytical, not physical coupon or full FEM sign-off.",
+  "output_run_json": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_local_detail_margin_run/local_detail_margin_run.json",
+  "output_margins_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_local_detail_margin_run/local_detail_margins.csv",
+  "output_sag_sweep_csv": "/Volumes/Samsung SSD/hpa-mdo/output/current_pathfinder_rib_local_detail_margin_run/skin_sag_prestrain_sweep.csv",
+  "output_report_md": "/Volumes/Samsung SSD/hpa-mdo/docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md"
+}

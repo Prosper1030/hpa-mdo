@@ -441,21 +441,43 @@ margin screen。所有 preliminary margin 均 pass；最緊的是 **C07 skin sag
 與 `docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md`。
 12 個 tests 通過。
 
+**Step 2 — Refined analytical margin run 已完成（2026-05-11）：**
+`scripts/current_pathfinder_rib_local_detail_margin_run.py` 讀入 Step 1 freeze JSON，
+對 7 個 failure modes 套用精化力學模型：C02/C03 Goland-Reissner 簡化 SCF（bond shear
+端部集中）、C04 偏心力矩模型（M = F × r_spar）取代 0.20 fraction proxy、C05 Hertz
+曲率修正（π/4）、C06 Lamé 厚壁筒 hoop stress、C07 parametric pre-strain sweep（找
+最小可行 pre-strain 與 2× 製程目標）。**關鍵工程發現：**
+
+- **C04 bond peel：margin = −0.893（fail）**。偏心力矩模型顯示 rib collar tab 與
+  spar tube 的 peel load 約 3,740 N/m，遠超過估算允許值 400 N/m。Step 1 的 margin
+  2.57（用 0.20 fraction proxy）低估了 peel eccentricity。這是真實工程發現，不是
+  程式錯誤；rigid adherend 模型可能偏保守（collar 撓性、adhesive fillet 未計入），
+  但在 Step 4 margin 宣稱之前必須先做 **C04 物理 coupon 試驗**。
+- **C07 skin sag：nominal margin 0.026**，min viable pre-strain 約 0.05%，
+  process target（2×）約 0.10%。製程規格（覆膜收縮協定、預緊量、
+  代表性 0.30 m bay panel 試驗）仍是未關閉事項。
+- C01/C02/C03/C05/C06 analytical margins 均大（>100），在 HPA 超輕載荷下不是
+  governing failure modes。
+
+Step 2 verdict：`step2_analytical_concern_review_needed`（因 C04 為 negative margin）。
+輸出位於 `docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.json`
+與 `docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md`。
+12 個 tests 通過（24/24 兩個 Step 合計）。
+
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo 以 geometry freeze sheet
-`output/current_pathfinder_rib_local_detail_geometry_freeze/geometry_allowable_freeze.json`
-為起點，繼續 Step 2：P1 local FEM pre-margin run at y≈2.328 m。
-重點確認：bond/collar/tube-wall FEM 反應是否符合 torsion/shear-transfer 預期；
-mesh refinement 下 stress extraction 是否穩定；skin sag panel FEM 是否再現 C07 的
-pre-strain 敏感性；C04 peel margin 是否在更精確幾何下仍 pass。
-supplier 資料確認優先順序：(1) adhesive datasheet、(2) 結構最佳化輸出的實際 spar tube
-OD（freeze 用的是 config 公式推算的上限值）、(3) balsa cap 實測剪切強度、(4) collar
-bearing coupon、(5) 覆膜工藝預緊應變規範。
-仍不能把 rear_spar_participation=1.0 當 selected basis，不能把 EPS/XPS/structural
-foam-only 當 structural bracing pass，也不能把 preliminary margins 或 v1 freeze
-工程估算值包成 qualified FEM/APDL margin report。
+在 /Volumes/Samsung SSD/hpa-mdo，Step 2 已確認 C04 bond peel 是 analytical critical
+blocker（eccentric moment model margin = −0.893）。下一步是 Step 3：
+針對 C04 coupon 設計 — 定義 collar tab bondline 幾何、試驗構型、
+所需供應商 datasheet（adhesive Gc / peel strength）、specimen製作規範與
+acceptance criterion；同時把 C07 skin sag 的 process pre-strain specification
+（覆膜工藝規範、panel test protocol）也納入同一份 coupon matrix 文件。
+Step 3 輸出應為 coupon test specification matrix（C04 + C07 至少）和
+supplier data request list，供接下來的 Step 4（local margin report 用
+coupon-backed allowables 取代工程估算值）使用。
+仍不能把 Step 2 analytical margins 當成 final margin；C04 eccentric moment model
+margin −0.893 是 conservative analytical estimate，物理 coupon 才是最終判依。
 ```
 
 ## 8. 常用入口與角色
@@ -514,6 +536,10 @@ foam-only 當 structural bracing pass，也不能把 preliminary margins 或 v1 
   - `docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md`
   - `scripts/current_pathfinder_positive_torque_zone_validation_package.py`
   - `docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md`
+  - `scripts/current_pathfinder_rib_local_detail_geometry_freeze.py`
+  - `docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md`
+  - `scripts/current_pathfinder_rib_local_detail_margin_run.py`
+  - `docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md`
 - 角色：把 committed tail/CG basis、physical rib station basis、rear-spar participation、
   warping knockdown、mass/CG bookkeeping 與 closure ranking 接成 tail-aware aeroelastic
   screening basis，並把 current pathfinder 的 rib station / bay / missing contract / skin sag /
