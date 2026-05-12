@@ -4,12 +4,38 @@
     0.75
   ],
   "claim_boundary": "Managed CG is a screening closure row. It is not measured aircraft CG and not approval to accept the uncompensated mass state.",
+  "computed_uncompensated_cg_m": 0.780039,
+  "confidence_summary": {
+    "estimate": 5,
+    "frozen": 0,
+    "measured": 0,
+    "quoted": 0
+  },
   "forward_rebalance_limit_m": 0.2,
+  "gross_mass_kg": 106.828608,
   "managed_final_cg_m": 0.75,
+  "mass_balance_delta_kg": -0.0,
+  "missing_data_preventing_higher_confidence": [
+    "measured component weights and measured aircraft CG",
+    "full y/z component locations for inertia and lateral/vertical balance",
+    "supplier-quoted spar splice, tube, clamp, and saddle/yoke masses",
+    "coupon/local FEM evidence for C04 saddle/yoke/clamp and C07 skin sag",
+    "independent QPROP/XROTOR propulsion margin feed-in"
+  ],
+  "qprop_xrotor_policy": {
+    "role": "independent_propulsion_lane_only",
+    "used_in_structural_blocker_verdict": false
+  },
   "rebalance_mass_kg": 56.0,
   "required_forward_rebalance_m": 0.057304,
-  "schema_version": "baseline_a_team_release_v1",
+  "schema_version": "baseline_a_mass_cg_margin_ledger_v1",
+  "source_uncompensated_cg_m": 0.780039,
+  "source_updated_screening_mass_kg": 106.828608,
+  "static_margin": 0.092835,
   "status": "managed_final_cg_pass",
+  "tail_trim_status": "pass",
+  "uncompensated_cg_delta_m": -0.0,
   "uncompensated_cg_m": 0.780039,
-  "uncompensated_cg_status": "explicitly_rejected"
+  "uncompensated_cg_status": "explicitly_rejected",
+  "verdict": "mass_cg_margin_ledger_ready"
 }

@@ -15,6 +15,7 @@ Baseline A is a team release package for current pathfinder execution. It is not
 - Managed CG: `0.75 m`
 - Required forward rebalance: `0.057304 m`
 - Bounded physical twist: `1.906952370757391 deg`
+- Ledger artifacts: `mass_budget.csv`, `cg_summary.json`, `margin_budget.md`, `mass_cg_margin_daily_review.md`
 
 ## frozen / do not casually change
 

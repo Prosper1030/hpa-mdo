@@ -535,6 +535,17 @@ packages。這是把 current pathfinder 轉成可交付、可分工、可重跑�
 package；它不新增物理功能，也不能被解讀成 final aircraft sign-off。AI work-order protocol
 位於 `docs/AI_WORK_ORDER_PROTOCOL.md`，priority queue 位於 `docs/work_orders/QUEUE.md`。
 
+**WO-002 — Baseline A mass / CG / margin ledger 已建立（2026-05-12）：**
+`scripts/build_baseline_a_release.py` 現在會在同一個 release package 內輸出
+`mass_budget.csv`、`cg_summary.json`、`margin_budget.md` 與
+`mass_cg_margin_daily_review.md`。ledger verdict 是
+`mass_cg_margin_ledger_ready`：gross screening mass `106.828608 kg`、computed
+uncompensated CG `0.780039 m` 仍 `explicitly_rejected`、managed CG `0.75 m` 與
+required forward rebalance `0.057304 m` 保留；C04 original peel margin `-0.893` 與
+installed saddle/yoke/clamp governing margin `0.8876` 同時可見。所有目前 component
+mass rows 都是 `estimate` confidence，不能被讀成 measured/frozen weight-and-balance；
+QPROP/XROTOR 仍是獨立 propulsion lane，不參與 C04 / rib structural blocker verdict。
+
 ## 8. 常用入口與角色
 
 ### A. Mission / upstream concept

@@ -12,12 +12,20 @@ The current release package is:
 
 - `output/baseline_A_team_release/baseline_A_team_release.md`
 - `output/baseline_A_team_release/geometry_freeze.json`
+- `output/baseline_A_team_release/mass_budget.csv`
+- `output/baseline_A_team_release/cg_summary.json`
+- `output/baseline_A_team_release/margin_budget.md`
 - `output/baseline_A_team_release/team_work_packages.md`
 
 The current structural blocker verdict is
 `p1_local_load_path_ready_for_coupon_fem`. That means P1 can proceed to
 coupon/local FEM. It does not prove final adhesive, laminate, tube-wall,
 buckling, manufacturing, flight-dynamics, or aircraft sign-off.
+
+The current mass / CG / margin ledger verdict is
+`mass_cg_margin_ledger_ready`. Its rows are screening estimates unless a row
+explicitly says otherwise; managed CG is the `0.75 m` screening row and
+uncompensated CG remains rejected.
 
 ## Worker Startup
 

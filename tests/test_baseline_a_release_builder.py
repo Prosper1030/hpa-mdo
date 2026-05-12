@@ -37,6 +37,8 @@ def test_release_builder_writes_required_team_package(tmp_path: Path) -> None:
         "geometry_freeze.json",
         "mass_budget.csv",
         "cg_summary.json",
+        "margin_budget.md",
+        "mass_cg_margin_daily_review.md",
         "drag_power_budget.csv",
         "tail_trim_stability_summary.json",
         "structure_interface_pack.md",
@@ -59,6 +61,7 @@ def test_release_builder_writes_required_team_package(tmp_path: Path) -> None:
     assert "controlled / can change with review" in release_md
     assert "open validation / assigned to team" in release_md
     assert "reopen trigger / would force major redesign" in release_md
+    assert "margin_budget.md" in release_md
 
 
 def test_machine_artifacts_lock_pathfinder_numbers_and_boundaries(tmp_path: Path) -> None:
@@ -74,18 +77,35 @@ def test_machine_artifacts_lock_pathfinder_numbers_and_boundaries(tmp_path: Path
     assert geometry["controlled"]["c04_fix"] == "saddle_ring_yoke_plus_secondary_clamp"
     assert "coupon" in geometry["open_validation"]["p1_local_load_path"]
     assert "final aircraft sign-off" in geometry["claim_boundary"]
+    assert geometry["screening_numbers"]["baseline_c04_peel_margin"] == pytest.approx(-0.893)
+    assert geometry["screening_numbers"]["installed_fix_governing_margin"] == pytest.approx(
+        0.8876
+    )
 
     with (output_dir / "mass_budget.csv").open(newline="", encoding="utf-8") as handle:
         rows = {row["item"]: row for row in csv.DictReader(handle)}
-    assert float(rows["p1_c04_fix_full_wing"]["mass_kg"]) == pytest.approx(0.093839)
-    assert float(rows["spar_splice_full_wing"]["mass_kg"]) == pytest.approx(3.847)
-    assert float(rows["updated_screening_mass_basis"]["mass_kg"]) == pytest.approx(106.828608)
-    assert rows["updated_screening_mass_basis"]["status"] == "screening_basis_not_measured_weight"
+    assert float(rows["p1_c04_saddle_ring_yoke_clamp_pair"]["mass_kg"]) == pytest.approx(
+        0.093839
+    )
+    assert float(rows["spar_splice_transport_joint_pack"]["mass_kg"]) == pytest.approx(3.847)
+    assert sum(float(row["mass_kg"]) for row in rows.values()) == pytest.approx(106.828608)
+    assert rows["base_aircraft_pilot_screening_mass"]["status"] == (
+        "screening_aggregate_not_measured_weight"
+    )
+    assert {row["confidence"] for row in rows.values()} == {"estimate"}
+    assert rows["selected_tail_screening_delta"]["affects_drag"] == "yes"
+    assert rows["fast_design_loop_selected_rib_pack"]["affects_structure"] == "yes"
 
     cg = json.loads((output_dir / "cg_summary.json").read_text(encoding="utf-8"))
+    assert cg["verdict"] == "mass_cg_margin_ledger_ready"
+    assert cg["gross_mass_kg"] == pytest.approx(106.828608)
+    assert cg["computed_uncompensated_cg_m"] == pytest.approx(0.780039)
     assert cg["managed_final_cg_m"] == pytest.approx(0.75)
     assert cg["required_forward_rebalance_m"] == pytest.approx(0.057304)
     assert cg["uncompensated_cg_status"] == "explicitly_rejected"
+    assert cg["qprop_xrotor_policy"]["used_in_structural_blocker_verdict"] is False
+    assert cg["confidence_summary"]["estimate"] == len(rows)
+    assert cg["confidence_summary"]["measured"] == 0
 
 
 def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path: Path) -> None:
@@ -99,6 +119,17 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
     assert "P1 is ready for coupon/local FEM" in structure
     assert "C04 original peel path fails" in structure
     assert "governing clamp margin `0.8876`" in structure
+
+    margin_budget = (output_dir / "margin_budget.md").read_text(encoding="utf-8")
+    assert "mass_cg_margin_ledger_ready" in margin_budget
+    assert "C04 original eccentric peel" in margin_budget
+    assert "-0.893" in margin_budget
+    assert "0.8876" in margin_budget
+    assert "uncompensated CG row is rejected" in margin_budget
+
+    daily_summary = (output_dir / "mass_cg_margin_daily_review.md").read_text(encoding="utf-8")
+    assert "Gross mass | 106.828608 kg" in daily_summary
+    assert "QPROP/XROTOR | independent lane" in daily_summary
 
     work_packages = (output_dir / "team_work_packages.md").read_text(encoding="utf-8")
     for queue_item in (

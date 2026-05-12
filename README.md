@@ -242,6 +242,10 @@ Baseline A team release system 已建立（2026-05-12），讀
 budgets、interface packs、change-control rules 和 work-order queue。這仍不是 final aircraft
 sign-off；P1 只到 coupon/local FEM readiness，C04 fix 是 architecture-selected 但仍需
 coupon/local FEM，QPROP/XROTOR 保持獨立 propulsion lane。
+WO-002 mass / CG / margin ledger 已補進同一個 release builder：`mass_budget.csv` 是
+component-level screening ledger，`cg_summary.json` 保留 managed vs uncompensated CG，
+`margin_budget.md` 和 `mass_cg_margin_daily_review.md` 是每日審查入口。所有現有 mass rows
+仍是 `estimate`，不是 measured/frozen weight-and-balance。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -288,6 +292,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 3 m 翼板 spar splice 設計 | `scripts/current_pathfinder_spar_splice_design.py` (13 tests) | 5 joints per half-wing on structural freeze half-span 16.5 m; all pass; 3.85 kg full-wing; inboard spigot wall 1.02 mm; 3 m limit locked |
 | 看 P1 C04 load path 與 mass/CG/tail/closure 回灌後 verdict | [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 saddle/yoke/clamp + splice mass charged to closure; coupon/local FEM next |
 | 接 Baseline A team release package | `output/baseline_A_team_release/` | `baseline_A_release_system_ready`; team release + interface packs + change-control rules; not final aircraft sign-off |
+| 看 Baseline A mass / CG / margin ledger | `output/baseline_A_team_release/margin_budget.md` + `mass_cg_margin_daily_review.md` | `mass_cg_margin_ledger_ready`; central screening ledger；uncompensated CG rejected；不是 measured/frozen W&B |
 | 讓 AI thread 自動接任務 | [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md) + [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) | work-order lifecycle, required report shape, reviewer prompt, priority queue |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |

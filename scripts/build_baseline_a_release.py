@@ -27,7 +27,10 @@ DEFAULT_P1_SUMMARY_JSON = (
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "baseline_A_team_release"
 
 SCHEMA_VERSION = "baseline_a_team_release_v1"
+LEDGER_SCHEMA_VERSION = "baseline_a_mass_cg_margin_ledger_v1"
 RELEASE_VERDICT = "baseline_A_release_system_ready"
+LEDGER_VERDICT = "mass_cg_margin_ledger_ready"
+CONFIDENCE_LEVELS = {"estimate", "quoted", "measured", "frozen"}
 
 
 def build_baseline_a_release(
@@ -82,6 +85,8 @@ def write_baseline_a_release_package(
         "geometry_freeze": output_dir / "geometry_freeze.json",
         "mass_budget": output_dir / "mass_budget.csv",
         "cg_summary": output_dir / "cg_summary.json",
+        "margin_budget": output_dir / "margin_budget.md",
+        "daily_review_summary": output_dir / "mass_cg_margin_daily_review.md",
         "drag_power_budget": output_dir / "drag_power_budget.csv",
         "tail_trim_stability": output_dir / "tail_trim_stability_summary.json",
         "structure_pack": output_dir / "structure_interface_pack.md",
@@ -97,6 +102,8 @@ def write_baseline_a_release_package(
     _write_json(paths["geometry_freeze"], context["geometry_freeze"])
     _write_mass_budget(paths["mass_budget"], context)
     _write_json(paths["cg_summary"], _cg_summary(context))
+    _write_text(paths["margin_budget"], _render_margin_budget(context))
+    _write_text(paths["daily_review_summary"], _render_daily_review_summary(context))
     _write_drag_power_budget(paths["drag_power_budget"], context)
     _write_json(paths["tail_trim_stability"], _tail_trim_summary(context))
     _write_text(paths["structure_pack"], _render_structure_pack(context))
@@ -197,6 +204,8 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
             f"- Managed CG: `{cg['final_screening_cg_x_m']} m`",
             f"- Required forward rebalance: `{cg['required_forward_rebalance_m']} m`",
             f"- Bounded physical twist: `{aero['conservative_bounded_physical_projection_max_abs_deg']} deg`",
+            "- Ledger artifacts: `mass_budget.csv`, `cg_summary.json`, "
+            "`margin_budget.md`, `mass_cg_margin_daily_review.md`",
             "",
             "## frozen / do not casually change",
             "",
@@ -236,73 +245,447 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
     )
 
 
-def _write_mass_budget(path: Path, context: Mapping[str, Any]) -> None:
-    mass = _mapping_at(context, "mass")
-    drag = _mapping_at(context, "drag_power")
+def _mass_ledger_rows(context: Mapping[str, Any]) -> list[dict[str, Any]]:
+    cg = _mapping_at(context, "cg")
+    local = _mapping_at(context, "local")
+    drag_power = _mapping_at(context, "drag_power")
+    source = str(context["source_artifact"])
+    mass_items = {str(item["name"]): item for item in cg["mass_items"]}
     rows = [
-        {
-            "item": "source_screening_mass_before_integrated_items",
-            "mass_kg": _fmt(mass["source_total_mass_after_items_kg"]),
-            "status": "source_screening_basis",
-            "basis": "selected hybrid closure before C04 fix and splice mass",
-            "owner": "release_builder",
-        },
-        {
-            "item": "rib_mass_delta",
-            "mass_kg": _fmt(drag["rib_mass_delta_kg"]),
-            "status": "charged_to_screening_read",
-            "basis": "selected physical rib/torsion basis",
-            "owner": "structures",
-        },
-        {
-            "item": "tail_mass_delta",
-            "mass_kg": _fmt(drag["tail_mass_delta_kg"]),
-            "status": "charged_to_screening_read",
-            "basis": "tail/CG/trim/stability screening",
-            "owner": "controls",
-        },
-        {
-            "item": "p1_c04_fix_full_wing",
-            "mass_kg": _fmt(mass["additional_masses_kg"]["p1_c04_fix_full_wing"]),
-            "status": "architecture_selected_needs_coupon_local_fem",
-            "basis": "saddle ring yoke plus secondary clamp",
-            "owner": "structures",
-        },
-        {
-            "item": "spar_splice_full_wing",
-            "mass_kg": _fmt(mass["additional_masses_kg"]["spar_splice_full_wing"]),
-            "status": "screening_design_needs_rfq_detail",
-            "basis": "3 m panel transport spar splice pack",
-            "owner": "manufacturing",
-        },
-        {
-            "item": "updated_screening_mass_basis",
-            "mass_kg": _fmt(mass["updated_total_mass_after_items_kg"]),
-            "status": "screening_basis_not_measured_weight",
-            "basis": "P1 load-path mass closure report",
-            "owner": "chief_engineering",
-        },
+        _mass_ledger_row(
+            item="base_aircraft_pilot_screening_mass",
+            component_name="Base aircraft, pilot, cockpit, and legacy screening aggregate",
+            mass_kg=cg["base_mass_kg"],
+            x_m=cg["base_cg_x_m"],
+            owner="chief_engineering",
+            source_artifact=source,
+            source_assumption=(
+                "P1 cg_management base_mass_kg and base_cg_x_m aggregate the pre-ledger "
+                "screening aircraft/pilot basis."
+            ),
+            confidence="estimate",
+            affects_cg=True,
+            affects_drag=False,
+            affects_power=True,
+            affects_structure=True,
+            status="screening_aggregate_not_measured_weight",
+            notes="Kept as a single aggregate until measured component manifests exist.",
+            trust_boundary="Screening mass basis, not measured weight and balance.",
+        ),
+        _mass_ledger_row(
+            item="selected_tail_screening_delta",
+            component_name="All-moving tail screening mass delta",
+            mass_kg=mass_items["selected_tail_screening_delta"]["mass_kg"],
+            x_m=mass_items["selected_tail_screening_delta"]["x_m"],
+            owner="controls",
+            source_artifact=source,
+            source_assumption="Tail/CG/trim/stability screening delta charged to Baseline A.",
+            confidence="estimate",
+            affects_cg=True,
+            affects_drag=True,
+            affects_power=True,
+            affects_structure=True,
+            status="charged_to_screening_read",
+            notes=(
+                f"Carries tail CD0 increment {_fmt(drag_power['tail_cd0_increment'])} and "
+                f"profile power increment {_fmt(drag_power['tail_profile_power_increment_w'])} W."
+            ),
+            trust_boundary="Tail screening placeholder, not tailboom or hardware sign-off.",
+        ),
+        _mass_ledger_row(
+            item="fast_design_loop_selected_rib_pack",
+            component_name="Selected hybrid rib/torsion pack",
+            mass_kg=mass_items["fast_design_loop_selected_rib_pack"]["mass_kg"],
+            x_m=mass_items["fast_design_loop_selected_rib_pack"]["x_m"],
+            owner="structures",
+            source_artifact=source,
+            source_assumption=(
+                "Fast design-loop selected rib pack on 0.30 m materialized rib/station basis."
+            ),
+            confidence="estimate",
+            affects_cg=True,
+            affects_drag=False,
+            affects_power=True,
+            affects_structure=True,
+            status="charged_to_screening_read",
+            notes="EPS/balsa hybrid rib pack remains a screening structural basis.",
+            trust_boundary="Needs local FEM/coupon and manufacturing evidence before build sign-off.",
+        ),
+        _mass_ledger_row(
+            item="p1_c04_saddle_ring_yoke_clamp_pair",
+            component_name="P1 C04 saddle-ring/yoke plus secondary clamp fix",
+            mass_kg=mass_items["p1_c04_saddle_ring_yoke_clamp_pair"]["mass_kg"],
+            x_m=mass_items["p1_c04_saddle_ring_yoke_clamp_pair"]["x_m"],
+            owner="structures",
+            source_artifact=source,
+            source_assumption="recommended_c04_fix() analytical screening mass.",
+            confidence="estimate",
+            affects_cg=True,
+            affects_drag=False,
+            affects_power=True,
+            affects_structure=True,
+            status="architecture_selected_needs_coupon_local_fem",
+            notes=(
+                f"Original C04 peel path remains fail evidence at margin "
+                f"{_fmt(local['baseline_c04_margin'])}."
+            ),
+            trust_boundary="Architecture-selected fix, not coupon/local FEM sign-off.",
+        ),
+        _mass_ledger_row(
+            item="spar_splice_transport_joint_pack",
+            component_name="3 m transport spar splice pack",
+            mass_kg=mass_items["spar_splice_transport_joint_pack"]["mass_kg"],
+            x_m=mass_items["spar_splice_transport_joint_pack"]["x_m"],
+            owner="manufacturing",
+            source_artifact=source,
+            source_assumption="3 m spar splice screening design mass for full wing.",
+            confidence="estimate",
+            affects_cg=True,
+            affects_drag=False,
+            affects_power=True,
+            affects_structure=True,
+            status="screening_design_needs_rfq_detail",
+            notes="Supplier quote and fit/tolerance checks are still open.",
+            trust_boundary="Screening splice design, not released production drawing.",
+        ),
     ]
-    _write_csv(path, rows, ["item", "mass_kg", "status", "basis", "owner"])
+    _validate_confidence_levels(rows)
+    return rows
+
+
+def _mass_ledger_row(
+    *,
+    item: str,
+    component_name: str,
+    mass_kg: Any,
+    x_m: Any,
+    owner: str,
+    source_artifact: str,
+    source_assumption: str,
+    confidence: str,
+    affects_cg: bool,
+    affects_drag: bool,
+    affects_power: bool,
+    affects_structure: bool,
+    status: str,
+    notes: str,
+    trust_boundary: str,
+    y_m: Any = "",
+    z_m: Any = "",
+) -> dict[str, Any]:
+    return {
+        "item": item,
+        "component_name": component_name,
+        "mass_kg": _fmt(mass_kg),
+        "x_m": _fmt(x_m),
+        "y_m": _fmt(y_m),
+        "z_m": _fmt(z_m),
+        "owner": owner,
+        "source_artifact": source_artifact,
+        "source_assumption": source_assumption,
+        "confidence": confidence,
+        "affects_cg": _yes_no(affects_cg),
+        "affects_drag": _yes_no(affects_drag),
+        "affects_power": _yes_no(affects_power),
+        "affects_structure": _yes_no(affects_structure),
+        "status": status,
+        "notes": notes,
+        "trust_boundary": trust_boundary,
+    }
+
+
+def _validate_confidence_levels(rows: list[Mapping[str, Any]]) -> None:
+    unknown = sorted({str(row["confidence"]) for row in rows} - CONFIDENCE_LEVELS)
+    if unknown:
+        raise ValueError(f"Unknown confidence levels: {', '.join(unknown)}")
+
+
+def _ledger_gross_mass_kg(rows: list[Mapping[str, Any]]) -> float:
+    return sum(float(row["mass_kg"]) for row in rows if row["mass_kg"] != "")
+
+
+def _ledger_cg_x_m(rows: list[Mapping[str, Any]]) -> float:
+    cg_rows = [
+        row
+        for row in rows
+        if row["affects_cg"] == "yes" and row["mass_kg"] != "" and row["x_m"] != ""
+    ]
+    mass = _ledger_gross_mass_kg(cg_rows)
+    return sum(float(row["mass_kg"]) * float(row["x_m"]) for row in cg_rows) / mass
+
+
+def _confidence_summary(rows: list[Mapping[str, Any]]) -> dict[str, int]:
+    summary = {level: 0 for level in sorted(CONFIDENCE_LEVELS)}
+    for row in rows:
+        summary[str(row["confidence"])] += 1
+    return summary
+
+
+def _write_mass_budget(path: Path, context: Mapping[str, Any]) -> None:
+    rows = _mass_ledger_rows(context)
+    fieldnames = [
+        "item",
+        "component_name",
+        "mass_kg",
+        "x_m",
+        "y_m",
+        "z_m",
+        "owner",
+        "source_artifact",
+        "source_assumption",
+        "confidence",
+        "affects_cg",
+        "affects_drag",
+        "affects_power",
+        "affects_structure",
+        "status",
+        "notes",
+        "trust_boundary",
+    ]
+    _write_csv(path, rows, fieldnames)
 
 
 def _cg_summary(context: Mapping[str, Any]) -> dict[str, Any]:
     cg = _mapping_at(context, "cg")
+    trim = _mapping_at(context, "trim")
+    propulsion = _mapping_at(context, "propulsion")
+    rows = _mass_ledger_rows(context)
+    gross_mass_kg = _ledger_gross_mass_kg(rows)
+    uncompensated_cg_m = _ledger_cg_x_m(rows)
+    source_mass = float(cg["total_mass_after_items_kg"])
+    source_uncompensated_cg = float(cg["uncompensated_cg_x_m"])
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": LEDGER_SCHEMA_VERSION,
+        "verdict": LEDGER_VERDICT,
         "status": cg["status"],
         "cg_range_m": cg["cg_range_x_m"],
+        "gross_mass_kg": _round6(gross_mass_kg),
+        "source_updated_screening_mass_kg": cg["total_mass_after_items_kg"],
+        "mass_balance_delta_kg": _round6(gross_mass_kg - source_mass),
+        "computed_uncompensated_cg_m": _round6(uncompensated_cg_m),
+        "source_uncompensated_cg_m": cg["uncompensated_cg_x_m"],
+        "uncompensated_cg_delta_m": _round6(uncompensated_cg_m - source_uncompensated_cg),
         "managed_final_cg_m": cg["final_screening_cg_x_m"],
         "uncompensated_cg_m": cg["uncompensated_cg_x_m"],
         "uncompensated_cg_status": cg["uncompensated_cg_status"],
         "required_forward_rebalance_m": cg["required_forward_rebalance_m"],
         "forward_rebalance_limit_m": cg["forward_rebalance_limit_m"],
         "rebalance_mass_kg": cg["forward_rebalance_mass_kg"],
+        "static_margin": trim["static_margin"],
+        "tail_trim_status": trim["status"],
+        "confidence_summary": _confidence_summary(rows),
+        "qprop_xrotor_policy": {
+            "role": propulsion["qprop_xrotor_role"],
+            "used_in_structural_blocker_verdict": propulsion[
+                "used_in_structural_blocker_verdict"
+            ],
+        },
+        "missing_data_preventing_higher_confidence": [
+            "measured component weights and measured aircraft CG",
+            "full y/z component locations for inertia and lateral/vertical balance",
+            "supplier-quoted spar splice, tube, clamp, and saddle/yoke masses",
+            "coupon/local FEM evidence for C04 saddle/yoke/clamp and C07 skin sag",
+            "independent QPROP/XROTOR propulsion margin feed-in",
+        ],
         "claim_boundary": (
             "Managed CG is a screening closure row. It is not measured aircraft CG "
             "and not approval to accept the uncompensated mass state."
         ),
     }
+
+
+def _render_margin_budget(context: Mapping[str, Any]) -> str:
+    local = _mapping_at(context, "local")
+    trim = _mapping_at(context, "trim")
+    aero = _mapping_at(context, "aero")
+    drag_power = _mapping_at(context, "drag_power")
+    cg_summary = _cg_summary(context)
+    rows = _mass_ledger_rows(context)
+    component_lines = [
+        "| Component | kg | x m | confidence | CG | drag | power | structure |",
+        "|---|---:|---:|---|---|---|---|---|",
+    ]
+    for row in rows:
+        component_lines.append(
+            "| "
+            f"{row['item']} | {row['mass_kg']} | {row['x_m']} | {row['confidence']} | "
+            f"{row['affects_cg']} | {row['affects_drag']} | {row['affects_power']} | "
+            f"{row['affects_structure']} |"
+        )
+
+    missing_lines = [
+        f"- {item}" for item in cg_summary["missing_data_preventing_higher_confidence"]
+    ]
+    return "\n".join(
+        [
+            "# Baseline A Mass / CG / Margin Budget",
+            "",
+            f"Verdict: `{LEDGER_VERDICT}`",
+            "",
+            "This ledger is the central screening truth surface for Baseline A mass, CG, "
+            "drag/power charge, and governing margins. It is not measured aircraft weight "
+            "and balance and not final aircraft sign-off.",
+            "",
+            "## Mass and CG",
+            "",
+            "| Quantity | Value | Status |",
+            "|---|---:|---|",
+            f"| Gross screening mass | {_fmt(cg_summary['gross_mass_kg'])} kg | estimate |",
+            (
+                f"| Computed uncompensated CG | {_fmt(cg_summary['computed_uncompensated_cg_m'])} m "
+                f"| {cg_summary['uncompensated_cg_status']} |"
+            ),
+            (
+                f"| Managed screening CG | {_fmt(cg_summary['managed_final_cg_m'])} m | "
+                f"{cg_summary['status']} |"
+            ),
+            (
+                "| Required forward rebalance | "
+                f"{_fmt(cg_summary['required_forward_rebalance_m'])} m on "
+                f"{_fmt(cg_summary['rebalance_mass_kg'])} kg equivalent mass | screening |"
+            ),
+            "",
+            "## Component Ledger",
+            "",
+            *component_lines,
+            "",
+            "## Margin Summary",
+            "",
+            "| Gate | Current value | Read |",
+            "|---|---:|---|",
+            (
+                f"| C04 original eccentric peel | {_fmt(local['baseline_c04_margin'])} | "
+                "fail evidence retained |"
+            ),
+            (
+                f"| Installed saddle/yoke/clamp governing margin | "
+                f"{_fmt(local['installed_fix_governing_margin'])} | "
+                "screening pass, coupon/local FEM required |"
+            ),
+            (
+                f"| Saddle-ring yoke adhesive shear margin | {_fmt(local['saddle_ring_yoke_margin'])} | "
+                "not governing in fast model |"
+            ),
+            (
+                f"| Static margin at managed CG | {_fmt(trim['static_margin'])} | "
+                f"tail trim/stability `{trim['status']}` |"
+            ),
+            (
+                f"| Bounded physical twist | "
+                f"{_fmt(aero['conservative_bounded_physical_projection_max_abs_deg'])} deg | "
+                f"below {_fmt(aero['elastic_twist_screening_bound_deg'])} deg screening bound |"
+            ),
+            (
+                f"| Direct spar-pair stress-test | "
+                f"{_fmt(aero['direct_spar_pair_rotation_max_abs_deg'])} deg | "
+                "conservative mapping warning, not aero-surface sign-off |"
+            ),
+            (
+                f"| Root bending ratio | "
+                f"{_fmt(aero['root_bending_moment_ratio_loaded_vs_baseline'])} | "
+                "inside screening relaxation bounds |"
+            ),
+            (
+                f"| Structural hardware mass delta | "
+                f"{_fmt(drag_power['structural_hardware_mass_delta_kg'])} kg | "
+                "C04 fix plus splice pack charged |"
+            ),
+            "",
+            "## Drag and Power Summary",
+            "",
+            "| Quantity | Value | Read |",
+            "|---|---:|---|",
+            (
+                f"| Tail CD0 increment | {_fmt(drag_power['tail_cd0_increment'])} | "
+                "screening drag placeholder |"
+            ),
+            (
+                f"| Tail profile power increment | "
+                f"{_fmt(drag_power['tail_profile_power_increment_w'])} W | "
+                "screening power charge |"
+            ),
+            (
+                "| QPROP/XROTOR propulsion margin | not mixed | "
+                "independent propulsion lane, not structural blocker truth |"
+            ),
+            "",
+            "## Missing Data Preventing Higher Confidence",
+            "",
+            *missing_lines,
+            "",
+            "## Trust Boundary",
+            "",
+            "All current component masses are `estimate` confidence. Do not promote them to "
+            "`quoted`, `measured`, or `frozen` until supplier, scale, or configuration-control "
+            "evidence exists. The managed CG row is allowed for screening closure; the "
+            "uncompensated CG row is rejected.",
+            "",
+        ]
+    )
+
+
+def _render_daily_review_summary(context: Mapping[str, Any]) -> str:
+    local = _mapping_at(context, "local")
+    trim = _mapping_at(context, "trim")
+    aero = _mapping_at(context, "aero")
+    drag_power = _mapping_at(context, "drag_power")
+    cg_summary = _cg_summary(context)
+    return "\n".join(
+        [
+            "# Baseline A Mass / CG / Margin Daily Review",
+            "",
+            f"Ledger verdict: `{LEDGER_VERDICT}`",
+            "",
+            "| Review item | Current read | 30-minute decision |",
+            "|---|---|---|",
+            (
+                f"| Gross mass | {_fmt(cg_summary['gross_mass_kg'])} kg | "
+                "Use as screening mass, not measured weight |"
+            ),
+            (
+                f"| Managed CG | {_fmt(cg_summary['managed_final_cg_m'])} m | "
+                "Accepted screening row |"
+            ),
+            (
+                f"| Uncompensated CG | {_fmt(cg_summary['uncompensated_cg_m'])} m | "
+                "Rejected; keep rebalance requirement visible |"
+            ),
+            (
+                f"| Rebalance | {_fmt(cg_summary['required_forward_rebalance_m'])} m forward "
+                f"on {_fmt(cg_summary['rebalance_mass_kg'])} kg | Inside screening limit |"
+            ),
+            (
+                f"| C04 original peel | margin {_fmt(local['baseline_c04_margin'])} | "
+                "Fail evidence must stay visible |"
+            ),
+            (
+                f"| C04 installed fix | governing margin "
+                f"{_fmt(local['installed_fix_governing_margin'])} | "
+                "Proceed to coupon/local FEM, not build sign-off |"
+            ),
+            (
+                f"| Static margin | {_fmt(trim['static_margin'])} | "
+                f"Tail trim/stability `{trim['status']}` at managed CG |"
+            ),
+            (
+                f"| Bounded twist | "
+                f"{_fmt(aero['conservative_bounded_physical_projection_max_abs_deg'])} deg | "
+                "Screening pass; direct stress-test remains warning |"
+            ),
+            (
+                f"| Tail power charge | {_fmt(drag_power['tail_profile_power_increment_w'])} W | "
+                "Power budget placeholder, not QPROP/XROTOR result |"
+            ),
+            (
+                "| QPROP/XROTOR | independent lane | "
+                "Do not use it to pass/fail C04 or rib blockers |"
+            ),
+            "",
+            "Next review focus: WO-003 design-space freeze audit, unless a mass/CG, spar, "
+            "procurement, or Baseline A reopen trigger appears.",
+            "",
+        ]
+    )
 
 
 def _write_drag_power_budget(path: Path, context: Mapping[str, Any]) -> None:
@@ -556,52 +939,47 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
     _ = context
     queue = [
         (
-            "WO-001",
+            "WO-003",
             "design-space freeze audit",
             "Confirm Baseline A external-shape and mission bounds are frozen enough for team work.",
         ),
         (
-            "WO-002",
+            "WO-004",
             "manufacturable discretization/smoothness audit",
             "Check station spacing, rib bays, tube segmentation, and smoothness for shop handoff.",
         ),
         (
-            "WO-003",
-            "mass/CG/margin ledger",
-            "Keep a single append-only ledger for mass, CG, and governing margins.",
-        ),
-        (
-            "WO-004",
+            "WO-006",
             "main-wing SU2 baseline validation",
             "Queue a bounded CFD baseline; do not use it as current structural-blocker truth.",
         ),
         (
-            "WO-005",
+            "WO-007",
             "QPROP/XROTOR propulsion interface",
             "Translate independent propulsion results into reviewed thrust/torque/mass interfaces.",
         ),
         (
-            "WO-006",
+            "WO-008",
             "turn/stall competition gate",
             "Define competition maneuver and stall evidence gates before expanding search.",
         ),
         (
-            "WO-007",
+            "WO-009",
             "control derivative matrix and tail motor authority",
             "Build controls-facing derivative and actuator authority matrix.",
         ),
         (
-            "WO-008",
+            "WO-011",
             "tailboom/vertical strut first-order model",
             "Add first-order structural load path model for tailboom and vertical strut.",
         ),
         (
-            "WO-009",
+            "WO-012",
             "airfoil database CST/NSGA background lane",
             "Run as background database improvement, not as Baseline A blocker.",
         ),
         (
-            "WO-010",
+            "WO-013",
             "report/CAD/export automation",
             "Automate reports and export bundles after release package semantics are stable.",
         ),
@@ -634,7 +1012,7 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
             "",
             "```text",
             "/goal",
-            "In /Volumes/Samsung SSD/hpa-mdo, execute WO-001 design-space freeze audit.",
+            "In /Volumes/Samsung SSD/hpa-mdo, execute WO-003: Design-Space Freeze Audit.",
             "Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, "
             "and docs/AI_WORK_ORDER_PROTOCOL.md first. Do not edit physics code unless "
             "the audit finds a release-blocking inconsistency. Verify whether Baseline A "
@@ -707,9 +1085,19 @@ def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) ->
 
 
 def _fmt(value: Any) -> str:
+    if value == "":
+        return ""
     if isinstance(value, float):
         return f"{value:.6f}".rstrip("0").rstrip(".")
     return str(value)
+
+
+def _round6(value: float) -> float:
+    return round(value, 6)
+
+
+def _yes_no(value: bool) -> str:
+    return "yes" if value else "no"
 
 
 def main(argv: list[str] | None = None) -> int:
