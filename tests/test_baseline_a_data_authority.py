@@ -253,6 +253,77 @@ def test_audit_artifacts_include_inventory_conflicts_authority_and_gate_debt(tmp
     )
 
 
+def test_audit_artifacts_are_idempotent_when_existing_audit_has_class_counts(
+    tmp_path: Path,
+) -> None:
+    mod = _load_module()
+    docs_dir = tmp_path / "docs"
+    reports_dir = docs_dir / "reports"
+    release_dir = tmp_path / "output" / "baseline_A_team_release"
+    current_dir = tmp_path / "output" / "current_pathfinder_tail"
+    for path in (reports_dir, release_dir, current_dir):
+        path.mkdir(parents=True)
+    (tmp_path / "README.md").write_text(
+        "Current design mass authority is 98.5 kg. "
+        "106.828608 kg is suspect screening aggregate only.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "CURRENT_MAINLINE.md").write_text(
+        "Current pipeline span evidence is 34.332286 m full span and "
+        "17.166143 m half-span; 16.5 m is splice screening only.\n",
+        encoding="utf-8",
+    )
+    (release_dir / "summary.md").write_text(
+        "WO-005 RFQ pack is draft/vendor-screening only until authority is repaired.\n",
+        encoding="utf-8",
+    )
+    (current_dir / "tail.json").write_text(
+        json.dumps({"half_span_m": 17.166143, "status": "screening"}),
+        encoding="utf-8",
+    )
+    (reports_dir / "baseline_A_data_authority_audit.md").write_text(
+        "\n".join(
+            [
+                "# Baseline A Data-Authority Audit",
+                "",
+                "## Authority Class Counts",
+                "",
+                "- `screening_estimate`: 9999",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    output_paths = [
+        release_dir / "data_authority_claim_inventory.csv",
+        release_dir / "data_authority_claim_inventory.json",
+        release_dir / "data_authority_conflict_register.csv",
+        release_dir / "data_authority_table.csv",
+        release_dir / "data_authority_table.json",
+        reports_dir / "baseline_A_data_authority_audit.md",
+        reports_dir / "baseline_A_data_authority_conflict_register.md",
+        reports_dir / "baseline_A_gate_debt_register.md",
+        reports_dir / "repo_channel_hygiene_plan.md",
+    ]
+
+    mod.write_audit_artifacts(tmp_path)
+    first_snapshot = {path: path.read_bytes() for path in output_paths}
+    mod.write_audit_artifacts(tmp_path)
+    second_snapshot = {path: path.read_bytes() for path in output_paths}
+
+    assert second_snapshot == first_snapshot
+    inventory = json.loads((release_dir / "data_authority_claim_inventory.json").read_text())
+    assert all(
+        claim["file"] != "docs/reports/baseline_A_data_authority_audit.md"
+        for claim in inventory["claims"]
+    )
+    assert all(
+        claim["raw_text"] != "- `screening_estimate`: 9999"
+        for claim in inventory["claims"]
+    )
+
+
 def test_current_main_and_release_docs_do_not_promote_suspect_authority() -> None:
     mod = _load_module()
 

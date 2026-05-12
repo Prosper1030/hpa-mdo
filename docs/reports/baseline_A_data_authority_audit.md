@@ -2,20 +2,20 @@
 
 Verdict: `baseline_A_release_claims_unreliable` until authority repair is complete.
 
-- Files scanned: `6541`
-- Claims extracted: `53264`
+- Files scanned: `6534`
+- Claims extracted: `53146`
 - Blocking current-channel violations after repair: `0`
-- Skipped paths recorded: `2467`
+- Skipped paths recorded: `2465`
 
 ## Authority Class Counts
 
-- `conflict_blocked`: 45
-- `current_pipeline_truth`: 234
-- `generated_output`: 11374
+- `conflict_blocked`: 40
+- `current_pipeline_truth`: 228
+- `generated_output`: 11311
 - `legacy_or_experiment`: 25198
-- `screening_estimate`: 4013
-- `unknown`: 12285
-- `user_authority`: 115
+- `screening_estimate`: 3982
+- `unknown`: 12278
+- `user_authority`: 109
 
 ## Governing Authority Table
 
@@ -146,4 +146,4 @@ Skipped paths were recorded because they were binary, cache/vendor/venv/git inte
 - `docs/Manual/su2_wiki_minimal/docs_files/windows_system_variable_01.png`: non_text_or_binary
 - `docs/Manual/su2_wiki_minimal/docs_files/windows_system_variable_05.png`: non_text_or_binary
 - `docs/Manual/su2_wiki_minimal/docs_files/square.png`: non_text_or_binary
-- plus `2367` additional skipped paths in the JSON inventory metadata
+- plus `2365` additional skipped paths in the JSON inventory metadata

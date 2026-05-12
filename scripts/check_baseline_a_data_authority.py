@@ -259,6 +259,18 @@ REPAIRED_READY_VERDICTS = {
     "mass_cg_margin_ledger_ready",
 }
 
+GENERATED_AUDIT_ARTIFACTS = {
+    "docs/reports/baseline_A_data_authority_audit.md",
+    "docs/reports/baseline_A_data_authority_conflict_register.md",
+    "docs/reports/baseline_A_gate_debt_register.md",
+    "docs/reports/repo_channel_hygiene_plan.md",
+    "output/baseline_A_team_release/data_authority_claim_inventory.csv",
+    "output/baseline_A_team_release/data_authority_claim_inventory.json",
+    "output/baseline_A_team_release/data_authority_conflict_register.csv",
+    "output/baseline_A_team_release/data_authority_table.csv",
+    "output/baseline_A_team_release/data_authority_table.json",
+}
+
 
 @dataclass(frozen=True)
 class Claim:
@@ -1532,6 +1544,8 @@ def _scan_files(repo_root: Path) -> tuple[list[Path], list[dict[str, str]]]:
         if not root.exists():
             continue
         if root.is_file():
+            if _is_generated_audit_artifact(root, repo_root):
+                continue
             if _is_text_candidate(root):
                 resolved = root.resolve()
                 if resolved not in seen:
@@ -1549,6 +1563,8 @@ def _scan_files(repo_root: Path) -> tuple[list[Path], list[dict[str, str]]]:
                     skipped.append(_skip_row(Path(dirpath) / skipped_dir, repo_root, "cache_vendor_venv_or_git_internal"))
             for filename in filenames:
                 path = Path(dirpath) / filename
+                if _is_generated_audit_artifact(path, repo_root):
+                    continue
                 if not _is_text_candidate(path):
                     skipped.append(_skip_row(path, repo_root, "non_text_or_binary"))
                     continue
@@ -1561,6 +1577,10 @@ def _scan_files(repo_root: Path) -> tuple[list[Path], list[dict[str, str]]]:
                     seen.add(resolved)
     files.sort(key=lambda p: _rel(p, repo_root))
     return files, skipped
+
+
+def _is_generated_audit_artifact(path: Path, repo_root: Path) -> bool:
+    return _rel(path, repo_root) in GENERATED_AUDIT_ARTIFACTS
 
 
 def _walk_text_files(root: Path, repo_root: Path) -> Iterable[Path]:
