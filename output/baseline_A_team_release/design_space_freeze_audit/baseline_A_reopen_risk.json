@@ -1,0 +1,79 @@
+{
+  "schema_version": "baseline_a_design_space_freeze_audit_v1",
+  "work_order": "WO-003 Design-Space Freeze Audit",
+  "verdict": "baseline_A_freeze_reasonable",
+  "claim_boundary": "Audit uses existing artifacts and fast mission quick-screen only. It is not final aircraft sign-off and does not replace SU2, detailed FEM, propeller, controls, or manufacturing audits.",
+  "reference_candidate": "baseline_A_release_total_fast_screen",
+  "baseline_release": {
+    "candidate_id": "current_avl_compromise_conservative_closed / eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
+    "span_m": 34.332286,
+    "aspect_ratio_computed": 35.269412327928194,
+    "wing_area_m2": 33.420059598,
+    "release_mass_kg": 106.828608,
+    "managed_cg_m": 0.75,
+    "cd0_total_pre_tail": 0.013258730502038055,
+    "tail_cd0_increment": 0.002352,
+    "cd0_total_release_fast_screen": 0.015610730502038055,
+    "p_crank_artifact_pre_tail_w": 174.60027944116567,
+    "p_crank_artifact_conservative_pre_tail_w": 178.8818396527458,
+    "tail_profile_power_increment_w": 13.33234,
+    "quick_screen_release_total_power_w": 203.318928,
+    "quick_screen_release_total_margin_w": -9.140404
+  },
+  "nearest_candidate_best_fast_model": {
+    "candidate_id": "seed_best_power_6p6_span35_AR40_CD0p016",
+    "required_crank_power_w": 193.912516,
+    "power_improvement_vs_baseline_pct": 4.626432,
+    "power_margin_crank_w": 0.266008,
+    "cl_band": "high_but_possible",
+    "stall_band": "caution",
+    "manufacturable_read": "largest quick-screen power improvement found, but CL band is high_but_possible and requires upstream reselection"
+  },
+  "reopen_triggers": {
+    "power_improvement_gt_5_to_8_pct": {
+      "status": "not_triggered",
+      "best_fast_model_improvement_pct": 4.626432,
+      "engineering_read": "Best nearby quick-screen candidate improves required power by less than 5 percent and has no downstream geometry/CG/torsion/release chain."
+    },
+    "weight_improvement_gt_2_to_3_kg": {
+      "status": "not_evaluable_not_triggered",
+      "engineering_read": "No alternate candidate carries a comparable structural mass, splice, rib, tail, CG, or rebalance ledger. Do not credit weight improvement from Stage-0 seeds."
+    },
+    "unrecoverable_trim_cg_torsion_or_structural_fail": {
+      "status": "not_triggered",
+      "engineering_read": "Release artifacts retain managed CG pass, tail trim/stability pass, bounded physical twist below 3 deg, and P1 local load-path readiness for coupon/local FEM. Uncompensated CG remains rejected."
+    },
+    "mission_fail": {
+      "status": "watch_not_reopen",
+      "engineering_read": "When release mass and tail CD0 charge are pushed through the Stage-0 quick-screen, margin is negative by about 9 W at 6.6 m/s. This is a power-budget warning for WO-006/WO-007/WO-008, not explicit dominance evidence because the comparison is fast-screen only and Baseline A was released as a team package, not final mission sign-off."
+    },
+    "manufacturable_discretization_forces_major_external_shape_or_spar_spec_change": {
+      "status": "not_triggered",
+      "engineering_read": "Baseline span rounds to 34.3 m or 34.35 m with negligible power change; 0.30 m rib basis and 3 m structural splice path are already documented. Full smoothness/manufacturability audit remains WO-004."
+    }
+  },
+  "audit_inputs": {
+    "heat_derate_factor": 0.9159364331845841,
+    "power_curve": "data/pilot_power_curves/current_pilot_power_curve.csv",
+    "target_environment": {
+      "temperature_c": 33.0,
+      "relative_humidity_percent": 80.0
+    },
+    "test_environment": {
+      "temperature_c": 26.0,
+      "relative_humidity_percent": 70.0
+    },
+    "candidate_table": "candidate_compare_table.csv",
+    "source_artifacts": [
+      "output/baseline_A_team_release/geometry_freeze.json",
+      "output/baseline_A_team_release/margin_budget.md",
+      "output/baseline_A_team_release/cg_summary.json",
+      "output/baseline_A_team_release/tail_trim_stability_summary.json",
+      "output/go_mode_main_wing_candidate/final_candidate_package/candidate_summary.csv",
+      "output/mission_design_space/candidate_seed_pool.csv",
+      "output/mission_design_space/optimizer_handoff.json",
+      "output/current_pathfinder_spar_splice_design/splice_design_report.md"
+    ]
+  },
+  "next_recommended_work_order": "WO-004 Manufacturable Smoothness / Discretization Audit"
+}

@@ -247,6 +247,14 @@ component-level screening ledger，`cg_summary.json` 保留 managed vs uncompens
 `margin_budget.md` 和 `mass_cg_margin_daily_review.md` 是每日審查入口。所有現有 mass rows
 仍是 `estimate`，不是 measured/frozen weight-and-balance。
 
+WO-003 design-space freeze audit 已完成，讀
+`output/baseline_A_team_release/design_space_freeze_audit/design_space_freeze_audit.md`。
+verdict 是 `baseline_A_freeze_reasonable`：目前沒有看到 nearby manufacturable candidate
+明確觸發 Baseline A reopen；最強 fast-model nearby row 約省 `4.63%` crank power，低於
+5-8% reopen trigger，且沒有 downstream geometry / CG / torsion / splice / P1 load-path chain。
+但 release mass + tail CD0 charge 丟回 Stage-0 quick-screen 會出現約 `-9 W` power margin，
+所以這是 power-budget watch item，不是 final mission sign-off。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -293,6 +301,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 P1 C04 load path 與 mass/CG/tail/closure 回灌後 verdict | [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 saddle/yoke/clamp + splice mass charged to closure; coupon/local FEM next |
 | 接 Baseline A team release package | `output/baseline_A_team_release/` | `baseline_A_release_system_ready`; team release + interface packs + change-control rules; not final aircraft sign-off |
 | 看 Baseline A mass / CG / margin ledger | `output/baseline_A_team_release/margin_budget.md` + `mass_cg_margin_daily_review.md` | `mass_cg_margin_ledger_ready`; central screening ledger；uncompensated CG rejected；不是 measured/frozen W&B |
+| 看 Baseline A design-space freeze audit | `output/baseline_A_team_release/design_space_freeze_audit/design_space_freeze_audit.md` | `baseline_A_freeze_reasonable`; no explicit nearby dominance trigger; power-budget watch item remains |
 | 讓 AI thread 自動接任務 | [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md) + [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) | work-order lifecycle, required report shape, reviewer prompt, priority queue |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |

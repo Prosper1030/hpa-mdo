@@ -41,8 +41,8 @@ Baseline A should only reopen when one of these is supported by evidence:
 |---|---:|---|---|---|---|
 | WO-001 | P0 | done | Baseline A release builder + work-order protocol | release tooling | Completed in `5bc130a8`; do not mix backlog features into this work order |
 | WO-002 | P0 | done | Mass / CG / Margin Budget Ledger | chief engineering | Ledger lives in `output/baseline_A_team_release/`; do not promote estimate rows to measured/frozen |
-| WO-003 | P0 | ready | Design-Space Freeze Audit | chief engineering + aero/geometry | Confirm Baseline A is not obviously dominated before the team over-invests |
-| WO-004 | P0 | after WO-003 | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Convert continuous/smooth pathfinder into shop-plausible dimensions |
+| WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
+| WO-004 | P0 | ready | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Convert continuous/smooth pathfinder into shop-plausible dimensions |
 | WO-005 | P0 | after WO-004 | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Procurement can start only after tube/span/segment assumptions are controlled |
 | WO-006 | P1 | queued | Main-Wing SU2 Baseline Validation | aero validation | Calibrate current Baseline A aero model without turning SU2 into final truth |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
@@ -94,6 +94,9 @@ Required verdict: `mass_cg_margin_ledger_ready` or
 
 ### WO-003: Design-Space Freeze Audit
 
+Status: done. Artifacts live in
+`output/baseline_A_team_release/design_space_freeze_audit/`.
+
 Purpose: check whether Baseline A is a reasonable freeze candidate, not merely
 the first pathfinder that connected downstream.
 
@@ -113,6 +116,13 @@ Disallowed scope:
 
 Required verdict: `baseline_A_freeze_reasonable`,
 `baseline_A_freeze_needs_fix`, or `baseline_A_reopen_risk`.
+
+Completion read: `baseline_A_freeze_reasonable`. No nearby manufacturable
+candidate exceeded the power / weight / trim / CG / torsion / mission /
+manufacturing reopen triggers. The best nearby fast-model row showed about
+`4.63%` crank-power improvement, below the 5-8% trigger and without a downstream
+geometry / CG / torsion / splice / P1 load-path chain. Release mass + tail CD0
+charge remains a power-budget watch item, not final mission sign-off.
 
 ### WO-004: Manufacturable Smoothness / Discretization Audit
 

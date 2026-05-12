@@ -546,6 +546,17 @@ installed saddle/yoke/clamp governing margin `0.8876` 同時可見。所有目�
 mass rows 都是 `estimate` confidence，不能被讀成 measured/frozen weight-and-balance；
 QPROP/XROTOR 仍是獨立 propulsion lane，不參與 C04 / rib structural blocker verdict。
 
+**WO-003 — Baseline A design-space freeze audit 已完成（2026-05-12）：**
+審核 artifact 位於
+`output/baseline_A_team_release/design_space_freeze_audit/`，verdict 是
+`baseline_A_freeze_reasonable`。結論是目前沒有 nearby manufacturable candidate 明確觸發
+Baseline A reopen：最佳 nearby fast-model row 約省 `4.63%` crank power，低於 5-8%
+power reopen trigger，而且沒有 current downstream geometry / CG / torsion / splice /
+P1 load-path chain。重要 watch item 是 release mass + tail CD0 charge 丟回 Stage-0
+quick-screen 時約有 `-9 W` margin；這要在 WO-006 / WO-007 / WO-008 繼續收斂，不能被讀成
+final mission sign-off，也還不是 explicit reopen evidence。下一個 P0 任務是 WO-004
+manufacturable smoothness / discretization audit。
+
 ## 8. 常用入口與角色
 
 ### A. Mission / upstream concept
@@ -716,7 +727,8 @@ QPROP/XROTOR 仍是獨立 propulsion lane，不參與 C04 / rib structural block
   P1 仍只到 coupon/local FEM readiness；C04 fix 是 architecture-selected but coupon/local FEM
   pending；QPROP/XROTOR 保持 independent propulsion lane；大型 SU2、NSGA、propeller
   optimization、random disturbance simulator、full CAD automation 只進 queue，不在 release
-  builder 任務中實作。
+  builder 任務中實作。WO-003 design-space freeze audit 的 verdict 是
+  `baseline_A_freeze_reasonable`；power-budget watch item 保留，下一個 P0 是 WO-004。
 
 ## 9. 現在不該再當主線的敘事
 
