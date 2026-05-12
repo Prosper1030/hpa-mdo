@@ -97,3 +97,9 @@ data/*.slc
 data/*.vkey
 data/*.vspaero
 data/*.vspgeom
+
+
+# QPROP / XROTOR build artifacts (keep binaries in tools/bin, ignore build dirs)
+tools/qprop_build/
+tools/xrotor_build/
+xplot11_logfile
