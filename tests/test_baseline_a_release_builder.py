@@ -56,8 +56,11 @@ def test_release_builder_writes_required_team_package(tmp_path: Path) -> None:
 
     release_md = (output_dir / "baseline_A_team_release.md").read_text(encoding="utf-8")
     assert "Baseline A team release" in release_md
+    assert "under data-authority repair" in release_md
+    assert "98.5 kg" in release_md
+    assert "Suspect P1 screening aggregate" in release_md
     assert "not final aircraft sign-off" in release_md
-    assert "frozen / do not casually change" in release_md
+    assert "authority-controlled / do not casually change" in release_md
     assert "controlled / can change with review" in release_md
     assert "open validation / assigned to team" in release_md
     assert "reopen trigger / would force major redesign" in release_md
@@ -68,7 +71,13 @@ def test_machine_artifacts_lock_pathfinder_numbers_and_boundaries(tmp_path: Path
     _, output_dir = _run(tmp_path)
 
     geometry = json.loads((output_dir / "geometry_freeze.json").read_text(encoding="utf-8"))
-    assert geometry["release_verdict"] == "baseline_A_release_system_ready"
+    assert geometry["release_verdict"] == "baseline_A_data_authority_repair_in_progress"
+    assert geometry["data_authority_status"] == "under_repair"
+    assert geometry["authority"]["design_gross_mass_authority_kg"] == pytest.approx(98.5)
+    assert geometry["authority"]["suspect_p1_screening_aggregate_kg"] == pytest.approx(
+        106.828608
+    )
+    assert geometry["authority"]["wo006_status"] == "paused_until_data_authority_restored"
     assert geometry["candidate_id"] == (
         "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__"
         "carbon_face_collar_y2p328__rear75"
@@ -78,6 +87,9 @@ def test_machine_artifacts_lock_pathfinder_numbers_and_boundaries(tmp_path: Path
     assert "coupon" in geometry["open_validation"]["p1_local_load_path"]
     assert "final aircraft sign-off" in geometry["claim_boundary"]
     assert geometry["screening_numbers"]["baseline_c04_peel_margin"] == pytest.approx(-0.893)
+    assert geometry["screening_numbers"]["suspect_p1_screening_aggregate_mass_kg"] == pytest.approx(
+        106.828608
+    )
     assert geometry["screening_numbers"]["installed_fix_governing_margin"] == pytest.approx(
         0.8876
     )
@@ -97,8 +109,10 @@ def test_machine_artifacts_lock_pathfinder_numbers_and_boundaries(tmp_path: Path
     assert rows["fast_design_loop_selected_rib_pack"]["affects_structure"] == "yes"
 
     cg = json.loads((output_dir / "cg_summary.json").read_text(encoding="utf-8"))
-    assert cg["verdict"] == "mass_cg_margin_ledger_ready"
-    assert cg["gross_mass_kg"] == pytest.approx(106.828608)
+    assert cg["verdict"] == "mass_cg_authority_repair_needed"
+    assert cg["design_gross_mass_authority_kg"] == pytest.approx(98.5)
+    assert cg["suspect_p1_screening_aggregate_kg"] == pytest.approx(106.828608)
+    assert cg["screening_aggregate_minus_design_authority_kg"] == pytest.approx(8.328608)
     assert cg["computed_uncompensated_cg_m"] == pytest.approx(0.780039)
     assert cg["managed_final_cg_m"] == pytest.approx(0.75)
     assert cg["required_forward_rebalance_m"] == pytest.approx(0.057304)
@@ -121,14 +135,17 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
     assert "governing clamp margin `0.8876`" in structure
 
     margin_budget = (output_dir / "margin_budget.md").read_text(encoding="utf-8")
-    assert "mass_cg_margin_ledger_ready" in margin_budget
+    assert "mass_cg_authority_repair_needed" in margin_budget
+    assert "Design gross mass authority" in margin_budget
+    assert "screening aggregate, not design truth" in margin_budget
     assert "C04 original eccentric peel" in margin_budget
     assert "-0.893" in margin_budget
     assert "0.8876" in margin_budget
     assert "uncompensated CG row is rejected" in margin_budget
 
     daily_summary = (output_dir / "mass_cg_margin_daily_review.md").read_text(encoding="utf-8")
-    assert "Gross mass | 106.828608 kg" in daily_summary
+    assert "Design mass authority | 98.5 kg" in daily_summary
+    assert "Suspect P1 screening aggregate | 106.828608 kg" in daily_summary
     assert "QPROP/XROTOR | independent lane" in daily_summary
 
     work_packages = (output_dir / "team_work_packages.md").read_text(encoding="utf-8")
@@ -144,11 +161,12 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
     assert "Do not implement SU2/NSGA/propeller optimization in this release-builder task" in (
         work_packages
     )
-    assert "carbon_tube_rfq_pack_ready" in work_packages
-    assert "execute WO-006: Main-Wing SU2 Baseline Validation" in work_packages
+    assert "draft/vendor-screening only" in work_packages
+    assert "WO-006 remains paused" in work_packages
 
     carbon_rfq = (output_dir / "carbon_tube_rfq_spec.md").read_text(encoding="utf-8")
-    assert "carbon_tube_rfq_pack_ready" in carbon_rfq
-    assert "not a purchase order" in carbon_rfq
+    assert "carbon_tube_rfq_pack_draft_vendor_screening" in carbon_rfq
+    assert "not purchase-ready" in carbon_rfq
+    assert "not procurement truth" in carbon_rfq
     assert "controlled_station_span_splice_manifest.csv" in carbon_rfq
     assert "0.345 m stiffness label is not vendor drawing control" in carbon_rfq

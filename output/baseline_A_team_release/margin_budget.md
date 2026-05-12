@@ -1,14 +1,16 @@
 # Baseline A Mass / CG / Margin Budget
 
-Verdict: `mass_cg_margin_ledger_ready`
+Verdict: `mass_cg_authority_repair_needed`
 
-This ledger is the central screening truth surface for Baseline A mass, CG, drag/power charge, and governing margins. It is not measured aircraft weight and balance and not final aircraft sign-off.
+This ledger is a screening evidence surface under data-authority repair. It is not measured aircraft weight and balance, not current design mass truth, and not final aircraft sign-off.
 
 ## Mass and CG
 
 | Quantity | Value | Status |
 |---|---:|---|
-| Gross screening mass | 106.828608 kg | estimate |
+| Design gross mass authority | 98.5 kg | user authority |
+| Suspect P1 screening aggregate | 106.828608 kg | screening aggregate, not design truth |
+| Aggregate minus design authority | 8.328608 kg | conflict to reconcile |
 | Computed uncompensated CG | 0.780039 m | explicitly_rejected |
 | Managed screening CG | 0.75 m | managed_final_cg_pass |
 | Required forward rebalance | 0.057304 m on 56 kg equivalent mass | screening |

@@ -1,4 +1,13 @@
 {
+  "authority": {
+    "current_pipeline_full_span_evidence_m": 34.332286,
+    "current_pipeline_half_span_evidence_m": 17.166143,
+    "design_gross_mass_authority_kg": 98.5,
+    "local_splice_screening_half_span_m": 16.5,
+    "suspect_p1_screening_aggregate_kg": 106.828608,
+    "wo005_status": "draft_vendor_screening_only",
+    "wo006_status": "paused_until_data_authority_restored"
+  },
   "candidate_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
   "claim_boundary": "Baseline A is a team release package and screening pathfinder. It is not final aircraft sign-off, not adhesive sign-off, not laminate sign-off, and not manufacturing sign-off.",
   "controlled": {
@@ -10,6 +19,7 @@
     "tail_trim_stability_basis": "pass"
   },
   "current_pathfinder_role": "Baseline A team release pathfinder, not final aircraft",
+  "data_authority_status": "under_repair",
   "frozen": {
     "candidate_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
     "fast_rib_torsion_model": "link_limited_torsion_cell_v2",
@@ -28,14 +38,14 @@
   },
   "p1_verdict": "p1_local_load_path_ready_for_coupon_fem",
   "release_id": "baseline_A_team_release",
-  "release_verdict": "baseline_A_release_system_ready",
+  "release_verdict": "baseline_A_data_authority_repair_in_progress",
   "reopen_triggers": [
     "C04 saddle/yoke/clamp coupon or local FEM shows negative governing margin.",
     "Updated mass/CG cannot hold managed CG 0.75 m within rebalance limit.",
-    "Tube RFQ cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions.",
-    "Qualified aero-surface mapping invalidates the current direct stress-test warning read.",
+    "Tube vendor-screening evidence cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions after authority repair.",
+    "Qualified aero-surface mapping invalidates the current direct stress-test warning read after authority repair.",
     "Tail trim/stability or control authority fails at managed CG.",
-    "Main-wing SU2 baseline changes drag/power enough to invalidate mission margins.",
+    "Main-wing SU2 remains paused until data authority is restored; later SU2 baseline changes drag/power enough to invalidate mission margins.",
     "Manufacturing discretization forces large external-shape or spar-spec change."
   ],
   "schema_version": "baseline_a_team_release_v1",
@@ -45,6 +55,6 @@
     "direct_spar_pair_rotation_deg": 3.1777418553821835,
     "installed_fix_governing_margin": 0.8876,
     "required_forward_rebalance_m": 0.057304,
-    "updated_screening_mass_kg": 106.828608
+    "suspect_p1_screening_aggregate_mass_kg": 106.828608
   }
 }

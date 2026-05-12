@@ -1,10 +1,11 @@
 # Baseline A Mass / CG / Margin Daily Review
 
-Ledger verdict: `mass_cg_margin_ledger_ready`
+Ledger verdict: `mass_cg_authority_repair_needed`
 
 | Review item | Current read | 30-minute decision |
 |---|---|---|
-| Gross mass | 106.828608 kg | Use as screening mass, not measured weight |
+| Design mass authority | 98.5 kg | Use as current design gross mass unless user changes it |
+| Suspect P1 screening aggregate | 106.828608 kg | Do not use as current design mass truth |
 | Managed CG | 0.75 m | Accepted screening row |
 | Uncompensated CG | 0.780039 m | Rejected; keep rebalance requirement visible |
 | Rebalance | 0.057304 m forward on 56 kg | Inside screening limit |
@@ -15,4 +16,4 @@ Ledger verdict: `mass_cg_margin_ledger_ready`
 | Tail power charge | 13.33234 W | Power budget placeholder, not QPROP/XROTOR result |
 | QPROP/XROTOR | independent lane | Do not use it to pass/fail C04 or rib blockers |
 
-Next review focus: WO-005 carbon tube RFQ + procurement pack, carrying the WO-004 station/span/splice manifest warnings, unless a mass/CG, spar, procurement, or Baseline A reopen trigger appears.
+Next review focus: data-authority repair for mass, span, station, and RFQ channel wording. WO-005 remains draft-only and WO-006 remains paused.

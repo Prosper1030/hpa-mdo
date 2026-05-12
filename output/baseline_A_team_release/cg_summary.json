@@ -3,7 +3,7 @@
     0.68,
     0.75
   ],
-  "claim_boundary": "Managed CG is a screening closure row. It is not measured aircraft CG and not approval to accept the uncompensated mass state.",
+  "claim_boundary": "Design gross mass authority remains 98.5 kg. The 106.828608 kg-like P1 aggregate is suspect screening evidence, not current design mass truth. Managed CG is a screening closure row, not measured aircraft CG and not approval to accept the uncompensated mass state.",
   "computed_uncompensated_cg_m": 0.780039,
   "confidence_summary": {
     "estimate": 5,
@@ -11,8 +11,8 @@
     "measured": 0,
     "quoted": 0
   },
+  "design_gross_mass_authority_kg": 98.5,
   "forward_rebalance_limit_m": 0.2,
-  "gross_mass_kg": 106.828608,
   "managed_final_cg_m": 0.75,
   "mass_balance_delta_kg": -0.0,
   "missing_data_preventing_higher_confidence": [
@@ -29,13 +29,15 @@
   "rebalance_mass_kg": 56.0,
   "required_forward_rebalance_m": 0.057304,
   "schema_version": "baseline_a_mass_cg_margin_ledger_v1",
+  "screening_aggregate_minus_design_authority_kg": 8.328608,
+  "source_suspect_screening_aggregate_kg": 106.828608,
   "source_uncompensated_cg_m": 0.780039,
-  "source_updated_screening_mass_kg": 106.828608,
   "static_margin": 0.092835,
   "status": "managed_final_cg_pass",
+  "suspect_p1_screening_aggregate_kg": 106.828608,
   "tail_trim_status": "pass",
   "uncompensated_cg_delta_m": -0.0,
   "uncompensated_cg_m": 0.780039,
   "uncompensated_cg_status": "explicitly_rejected",
-  "verdict": "mass_cg_margin_ledger_ready"
+  "verdict": "mass_cg_authority_repair_needed"
 }

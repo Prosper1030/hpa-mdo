@@ -1,13 +1,13 @@
 # Manufacturing Test Plan
 
-Baseline A allows the shop-facing team to start test articles and RFQs.
+Baseline A is under data-authority repair. The shop-facing team may plan test articles and draft vendor questions, but this is not a purchase or drawing-release authorization.
 
 ## Start Now
 
 - C04 saddle/yoke/clamp coupon.
 - C04 local FEM and coupon correlation package.
 - 1 m wing-bay v2 with rib/collar/skin-sag evidence.
-- Carbon tube RFQ screening using `carbon_tube_rfq_pack.md` and `controlled_station_span_splice_manifest.csv`.
+- Draft carbon tube vendor screening using `carbon_tube_rfq_pack.md` and `controlled_station_span_splice_manifest.csv`.
 
 ## Do Not Claim Yet
 

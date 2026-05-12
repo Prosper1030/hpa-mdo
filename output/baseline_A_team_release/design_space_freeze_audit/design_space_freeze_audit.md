@@ -1,9 +1,9 @@
 # Baseline A Design-Space Freeze Audit
 
 Work order: `WO-003 Design-Space Freeze Audit`
-Verdict: `baseline_A_freeze_reasonable`
+Verdict: `baseline_A_data_authority_repair_supersedes_freeze_claim`
 
-Baseline A remains reasonable to freeze for team work. I did not find explicit reopen-trigger evidence that a nearby manufacturable candidate clearly dominates the released pathfinder. The strongest nearby fast-model row is `seed_best_power_6p6_span35_AR40_CD0p016`, which reduces quick-screen required crank power by `4.63%` versus the release-mass/tail-charge Baseline A screen. That is below the 5-8% power reopen trigger, is outside the current released geometry chain, and has `cl_band=high_but_possible` / `stall_band=caution`.
+This WO-003 artifact is retained as Stage-0 quick-screen evidence, not current release authority. The later data-authority repair supersedes the freeze claim until mass/span authority is reconciled. The strongest nearby fast-model row is `seed_best_power_6p6_span35_AR40_CD0p016`, which reduces quick-screen required crank power by `4.63%` versus the suspect P1 screening aggregate mass/tail-charge screen. That is below the 5-8% power reopen trigger, is outside the current released geometry chain, and has `cl_band=high_but_possible` / `stall_band=caution`.
 
 ## Scope And Boundary
 
@@ -32,7 +32,7 @@ Baseline A is still a team-release package, not final aircraft sign-off. P1 mean
 | Span | `34.332286 m` | exact geometry manifest |
 | Area | `33.420060 m^2` | exact geometry manifest |
 | Computed AR | `35.269` | below Stage-0 AR grid 37-40 |
-| Release mass | `106.828608 kg` | screening estimate ledger |
+| Suspect P1 screening aggregate | `106.828608 kg` | not current design mass truth; current design authority is `98.5 kg` |
 | Managed CG | `0.75 m` | accepted screening row |
 | Uncompensated CG | `0.780039 m` | explicitly rejected |
 | Pre-tail main-wing P_crank | `174.600 W` (`178.882 W` conservative) | final candidate package |
@@ -47,8 +47,8 @@ Baseline A is still a team-release package, not final aircraft sign-off. P1 mean
 
 See `candidate_compare_table.csv` for the numeric table. The important engineering read is:
 
-- Directly using `output/mission_design_space/candidate_seed_pool.csv` would be misleading because that seed pool uses `96-101 kg` and AR `37-40`, while Baseline A release is `106.828608 kg` and AR `35.269`.
-- I therefore re-evaluated the most relevant rows at release mass using the same quick-screen model, then treated rows without geometry/torsion/CG/release evidence as pre-gate candidates only.
+- Directly using `output/mission_design_space/candidate_seed_pool.csv` would be misleading because that seed pool uses `96-101 kg` and AR `37-40`, while this old Stage-0 screen used the suspect P1 screening aggregate `106.828608 kg` and AR `35.269`.
+- I therefore re-evaluated the most relevant rows at the suspect P1 screening aggregate mass using the same quick-screen model, then treated rows without geometry/torsion/CG/release evidence as pre-gate candidates only.
 - The best nearby row by fast power is span `35 m`, AR `40`, CD0 `0.016`, e `0.95`, speed `6.6 m/s`. It is about `4.63%` better than the release-total quick-screen baseline, but it is not a clear dominance case because it requires a different upstream planform/AR and has no downstream loaded-Z, tail, CG, torsion, splice, or P1 load-path chain.
 - Rounding Baseline A span to the nearest `0.1 m` changes quick-screen power by only `-0.0026%`; span-grid discretization alone does not force reopen.
 

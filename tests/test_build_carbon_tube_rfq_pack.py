@@ -51,8 +51,8 @@ def test_rfq_pack_writes_all_required_artifacts(tmp_path: Path) -> None:
         assert (output_dir / name).exists(), name
 
     pack = (output_dir / "carbon_tube_rfq_pack.md").read_text(encoding="utf-8")
-    assert "carbon_tube_rfq_pack_ready" in pack
-    assert "not a purchase order" in pack
+    assert "carbon_tube_rfq_pack_draft_vendor_screening" in pack
+    assert "not purchase-ready" in pack
     assert "QPROP/XROTOR is independent" in pack
 
 
@@ -63,8 +63,12 @@ def test_station_manifest_carries_wo004_conventions_and_warnings(tmp_path: Path)
         for row in _csv_rows(output_dir / "controlled_station_span_splice_manifest.csv")
     }
 
-    assert rows["rfq_station_convention"]["status"] == "controlled_for_rfq_screening"
+    assert rows["rfq_station_convention"]["status"] == "draft_vendor_screening_only"
     assert rows["structural_half_span_basis"]["rfq_y_m"] == "16.500000"
+    assert rows["structural_half_span_basis"]["status"] == (
+        "local_splice_screening_not_procurement_truth"
+    )
+    assert "not current pipeline half-span" in rows["structural_half_span_basis"]["rfq_language"]
     assert rows["aero_half_span_reference"]["source_y_m"] == "17.166143"
     assert rows["materialized_rib_extent_reference"]["source_y_m"] == "17.324041"
     assert rows["release_rib_spacing_basis"]["source_y_m"] == "0.300000"
@@ -73,7 +77,7 @@ def test_station_manifest_carries_wo004_conventions_and_warnings(tmp_path: Path)
 
     for y in (3, 6, 9, 12, 15):
         row = rows[f"transport_splice_y{y:02d}"]
-        assert row["status"] == "controlled_for_rfq_screening"
+        assert row["status"] == "draft_vendor_screening_only"
         assert row["wo004_warning_carried"] == "splice_station_contract_mismatch"
         assert "nearest materialized spar-joint rib" in row["rfq_language"]
 
@@ -111,7 +115,8 @@ def test_risk_register_names_procurement_and_reopen_review_triggers(tmp_path: Pa
     )
 
     assert register["schema_version"] == "baseline_a_carbon_tube_rfq_pack_v1"
-    assert register["verdict"] == "carbon_tube_rfq_pack_ready"
+    assert register["verdict"] == "carbon_tube_rfq_pack_draft_vendor_screening"
+    assert register["authority_status"] == "conflict_blocked"
     risks = {row["risk_id"]: row for row in register["risk_register"]}
     assert "tube_family_unavailable" in risks
     assert "y3_splice_zero_margin_consumed" in risks

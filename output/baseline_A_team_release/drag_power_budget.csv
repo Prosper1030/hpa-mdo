@@ -2,5 +2,5 @@ item,value,unit,status,basis
 velocity,6.6,m/s,screening_basis,current tail-aware closure
 tail_cd0_increment,0.002352,CD0,screening_basis,tail drag placeholder
 tail_profile_power_increment,13.33234,W,screening_basis,tail profile power increment
-updated_screening_mass,106.828608,kg,charged_to_screening_read,mass integrated P1 closure
+suspect_p1_screening_aggregate,106.828608,kg,suspect_screening_aggregate_not_design_truth,mass integrated P1 closure; design mass authority is 98.5 kg
 qprop_xrotor_lane,independent,policy,not_structural_blocker_gate,propulsion lane is queued separately

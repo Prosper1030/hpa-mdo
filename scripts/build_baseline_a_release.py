@@ -28,8 +28,9 @@ DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "baseline_A_team_release"
 
 SCHEMA_VERSION = "baseline_a_team_release_v1"
 LEDGER_SCHEMA_VERSION = "baseline_a_mass_cg_margin_ledger_v1"
-RELEASE_VERDICT = "baseline_A_release_system_ready"
-LEDGER_VERDICT = "mass_cg_margin_ledger_ready"
+RELEASE_VERDICT = "baseline_A_data_authority_repair_in_progress"
+LEDGER_VERDICT = "mass_cg_authority_repair_needed"
+DESIGN_GROSS_MASS_AUTHORITY_KG = 98.5
 CONFIDENCE_LEVELS = {"estimate", "quoted", "measured", "frozen"}
 
 
@@ -131,7 +132,19 @@ def _geometry_freeze(
         "release_verdict": RELEASE_VERDICT,
         "candidate_id": p1["candidate_id"],
         "current_pathfinder_role": "Baseline A team release pathfinder, not final aircraft",
+        "data_authority_status": "under_repair",
         "p1_verdict": p1["final_verdict"],
+        "authority": {
+            "design_gross_mass_authority_kg": DESIGN_GROSS_MASS_AUTHORITY_KG,
+            "suspect_p1_screening_aggregate_kg": mass[
+                "updated_total_mass_after_items_kg"
+            ],
+            "current_pipeline_full_span_evidence_m": 34.332286,
+            "current_pipeline_half_span_evidence_m": 17.166143,
+            "local_splice_screening_half_span_m": 16.5,
+            "wo006_status": "paused_until_data_authority_restored",
+            "wo005_status": "draft_vendor_screening_only",
+        },
         "frozen": {
             "phase_j_pipeline": (
                 "Mission contract -> Fourier-AVL -> smooth geometry -> loaded-Z -> "
@@ -163,7 +176,9 @@ def _geometry_freeze(
         "screening_numbers": {
             "baseline_c04_peel_margin": local["baseline_c04_margin"],
             "installed_fix_governing_margin": local["installed_fix_governing_margin"],
-            "updated_screening_mass_kg": mass["updated_total_mass_after_items_kg"],
+            "suspect_p1_screening_aggregate_mass_kg": mass[
+                "updated_total_mass_after_items_kg"
+            ],
             "required_forward_rebalance_m": cg["required_forward_rebalance_m"],
             "bounded_physical_twist_deg": aero[
                 "conservative_bounded_physical_projection_max_abs_deg"
@@ -190,8 +205,19 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
             "",
             f"Verdict: `{context['release_verdict']}`",
             "",
-            "Baseline A is a team release package for current pathfinder execution. "
-            "It is not final aircraft sign-off.",
+            "Baseline A is under data-authority repair. This package is retained as "
+            "screening evidence and task coordination material; it is not current "
+            "release authority and not final aircraft sign-off.",
+            "",
+            "## Data Authority Repair Gate",
+            "",
+            f"- Current design gross mass authority: `{DESIGN_GROSS_MASS_AUTHORITY_KG} kg`.",
+            f"- Suspect P1 screening aggregate: `{mass['updated_total_mass_after_items_kg']} kg` "
+            "(not current design mass truth).",
+            "- Current pipeline span evidence: `34.332286 m` full span / `17.166143 m` half-span.",
+            "- Local/splice screening half-span: `16.5 m`, not procurement truth.",
+            "- WO-005 RFQ pack remains draft/vendor-screening only.",
+            "- WO-006 SU2 is paused until data authority is restored.",
             "",
             "## Current Pathfinder",
             "",
@@ -200,14 +226,14 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
             f"- C04 original peel margin: `{local['baseline_c04_margin']}`",
             f"- Installed C04 fix: `{local['installed_fix_type']}`",
             f"- Governing installed-fix margin: `{local['installed_fix_governing_margin']}`",
-            f"- Updated screening mass: `{mass['updated_total_mass_after_items_kg']} kg`",
+            f"- Suspect P1 screening aggregate: `{mass['updated_total_mass_after_items_kg']} kg`",
             f"- Managed CG: `{cg['final_screening_cg_x_m']} m`",
             f"- Required forward rebalance: `{cg['required_forward_rebalance_m']} m`",
             f"- Bounded physical twist: `{aero['conservative_bounded_physical_projection_max_abs_deg']} deg`",
             "- Ledger artifacts: `mass_budget.csv`, `cg_summary.json`, "
             "`margin_budget.md`, `mass_cg_margin_daily_review.md`",
             "",
-            "## frozen / do not casually change",
+            "## authority-controlled / do not casually change",
             "",
             "- Phase J pathfinder narrative and candidate identity.",
             "- Selected rib/torsion basis: 10 mm EPS-balsa hybrid, uniform 0.30 m, "
@@ -236,10 +262,10 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
             "",
             "## Team Start Authorization",
             "",
-            "Construction, structure, control, propulsion, and manufacturing teams may "
-            "start assigned Baseline A work from this package. The allowed start is "
-            "coupon/local FEM/RFQ/interface work, not unrestricted external-shape or "
-            "aircraft sign-off work.",
+            "Teams may use this package only for bounded screening, coupon/local FEM "
+            "planning, interface review, and draft vendor questions. It does not "
+            "authorize RFQ purchase action, shop drawing release, SU2 release claims, "
+            "or aircraft sign-off work.",
             "",
         ]
     )
@@ -450,7 +476,7 @@ def _cg_summary(context: Mapping[str, Any]) -> dict[str, Any]:
     trim = _mapping_at(context, "trim")
     propulsion = _mapping_at(context, "propulsion")
     rows = _mass_ledger_rows(context)
-    gross_mass_kg = _ledger_gross_mass_kg(rows)
+    suspect_screening_aggregate_kg = _ledger_gross_mass_kg(rows)
     uncompensated_cg_m = _ledger_cg_x_m(rows)
     source_mass = float(cg["total_mass_after_items_kg"])
     source_uncompensated_cg = float(cg["uncompensated_cg_x_m"])
@@ -459,9 +485,13 @@ def _cg_summary(context: Mapping[str, Any]) -> dict[str, Any]:
         "verdict": LEDGER_VERDICT,
         "status": cg["status"],
         "cg_range_m": cg["cg_range_x_m"],
-        "gross_mass_kg": _round6(gross_mass_kg),
-        "source_updated_screening_mass_kg": cg["total_mass_after_items_kg"],
-        "mass_balance_delta_kg": _round6(gross_mass_kg - source_mass),
+        "design_gross_mass_authority_kg": DESIGN_GROSS_MASS_AUTHORITY_KG,
+        "suspect_p1_screening_aggregate_kg": _round6(suspect_screening_aggregate_kg),
+        "source_suspect_screening_aggregate_kg": cg["total_mass_after_items_kg"],
+        "screening_aggregate_minus_design_authority_kg": _round6(
+            suspect_screening_aggregate_kg - DESIGN_GROSS_MASS_AUTHORITY_KG
+        ),
+        "mass_balance_delta_kg": _round6(suspect_screening_aggregate_kg - source_mass),
         "computed_uncompensated_cg_m": _round6(uncompensated_cg_m),
         "source_uncompensated_cg_m": cg["uncompensated_cg_x_m"],
         "uncompensated_cg_delta_m": _round6(uncompensated_cg_m - source_uncompensated_cg),
@@ -488,8 +518,10 @@ def _cg_summary(context: Mapping[str, Any]) -> dict[str, Any]:
             "independent QPROP/XROTOR propulsion margin feed-in",
         ],
         "claim_boundary": (
-            "Managed CG is a screening closure row. It is not measured aircraft CG "
-            "and not approval to accept the uncompensated mass state."
+            "Design gross mass authority remains 98.5 kg. The 106.828608 kg-like "
+            "P1 aggregate is suspect screening evidence, not current design mass truth. "
+            "Managed CG is a screening closure row, not measured aircraft CG and not "
+            "approval to accept the uncompensated mass state."
         ),
     }
 
@@ -522,15 +554,17 @@ def _render_margin_budget(context: Mapping[str, Any]) -> str:
             "",
             f"Verdict: `{LEDGER_VERDICT}`",
             "",
-            "This ledger is the central screening truth surface for Baseline A mass, CG, "
-            "drag/power charge, and governing margins. It is not measured aircraft weight "
-            "and balance and not final aircraft sign-off.",
+            "This ledger is a screening evidence surface under data-authority repair. "
+            "It is not measured aircraft weight and balance, not current design mass "
+            "truth, and not final aircraft sign-off.",
             "",
             "## Mass and CG",
             "",
             "| Quantity | Value | Status |",
             "|---|---:|---|",
-            f"| Gross screening mass | {_fmt(cg_summary['gross_mass_kg'])} kg | estimate |",
+            f"| Design gross mass authority | {_fmt(cg_summary['design_gross_mass_authority_kg'])} kg | user authority |",
+            f"| Suspect P1 screening aggregate | {_fmt(cg_summary['suspect_p1_screening_aggregate_kg'])} kg | screening aggregate, not design truth |",
+            f"| Aggregate minus design authority | {_fmt(cg_summary['screening_aggregate_minus_design_authority_kg'])} kg | conflict to reconcile |",
             (
                 f"| Computed uncompensated CG | {_fmt(cg_summary['computed_uncompensated_cg_m'])} m "
                 f"| {cg_summary['uncompensated_cg_status']} |"
@@ -639,8 +673,12 @@ def _render_daily_review_summary(context: Mapping[str, Any]) -> str:
             "| Review item | Current read | 30-minute decision |",
             "|---|---|---|",
             (
-                f"| Gross mass | {_fmt(cg_summary['gross_mass_kg'])} kg | "
-                "Use as screening mass, not measured weight |"
+                f"| Design mass authority | {_fmt(cg_summary['design_gross_mass_authority_kg'])} kg | "
+                "Use as current design gross mass unless user changes it |"
+            ),
+            (
+                f"| Suspect P1 screening aggregate | {_fmt(cg_summary['suspect_p1_screening_aggregate_kg'])} kg | "
+                "Do not use as current design mass truth |"
             ),
             (
                 f"| Managed CG | {_fmt(cg_summary['managed_final_cg_m'])} m | "
@@ -681,9 +719,8 @@ def _render_daily_review_summary(context: Mapping[str, Any]) -> str:
                 "Do not use it to pass/fail C04 or rib blockers |"
             ),
             "",
-            "Next review focus: WO-005 carbon tube RFQ + procurement pack, carrying "
-            "the WO-004 station/span/splice manifest warnings, unless a mass/CG, spar, "
-            "procurement, or Baseline A reopen trigger appears.",
+            "Next review focus: data-authority repair for mass, span, station, and "
+            "RFQ channel wording. WO-005 remains draft-only and WO-006 remains paused.",
             "",
         ]
     )
@@ -714,11 +751,11 @@ def _write_drag_power_budget(path: Path, context: Mapping[str, Any]) -> None:
             "basis": "tail profile power increment",
         },
         {
-            "item": "updated_screening_mass",
+            "item": "suspect_p1_screening_aggregate",
             "value": _fmt(drag["total_screening_mass_after_integrated_items_kg"]),
             "unit": "kg",
-            "status": "charged_to_screening_read",
-            "basis": "mass integrated P1 closure",
+            "status": "suspect_screening_aggregate_not_design_truth",
+            "basis": "mass integrated P1 closure; design mass authority is 98.5 kg",
         },
         {
             "item": "qprop_xrotor_lane",
@@ -843,14 +880,16 @@ def _render_manufacturing_plan(context: Mapping[str, Any]) -> str:
         [
             "# Manufacturing Test Plan",
             "",
-            "Baseline A allows the shop-facing team to start test articles and RFQs.",
+            "Baseline A is under data-authority repair. The shop-facing team may plan "
+            "test articles and draft vendor questions, but this is not a purchase or "
+            "drawing-release authorization.",
             "",
             "## Start Now",
             "",
             "- C04 saddle/yoke/clamp coupon.",
             "- C04 local FEM and coupon correlation package.",
             "- 1 m wing-bay v2 with rib/collar/skin-sag evidence.",
-            "- Carbon tube RFQ screening using `carbon_tube_rfq_pack.md` and "
+            "- Draft carbon tube vendor screening using `carbon_tube_rfq_pack.md` and "
             "`controlled_station_span_splice_manifest.csv`.",
             "",
             "## Do Not Claim Yet",
@@ -875,11 +914,11 @@ def _render_carbon_tube_rfq(context: Mapping[str, Any]) -> str:
         [
             "# Carbon Tube RFQ Spec",
             "",
-            "Verdict: `carbon_tube_rfq_pack_ready`",
+            "Verdict: `carbon_tube_rfq_pack_draft_vendor_screening`",
             "",
-            "This is a vendor-facing RFQ screening spec. It is not a purchase "
-            "order, not final supplier selection, not production drawing control, "
-            "and not final aircraft sign-off.",
+            "This is a draft vendor-screening spec under data-authority repair. It is "
+            "not purchase-ready, not final supplier selection, not production drawing "
+            "control, and not final aircraft sign-off.",
             "",
             "## Pack Files",
             "",
@@ -890,13 +929,13 @@ def _render_carbon_tube_rfq(context: Mapping[str, Any]) -> str:
             "- `tube_splice_tolerance_requirements.csv`: tube/splice/tolerance request table.",
             "- `rfq_daily_review.md`: one-page review summary.",
             "",
-            "## Controlled RFQ Convention",
+            "## Draft Vendor-Screening Convention",
             "",
-            "- Use positive half-wing `y` from aircraft centerline/root for RFQ language; mirror to both sides.",
-            "- Structural procurement basis: `16.500 m` half-span, `3.000 m` maximum transport panel.",
-            "- RFQ splice station basis: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.",
-            "- Materialized rib basis for release language: `0.30 m` physical rib station trace.",
-            "- Aero/rib extents beyond the 16.5 m structural basis are reference/open until the station manifest is drawing-controlled.",
+            "- Use positive half-wing `y` from aircraft centerline/root for draft vendor-screening language; mirror to both sides.",
+            "- Local/splice screening reference: `16.500 m` half-span, not current pipeline half-span and not procurement truth.",
+            "- Draft splice station reference: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.",
+            "- Materialized rib basis for screening language: `0.30 m` physical rib station trace.",
+            "- Current pipeline span evidence remains `34.332286 m` full span / `17.166143 m` half-span unless replaced by newer authority.",
             "",
             "## Requested Tube Families",
             "",
@@ -907,7 +946,7 @@ def _render_carbon_tube_rfq(context: Mapping[str, Any]) -> str:
             "",
             "## WO-004 Warning Resolved For RFQ Language",
             "",
-            "- Control the RFQ to the 0.30 m physical rib station trace. The relaxed 0.345 m stiffness label is not vendor drawing control.",
+            "- Keep draft vendor questions tied to the 0.30 m physical rib station trace. The relaxed 0.345 m stiffness label is not vendor drawing control.",
             "- Do not mix 3 m transport splice stations with materialized spar-joint rib stations.",
             "- Do not treat continuous smooth geometry dimensions as shop-grid dimensions.",
             "- Do not treat airfoil/control/transition/transport station contracts as final drawing control.",
@@ -930,7 +969,7 @@ def _render_change_control_rules(context: Mapping[str, Any]) -> str:
             "Only decisions that affect large external shape, main/rear spar specification, "
             "weight/CG, procurement, or Baseline A reopen require user decision.",
             "",
-            "## frozen / do not casually change",
+            "## authority-controlled / do not casually change",
             "",
             "- Candidate identity and Phase J pathfinder narrative.",
             "- Selected rib/torsion basis and 0.30 m physical rib spacing.",
@@ -939,7 +978,7 @@ def _render_change_control_rules(context: Mapping[str, Any]) -> str:
             "## controlled / can change with review",
             "",
             "- Saddle/yoke/clamp local detail.",
-            "- Carbon tube RFQ details and splice implementation.",
+            "- Carbon tube draft vendor-screening details and splice implementation.",
             "- Tail/control interface assumptions.",
             "- Mass ledger updates.",
             "",
@@ -964,26 +1003,26 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
         (
             "WO-003",
             "design-space freeze audit",
-            "Completed with verdict `baseline_A_freeze_reasonable`; power-budget watch item remains.",
+            "Completed as Stage-0 screening; authority repair now supersedes freeze/release claims.",
         ),
         (
             "WO-004",
             "manufacturable discretization/smoothness audit",
             "Completed with verdict `geometry_freeze_needs_fix`; no large external-shape reopen, "
-            "but station/span/splice manifest must be controlled before RFQ/shop use.",
+            "but station/span/splice authority must be reconciled before RFQ/shop use.",
         ),
         (
             "WO-005",
             "carbon tube RFQ + procurement pack",
-            "Completed with verdict `carbon_tube_rfq_pack_ready`; vendor screening pack now "
-            "carries tube, splice, tolerance, station, and procurement risk boundaries.",
+            "Downgraded to draft/vendor-screening only; mass/span authority repair is required "
+            "before procurement or drawing-control use.",
         ),
     ]
     queue = [
         (
             "WO-006",
             "main-wing SU2 baseline validation",
-            "Queue a bounded CFD baseline; do not use it as current structural-blocker truth.",
+            "WO-006 remains paused until data authority is restored; do not run SU2 for release claims yet.",
         ),
         (
             "WO-007",
@@ -1059,15 +1098,13 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
             "## Next Recommended Codex Goal",
             "",
             "```text",
-            "/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006: Main-Wing SU2 Baseline Validation.",
-            "Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, "
-            "output/baseline_A_team_release/carbon_tube_rfq_pack.md, and "
-            "docs/AI_WORK_ORDER_PROTOCOL.md first. Build a bounded main-wing SU2 "
-            "baseline calibration for Baseline A aero-model comparison. Do not run "
-            "full design-space CFD, do not use SU2 as final truth, and do not let "
-            "CFD results pass structural blockers. Output verdict, changed files, "
-            "verification, engineering caveats, reviewer prompt, and next work order; "
-            "run relevant tests/ruff/build checks, then commit only WO-006.",
+            "/goal In /Volumes/Samsung SSD/hpa-mdo, keep WO-006 paused and execute the next data-authority repair item.",
+            "Read README.md, CURRENT_MAINLINE.md, docs/reports/baseline_A_data_authority_audit.md, "
+            "docs/reports/baseline_A_data_authority_conflict_register.md, and "
+            "output/baseline_A_team_release/data_authority_table.csv first. Do not run SU2, "
+            "QPROP, XROTOR, prop optimization, or procurement actions. Repair the next "
+            "blocking mass/span/station authority issue, update tests and generated wording, "
+            "run the data-authority checker, and commit only that work order.",
             "```",
             "",
             "## Reviewer Prompt",
@@ -1086,10 +1123,10 @@ def _reopen_triggers() -> list[str]:
     return [
         "C04 saddle/yoke/clamp coupon or local FEM shows negative governing margin.",
         "Updated mass/CG cannot hold managed CG 0.75 m within rebalance limit.",
-        "Tube RFQ cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions.",
-        "Qualified aero-surface mapping invalidates the current direct stress-test warning read.",
+        "Tube vendor-screening evidence cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions after authority repair.",
+        "Qualified aero-surface mapping invalidates the current direct stress-test warning read after authority repair.",
         "Tail trim/stability or control authority fails at managed CG.",
-        "Main-wing SU2 baseline changes drag/power enough to invalidate mission margins.",
+        "Main-wing SU2 remains paused until data authority is restored; later SU2 baseline changes drag/power enough to invalidate mission margins.",
         "Manufacturing discretization forces large external-shape or spar-spec change.",
     ]
 

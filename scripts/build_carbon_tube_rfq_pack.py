@@ -51,7 +51,7 @@ P1_CLOSURE_JSON = (
 CARBON_TUBE_CSV = REPO_ROOT / "data" / "carbon_tubes.csv"
 
 SCHEMA_VERSION = "baseline_a_carbon_tube_rfq_pack_v1"
-VERDICT = "carbon_tube_rfq_pack_ready"
+VERDICT = "carbon_tube_rfq_pack_draft_vendor_screening"
 
 
 def build_rfq_context() -> dict[str, Any]:
@@ -78,9 +78,11 @@ def build_rfq_context() -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "verdict": VERDICT,
+        "authority_status": "conflict_blocked",
         "claim_boundary": (
-            "Vendor-facing screening RFQ pack only; it is not a purchase order, "
-            "not supplier selection, not drawing release, and not final aircraft sign-off."
+            "Draft vendor-screening pack only while mass/span authority is under repair; "
+            "it is not purchase-ready, not supplier selection, not drawing release, "
+            "and not final aircraft sign-off."
         ),
         "candidate_id": geometry_freeze["candidate_id"],
         "release_verdict": geometry_freeze["release_verdict"],
@@ -146,9 +148,9 @@ def _render_front_door_spec(context: Mapping[str, Any]) -> str:
             "",
             f"Verdict: `{context['verdict']}`",
             "",
-            "This is a vendor-facing RFQ screening spec. It is not a purchase "
-            "order, not final supplier selection, not production drawing control, "
-            "and not final aircraft sign-off.",
+            "This is a draft vendor-screening RFQ spec under data-authority repair. "
+            "It is not purchase-ready, not final supplier selection, not production "
+            "drawing control, and not final aircraft sign-off.",
             "",
             "## Pack Files",
             "",
@@ -159,16 +161,16 @@ def _render_front_door_spec(context: Mapping[str, Any]) -> str:
             "- `tube_splice_tolerance_requirements.csv`: tube/splice/tolerance request table.",
             "- `rfq_daily_review.md`: one-page review summary.",
             "",
-            "## Controlled RFQ Convention",
+            "## Draft Vendor-Screening Convention",
             "",
-            "- Use positive half-wing `y` from aircraft centerline/root for RFQ language; mirror to both sides.",
-            f"- Structural procurement basis: `{splice['half_span_m']:.3f} m` half-span, "
-            f"`{splice['panel_length_m']:.3f} m` maximum transport panel.",
-            "- RFQ splice station basis: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.",
+            "- Use positive half-wing `y` from aircraft centerline/root for draft vendor-screening language; mirror to both sides.",
+            f"- Local/splice screening reference: `{splice['half_span_m']:.3f} m` half-span, "
+            f"not current pipeline half-span and not procurement truth; `{splice['panel_length_m']:.3f} m` remains a transport-panel screening constraint.",
+            "- Draft splice station reference: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.",
             f"- Materialized rib basis for release language: `{rib_trace['target_spacing_m']:.2f} m` "
             f"target with `{rib_trace['full_wing_station_count']}` full-wing stations and max bay "
             f"`{rib_trace['max_materialized_bay_m']:.6f} m`.",
-            "- Aero/rib extents beyond the 16.5 m structural basis are reference/open until the station manifest is drawing-controlled.",
+            "- Current pipeline span evidence is `34.332286 m` full span / `17.166143 m` half-span unless replaced by newer authority.",
             "",
             "## Requested Tube Families",
             "",
@@ -183,7 +185,7 @@ def _render_front_door_spec(context: Mapping[str, Any]) -> str:
             "",
             "## WO-004 Warning Resolved For RFQ Language",
             "",
-            "- Control the RFQ to the 0.30 m physical rib station trace. The relaxed "
+            "- Keep draft vendor questions tied to the 0.30 m physical rib station trace. The relaxed "
             "stiffness row remains a non-RFQ bookkeeping/reference issue: "
             f"{stiffness_row['observed']}",
             "- Do not mix 3 m transport splice stations with materialized spar-joint rib stations.",
@@ -218,22 +220,23 @@ def _render_rfq_pack(context: Mapping[str, Any]) -> str:
         "",
         "## RFQ Use",
         "",
-        "Send this pack to vendors as a capability and quote-screening request. "
-        "Ask vendors to answer the questionnaire and mark any deviation from the "
-        "screening dimensions. Do not authorize production from this pack.",
+        "Keep this pack as a draft capability and quote-screening request until "
+        "mass/span authority is repaired. If it is shared externally, every page "
+        "must preserve the draft/vendor-screening boundary. Do not authorize "
+        "production or procurement from this pack.",
         "",
         "## Controlled Station Convention For RFQ",
         "",
         "| Item | RFQ convention | Status |",
         "|---|---|---|",
-        "| Half-wing station | Positive `y` from aircraft centerline/root, mirrored left/right | controlled_for_rfq_screening |",
-        f"| Structural procurement extent | `{splice['half_span_m']:.3f} m` half-span | controlled_for_rfq_screening |",
-        f"| Transport panel length | `{splice['panel_length_m']:.3f} m` maximum shipped/cut panel | controlled_for_rfq_screening |",
-        "| Splice stations | `3 / 6 / 9 / 12 / 15 m` per half-wing | controlled_for_rfq_screening |",
+        "| Half-wing station | Positive `y` from aircraft centerline/root, mirrored left/right | draft_vendor_screening |",
+        f"| Local/splice screening extent | `{splice['half_span_m']:.3f} m` half-span, not procurement truth | conflict_blocked |",
+        f"| Transport panel length | `{splice['panel_length_m']:.3f} m` maximum shipped/cut panel | screening_constraint |",
+        "| Splice stations | `3 / 6 / 9 / 12 / 15 m` per half-wing | draft_vendor_screening |",
         f"| Release rib basis | `{rib_trace['target_spacing_m']:.2f} m` target; max materialized bay `{rib_trace['max_materialized_bay_m']:.6f} m` | controlled_for_rfq_language |",
         "| Airfoil/control/twist/transport station contracts | Not final drawing control | open |",
         "",
-        "The RFQ station convention intentionally does not use the signed full-wing "
+        "The draft station convention intentionally does not use the signed full-wing "
         "rib table as the vendor station origin. Materialized spar-joint ribs are "
         "reference hard-points until a drawing-controlled station schedule exists.",
         "",
@@ -246,9 +249,9 @@ def _render_rfq_pack(context: Mapping[str, Any]) -> str:
         "| Main-spar internal spigot | OD approx spar ID - 0.2 mm clearance; 4D overlap each side | 10 joints full-wing on current main-spar splice screen | screening_reference |",
         "| Ferrule / shear dog | CFRP ferrule ring plus two shear dogs; removable pin never through CFRP spar | 10 joints full-wing on current main-spar splice screen | screening_reference |",
         "",
-        "Quantity basis assumes 6 panels per half-wing per spar line on the 16.5 m "
-        "structural half-span. The outer aero/rib tip extension is not yet a tube "
-        "purchase length control.",
+        "Quantity basis is only a draft estimate tied to the local/splice screening "
+        "half-span. The outer aero/rib tip extension is not yet a tube purchase "
+        "length control, and the 16.5 m reference is not procurement truth.",
         "",
         "## Splice Screening Table",
         "",
@@ -315,9 +318,9 @@ def _render_rfq_pack(context: Mapping[str, Any]) -> str:
             "",
             "## Engineering Verdict",
             "",
-            "`carbon_tube_rfq_pack_ready`: ready to send for vendor screening "
-            "questions inside the stated trust boundary. It is not ready for "
-            "purchase authorization or final drawing release.",
+            "`carbon_tube_rfq_pack_draft_vendor_screening`: retained for vendor "
+            "capability questions only inside the stated trust boundary. It is not "
+            "ready for purchase authorization or final drawing release.",
             "",
             f"Candidate: `{geometry['candidate_id']}`",
             f"Selected rib/stiffness basis carried for release: `{selected_rib['basis_read']}`",
@@ -391,26 +394,26 @@ def _render_daily_review(context: Mapping[str, Any]) -> str:
             "",
             f"Verdict: `{context['verdict']}`",
             "",
-            "The carbon tube RFQ pack is ready for vendor screening conversations, "
-            "not order placement or drawing release.",
+            "The carbon tube RFQ pack remains draft/vendor-screening only while mass "
+            "and span authority are repaired. It is not order placement or drawing release.",
             "",
-            "## What Is Controlled For RFQ",
+            "## What Is Draft Screening Only",
             "",
             "- Station convention: positive half-wing y from centerline/root, mirrored to both sides.",
-            f"- Structural basis: `{splice['half_span_m']:.3f} m` half-span with `3.000 m` max transport panels.",
-            "- Splice stations: `3 / 6 / 9 / 12 / 15 m` per half-wing.",
+            f"- Local/splice screening reference: `{splice['half_span_m']:.3f} m` half-span with `3.000 m` max transport panels; not procurement truth.",
+            "- Draft splice station reference: `3 / 6 / 9 / 12 / 15 m` per half-wing.",
             f"- Release rib language: `0.30 m` physical rib station basis, `{rib_trace['full_wing_station_count']}` full-wing stations.",
             "",
             "## Main Warnings",
             "",
             "- y=3 m splice has zero screening bending margin; vendor fit/tolerance/knockdown data can force review.",
             "- 0.30 m rib station basis controls RFQ language; the relaxed 0.345 m stiffness label is not vendor drawing control.",
-            "- Structural 16.5 m half-span and aero/rib extents around 17.17-17.32 m are not silently interchangeable.",
+            "- Local/splice 16.5 m half-span and pipeline aero/rib extents around 17.17-17.32 m are not silently interchangeable.",
             "- Airfoil/control/twist/transport station contracts remain open drawing-control items.",
             "",
             "## Next Work Order",
             "",
-            "WO-006 Main-Wing SU2 Baseline Validation, kept as a bounded aero-calibration lane and not final truth.",
+            "WO-006 remains paused until data authority is restored.",
             "",
         ]
     )
@@ -435,9 +438,9 @@ def _station_manifest_rows(context: Mapping[str, Any]) -> list[dict[str, Any]]:
             "rfq_y_m": "",
             "source_y_m": "",
             "side_basis": "positive_half_wing_mirrored",
-            "status": "controlled_for_rfq_screening",
+            "status": "draft_vendor_screening_only",
             "source_artifact": "WO-005 controlled manifest",
-            "rfq_language": "Use positive half-wing y from aircraft centerline/root; mirror to left/right.",
+            "rfq_language": "Draft only: use positive half-wing y from aircraft centerline/root; mirror to left/right.",
             "wo004_warning_carried": "prevents station convention mixing",
             "review_trigger": "Any vendor drawing with a different origin, sign, or station datum requires review.",
         },
@@ -447,9 +450,9 @@ def _station_manifest_rows(context: Mapping[str, Any]) -> list[dict[str, Any]]:
             "rfq_y_m": f"{splice['half_span_m']:.6f}",
             "source_y_m": f"{splice['half_span_m']:.6f}",
             "side_basis": "positive_half_wing",
-            "status": "controlled_for_rfq_screening",
+            "status": "local_splice_screening_not_procurement_truth",
             "source_artifact": "output/current_pathfinder_spar_splice_design/splice_design_report.json",
-            "rfq_language": "Tube procurement screen uses 16.5 m structural half-span and 3 m transport panels.",
+            "rfq_language": "Local/splice screening uses 16.5 m half-span and 3 m transport panels; not current pipeline half-span and not procurement truth.",
             "wo004_warning_carried": "span_extent_contract_mismatch",
             "review_trigger": "Any tube length/order basis that includes the outer aero/rib extension needs station-control review.",
         },
@@ -483,10 +486,10 @@ def _station_manifest_rows(context: Mapping[str, Any]) -> list[dict[str, Any]]:
             "rfq_y_m": "",
             "source_y_m": f"{rib_trace['target_spacing_m']:.6f}",
             "side_basis": "full_wing_station_trace",
-            "status": "controlled_for_rfq_language",
+            "status": "draft_vendor_screening_language",
             "source_artifact": "output/current_pathfinder_materialized_rib_contract_audit/materialized_rib_contract_audit.json",
             "rfq_language": (
-                f"RFQ language controls 0.30 m physical ribs: "
+                f"Draft vendor-screening language uses 0.30 m physical ribs: "
                 f"{rib_trace['full_wing_station_count']} stations, max bay "
                 f"{rib_trace['max_materialized_bay_m']:.6f} m."
             ),
@@ -516,7 +519,7 @@ def _station_manifest_rows(context: Mapping[str, Any]) -> list[dict[str, Any]]:
                 "rfq_y_m": f"{joint['y_m']:.6f}",
                 "source_y_m": f"{joint['y_m']:.6f}",
                 "side_basis": "positive_half_wing_mirrored",
-                "status": "controlled_for_rfq_screening",
+                "status": "draft_vendor_screening_only",
                 "source_artifact": "output/current_pathfinder_spar_splice_design/splice_design_report.json",
                 "rfq_language": (
                     f"Transport splice at y={joint['y_m']:.1f} m; nearest materialized "
@@ -581,6 +584,7 @@ def _risk_register(context: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "verdict": VERDICT,
+        "authority_status": context["authority_status"],
         "claim_boundary": context["claim_boundary"],
         "source_artifacts": context["sources"],
         "risk_register": [

@@ -1,10 +1,11 @@
 {
+  "authority_status": "conflict_blocked",
   "baseline_A_reopen_watch": [
     "Vendor evidence invalidates current main/rear spar OD, wall, tolerance, or splice-fit assumptions.",
     "Vendor mass or layup changes make managed CG 0.75 m or aeroelastic closure infeasible.",
     "y=3 m splice cannot be recovered by detail design, coupon, or local FEM without changing spar architecture."
   ],
-  "claim_boundary": "Vendor-facing screening RFQ pack only; it is not a purchase order, not supplier selection, not drawing release, and not final aircraft sign-off.",
+  "claim_boundary": "Draft vendor-screening pack only while mass/span authority is under repair; it is not purchase-ready, not supplier selection, not drawing release, and not final aircraft sign-off.",
   "risk_register": [
     {
       "affected_review": [
@@ -105,5 +106,5 @@
     "output/current_pathfinder_p1_load_path_mass_closure/p1_load_path_mass_closure.json",
     "data/carbon_tubes.csv"
   ],
-  "verdict": "carbon_tube_rfq_pack_ready"
+  "verdict": "carbon_tube_rfq_pack_draft_vendor_screening"
 }

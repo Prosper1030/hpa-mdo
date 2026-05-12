@@ -2,16 +2,32 @@
 
 Queue owner: 代理總工程師 / AI 工作總控.
 
+## Current Blocking Gate
+
+Baseline A is under `data_authority_repair`. Do not start WO-006 SU2, WO-007
+QPROP/XROTOR, procurement/RFQ actions, vendor selection, propeller optimization,
+or Baseline A release claims until the data-authority checker and authority table
+show the blocking conflicts are repaired.
+
+Current authority summary:
+
+- `98.5 kg` is the current design gross mass authority.
+- `106.828608 kg` is suspect P1 screening aggregate only.
+- `34.332286 m` / `17.166143 m` are current pipeline span evidence.
+- `16.5 m` is local/splice screening only.
+- WO-005 remains draft/vendor-screening only.
+- P1/C04 remains coupon/local FEM readiness only.
+
 Current release package:
 
 - `output/baseline_A_team_release/`
-- release verdict: `baseline_A_release_system_ready`
-- mass / CG / margin ledger verdict: `mass_cg_margin_ledger_ready`
+- release verdict: `baseline_A_data_authority_repair_in_progress`
+- mass / CG / margin ledger verdict: `mass_cg_authority_repair_needed`
 - manufacturable geometry audit verdict: `geometry_freeze_needs_fix`
 - current structural blocker verdict: `p1_local_load_path_ready_for_coupon_fem`
-- Baseline A status: team release can start coupon, 1 m wing-bay v2, C04 local FEM,
-  carbon tube vendor screening, control/propulsion interface work; not final
-  aircraft sign-off and not shop/RFQ drawing release.
+- Baseline A status: data-authority repair blocks release/procurement claims.
+  Coupon/local FEM planning may continue inside screening boundaries, but WO-005
+  remains draft-only and WO-006 stays paused.
 
 ## Queue Rules
 
@@ -46,7 +62,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; verdict `carbon_tube_rfq_pack_ready` |
-| WO-006 | P1 | queued | Main-Wing SU2 Baseline Validation | aero validation | Calibrate current Baseline A aero model without turning SU2 into final truth |
+| WO-006 | P1 | paused | Main-Wing SU2 Baseline Validation | aero validation | Paused until data authority is restored |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -189,16 +205,15 @@ Disallowed scope:
 Required verdict: `carbon_tube_rfq_pack_ready` or
 `carbon_tube_rfq_pack_incomplete`.
 
-Completion read: `carbon_tube_rfq_pack_ready`. The RFQ pack now controls vendor
-language to positive half-wing `y` from centerline/root, structural `16.5 m`
-half-span, 3 m splice stations at `3 / 6 / 9 / 12 / 15 m`, and the release-facing
-0.30 m materialized rib station basis. It explicitly keeps the 0.345 m relaxed
-stiffness label out of vendor drawing control, carries the y=3 m zero bending
-margin as a detail/coupon warning, and flags vendor answers that would force
-spar-spec, mass/CG, procurement, or Baseline A reopen review. It does not place
-orders, choose a supplier, release shop drawings, or sign off the aircraft.
+Current read: `carbon_tube_rfq_pack_draft_vendor_screening`. The pack may be used
+only as an internal vendor-question draft. The `16.5 m` half-span and 3 m splice
+stations are local/splice screening references, not procurement truth. It does
+not place orders, choose a supplier, release shop drawings, or sign off the
+aircraft.
 
 ### WO-006: Main-Wing SU2 Baseline Validation
+
+Status: paused until Baseline A data authority is repaired.
 
 Purpose: calibrate current Baseline A aerodynamic models against a bounded SU2
 baseline, similar in spirit to using CCX to calibrate structural fast models.

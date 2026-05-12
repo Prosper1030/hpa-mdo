@@ -1,8 +1,8 @@
 # Carbon Tube RFQ Spec
 
-Verdict: `carbon_tube_rfq_pack_ready`
+Verdict: `carbon_tube_rfq_pack_draft_vendor_screening`
 
-This is a vendor-facing RFQ screening spec. It is not a purchase order, not final supplier selection, not production drawing control, and not final aircraft sign-off.
+This is a draft vendor-screening RFQ spec under data-authority repair. It is not purchase-ready, not final supplier selection, not production drawing control, and not final aircraft sign-off.
 
 ## Pack Files
 
@@ -13,13 +13,13 @@ This is a vendor-facing RFQ screening spec. It is not a purchase order, not fina
 - `tube_splice_tolerance_requirements.csv`: tube/splice/tolerance request table.
 - `rfq_daily_review.md`: one-page review summary.
 
-## Controlled RFQ Convention
+## Draft Vendor-Screening Convention
 
-- Use positive half-wing `y` from aircraft centerline/root for RFQ language; mirror to both sides.
-- Structural procurement basis: `16.500 m` half-span, `3.000 m` maximum transport panel.
-- RFQ splice station basis: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.
+- Use positive half-wing `y` from aircraft centerline/root for draft vendor-screening language; mirror to both sides.
+- Local/splice screening reference: `16.500 m` half-span, not current pipeline half-span and not procurement truth; `3.000 m` remains a transport-panel screening constraint.
+- Draft splice station reference: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.
 - Materialized rib basis for release language: `0.30 m` target with `121` full-wing stations and max bay `0.297063 m`.
-- Aero/rib extents beyond the 16.5 m structural basis are reference/open until the station manifest is drawing-controlled.
+- Current pipeline span evidence is `34.332286 m` full span / `17.166143 m` half-span unless replaced by newer authority.
 
 ## Requested Tube Families
 
@@ -30,7 +30,7 @@ This is a vendor-facing RFQ screening spec. It is not a purchase order, not fina
 
 ## WO-004 Warning Resolved For RFQ Language
 
-- Control the RFQ to the 0.30 m physical rib station trace. The relaxed stiffness row remains a non-RFQ bookkeeping/reference issue: Release freeze says 0.30 m, but selected stiffness basis closure_rerun_eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75_fast_design_loop_v1 records target spacing 0.345 m and materialized max subbay 0.345 m.
+- Keep draft vendor questions tied to the 0.30 m physical rib station trace. The relaxed stiffness row remains a non-RFQ bookkeeping/reference issue: Release freeze says 0.30 m, but selected stiffness basis closure_rerun_eps_balsa_cap_hybrid_10mm__t10p0mm__manufacturing_relaxed_0p36__carbon_face_collar_y2p328__rear75_fast_design_loop_v1 records target spacing 0.345 m and materialized max subbay 0.345 m.
 - Do not mix 3 m transport splice stations with materialized spar-joint rib stations.
 - Do not treat continuous smooth geometry dimensions as shop-grid dimensions.
 - Do not treat airfoil/control/transition/transport station contracts as final drawing control.

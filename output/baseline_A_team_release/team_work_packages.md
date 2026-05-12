@@ -6,21 +6,21 @@ Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 
 ### WO-003: design-space freeze audit
 
-- Completion read: Completed with verdict `baseline_A_freeze_reasonable`; power-budget watch item remains.
+- Completion read: Completed as Stage-0 screening; authority repair now supersedes freeze/release claims.
 
 ### WO-004: manufacturable discretization/smoothness audit
 
-- Completion read: Completed with verdict `geometry_freeze_needs_fix`; no large external-shape reopen, but station/span/splice manifest must be controlled before RFQ/shop use.
+- Completion read: Completed with verdict `geometry_freeze_needs_fix`; no large external-shape reopen, but station/span/splice authority must be reconciled before RFQ/shop use.
 
 ### WO-005: carbon tube RFQ + procurement pack
 
-- Completion read: Completed with verdict `carbon_tube_rfq_pack_ready`; vendor screening pack now carries tube, splice, tolerance, station, and procurement risk boundaries.
+- Completion read: Downgraded to draft/vendor-screening only; mass/span authority repair is required before procurement or drawing-control use.
 
 ## Priority Queue
 
 ### WO-006: main-wing SU2 baseline validation
 
-- Objective: Queue a bounded CFD baseline; do not use it as current structural-blocker truth.
+- Objective: WO-006 remains paused until data authority is restored; do not run SU2 for release claims yet.
 - Required output: verdict, changed files, verification, engineering caveats, and reviewer prompt.
 - Decision gate: ask user only if large external shape, main/rear spar spec, weight/CG, procurement, or Baseline A reopen is affected.
 
@@ -63,8 +63,8 @@ Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 ## Next Recommended Codex Goal
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006: Main-Wing SU2 Baseline Validation.
-Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, output/baseline_A_team_release/carbon_tube_rfq_pack.md, and docs/AI_WORK_ORDER_PROTOCOL.md first. Build a bounded main-wing SU2 baseline calibration for Baseline A aero-model comparison. Do not run full design-space CFD, do not use SU2 as final truth, and do not let CFD results pass structural blockers. Output verdict, changed files, verification, engineering caveats, reviewer prompt, and next work order; run relevant tests/ruff/build checks, then commit only WO-006.
+/goal In /Volumes/Samsung SSD/hpa-mdo, keep WO-006 paused and execute the next data-authority repair item.
+Read README.md, CURRENT_MAINLINE.md, docs/reports/baseline_A_data_authority_audit.md, docs/reports/baseline_A_data_authority_conflict_register.md, and output/baseline_A_team_release/data_authority_table.csv first. Do not run SU2, QPROP, XROTOR, prop optimization, or procurement actions. Repair the next blocking mass/span/station authority issue, update tests and generated wording, run the data-authority checker, and commit only that work order.
 ```
 
 ## Reviewer Prompt

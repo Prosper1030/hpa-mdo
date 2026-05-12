@@ -1,5 +1,25 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-12 Data-Authority Repair Gate
+
+Baseline A 目前處於 **data-authority repair**，不是可繼續對外宣稱 release-ready 的狀態。
+在這個 gate 關閉前：
+
+- `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
+- `106.828608 kg` 是 suspect P1 screening aggregate，不是目前 Baseline A design mass truth。
+- 目前 pipeline span evidence 是 `34.332286 m` full span / `17.166143 m` half-span，除非新的 authority manifest 取代它。
+- `16.5 m` 只能當 local/splice screening reference，不是 current pipeline half-span、RFQ control span、shop span 或 procurement truth。
+- WO-005 carbon tube RFQ pack 只能當 draft/vendor-screening；不能下單、選 vendor、放 shop drawing。
+- WO-006 SU2、WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 全部暫停到 data authority restored。
+- P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
+
+先讀：
+
+- [docs/reports/baseline_A_data_authority_audit.md](docs/reports/baseline_A_data_authority_audit.md)
+- [docs/reports/baseline_A_data_authority_conflict_register.md](docs/reports/baseline_A_data_authority_conflict_register.md)
+- [output/baseline_A_team_release/data_authority_table.csv](output/baseline_A_team_release/data_authority_table.csv)
+- [docs/reports/repo_channel_hygiene_plan.md](docs/reports/repo_channel_hygiene_plan.md)
+
 這個 repo 目前服務的是一條 **全新人力飛機設計 pipeline**，不是 Black Cat 004 舊機體的補強案。
 Black Cat 004 / dual-beam / OpenMDAO spar optimizer 仍保留為歷史基礎與可重用工具，但不再是 root
 README 的主敘事，也不應被新 agent 當成目前 candidate 的設計真相。

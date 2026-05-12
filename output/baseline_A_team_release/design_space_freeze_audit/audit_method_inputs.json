@@ -6,7 +6,7 @@
     "speed_mps": 6.6,
     "span_m": 34.332286,
     "aspect_ratio": 35.269412327928194,
-    "mass_kg": 106.828608,
+    "suspect_p1_screening_aggregate_mass_kg": 106.828608,
     "cd0_total": 0.015610730502038055,
     "oswald_e": 0.9564,
     "air_density_kg_m3": 1.1357,
@@ -29,8 +29,8 @@
     "seed_best_power_6p6_span35_AR40_CD0p016_e090_sensitivity"
   ],
   "notes": [
-    "The mission seed pool uses mass 96-101 kg and AR 37-40; Baseline A release is 106.828608 kg and AR 35.269.",
-    "Power comparison therefore re-evaluates selected rows at release mass instead of directly treating seed-pool margins as dominance evidence.",
+    "The mission seed pool uses mass 96-101 kg and AR 37-40; the old WO-003 Baseline A fast screen used the suspect P1 screening aggregate 106.828608 kg and AR 35.269.",
+    "Power comparison therefore re-evaluated selected rows at the suspect P1 screening aggregate mass instead of directly treating seed-pool margins as dominance evidence.",
     "No alternate row is credited with weight, CG, torsion, tail, spar-splice, or local-load-path closure unless an existing artifact provides it."
   ]
 }

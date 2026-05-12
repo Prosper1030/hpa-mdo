@@ -1,5 +1,21 @@
 # HPA-MDO 文件索引
 
+## 2026-05-12 必讀：Data-Authority Repair
+
+Baseline A 目前不是 release/procurement truth；它正在做 data-authority repair。任何 AI agent
+若要碰 mass、CG、span、station、RFQ、mission power、SU2、QPROP/XROTOR、C04/FEM 或 release
+language，先讀：
+
+- [baseline_A_data_authority_audit.md](reports/baseline_A_data_authority_audit.md)
+- [baseline_A_data_authority_conflict_register.md](reports/baseline_A_data_authority_conflict_register.md)
+- [baseline_A_gate_debt_register.md](reports/baseline_A_gate_debt_register.md)
+- [repo_channel_hygiene_plan.md](reports/repo_channel_hygiene_plan.md)
+- [data_authority_table.csv](../output/baseline_A_team_release/data_authority_table.csv)
+
+目前簡化規則：`98.5 kg` 是 design mass authority；`106.828608 kg` 是 suspect P1 screening
+aggregate；`34.332286 / 17.166143 m` 是 pipeline span evidence；`16.5 m` 是 local/splice
+screening only；WO-005 draft-only；WO-006 paused。
+
 這份文件是 `docs/` 的導航層，不取代根目錄的 [README.md](../README.md)。
 
 - 人類使用者先看 [README.md](../README.md)。
@@ -16,10 +32,10 @@
 | [README.md](../README.md) | Repo landing page，先講正式入口、閱讀路徑、第一個指令 | 第一次進 repo 的人 |
 | [AI_WORK_ORDER_PROTOCOL.md](AI_WORK_ORDER_PROTOCOL.md) | Baseline A AI work-order protocol | 需要接任務、驗證、commit、產生 reviewer prompt 的 AI thread |
 | [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A priority queue | 需要知道下一個可派工任務的人 |
-| [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A team release package | 施工、結構、控制、傳動、製造組共同起點；不是 final aircraft sign-off |
+| [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A generated evidence package under repair | 施工、結構、控制、傳動、製造組參考；不是 release authority、procurement truth 或 final aircraft sign-off |
 | [margin_budget.md](../output/baseline_A_team_release/margin_budget.md) | Baseline A mass / CG / margin ledger | 需要每日審查 gross mass、managed/uncompensated CG、C04 margin、drag/power/structure boundary 的人 |
 | [manufacturable_geometry_audit.md](../output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md) | Baseline A manufacturable geometry audit | 需要確認 smooth pathfinder 是否可交給 team release、哪些 station/span/splice/RFQ caveat 仍需補齊的人 |
-| [carbon_tube_rfq_pack.md](../output/baseline_A_team_release/carbon_tube_rfq_pack.md) | Baseline A carbon tube RFQ screening pack | 需要和 tube vendor 討論 OD/ID、layup、tolerance、splice fit、3 m shipping、station convention、procurement risk 的人；不是 purchase order |
+| [carbon_tube_rfq_pack.md](../output/baseline_A_team_release/carbon_tube_rfq_pack.md) | Draft carbon tube vendor-screening pack | 可做內部 vendor-question 草稿；不是 purchase order、不是 RFQ control truth |
 | [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived Phase J pipeline report | 需要理解目前主線來源的人 |
 | [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md) | Phase J deep evidence map / source quarantine | 需要逐 stage 看 artifact / candidate / trust boundary / gap，並避免舊 medium-search 資料污染的人 |
 | [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) | all-moving tail / trim / stability contract insertion | 需要把水平尾、垂尾、配平、靜穩定、控制 authority、tail drag/mass 接進 pathfinder 的人 |

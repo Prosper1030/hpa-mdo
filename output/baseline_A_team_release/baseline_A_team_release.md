@@ -1,8 +1,17 @@
 # Baseline A team release
 
-Verdict: `baseline_A_release_system_ready`
+Verdict: `baseline_A_data_authority_repair_in_progress`
 
-Baseline A is a team release package for current pathfinder execution. It is not final aircraft sign-off.
+Baseline A is under data-authority repair. This package is retained as screening evidence and task coordination material; it is not current release authority and not final aircraft sign-off.
+
+## Data Authority Repair Gate
+
+- Current design gross mass authority: `98.5 kg`.
+- Suspect P1 screening aggregate: `106.828608 kg` (not current design mass truth).
+- Current pipeline span evidence: `34.332286 m` full span / `17.166143 m` half-span.
+- Local/splice screening half-span: `16.5 m`, not procurement truth.
+- WO-005 RFQ pack remains draft/vendor-screening only.
+- WO-006 SU2 is paused until data authority is restored.
 
 ## Current Pathfinder
 
@@ -11,13 +20,13 @@ Baseline A is a team release package for current pathfinder execution. It is not
 - C04 original peel margin: `-0.893`
 - Installed C04 fix: `saddle_ring_yoke_plus_secondary_clamp`
 - Governing installed-fix margin: `0.8876`
-- Updated screening mass: `106.828608 kg`
+- Suspect P1 screening aggregate: `106.828608 kg`
 - Managed CG: `0.75 m`
 - Required forward rebalance: `0.057304 m`
 - Bounded physical twist: `1.906952370757391 deg`
 - Ledger artifacts: `mass_budget.csv`, `cg_summary.json`, `margin_budget.md`, `mass_cg_margin_daily_review.md`
 
-## frozen / do not casually change
+## authority-controlled / do not casually change
 
 - Phase J pathfinder narrative and candidate identity.
 - Selected rib/torsion basis: 10 mm EPS-balsa hybrid, uniform 0.30 m, carbon face collar at y=2.328 m, rear75.
@@ -43,12 +52,12 @@ Baseline A is a team release package for current pathfinder execution. It is not
 
 - C04 saddle/yoke/clamp coupon or local FEM shows negative governing margin.
 - Updated mass/CG cannot hold managed CG 0.75 m within rebalance limit.
-- Tube RFQ cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions.
-- Qualified aero-surface mapping invalidates the current direct stress-test warning read.
+- Tube vendor-screening evidence cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions after authority repair.
+- Qualified aero-surface mapping invalidates the current direct stress-test warning read after authority repair.
 - Tail trim/stability or control authority fails at managed CG.
-- Main-wing SU2 baseline changes drag/power enough to invalidate mission margins.
+- Main-wing SU2 remains paused until data authority is restored; later SU2 baseline changes drag/power enough to invalidate mission margins.
 - Manufacturing discretization forces large external-shape or spar-spec change.
 
 ## Team Start Authorization
 
-Construction, structure, control, propulsion, and manufacturing teams may start assigned Baseline A work from this package. The allowed start is coupon/local FEM/RFQ/interface work, not unrestricted external-shape or aircraft sign-off work.
+Teams may use this package only for bounded screening, coupon/local FEM planning, interface review, and draft vendor questions. It does not authorize RFQ purchase action, shop drawing release, SU2 release claims, or aircraft sign-off work.

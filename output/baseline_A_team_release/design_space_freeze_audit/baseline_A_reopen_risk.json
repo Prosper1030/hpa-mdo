@@ -9,7 +9,7 @@
     "span_m": 34.332286,
     "aspect_ratio_computed": 35.269412327928194,
     "wing_area_m2": 33.420059598,
-    "release_mass_kg": 106.828608,
+    "suspect_p1_screening_aggregate_mass_kg": 106.828608,
     "managed_cg_m": 0.75,
     "cd0_total_pre_tail": 0.013258730502038055,
     "tail_cd0_increment": 0.002352,

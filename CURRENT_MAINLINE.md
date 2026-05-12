@@ -1,5 +1,30 @@
 # HPA-MDO Current Mainline
 
+## 0. Current Blocking Gate: Baseline A Data-Authority Repair
+
+**更新日期：2026-05-12。** Baseline A release language 目前被 data-authority repair gate 擋住。
+在這個 gate 修好前，舊的 `baseline_A_release_system_ready`、`baseline_A_freeze_reasonable`
+和 `carbon_tube_rfq_pack_ready` 只能當歷史/generated evidence 讀，不是現行 release / procurement truth。
+
+目前 authority 讀法：
+
+- `98.5 kg` 是 current design gross mass authority，除非使用者明確改掉。
+- `106.828608 kg` 是 suspect P1 screening aggregate，不是 current design mass truth、mission mass truth 或 RFQ truth。
+- `34.332286 m` / `17.166143 m` 是 current pipeline span evidence，除非新的 authority manifest 取代。
+- `16.5 m` 是 local/splice screening reference，不是 pipeline half-span、RFQ control span、shop span 或 procurement truth。
+- WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
+- WO-006 SU2 暫停，直到 data authority restored；WO-007 QPROP/XROTOR 也不能混入 structural blocker verdict。
+- P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
+
+現行 audit artifacts：
+
+- `output/baseline_A_team_release/data_authority_claim_inventory.csv`
+- `output/baseline_A_team_release/data_authority_conflict_register.csv`
+- `output/baseline_A_team_release/data_authority_table.csv`
+- `docs/reports/baseline_A_data_authority_audit.md`
+- `docs/reports/baseline_A_gate_debt_register.md`
+- `docs/reports/repo_channel_hygiene_plan.md`
+
 > **文件性質**：目前正式主線的單一真相文件。當 README、GRAND_BLUEPRINT、
 > 舊報告、歷史 prompt 互相衝突時，以這份文件為準。
 > **更新基準**：2026-05-09 repo 現況；核心基準來自

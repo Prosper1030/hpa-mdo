@@ -4,11 +4,29 @@ This protocol turns Baseline A from a single-person deep-development flow into a
 team release plus AI work-order queue. It applies to Codex threads working in
 `/Volumes/Samsung SSD/hpa-mdo`.
 
+## Current Blocking Gate
+
+Baseline A is under data-authority repair. Before any worker starts WO-006 SU2,
+WO-007 QPROP/XROTOR, RFQ procurement, vendor selection, or release claims, run:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/check_baseline_a_data_authority.py --check-only
+```
+
+Current authority:
+
+- `98.5 kg` is design gross mass authority.
+- `106.828608 kg` is suspect P1 screening aggregate only.
+- `34.332286 m` / `17.166143 m` are current pipeline span evidence.
+- `16.5 m` is local/splice screening only, not procurement truth.
+- WO-005 is draft/vendor-screening only.
+- WO-006 stays paused until data authority is restored.
+
 ## Baseline A Rule
 
-Baseline A is a team release package, not final aircraft sign-off.
+Baseline A is a data-authority repair package, not final aircraft sign-off.
 
-The current release package is:
+The current generated evidence package is:
 
 - `output/baseline_A_team_release/baseline_A_team_release.md`
 - `output/baseline_A_team_release/geometry_freeze.json`
@@ -38,12 +56,12 @@ contracts, and RFQ/shop-facing tube/rib/control stations are not final drawing
 control. WO-005 carries those warnings into vendor-screening language instead
 of treating them as either final sign-off or immediate Baseline A reopen.
 
-The current carbon tube RFQ pack verdict is `carbon_tube_rfq_pack_ready`. That
-means the team can ask vendors screening questions using one controlled RFQ
-station convention; it does not authorize tube purchase, supplier selection,
-shop drawings, spar-spec changes, or final aircraft sign-off. Vendor evidence
-that invalidates tube OD/wall, splice fit, layup/modulus, mass/CG, 3 m shipping,
-or y=3 m inboard splice assumptions must return through change control.
+The current carbon tube RFQ pack is `carbon_tube_rfq_pack_draft_vendor_screening`.
+It may support internal vendor-question drafting only. It does not authorize tube
+purchase, supplier selection, shop drawings, spar-spec changes, procurement
+truth, or final aircraft sign-off. Vendor evidence that invalidates tube OD/wall,
+splice fit, layup/modulus, mass/CG, 3 m shipping, or y=3 m inboard splice
+assumptions must return through change control after mass/span authority is fixed.
 
 ## Worker Startup
 
@@ -60,9 +78,11 @@ If these sources conflict, use this priority:
 
 1. Latest explicit user instruction
 2. `CURRENT_MAINLINE.md`
-3. `output/baseline_A_team_release/geometry_freeze.json`
-4. `README.md`
-5. Older reports and task packs
+3. `output/baseline_A_team_release/data_authority_table.csv`
+4. `docs/reports/baseline_A_data_authority_conflict_register.md`
+5. `README.md`
+6. Generated outputs such as `geometry_freeze.json`
+7. Older reports and task packs
 
 ## Work Order Lifecycle
 

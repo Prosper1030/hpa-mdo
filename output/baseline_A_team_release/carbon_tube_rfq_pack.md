@@ -1,25 +1,25 @@
 # Baseline A Carbon Tube RFQ + Procurement Screening Pack
 
-Verdict: `carbon_tube_rfq_pack_ready`
+Verdict: `carbon_tube_rfq_pack_draft_vendor_screening`
 
-Vendor-facing screening RFQ pack only; it is not a purchase order, not supplier selection, not drawing release, and not final aircraft sign-off.
+Draft vendor-screening pack only while mass/span authority is under repair; it is not purchase-ready, not supplier selection, not drawing release, and not final aircraft sign-off.
 
 ## RFQ Use
 
-Send this pack to vendors as a capability and quote-screening request. Ask vendors to answer the questionnaire and mark any deviation from the screening dimensions. Do not authorize production from this pack.
+Keep this pack as a draft capability and quote-screening request until mass/span authority is repaired. If it is shared externally, every page must preserve the draft/vendor-screening boundary. Do not authorize production or procurement from this pack.
 
 ## Controlled Station Convention For RFQ
 
 | Item | RFQ convention | Status |
 |---|---|---|
-| Half-wing station | Positive `y` from aircraft centerline/root, mirrored left/right | controlled_for_rfq_screening |
-| Structural procurement extent | `16.500 m` half-span | controlled_for_rfq_screening |
-| Transport panel length | `3.000 m` maximum shipped/cut panel | controlled_for_rfq_screening |
-| Splice stations | `3 / 6 / 9 / 12 / 15 m` per half-wing | controlled_for_rfq_screening |
+| Half-wing station | Positive `y` from aircraft centerline/root, mirrored left/right | draft_vendor_screening |
+| Local/splice screening extent | `16.500 m` half-span, not procurement truth | conflict_blocked |
+| Transport panel length | `3.000 m` maximum shipped/cut panel | screening_constraint |
+| Splice stations | `3 / 6 / 9 / 12 / 15 m` per half-wing | draft_vendor_screening |
 | Release rib basis | `0.30 m` target; max materialized bay `0.297063 m` | controlled_for_rfq_language |
 | Airfoil/control/twist/transport station contracts | Not final drawing control | open |
 
-The RFQ station convention intentionally does not use the signed full-wing rib table as the vendor station origin. Materialized spar-joint ribs are reference hard-points until a drawing-controlled station schedule exists.
+The draft station convention intentionally does not use the signed full-wing rib table as the vendor station origin. Materialized spar-joint ribs are reference hard-points until a drawing-controlled station schedule exists.
 
 ## Tube And Spar Assumptions
 
@@ -30,7 +30,7 @@ The RFQ station convention intentionally does not use the signed full-wing rib t
 | Main-spar internal spigot | OD approx spar ID - 0.2 mm clearance; 4D overlap each side | 10 joints full-wing on current main-spar splice screen | screening_reference |
 | Ferrule / shear dog | CFRP ferrule ring plus two shear dogs; removable pin never through CFRP spar | 10 joints full-wing on current main-spar splice screen | screening_reference |
 
-Quantity basis assumes 6 panels per half-wing per spar line on the 16.5 m structural half-span. The outer aero/rib tip extension is not yet a tube purchase length control.
+Quantity basis is only a draft estimate tied to the local/splice screening half-span. The outer aero/rib tip extension is not yet a tube purchase length control, and the 16.5 m reference is not procurement truth.
 
 ## Splice Screening Table
 
@@ -82,7 +82,7 @@ Quantity basis assumes 6 panels per half-wing per spar line on the 16.5 m struct
 
 ## Engineering Verdict
 
-`carbon_tube_rfq_pack_ready`: ready to send for vendor screening questions inside the stated trust boundary. It is not ready for purchase authorization or final drawing release.
+`carbon_tube_rfq_pack_draft_vendor_screening`: retained for vendor capability questions only inside the stated trust boundary. It is not ready for purchase authorization or final drawing release.
 
 Candidate: `eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75`
 Selected rib/stiffness basis carried for release: `The 0.30 m bay is accepted only as this materialized station layout, not as a naked local-wall-buckling assumption.`
