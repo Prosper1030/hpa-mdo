@@ -1,0 +1,7 @@
+item,mass_kg,status,basis,owner
+source_screening_mass_before_integrated_items,100.202398,source_screening_basis,selected hybrid closure before C04 fix and splice mass,release_builder
+rib_mass_delta,5.071237,charged_to_screening_read,selected physical rib/torsion basis,structures
+tail_mass_delta,1.172727,charged_to_screening_read,tail/CG/trim/stability screening,controls
+p1_c04_fix_full_wing,0.093839,architecture_selected_needs_coupon_local_fem,saddle ring yoke plus secondary clamp,structures
+spar_splice_full_wing,3.847,screening_design_needs_rfq_detail,3 m panel transport spar splice pack,manufacturing
+updated_screening_mass_basis,106.828608,screening_basis_not_measured_weight,P1 load-path mass closure report,chief_engineering

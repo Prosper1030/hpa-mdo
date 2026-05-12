@@ -1,0 +1,15 @@
+{
+  "cg_range_m": [
+    0.68,
+    0.75
+  ],
+  "claim_boundary": "Managed CG is a screening closure row. It is not measured aircraft CG and not approval to accept the uncompensated mass state.",
+  "forward_rebalance_limit_m": 0.2,
+  "managed_final_cg_m": 0.75,
+  "rebalance_mass_kg": 56.0,
+  "required_forward_rebalance_m": 0.057304,
+  "schema_version": "baseline_a_team_release_v1",
+  "status": "managed_final_cg_pass",
+  "uncompensated_cg_m": 0.780039,
+  "uncompensated_cg_status": "explicitly_rejected"
+}

@@ -1,0 +1,118 @@
+# AI Work Order Protocol
+
+This protocol turns Baseline A from a single-person deep-development flow into a
+team release plus AI work-order queue. It applies to Codex threads working in
+`/Volumes/Samsung SSD/hpa-mdo`.
+
+## Baseline A Rule
+
+Baseline A is a team release package, not final aircraft sign-off.
+
+The current release package is:
+
+- `output/baseline_A_team_release/baseline_A_team_release.md`
+- `output/baseline_A_team_release/geometry_freeze.json`
+- `output/baseline_A_team_release/team_work_packages.md`
+
+The current structural blocker verdict is
+`p1_local_load_path_ready_for_coupon_fem`. That means P1 can proceed to
+coupon/local FEM. It does not prove final adhesive, laminate, tube-wall,
+buckling, manufacturing, flight-dynamics, or aircraft sign-off.
+
+## Worker Startup
+
+Every AI worker must first read:
+
+1. `README.md`
+2. `CURRENT_MAINLINE.md`
+3. `docs/AI_WORK_ORDER_PROTOCOL.md`
+4. `docs/work_orders/QUEUE.md`
+5. The specific work-order prompt
+6. `output/baseline_A_team_release/` when the task touches Baseline A
+
+If these sources conflict, use this priority:
+
+1. Latest explicit user instruction
+2. `CURRENT_MAINLINE.md`
+3. `output/baseline_A_team_release/geometry_freeze.json`
+4. `README.md`
+5. Older reports and task packs
+
+## Work Order Lifecycle
+
+1. Pick the highest-priority unblocked work order.
+2. State whether the task is code, docs, analysis, or generated artifact work.
+3. Keep the write scope narrow.
+4. Run the smallest credible verification first, then broader verification if
+   the change affects shared behavior.
+5. Update `README.md` and/or `CURRENT_MAINLINE.md` when the task changes the
+   formal pipeline, recommended commands, candidate state, engineering trust
+   boundary, next priority, or public claim language.
+6. Output a reviewer prompt that another Codex thread can use to audit the work.
+7. Run `git add -p` for only relevant files and commit one work order per commit.
+
+## Mandatory Review Labels
+
+Every work-order report must choose one of these labels:
+
+- `pass`: evidence supports the work-order claim inside the stated trust boundary.
+- `needs_fix`: useful progress, but an implementation or documentation issue
+  remains before the work order can close.
+- `dangerous_assumption`: the result is likely to mislead future work unless the
+  assumption is corrected or quarantined.
+- `reopen_risk`: the finding may force Baseline A redesign or user decision.
+
+## Decision Escalation
+
+Ask the user only when the work affects one of these:
+
+- Large external shape or main planform
+- Main/rear spar specification
+- Weight/CG or rebalance strategy
+- Procurement commitment
+- Baseline A reopen trigger
+
+Do not ask for routine local choices such as report wording, test slice choice,
+or internal helper structure.
+
+## Engineering Honesty Checklist
+
+Before reporting success, check:
+
+- Are units and sign conventions explicit?
+- Is load ownership clear?
+- Is the result screening, coupon/FEM, or final evidence?
+- Did the task accidentally treat QPROP/XROTOR as structural-blocker truth?
+- Did it turn the direct spar-pair stress-test warning into aero-surface sign-off?
+- Did it hide the C04 original peel fail evidence?
+- Did it accept uncompensated CG?
+- Did it overclaim from passing tests?
+
+## Verification Minimum
+
+Each worker should run:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python -m pytest <relevant tests>
+PYTHONPATH=src ./.venv/bin/python -m ruff check <changed python files or dirs>
+git diff --check
+```
+
+If the task changes generated release artifacts, also rerun:
+
+```bash
+PYTHONPATH=src ./.venv/bin/python scripts/build_baseline_a_release.py
+```
+
+## Required Report Shape
+
+Each worker final report must include:
+
+- verdict
+- changed files
+- verification
+- engineering caveats
+- reviewer prompt
+- next recommended work order
+
+Keep the report short enough for a 30-minute daily review.

@@ -1,0 +1,28 @@
+{
+  "C_n_beta": 0.014556,
+  "claim_boundary": "Tail trim/stability remains inside screening bounds at managed CG. This is not tailboom, hinge, servo, motor authority, or flight-dynamics sign-off.",
+  "delta_H_margin_to_limit_deg": 4.44437926207778,
+  "delta_H_required_deg": 10.55562073792222,
+  "delta_V_margin_to_limit_deg": 16.593741,
+  "delta_V_required_deg": -3.406259,
+  "mass_integrated_trim_read": "Horizontal-tail deflection is conservatively scaled with gross load. Static and directional derivatives are retained because final CG is held at the same managed screening row.",
+  "mass_integrated_trim_scale": 1.066128,
+  "open_validation": [
+    "control derivative matrix",
+    "tail motor authority",
+    "tailboom and vertical strut first-order model",
+    "all-moving tail pivot and hardware detail"
+  ],
+  "schema_version": "baseline_a_team_release_v1",
+  "static_margin": 0.092835,
+  "status": "pass",
+  "trim_alpha_deg": -1.302993,
+  "xnp_convention": {
+    "formula": "Xnp = Xref - C_m_alpha / C_L_alpha * Cref",
+    "residual_m": 0.0,
+    "status": "verified_by_Cma_CLa_reference_sweep_formula",
+    "tolerance_m": 0.001,
+    "xnp_from_derivatives_m": 0.84318,
+    "xnp_raw_m": 0.84318
+  }
+}

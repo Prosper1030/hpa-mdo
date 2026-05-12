@@ -233,6 +233,16 @@ twist `1.906952 deg`，root bending ratio `0.971590`；direct spar-pair stress-t
 adhesive、laminate、buckling、tail hardware 或 aircraft sign-off。QPROP/XROTOR 是獨立
 propulsion lane，不參與這個 structural blocker verdict。
 
+Baseline A team release system 已建立（2026-05-12），讀
+[docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md)、
+[docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) 與
+`output/baseline_A_team_release/`。release verdict 是
+`baseline_A_release_system_ready`：這包把 current pathfinder 轉成施工 / 結構 / 控制 /
+傳動 / 製造團隊可開始工作的 release package，並輸出 geometry freeze、mass/CG/drag-power
+budgets、interface packs、change-control rules 和 work-order queue。這仍不是 final aircraft
+sign-off；P1 只到 coupon/local FEM readiness，C04 fix 是 architecture-selected 但仍需
+coupon/local FEM，QPROP/XROTOR 保持獨立 propulsion lane。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -277,6 +287,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | C04 collar joint 架構修正方向 + multi-mode design search | `scripts/collar_joint_modes.py` (59 tests) + `scripts/current_pathfinder_rib_collar_joint_design_search.py` (11 tests) | saddle ring yoke confirmed as C04 fix direction; recommended_c04_fix() = saddle ring + clamp; analytical screening only |
 | 3 m 翼板 spar splice 設計 | `scripts/current_pathfinder_spar_splice_design.py` (13 tests) | 5 joints per half-wing on structural freeze half-span 16.5 m; all pass; 3.85 kg full-wing; inboard spigot wall 1.02 mm; 3 m limit locked |
 | 看 P1 C04 load path 與 mass/CG/tail/closure 回灌後 verdict | [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 saddle/yoke/clamp + splice mass charged to closure; coupon/local FEM next |
+| 接 Baseline A team release package | `output/baseline_A_team_release/` | `baseline_A_release_system_ready`; team release + interface packs + change-control rules; not final aircraft sign-off |
+| 讓 AI thread 自動接任務 | [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md) + [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) | work-order lifecycle, required report shape, reviewer prompt, priority queue |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
@@ -374,6 +386,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_torsion_design_
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_collar_joint_design_search.py
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_spar_splice_design.py
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_p1_load_path_mass_closure.py
+PYTHONPATH=src ./.venv/bin/python scripts/build_baseline_a_release.py
 ```
 
 只有在明確做歷史診斷時，才可以加
@@ -430,6 +443,8 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 ## 給 AI Agent 的規則
 
 - 先讀 [CURRENT_MAINLINE.md](CURRENT_MAINLINE.md)，再讀本 README。
+- 接 Baseline A / team work 時，再讀 [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md)
+  與 [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md)。
 - 不要從舊 Black Cat 004 文件、舊 OpenMDAO DAG 或 `examples/blackcat_004_optimize.py` 反推目前主線。
 - 不要把 ignored output 或 legacy diagnostic 直接升格成 current evidence；要先建立 promoted trace。
 - 如果完成一系列同屬同一個 idea 的任務，且它改變了目前主線、可用狀態、信任邊界或下一步優先順序，必須同步更新 README / CURRENT_MAINLINE。

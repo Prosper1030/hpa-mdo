@@ -14,6 +14,9 @@
 |---|---|---|
 | [CURRENT_MAINLINE.md](../CURRENT_MAINLINE.md) | 目前正式主線的單一真相文件 | 所有人，尤其是新進協作者與 AI agent |
 | [README.md](../README.md) | Repo landing page，先講正式入口、閱讀路徑、第一個指令 | 第一次進 repo 的人 |
+| [AI_WORK_ORDER_PROTOCOL.md](AI_WORK_ORDER_PROTOCOL.md) | Baseline A AI work-order protocol | 需要接任務、驗證、commit、產生 reviewer prompt 的 AI thread |
+| [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A priority queue | 需要知道下一個可派工任務的人 |
+| [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A team release package | 施工、結構、控制、傳動、製造組共同起點；不是 final aircraft sign-off |
 | [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived Phase J pipeline report | 需要理解目前主線來源的人 |
 | [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md) | Phase J deep evidence map / source quarantine | 需要逐 stage 看 artifact / candidate / trust boundary / gap，並避免舊 medium-search 資料污染的人 |
 | [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) | all-moving tail / trim / stability contract insertion | 需要把水平尾、垂尾、配平、靜穩定、控制 authority、tail drag/mass 接進 pathfinder 的人 |
@@ -53,6 +56,9 @@
 | `scripts/collar_joint_modes.py` + `scripts/current_pathfinder_rib_collar_joint_design_search.py` | C04 collar joint Step 3 — architecture fix direction | saddle ring yoke confirmed as C04 fix direction (eliminates peel eccentricity); 5-mode library + design search; 59 + 11 tests; analytical screening, not coupon/FEM sign-off |
 | `scripts/current_pathfinder_spar_splice_design.py` | 3 m transport spar splice design | 5 joints per half-wing at y=3/6/9/12/15 m on structural freeze half-span 16.5 m; all pass; 3.85 kg full-wing; inboard wall 1.02 mm (auto-upsized); 3 m panel limit locked; 13 tests |
 | [2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | P1 local load-path + mass-integrated closure update | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 fix mass 0.094 kg and splice mass 3.847 kg charged into mass/CG/tail/closure; QPROP/XROTOR kept independent |
+| [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A team release | release verdict `baseline_A_release_system_ready`; release artifacts, interface packs, change-control rules, and work packages; not final aircraft sign-off |
+| [AI_WORK_ORDER_PROTOCOL.md](AI_WORK_ORDER_PROTOCOL.md) | AI work-order protocol | worker startup, verification minimum, report shape, escalation rules, and engineering honesty checklist |
+| [work_orders/QUEUE.md](work_orders/QUEUE.md) | AI work-order queue | priority queue and next recommended Codex goal |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
 | [task_packs/current_parallel_work/README.md](task_packs/current_parallel_work/README.md) | 多 agent 並行 task pack 入口 | 給需要快速 handoff / 派工的人與 AI agent |
 | [task_packs/benchmark_basket/README.md](task_packs/benchmark_basket/README.md) | benchmark basket task pack 入口 | 給整理高保真 / ANSYS / APDL 案例的人與 AI agent |
@@ -74,6 +80,7 @@
 | 文件 | 用途 |
 |---|---|
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期 3 到 5 個優先任務、暫緩項、開始條件與不該先做的事 |
+| [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A work-order queue；目前下一個建議任務是 WO-001 design-space freeze audit |
 | [EXECUTION_ROADMAP.md](EXECUTION_ROADMAP.md) | 細化版近期進度規劃；把多條工作軌道、啟動條件與完成判準拆開講清楚 |
 | [GRAND_BLUEPRINT.md](GRAND_BLUEPRINT.md) | 長期五階段藍圖；拿來看願景與跨 phase 依賴，不拿來排今天的工作 |
 | [codex_tasks.md](codex_tasks.md) | 操作型 task log / 歷史 checklist；可當背景資料，但不是新使用者入口 |

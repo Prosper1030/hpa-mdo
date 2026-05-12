@@ -525,6 +525,16 @@ FEM；不是 final adhesive allowables、laminate buckling、tail hardware、spl
 detail 或 aircraft sign-off。下一步優先是 saddle-ring/yoke coupon + local FEM、secondary
 clamp preload/friction protocol、lug/bond fillet detail，以及 C07 skin sag process coupon。
 
+**Baseline A team release system 已建立（2026-05-12）：**
+`scripts/build_baseline_a_release.py` 會把目前 P1 mass-integrated closure source 收成
+`output/baseline_A_team_release/`。release verdict 是
+`baseline_A_release_system_ready`，輸出 geometry freeze、mass budget、CG summary、
+drag/power budget、tail/trim/stability summary、structure/control/propulsion interface packs、
+manufacturing test plan、carbon tube RFQ screening spec、change-control rules 和 team work
+packages。這是把 current pathfinder 轉成可交付、可分工、可重跑、可審核的 team release
+package；它不新增物理功能，也不能被解讀成 final aircraft sign-off。AI work-order protocol
+位於 `docs/AI_WORK_ORDER_PROTOCOL.md`，priority queue 位於 `docs/work_orders/QUEUE.md`。
+
 ## 8. 常用入口與角色
 
 ### A. Mission / upstream concept
@@ -680,6 +690,23 @@ clamp preload/friction protocol、lug/bond fillet detail，以及 C07 skin sag p
   QPROP/XROTOR 是獨立 propulsion lane，不參與 structural blocker 判定。這不是 final adhesive、
   laminate、buckling、tail hardware、splice production detail 或 aircraft sign-off。
 
+### L. Baseline A team release / AI work-order queue
+
+- 入口：
+  - `scripts/build_baseline_a_release.py`
+  - `output/baseline_A_team_release/`
+  - `docs/AI_WORK_ORDER_PROTOCOL.md`
+  - `docs/work_orders/QUEUE.md`
+  - `docs/work_orders/templates/work_order_template.md`
+- 角色：把 current pathfinder / Baseline A 變成 team release package，讓施工、結構、控制、
+  傳動、製造組能從同一組 freeze / interface / change-control artifacts 開始工作；同時讓
+  後續 AI thread 依 priority queue 自動挑任務、驗證、更新文件、commit，並產生 reviewer prompt。
+- 注意：release verdict 是 `baseline_A_release_system_ready`，不是 final aircraft sign-off。
+  P1 仍只到 coupon/local FEM readiness；C04 fix 是 architecture-selected but coupon/local FEM
+  pending；QPROP/XROTOR 保持 independent propulsion lane；大型 SU2、NSGA、propeller
+  optimization、random disturbance simulator、full CAD automation 只進 queue，不在 release
+  builder 任務中實作。
+
 ## 9. 現在不該再當主線的敘事
 
 - `equivalent_beam` 作為正式 structural truth。
@@ -699,7 +726,9 @@ clamp preload/friction protocol、lug/bond fillet detail，以及 C07 skin sag p
 
 ## 10. 對未來 AI Agent 的工作規則
 
-1. 先讀這份 `CURRENT_MAINLINE.md`，再讀 `README.md`。
+1. 先讀這份 `CURRENT_MAINLINE.md`，再讀 `README.md`。接 Baseline A team work 時，再讀
+   `docs/AI_WORK_ORDER_PROTOCOL.md`、`docs/work_orders/QUEUE.md` 與
+   `output/baseline_A_team_release/`。
 2. 需要 commit-history truth 時，讀
    `docs/reports/2026-05-08_commit_history_report.md`，特別是 Phase J 和後續 addendum。
    需要逐 stage artifact / trust boundary 時，再讀

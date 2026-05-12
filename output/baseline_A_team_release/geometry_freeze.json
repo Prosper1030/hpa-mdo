@@ -1,0 +1,50 @@
+{
+  "candidate_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
+  "claim_boundary": "Baseline A is a team release package and screening pathfinder. It is not final aircraft sign-off, not adhesive sign-off, not laminate sign-off, and not manufacturing sign-off.",
+  "controlled": {
+    "c04_architecture_status": "architecture_selected_needs_coupon_local_fem",
+    "c04_fix": "saddle_ring_yoke_plus_secondary_clamp",
+    "c04_fix_mass_kg": 0.093839,
+    "direct_spar_pair_stress_test": "conservative_mapping_warning_not_signoff",
+    "spar_splice_mass_kg": 3.847,
+    "tail_trim_stability_basis": "pass"
+  },
+  "current_pathfinder_role": "Baseline A team release pathfinder, not final aircraft",
+  "frozen": {
+    "candidate_id": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75",
+    "fast_rib_torsion_model": "link_limited_torsion_cell_v2",
+    "managed_final_cg_m": 0.75,
+    "phase_j_pipeline": "Mission contract -> Fourier-AVL -> smooth geometry -> loaded-Z -> AVL recheck -> Tier2 airfoil -> aero-structure closure -> FEM/APDL",
+    "rib_spacing_m": 0.3,
+    "rib_station_basis": "0.30 m physical stations/bays materialized",
+    "selected_rib_torsion_basis": "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__carbon_face_collar_y2p328__rear75"
+  },
+  "open_validation": {
+    "c04_coupon": "saddle/yoke/clamp coupon plus lug-foot shear and clamp retention",
+    "carbon_tube_rfq": "vendor tube capability, tolerances, laminate, and splice fit",
+    "one_meter_wing_bay_v2": "rib/collar/skin-sag bay test on physical spacing",
+    "p1_local_load_path": "coupon/local FEM required before build sign-off",
+    "qualified_aero_surface_mapping": "direct spar-pair stress-test is not final"
+  },
+  "p1_verdict": "p1_local_load_path_ready_for_coupon_fem",
+  "release_id": "baseline_A_team_release",
+  "release_verdict": "baseline_A_release_system_ready",
+  "reopen_triggers": [
+    "C04 saddle/yoke/clamp coupon or local FEM shows negative governing margin.",
+    "Updated mass/CG cannot hold managed CG 0.75 m within rebalance limit.",
+    "Tube RFQ cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions.",
+    "Qualified aero-surface mapping invalidates the current direct stress-test warning read.",
+    "Tail trim/stability or control authority fails at managed CG.",
+    "Main-wing SU2 baseline changes drag/power enough to invalidate mission margins.",
+    "Manufacturing discretization forces large external-shape or spar-spec change."
+  ],
+  "schema_version": "baseline_a_team_release_v1",
+  "screening_numbers": {
+    "baseline_c04_peel_margin": -0.893,
+    "bounded_physical_twist_deg": 1.906952370757391,
+    "direct_spar_pair_rotation_deg": 3.1777418553821835,
+    "installed_fix_governing_margin": 0.8876,
+    "required_forward_rebalance_m": 0.057304,
+    "updated_screening_mass_kg": 106.828608
+  }
+}
