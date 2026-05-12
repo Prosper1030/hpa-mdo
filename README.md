@@ -190,6 +190,31 @@ verdict 是 `positive_zone_ready_for_local_FEM_and_coupon_definition_not_margin_
 margin pass。下一步是填 adhesive/collar/tube-wall/cap/skin supplier 或 coupon allowables，
 再跑 positive-zone local margin；穩定後 mirror/compare negative zone。
 
+P1 local detail validation Steps 1 and 2 已完成（2026-05-11）：**Step 1** geometry and
+allowable freeze sheet（`scripts/current_pathfinder_rib_local_detail_geometry_freeze.py`）從
+config 推導 y≈2.328 m 的 spar tube OD/wall，填入全 8 個 missing-data items，對 7 個
+failure modes 做 preliminary margin screen，並填入 APDL skeleton。詳讀
+[docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md](docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md)。
+**Step 2** refined analytical margin run（`scripts/current_pathfinder_rib_local_detail_margin_run.py`）
+套用精化力學模型：**C04 bond peel margin = −0.893（critical blocker）**，eccentric moment
+model 顯示現有 collar tab 偏心力臂是根本原因；C07 skin sag nominal margin 0.026，min viable
+pre-strain ≈ 0.05%，製程規格仍是未關閉事項。詳讀
+[docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md](docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md)。
+
+C04 架構修正方向已確立（2026-05-12）：C04 peel 問題根本原因是偏心力臂，不是 adhesive
+強度不足。`scripts/collar_joint_modes.py` 提供五種 collar joint mode 的 Strategy Pattern
+library（59 unit tests），`scripts/current_pathfinder_rib_collar_joint_design_search.py`
+執行多模式設計搜尋（11 integration tests）。推薦架構：**saddle ring yoke**（conformal bonded
+ring + 切向 lug pair，消除 outward peel moment）+ friction clamp = `recommended_c04_fix()`。
+peel bond 現有構型 fail，saddle ring yoke fast-model 估算 pass。這仍是 analytical screening，
+不是 coupon test 或 FEM 簽核。
+
+3 m 翼板運輸接頭設計已完成（2026-05-12）：`scripts/current_pathfinder_spar_splice_design.py`
+針對 current pathfinder 半翼展 17.3 m，設計 5 個 splice joints（y = 3 / 6 / 9 / 12 / 15 m），
+全翼展共 10 個，採 CFRP spigot + ferrule + shear dog。所有接頭 pass，y = 3 m 需 spigot wall
+1.02 mm（自動 upsize），全翼展接頭總質量 **3.85 kg**。翼板 3 m 限制確認鎖定（台灣自有
+貨車 + 空運雙重收斂）。13 tests pass。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -229,6 +254,10 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 rib / torsion fast-loop CCX local-frame physical alignment | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md) | representative structural rows aligned within 5% against local CCX beam-frame; no hidden family correction; not final bond/tube-wall/buckling sign-off |
 | 看 rib / torsion detailed local validation shortlist | [docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md](docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md) | selected 10 mm uniform carbon-collar basis locked; 12 mm reserve and 10 mm glass-collar fallback listed; no final aircraft pass |
 | 接 positive torque-zone local FEM / coupon package | [docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md](docs/reports/2026-05-09_positive_torque_zone_local_validation_package.md) | R067/R068/R069 + B066-B069 package; APDL skeleton and coupon/missing-data register; no FEM margin claimed |
+| 看 P1 local detail Step 1 geometry/allowable freeze sheet | [docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md](docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md) | spar tube OD/wall from config; 8 missing-data items filled; 7 preliminary margins; APDL skeleton filled |
+| 看 P1 local detail Step 2 refined analytical margin run | [docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md](docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md) | C04 bond peel margin −0.893 (critical blocker); C07 skin sag pre-strain sweep; C02-C06 analytical margins large |
+| C04 collar joint 架構修正方向 + multi-mode design search | `scripts/collar_joint_modes.py` (59 tests) + `scripts/current_pathfinder_rib_collar_joint_design_search.py` (11 tests) | saddle ring yoke confirmed as C04 fix direction; recommended_c04_fix() = saddle ring + clamp; analytical screening only |
+| 3 m 翼板 spar splice 設計 | `scripts/current_pathfinder_spar_splice_design.py` (13 tests) | 5 joints per half-wing; all pass; 3.85 kg full-wing; inboard spigot wall 1.02 mm; 3 m limit locked |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
@@ -322,6 +351,8 @@ PYTHONPATH=src ./.venv/bin/python scripts/vtail_cg_reference_sensitivity_v0.py
 PYTHONPATH=src ./.venv/bin/python scripts/tail_aware_rib_rear_spar_sensitivity.py
 PYTHONPATH=src ./.venv/bin/python scripts/tail_aware_aeroelastic_closure.py
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_torsion_design_search.py
+PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_collar_joint_design_search.py
+PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_spar_splice_design.py
 ```
 
 只有在明確做歷史診斷時，才可以加

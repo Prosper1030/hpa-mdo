@@ -464,20 +464,51 @@ Step 2 verdict：`step2_analytical_concern_review_needed`（因 C04 為 negative
 與 `docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md`。
 12 個 tests 通過（24/24 兩個 Step 合計）。
 
+**Step 3 — C04 架構修正方向確立 + collar joint 設計搜尋（2026-05-12）：**
+Step 2 eccentric moment model 顯示 C04 問題的根本原因是**偏心力臂**（M = F × r_spar ≈ 0.050 m），
+不是 adhesive 強度不足。`scripts/collar_joint_modes.py`（Strategy Pattern library，5 種 collar joint
+mode：PeelBond、LoadLineYoke、FrictionClamp、ExternalShearKey、SaddleRingYoke，59 unit tests）與
+`scripts/current_pathfinder_rib_collar_joint_design_search.py`（multi-mode design search，11 integration
+tests）已把設計搜尋結果確立如下：
+- **peel bond（現有構型）**：margin < 0，fail；bondline 需 > 50 mm 才 viable，超出幾何可行範圍
+- **load-line yoke**：viable 但需 r_eff < 20 mm；在現有翼肋幾何下可行性偏緊
+- **friction clamp**：N_c < 2000 N 即 viable；split clamp 構型幾何上可直接實施
+- **external shear key**：兩片合計面積 < 500 mm² 即 viable；輕量替代方案
+- **saddle ring yoke（推薦架構）**：conformal bonded ring 繞 spar OD + 一對切向 lug，消除
+  outward peel moment；governing mode 改為 lug foot adhesive shear（不是 peel）；fast-model
+  估算 pass，recommended fix = `HybridJoint(SaddleRingYoke + FrictionClamp)`
+
+推薦 fix 見 `collar_joint_modes.py::recommended_c04_fix()`。這仍是 analytical / fast-model 估算，
+不是 coupon test 或 FEM 簽核；C04 物理 coupon 仍是 Step 4 margin sign-off 的先決條件。
+
+**3 m 翼板運輸接頭設計（2026-05-12）：**
+`scripts/current_pathfinder_spar_splice_design.py` 針對 current pathfinder 半翼展 17.324 m
+（全翼展約 34.6 m），在 3 m 翼板限制下設計 5 個 splice joints（y = 3 / 6 / 9 / 12 / 15 m），
+全翼展共 10 個。接頭採用 CFRP internal spigot（4D overlap each side）+ external ferrule +
+shear dog（承 torsion，不鑽穿主管壁）。設計摘要（13 tests pass）：
+- 所有接頭 pass，worst margin > 0
+- y = 3 m 最重站：factored bending moment 4,437 N·m，spigot wall 自動 upsize 至 1.02 mm
+  （預設 0.8 mm 不足）
+- torsion margin 全站 >> 1（shear dog 設計遠超 torsion 需求）
+- 全翼展接頭總質量 **3.85 kg**，在 HPA 文獻 2.5–6 kg 範圍內
+- 3 m 翼板限制確認鎖定：台灣自有貨車（普通小型車駕照 → GVW ≤ 3,500 kg → 貨台 2.7–3 m）
+  與空運標準件限制雙重收斂；日本競賽可用 6 噸貨車，但 3 m 更保守
+
 可直接用於新 goal 的 objective：
 
 ```text
-在 /Volumes/Samsung SSD/hpa-mdo，Step 2 已確認 C04 bond peel 是 analytical critical
-blocker（eccentric moment model margin = −0.893）。下一步是 Step 3：
-針對 C04 coupon 設計 — 定義 collar tab bondline 幾何、試驗構型、
-所需供應商 datasheet（adhesive Gc / peel strength）、specimen製作規範與
-acceptance criterion；同時把 C07 skin sag 的 process pre-strain specification
-（覆膜工藝規範、panel test protocol）也納入同一份 coupon matrix 文件。
-Step 3 輸出應為 coupon test specification matrix（C04 + C07 至少）和
-supplier data request list，供接下來的 Step 4（local margin report 用
-coupon-backed allowables 取代工程估算值）使用。
-仍不能把 Step 2 analytical margins 當成 final margin；C04 eccentric moment model
-margin −0.893 是 conservative analytical estimate，物理 coupon 才是最終判依。
+在 /Volumes/Samsung SSD/hpa-mdo，rib local detail 的 Step 1/2 analytical work 已完成，
+C04 架構修正方向（saddle ring yoke + friction clamp hybrid）已由 fast-model 確立，
+3 m spar splice 已完成初步設計（3.85 kg，全翼展 10 個接頭）。
+下一個工程里程碑：
+1. C04 coupon 設計 — 針對 saddle ring yoke 構型（ring geometry、lug 尺寸、bonding protocol）
+   定義 coupon test specification matrix 與 supplier data request list，供 Step 4 用
+   coupon-backed allowables 取代工程估算值；C07 skin sag process pre-strain specification
+   （覆膜工藝規範、panel test protocol）納入同一份 coupon matrix。
+2. QPROP / XROTOR 螺旋槳設計工具安裝與整合：把 HPA 螺旋槳設計從 placeholder 效率
+   推進到參數化設計（MIT Mark Drela 工具）。
+仍不能把 analytical margins 當成 final margin；所有 collar joint 與 spar splice fast-model
+估算均為工程 screening tool，物理 coupon 才是最終判依。
 ```
 
 ## 8. 常用入口與角色
@@ -594,6 +625,27 @@ margin −0.893 是 conservative analytical estimate，物理 coupon 才是最�
 - 入口：`python -m hpa_mdo.producer`
 - 角色：提供外部 consumer / automation 用 machine-readable contract。
 - 注意：它是 integration boundary，不是主 physics 問題本身。
+
+### I. Collar joint analysis / C04 fix
+
+- 入口：
+  - `scripts/collar_joint_modes.py`（Strategy Pattern library：PeelBond、LoadLineYoke、
+    FrictionClamp、ExternalShearKey、SaddleRingYoke + recommended_c04_fix()）
+  - `scripts/current_pathfinder_rib_collar_joint_design_search.py`
+- 角色：對 y≈2.328 m rib-to-spar collar joint 做多模式設計搜尋，識別 C04 bond peel 的架構修正
+  方向；讀入 Step 1 freeze JSON，對 5 種 joint mode 執行 margin sweep 並輸出推薦構型。
+- 注意：C04 現有 peel bond 構型 margin = −0.893（fail）；推薦架構為 saddle ring yoke + friction
+  clamp，fast-model 估算 pass。59 unit tests + 11 integration tests pass。這是 analytical
+  screening，不是 coupon test 或 FEM 簽核。
+
+### J. 3 m 翼板 spar splice design
+
+- 入口：`scripts/current_pathfinder_spar_splice_design.py`
+- 角色：針對 current pathfinder 半翼展 17.3 m 設計 3 m 翼板接頭（5 joints per half-wing，
+  10 full-wing），採用 CFRP spigot + ferrule + shear dog，自動 upsize spigot wall，輸出
+  JSON + Markdown + CSV 接頭設計報告。
+- 注意：所有接頭 pass，全翼展接頭質量 3.85 kg，y = 3 m 需自動 upsize spigot wall 至 1.02 mm。
+  翼板 3 m 限制確認鎖定（台灣自有貨車 + 空運雙重限制）。13 tests pass。
 
 ## 9. 現在不該再當主線的敘事
 
