@@ -54,9 +54,9 @@ Route the rib reaction force through a clevis/yoke so it acts close to the
 tube centreline. Reducing r_eff from 50 mm to a small value eliminates most
 of the peel moment while keeping the bondline in the joint.
 
-Maximum viable r_eff (linear model, a=15 mm): **1.0 mm**.
-Recommended r_eff (0.67× max): **0.7 mm**,
-margin 9.64.
+Maximum viable r_eff (linear model, a=15 mm): **7.0 mm**.
+Recommended r_eff (0.67× max): **4.7 mm**,
+margin 0.52.
 
 | r_eff mm | m_eff N | peel demand N/m | margin | pass |
 |---:|---:|---:|---:|---|
@@ -105,31 +105,36 @@ Example: each key = 10 mm × 15 mm = 150 mm², two keys = 300 mm².
 
 ## Recommended Design
 
-**split clamp + 3 mm yoke + two 10×15 mm external shear keys**
+**conformal saddle ring yoke + secondary friction clamp**
 
-| load path | governing margin | primary |
+The selected P1 C04 fix is now the same load path used by
+`recommended_c04_fix()`: a conformal saddle ring with tangential lugs
+that routes the rib reaction as a couple around the spar, plus a secondary
+friction clamp for positioning/redundancy. The external shear-key sweep
+above remains an alternate concept, not the selected P1 baseline.
+
+| load path | governing margin | role |
 |---|---:|---|
-| Residual peel (yoke r_eff=3 mm, conservative) | 0.78 | ✓ |
-| Friction clamp (μ=0.15, N_c=600 N) | 0.89 | check |
-| External shear key (2×150 mm², τ_d=2 MPa) | 12.8 | backup |
+| Saddle ring yoke (180 deg arc, 5.0 mm lugs) | 65.07 | primary |
+| Friction clamp (μ=0.15, N_c=600 N) | 0.89 | secondary |
 
-**Governing margin: 0.78** (each path checked independently).
+**Governing margin: 0.89** (friction_clamp:torque).
 
 Notes:
-- Each load path is checked independently (conservative; no load sharing assumed)
-- Governing margin is the minimum across all three paths
-- mu=0.15 is conservative for CFRP-on-CFRP with surface finish; measure on coupon
-- tau_d=2 MPa includes knockdown for peel concentration at key ends; taper key edges
-- Yoke r_eff=3 mm requires clevis/saddle bracket with bore close to tube OD
+- Primary load path is tangential lug bearing into a conformal saddle ring, not outward adhesive peel.
+- The friction clamp is secondary positioning/redundancy and is checked independently.
+- Saddle lug height is kept low to suppress lug-root peel; taper ring ends and add fillet/overwrap.
+- mu=0.15 remains coupon-owned for the clamp; do not promote worn-in CFRP friction values.
+- External shear key remains a viable alternate/backup concept but is not the selected P1 fix.
 
 ## Design Search Summary
 
 | mode | minimum viable geometry | current geometry | verdict |
 |---|---|---|---|
 | peel bond | 110.0 mm bondline | 15 mm | ✗ needs 7× increase |
-| yoke | r_eff ≤ 1.0 mm | r=50 mm | ✓ achievable with clevis/saddle |
+| yoke | r_eff ≤ 7.0 mm | r=50 mm | ✓ achievable with clevis/saddle |
 | friction clamp (μ=0.15) | N_c ≥ 400 N | none | ✓ achievable with M3–M4 bolts |
-| external shear key | ≥ 50 mm² total | none | ✓ two small blocks suffice |
+| external shear key | ≥ 50 mm² total | none | ✓ alternate / backup, not selected P1 baseline |
 
 ## What Needs Physical Verification
 
@@ -137,8 +142,8 @@ Notes:
    with realistic clamp pressure and surface finish — do not assume μ=0.15 without test.
 2. **Shear key bond coupon**: verify τ_d ≥ 2 MPa for the actual key geometry with
    tapered edges. Check that key-end peel does not drive failure before shear.
-3. **Yoke geometry**: confirm that a clevis/saddle bracket can be manufactured
-   with the rib web such that the effective force line passes within 3 mm of the
-   tube centreline under assembly tolerances.
+3. **Saddle/yoke geometry**: confirm that the rib yoke bears on the
+   tangential lug pair without prying the ring edge, and that lug height,
+   fillets, taper, and overwrap match the surrogate geometry.
 4. **Clamp repeatability**: verify that bolt preload after repeated assembly /
    disassembly maintains the required N_c (use torque wrench, calibrated fastener).

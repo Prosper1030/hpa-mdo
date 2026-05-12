@@ -141,6 +141,15 @@ def test_report_md_contains_sweep_table(tmp_path: Path) -> None:
     assert "min_viable_prestrain" in md or "Minimum viable" in md
 
 
+def test_report_md_does_not_claim_all_pass_when_c04_fails(tmp_path: Path) -> None:
+    report, paths = _run(tmp_path)
+    md = paths["report_md"].read_text()
+    assert report["all_pass"] is False
+    assert "All seven failure modes pass" not in md
+    assert "C04 bond peel" in md
+    assert "critical blocker" in md or "CONCERN" in md
+
+
 def test_c07_nonlinear_sag_less_than_linear(tmp_path: Path) -> None:
     mod = _load_module()
     freeze = json.loads(_FREEZE_JSON.read_text())

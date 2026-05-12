@@ -88,9 +88,9 @@ Applied SCF = **3.00** (λa = 7.3156).
 - Peak bond shear with SCF (main): 10713 Pa
 - Allowable: 2e+07 Pa → margin main 1679, rear 1343
 
-> The SCF is small (≈1.0) because the collar contact width (85 mm) is large relative
-> to λ⁻¹. Even with concentration, margins remain very large (>100). Bond shear is not
-> the governing failure mode at these load levels.
+> The simplified Goland-Reissner index is capped at SCF=3.0 for this screening
+> run. Even with that cap applied, margins remain very large (>100). Bond shear
+> is not the governing failure mode at these load levels.
 
 ## C05 Collar Bearing — Hertz Curvature Correction
 
@@ -108,12 +108,14 @@ Bearing allowable: 4e+08 Pa → margin **279**.
 
 ## Engineering Interpretation
 
-All seven failure modes pass in the Step 2 analytical run. The rank ordering is:
+The Step 2 analytical run does **not** close the local load path: C04 bond peel is a critical blocker in the current eccentric collar-tab geometry.
 
-1. **C07 skin sag** (margin 0.026 at nominal pre-strain) — process-governed.
+The rank ordering is:
+
+1. **C04 bond peel** (margin -0.893) — critical load-path blocker.
+   The current geometry puts the adhesive in peel; this needs a different load path, not a stronger peel allowable.
+2. **C07 skin sag** (margin 0.026 at nominal pre-strain) — process-governed.
    Minimum viable pre-strain = 0.05%; process target = 0.1%.
-2. **C04 bond peel** (margin -0.893) — geometry-sensitive.
-   Margin depends on bondline width and whether collar wraps cleanly over spar.
 3. **C01 cap shear** (margin unchanged) — comfortable; balsa cap shear is not governing.
 4. C02/C03/C05/C06 — very large margins (>100); load levels are very small for HPA.
 
@@ -125,8 +127,8 @@ HPA cruise load levels, the rib-spar joint is strength-governed by skin sag
 
 - C07: covering process specification (heat-shrink protocol, target pre-strain,
   inspection method, panel test on 0.30 m representative bay).
-- C04: coupon test on collar tab bondline with actual bondline width, fillet, and
-  lap geometry to validate the eccentric-moment peel model.
+- C04: replace the eccentric collar-tab peel path with the saddle-ring / yoke /
+  clamp load path, then validate that geometry with coupon and local FEM.
 - Adhesive allowables: supplier datasheet to replace 18 MPa / 400 N/m estimates.
 - Spar tube OD: structural optimizer confirmation that max-OD assumption holds.
 

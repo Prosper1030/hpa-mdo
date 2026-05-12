@@ -1,0 +1,17 @@
+! P1 C04 local FEM surrogate scaffold
+! SADDLE_RING_YOKE
+! NO_OUTWARD_PEEL_PRIMARY_LOAD_PATH
+! station_y_m = 2.327757
+! design_force_n = 47.67871
+! required_torque_nm = 2.3839355
+! saddle_ring_yoke_margin = 65.0672
+! friction_clamp_secondary_margin = 0.8876
+! c04_fix_full_wing_mass_kg = 0.093839
+! FRICTION_CLAMP_SECONDARY
+! Coupon/local FEM next step: replace surrogate lug-foot shear and clamp
+! contact assumptions with shell/solid adhesive, lug bearing, and tube OD
+! contact elements. Do not model this as the old eccentric peel tab.
+/PREP7
+! TODO_FOR_FEM_OWNER: material cards, shell/solid elements, contact pairs
+! TODO_FOR_FEM_OWNER: apply tangential lug couple and clamp preload
+FINISH

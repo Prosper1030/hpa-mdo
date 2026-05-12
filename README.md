@@ -135,8 +135,9 @@ hybrid main/rear torsion-cell screening surrogate：actual closure bounded physi
 降到 `2.070 deg`，低於 `3 deg` bound；direct stress-test 從 baseline `5.413 deg`
 降到 `3.449 deg`，仍高於 `3 deg`，所以它是 conservative aero-surface mapping / local FEM
 檢查項，不是 final twist signoff。rib mass 約 `5.365 kg`，比 balsa baseline 多
-`2.335 kg`，CG/rebalance 已計入。FEM/APDL package gate 仍被 missing transition/control
-stations、skin sag、bond/collar/spar contact 與 y≈`2.328 m` local FEM 卡住。
+`2.335 kg`，CG/rebalance 已計入。P1 C04 bond/collar blocker 已往下推進到
+load-path closure；但 final FEM/APDL 或 aircraft sign-off 仍要等 transition/control
+stations、C07 skin sag process、coupon/local FEM 與 hardware/laminate detail 關閉。
 
 rib / torsion fast design-search loop 已重新校準，讀
 [docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md)
@@ -210,10 +211,27 @@ peel bond 現有構型 fail，saddle ring yoke fast-model 估算 pass。這仍�
 不是 coupon test 或 FEM 簽核。
 
 3 m 翼板運輸接頭設計已完成（2026-05-12）：`scripts/current_pathfinder_spar_splice_design.py`
-針對 current pathfinder 半翼展 17.3 m，設計 5 個 splice joints（y = 3 / 6 / 9 / 12 / 15 m），
-全翼展共 10 個，採 CFRP spigot + ferrule + shear dog。所有接頭 pass，y = 3 m 需 spigot wall
-1.02 mm（自動 upsize），全翼展接頭總質量 **3.85 kg**。翼板 3 m 限制確認鎖定（台灣自有
-貨車 + 空運雙重收斂）。13 tests pass。
+針對 Step-1 freeze 的 structural half-span `16.5 m` 設計 5 個 splice joints
+（y = 3 / 6 / 9 / 12 / 15 m），全翼展共 10 個，採 CFRP spigot + ferrule + shear dog。
+所有接頭 pass，y = 3 m 需 spigot wall 1.02 mm（自動 upsize），全翼展接頭總質量
+**3.85 kg**。注意：aero closure / materialized rib station grid 可延伸到約
+`17.3 m`；splice runner 的半翼展敘事以 structural freeze `16.5 m` 為準。翼板 3 m
+限制確認鎖定（台灣自有貨車 + 空運雙重收斂）。13 tests pass。
+
+P1 local load-path closure + mass-integrated pathfinder update 已完成（2026-05-12），讀
+[docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md)
+與 `output/current_pathfinder_p1_load_path_mass_closure/`。final verdict 是
+`p1_local_load_path_ready_for_coupon_fem`：baseline C04 eccentric peel margin `-0.893`
+仍被保留為 fail evidence，但 installed fix 改成 `saddle_ring_yoke_plus_secondary_clamp`
+後 local surrogate pass，governing 是 secondary clamp torque margin `0.8876`（saddle
+ring yoke adhesive shear margin `65.0672`）。C04 fix mass `0.093839 kg` 與 3 m splice
+mass `3.847 kg` 已回灌到 current pathfinder mass / CG / tail / closure；updated
+screening mass basis `106.828608 kg`，managed final CG `0.75 m`，需要 `0.057304 m`
+forward rebalance on 56 kg equivalent mass。tail trim/stability pass，bounded physical
+twist `1.906952 deg`，root bending ratio `0.971590`；direct spar-pair stress-test
+仍是 conservative mapping warning。這代表 P1 C04 可進 coupon/local FEM，不是 final
+adhesive、laminate、buckling、tail hardware 或 aircraft sign-off。QPROP/XROTOR 是獨立
+propulsion lane，不參與這個 structural blocker verdict。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -249,7 +267,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 tail-aware rib / rear-spar sensitivity verdict 與 material-family compare | [docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md](docs/reports/2026-05-09_tail_aware_rib_rear_spar_sensitivity.md) | balsa baseline ready-for-closure basis; foam-only families stay low-stiffness references; hybrid rework candidates are listed |
 | 看 tail-aware aeroelastic closure verdict | [docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md](docs/reports/2026-05-09_tail_aware_aeroelastic_closure.md) | converged; twist-source audit points to hybrid rib/stiffness rework |
 | 看 current pathfinder rib station/bay 是否真的 materialized | [docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md](docs/reports/2026-05-09_current_pathfinder_materialized_rib_contract_audit.md) | 121 station / 120 bay trace; shape, bond, collar, transition data still blocked |
-| 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | hybrid closure-owned bounded twist clears 3 deg; local FEM/coupon candidate identified; FEM/APDL package gate still blocked |
+| 看 rib / rear-spar / torsion blocker 下一階段 verdict | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_rework_verdict.md) | hybrid closure-owned bounded twist clears 3 deg; P1 local load-path has since moved to coupon/local FEM readiness |
 | 跑 rib / torsion fast design-search loop 與 FEM calibration sample set | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_design_search.md) | revised link-limited physical model; selected fast candidate is uniform 0.30 m carbon-collar rear75; FEM samples include original selected, aggressive, foam reference, and revised selected |
 | 看 rib / torsion fast-loop CCX local-frame physical alignment | [docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md](docs/reports/2026-05-09_current_pathfinder_rib_torsion_fem_calibration.md) | representative structural rows aligned within 5% against local CCX beam-frame; no hidden family correction; not final bond/tube-wall/buckling sign-off |
 | 看 rib / torsion detailed local validation shortlist | [docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md](docs/reports/2026-05-10_current_pathfinder_rib_torsion_local_validation_shortlist.md) | selected 10 mm uniform carbon-collar basis locked; 12 mm reserve and 10 mm glass-collar fallback listed; no final aircraft pass |
@@ -257,7 +275,8 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 P1 local detail Step 1 geometry/allowable freeze sheet | [docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md](docs/reports/2026-05-11_current_pathfinder_rib_local_detail_geometry_freeze.md) | spar tube OD/wall from config; 8 missing-data items filled; 7 preliminary margins; APDL skeleton filled |
 | 看 P1 local detail Step 2 refined analytical margin run | [docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md](docs/reports/2026-05-11_current_pathfinder_rib_local_detail_margin_run.md) | C04 bond peel margin −0.893 (critical blocker); C07 skin sag pre-strain sweep; C02-C06 analytical margins large |
 | C04 collar joint 架構修正方向 + multi-mode design search | `scripts/collar_joint_modes.py` (59 tests) + `scripts/current_pathfinder_rib_collar_joint_design_search.py` (11 tests) | saddle ring yoke confirmed as C04 fix direction; recommended_c04_fix() = saddle ring + clamp; analytical screening only |
-| 3 m 翼板 spar splice 設計 | `scripts/current_pathfinder_spar_splice_design.py` (13 tests) | 5 joints per half-wing; all pass; 3.85 kg full-wing; inboard spigot wall 1.02 mm; 3 m limit locked |
+| 3 m 翼板 spar splice 設計 | `scripts/current_pathfinder_spar_splice_design.py` (13 tests) | 5 joints per half-wing on structural freeze half-span 16.5 m; all pass; 3.85 kg full-wing; inboard spigot wall 1.02 mm; 3 m limit locked |
+| 看 P1 C04 load path 與 mass/CG/tail/closure 回灌後 verdict | [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 saddle/yoke/clamp + splice mass charged to closure; coupon/local FEM next |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
@@ -307,9 +326,10 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 - Rib / rear spar / wire attach / root joint 是 downstream physical-realization 與 validation 問題；除非它們會改變 aero-structure closure candidate 排序，否則不要把它們升成上游主線。
 - Horizontal / vertical tail 不是最後才補的外觀件；current pathfinder 已有 all-moving tail
   AVL audit v0、tail / CG / trim / stability screening v1 與 tail-aware closure evidence。
-  目前 CG / trim / static / directional authority 可以在 managed CG row 下成立，但 aeroelastic
-  twist/stiffness 還沒過 package gate；下一步是 hybrid rib / shear-transfer stiffness rework，
-  不能宣稱整機 aircraft-feasible。
+  目前 CG / trim / static / directional authority 可以在 managed CG row 下成立；P1 C04
+  load-path surrogate 也已可進 coupon/local FEM。但 direct spar-pair stress-test、C07
+  skin sag process、hardware/laminate detail 和 local FEM/coupon 尚未 sign-off，不能宣稱
+  整機 aircraft-feasible。
 - 主翼 mesh-native CFD / SU2 線仍暫停，不能拿來當 performance claim truth。
 
 ---
@@ -353,6 +373,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/tail_aware_aeroelastic_closure.py
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_torsion_design_search.py
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_collar_joint_design_search.py
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_spar_splice_design.py
+PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_p1_load_path_mass_closure.py
 ```
 
 只有在明確做歷史診斷時，才可以加

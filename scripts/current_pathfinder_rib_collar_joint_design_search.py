@@ -47,6 +47,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.collar_joint_modes import JointLoad, recommended_c04_fix  # noqa: E402
+
 SCHEMA_VERSION = "rib_collar_joint_design_search_v1"
 
 DEFAULT_FREEZE_JSON = (
@@ -256,22 +258,22 @@ def _sweep_load_line_yoke(
 ) -> dict[str, Any]:
     r_eff_values = [v * 1e-3 for v in range(1, 52, 1)]  # 1 mm to 51 mm step 1 mm
     rows = []
-    min_viable_r = None
+    max_viable_r = None
     for r_eff in r_eff_values:
         margin, detail = margin_load_line_yoke(F, r_eff, L, a, peel_allow, c_factor)
         detail["margin"] = round(margin, 3)
         detail["passes"] = margin > 0
         rows.append(detail)
-        if margin > 0 and min_viable_r is None:
-            min_viable_r = r_eff
-    recommended_r = min_viable_r * 0.67 if min_viable_r else None  # smaller r_eff = better
+        if margin > 0:
+            max_viable_r = r_eff
+    recommended_r = max_viable_r * 0.67 if max_viable_r else None  # smaller r_eff = better
     rec_margin = None
     if recommended_r:
         rec_margin, _ = margin_load_line_yoke(F, recommended_r, L, a, peel_allow, c_factor)
     return {
         "mode": "load_line_yoke",
         "current_r_eff_mm": 50.0,
-        "max_viable_r_eff_mm": round(min_viable_r * 1000, 1) if min_viable_r else None,
+        "max_viable_r_eff_mm": round(max_viable_r * 1000, 1) if max_viable_r else None,
         "recommended_r_eff_mm": round(recommended_r * 1000, 1) if recommended_r else None,
         "recommended_margin": round(rec_margin, 3) if rec_margin is not None else None,
         "note": "r_eff is the eccentricity of the force line from the tube centreline; smaller is better",
@@ -381,21 +383,18 @@ def run_design_search(freeze: dict[str, Any]) -> dict[str, Any]:
     )
     key_sweep = _sweep_external_shear_key(M_req, R_key=R_spar + 0.005)  # key centroid ~5 mm off tube OD
 
-    # Recommended design: split clamp + 3 mm yoke + two 10×15 mm keys
-    # (concrete numbers from the analysis)
-    r_eff_rec = 0.003  # 3 mm effective eccentricity
-    N_c_rec = 600.0
-    mu_rec = 0.15
-    n_key_rec = 2
-    A_key_rec = 10e-3 * 15e-3  # 10 mm × 15 mm per key
-
-    rec_yoke_margin, _ = margin_load_line_yoke(
-        F_couple, r_eff_rec, L_contact, a_current, peel_allow, C_CONSERVATIVE
-    )
-    rec_clamp_margin, _ = margin_friction_clamp(M_req, R_spar, mu_rec, N_c_rec, L_contact)
-    rec_key_margin, _ = margin_external_shear_key(
-        M_req, R_spar + 0.005, n_key_rec, A_key_rec, TAU_DESIGN_KEY_PA
-    )
+    # Recommended design: saddle ring yoke + secondary friction clamp.
+    # This uses the class-based load-path model so the search report and the
+    # reusable joint library do not drift into different C04-fix narratives.
+    joint_load = JointLoad.from_freeze(freeze)
+    recommended_joint = recommended_c04_fix(joint_load)
+    recommended_result = recommended_joint.margin(joint_load)
+    sub_results = recommended_result.detail.get("sub_results", {})
+    modes = {mode.mode_id: mode for mode in recommended_joint.modes}
+    saddle_mode = modes["saddle_ring_yoke"]
+    clamp_mode = modes["friction_clamp"]
+    saddle_result = saddle_mode.margin(joint_load)
+    clamp_result = clamp_mode.margin(joint_load)
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -425,27 +424,41 @@ def run_design_search(freeze: dict[str, Any]) -> dict[str, Any]:
         "mode_friction_clamp": friction_sweep,
         "mode_external_shear_key": key_sweep,
         "recommended_design": {
-            "description": "split clamp + 3 mm yoke + two 10×15 mm external shear keys",
+            "type": "saddle_ring_yoke_plus_secondary_clamp",
+            "primary_load_path": "saddle_ring_yoke",
+            "description": "conformal saddle ring yoke + secondary friction clamp",
             "components": {
-                "yoke_r_eff_mm": r_eff_rec * 1000,
-                "clamp_N_c_n": N_c_rec,
-                "clamp_mu_conservative": mu_rec,
-                "key_n": n_key_rec,
-                "key_area_per_key_mm2": round(A_key_rec * 1e6, 1),
-                "key_tau_design_mpa": TAU_DESIGN_KEY_PA / 1e6,
+                "saddle_ring_yoke": {
+                    "arc_deg": saddle_result.detail["arc_deg"],
+                    "ring_width_mm": round(saddle_mode.ring_width_m * 1000.0, 1),
+                    "lug_height_mm": saddle_result.detail["lug_height_mm"],
+                    "lug_width_mm": round(saddle_mode.lug_width_m * 1000.0, 1),
+                    "lug_foot_length_mm": round(saddle_mode.lug_foot_length_m * 1000.0, 1),
+                    "tau_adhesive_allow_mpa": saddle_result.detail["tau_adhesive_allow_mpa"],
+                    "k_concentration": saddle_result.detail["k_concentration"],
+                    "governs": saddle_result.governs,
+                },
+                "friction_clamp": {
+                    "mu": clamp_result.detail["mu"],
+                    "N_c_n": clamp_result.detail["N_c_n"],
+                    "liner": clamp_result.detail["liner"],
+                    "role": clamp_result.detail["role"],
+                    "governs": clamp_result.governs,
+                },
             },
             "margins": {
-                "residual_peel_yoke_conservative": round(rec_yoke_margin, 3),
-                "friction_clamp_torque": round(rec_clamp_margin, 3),
-                "shear_key": round(rec_key_margin, 3),
+                "saddle_ring_yoke": saddle_result.margin,
+                "friction_clamp_secondary": clamp_result.margin,
+                "sub_results": sub_results,
             },
-            "governing_margin": round(min(rec_yoke_margin, rec_clamp_margin, rec_key_margin), 3),
+            "governing_margin": recommended_result.margin,
+            "governing_mode": recommended_result.governs,
             "notes": [
-                "Each load path is checked independently (conservative; no load sharing assumed)",
-                "Governing margin is the minimum across all three paths",
-                "mu=0.15 is conservative for CFRP-on-CFRP with surface finish; measure on coupon",
-                "tau_d=2 MPa includes knockdown for peel concentration at key ends; taper key edges",
-                "Yoke r_eff=3 mm requires clevis/saddle bracket with bore close to tube OD",
+                "Primary load path is tangential lug bearing into a conformal saddle ring, not outward adhesive peel.",
+                "The friction clamp is secondary positioning/redundancy and is checked independently.",
+                "Saddle lug height is kept low to suppress lug-root peel; taper ring ends and add fillet/overwrap.",
+                "mu=0.15 remains coupon-owned for the clamp; do not promote worn-in CFRP friction values.",
+                "External shear key remains a viable alternate/backup concept but is not the selected P1 fix.",
             ],
         },
         "design_search_summary": {
@@ -453,6 +466,7 @@ def run_design_search(freeze: dict[str, Any]) -> dict[str, Any]:
             "yoke_max_viable_r_eff_mm": yoke_sweep["max_viable_r_eff_mm"],
             "friction_clamp_min_N_c_at_mu015": friction_sweep["by_mu"][0.15]["min_viable_N_c_n"],
             "shear_key_min_total_area_mm2": key_sweep["min_viable_total_area_mm2"],
+            "recommended_design_type": "saddle_ring_yoke_plus_secondary_clamp",
         },
     }
 
@@ -583,13 +597,22 @@ def _render_report_md(result: dict[str, Any]) -> str:
         "",
         f"**{rec['description']}**",
         "",
-        "| load path | governing margin | primary |",
-        "|---|---:|---|",
-        f"| Residual peel (yoke r_eff=3 mm, conservative) | {rec['margins']['residual_peel_yoke_conservative']:.2f} | ✓ |",
-        f"| Friction clamp (μ=0.15, N_c=600 N) | {rec['margins']['friction_clamp_torque']:.2f} | check |",
-        f"| External shear key (2×150 mm², τ_d=2 MPa) | {rec['margins']['shear_key']:.1f} | backup |",
+        "The selected P1 C04 fix is now the same load path used by",
+        "`recommended_c04_fix()`: a conformal saddle ring with tangential lugs",
+        "that routes the rib reaction as a couple around the spar, plus a secondary",
+        "friction clamp for positioning/redundancy. The external shear-key sweep",
+        "above remains an alternate concept, not the selected P1 baseline.",
         "",
-        f"**Governing margin: {rec['governing_margin']:.2f}** (each path checked independently).",
+        "| load path | governing margin | role |",
+        "|---|---:|---|",
+        f"| Saddle ring yoke ({rec['components']['saddle_ring_yoke']['arc_deg']:.0f} deg arc, "
+        f"{rec['components']['saddle_ring_yoke']['lug_height_mm']:.1f} mm lugs) | "
+        f"{rec['margins']['saddle_ring_yoke']:.2f} | primary |",
+        f"| Friction clamp (μ={rec['components']['friction_clamp']['mu']:.2f}, "
+        f"N_c={rec['components']['friction_clamp']['N_c_n']:.0f} N) | "
+        f"{rec['margins']['friction_clamp_secondary']:.2f} | secondary |",
+        "",
+        f"**Governing margin: {rec['governing_margin']:.2f}** ({rec['governing_mode']}).",
         "",
         "Notes:",
     ]
@@ -609,7 +632,7 @@ def _render_report_md(result: dict[str, Any]) -> str:
         f"| friction clamp (μ=0.15) | N_c ≥ {ds['friction_clamp_min_N_c_at_mu015']} N"
         f" | none | ✓ achievable with M3–M4 bolts |",
         f"| external shear key | ≥ {ds['shear_key_min_total_area_mm2']} mm² total"
-        f" | none | ✓ two small blocks suffice |",
+        f" | none | ✓ alternate / backup, not selected P1 baseline |",
         "",
         "## What Needs Physical Verification",
         "",
@@ -617,9 +640,9 @@ def _render_report_md(result: dict[str, Any]) -> str:
         "   with realistic clamp pressure and surface finish — do not assume μ=0.15 without test.",
         "2. **Shear key bond coupon**: verify τ_d ≥ 2 MPa for the actual key geometry with",
         "   tapered edges. Check that key-end peel does not drive failure before shear.",
-        "3. **Yoke geometry**: confirm that a clevis/saddle bracket can be manufactured",
-        "   with the rib web such that the effective force line passes within 3 mm of the",
-        "   tube centreline under assembly tolerances.",
+        "3. **Saddle/yoke geometry**: confirm that the rib yoke bears on the",
+        "   tangential lug pair without prying the ring edge, and that lug height,",
+        "   fillets, taper, and overwrap match the surrogate geometry.",
         "4. **Clamp repeatability**: verify that bolt preload after repeated assembly /",
         "   disassembly maintains the required N_c (use torque wrench, calibrated fastener).",
     ]
@@ -677,6 +700,7 @@ def write_design_search_package(
         "yoke_max_viable_r_eff_mm": result["design_search_summary"]["yoke_max_viable_r_eff_mm"],
         "friction_clamp_min_N_c_at_mu015": result["design_search_summary"]["friction_clamp_min_N_c_at_mu015"],
         "shear_key_min_total_area_mm2": result["design_search_summary"]["shear_key_min_total_area_mm2"],
+        "recommended_design_type": result["design_search_summary"]["recommended_design_type"],
         "recommended_governing_margin": result["recommended_design"]["governing_margin"],
         "verdict": "redesign_required_viable_alternatives_identified",
     }

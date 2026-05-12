@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import sys
 
+import pytest
+
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT_PATH = _REPO_ROOT / "scripts" / "current_pathfinder_rib_collar_joint_design_search.py"
@@ -100,6 +102,19 @@ def test_recommended_design_positive_margin(tmp_path: Path) -> None:
     assert gm > 0, (
         f"Recommended design (split clamp + 3 mm yoke + shear keys) must have positive margin; got {gm}"
     )
+
+
+def test_recommended_design_is_saddle_ring_yoke_c04_fix(tmp_path: Path) -> None:
+    summary, paths = _run(tmp_path)
+    full = json.loads(paths["full_json"].read_text())
+    rec = full["recommended_design"]
+    assert summary["recommended_design_type"] == "saddle_ring_yoke_plus_secondary_clamp"
+    assert rec["primary_load_path"] == "saddle_ring_yoke"
+    assert rec["components"]["saddle_ring_yoke"]["arc_deg"] == pytest.approx(180.0)
+    assert rec["components"]["saddle_ring_yoke"]["lug_height_mm"] <= 8.0
+    assert rec["components"]["friction_clamp"]["role"] == "secondary"
+    assert rec["margins"]["saddle_ring_yoke"] > 0.0
+    assert rec["margins"]["friction_clamp_secondary"] > 0.0
 
 
 def test_margin_functions_physics(tmp_path: Path) -> None:
