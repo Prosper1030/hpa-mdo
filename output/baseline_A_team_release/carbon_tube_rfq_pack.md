@@ -2,11 +2,11 @@
 
 Verdict: `carbon_tube_rfq_pack_draft_vendor_screening`
 
-Draft vendor-screening pack only while mass/span authority is under repair; it is not purchase-ready, not supplier selection, not drawing release, and not final aircraft sign-off.
+Draft vendor-screening pack only; remaining mass/span/RFQ conflicts block release and procurement, but this does not block bounded WO-006 aero calibration. It is not purchase-ready, not supplier selection, not drawing release, and not final aircraft sign-off.
 
 ## RFQ Use
 
-Keep this pack as a draft capability and quote-screening request until mass/span authority is repaired. If it is shared externally, every page must preserve the draft/vendor-screening boundary. Do not authorize production or procurement from this pack.
+Keep this pack as a draft capability and quote-screening request. It does not block bounded WO-006 aero calibration, but every page must preserve the draft/vendor-screening boundary. Do not authorize production or procurement from this pack.
 
 ## Controlled Station Convention For RFQ
 

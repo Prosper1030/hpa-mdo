@@ -30,8 +30,8 @@ DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "baseline_A_team_release"
 
 SCHEMA_VERSION = "baseline_a_team_release_v1"
 LEDGER_SCHEMA_VERSION = "baseline_a_mass_cg_margin_ledger_v1"
-RELEASE_VERDICT = "baseline_A_data_authority_repair_in_progress"
-LEDGER_VERDICT = "mass_cg_authority_repair_needed"
+RELEASE_VERDICT = "baseline_A_data_authority_restored_wo006_unblocked"
+LEDGER_VERDICT = "mass_cg_authority_bounded_wo006_ready"
 DESIGN_GROSS_MASS_AUTHORITY_KG = 98.5
 CONFIDENCE_LEVELS = {"estimate", "quoted", "measured", "frozen"}
 
@@ -134,7 +134,7 @@ def _geometry_freeze(
         "release_verdict": RELEASE_VERDICT,
         "candidate_id": p1["candidate_id"],
         "current_pathfinder_role": "Baseline A team release pathfinder, not final aircraft",
-        "data_authority_status": "under_repair",
+        "data_authority_status": "restored_for_bounded_wo006",
         "p1_verdict": p1["final_verdict"],
         "authority": {
             "design_gross_mass_authority_kg": DESIGN_GROSS_MASS_AUTHORITY_KG,
@@ -144,7 +144,9 @@ def _geometry_freeze(
             "current_pipeline_full_span_evidence_m": 34.332286,
             "current_pipeline_half_span_evidence_m": 17.166143,
             "local_splice_screening_half_span_m": 16.5,
-            "wo006_status": "paused_until_data_authority_restored",
+            "wo006_status": "allowed_bounded_aero_calibration_only",
+            "wo006_mass_basis_kg": DESIGN_GROSS_MASS_AUTHORITY_KG,
+            "wo006_span_basis": "current_pipeline_span_authority",
             "wo005_status": "draft_vendor_screening_only",
         },
         "frozen": {
@@ -207,11 +209,11 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
             "",
             f"Verdict: `{context['release_verdict']}`",
             "",
-            "Baseline A is under data-authority repair. This package is retained as "
-            "screening evidence and task coordination material; it is not current "
-            "release authority and not final aircraft sign-off.",
+            "Baseline A data-authority restored for bounded WO-006. This package is retained as "
+            "screening evidence and task coordination material; it is not release truth, "
+            "not RFQ/procurement truth, and not final aircraft sign-off.",
             "",
-            "## Data Authority Repair Gate",
+            "## Bounded WO-006 Gate",
             "",
             f"- Current design gross mass authority: `{DESIGN_GROSS_MASS_AUTHORITY_KG} kg`.",
             f"- Suspect P1 screening aggregate: `{mass['updated_total_mass_after_items_kg']} kg` "
@@ -219,7 +221,9 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
             "- Current pipeline span evidence: `34.332286 m` full span / `17.166143 m` half-span.",
             "- Local/splice screening half-span: `16.5 m`, not procurement truth.",
             "- WO-005 RFQ pack remains draft/vendor-screening only.",
-            "- WO-006 SU2 is paused until data authority is restored.",
+            "- WO-006 is allowed only as bounded aero calibration.",
+            "- WO-006 must use `98.5 kg` and current pipeline span authority unless explicitly studying sensitivity.",
+            "- WO-006 output is not release truth, not RFQ/procurement truth, and not final aircraft sign-off.",
             "",
             "## Current Pathfinder",
             "",
@@ -264,10 +268,10 @@ def _render_release_markdown(context: Mapping[str, Any]) -> str:
             "",
             "## Team Start Authorization",
             "",
-            "Teams may use this package only for bounded screening, coupon/local FEM "
-            "planning, interface review, and draft vendor questions. It does not "
-            "authorize RFQ purchase action, shop drawing release, SU2 release claims, "
-            "or aircraft sign-off work.",
+            "Teams may use this package for bounded screening, coupon/local FEM "
+            "planning, interface review, draft vendor questions, and WO-006 bounded "
+            "aero calibration. It does not authorize RFQ purchase action, shop drawing "
+            "release, SU2 release claims, procurement truth, or aircraft sign-off work.",
             "",
         ]
     )
@@ -556,9 +560,9 @@ def _render_margin_budget(context: Mapping[str, Any]) -> str:
             "",
             f"Verdict: `{LEDGER_VERDICT}`",
             "",
-            "This ledger is a screening evidence surface under data-authority repair. "
-            "It is not measured aircraft weight and balance, not current design mass "
-            "truth, and not final aircraft sign-off.",
+            "This ledger is a screening evidence surface with design mass authority "
+            "restored for bounded WO-006. It is not measured aircraft weight and "
+            "balance, not RFQ/procurement truth, and not final aircraft sign-off.",
             "",
             "## Mass and CG",
             "",
@@ -721,8 +725,9 @@ def _render_daily_review_summary(context: Mapping[str, Any]) -> str:
                 "Do not use it to pass/fail C04 or rib blockers |"
             ),
             "",
-            "Next review focus: data-authority repair for mass, span, station, and "
-            "RFQ channel wording. WO-005 remains draft-only and WO-006 remains paused.",
+            "Next review focus: WO-006 after data-authority restoration as bounded "
+            "aero calibration using 98.5 kg and current pipeline span authority. WO-005 remains draft-only; RFQ, "
+            "procurement, release, and final sign-off remain blocked.",
             "",
         ]
     )
@@ -882,9 +887,9 @@ def _render_manufacturing_plan(context: Mapping[str, Any]) -> str:
         [
             "# Manufacturing Test Plan",
             "",
-            "Baseline A is under data-authority repair. The shop-facing team may plan "
-            "test articles and draft vendor questions, but this is not a purchase or "
-            "drawing-release authorization.",
+            "Baseline A data authority is restored only for bounded WO-006 aero "
+            "calibration. The shop-facing team may plan test articles and draft vendor "
+            "questions, but this is not a purchase or drawing-release authorization.",
             "",
             "## Start Now",
             "",
@@ -965,6 +970,7 @@ def _render_change_control_rules(context: Mapping[str, Any]) -> str:
             "- 1 m wing-bay v2 evidence.",
             "- Control derivative matrix and tail motor authority.",
             "- QPROP/XROTOR propulsion interface.",
+            "- WO-006 bounded aero calibration using 98.5 kg and current pipeline span authority.",
             "",
             "## reopen trigger / would force major redesign",
             "",
@@ -991,15 +997,15 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
         (
             "WO-005",
             "carbon tube RFQ + procurement pack",
-            "Downgraded to draft/vendor-screening only; mass/span authority repair is required "
-            "before procurement or drawing-control use.",
+            "draft/vendor-screening only; remaining mass/span/RFQ conflicts block "
+            "procurement and drawing-control use, not bounded WO-006 aero calibration.",
         ),
     ]
     queue = [
         (
             "WO-006",
             "main-wing SU2 baseline validation",
-            "WO-006 remains paused until data authority is restored; do not run SU2 for release claims yet.",
+            "WO-006 is allowed only as bounded aero calibration using 98.5 kg and current pipeline span authority; not release truth, RFQ/procurement truth, or final aircraft sign-off.",
         ),
         (
             "WO-007",
@@ -1075,13 +1081,12 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
             "## Next Recommended Codex Goal",
             "",
             "```text",
-            "/goal In /Volumes/Samsung SSD/hpa-mdo, keep WO-006 paused and execute the next data-authority repair item.",
-            "Read README.md, CURRENT_MAINLINE.md, docs/reports/baseline_A_data_authority_audit.md, "
-            "docs/reports/baseline_A_data_authority_conflict_register.md, and "
-            "output/baseline_A_team_release/data_authority_table.csv first. Do not run SU2, "
-            "QPROP, XROTOR, prop optimization, or procurement actions. Repair the next "
-            "blocking mass/span/station authority issue, update tests and generated wording, "
-            "run the data-authority checker, and commit only that work order.",
+            "/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006 after data-authority restoration as bounded aero calibration only.",
+            "Read README.md, CURRENT_MAINLINE.md, docs/AI_WORK_ORDER_PROTOCOL.md, docs/work_orders/QUEUE.md, "
+            "docs/reports/baseline_A_data_authority_audit.md, and output/baseline_A_team_release/data_authority_table.csv first. "
+            "Use 98.5 kg and current pipeline span authority unless explicitly running a labeled sensitivity. "
+            "Do not treat SU2 output as release truth, RFQ/procurement truth, or final aircraft sign-off. "
+            "Do not run QPROP, XROTOR, prop optimization, procurement actions, or final CAD release in this work order.",
             "```",
             "",
             "## Reviewer Prompt",
@@ -1103,7 +1108,7 @@ def _reopen_triggers() -> list[str]:
         "Tube vendor-screening evidence cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions after authority repair.",
         "Qualified aero-surface mapping invalidates the current direct stress-test warning read after authority repair.",
         "Tail trim/stability or control authority fails at managed CG.",
-        "Main-wing SU2 remains paused until data authority is restored; later SU2 baseline changes drag/power enough to invalidate mission margins.",
+        "Main-wing bounded SU2 calibration changes drag/power enough to invalidate mission margins.",
         "Manufacturing discretization forces large external-shape or spar-spec change.",
     ]
 

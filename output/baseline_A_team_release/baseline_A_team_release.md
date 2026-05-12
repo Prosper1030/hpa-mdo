@@ -1,17 +1,19 @@
 # Baseline A team release
 
-Verdict: `baseline_A_data_authority_repair_in_progress`
+Verdict: `baseline_A_data_authority_restored_wo006_unblocked`
 
-Baseline A is under data-authority repair. This package is retained as screening evidence and task coordination material; it is not current release authority and not final aircraft sign-off.
+Baseline A data-authority restored for bounded WO-006. This package is retained as screening evidence and task coordination material; it is not release truth, not RFQ/procurement truth, and not final aircraft sign-off.
 
-## Data Authority Repair Gate
+## Bounded WO-006 Gate
 
 - Current design gross mass authority: `98.5 kg`.
 - Suspect P1 screening aggregate: `106.828608 kg` (not current design mass truth).
 - Current pipeline span evidence: `34.332286 m` full span / `17.166143 m` half-span.
 - Local/splice screening half-span: `16.5 m`, not procurement truth.
 - WO-005 RFQ pack remains draft/vendor-screening only.
-- WO-006 SU2 is paused until data authority is restored.
+- WO-006 is allowed only as bounded aero calibration.
+- WO-006 must use `98.5 kg` and current pipeline span authority unless explicitly studying sensitivity.
+- WO-006 output is not release truth, not RFQ/procurement truth, and not final aircraft sign-off.
 
 ## Current Pathfinder
 
@@ -55,9 +57,9 @@ Baseline A is under data-authority repair. This package is retained as screening
 - Tube vendor-screening evidence cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions after authority repair.
 - Qualified aero-surface mapping invalidates the current direct stress-test warning read after authority repair.
 - Tail trim/stability or control authority fails at managed CG.
-- Main-wing SU2 remains paused until data authority is restored; later SU2 baseline changes drag/power enough to invalidate mission margins.
+- Main-wing bounded SU2 calibration changes drag/power enough to invalidate mission margins.
 - Manufacturing discretization forces large external-shape or spar-spec change.
 
 ## Team Start Authorization
 
-Teams may use this package only for bounded screening, coupon/local FEM planning, interface review, and draft vendor questions. It does not authorize RFQ purchase action, shop drawing release, SU2 release claims, or aircraft sign-off work.
+Teams may use this package for bounded screening, coupon/local FEM planning, interface review, draft vendor questions, and WO-006 bounded aero calibration. It does not authorize RFQ purchase action, shop drawing release, SU2 release claims, procurement truth, or aircraft sign-off work.

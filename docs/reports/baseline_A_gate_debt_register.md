@@ -4,10 +4,10 @@ This register tracks docs/scripts/tests that encode stale assumptions or old con
 
 | Item | Classification | Reason | Recommended action |
 |---|---|---|---|
-| `scripts/build_baseline_a_release.py` | `keep_current` | Reads P1 generated mass/CG closure but emits authority metadata and keeps the aggregate as suspect screening evidence. | Keep the checker in CI/manual verification before release wording changes. |
-| `scripts/build_carbon_tube_rfq_pack.py` | `keep_current` | RFQ pack is downgraded to draft/vendor-screening and labels 16.5 m as local/splice screening only. | Do not restore procurement wording until span/mass authority is repaired. |
+| `scripts/build_baseline_a_release.py` | `keep_current` | Reads P1 generated mass/CG closure but emits authority metadata, keeps the aggregate as suspect screening evidence, and unblocks only bounded WO-006. | Keep the checker in CI/manual verification before release wording changes. |
+| `scripts/build_carbon_tube_rfq_pack.py` | `keep_current` | RFQ pack stays draft/vendor-screening and labels 16.5 m as local/splice screening only while WO-006 proceeds separately. | Do not restore procurement wording without station/span and vendor evidence. |
 | `tests/test_baseline_a_release_builder.py` | `keep_current` | Now asserts authority classification instead of stale current truth. | Keep authority assertions when release-builder wording changes. |
-| `tests/test_build_carbon_tube_rfq_pack.py` | `keep_current` | Now asserts draft/vendor-screening and conflict-blocked span language. | Keep draft-only assertions until procurement authority is restored. |
+| `tests/test_build_carbon_tube_rfq_pack.py` | `keep_current` | Now asserts draft/vendor-screening and release/procurement-only blocker language. | Keep draft-only assertions until procurement authority is restored. |
 | `output/phase*` | `legacy_only` | Old output phases can contain useful evidence but are not current Baseline A authority. | Cite only as legacy_or_experiment unless CURRENT_MAINLINE explicitly promotes a specific artifact. |
 | `tests/test_ansys_crossval.py:83` | `repair_needed` | Test references authority-sensitive value: tip_deflection_mm = _extract_metric_value(report_text, "Tip deflection (uz, y=16.5m)", "mm") | Label as legacy/screening fixture or replace with authority-class assertion. |
 | `tests/test_ansys_crossval.py:97` | `repair_needed` | Test references authority-sensitive value: # APDL keypoints: 1..nn for the single equivalent FEM beam. | Label as legacy/screening fixture or replace with authority-class assertion. |

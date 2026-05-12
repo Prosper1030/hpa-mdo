@@ -1,6 +1,6 @@
 # Manufacturing Test Plan
 
-Baseline A is under data-authority repair. The shop-facing team may plan test articles and draft vendor questions, but this is not a purchase or drawing-release authorization.
+Baseline A data authority is restored only for bounded WO-006 aero calibration. The shop-facing team may plan test articles and draft vendor questions, but this is not a purchase or drawing-release authorization.
 
 ## Start Now
 

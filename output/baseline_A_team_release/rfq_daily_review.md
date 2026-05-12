@@ -2,7 +2,7 @@
 
 Verdict: `carbon_tube_rfq_pack_draft_vendor_screening`
 
-The carbon tube RFQ pack remains draft/vendor-screening only while mass and span authority are repaired. It is not order placement or drawing release.
+The carbon tube RFQ pack remains draft/vendor-screening only. Remaining mass/span/RFQ conflicts block order placement and drawing release, not bounded WO-006 aero calibration.
 
 ## What Is Draft Screening Only
 
@@ -20,4 +20,4 @@ The carbon tube RFQ pack remains draft/vendor-screening only while mass and span
 
 ## Next Work Order
 
-WO-006 remains paused until data authority is restored.
+WO-006 may proceed only as bounded aero calibration using 98.5 kg and current pipeline span authority.

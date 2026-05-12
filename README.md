@@ -1,16 +1,19 @@
 # HPA-MDO：人力飛機新概念設計管線
 
-## 2026-05-12 Data-Authority Repair Gate
+## 2026-05-13 Bounded WO-006 Data-Authority Gate
 
-Baseline A 目前處於 **data-authority repair**，不是可繼續對外宣稱 release-ready 的狀態。
-在這個 gate 關閉前：
+Baseline A data-authority 已恢復到足以讓 **WO-006 bounded SU2 aero calibration** 往下走；
+這不是 release-ready、RFQ/procurement-ready 或 final aircraft sign-off。
+目前 gate 讀法：
 
 - `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
 - `106.828608 kg` 是 suspect P1 screening aggregate，不是目前 Baseline A design mass truth。
 - 目前 pipeline span evidence 是 `34.332286 m` full span / `17.166143 m` half-span，除非新的 authority manifest 取代它。
 - `16.5 m` 只能當 local/splice screening reference，不是 current pipeline half-span、RFQ control span、shop span 或 procurement truth。
 - WO-005 carbon tube RFQ pack 只能當 draft/vendor-screening；不能下單、選 vendor、放 shop drawing。
-- WO-006 SU2、WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 全部暫停到 data authority restored。
+- WO-006 只能做 bounded aero calibration；不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
+- WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
+- WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
 
 先讀：
@@ -267,7 +270,8 @@ Baseline A team release system 的舊 WO-001 generated package 已建立（2026-
 [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md)、
 [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) 與
 `output/baseline_A_team_release/`。舊 verdict `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair, not active current truth；current
-release status 是 `baseline_A_data_authority_repair_in_progress`。這包只能當施工 / 結構 / 控制 /
+release status 是 `baseline_A_data_authority_restored_wo006_unblocked`，只放行 bounded WO-006
+aero calibration。這包只能當施工 / 結構 / 控制 /
 傳動 / 製造分工的 screening evidence 與 coordination material，不是 Baseline A release authority、
 也不是 procurement truth 或 final aircraft sign-off；P1 只到 coupon/local FEM readiness，C04 fix 是
 architecture-selected 但仍需 coupon/local FEM，QPROP/XROTOR 保持獨立 propulsion lane。
@@ -338,7 +342,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | C04 collar joint 架構修正方向 + multi-mode design search | `scripts/collar_joint_modes.py` (59 tests) + `scripts/current_pathfinder_rib_collar_joint_design_search.py` (11 tests) | saddle ring yoke confirmed as C04 fix direction; recommended_c04_fix() = saddle ring + clamp; analytical screening only |
 | 3 m 翼板 spar splice 設計 | `scripts/current_pathfinder_spar_splice_design.py` (13 tests) | 5 joints per half-wing on structural freeze half-span 16.5 m; all pass; 3.85 kg full-wing; inboard spigot wall 1.02 mm; 3 m limit locked |
 | 看 P1 C04 load path 與 mass/CG/tail/closure 回灌後 verdict | [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 saddle/yoke/clamp + splice mass charged to closure; coupon/local FEM next |
-| 接 Baseline A team release package | `output/baseline_A_team_release/` | old `baseline_A_release_system_ready` is historical/generated evidence under data-authority repair, not active current truth; current release status is `baseline_A_data_authority_repair_in_progress` |
+| 接 Baseline A team release package | `output/baseline_A_team_release/` | old `baseline_A_release_system_ready` is historical/generated evidence under data-authority repair, not active current truth; current release status is `baseline_A_data_authority_restored_wo006_unblocked` for bounded WO-006 only |
 | 看 Baseline A mass / CG / margin ledger | `output/baseline_A_team_release/margin_budget.md` + `mass_cg_margin_daily_review.md` | old `mass_cg_margin_ledger_ready` is historical/generated evidence under data-authority repair, not active current truth; `98.5 kg` is authority, `106.828608 kg` is suspect screening |
 | 看 Baseline A design-space freeze audit | `output/baseline_A_team_release/design_space_freeze_audit/design_space_freeze_audit.md` | `baseline_A_freeze_reasonable`; no explicit nearby dominance trigger; power-budget watch item remains |
 | 看 Baseline A manufacturable geometry audit | `output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md` | `geometry_freeze_needs_fix`; smooth enough for release engineering, not shop/RFQ drawing control |
@@ -349,7 +353,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看近期優先順序 | [docs/NOW_NEXT_BLUEPRINT.md](docs/NOW_NEXT_BLUEPRINT.md) | 近期 roadmap，可能需要再按 Phase J 更新 |
 | 接續任務包 | [docs/task_packs/current_parallel_work/README.md](docs/task_packs/current_parallel_work/README.md) | 多 agent handoff |
 | 查舊 Black Cat / OpenMDAO 內容 | [docs/legacy_blackcat004_downstream_reference.md](docs/legacy_blackcat004_downstream_reference.md) | 歷史參考，不是目前主線 |
-| 接續暫停 CFD 支線 | [hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md](hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | paused validation route |
+| 接續 mesh-native CFD 支線 | [hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md](hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md) | product-route handoff; separate from WO-006 bounded calibration |
 
 ---
 
@@ -493,7 +497,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸仍不是 shop drawing；WO-005 已補 RFQ screening station/span/splice manifest，尚未變成 drawing release |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
 | Rib / root / wire hardware / composite detail | 開放 validation blockers，需要後續實體化與 detail evidence |
-| SU2 / mesh-native CFD | paused route，不是目前 performance truth |
+| SU2 / mesh-native CFD | WO-006 可做 bounded aero calibration；mesh-native product route 仍不是目前 performance truth |
 
 ---
 

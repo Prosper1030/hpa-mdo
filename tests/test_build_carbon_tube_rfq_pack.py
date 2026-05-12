@@ -53,6 +53,7 @@ def test_rfq_pack_writes_all_required_artifacts(tmp_path: Path) -> None:
     pack = (output_dir / "carbon_tube_rfq_pack.md").read_text(encoding="utf-8")
     assert "carbon_tube_rfq_pack_draft_vendor_screening" in pack
     assert "not purchase-ready" in pack
+    assert "does not block bounded WO-006 aero calibration" in pack
     assert "QPROP/XROTOR is independent" in pack
 
 
@@ -116,7 +117,8 @@ def test_risk_register_names_procurement_and_reopen_review_triggers(tmp_path: Pa
 
     assert register["schema_version"] == "baseline_a_carbon_tube_rfq_pack_v1"
     assert register["verdict"] == "carbon_tube_rfq_pack_draft_vendor_screening"
-    assert register["authority_status"] == "conflict_blocked"
+    assert register["authority_status"] == "blocks_release_procurement_only"
+    assert register["wo006_impact"] == "does_not_block_bounded_aero_calibration"
     risks = {row["risk_id"]: row for row in register["risk_register"]}
     assert "tube_family_unavailable" in risks
     assert "y3_splice_zero_margin_consumed" in risks

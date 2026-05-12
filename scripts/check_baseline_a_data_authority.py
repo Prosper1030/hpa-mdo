@@ -54,6 +54,7 @@ CONFLICT_FIELDS = [
     "category",
     "risk_level",
     "blocking_status",
+    "wo006_unblock_classification",
     "summary",
     "affected_files",
     "conflicting_values",
@@ -1154,7 +1155,7 @@ def _recommended_action(authority_class: str, topic: str, normalized: str) -> st
     if authority_class == "current_pipeline_truth":
         return "May cite as current pipeline evidence, with source and replacement condition."
     if "rfq" in normalized or "procurement" in normalized:
-        return "Keep as draft/vendor-screening until mass/span authority is repaired."
+        return "Keep as draft/vendor-screening; block release/procurement use while allowing bounded WO-006 separately."
     if authority_class == "screening_estimate":
         return "Label as screening estimate/readiness; block final sign-off or procurement use."
     return "Review before repeating; classify source and allowed use in the authority table."
@@ -1167,7 +1168,8 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "conflict_id": "C-001",
             "category": "mass / CG / rebalance",
             "risk_level": "blocking",
-            "blocking_status": "blocks_release_claims_and_downstream_power_cg",
+            "blocking_status": "blocks_release_claims_power_cg_and_procurement_truth",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "98.5 kg is current design mass authority; 106.828608 kg is a suspect P1 screening aggregate and cannot drive current design mass, mission, CG, or RFQ truth.",
             "affected_files": evidence.get("mass / CG / rebalance", ""),
             "conflicting_values": "98.5 kg vs 106.828608 kg",
@@ -1179,6 +1181,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "span / half-span / station / rib spacing",
             "risk_level": "blocking",
             "blocking_status": "blocks_rfq_shop_and_station_control",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "Current pipeline evidence is 34.332286 m full span / 17.166143 m half-span; 16.5 m is local structural/splice screening only.",
             "affected_files": evidence.get("span / half-span / station / rib spacing", ""),
             "conflicting_values": "34.332286 m / 17.166143 m vs 16.5 m",
@@ -1190,6 +1193,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "spar / splice / RFQ / procurement",
             "risk_level": "blocking",
             "blocking_status": "wo005_draft_only",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "WO-005 RFQ artifacts were built from screening/local span and generated outputs. They are vendor-screening only, not purchase-ready.",
             "affected_files": evidence.get("spar / splice / RFQ / procurement", ""),
             "conflicting_values": "carbon_tube_rfq_pack_ready vs draft/vendor-screening only",
@@ -1201,10 +1205,11 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "drag / power / mission margin",
             "risk_level": "high",
             "blocking_status": "blocks_full_pipeline_mission_verdict",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "WO-003 -9 W is only Stage-0 quick-screen warning, not latest full-pipeline mission truth.",
             "affected_files": evidence.get("drag / power / mission margin", ""),
             "conflicting_values": "-9 W quick-screen warning vs current full-pipeline verdict missing",
-            "authority_read": "Use as a watch item only; WO-006/WO-007 remain paused until data authority is restored.",
+            "authority_read": "Use as a watch item only. WO-006 may proceed only as bounded aero calibration; it cannot be mission/release truth.",
             "required_repair": "Rebuild mission/power authority from the repaired mass/span basis before release claims.",
         },
         {
@@ -1212,6 +1217,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "structure margin / C04 / coupon FEM",
             "risk_level": "high",
             "blocking_status": "blocks_final_structure_signoff",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "P1/C04 evidence is coupon/local FEM readiness. It is not adhesive, laminate, buckling, hardware, or aircraft sign-off.",
             "affected_files": evidence.get("structure margin / C04 / coupon FEM", ""),
             "conflicting_values": "-0.893 original peel fail, 0.8876 installed-fix surrogate margin",
@@ -1223,6 +1229,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "tail / trim / stability / control",
             "risk_level": "high",
             "blocking_status": "screening_only",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "Tail/CG/trim/stability claims remain screening assumptions, not measured CG, tail hardware, actuator, or flight-dynamics sign-off.",
             "affected_files": evidence.get("tail / trim / stability / control", ""),
             "conflicting_values": "managed CG row vs missing measured mass/CG/tail hardware authority",
@@ -1234,6 +1241,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "propulsion lane contamination",
             "risk_level": "blocking",
             "blocking_status": "blocks_structural_verdict_language",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "QPROP/XROTOR must not pass or fail C04/rib/structural blockers.",
             "affected_files": evidence.get("propulsion lane contamination", ""),
             "conflicting_values": "propulsion sizing lane vs structural blocker verdict lane",
@@ -1245,6 +1253,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "verdict / sign-off overclaim",
             "risk_level": "blocking",
             "blocking_status": "blocks_baseline_A_release_claims",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "Release, ready, pass, RFQ, and FEM-readiness verdicts were too easy to read as current truth or final aircraft sign-off.",
             "affected_files": evidence.get("verdict / sign-off overclaim", ""),
             "conflicting_values": "ready/release wording vs screening/readiness trust boundary",
@@ -1256,6 +1265,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "tests that preserve stale constants",
             "risk_level": "high",
             "blocking_status": "repair_needed",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "Some tests asserted stale constants as expected truth instead of checking authority classification.",
             "affected_files": evidence.get("tests that preserve stale constants", ""),
             "conflicting_values": "pytest approx(106.828608), 16.5 RFQ control fixtures",
@@ -1267,6 +1277,7 @@ def _conflict_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
             "category": "scripts that read old generated outputs as truth",
             "risk_level": "high",
             "blocking_status": "repair_needed",
+            "wo006_unblock_classification": "blocks_release_procurement_only",
             "summary": "Release/RFQ scripts read generated P1/splice/manufacturing outputs as if they were release authority.",
             "affected_files": evidence.get("scripts that read old generated outputs as truth", ""),
             "conflicting_values": "generated outputs vs authority table",
@@ -1312,7 +1323,7 @@ def _authority_rows() -> list[dict[str, str]]:
             "screening_estimate",
             "P1 generated mass-closure aggregate",
             "May appear as suspect P1 screening aggregate evidence.",
-            "Must not be current design gross mass, mission mass, RFQ truth, or release truth.",
+            "Must not be current design gross mass, bounded WO-006 mass basis, mission mass, RFQ truth, or release truth.",
             "yes, only when labeled suspect/screening and contrasted with 98.5 kg",
             "no",
             "yes, but only as a conflict requiring reconciliation",
@@ -1368,7 +1379,7 @@ def _authority_rows() -> list[dict[str, str]]:
             "screening_estimate",
             "WO-003 Stage-0 quick-screen",
             "Power-budget watch item only.",
-            "Must not be latest full-pipeline mission verdict or release fail/pass.",
+            "Must not be latest full-pipeline mission verdict, WO-006 conclusion, or release fail/pass.",
             "yes, only as Stage-0 warning",
             "no",
             "yes, only after repaired mission/power rerun",
@@ -1409,12 +1420,26 @@ def _authority_rows() -> list[dict[str, str]]:
             "verdict",
             "conflict_blocked",
             "Baseline A release output",
-            "Draft/vendor-screening only after wording repair.",
+            "Draft/vendor-screening only; does not block bounded WO-006 aero calibration.",
             "Must not be purchase-ready, supplier selection, shop drawing release, or procurement truth.",
-            "yes, only as draft/vendor-screening and blocked until authority repair",
+            "yes, only as draft/vendor-screening and blocked for release/procurement",
             "no",
-            "yes, vendor data can trigger review after authority repair",
+            "yes, vendor data can trigger review",
             "Mass/span authority reconciliation plus vendor response and station manifest repair.",
+        ),
+        _authority_row(
+            "wo006_bounded_su2_validation",
+            "drag / power / mission margin",
+            "WO-006",
+            "work_order",
+            "current_pipeline_truth",
+            "data-authority restoration review",
+            "May proceed only as bounded main-wing aero calibration using 98.5 kg and current pipeline span authority unless explicitly labeled sensitivity.",
+            "Must not be release truth, RFQ/procurement truth, full mission sign-off, structural sign-off, or final aircraft sign-off.",
+            "yes, with bounded calibration caveats",
+            "no",
+            "yes, if bounded SU2 drag/power deltas exceed Baseline A reopen thresholds after review",
+            "Upgrade only after full mission/aero/propulsion integration and authority review.",
         ),
     ]
 
@@ -1454,14 +1479,14 @@ def _gate_debt_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
         {
             "item": "scripts/build_baseline_a_release.py",
             "classification": "keep_current",
-            "reason": "Reads P1 generated mass/CG closure but emits authority metadata and keeps the aggregate as suspect screening evidence.",
+            "reason": "Reads P1 generated mass/CG closure but emits authority metadata, keeps the aggregate as suspect screening evidence, and unblocks only bounded WO-006.",
             "recommended_action": "Keep the checker in CI/manual verification before release wording changes.",
         },
         {
             "item": "scripts/build_carbon_tube_rfq_pack.py",
             "classification": "keep_current",
-            "reason": "RFQ pack is downgraded to draft/vendor-screening and labels 16.5 m as local/splice screening only.",
-            "recommended_action": "Do not restore procurement wording until span/mass authority is repaired.",
+            "reason": "RFQ pack stays draft/vendor-screening and labels 16.5 m as local/splice screening only while WO-006 proceeds separately.",
+            "recommended_action": "Do not restore procurement wording without station/span and vendor evidence.",
         },
         {
             "item": "tests/test_baseline_a_release_builder.py",
@@ -1472,7 +1497,7 @@ def _gate_debt_rows(claims: Sequence[Claim]) -> list[dict[str, str]]:
         {
             "item": "tests/test_build_carbon_tube_rfq_pack.py",
             "classification": "keep_current",
-            "reason": "Now asserts draft/vendor-screening and conflict-blocked span language.",
+            "reason": "Now asserts draft/vendor-screening and release/procurement-only blocker language.",
             "recommended_action": "Keep draft-only assertions until procurement authority is restored.",
         },
         {
@@ -1638,18 +1663,18 @@ def _render_conflict_register_md(
     lines = [
         "# Baseline A Data-Authority Conflict Register",
         "",
-        "Verdict: `baseline_A_release_claims_unreliable` until all blocking rows are repaired.",
+        "Verdict: `baseline_A_data_authority_restored_wo006_unblocked` for bounded aero calibration only.",
         "",
-        "This register is an adversarial sweep result. It classifies old outputs and generated reports as evidence, not authority, unless the authority table says otherwise.",
+        "This register is an adversarial sweep result. It classifies old outputs and generated reports as evidence, not authority, unless the authority table says otherwise. Remaining conflicts block release/procurement/final-signoff claims, but do not block bounded WO-006 SU2 validation when it uses the authority table basis.",
         "",
-        "## Blocking Conflicts",
+        "## Remaining Conflict Classification",
         "",
-        "| ID | Category | Risk | Blocking status | Summary | Required repair |",
-        "|---|---|---|---|---|---|",
+        "| ID | Category | Risk | Blocking status | WO-006 classification | Summary | Required repair |",
+        "|---|---|---|---|---|---|---|",
     ]
     for row in conflicts:
         lines.append(
-            "| {conflict_id} | {category} | {risk_level} | {blocking_status} | {summary} | {required_repair} |".format(
+            "| {conflict_id} | {category} | {risk_level} | {blocking_status} | {wo006_unblock_classification} | {summary} | {required_repair} |".format(
                 **row
             )
         )
@@ -1680,7 +1705,9 @@ def _render_authority_audit_md(
     lines = [
         "# Baseline A Data-Authority Audit",
         "",
-        "Verdict: `baseline_A_release_claims_unreliable` until authority repair is complete.",
+        "Verdict: `baseline_A_data_authority_restored_wo006_unblocked`.",
+        "",
+        "WO-006 may proceed only as bounded aero calibration. It is not release truth, not RFQ/procurement truth, not final aircraft sign-off, and must use 98.5 kg plus current pipeline span authority unless explicitly studying sensitivity.",
         "",
         f"- Files scanned: `{files_scanned}`",
         f"- Claims extracted: `{len(claims)}`",
@@ -1708,13 +1735,15 @@ def _render_authority_audit_md(
     lines.extend(
         [
             "",
-            "## Top Blocking Conflicts",
+            "## Remaining Conflict Classification",
             "",
         ]
     )
     for row in conflicts:
         if row["risk_level"] in {"blocking", "high"}:
-            lines.append(f"- `{row['conflict_id']}` {row['category']}: {row['summary']}")
+            lines.append(
+                f"- `{row['conflict_id']}` {row['category']}: `{row['wo006_unblock_classification']}`. {row['summary']}"
+            )
     lines.extend(["", "## Scan Boundaries"])
     if skipped:
         lines.append("Skipped paths were recorded because they were binary, cache/vendor/venv/git internals, or too large for safe text scan:")
@@ -1761,7 +1790,7 @@ def _render_channel_hygiene_md(skipped: Sequence[dict[str, str]]) -> str:
     lines = [
         "# Repo Channel Hygiene Plan",
         "",
-        "Baseline A is under data-authority repair. Future AI agents must not treat arbitrary generated outputs as current truth.",
+        "Baseline A data authority is restored only for bounded WO-006 aero calibration. Future AI agents must not treat arbitrary generated outputs as current truth.",
         "",
         "## Allowed Truth Sources",
         "",
@@ -1798,8 +1827,9 @@ def _render_channel_hygiene_md(skipped: Sequence[dict[str, str]]) -> str:
         "",
         "## WO-005 / WO-006 Rule",
         "",
-        "- WO-005 remains draft/vendor-screening only until mass/span authority is repaired.",
-        "- WO-006 SU2 must stay paused until this checker passes and the authority table is current.",
+        "- WO-005 remains draft/vendor-screening only; RFQ/procurement remains blocked.",
+        "- WO-006 SU2 may proceed only as bounded aero calibration using 98.5 kg and current pipeline span authority unless explicitly labeled sensitivity.",
+        "- WO-006 output is not release truth, not RFQ/procurement truth, and not final aircraft sign-off.",
         "- QPROP/XROTOR must remain a propulsion lane and cannot pass C04/rib/structural blockers.",
         "",
         "## Recorded Skips",

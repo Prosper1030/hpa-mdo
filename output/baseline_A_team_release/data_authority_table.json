@@ -32,7 +32,7 @@
       "authority_class": "screening_estimate",
       "source_lane": "P1 generated mass-closure aggregate",
       "allowed_use": "May appear as suspect P1 screening aggregate evidence.",
-      "disallowed_use": "Must not be current design gross mass, mission mass, RFQ truth, or release truth.",
+      "disallowed_use": "Must not be current design gross mass, bounded WO-006 mass basis, mission mass, RFQ truth, or release truth.",
       "may_appear_in_readme_current_mainline_release_docs": "yes, only when labeled suspect/screening and contrasted with 98.5 kg",
       "may_be_used_for_procurement": "no",
       "may_affect_baseline_A_reopen": "yes, but only as a conflict requiring reconciliation",
@@ -88,7 +88,7 @@
       "authority_class": "screening_estimate",
       "source_lane": "WO-003 Stage-0 quick-screen",
       "allowed_use": "Power-budget watch item only.",
-      "disallowed_use": "Must not be latest full-pipeline mission verdict or release fail/pass.",
+      "disallowed_use": "Must not be latest full-pipeline mission verdict, WO-006 conclusion, or release fail/pass.",
       "may_appear_in_readme_current_mainline_release_docs": "yes, only as Stage-0 warning",
       "may_be_used_for_procurement": "no",
       "may_affect_baseline_A_reopen": "yes, only after repaired mission/power rerun",
@@ -129,12 +129,26 @@
       "unit": "verdict",
       "authority_class": "conflict_blocked",
       "source_lane": "Baseline A release output",
-      "allowed_use": "Draft/vendor-screening only after wording repair.",
+      "allowed_use": "Draft/vendor-screening only; does not block bounded WO-006 aero calibration.",
       "disallowed_use": "Must not be purchase-ready, supplier selection, shop drawing release, or procurement truth.",
-      "may_appear_in_readme_current_mainline_release_docs": "yes, only as draft/vendor-screening and blocked until authority repair",
+      "may_appear_in_readme_current_mainline_release_docs": "yes, only as draft/vendor-screening and blocked for release/procurement",
       "may_be_used_for_procurement": "no",
-      "may_affect_baseline_A_reopen": "yes, vendor data can trigger review after authority repair",
+      "may_affect_baseline_A_reopen": "yes, vendor data can trigger review",
       "trust_upgrade_requirement": "Mass/span authority reconciliation plus vendor response and station manifest repair."
+    },
+    {
+      "authority_id": "wo006_bounded_su2_validation",
+      "engineering_topic": "drag / power / mission margin",
+      "important_number": "WO-006",
+      "unit": "work_order",
+      "authority_class": "current_pipeline_truth",
+      "source_lane": "data-authority restoration review",
+      "allowed_use": "May proceed only as bounded main-wing aero calibration using 98.5 kg and current pipeline span authority unless explicitly labeled sensitivity.",
+      "disallowed_use": "Must not be release truth, RFQ/procurement truth, full mission sign-off, structural sign-off, or final aircraft sign-off.",
+      "may_appear_in_readme_current_mainline_release_docs": "yes, with bounded calibration caveats",
+      "may_be_used_for_procurement": "no",
+      "may_affect_baseline_A_reopen": "yes, if bounded SU2 drag/power deltas exceed Baseline A reopen thresholds after review",
+      "trust_upgrade_requirement": "Upgrade only after full mission/aero/propulsion integration and authority review."
     }
   ]
 }

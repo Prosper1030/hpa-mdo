@@ -21,6 +21,7 @@ Only decisions that affect large external shape, main/rear spar specification, w
 - 1 m wing-bay v2 evidence.
 - Control derivative matrix and tail motor authority.
 - QPROP/XROTOR propulsion interface.
+- WO-006 bounded aero calibration using 98.5 kg and current pipeline span authority.
 
 ## reopen trigger / would force major redesign
 
@@ -29,5 +30,5 @@ Only decisions that affect large external shape, main/rear spar specification, w
 - Tube vendor-screening evidence cannot meet main/rear spar OD, wall, tolerance, or splice-fit assumptions after authority repair.
 - Qualified aero-surface mapping invalidates the current direct stress-test warning read after authority repair.
 - Tail trim/stability or control authority fails at managed CG.
-- Main-wing SU2 remains paused until data authority is restored; later SU2 baseline changes drag/power enough to invalidate mission margins.
+- Main-wing bounded SU2 calibration changes drag/power enough to invalidate mission margins.
 - Manufacturing discretization forces large external-shape or spar-spec change.

@@ -39,5 +39,5 @@
   "uncompensated_cg_delta_m": -0.0,
   "uncompensated_cg_m": 0.780039,
   "uncompensated_cg_status": "explicitly_rejected",
-  "verdict": "mass_cg_authority_repair_needed"
+  "verdict": "mass_cg_authority_bounded_wo006_ready"
 }

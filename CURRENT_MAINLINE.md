@@ -1,8 +1,9 @@
 # HPA-MDO Current Mainline
 
-## 0. Current Blocking Gate: Baseline A Data-Authority Repair
+## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-12。** Baseline A release language 目前被 data-authority repair gate 擋住。
+**更新日期：2026-05-13。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+SU2 aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
@@ -15,7 +16,9 @@ screening evidence 讀，不是現行 release / procurement truth。
 - `34.332286 m` / `17.166143 m` 是 current pipeline span evidence，除非新的 authority manifest 取代。
 - `16.5 m` 是 local/splice screening reference，不是 pipeline half-span、RFQ control span、shop span 或 procurement truth。
 - WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
-- WO-006 SU2 暫停，直到 data authority restored；WO-007 QPROP/XROTOR 也不能混入 structural blocker verdict。
+- WO-006 只能作 bounded aero calibration；必須使用 `98.5 kg` 與 current pipeline span authority，除非明確做 sensitivity。
+- WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
+- WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 
 現行 audit artifacts：
@@ -212,7 +215,8 @@ conservative screening candidate」，不是 final design。
   derivative audit、tail/CG/trim/stability screening、tail-aware closure 與 P1 mass-integrated
   closure evidence。managed CG row 下 trim / static / directional authority pass，但 tailboom/pivot
   hardware、measured mass manifest 與 final flight-dynamics sign-off 尚未完成。
-- SU2 / mesh-native CFD 支線仍是 paused validation route，不是目前 performance claim truth。
+- WO-006 SU2 可作 bounded aero calibration 往下跑；mesh-native CFD product route 仍不是
+  目前 performance claim truth。
 - Rib 目前是下游 bracing / shell bay / load-transfer 實體化問題，不是主線 candidate
   generation 的短線最大優先，除非它被證明會改變 aero-structure closure 的候選排序。
 
@@ -555,7 +559,8 @@ clamp preload/friction protocol、lug/bond fillet detail，以及 C07 skin sag p
 **Baseline A team release system 的舊 WO-001 package 已建立（2026-05-12）：**
 `scripts/build_baseline_a_release.py` 會把目前 P1 mass-integrated closure source 收成
 `output/baseline_A_team_release/`。舊 release verdict `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair, not active current truth；current
-release status 是 `baseline_A_data_authority_repair_in_progress`。輸出的 geometry freeze、
+release status 是 `baseline_A_data_authority_restored_wo006_unblocked`，只表示 bounded WO-006
+可往下做，不是 release-ready。輸出的 geometry freeze、
 mass budget、CG summary、drag/power budget、interface packs、manufacturing plan、carbon tube RFQ
 screening spec、change-control rules 和 team work packages 只能當 screening evidence / coordination
 material；它不新增物理功能，也不能被解讀成 current release authority、procurement truth 或 final
@@ -565,7 +570,8 @@ aircraft sign-off。AI work-order protocol 位於 `docs/AI_WORK_ORDER_PROTOCOL.m
 **WO-002 — Baseline A mass / CG / margin ledger 已建立（2026-05-12）：**
 `scripts/build_baseline_a_release.py` 現在會在同一個 release package 內輸出
 `mass_budget.csv`、`cg_summary.json`、`margin_budget.md` 與
-`mass_cg_margin_daily_review.md`。舊 ledger verdict `mass_cg_margin_ledger_ready` 是 historical/generated evidence under data-authority repair, not active current truth。`98.5 kg`
+`mass_cg_margin_daily_review.md`。舊 ledger verdict `mass_cg_margin_ledger_ready` 是 historical/generated evidence under data-authority repair, not active current truth；current ledger
+verdict 是 `mass_cg_authority_bounded_wo006_ready`。`98.5 kg`
 是 current design mass authority；`106.828608 kg` 是 suspect P1 screening aggregate。computed
 uncompensated CG `0.780039 m` 仍 `explicitly_rejected`、managed CG `0.75 m` 與
 required forward rebalance `0.057304 m` 保留；C04 original peel margin `-0.893` 與
@@ -772,7 +778,7 @@ Baseline A change control，必要時觸發 spar-spec / procurement / reopen rev
 - 角色：把 current pathfinder / Baseline A 變成 team release package，讓施工、結構、控制、
   傳動、製造組能從同一組 freeze / interface / change-control artifacts 開始工作；同時讓
   後續 AI thread 依 priority queue 自動挑任務、驗證、更新文件、commit，並產生 reviewer prompt。
-- 注意：old `baseline_A_release_system_ready` is historical/generated evidence under data-authority repair, not active current truth；current release status 是 `baseline_A_data_authority_repair_in_progress`。
+- 注意：old `baseline_A_release_system_ready` is historical/generated evidence under data-authority repair, not active current truth；current release status 是 `baseline_A_data_authority_restored_wo006_unblocked`，只放行 bounded WO-006 aero calibration。
   P1 仍只到 coupon/local FEM readiness；C04 fix 是 architecture-selected but coupon/local FEM
   pending；QPROP/XROTOR 保持 independent propulsion lane；大型 SU2、NSGA、propeller
   optimization、random disturbance simulator、full CAD automation 只進 queue，不在 release
@@ -780,7 +786,7 @@ Baseline A change control，必要時觸發 spar-spec / procurement / reopen rev
   `baseline_A_freeze_reasonable`；WO-004 manufacturable geometry audit 的 verdict 是
   `geometry_freeze_needs_fix`，表示 release engineering 可繼續，但 RFQ/shop 前要補
   station/span/splice authority repair。old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth；WO-005 is draft/vendor-screening only。WO-006
-  stays paused until data-authority restoration is complete and the checker/docs are clean。
+  may proceed only as bounded aero calibration using `98.5 kg` and current pipeline span authority, not as release truth, RFQ/procurement truth, or final aircraft sign-off。
 
 ## 9. 現在不該再當主線的敘事
 

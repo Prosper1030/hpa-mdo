@@ -1,6 +1,6 @@
 # Repo Channel Hygiene Plan
 
-Baseline A is under data-authority repair. Future AI agents must not treat arbitrary generated outputs as current truth.
+Baseline A data authority is restored only for bounded WO-006 aero calibration. Future AI agents must not treat arbitrary generated outputs as current truth.
 
 ## Allowed Truth Sources
 
@@ -37,8 +37,9 @@ Use this shape: `old/path/file.ext reports X as legacy_or_experiment evidence fo
 
 ## WO-005 / WO-006 Rule
 
-- WO-005 remains draft/vendor-screening only until mass/span authority is repaired.
-- WO-006 SU2 must stay paused until this checker passes and the authority table is current.
+- WO-005 remains draft/vendor-screening only; RFQ/procurement remains blocked.
+- WO-006 SU2 may proceed only as bounded aero calibration using 98.5 kg and current pipeline span authority unless explicitly labeled sensitivity.
+- WO-006 output is not release truth, not RFQ/procurement truth, and not final aircraft sign-off.
 - QPROP/XROTOR must remain a propulsion lane and cannot pass C04/rib/structural blockers.
 
 ## Recorded Skips

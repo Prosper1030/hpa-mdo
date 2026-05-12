@@ -66,7 +66,10 @@ def test_release_builder_writes_required_team_package(tmp_path: Path) -> None:
 
     release_md = (output_dir / "baseline_A_team_release.md").read_text(encoding="utf-8")
     assert "Baseline A team release" in release_md
-    assert "under data-authority repair" in release_md
+    assert "data-authority restored for bounded WO-006" in release_md
+    assert "WO-006 is allowed only as bounded aero calibration" in release_md
+    assert "not release truth" in release_md
+    assert "not RFQ/procurement truth" in release_md
     assert "98.5 kg" in release_md
     assert "Suspect P1 screening aggregate" in release_md
     assert "not final aircraft sign-off" in release_md
@@ -81,13 +84,15 @@ def test_machine_artifacts_lock_pathfinder_numbers_and_boundaries(tmp_path: Path
     _, output_dir = _run(tmp_path)
 
     geometry = json.loads((output_dir / "geometry_freeze.json").read_text(encoding="utf-8"))
-    assert geometry["release_verdict"] == "baseline_A_data_authority_repair_in_progress"
-    assert geometry["data_authority_status"] == "under_repair"
+    assert geometry["release_verdict"] == "baseline_A_data_authority_restored_wo006_unblocked"
+    assert geometry["data_authority_status"] == "restored_for_bounded_wo006"
     assert geometry["authority"]["design_gross_mass_authority_kg"] == pytest.approx(98.5)
     assert geometry["authority"]["suspect_p1_screening_aggregate_kg"] == pytest.approx(
         106.828608
     )
-    assert geometry["authority"]["wo006_status"] == "paused_until_data_authority_restored"
+    assert geometry["authority"]["wo006_status"] == "allowed_bounded_aero_calibration_only"
+    assert geometry["authority"]["wo006_mass_basis_kg"] == pytest.approx(98.5)
+    assert geometry["authority"]["wo006_span_basis"] == "current_pipeline_span_authority"
     assert geometry["candidate_id"] == (
         "eps_balsa_cap_hybrid_10mm__t10p0mm__uniform_0p30__"
         "carbon_face_collar_y2p328__rear75"
@@ -119,7 +124,7 @@ def test_machine_artifacts_lock_pathfinder_numbers_and_boundaries(tmp_path: Path
     assert rows["fast_design_loop_selected_rib_pack"]["affects_structure"] == "yes"
 
     cg = json.loads((output_dir / "cg_summary.json").read_text(encoding="utf-8"))
-    assert cg["verdict"] == "mass_cg_authority_repair_needed"
+    assert cg["verdict"] == "mass_cg_authority_bounded_wo006_ready"
     assert cg["design_gross_mass_authority_kg"] == pytest.approx(98.5)
     assert cg["suspect_p1_screening_aggregate_kg"] == pytest.approx(106.828608)
     assert cg["screening_aggregate_minus_design_authority_kg"] == pytest.approx(8.328608)
@@ -145,7 +150,7 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
     assert "governing clamp margin `0.8876`" in structure
 
     margin_budget = (output_dir / "margin_budget.md").read_text(encoding="utf-8")
-    assert "mass_cg_authority_repair_needed" in margin_budget
+    assert "mass_cg_authority_bounded_wo006_ready" in margin_budget
     assert "Design gross mass authority" in margin_budget
     assert "screening aggregate, not design truth" in margin_budget
     assert "C04 original eccentric peel" in margin_budget
@@ -172,7 +177,11 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
         work_packages
     )
     assert "draft/vendor-screening only" in work_packages
-    assert "WO-006 remains paused" in work_packages
+    assert "WO-006 is allowed only as bounded aero calibration" in work_packages
+    assert "not release truth, RFQ/procurement truth, or final aircraft sign-off" in (
+        work_packages
+    )
+    assert "98.5 kg and current pipeline span authority" in work_packages
 
     carbon_rfq = (output_dir / "carbon_tube_rfq_spec.md").read_text(encoding="utf-8")
     assert "carbon_tube_rfq_pack_draft_vendor_screening" in carbon_rfq

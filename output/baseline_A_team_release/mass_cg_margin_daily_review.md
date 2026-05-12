@@ -1,6 +1,6 @@
 # Baseline A Mass / CG / Margin Daily Review
 
-Ledger verdict: `mass_cg_authority_repair_needed`
+Ledger verdict: `mass_cg_authority_bounded_wo006_ready`
 
 | Review item | Current read | 30-minute decision |
 |---|---|---|
@@ -16,4 +16,4 @@ Ledger verdict: `mass_cg_authority_repair_needed`
 | Tail power charge | 13.33234 W | Power budget placeholder, not QPROP/XROTOR result |
 | QPROP/XROTOR | independent lane | Do not use it to pass/fail C04 or rib blockers |
 
-Next review focus: data-authority repair for mass, span, station, and RFQ channel wording. WO-005 remains draft-only and WO-006 remains paused.
+Next review focus: WO-006 after data-authority restoration as bounded aero calibration using 98.5 kg and current pipeline span authority. WO-005 remains draft-only; RFQ, procurement, release, and final sign-off remain blocked.

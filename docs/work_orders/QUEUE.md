@@ -2,12 +2,13 @@
 
 Queue owner: 代理總工程師 / AI 工作總控.
 
-## Current Blocking Gate
+## Current Bounded WO-006 Gate
 
-Baseline A is under `data_authority_repair`. Do not start WO-006 SU2, WO-007
-QPROP/XROTOR, procurement/RFQ actions, vendor selection, propeller optimization,
-or Baseline A release claims until the data-authority checker and authority table
-show the blocking conflicts are repaired.
+Baseline A data-authority is restored for bounded WO-006 aero calibration only.
+Do not treat this as release truth, RFQ/procurement truth, or final aircraft
+sign-off. Do not start WO-007 QPROP/XROTOR, procurement/RFQ actions, vendor
+selection, propeller optimization, or Baseline A release claims from WO-006
+without a separate authority review.
 
 Current authority summary:
 
@@ -17,17 +18,21 @@ Current authority summary:
 - `16.5 m` is local/splice screening only.
 - WO-005 remains draft/vendor-screening only.
 - P1/C04 remains coupon/local FEM readiness only.
+- WO-006 must use `98.5 kg` and current pipeline span authority unless explicitly
+  studying sensitivity.
 
 Current release package:
 
 - `output/baseline_A_team_release/`
-- release verdict: `baseline_A_data_authority_repair_in_progress`
-- mass / CG / margin ledger verdict: `mass_cg_authority_repair_needed`
+- release verdict: `baseline_A_data_authority_restored_wo006_unblocked`
+- mass / CG / margin ledger verdict: `mass_cg_authority_bounded_wo006_ready`
 - manufacturable geometry audit verdict: `geometry_freeze_needs_fix`
 - current structural blocker verdict: `p1_local_load_path_ready_for_coupon_fem`
-- Baseline A status: data-authority repair blocks release/procurement claims.
-  Coupon/local FEM planning may continue inside screening boundaries, but WO-005
-  remains draft-only and WO-006 stays paused.
+- Baseline A status: bounded WO-006 SU2 validation may proceed as aero
+  calibration only. Remaining mass/span/RFQ conflicts block release,
+  procurement, RFQ truth, shop drawings, and final aircraft sign-off.
+  Coupon/local FEM planning may continue inside screening boundaries, and WO-005
+  remains draft-only.
 
 ## Queue Rules
 
@@ -62,7 +67,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | paused | Main-Wing SU2 Baseline Validation | aero validation | Paused until data authority is restored |
+| WO-006 | P1 | queued_bounded | Main-Wing SU2 Baseline Validation | aero validation | May proceed after data-authority restoration only as bounded aero calibration using 98.5 kg and current pipeline span authority; not release/RFQ/procurement/final truth |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -213,7 +218,8 @@ aircraft.
 
 ### WO-006: Main-Wing SU2 Baseline Validation
 
-Status: paused until Baseline A data authority is repaired.
+Status: queued_bounded after Baseline A data authority restoration for bounded
+aero calibration.
 
 Purpose: calibrate current Baseline A aerodynamic models against a bounded SU2
 baseline, similar in spirit to using CCX to calibrate structural fast models.
@@ -224,11 +230,15 @@ Allowed scope:
 - Compare CL, CD, CDi, profile drag, and mission-model deltas against AVL /
   Fourier / XFOIL / proxy values.
 - Output SU2 comparison artifacts and a Baseline A reopen-risk read.
+- Use `98.5 kg` and current pipeline span authority unless the run is explicitly
+  labeled as sensitivity.
 
 Disallowed scope:
 
 - Do not run full design-space CFD.
 - Do not call SU2 final truth or use it to pass structural blockers.
+- Do not use SU2 output as release truth, RFQ/procurement truth, or final
+  aircraft sign-off.
 
 Required verdict: `su2_baseline_calibration_usable`,
 `su2_baseline_needs_fix`, or `su2_baseline_reopen_risk`.
@@ -393,18 +403,18 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-WO-006 SU2 remains paused. The next recommended task is the final
-data-authority restoration / unblock review, not SU2 execution. Do not start
-WO-006 until the checker, authority table, and conflict register show that the
-blocking mass/span/RFQ authority conflicts are repaired.
+WO-006 SU2 is now the next recommended task after data-authority restoration, but only as bounded aero
+calibration. The checker, authority table, and conflict register show current
+channel wording is clean; remaining mass/span/RFQ conflicts block release and
+procurement, not this bounded validation lane.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, complete the final Baseline A data-authority restoration and WO-006 unblock review.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006 after data-authority restoration as bounded aero calibration only.
 
 Role:
-代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest and
-do not overclaim screening evidence. WO-006 SU2 remains paused unless this
-review proves the data-authority restoration is complete.
+代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest and do
+not overclaim screening evidence. WO-006 SU2 is allowed only as bounded aero
+calibration, not release truth, RFQ/procurement truth, or final aircraft sign-off.
 
 Read first:
 - README.md
@@ -415,35 +425,33 @@ Read first:
 - output/baseline_A_team_release/carbon_tube_rfq_pack.md
 
 Task:
-Complete the final data-authority restoration / unblock review before WO-006.
-Confirm that current-channel docs, generated release/RFQ artifacts, the
-authority table, and the conflict register no longer promote suspect mass,
-span, RFQ, procurement, power, or release claims as active truth. If restoration
-is proven, recommend WO-006 as the next work order with explicit prerequisite
-evidence; if not, keep WO-006 paused and name the remaining blocker.
+Run bounded main-wing SU2 validation for the current Baseline A pathfinder.
+Use `98.5 kg` and current pipeline span authority unless explicitly running a
+labeled sensitivity. Compare CL, CD, CDi, profile drag, and model deltas against
+AVL/Fourier/XFOIL/proxy evidence. Output a calibration read and reopen-risk
+read, but do not promote SU2 to release, procurement, RFQ, structural, or final
+aircraft truth.
 
 Boundary:
-Do not run SU2, QPROP/XROTOR, full design-space CFD, propeller optimization,
-NSGA, random disturbance simulation, procurement, vendor selection, or final CAD
-automation. Do not turn checker pass/fail into aircraft sign-off. Ask the user
-only if the evidence affects large external shape, spar spec, mass/CG,
+Do not run QPROP/XROTOR, full design-space CFD, propeller optimization, NSGA,
+random disturbance simulation, procurement, vendor selection, or final CAD
+automation. Do not turn SU2 or checker pass/fail into aircraft sign-off. Ask
+the user only if the evidence affects large external shape, spar spec, mass/CG,
 procurement commitment, or Baseline A reopen.
 
 Required output:
-- verdict: baseline_A_data_authority_restored / data_authority_queue_conflict_remaining / checker_context_guard_incomplete
+- verdict: su2_baseline_calibration_usable / su2_baseline_needs_fix / su2_baseline_reopen_risk
 - changed files
-- exact authority blocker restored or still open
+- exact mass/span authority basis used
 - verification
 - engineering caveats
-- whether WO-006 may proceed
+- whether SU2 changes any Baseline A reopen risk
 - reviewer prompt
 - next recommended work order
 
 Verification:
-- run scripts/build_baseline_a_release.py
-- run scripts/build_carbon_tube_rfq_pack.py
-- run scripts/check_baseline_a_data_authority.py --write-audit
-- run targeted authority/release/RFQ tests
+- run targeted SU2/calibration tests or smoke checks available in repo
+- run scripts/check_baseline_a_data_authority.py --check-only
 - run ruff on changed Python files
 - run git diff --check
 - git add -p only this work-order scope and commit

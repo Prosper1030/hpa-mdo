@@ -1,8 +1,8 @@
 # Baseline A Mass / CG / Margin Budget
 
-Verdict: `mass_cg_authority_repair_needed`
+Verdict: `mass_cg_authority_bounded_wo006_ready`
 
-This ledger is a screening evidence surface under data-authority repair. It is not measured aircraft weight and balance, not current design mass truth, and not final aircraft sign-off.
+This ledger is a screening evidence surface with design mass authority restored for bounded WO-006. It is not measured aircraft weight and balance, not RFQ/procurement truth, and not final aircraft sign-off.
 
 ## Mass and CG
 

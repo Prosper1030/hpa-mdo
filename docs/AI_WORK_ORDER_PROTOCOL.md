@@ -4,10 +4,11 @@ This protocol turns Baseline A from a single-person deep-development flow into a
 team release plus AI work-order queue. It applies to Codex threads working in
 `/Volumes/Samsung SSD/hpa-mdo`.
 
-## Current Blocking Gate
+## Current Bounded WO-006 Gate
 
-Baseline A is under data-authority repair. Before any worker starts WO-006 SU2,
-WO-007 QPROP/XROTOR, RFQ procurement, vendor selection, or release claims, run:
+Baseline A data-authority is restored only for bounded WO-006 SU2 aero calibration.
+Before any worker starts WO-006, WO-007 QPROP/XROTOR, RFQ procurement, vendor
+selection, or release claims, run:
 
 ```bash
 PYTHONPATH=src ./.venv/bin/python scripts/check_baseline_a_data_authority.py --check-only
@@ -20,11 +21,14 @@ Current authority:
 - `34.332286 m` / `17.166143 m` are current pipeline span evidence.
 - `16.5 m` is local/splice screening only, not procurement truth.
 - WO-005 is draft/vendor-screening only.
-- WO-006 stays paused until data authority is restored.
+- WO-006 is allowed only as bounded aero calibration, not release truth, not
+  RFQ/procurement truth, and not final aircraft sign-off.
+- WO-006 must use `98.5 kg` and current pipeline span authority unless explicitly
+  studying sensitivity.
 
 ## Baseline A Rule
 
-Baseline A is a data-authority repair package, not final aircraft sign-off.
+Baseline A is a bounded WO-006 calibration package, not final aircraft sign-off.
 
 The current generated evidence package is:
 
@@ -62,7 +66,7 @@ It may support internal vendor-question drafting only. It does not authorize tub
 purchase, supplier selection, shop drawings, spar-spec changes, procurement
 truth, or final aircraft sign-off. Vendor evidence that invalidates tube OD/wall,
 splice fit, layup/modulus, mass/CG, 3 m shipping, or y=3 m inboard splice
-assumptions must return through change control after mass/span authority is fixed.
+assumptions must return through change control before any procurement use.
 
 ## Worker Startup
 

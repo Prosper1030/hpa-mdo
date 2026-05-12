@@ -14,13 +14,13 @@ Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 
 ### WO-005: carbon tube RFQ + procurement pack
 
-- Completion read: Downgraded to draft/vendor-screening only; mass/span authority repair is required before procurement or drawing-control use.
+- Completion read: draft/vendor-screening only; remaining mass/span/RFQ conflicts block procurement and drawing-control use, not bounded WO-006 aero calibration.
 
 ## Priority Queue
 
 ### WO-006: main-wing SU2 baseline validation
 
-- Objective: WO-006 remains paused until data authority is restored; do not run SU2 for release claims yet.
+- Objective: WO-006 is allowed only as bounded aero calibration using 98.5 kg and current pipeline span authority; not release truth, RFQ/procurement truth, or final aircraft sign-off.
 - Required output: verdict, changed files, verification, engineering caveats, and reviewer prompt.
 - Decision gate: ask user only if large external shape, main/rear spar spec, weight/CG, procurement, or Baseline A reopen is affected.
 
@@ -63,8 +63,8 @@ Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 ## Next Recommended Codex Goal
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, keep WO-006 paused and execute the next data-authority repair item.
-Read README.md, CURRENT_MAINLINE.md, docs/reports/baseline_A_data_authority_audit.md, docs/reports/baseline_A_data_authority_conflict_register.md, and output/baseline_A_team_release/data_authority_table.csv first. Do not run SU2, QPROP, XROTOR, prop optimization, or procurement actions. Repair the next blocking mass/span/station authority issue, update tests and generated wording, run the data-authority checker, and commit only that work order.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006 after data-authority restoration as bounded aero calibration only.
+Read README.md, CURRENT_MAINLINE.md, docs/AI_WORK_ORDER_PROTOCOL.md, docs/work_orders/QUEUE.md, docs/reports/baseline_A_data_authority_audit.md, and output/baseline_A_team_release/data_authority_table.csv first. Use 98.5 kg and current pipeline span authority unless explicitly running a labeled sensitivity. Do not treat SU2 output as release truth, RFQ/procurement truth, or final aircraft sign-off. Do not run QPROP, XROTOR, prop optimization, procurement actions, or final CAD release in this work order.
 ```
 
 ## Reviewer Prompt

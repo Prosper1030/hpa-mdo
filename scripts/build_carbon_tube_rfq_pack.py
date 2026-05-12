@@ -80,11 +80,13 @@ def build_rfq_context() -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "verdict": VERDICT,
-        "authority_status": "conflict_blocked",
+        "authority_status": "blocks_release_procurement_only",
+        "wo006_impact": "does_not_block_bounded_aero_calibration",
         "claim_boundary": (
-            "Draft vendor-screening pack only while mass/span authority is under repair; "
-            "it is not purchase-ready, not supplier selection, not drawing release, "
-            "and not final aircraft sign-off."
+            "Draft vendor-screening pack only; remaining mass/span/RFQ conflicts block "
+            "release and procurement, but this does not block bounded WO-006 aero "
+            "calibration. It is not purchase-ready, not supplier selection, not "
+            "drawing release, and not final aircraft sign-off."
         ),
         "candidate_id": geometry_freeze["candidate_id"],
         "release_verdict": geometry_freeze["release_verdict"],
@@ -181,10 +183,10 @@ def _render_rfq_pack(context: Mapping[str, Any]) -> str:
         "",
         "## RFQ Use",
         "",
-        "Keep this pack as a draft capability and quote-screening request until "
-        "mass/span authority is repaired. If it is shared externally, every page "
-        "must preserve the draft/vendor-screening boundary. Do not authorize "
-        "production or procurement from this pack.",
+        "Keep this pack as a draft capability and quote-screening request. It does "
+        "not block bounded WO-006 aero calibration, but every page must preserve "
+        "the draft/vendor-screening boundary. Do not authorize production or "
+        "procurement from this pack.",
         "",
         "## Controlled Station Convention For RFQ",
         "",
@@ -355,8 +357,9 @@ def _render_daily_review(context: Mapping[str, Any]) -> str:
             "",
             f"Verdict: `{context['verdict']}`",
             "",
-            "The carbon tube RFQ pack remains draft/vendor-screening only while mass "
-            "and span authority are repaired. It is not order placement or drawing release.",
+            "The carbon tube RFQ pack remains draft/vendor-screening only. Remaining "
+            "mass/span/RFQ conflicts block order placement and drawing release, not "
+            "bounded WO-006 aero calibration.",
             "",
             "## What Is Draft Screening Only",
             "",
@@ -374,7 +377,7 @@ def _render_daily_review(context: Mapping[str, Any]) -> str:
             "",
             "## Next Work Order",
             "",
-            "WO-006 remains paused until data authority is restored.",
+            "WO-006 may proceed only as bounded aero calibration using 98.5 kg and current pipeline span authority.",
             "",
         ]
     )
@@ -546,6 +549,7 @@ def _risk_register(context: Mapping[str, Any]) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "verdict": VERDICT,
         "authority_status": context["authority_status"],
+        "wo006_impact": context["wo006_impact"],
         "claim_boundary": context["claim_boundary"],
         "source_artifacts": context["sources"],
         "risk_register": [

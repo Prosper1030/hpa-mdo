@@ -1,9 +1,11 @@
 # Baseline A Data-Authority Audit
 
-Verdict: `baseline_A_release_claims_unreliable` until authority repair is complete.
+Verdict: `baseline_A_data_authority_restored_wo006_unblocked`.
+
+WO-006 may proceed only as bounded aero calibration. It is not release truth, not RFQ/procurement truth, not final aircraft sign-off, and must use 98.5 kg plus current pipeline span authority unless explicitly studying sensitivity.
 
 - Files scanned: `6534`
-- Claims extracted: `53146`
+- Claims extracted: `53216`
 - Blocking current-channel violations after repair: `0`
 - Skipped paths recorded: `2465`
 
@@ -11,38 +13,39 @@ Verdict: `baseline_A_release_claims_unreliable` until authority repair is comple
 
 - `conflict_blocked`: 40
 - `current_pipeline_truth`: 228
-- `generated_output`: 11311
+- `generated_output`: 11308
 - `legacy_or_experiment`: 25198
-- `screening_estimate`: 3982
-- `unknown`: 12278
-- `user_authority`: 109
+- `screening_estimate`: 3987
+- `unknown`: 12317
+- `user_authority`: 138
 
 ## Governing Authority Table
 
 | ID | Topic | Number | Class | Allowed use | Disallowed use | Procurement |
 |---|---|---:|---|---|---|---|
 | `design_gross_mass_98p5` | mass / CG / rebalance | 98.5 kg | `user_authority` | Current design gross mass standard until the user explicitly changes it. | Do not overwrite with P1 aggregate, release ledger sum, vendor response, or generated output. | yes, but only as design standard input, not measured order mass |
-| `p1_screening_mass_106p828608` | mass / CG / rebalance | 106.828608 kg | `screening_estimate` | May appear as suspect P1 screening aggregate evidence. | Must not be current design gross mass, mission mass, RFQ truth, or release truth. | no |
+| `p1_screening_mass_106p828608` | mass / CG / rebalance | 106.828608 kg | `screening_estimate` | May appear as suspect P1 screening aggregate evidence. | Must not be current design gross mass, bounded WO-006 mass basis, mission mass, RFQ truth, or release truth. | no |
 | `pipeline_full_span_34p332286` | span / half-span / station / rib spacing | 34.332286 m | `current_pipeline_truth` | Current pipeline full-span evidence unless superseded by newer authority. | Do not round or replace with local splice data for procurement. | not alone; procurement needs repaired station/span manifest |
 | `pipeline_half_span_17p166143` | span / half-span / station / rib spacing | 17.166143 m | `current_pipeline_truth` | Current pipeline half-span evidence unless superseded by newer authority. | Do not replace with 16.5 m for RFQ/shop/procurement truth. | not alone; procurement needs repaired station/span manifest |
 | `local_splice_half_span_16p5` | span / half-span / station / rib spacing | 16.5 m | `screening_estimate` | May appear as local/splice screening reference. | Must not be current pipeline half-span, RFQ control span, shop span, or procurement truth. | no |
-| `wo003_stage0_power_warning_minus9` | drag / power / mission margin | -9 W | `screening_estimate` | Power-budget watch item only. | Must not be latest full-pipeline mission verdict or release fail/pass. | no |
+| `wo003_stage0_power_warning_minus9` | drag / power / mission margin | -9 W | `screening_estimate` | Power-budget watch item only. | Must not be latest full-pipeline mission verdict, WO-006 conclusion, or release fail/pass. | no |
 | `p1_c04_original_peel_margin` | structure margin / C04 / coupon FEM | -0.893 margin | `screening_estimate` | Fail evidence for original eccentric peel path. | Must not be hidden by installed-fix readiness language. | no |
 | `p1_c04_installed_fix_margin` | structure margin / C04 / coupon FEM | 0.8876 margin | `screening_estimate` | May support coupon/local FEM readiness only. | Must not be final aircraft, adhesive, laminate, buckling, or hardware sign-off. | no |
-| `wo005_rfq_pack` | spar / splice / RFQ / procurement | WO-005 verdict | `conflict_blocked` | Draft/vendor-screening only after wording repair. | Must not be purchase-ready, supplier selection, shop drawing release, or procurement truth. | no |
+| `wo005_rfq_pack` | spar / splice / RFQ / procurement | WO-005 verdict | `conflict_blocked` | Draft/vendor-screening only; does not block bounded WO-006 aero calibration. | Must not be purchase-ready, supplier selection, shop drawing release, or procurement truth. | no |
+| `wo006_bounded_su2_validation` | drag / power / mission margin | WO-006 work_order | `current_pipeline_truth` | May proceed only as bounded main-wing aero calibration using 98.5 kg and current pipeline span authority unless explicitly labeled sensitivity. | Must not be release truth, RFQ/procurement truth, full mission sign-off, structural sign-off, or final aircraft sign-off. | no |
 
-## Top Blocking Conflicts
+## Remaining Conflict Classification
 
-- `C-001` mass / CG / rebalance: 98.5 kg is current design mass authority; 106.828608 kg is a suspect P1 screening aggregate and cannot drive current design mass, mission, CG, or RFQ truth.
-- `C-002` span / half-span / station / rib spacing: Current pipeline evidence is 34.332286 m full span / 17.166143 m half-span; 16.5 m is local structural/splice screening only.
-- `C-003` spar / splice / RFQ / procurement: WO-005 RFQ artifacts were built from screening/local span and generated outputs. They are vendor-screening only, not purchase-ready.
-- `C-004` drag / power / mission margin: WO-003 -9 W is only Stage-0 quick-screen warning, not latest full-pipeline mission truth.
-- `C-005` structure margin / C04 / coupon FEM: P1/C04 evidence is coupon/local FEM readiness. It is not adhesive, laminate, buckling, hardware, or aircraft sign-off.
-- `C-006` tail / trim / stability / control: Tail/CG/trim/stability claims remain screening assumptions, not measured CG, tail hardware, actuator, or flight-dynamics sign-off.
-- `C-007` propulsion lane contamination: QPROP/XROTOR must not pass or fail C04/rib/structural blockers.
-- `C-008` verdict / sign-off overclaim: Release, ready, pass, RFQ, and FEM-readiness verdicts were too easy to read as current truth or final aircraft sign-off.
-- `C-009` tests that preserve stale constants: Some tests asserted stale constants as expected truth instead of checking authority classification.
-- `C-010` scripts that read old generated outputs as truth: Release/RFQ scripts read generated P1/splice/manufacturing outputs as if they were release authority.
+- `C-001` mass / CG / rebalance: `blocks_release_procurement_only`. 98.5 kg is current design mass authority; 106.828608 kg is a suspect P1 screening aggregate and cannot drive current design mass, mission, CG, or RFQ truth.
+- `C-002` span / half-span / station / rib spacing: `blocks_release_procurement_only`. Current pipeline evidence is 34.332286 m full span / 17.166143 m half-span; 16.5 m is local structural/splice screening only.
+- `C-003` spar / splice / RFQ / procurement: `blocks_release_procurement_only`. WO-005 RFQ artifacts were built from screening/local span and generated outputs. They are vendor-screening only, not purchase-ready.
+- `C-004` drag / power / mission margin: `blocks_release_procurement_only`. WO-003 -9 W is only Stage-0 quick-screen warning, not latest full-pipeline mission truth.
+- `C-005` structure margin / C04 / coupon FEM: `blocks_release_procurement_only`. P1/C04 evidence is coupon/local FEM readiness. It is not adhesive, laminate, buckling, hardware, or aircraft sign-off.
+- `C-006` tail / trim / stability / control: `blocks_release_procurement_only`. Tail/CG/trim/stability claims remain screening assumptions, not measured CG, tail hardware, actuator, or flight-dynamics sign-off.
+- `C-007` propulsion lane contamination: `blocks_release_procurement_only`. QPROP/XROTOR must not pass or fail C04/rib/structural blockers.
+- `C-008` verdict / sign-off overclaim: `blocks_release_procurement_only`. Release, ready, pass, RFQ, and FEM-readiness verdicts were too easy to read as current truth or final aircraft sign-off.
+- `C-009` tests that preserve stale constants: `blocks_release_procurement_only`. Some tests asserted stale constants as expected truth instead of checking authority classification.
+- `C-010` scripts that read old generated outputs as truth: `blocks_release_procurement_only`. Release/RFQ scripts read generated P1/splice/manufacturing outputs as if they were release authority.
 
 ## Scan Boundaries
 Skipped paths were recorded because they were binary, cache/vendor/venv/git internals, or too large for safe text scan:

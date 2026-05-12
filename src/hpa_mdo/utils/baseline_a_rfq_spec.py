@@ -28,9 +28,10 @@ def render_carbon_tube_rfq_spec(
             "",
             f"Verdict: `{verdict}`",
             "",
-            "This is a draft vendor-screening RFQ spec under data-authority repair. "
-            "It is not purchase-ready, not final supplier selection, not production "
-            "drawing control, and not final aircraft sign-off.",
+            "This is a draft vendor-screening RFQ spec. Remaining mass/span/RFQ "
+            "conflicts block release and procurement only; they do not block bounded "
+            "WO-006 aero calibration. It is not purchase-ready, not final supplier "
+            "selection, not production drawing control, and not final aircraft sign-off.",
             "",
             "## Pack Files",
             "",

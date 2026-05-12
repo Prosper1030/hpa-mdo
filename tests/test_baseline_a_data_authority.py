@@ -177,6 +177,53 @@ def test_checker_flags_paused_wo006_next_recommended_goal_context(tmp_path: Path
     assert "queue_paused_wo006_but_recommended_goal_executes_wo006" in violation_ids
 
 
+def test_checker_allows_bounded_wo006_unblock_language(tmp_path: Path) -> None:
+    mod = _load_module()
+    docs_dir = tmp_path / "docs"
+    work_orders_dir = docs_dir / "work_orders"
+    work_orders_dir.mkdir(parents=True)
+    (tmp_path / "output" / "baseline_A_team_release").mkdir(parents=True)
+
+    safe_text = (
+        "Baseline A data-authority is restored for bounded WO-006 only. "
+        "WO-006 is allowed only as bounded aero calibration, not release truth, "
+        "not RFQ/procurement truth, and not final aircraft sign-off. "
+        "Use 98.5 kg and current pipeline span authority unless explicitly studying sensitivity. "
+        "106.828608 kg remains suspect P1 screening aggregate only; 16.5 m remains local/splice screening only."
+    )
+    for rel in (
+        "README.md",
+        "CURRENT_MAINLINE.md",
+        "docs/README.md",
+        "docs/AI_WORK_ORDER_PROTOCOL.md",
+    ):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(safe_text, encoding="utf-8")
+    (work_orders_dir / "QUEUE.md").write_text(
+        "\n".join(
+            [
+                "# Baseline A Work Order Queue",
+                "",
+                safe_text,
+                "",
+                "| ID | Priority | Status | Work order | Owner lane | Why now |",
+                "|---|---:|---|---|---|---|",
+                "| WO-006 | P1 | queued_bounded | Main-Wing SU2 Baseline Validation | aero validation | Data authority restored for bounded aero calibration only |",
+                "",
+                "## Next Recommended Work Order",
+                "",
+                "```text",
+                "/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006 after data-authority restoration as bounded aero calibration only using 98.5 kg and current pipeline span authority.",
+                "```",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert mod.check_authority_violations(tmp_path) == []
+
+
 def test_audit_artifacts_include_inventory_conflicts_authority_and_gate_debt(tmp_path: Path) -> None:
     mod = _load_module()
     docs_dir = tmp_path / "docs"
