@@ -681,7 +681,8 @@ def _render_daily_review_summary(context: Mapping[str, Any]) -> str:
                 "Do not use it to pass/fail C04 or rib blockers |"
             ),
             "",
-            "Next review focus: WO-003 design-space freeze audit, unless a mass/CG, spar, "
+            "Next review focus: WO-005 carbon tube RFQ + procurement pack, carrying "
+            "the WO-004 station/span/splice manifest warnings, unless a mass/CG, spar, "
             "procurement, or Baseline A reopen trigger appears.",
             "",
         ]
@@ -937,16 +938,25 @@ def _render_change_control_rules(context: Mapping[str, Any]) -> str:
 
 def _render_team_work_packages(context: Mapping[str, Any]) -> str:
     _ = context
-    queue = [
+    completed = [
         (
             "WO-003",
             "design-space freeze audit",
-            "Confirm Baseline A external-shape and mission bounds are frozen enough for team work.",
+            "Completed with verdict `baseline_A_freeze_reasonable`; power-budget watch item remains.",
         ),
         (
             "WO-004",
             "manufacturable discretization/smoothness audit",
-            "Check station spacing, rib bays, tube segmentation, and smoothness for shop handoff.",
+            "Completed with verdict `geometry_freeze_needs_fix`; no large external-shape reopen, "
+            "but station/span/splice manifest must be controlled before RFQ/shop use.",
+        ),
+    ]
+    queue = [
+        (
+            "WO-005",
+            "carbon tube RFQ + procurement pack",
+            "Turn screening tube, splice, tolerance, and station assumptions into a vendor-facing "
+            "question pack without committing procurement.",
         ),
         (
             "WO-006",
@@ -989,9 +999,25 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
         "",
         "Do not implement SU2/NSGA/propeller optimization in this release-builder task.",
         "",
-        "## Priority Queue",
+        "## Completed Work Orders",
         "",
     ]
+    for work_id, title, read in completed:
+        lines.extend(
+            [
+                f"### {work_id}: {title}",
+                "",
+                f"- Completion read: {read}",
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "## Priority Queue",
+            "",
+        ]
+    )
     for work_id, title, objective in queue:
         lines.extend(
             [
@@ -1011,15 +1037,16 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
             "## Next Recommended Codex Goal",
             "",
             "```text",
-            "/goal",
-            "In /Volumes/Samsung SSD/hpa-mdo, execute WO-003: Design-Space Freeze Audit.",
+            "/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-005: Carbon Tube RFQ + Procurement Pack.",
             "Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, "
-            "and docs/AI_WORK_ORDER_PROTOCOL.md first. Do not edit physics code unless "
-            "the audit finds a release-blocking inconsistency. Verify whether Baseline A "
-            "external shape, selected rib/torsion basis, managed CG, mass basis, and "
-            "reopen triggers are internally consistent. Output pass/needs_fix/"
-            "dangerous_assumption/reopen_risk, update docs only if needed, run relevant "
-            "tests/ruff/git diff --check, and commit only this work order.",
+            "output/baseline_A_team_release/manufacturable_geometry_audit/, and "
+            "docs/AI_WORK_ORDER_PROTOCOL.md first. Build a vendor-facing screening "
+            "RFQ pack for carbon tubes, splice fit, tolerances, QA coupons, 3 m "
+            "shipping segments, station/span/splice manifest, and supplier questions. "
+            "Do not place orders, choose a supplier, or change spar specs without user "
+            "decision. Carry WO-004 warnings explicitly, output verdict, changed files, "
+            "verification, engineering caveats, reviewer prompt, and next work order; "
+            "run relevant tests/ruff/build release/git diff checks, then commit only WO-005.",
             "```",
             "",
             "## Reviewer Prompt",

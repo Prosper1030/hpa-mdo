@@ -1,0 +1,67 @@
+{
+  "checked_sources": [
+    "output/baseline_A_team_release/geometry_freeze.json",
+    "output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+    "output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+    "output/phase9_structure_jig_smooth_planform/production_geometry_quality.csv",
+    "output/current_pathfinder_materialized_rib_contract_audit/materialized_rib_contract_audit.json",
+    "output/current_pathfinder_materialized_rib_contract_audit/mandatory_rib_reason.csv",
+    "output/current_pathfinder_spar_splice_design/splice_design_report.json",
+    "output/current_pathfinder_spar_splice_design/splice_joints.csv",
+    "docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.json",
+    "output/baseline_A_team_release/design_space_freeze_audit/baseline_A_reopen_risk.json"
+  ],
+  "next_recommended_work_order": "WO-005 Carbon Tube RFQ + Procurement Pack",
+  "reopen_triggers": {
+    "engineering_read": "WO-004 found station/manifest fixes required before shop/RFQ use, but no large external-shape discontinuity or explicit Baseline A reopen trigger.",
+    "inboard_splice_vendor_margin_invalidates_assumptions": "watch_for_WO-005",
+    "large_external_shape_discontinuity": "not_triggered",
+    "manufacturing_discretization_forces_reopen": "not_triggered",
+    "release_mass_tail_cd0_power_margin": {
+      "quick_screen_release_total_margin_w": -9.140404,
+      "status": "watch_not_reopen"
+    },
+    "span_extent_or_splice_manifest_forces_spar_spec_change": "watch_not_reopen"
+  },
+  "schema_version": "baseline_a_manufacturable_geometry_audit_v1",
+  "verdict": "geometry_freeze_needs_fix",
+  "warnings": [
+    {
+      "category": "manufacturable_but_geometry_discontinuity_risk",
+      "engineering_read": "Structural half-span is 16.500 m, while aero/rib evidence extends to 17.166/17.324 m. Resolve this before RFQ.",
+      "id": "span_extent_contract_mismatch",
+      "severity": "warning"
+    },
+    {
+      "category": "manufacturable_but_geometry_discontinuity_risk",
+      "engineering_read": "3 m RFQ-style splice stations conflict with materialized spar-joint rib stations unless one manifest owns the convention.",
+      "id": "splice_station_contract_mismatch",
+      "severity": "warning"
+    },
+    {
+      "category": "manufacturable_but_geometry_discontinuity_risk",
+      "engineering_read": "The y=3 m splice only screens at zero bending margin. Treat as a vendor/detail warning, not a release reopen yet.",
+      "id": "inboard_splice_zero_margin_rfq_warning",
+      "severity": "rfq_warning"
+    },
+    {
+      "category": "smooth_but_not_manufacturable",
+      "engineering_read": "Release-facing 0.30 m station trace and later 0.345 m selected stiffness bookkeeping must be reconciled before procurement language.",
+      "id": "release_vs_selected_stiffness_rib_spacing",
+      "severity": "warning"
+    },
+    {
+      "category": "smooth_but_not_manufacturable",
+      "engineering_read": "Continuous station values are acceptable for screening but need a 0.05/0.10 m or rib-bay shop grid before team release drawings.",
+      "id": "continuous_dimensions_not_shop_grid",
+      "severity": "warning"
+    },
+    {
+      "category": "smooth_but_not_manufacturable",
+      "engineering_read": "Airfoil, twist, control, and transport station contracts are still missing in the materialized rib audit.",
+      "id": "airfoil_control_transition_contracts_missing",
+      "severity": "warning"
+    }
+  ],
+  "work_order": "WO-004 Manufacturable Smoothness / Discretization Audit"
+}

@@ -2,17 +2,21 @@
 
 Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 
-## Priority Queue
+## Completed Work Orders
 
 ### WO-003: design-space freeze audit
 
-- Objective: Confirm Baseline A external-shape and mission bounds are frozen enough for team work.
-- Required output: verdict, changed files, verification, engineering caveats, and reviewer prompt.
-- Decision gate: ask user only if large external shape, main/rear spar spec, weight/CG, procurement, or Baseline A reopen is affected.
+- Completion read: Completed with verdict `baseline_A_freeze_reasonable`; power-budget watch item remains.
 
 ### WO-004: manufacturable discretization/smoothness audit
 
-- Objective: Check station spacing, rib bays, tube segmentation, and smoothness for shop handoff.
+- Completion read: Completed with verdict `geometry_freeze_needs_fix`; no large external-shape reopen, but station/span/splice manifest must be controlled before RFQ/shop use.
+
+## Priority Queue
+
+### WO-005: carbon tube RFQ + procurement pack
+
+- Objective: Turn screening tube, splice, tolerance, and station assumptions into a vendor-facing question pack without committing procurement.
 - Required output: verdict, changed files, verification, engineering caveats, and reviewer prompt.
 - Decision gate: ask user only if large external shape, main/rear spar spec, weight/CG, procurement, or Baseline A reopen is affected.
 
@@ -61,9 +65,8 @@ Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 ## Next Recommended Codex Goal
 
 ```text
-/goal
-In /Volumes/Samsung SSD/hpa-mdo, execute WO-003: Design-Space Freeze Audit.
-Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, and docs/AI_WORK_ORDER_PROTOCOL.md first. Do not edit physics code unless the audit finds a release-blocking inconsistency. Verify whether Baseline A external shape, selected rib/torsion basis, managed CG, mass basis, and reopen triggers are internally consistent. Output pass/needs_fix/dangerous_assumption/reopen_risk, update docs only if needed, run relevant tests/ruff/git diff --check, and commit only this work order.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-005: Carbon Tube RFQ + Procurement Pack.
+Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, output/baseline_A_team_release/manufacturable_geometry_audit/, and docs/AI_WORK_ORDER_PROTOCOL.md first. Build a vendor-facing screening RFQ pack for carbon tubes, splice fit, tolerances, QA coupons, 3 m shipping segments, station/span/splice manifest, and supplier questions. Do not place orders, choose a supplier, or change spar specs without user decision. Carry WO-004 warnings explicitly, output verdict, changed files, verification, engineering caveats, reviewer prompt, and next work order; run relevant tests/ruff/build release/git diff checks, then commit only WO-005.
 ```
 
 ## Reviewer Prompt

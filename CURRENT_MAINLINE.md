@@ -554,8 +554,19 @@ Baseline A reopen：最佳 nearby fast-model row 約省 `4.63%` crank power，�
 power reopen trigger，而且沒有 current downstream geometry / CG / torsion / splice /
 P1 load-path chain。重要 watch item 是 release mass + tail CD0 charge 丟回 Stage-0
 quick-screen 時約有 `-9 W` margin；這要在 WO-006 / WO-007 / WO-008 繼續收斂，不能被讀成
-final mission sign-off，也還不是 explicit reopen evidence。下一個 P0 任務是 WO-004
-manufacturable smoothness / discretization audit。
+final mission sign-off，也還不是 explicit reopen evidence。
+
+**WO-004 — Manufacturable smoothness / discretization audit 已完成（2026-05-12）：**
+審核 artifact 位於
+`output/baseline_A_team_release/manufacturable_geometry_audit/`，verdict 是
+`geometry_freeze_needs_fix`。工程判讀是 Baseline A smooth pathfinder 沒有大型外形不連續或
+explicit reopen trigger，可繼續作 team-release engineering basis；但連續尺寸尚未達到
+shop/RFQ drawing control。下一步 WO-005 必須補 controlled station/span/splice manifest，
+明確處理 `0.30 m` release rib basis 與 selected stiffness row `0.345 m` label、3 m splice
+grid 與 materialized spar-joint rib station、structural `16.5 m` half-span 與 aero/rib
+station extent、airfoil/control/transition station contract，以及 inboard splice near-zero
+bending margin 的 vendor/RFQ warning。這些是 manufacturability/RFQ gate，不是目前 Baseline A
+reopen 或 final aircraft sign-off。
 
 ## 8. 常用入口與角色
 
@@ -728,7 +739,9 @@ manufacturable smoothness / discretization audit。
   pending；QPROP/XROTOR 保持 independent propulsion lane；大型 SU2、NSGA、propeller
   optimization、random disturbance simulator、full CAD automation 只進 queue，不在 release
   builder 任務中實作。WO-003 design-space freeze audit 的 verdict 是
-  `baseline_A_freeze_reasonable`；power-budget watch item 保留，下一個 P0 是 WO-004。
+  `baseline_A_freeze_reasonable`；WO-004 manufacturable geometry audit 的 verdict 是
+  `geometry_freeze_needs_fix`，表示 release engineering 可繼續，但 RFQ/shop 前要補
+  controlled station/span/splice manifest。下一個 P0 是 WO-005 carbon tube RFQ pack。
 
 ## 9. 現在不該再當主線的敘事
 

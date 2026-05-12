@@ -15,4 +15,4 @@ Ledger verdict: `mass_cg_margin_ledger_ready`
 | Tail power charge | 13.33234 W | Power budget placeholder, not QPROP/XROTOR result |
 | QPROP/XROTOR | independent lane | Do not use it to pass/fail C04 or rib blockers |
 
-Next review focus: WO-003 design-space freeze audit, unless a mass/CG, spar, procurement, or Baseline A reopen trigger appears.
+Next review focus: WO-005 carbon tube RFQ + procurement pack, carrying the WO-004 station/span/splice manifest warnings, unless a mass/CG, spar, procurement, or Baseline A reopen trigger appears.

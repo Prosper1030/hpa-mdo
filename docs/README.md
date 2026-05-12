@@ -18,6 +18,7 @@
 | [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A priority queue | 需要知道下一個可派工任務的人 |
 | [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A team release package | 施工、結構、控制、傳動、製造組共同起點；不是 final aircraft sign-off |
 | [margin_budget.md](../output/baseline_A_team_release/margin_budget.md) | Baseline A mass / CG / margin ledger | 需要每日審查 gross mass、managed/uncompensated CG、C04 margin、drag/power/structure boundary 的人 |
+| [manufacturable_geometry_audit.md](../output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md) | Baseline A manufacturable geometry audit | 需要確認 smooth pathfinder 是否可交給 team release、哪些 station/span/splice/RFQ caveat 仍需補齊的人 |
 | [2026-05-08_commit_history_report.md](reports/2026-05-08_commit_history_report.md) | commit-derived Phase J pipeline report | 需要理解目前主線來源的人 |
 | [2026-05-09_phase_j_evidence_map.md](reports/2026-05-09_phase_j_evidence_map.md) | Phase J deep evidence map / source quarantine | 需要逐 stage 看 artifact / candidate / trust boundary / gap，並避免舊 medium-search 資料污染的人 |
 | [2026-05-09_empennage_trim_stability_contract_audit.md](reports/2026-05-09_empennage_trim_stability_contract_audit.md) | all-moving tail / trim / stability contract insertion | 需要把水平尾、垂尾、配平、靜穩定、控制 authority、tail drag/mass 接進 pathfinder 的人 |
@@ -59,6 +60,7 @@
 | [2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | P1 local load-path + mass-integrated closure update | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 fix mass 0.094 kg and splice mass 3.847 kg charged into mass/CG/tail/closure; QPROP/XROTOR kept independent |
 | [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A team release | release verdict `baseline_A_release_system_ready`; release artifacts, interface packs, change-control rules, and work packages; not final aircraft sign-off |
 | [margin_budget.md](../output/baseline_A_team_release/margin_budget.md) | Baseline A mass / CG / margin ledger | ledger verdict `mass_cg_margin_ledger_ready`; central screening W&B / margin surface; uncompensated CG rejected; all current mass rows are estimate confidence |
+| [manufacturable_geometry_audit.md](../output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md) | Baseline A manufacturable geometry audit | verdict `geometry_freeze_needs_fix`; no large shape reopen, but continuous dimensions and station/span/splice contracts are not RFQ/shop controlled yet |
 | [AI_WORK_ORDER_PROTOCOL.md](AI_WORK_ORDER_PROTOCOL.md) | AI work-order protocol | worker startup, verification minimum, report shape, escalation rules, and engineering honesty checklist |
 | [work_orders/QUEUE.md](work_orders/QUEUE.md) | AI work-order queue | priority queue and next recommended Codex goal |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
@@ -82,7 +84,7 @@
 | 文件 | 用途 |
 |---|---|
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期 3 到 5 個優先任務、暫緩項、開始條件與不該先做的事 |
-| [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A work-order queue；目前下一個建議任務是 WO-003 design-space freeze audit |
+| [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A work-order queue；目前下一個建議任務是 WO-005 carbon tube RFQ + procurement pack |
 | [EXECUTION_ROADMAP.md](EXECUTION_ROADMAP.md) | 細化版近期進度規劃；把多條工作軌道、啟動條件與完成判準拆開講清楚 |
 | [GRAND_BLUEPRINT.md](GRAND_BLUEPRINT.md) | 長期五階段藍圖；拿來看願景與跨 phase 依賴，不拿來排今天的工作 |
 | [codex_tasks.md](codex_tasks.md) | 操作型 task log / 歷史 checklist；可當背景資料，但不是新使用者入口 |

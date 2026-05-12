@@ -255,6 +255,14 @@ verdict 是 `baseline_A_freeze_reasonable`：目前沒有看到 nearby manufactu
 但 release mass + tail CD0 charge 丟回 Stage-0 quick-screen 會出現約 `-9 W` power margin，
 所以這是 power-budget watch item，不是 final mission sign-off。
 
+WO-004 manufacturable smoothness / discretization audit 已完成，讀
+`output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md`。
+verdict 是 `geometry_freeze_needs_fix`：目前 smooth pathfinder 沒有看到會強迫 Baseline A
+reopen 的大型外形不連續，但連續尺寸還不能直接當 shop/RFQ 控制尺寸。下一步 RFQ pack
+必須把 0.30 m rib basis、3 m splice、materialized station、structural `16.5 m` half-span
+與 aero/rib station extent 的差異收成 controlled station/span/splice manifest；inboard
+splice near-zero bending margin 是 vendor/RFQ warning，不是已失敗的 Baseline A mission verdict。
+
 ## 主線操作協議：Pathfinder First, Then Expansion
 
 目前策略不是一次把 `22464` 個 mission design-space cases 全部推到最終 FEM，也不是把單一
@@ -302,6 +310,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 接 Baseline A team release package | `output/baseline_A_team_release/` | `baseline_A_release_system_ready`; team release + interface packs + change-control rules; not final aircraft sign-off |
 | 看 Baseline A mass / CG / margin ledger | `output/baseline_A_team_release/margin_budget.md` + `mass_cg_margin_daily_review.md` | `mass_cg_margin_ledger_ready`; central screening ledger；uncompensated CG rejected；不是 measured/frozen W&B |
 | 看 Baseline A design-space freeze audit | `output/baseline_A_team_release/design_space_freeze_audit/design_space_freeze_audit.md` | `baseline_A_freeze_reasonable`; no explicit nearby dominance trigger; power-budget watch item remains |
+| 看 Baseline A manufacturable geometry audit | `output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md` | `geometry_freeze_needs_fix`; smooth enough for release engineering, not shop/RFQ drawing control |
 | 讓 AI thread 自動接任務 | [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md) + [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) | work-order lifecycle, required report shape, reviewer prompt, priority queue |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
@@ -401,6 +410,7 @@ PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_rib_collar_joint_de
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_spar_splice_design.py
 PYTHONPATH=src ./.venv/bin/python scripts/current_pathfinder_p1_load_path_mass_closure.py
 PYTHONPATH=src ./.venv/bin/python scripts/build_baseline_a_release.py
+PYTHONPATH=src ./.venv/bin/python scripts/baseline_a_manufacturable_geometry_audit.py
 ```
 
 只有在明確做歷史診斷時，才可以加
@@ -448,6 +458,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | V-tail / CG reference sensitivity | v0 顯示 directional derivatives 可被 area/arm 推高；v1 進一步用 explicit CG-referenced AVL rows 驗證 Xnp convention、longitudinal trim、static margin 與 yaw authority |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
+| Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸、station/span/splice manifest、rib/splice/control/transition station contract 需在 RFQ/shop 前補齊 |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
 | Rib / root / wire hardware / composite detail | 開放 validation blockers，需要後續實體化與 detail evidence |
 | SU2 / mesh-native CFD | paused route，不是目前 performance truth |

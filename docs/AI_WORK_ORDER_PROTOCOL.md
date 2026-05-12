@@ -15,6 +15,7 @@ The current release package is:
 - `output/baseline_A_team_release/mass_budget.csv`
 - `output/baseline_A_team_release/cg_summary.json`
 - `output/baseline_A_team_release/margin_budget.md`
+- `output/baseline_A_team_release/manufacturable_geometry_audit/`
 - `output/baseline_A_team_release/team_work_packages.md`
 
 The current structural blocker verdict is
@@ -26,6 +27,13 @@ The current mass / CG / margin ledger verdict is
 `mass_cg_margin_ledger_ready`. Its rows are screening estimates unless a row
 explicitly says otherwise; managed CG is the `0.75 m` screening row and
 uncompensated CG remains rejected.
+
+The current manufacturable geometry audit verdict is
+`geometry_freeze_needs_fix`. The smooth pathfinder is usable for Baseline A
+team-release engineering work, but continuous dimensions, station/span/splice
+contracts, and RFQ/shop-facing tube/rib/control stations are not final drawing
+control. Carry those warnings into WO-005 instead of treating them as either
+final sign-off or immediate Baseline A reopen.
 
 ## Worker Startup
 
