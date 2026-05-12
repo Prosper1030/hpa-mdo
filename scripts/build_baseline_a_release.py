@@ -16,6 +16,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from hpa_mdo.utils.baseline_a_rfq_spec import render_carbon_tube_rfq_spec
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_P1_SUMMARY_JSON = (
@@ -910,53 +912,28 @@ def _render_manufacturing_plan(context: Mapping[str, Any]) -> str:
 
 def _render_carbon_tube_rfq(context: Mapping[str, Any]) -> str:
     _ = context
-    return "\n".join(
-        [
-            "# Carbon Tube RFQ Spec",
-            "",
-            "Verdict: `carbon_tube_rfq_pack_draft_vendor_screening`",
-            "",
-            "This is a draft vendor-screening spec under data-authority repair. It is "
-            "not purchase-ready, not final supplier selection, not production drawing "
-            "control, and not final aircraft sign-off.",
-            "",
-            "## Pack Files",
-            "",
-            "- `carbon_tube_rfq_pack.md`: readable RFQ package and engineering boundary.",
-            "- `controlled_station_span_splice_manifest.csv`: one RFQ station/span convention.",
-            "- `vendor_questionnaire.md`: supplier response questions.",
-            "- `procurement_risk_register.json`: review and reopen triggers.",
-            "- `tube_splice_tolerance_requirements.csv`: tube/splice/tolerance request table.",
-            "- `rfq_daily_review.md`: one-page review summary.",
-            "",
-            "## Draft Vendor-Screening Convention",
-            "",
-            "- Use positive half-wing `y` from aircraft centerline/root for draft vendor-screening language; mirror to both sides.",
-            "- Local/splice screening reference: `16.500 m` half-span, not current pipeline half-span and not procurement truth.",
-            "- Draft splice station reference: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.",
-            "- Materialized rib basis for screening language: `0.30 m` physical rib station trace.",
-            "- Current pipeline span evidence remains `34.332286 m` full span / `17.166143 m` half-span unless replaced by newer authority.",
-            "",
-            "## Requested Tube Families",
-            "",
-            "- Main spar reference: 100 mm OD / 98 mm ID HM CFRP tube family.",
-            "- Rear spar reference: 80 mm OD / 78 mm ID HM CFRP tube family.",
-            "- Splice spigot family: internal CFRP spigot, 4D overlap each side.",
-            "- Inboard y=3 m splice warning: 1.02 mm screening spigot wall with zero bending margin.",
-            "",
-            "## WO-004 Warning Resolved For RFQ Language",
-            "",
-            "- Keep draft vendor questions tied to the 0.30 m physical rib station trace. The relaxed 0.345 m stiffness label is not vendor drawing control.",
-            "- Do not mix 3 m transport splice stations with materialized spar-joint rib stations.",
-            "- Do not treat continuous smooth geometry dimensions as shop-grid dimensions.",
-            "- Do not treat airfoil/control/transition/transport station contracts as final drawing control.",
-            "",
-            "## Change-Control Boundary",
-            "",
-            "Tube family changes that move spar OD/wall, weight, CG, splice concept, or "
-            "coupon allowables must return through Baseline A change control.",
-            "",
-        ]
+    return render_carbon_tube_rfq_spec(
+        verdict="carbon_tube_rfq_pack_draft_vendor_screening",
+        half_span_m=16.5,
+        panel_length_m=3.0,
+        rib_target_spacing_m=0.30,
+        full_wing_station_count=121,
+        max_materialized_bay_m=0.297063,
+        current_pipeline_full_span_m=34.332286,
+        current_pipeline_half_span_m=17.166143,
+        main_outer_diameter_mm=100.0,
+        main_inner_diameter_mm=98.0,
+        main_wall_thickness_mm=1.0,
+        rear_outer_diameter_mm=80.0,
+        rear_inner_diameter_mm=78.0,
+        rear_wall_thickness_mm=1.0,
+        stiffness_warning_text=(
+            "Release freeze says 0.30 m, but selected stiffness basis "
+            "closure_rerun_eps_balsa_cap_hybrid_10mm__t10p0mm__"
+            "manufacturing_relaxed_0p36__carbon_face_collar_y2p328__"
+            "rear75_fast_design_loop_v1 records target spacing 0.345 m and "
+            "materialized max subbay 0.345 m."
+        ),
     )
 
 

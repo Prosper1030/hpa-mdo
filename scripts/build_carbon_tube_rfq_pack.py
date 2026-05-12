@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from hpa_mdo.utils.baseline_a_rfq_spec import render_carbon_tube_rfq_spec
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output" / "baseline_A_team_release"
@@ -142,63 +144,22 @@ def _render_front_door_spec(context: Mapping[str, Any]) -> str:
     splice = context["splice"]
     rib_trace = context["rib_trace"]
     stiffness_row = context["discretization"]["release_vs_selected_stiffness_rib_spacing"]
-    return "\n".join(
-        [
-            "# Carbon Tube RFQ Spec",
-            "",
-            f"Verdict: `{context['verdict']}`",
-            "",
-            "This is a draft vendor-screening RFQ spec under data-authority repair. "
-            "It is not purchase-ready, not final supplier selection, not production "
-            "drawing control, and not final aircraft sign-off.",
-            "",
-            "## Pack Files",
-            "",
-            "- `carbon_tube_rfq_pack.md`: readable RFQ package and engineering boundary.",
-            "- `controlled_station_span_splice_manifest.csv`: one RFQ station/span convention.",
-            "- `vendor_questionnaire.md`: supplier response questions.",
-            "- `procurement_risk_register.json`: review and reopen triggers.",
-            "- `tube_splice_tolerance_requirements.csv`: tube/splice/tolerance request table.",
-            "- `rfq_daily_review.md`: one-page review summary.",
-            "",
-            "## Draft Vendor-Screening Convention",
-            "",
-            "- Use positive half-wing `y` from aircraft centerline/root for draft vendor-screening language; mirror to both sides.",
-            f"- Local/splice screening reference: `{splice['half_span_m']:.3f} m` half-span, "
-            f"not current pipeline half-span and not procurement truth; `{splice['panel_length_m']:.3f} m` remains a transport-panel screening constraint.",
-            "- Draft splice station reference: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.",
-            f"- Materialized rib basis for release language: `{rib_trace['target_spacing_m']:.2f} m` "
-            f"target with `{rib_trace['full_wing_station_count']}` full-wing stations and max bay "
-            f"`{rib_trace['max_materialized_bay_m']:.6f} m`.",
-            "- Current pipeline span evidence is `34.332286 m` full span / `17.166143 m` half-span unless replaced by newer authority.",
-            "",
-            "## Requested Tube Families",
-            "",
-            f"- Main spar screening reference: {main['outer_diameter_mm']} mm OD / "
-            f"{main['inner_diameter_mm']} mm ID HM CFRP tube family, "
-            f"{main['wall_thickness_mm']} mm wall.",
-            f"- Rear spar screening reference: {rear['outer_diameter_mm']} mm OD / "
-            f"{rear['inner_diameter_mm']} mm ID HM CFRP tube family, "
-            f"{rear['wall_thickness_mm']} mm wall.",
-            "- Splice spigot family: internal CFRP spigot, 4D overlap each side, ferrule/shear-dog concept.",
-            "- Inboard y=3 m splice warning: 1.02 mm screening spigot wall with zero bending margin.",
-            "",
-            "## WO-004 Warning Resolved For RFQ Language",
-            "",
-            "- Keep draft vendor questions tied to the 0.30 m physical rib station trace. The relaxed "
-            "stiffness row remains a non-RFQ bookkeeping/reference issue: "
-            f"{stiffness_row['observed']}",
-            "- Do not mix 3 m transport splice stations with materialized spar-joint rib stations.",
-            "- Do not treat continuous smooth geometry dimensions as shop-grid dimensions.",
-            "- Do not treat airfoil/control/transition/transport station contracts as final drawing control.",
-            "",
-            "## Change-Control Boundary",
-            "",
-            "Vendor answers that move spar OD/wall, laminate/modulus, tube mass, CG, "
-            "splice fit, sleeve/ferrule assumptions, coupon allowables, or 3 m "
-            "transport feasibility must return through Baseline A change control.",
-            "",
-        ]
+    return render_carbon_tube_rfq_spec(
+        verdict=context["verdict"],
+        half_span_m=splice["half_span_m"],
+        panel_length_m=splice["panel_length_m"],
+        rib_target_spacing_m=rib_trace["target_spacing_m"],
+        full_wing_station_count=rib_trace["full_wing_station_count"],
+        max_materialized_bay_m=rib_trace["max_materialized_bay_m"],
+        current_pipeline_full_span_m=34.332286,
+        current_pipeline_half_span_m=17.166143,
+        main_outer_diameter_mm=main["outer_diameter_mm"],
+        main_inner_diameter_mm=main["inner_diameter_mm"],
+        main_wall_thickness_mm=main["wall_thickness_mm"],
+        rear_outer_diameter_mm=rear["outer_diameter_mm"],
+        rear_inner_diameter_mm=rear["inner_diameter_mm"],
+        rear_wall_thickness_mm=rear["wall_thickness_mm"],
+        stiffness_warning_text=stiffness_row["observed"],
     )
 
 

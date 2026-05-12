@@ -2,20 +2,20 @@
 
 Verdict: `baseline_A_release_claims_unreliable` until authority repair is complete.
 
-- Files scanned: `6540`
-- Claims extracted: `53148`
+- Files scanned: `6541`
+- Claims extracted: `53234`
 - Blocking current-channel violations after repair: `0`
 - Skipped paths recorded: `2467`
 
 ## Authority Class Counts
 
-- `conflict_blocked`: 43
-- `current_pipeline_truth`: 232
+- `conflict_blocked`: 45
+- `current_pipeline_truth`: 234
 - `generated_output`: 11374
 - `legacy_or_experiment`: 25198
-- `screening_estimate`: 3994
-- `unknown`: 12197
-- `user_authority`: 110
+- `screening_estimate`: 4012
+- `unknown`: 12256
+- `user_authority`: 115
 
 ## Governing Authority Table
 

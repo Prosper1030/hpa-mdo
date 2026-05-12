@@ -44,10 +44,11 @@ The current structural blocker verdict is
 coupon/local FEM. It does not prove final adhesive, laminate, tube-wall,
 buckling, manufacturing, flight-dynamics, or aircraft sign-off.
 
-The current mass / CG / margin ledger verdict is
-`mass_cg_margin_ledger_ready`. Its rows are screening estimates unless a row
-explicitly says otherwise; managed CG is the `0.75 m` screening row and
-uncompensated CG remains rejected.
+The old mass / CG / margin ledger verdict `mass_cg_margin_ledger_ready` is historical/generated evidence under data-authority repair, not active current truth.
+Its rows are screening estimates unless a row explicitly says otherwise;
+`98.5 kg` is the design mass authority, `106.828608 kg` is suspect P1 screening
+aggregate, managed CG is the `0.75 m` screening row, and uncompensated CG remains
+rejected.
 
 The current manufacturable geometry audit verdict is
 `geometry_freeze_needs_fix`. The smooth pathfinder is usable for Baseline A

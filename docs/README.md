@@ -75,10 +75,10 @@ screening only；WO-005 draft-only；WO-006 paused。
 | `scripts/collar_joint_modes.py` + `scripts/current_pathfinder_rib_collar_joint_design_search.py` | C04 collar joint Step 3 — architecture fix direction | saddle ring yoke confirmed as C04 fix direction (eliminates peel eccentricity); 5-mode library + design search; 59 + 11 tests; analytical screening, not coupon/FEM sign-off |
 | `scripts/current_pathfinder_spar_splice_design.py` | 3 m transport spar splice design | 5 joints per half-wing at y=3/6/9/12/15 m on structural freeze half-span 16.5 m; all pass; 3.85 kg full-wing; inboard wall 1.02 mm (auto-upsized); 3 m panel limit locked; 13 tests |
 | [2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | P1 local load-path + mass-integrated closure update | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 fix mass 0.094 kg and splice mass 3.847 kg charged into mass/CG/tail/closure; QPROP/XROTOR kept independent |
-| [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A team release | release verdict `baseline_A_release_system_ready`; release artifacts, interface packs, change-control rules, and work packages; not final aircraft sign-off |
-| [margin_budget.md](../output/baseline_A_team_release/margin_budget.md) | Baseline A mass / CG / margin ledger | ledger verdict `mass_cg_margin_ledger_ready`; central screening W&B / margin surface; uncompensated CG rejected; all current mass rows are estimate confidence |
+| [baseline_A_team_release.md](../output/baseline_A_team_release/baseline_A_team_release.md) | Baseline A generated evidence package | old `baseline_A_release_system_ready` is historical/generated evidence under data-authority repair, not active current truth; current status is `baseline_A_data_authority_repair_in_progress` |
+| [margin_budget.md](../output/baseline_A_team_release/margin_budget.md) | Baseline A mass / CG / margin ledger evidence | old `mass_cg_margin_ledger_ready` is historical/generated evidence under data-authority repair, not active current truth; `98.5 kg` is authority and `106.828608 kg` is suspect screening aggregate |
 | [manufacturable_geometry_audit.md](../output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md) | Baseline A manufacturable geometry audit | verdict `geometry_freeze_needs_fix`; no large shape reopen, but continuous dimensions and station/span/splice contracts are not RFQ/shop controlled yet |
-| [carbon_tube_rfq_pack.md](../output/baseline_A_team_release/carbon_tube_rfq_pack.md) | Baseline A carbon tube RFQ pack | verdict `carbon_tube_rfq_pack_ready`; controls RFQ station/span/splice language, vendor questions, tolerance requirements, and procurement risk triggers; not order authorization |
+| [carbon_tube_rfq_pack.md](../output/baseline_A_team_release/carbon_tube_rfq_pack.md) | Draft carbon tube vendor-screening evidence | old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; WO-005 is draft/vendor-screening only |
 | [AI_WORK_ORDER_PROTOCOL.md](AI_WORK_ORDER_PROTOCOL.md) | AI work-order protocol | worker startup, verification minimum, report shape, escalation rules, and engineering honesty checklist |
 | [work_orders/QUEUE.md](work_orders/QUEUE.md) | AI work-order queue | priority queue and next recommended Codex goal |
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期執行藍圖 | 告訴你 repo 現況下先做什麼 |
@@ -102,7 +102,7 @@ screening only；WO-005 draft-only；WO-006 paused。
 | 文件 | 用途 |
 |---|---|
 | [NOW_NEXT_BLUEPRINT.md](NOW_NEXT_BLUEPRINT.md) | 近期 3 到 5 個優先任務、暫緩項、開始條件與不該先做的事 |
-| [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A work-order queue；目前下一個建議任務是 WO-006 main-wing SU2 baseline validation |
+| [work_orders/QUEUE.md](work_orders/QUEUE.md) | Baseline A work-order queue；WO-006 remains paused until data-authority restoration is complete and checker/docs are clean |
 | [EXECUTION_ROADMAP.md](EXECUTION_ROADMAP.md) | 細化版近期進度規劃；把多條工作軌道、啟動條件與完成判準拆開講清楚 |
 | [GRAND_BLUEPRINT.md](GRAND_BLUEPRINT.md) | 長期五階段藍圖；拿來看願景與跨 phase 依賴，不拿來排今天的工作 |
 | [codex_tasks.md](codex_tasks.md) | 操作型 task log / 歷史 checklist；可當背景資料，但不是新使用者入口 |

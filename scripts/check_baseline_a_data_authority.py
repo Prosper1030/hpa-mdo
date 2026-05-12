@@ -253,6 +253,12 @@ CHECK_SCOPE_FILES = {
     "docs/work_orders/QUEUE.md",
 }
 
+REPAIRED_READY_VERDICTS = {
+    "baseline_a_release_system_ready",
+    "carbon_tube_rfq_pack_ready",
+    "mass_cg_margin_ledger_ready",
+}
+
 
 @dataclass(frozen=True)
 class Claim:
@@ -294,7 +300,8 @@ def check_authority_violations(repo_root: Path = REPO_ROOT) -> list[AuthorityVio
     violations: list[AuthorityViolation] = []
     for path in _iter_check_scope_files(repo_root):
         rel = _rel(path, repo_root)
-        for line_number, line in _iter_text_lines(path):
+        lines = list(_iter_text_lines(path))
+        for line_number, line in lines:
             for rule_id, message in _line_violations(line):
                 violations.append(
                     AuthorityViolation(
@@ -306,6 +313,7 @@ def check_authority_violations(repo_root: Path = REPO_ROOT) -> list[AuthorityVio
                         message=message,
                     )
                 )
+        violations.extend(_file_sequence_violations(rel=rel, lines=lines))
     return violations
 
 
@@ -582,7 +590,239 @@ def _line_violations(line: str) -> list[tuple[str, str]]:
             )
         )
 
+    if _has_active_repaired_ready_verdict(normalized):
+        violations.append(
+            (
+                "active_ready_verdict_without_repair_boundary",
+                "Old WO-001 to WO-005 ready verdicts must be labeled historical/generated evidence under data-authority repair, not active truth.",
+            )
+        )
+
+    if _rfq_controls_16p5_span_station_splice(normalized):
+        violations.append(
+            (
+                "rfq_controls_16p5_span_station_splice",
+                "RFQ wording must not control span/station/splice language from the 16.5 m local/splice screening reference.",
+            )
+        )
+
+    if _wo006_next_without_data_authority_prerequisite(normalized):
+        violations.append(
+            (
+                "wo006_next_without_data_authority_prerequisite",
+                "WO-006 cannot be described as next/recommended unless data-authority restoration is named as a prerequisite.",
+            )
+        )
+
     return violations
+
+
+def _file_sequence_violations(
+    *, rel: str, lines: Sequence[tuple[int, str]]
+) -> list[AuthorityViolation]:
+    """Catch contradictions that need file-order context."""
+    saw_16p5_not_procurement: tuple[int, str] | None = None
+    violations: list[AuthorityViolation] = []
+    for line_number, line in lines:
+        normalized = _normalize(line)
+        if _is_16p5_not_procurement_truth(normalized):
+            saw_16p5_not_procurement = (line_number, line.strip())
+            continue
+        if saw_16p5_not_procurement is not None and _rfq_controls_16p5_span_station_splice(
+            normalized
+        ):
+            previous_line, _previous_text = saw_16p5_not_procurement
+            violations.append(
+                AuthorityViolation(
+                    rule_id="sixteenp5_not_procurement_truth_then_rfq_controls",
+                    file=rel,
+                    line=line_number,
+                    raw_text=line.strip(),
+                    risk_level="blocking",
+                    message=(
+                        "This file first labels 16.5 m as not procurement truth "
+                        f"at line {previous_line}, then later lets RFQ control "
+                        "span/station/splice language from it."
+                    ),
+                )
+            )
+            saw_16p5_not_procurement = None
+    return violations
+
+
+def _has_active_repaired_ready_verdict(normalized: str) -> bool:
+    if not any(verdict in normalized for verdict in REPAIRED_READY_VERDICTS):
+        return False
+    if _is_historical_generated_repair_context(normalized):
+        return False
+    if _has_any(
+        normalized,
+        (
+            "required verdict",
+            "required final verdict",
+            "required output verdict",
+            "must return",
+            "must output",
+            "or `",
+            "或 `",
+        ),
+    ):
+        return False
+    return _has_any(
+        normalized,
+        (
+            "verdict",
+            "release verdict",
+            "ledger verdict",
+            "final verdict",
+            "目前",
+            "current",
+            "release",
+            "rfq",
+            "ledger",
+            "mass",
+            "next",
+            "已建立",
+            "completed",
+            "done",
+            "ready",
+        ),
+    )
+
+
+def _is_historical_generated_repair_context(normalized: str) -> bool:
+    return _has_any(
+        normalized,
+        (
+            "historical/generated evidence",
+            "historical generated evidence",
+            "歷史/generated evidence",
+            "歷史 generated evidence",
+            "old wo-",
+            "舊",
+            "legacy",
+        ),
+    ) and (
+        _has_any(
+            normalized,
+            (
+                "data-authority repair",
+                "data authority repair",
+                "authority repair",
+                "under repair",
+                "repair gate",
+            ),
+        )
+        or _has_any(
+            normalized,
+            (
+                "not active",
+                "not current",
+                "not current truth",
+                "not release",
+                "not procurement",
+                "not truth",
+                "不是",
+                "不得",
+            ),
+        )
+    )
+
+
+def _rfq_controls_16p5_span_station_splice(normalized: str) -> bool:
+    if not _mentions_16p5(normalized) or "rfq" not in normalized:
+        return False
+    if _has_any(
+        normalized,
+        (
+            "not rfq control",
+            "not rfq-controlled",
+            "not rfq controlled",
+            "not current pipeline half-span and not procurement truth",
+            "not procurement truth",
+            "not purchase",
+            "must not control",
+            "must not be rfq",
+            "不得",
+            "不能",
+            "不是",
+            "不可",
+        ),
+    ):
+        return False
+    has_control_verb = bool(
+        re.search(r"\brfq\b(?:\s+\w+){0,4}\s+controls\b", normalized)
+        or re.search(r"\bcontrols\b(?:\s+\w+){0,4}\s+\brfq\b", normalized)
+        or ("rfq" in normalized and "控制" in normalized)
+    )
+    if not has_control_verb:
+        return False
+    return _has_any(
+        normalized,
+        (
+            "span",
+            "station",
+            "splice",
+            "half-span",
+            "structural",
+            "站",
+            "翼展",
+            "接頭",
+        ),
+    )
+
+
+def _wo006_next_without_data_authority_prerequisite(normalized: str) -> bool:
+    if "wo-006" not in normalized:
+        return False
+    if not _has_any(
+        normalized,
+        (
+            "next",
+            "recommended",
+            "recommend",
+            "建議",
+            "下一個",
+            "next p1",
+            "p1 is wo-006",
+            "p1 是 wo-006",
+            "queued",
+        ),
+    ):
+        return False
+    return not _has_any(
+        normalized,
+        (
+            "data authority",
+            "data-authority",
+            "authority restored",
+            "authority restoration",
+            "restored",
+            "restoration",
+            "prerequisite",
+            "checker",
+            "paused",
+            "暫停",
+            "修復",
+            "前提",
+        ),
+    )
+
+
+def _is_16p5_not_procurement_truth(normalized: str) -> bool:
+    return _mentions_16p5(normalized) and _has_any(
+        normalized,
+        (
+            "not procurement truth",
+            "not rfq control",
+            "not shop span",
+            "not purchase",
+            "不是 current pipeline half-span",
+            "不是 procurement truth",
+            "不是 rfq",
+            "不是 shop",
+        ),
+    )
 
 
 def _claim_from_line(

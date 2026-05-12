@@ -238,14 +238,15 @@ peel bond 現有構型 fail，saddle ring yoke fast-model 估算 pass。這仍�
 `17.3 m`；splice runner 的半翼展敘事以 structural freeze `16.5 m` 為準。翼板 3 m
 限制確認鎖定（台灣自有貨車 + 空運雙重收斂）。13 tests pass。
 
-Baseline A carbon tube RFQ screening pack 已建立（2026-05-12），讀
+Baseline A carbon tube RFQ screening pack 是舊 WO-005 generated evidence under data-authority
+repair，讀
 [output/baseline_A_team_release/carbon_tube_rfq_pack.md](output/baseline_A_team_release/carbon_tube_rfq_pack.md)。
-verdict 是 `carbon_tube_rfq_pack_ready`：可以拿去問 vendor OD/ID、layup、tolerance、
-ovality、straightness、surface prep、QA coupon、3 m shipping、spigot/ferrule fit 與 lead time；
-但這不是 purchase order、不是 supplier selection、不是 shop drawing release，也不是 final aircraft
-sign-off。RFQ 語言目前控制 positive half-wing `y`、structural `16.5 m` half-span、3 m splice
-stations、0.30 m materialized rib basis；0.345 m relaxed stiffness label、17.17-17.32 m aero/rib
-extent、airfoil/control/twist/transport station contracts 都仍不能被 vendor 當成 drawing control。
+舊 verdict `carbon_tube_rfq_pack_ready` 是 historical/generated evidence under data-authority repair, not active current truth。WO-005 目前只能當 draft/vendor-screening 草稿：可整理 vendor
+OD/ID、layup、tolerance、ovality、straightness、surface prep、QA coupon、3 m shipping、
+spigot/ferrule fit 與 lead time 問題；不能當 purchase order、supplier selection、shop drawing
+release、RFQ control truth 或 final aircraft sign-off。`16.5 m` 是 local/splice screening only，
+不是 RFQ control span、shop span 或 procurement truth；3 / 6 / 9 / 12 / 15 m splice stations 與
+0.30 m materialized rib basis 也只是 draft screening reference，不能被 vendor 當 drawing control。
 
 P1 local load-path closure + mass-integrated pathfinder update 已完成（2026-05-12），讀
 [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md)
@@ -262,18 +263,19 @@ twist `1.906952 deg`，root bending ratio `0.971590`；direct spar-pair stress-t
 adhesive、laminate、buckling、tail hardware 或 aircraft sign-off。QPROP/XROTOR 是獨立
 propulsion lane，不參與這個 structural blocker verdict。
 
-Baseline A team release system 已建立（2026-05-12），讀
+Baseline A team release system 的舊 WO-001 generated package 已建立（2026-05-12），讀
 [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md)、
 [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) 與
-`output/baseline_A_team_release/`。release verdict 是
-`baseline_A_release_system_ready`：這包把 current pathfinder 轉成施工 / 結構 / 控制 /
-傳動 / 製造團隊可開始工作的 release package，並輸出 geometry freeze、mass/CG/drag-power
-budgets、interface packs、change-control rules 和 work-order queue。這仍不是 final aircraft
-sign-off；P1 只到 coupon/local FEM readiness，C04 fix 是 architecture-selected 但仍需
-coupon/local FEM，QPROP/XROTOR 保持獨立 propulsion lane。
-WO-002 mass / CG / margin ledger 已補進同一個 release builder：`mass_budget.csv` 是
-component-level screening ledger，`cg_summary.json` 保留 managed vs uncompensated CG，
-`margin_budget.md` 和 `mass_cg_margin_daily_review.md` 是每日審查入口。所有現有 mass rows
+`output/baseline_A_team_release/`。舊 verdict `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair, not active current truth；current
+release status 是 `baseline_A_data_authority_repair_in_progress`。這包只能當施工 / 結構 / 控制 /
+傳動 / 製造分工的 screening evidence 與 coordination material，不是 Baseline A release authority、
+也不是 procurement truth 或 final aircraft sign-off；P1 只到 coupon/local FEM readiness，C04 fix 是
+architecture-selected 但仍需 coupon/local FEM，QPROP/XROTOR 保持獨立 propulsion lane。
+WO-002 mass / CG / margin ledger 已補進同一個 release builder，但舊 verdict
+`mass_cg_margin_ledger_ready` 是 historical/generated evidence under data-authority repair,
+not active current truth。`98.5 kg` 才是目前 design mass authority；`106.828608 kg` 是 suspect
+P1 screening aggregate。`mass_budget.csv`、`cg_summary.json`、`margin_budget.md` 和
+`mass_cg_margin_daily_review.md` 只能當 screening ledger / 每日審查入口；所有現有 mass rows
 仍是 `estimate`，不是 measured/frozen weight-and-balance。
 
 WO-003 design-space freeze audit 已完成，讀
@@ -336,11 +338,11 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | C04 collar joint 架構修正方向 + multi-mode design search | `scripts/collar_joint_modes.py` (59 tests) + `scripts/current_pathfinder_rib_collar_joint_design_search.py` (11 tests) | saddle ring yoke confirmed as C04 fix direction; recommended_c04_fix() = saddle ring + clamp; analytical screening only |
 | 3 m 翼板 spar splice 設計 | `scripts/current_pathfinder_spar_splice_design.py` (13 tests) | 5 joints per half-wing on structural freeze half-span 16.5 m; all pass; 3.85 kg full-wing; inboard spigot wall 1.02 mm; 3 m limit locked |
 | 看 P1 C04 load path 與 mass/CG/tail/closure 回灌後 verdict | [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md) | final verdict `p1_local_load_path_ready_for_coupon_fem`; C04 saddle/yoke/clamp + splice mass charged to closure; coupon/local FEM next |
-| 接 Baseline A team release package | `output/baseline_A_team_release/` | `baseline_A_release_system_ready`; team release + interface packs + change-control rules; not final aircraft sign-off |
-| 看 Baseline A mass / CG / margin ledger | `output/baseline_A_team_release/margin_budget.md` + `mass_cg_margin_daily_review.md` | `mass_cg_margin_ledger_ready`; central screening ledger；uncompensated CG rejected；不是 measured/frozen W&B |
+| 接 Baseline A team release package | `output/baseline_A_team_release/` | old `baseline_A_release_system_ready` is historical/generated evidence under data-authority repair, not active current truth; current release status is `baseline_A_data_authority_repair_in_progress` |
+| 看 Baseline A mass / CG / margin ledger | `output/baseline_A_team_release/margin_budget.md` + `mass_cg_margin_daily_review.md` | old `mass_cg_margin_ledger_ready` is historical/generated evidence under data-authority repair, not active current truth; `98.5 kg` is authority, `106.828608 kg` is suspect screening |
 | 看 Baseline A design-space freeze audit | `output/baseline_A_team_release/design_space_freeze_audit/design_space_freeze_audit.md` | `baseline_A_freeze_reasonable`; no explicit nearby dominance trigger; power-budget watch item remains |
 | 看 Baseline A manufacturable geometry audit | `output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md` | `geometry_freeze_needs_fix`; smooth enough for release engineering, not shop/RFQ drawing control |
-| 看 carbon tube RFQ screening pack | `output/baseline_A_team_release/carbon_tube_rfq_pack.md` | `carbon_tube_rfq_pack_ready`; vendor questions + controlled station/span/splice manifest; not purchase authorization |
+| 看 carbon tube RFQ screening pack | `output/baseline_A_team_release/carbon_tube_rfq_pack.md` | old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; WO-005 is draft/vendor-screening only |
 | 讓 AI thread 自動接任務 | [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md) + [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) | work-order lifecycle, required report shape, reviewer prompt, priority queue |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |

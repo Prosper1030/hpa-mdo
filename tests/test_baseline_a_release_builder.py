@@ -11,10 +11,20 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT_PATH = _REPO_ROOT / "scripts" / "build_baseline_a_release.py"
+_RFQ_SCRIPT_PATH = _REPO_ROOT / "scripts" / "build_carbon_tube_rfq_pack.py"
 
 
 def _load_module():
     spec = importlib.util.spec_from_file_location("build_baseline_a_release", _SCRIPT_PATH)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _load_rfq_module():
+    spec = importlib.util.spec_from_file_location("build_carbon_tube_rfq_pack", _RFQ_SCRIPT_PATH)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = mod
@@ -169,4 +179,16 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
     assert "not purchase-ready" in carbon_rfq
     assert "not procurement truth" in carbon_rfq
     assert "controlled_station_span_splice_manifest.csv" in carbon_rfq
-    assert "0.345 m stiffness label is not vendor drawing control" in carbon_rfq
+    assert "relaxed stiffness row remains a non-RFQ bookkeeping/reference issue" in carbon_rfq
+    assert "0.345 m" in carbon_rfq
+
+
+def test_release_and_rfq_builders_share_carbon_tube_spec_wording(tmp_path: Path) -> None:
+    _, output_dir = _run(tmp_path)
+    release_spec = (output_dir / "carbon_tube_rfq_spec.md").read_text(encoding="utf-8")
+
+    rfq_mod = _load_rfq_module()
+    rfq_mod.write_carbon_tube_rfq_pack(output_dir=output_dir)
+
+    rebuilt_spec = (output_dir / "carbon_tube_rfq_spec.md").read_text(encoding="utf-8")
+    assert rebuilt_spec == release_spec

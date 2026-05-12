@@ -49,6 +49,99 @@ def test_checker_flags_known_suspect_promotions(tmp_path: Path) -> None:
     assert "rfq_purchase_ready_while_conflict_blocked" in violation_ids
 
 
+def test_checker_flags_missed_current_channel_ready_and_rfq_control_patterns(
+    tmp_path: Path,
+) -> None:
+    mod = _load_module()
+    docs_dir = tmp_path / "docs"
+    work_orders_dir = docs_dir / "work_orders"
+    work_orders_dir.mkdir(parents=True)
+    (tmp_path / "output" / "baseline_A_team_release").mkdir(parents=True)
+
+    (tmp_path / "README.md").write_text(
+        "\n".join(
+            [
+                "verdict 是 `carbon_tube_rfq_pack_ready`：可以拿去問 vendor。",
+                "`baseline_A_release_system_ready`：這包把 current pathfinder 轉成 team release package。",
+                "`mass_cg_margin_ledger_ready`：gross screening mass `106.828608 kg`。",
+                "RFQ 語言目前控制 positive half-wing `y`、structural `16.5 m` half-span、3 m splice stations。",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "CURRENT_MAINLINE.md").write_text(
+        "\n".join(
+            [
+                "The 16.5 m half-span is local/splice screening only, not procurement truth.",
+                "RFQ language controls structural 16.5 m half-span and splice station/span language.",
+                "WO-005 carbon tube RFQ pack 的 verdict 是 `carbon_tube_rfq_pack_ready`；下一個 P1 是 WO-006 main-wing SU2 baseline validation。",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (docs_dir / "README.md").write_text(
+        "\n".join(
+            [
+                "| Baseline A team release | release verdict `baseline_A_release_system_ready` |",
+                "| Baseline A mass ledger | ledger verdict `mass_cg_margin_ledger_ready` |",
+                "| Carbon tube RFQ | verdict `carbon_tube_rfq_pack_ready`; controls RFQ station/span/splice language |",
+                "目前下一個建議任務是 WO-006 main-wing SU2 baseline validation",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (docs_dir / "AI_WORK_ORDER_PROTOCOL.md").write_text(
+        "WO-006 is next after this cleanup.\n",
+        encoding="utf-8",
+    )
+    (work_orders_dir / "QUEUE.md").write_text(
+        "WO-006 | P1 | queued | Main-Wing SU2 Baseline Validation | next recommended task\n",
+        encoding="utf-8",
+    )
+
+    violations = mod.check_authority_violations(tmp_path)
+    violation_ids = {violation.rule_id for violation in violations}
+
+    assert "active_ready_verdict_without_repair_boundary" in violation_ids
+    assert "rfq_controls_16p5_span_station_splice" in violation_ids
+    assert "wo006_next_without_data_authority_prerequisite" in violation_ids
+    assert "sixteenp5_not_procurement_truth_then_rfq_controls" in violation_ids
+
+
+def test_historical_generated_ready_verdicts_are_allowed_when_repair_labeled(
+    tmp_path: Path,
+) -> None:
+    mod = _load_module()
+    docs_dir = tmp_path / "docs"
+    work_orders_dir = docs_dir / "work_orders"
+    work_orders_dir.mkdir(parents=True)
+    (tmp_path / "output" / "baseline_A_team_release").mkdir(parents=True)
+
+    safe_text = (
+        "Old WO-001 to WO-005 verdicts such as `baseline_A_release_system_ready`, "
+        "`mass_cg_margin_ledger_ready`, and `carbon_tube_rfq_pack_ready` are "
+        "historical/generated evidence under data-authority repair, not active "
+        "release, mass, RFQ, procurement, or current truth."
+    )
+    for rel in (
+        "README.md",
+        "CURRENT_MAINLINE.md",
+        "docs/README.md",
+        "docs/AI_WORK_ORDER_PROTOCOL.md",
+        "docs/work_orders/QUEUE.md",
+    ):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            safe_text
+            + "\n16.5 m is local/splice screening only, not RFQ control, shop span, or procurement truth.\n"
+            + "WO-006 remains paused until the checker passes and data-authority restoration is complete.\n",
+            encoding="utf-8",
+        )
+
+    assert mod.check_authority_violations(tmp_path) == []
+
+
 def test_audit_artifacts_include_inventory_conflicts_authority_and_gate_debt(tmp_path: Path) -> None:
     mod = _load_module()
     docs_dir = tmp_path / "docs"

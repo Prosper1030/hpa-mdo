@@ -61,7 +61,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-002 | P0 | done | Mass / CG / Margin Budget Ledger | chief engineering | Ledger lives in `output/baseline_A_team_release/`; do not promote estimate rows to measured/frozen |
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
-| WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; verdict `carbon_tube_rfq_pack_ready` |
+| WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
 | WO-006 | P1 | paused | Main-Wing SU2 Baseline Validation | aero validation | Paused until data authority is restored |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
