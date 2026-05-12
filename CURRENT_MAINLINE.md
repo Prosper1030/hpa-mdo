@@ -490,9 +490,9 @@ tests）已把設計搜尋結果確立如下：
 shear dog（承 torsion，不鑽穿主管壁）。注意：aero closure / materialized rib station grid
 仍可延伸到約 `17.3 m`；splice report 與本段敘事以 structural freeze `16.5 m` 為準。
 設計摘要（13 tests pass）：
-- 所有接頭 pass，worst margin > 0
+- 所有接頭在 screening runner 中 pass，但 worst reported governing margin rounded to `0.000`
 - y = 3 m 最重站：factored bending moment 4,437 N·m，spigot wall 自動 upsize 至 1.02 mm
-  （預設 0.8 mm 不足）
+  （預設 0.8 mm 不足）；這是 vendor/detail warning，不是 final splice margin sign-off
 - torsion margin 全站 >> 1（shear dog 設計遠超 torsion 需求）
 - 全翼展接頭總質量 **3.85 kg**，在 HPA 文獻 2.5–6 kg 範圍內
 - 3 m 翼板限制確認鎖定：台灣自有貨車（普通小型車駕照 → GVW ≤ 3,500 kg → 貨台 2.7–3 m）
@@ -561,12 +561,22 @@ final mission sign-off，也還不是 explicit reopen evidence。
 `output/baseline_A_team_release/manufacturable_geometry_audit/`，verdict 是
 `geometry_freeze_needs_fix`。工程判讀是 Baseline A smooth pathfinder 沒有大型外形不連續或
 explicit reopen trigger，可繼續作 team-release engineering basis；但連續尺寸尚未達到
-shop/RFQ drawing control。下一步 WO-005 必須補 controlled station/span/splice manifest，
-明確處理 `0.30 m` release rib basis 與 selected stiffness row `0.345 m` label、3 m splice
-grid 與 materialized spar-joint rib station、structural `16.5 m` half-span 與 aero/rib
-station extent、airfoil/control/transition station contract，以及 inboard splice near-zero
-bending margin 的 vendor/RFQ warning。這些是 manufacturability/RFQ gate，不是目前 Baseline A
-reopen 或 final aircraft sign-off。
+shop/RFQ drawing control。這些是 manufacturability/RFQ gate，不是目前 Baseline A reopen 或
+final aircraft sign-off。
+
+**WO-005 — Carbon tube RFQ + procurement screening pack 已完成（2026-05-12）：**
+artifact 位於 `output/baseline_A_team_release/carbon_tube_rfq_pack.md`、
+`controlled_station_span_splice_manifest.csv`、`vendor_questionnaire.md`、
+`procurement_risk_register.json`、`tube_splice_tolerance_requirements.csv` 與
+`rfq_daily_review.md`。verdict 是 `carbon_tube_rfq_pack_ready`：可用於 vendor screening
+questions，但不是 purchase order、supplier selection、shop drawing release 或 final aircraft
+sign-off。RFQ 語言控制 positive half-wing `y`、structural `16.5 m` half-span、3 m splice
+stations（3/6/9/12/15 m）與 0.30 m materialized rib basis；selected stiffness row `0.345 m`
+label、aero/rib extents `17.17-17.32 m`、airfoil/control/twist/transport station contracts
+都仍是 reference/open，不可被 vendor 當 drawing control。y = 3 m splice 的 zero bending
+margin 被列為 vendor fit / ovality / knockdown / coupon-local-test warning；任何 vendor answer
+若改變 tube OD/wall、layup/modulus、mass/CG、splice fit 或 3 m shipping feasibility，必須回
+Baseline A change control，必要時觸發 spar-spec / procurement / reopen review。
 
 ## 8. 常用入口與角色
 
@@ -741,7 +751,8 @@ reopen 或 final aircraft sign-off。
   builder 任務中實作。WO-003 design-space freeze audit 的 verdict 是
   `baseline_A_freeze_reasonable`；WO-004 manufacturable geometry audit 的 verdict 是
   `geometry_freeze_needs_fix`，表示 release engineering 可繼續，但 RFQ/shop 前要補
-  controlled station/span/splice manifest。下一個 P0 是 WO-005 carbon tube RFQ pack。
+  controlled station/span/splice manifest。WO-005 carbon tube RFQ pack 的 verdict 是
+  `carbon_tube_rfq_pack_ready`；下一個 P1 是 WO-006 main-wing SU2 baseline validation。
 
 ## 9. 現在不該再當主線的敘事
 

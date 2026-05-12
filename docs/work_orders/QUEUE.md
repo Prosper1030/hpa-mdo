@@ -10,8 +10,8 @@ Current release package:
 - manufacturable geometry audit verdict: `geometry_freeze_needs_fix`
 - current structural blocker verdict: `p1_local_load_path_ready_for_coupon_fem`
 - Baseline A status: team release can start coupon, 1 m wing-bay v2, C04 local FEM,
-  carbon tube RFQ preparation, control/propulsion interface work; not final aircraft
-  sign-off and not shop/RFQ drawing release.
+  carbon tube vendor screening, control/propulsion interface work; not final
+  aircraft sign-off and not shop/RFQ drawing release.
 
 ## Queue Rules
 
@@ -45,7 +45,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-002 | P0 | done | Mass / CG / Margin Budget Ledger | chief engineering | Ledger lives in `output/baseline_A_team_release/`; do not promote estimate rows to measured/frozen |
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
-| WO-005 | P0 | ready | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Carry WO-004 station/span/splice warnings into a controlled RFQ question pack before procurement |
+| WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; verdict `carbon_tube_rfq_pack_ready` |
 | WO-006 | P1 | queued | Main-Wing SU2 Baseline Validation | aero validation | Calibrate current Baseline A aero model without turning SU2 into final truth |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
@@ -155,14 +155,17 @@ Required verdict: `geometry_freeze_manufacturable`,
 Completion read: `geometry_freeze_needs_fix`. The smooth Baseline A pathfinder
 is acceptable for team-release engineering work and did not show a large
 external-shape discontinuity or explicit Baseline A reopen trigger. It is not
-ready to hand to shop/RFQ as controlled dimensions until the next pack resolves
-continuous dimension rounding, airfoil/control/transition station contracts, the
-0.30 m release rib basis versus the selected 0.345 m stiffness label, 3 m splice
-locations versus materialized spar-joint rib stations, structural `16.5 m`
-half-span versus aero/rib station extent, and the inboard splice near-zero
-bending margin warning.
+ready to hand to shop as controlled dimensions. WO-005 resolves the next RFQ
+screening language layer by carrying continuous dimension rounding,
+airfoil/control/transition station contracts, the 0.30 m release rib basis
+versus the selected 0.345 m stiffness label, 3 m splice locations versus
+materialized spar-joint rib stations, structural `16.5 m` half-span versus
+aero/rib station extent, and the inboard splice zero-margin warning into a
+vendor question pack.
 
 ### WO-005: Carbon Tube RFQ + Procurement Pack
+
+Status: done. Artifacts live in `output/baseline_A_team_release/`.
 
 Purpose: turn the screening carbon-tube and splice assumptions into a vendor/RFQ
 package without committing to procurement beyond evidence.
@@ -185,6 +188,15 @@ Disallowed scope:
 
 Required verdict: `carbon_tube_rfq_pack_ready` or
 `carbon_tube_rfq_pack_incomplete`.
+
+Completion read: `carbon_tube_rfq_pack_ready`. The RFQ pack now controls vendor
+language to positive half-wing `y` from centerline/root, structural `16.5 m`
+half-span, 3 m splice stations at `3 / 6 / 9 / 12 / 15 m`, and the release-facing
+0.30 m materialized rib station basis. It explicitly keeps the 0.345 m relaxed
+stiffness label out of vendor drawing control, carries the y=3 m zero bending
+margin as a detail/coupon warning, and flags vendor answers that would force
+spar-spec, mass/CG, procurement, or Baseline A reopen review. It does not place
+orders, choose a supplier, release shop drawings, or sign off the aircraft.
 
 ### WO-006: Main-Wing SU2 Baseline Validation
 
@@ -367,7 +379,7 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 ## Next Recommended Work Order
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-005: Carbon Tube RFQ + Procurement Pack.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006: Main-Wing SU2 Baseline Validation.
 
 Role:
 代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest and
@@ -379,24 +391,22 @@ Read first:
 - docs/AI_WORK_ORDER_PROTOCOL.md
 - docs/work_orders/QUEUE.md
 - output/baseline_A_team_release/
-- output/baseline_A_team_release/manufacturable_geometry_audit/
+- output/baseline_A_team_release/carbon_tube_rfq_pack.md
 
 Task:
-Turn the current carbon tube, splice, tolerance, rib/station, and 3 m transport
-assumptions into a vendor-facing screening RFQ pack. The pack must carry WO-004
-warnings explicitly: continuous dimensions are not drawing-ready, 0.30 m release
-rib basis must be reconciled with the selected stiffness row, 3 m splice
-locations must be reconciled with materialized spar-joint rib stations, and
-structural half-span / aero station extents must not be mixed silently.
+Build a bounded main-wing SU2 baseline validation for the current Baseline A
+pathfinder. Compare the current low-order aero model against a limited SU2
+baseline without treating SU2 as final truth and without using CFD to pass
+structural blockers.
 
 Boundary:
-Do not place orders, choose a supplier, change spar dimensions, change the C04
-architecture, or treat screening margins as final procurement sign-off. Ask the
-user only if vendor/RFQ evidence affects spar spec, mass/CG, procurement
-commitment, large external shape, or Baseline A reopen.
+Do not run full design-space CFD, propeller optimization, NSGA, random
+disturbance simulation, or final CAD automation. Do not call SU2 final aircraft
+truth. Ask the user only if the evidence affects large external shape, spar
+spec, mass/CG, procurement commitment, or Baseline A reopen.
 
 Required output:
-- verdict: carbon_tube_rfq_pack_ready / carbon_tube_rfq_pack_incomplete
+- verdict: su2_baseline_calibration_usable / su2_baseline_needs_fix / su2_baseline_reopen_risk
 - changed files
 - verification
 - engineering caveats

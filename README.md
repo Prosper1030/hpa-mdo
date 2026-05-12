@@ -218,6 +218,15 @@ peel bond 現有構型 fail，saddle ring yoke fast-model 估算 pass。這仍�
 `17.3 m`；splice runner 的半翼展敘事以 structural freeze `16.5 m` 為準。翼板 3 m
 限制確認鎖定（台灣自有貨車 + 空運雙重收斂）。13 tests pass。
 
+Baseline A carbon tube RFQ screening pack 已建立（2026-05-12），讀
+[output/baseline_A_team_release/carbon_tube_rfq_pack.md](output/baseline_A_team_release/carbon_tube_rfq_pack.md)。
+verdict 是 `carbon_tube_rfq_pack_ready`：可以拿去問 vendor OD/ID、layup、tolerance、
+ovality、straightness、surface prep、QA coupon、3 m shipping、spigot/ferrule fit 與 lead time；
+但這不是 purchase order、不是 supplier selection、不是 shop drawing release，也不是 final aircraft
+sign-off。RFQ 語言目前控制 positive half-wing `y`、structural `16.5 m` half-span、3 m splice
+stations、0.30 m materialized rib basis；0.345 m relaxed stiffness label、17.17-17.32 m aero/rib
+extent、airfoil/control/twist/transport station contracts 都仍不能被 vendor 當成 drawing control。
+
 P1 local load-path closure + mass-integrated pathfinder update 已完成（2026-05-12），讀
 [docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md](docs/reports/2026-05-12_current_pathfinder_p1_load_path_mass_closure.md)
 與 `output/current_pathfinder_p1_load_path_mass_closure/`。final verdict 是
@@ -258,10 +267,10 @@ verdict 是 `baseline_A_freeze_reasonable`：目前沒有看到 nearby manufactu
 WO-004 manufacturable smoothness / discretization audit 已完成，讀
 `output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md`。
 verdict 是 `geometry_freeze_needs_fix`：目前 smooth pathfinder 沒有看到會強迫 Baseline A
-reopen 的大型外形不連續，但連續尺寸還不能直接當 shop/RFQ 控制尺寸。下一步 RFQ pack
-必須把 0.30 m rib basis、3 m splice、materialized station、structural `16.5 m` half-span
+reopen 的大型外形不連續，但連續尺寸還不能直接當 shop/RFQ 控制尺寸。WO-005 RFQ pack
+已把 0.30 m rib basis、3 m splice、materialized station、structural `16.5 m` half-span
 與 aero/rib station extent 的差異收成 controlled station/span/splice manifest；inboard
-splice near-zero bending margin 是 vendor/RFQ warning，不是已失敗的 Baseline A mission verdict。
+splice zero bending margin 是 vendor/RFQ warning，不是已失敗的 Baseline A mission verdict。
 
 ## 主線操作協議：Pathfinder First, Then Expansion
 
@@ -311,6 +320,7 @@ conservative screening candidate：它是工程閉環的先行者，不是 final
 | 看 Baseline A mass / CG / margin ledger | `output/baseline_A_team_release/margin_budget.md` + `mass_cg_margin_daily_review.md` | `mass_cg_margin_ledger_ready`; central screening ledger；uncompensated CG rejected；不是 measured/frozen W&B |
 | 看 Baseline A design-space freeze audit | `output/baseline_A_team_release/design_space_freeze_audit/design_space_freeze_audit.md` | `baseline_A_freeze_reasonable`; no explicit nearby dominance trigger; power-budget watch item remains |
 | 看 Baseline A manufacturable geometry audit | `output/baseline_A_team_release/manufacturable_geometry_audit/manufacturable_geometry_audit.md` | `geometry_freeze_needs_fix`; smooth enough for release engineering, not shop/RFQ drawing control |
+| 看 carbon tube RFQ screening pack | `output/baseline_A_team_release/carbon_tube_rfq_pack.md` | `carbon_tube_rfq_pack_ready`; vendor questions + controlled station/span/splice manifest; not purchase authorization |
 | 讓 AI thread 自動接任務 | [docs/AI_WORK_ORDER_PROTOCOL.md](docs/AI_WORK_ORDER_PROTOCOL.md) + [docs/work_orders/QUEUE.md](docs/work_orders/QUEUE.md) | work-order lifecycle, required report shape, reviewer prompt, priority queue |
 | 看 all-moving tail / trim / stability 要怎麼進目前 pathfinder | [docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md](docs/reports/2026-05-09_empennage_trim_stability_contract_audit.md) | empennage contract insertion |
 | 找所有文件入口 | [docs/README.md](docs/README.md) | 文件索引 |
@@ -458,7 +468,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | V-tail / CG reference sensitivity | v0 顯示 directional derivatives 可被 area/arm 推高；v1 進一步用 explicit CG-referenced AVL rows 驗證 Xnp convention、longitudinal trim、static margin 與 yaw authority |
 | Loaded-Z / aero-structure closure | 目前 candidate 是否可推進的核心審查層 |
 | Tier2 airfoil selection | 依 actual loaded-shape local `Cl/Re` 做 full-alpha 查表，但 query quality warning 必須保守處理 |
-| Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸、station/span/splice manifest、rib/splice/control/transition station contract 需在 RFQ/shop 前補齊 |
+| Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸仍不是 shop drawing；WO-005 已補 RFQ screening station/span/splice manifest，尚未變成 drawing release |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
 | Rib / root / wire hardware / composite detail | 開放 validation blockers，需要後續實體化與 detail evidence |
 | SU2 / mesh-native CFD | paused route，不是目前 performance truth |

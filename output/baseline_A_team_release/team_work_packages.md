@@ -12,13 +12,11 @@ Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 
 - Completion read: Completed with verdict `geometry_freeze_needs_fix`; no large external-shape reopen, but station/span/splice manifest must be controlled before RFQ/shop use.
 
-## Priority Queue
-
 ### WO-005: carbon tube RFQ + procurement pack
 
-- Objective: Turn screening tube, splice, tolerance, and station assumptions into a vendor-facing question pack without committing procurement.
-- Required output: verdict, changed files, verification, engineering caveats, and reviewer prompt.
-- Decision gate: ask user only if large external shape, main/rear spar spec, weight/CG, procurement, or Baseline A reopen is affected.
+- Completion read: Completed with verdict `carbon_tube_rfq_pack_ready`; vendor screening pack now carries tube, splice, tolerance, station, and procurement risk boundaries.
+
+## Priority Queue
 
 ### WO-006: main-wing SU2 baseline validation
 
@@ -65,8 +63,8 @@ Do not implement SU2/NSGA/propeller optimization in this release-builder task.
 ## Next Recommended Codex Goal
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-005: Carbon Tube RFQ + Procurement Pack.
-Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, output/baseline_A_team_release/manufacturable_geometry_audit/, and docs/AI_WORK_ORDER_PROTOCOL.md first. Build a vendor-facing screening RFQ pack for carbon tubes, splice fit, tolerances, QA coupons, 3 m shipping segments, station/span/splice manifest, and supplier questions. Do not place orders, choose a supplier, or change spar specs without user decision. Carry WO-004 warnings explicitly, output verdict, changed files, verification, engineering caveats, reviewer prompt, and next work order; run relevant tests/ruff/build release/git diff checks, then commit only WO-005.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006: Main-Wing SU2 Baseline Validation.
+Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, output/baseline_A_team_release/carbon_tube_rfq_pack.md, and docs/AI_WORK_ORDER_PROTOCOL.md first. Build a bounded main-wing SU2 baseline calibration for Baseline A aero-model comparison. Do not run full design-space CFD, do not use SU2 as final truth, and do not let CFD results pass structural blockers. Output verdict, changed files, verification, engineering caveats, reviewer prompt, and next work order; run relevant tests/ruff/build checks, then commit only WO-006.
 ```
 
 ## Reviewer Prompt

@@ -7,7 +7,7 @@ Baseline A allows the shop-facing team to start test articles and RFQs.
 - C04 saddle/yoke/clamp coupon.
 - C04 local FEM and coupon correlation package.
 - 1 m wing-bay v2 with rib/collar/skin-sag evidence.
-- Carbon tube RFQ for main/rear spar and splice-fit tolerances.
+- Carbon tube RFQ screening using `carbon_tube_rfq_pack.md` and `controlled_station_span_splice_manifest.csv`.
 
 ## Do Not Claim Yet
 

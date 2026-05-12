@@ -1,0 +1,25 @@
+requirement_id,scope,nominal_value,unit,evidence_status,rfq_requirement,review_trigger
+main_spar_od_mm,main_spar_tube,100.0,mm,screening_reference,Quote OD tolerance and measurement method.,Cannot meet OD/tolerance forces spar fit and mass review.
+main_spar_id_mm,main_spar_tube,98.0,mm,screening_reference,Quote ID tolerance suitable for internal spigot fit.,ID/ovality too loose forces splice fit review.
+main_spar_wall_mm,main_spar_tube,1.0,mm,screening_reference,Quote wall-thickness tolerance and minimum guaranteed wall.,Lower wall or high variation forces spar margin/mass review.
+main_spar_mass_per_m_kg,main_spar_tube,0.494,kg/m,estimate_catalog,Quote actual mass per meter and batch variation.,Mass delta feeds mass/CG ledger review.
+rear_spar_od_mm,rear_spar_tube,80.0,mm,screening_reference,Quote OD tolerance and measurement method.,Cannot meet OD/tolerance forces rear-spar fit review.
+rear_spar_id_mm,rear_spar_tube,78.0,mm,screening_reference,Quote ID tolerance and sleeve-fit recommendation.,ID/ovality too loose forces rear-spar splice review.
+rear_spar_wall_mm,rear_spar_tube,1.0,mm,screening_reference,Quote wall-thickness tolerance and minimum guaranteed wall.,Lower wall or high variation forces rear-spar review.
+rear_spar_mass_per_m_kg,rear_spar_tube,0.394,kg/m,estimate_catalog,Quote actual mass per meter and batch variation.,Mass delta feeds mass/CG ledger review.
+max_shipping_segment_m,logistics,3.0,m,controlled_for_rfq_screening,Confirm 3 m shipped/cut segment compatibility.,"If 3 m cannot be shipped, procurement and transport concept need review."
+main_segment_quantity_basis,quantity,12,segments,screening_quantity_basis,Quote 12 full-wing main-spar segments plus optional spare allowance separately.,Different quantity basis requires station/length review.
+rear_segment_quantity_basis,quantity,12,segments,screening_quantity_basis,Quote 12 full-wing rear-spar segments plus optional spare allowance separately.,Different quantity basis requires station/length review.
+main_spigot_od_fit_mm,splice_fit,97.8,mm,screening_fit_assumption,"Confirm recommended spigot OD for 0.2 mm diametral clearance, or propose a tested alternative.",Fit change affects y=3 m zero-margin splice review.
+diametral_clearance_mm,splice_fit,0.2,mm,screening_fit_assumption,Confirm bonded/slip-fit clearance for CFRP tube-in-tube joint.,"Clearance change affects sleeve fit, ovality, and bondline review."
+spigot_wall_y3_mm,splice_spigot,1.02,mm,critical_screening_warning,Confirm available wall and knockdowns for y=3 m inboard splice.,Any knockdown can make the zero-margin splice negative.
+spigot_wall_outboard_mm,splice_spigot,0.80,mm,screening_reference,Confirm stock/custom spigot wall for outboard joints.,"If unavailable, mass and fit review required."
+spigot_overlap_each_side_mm,splice_spigot,400.0,mm,screening_reference,Confirm 4D overlap each side is practical for bonding/inspection.,Overlap reduction forces splice redesign review.
+main_ferrule_od_mm,ferrule_shear_dog,125.0,mm,screening_reference,Confirm ferrule ring manufacturability at 1.25 x main spar OD.,Ferrule geometry change affects torsion/shear-dog review.
+ferrule_width_mm,ferrule_shear_dog,25.0,mm,screening_reference,"Confirm ferrule width, edge prep, and bond process.",Width change affects torsion and local bearing review.
+ferrule_wall_mm,ferrule_shear_dog,1.5,mm,screening_reference,Confirm ferrule wall and local crush/bearing allowables.,Wall change affects mass and torsion review.
+straightness_tolerance,dimensional_qa,vendor_response_required,mm_per_m,open_vendor_response,State straightness tolerance over each 3 m segment.,"Poor straightness affects alignment, sleeve fit, and wing jigging."
+ovality_tolerance,dimensional_qa,vendor_response_required,mm_or_percent,open_vendor_response,State ovality tolerance before and after finish.,Poor ovality directly affects y=3 m sleeve margin.
+surface_finish_bond_prep,bond_prep,vendor_response_required,process,open_vendor_response,State supplied surface finish and structural bond-prep compatibility.,"Incompatible surface prep affects ferrules, spigots, and C04 saddle rings."
+qa_coupon_certificate,qa,vendor_response_required,artifact,open_vendor_response,"Provide certificate, batch traceability, and same-batch coupon/cutoff options.",No traceability/coupons limits procurement confidence.
+lead_time_moq,commercial,vendor_response_required,weeks_and_quantity,open_vendor_response,"State MOQ, lead time, custom mandrel cost, and replacement policy.",Commercial infeasibility may trigger procurement review.

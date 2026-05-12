@@ -16,6 +16,9 @@ The current release package is:
 - `output/baseline_A_team_release/cg_summary.json`
 - `output/baseline_A_team_release/margin_budget.md`
 - `output/baseline_A_team_release/manufacturable_geometry_audit/`
+- `output/baseline_A_team_release/carbon_tube_rfq_pack.md`
+- `output/baseline_A_team_release/controlled_station_span_splice_manifest.csv`
+- `output/baseline_A_team_release/procurement_risk_register.json`
 - `output/baseline_A_team_release/team_work_packages.md`
 
 The current structural blocker verdict is
@@ -32,8 +35,15 @@ The current manufacturable geometry audit verdict is
 `geometry_freeze_needs_fix`. The smooth pathfinder is usable for Baseline A
 team-release engineering work, but continuous dimensions, station/span/splice
 contracts, and RFQ/shop-facing tube/rib/control stations are not final drawing
-control. Carry those warnings into WO-005 instead of treating them as either
-final sign-off or immediate Baseline A reopen.
+control. WO-005 carries those warnings into vendor-screening language instead
+of treating them as either final sign-off or immediate Baseline A reopen.
+
+The current carbon tube RFQ pack verdict is `carbon_tube_rfq_pack_ready`. That
+means the team can ask vendors screening questions using one controlled RFQ
+station convention; it does not authorize tube purchase, supplier selection,
+shop drawings, spar-spec changes, or final aircraft sign-off. Vendor evidence
+that invalidates tube OD/wall, splice fit, layup/modulus, mass/CG, 3 m shipping,
+or y=3 m inboard splice assumptions must return through change control.
 
 ## Worker Startup
 

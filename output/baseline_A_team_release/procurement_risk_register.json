@@ -1,0 +1,109 @@
+{
+  "baseline_A_reopen_watch": [
+    "Vendor evidence invalidates current main/rear spar OD, wall, tolerance, or splice-fit assumptions.",
+    "Vendor mass or layup changes make managed CG 0.75 m or aeroelastic closure infeasible.",
+    "y=3 m splice cannot be recovered by detail design, coupon, or local FEM without changing spar architecture."
+  ],
+  "claim_boundary": "Vendor-facing screening RFQ pack only; it is not a purchase order, not supplier selection, not drawing release, and not final aircraft sign-off.",
+  "risk_register": [
+    {
+      "affected_review": [
+        "spar_spec",
+        "procurement",
+        "baseline_A_reopen_watch"
+      ],
+      "engineering_read": "Tube family evidence is a screening assumption. A real supplier miss can invalidate spar stiffness, mass, splice fit, and procurement schedule.",
+      "risk_id": "tube_family_unavailable",
+      "severity": "review_required",
+      "trigger": "Vendor cannot meet 100/98 main or 80/78 rear HM CFRP tube family with credible tolerance and layup data."
+    },
+    {
+      "affected_review": [
+        "spar_splice_detail",
+        "coupon_local_test",
+        "spar_spec"
+      ],
+      "engineering_read": "The inboard splice only has zero screening bending margin after auto-sizing. This is the highest-priority vendor/detail question.",
+      "risk_id": "y3_splice_zero_margin_consumed",
+      "severity": "high",
+      "trigger": "Any vendor knockdown, ovality, fit tolerance, or wall variation makes y=3.0 m splice margin negative."
+    },
+    {
+      "affected_review": [
+        "splice_fit",
+        "local_fem",
+        "coupon_plan"
+      ],
+      "engineering_read": "Fit ambiguity can create contact peaks, bondline gaps, ovalization, and unmodeled local bearing.",
+      "risk_id": "sleeve_fit_tolerance_unknown",
+      "severity": "review_required",
+      "trigger": "Vendor cannot state ID/OD/ovality/straightness tolerance or recommended diametral clearance for CFRP spigots."
+    },
+    {
+      "affected_review": [
+        "spar_spec",
+        "mass_cg",
+        "aeroelastic_closure"
+      ],
+      "engineering_read": "Changing laminate can move EI/GJ, local buckling, torsion, mass, and managed CG.",
+      "risk_id": "layup_or_modulus_change",
+      "severity": "review_required",
+      "trigger": "Vendor proposes a layup, fiber modulus class, hoop fraction, or resin system materially different from the HM screening family."
+    },
+    {
+      "affected_review": [
+        "transport",
+        "procurement",
+        "station_manifest"
+      ],
+      "engineering_read": "The splice design and release segmentation are built around the 3 m transport constraint.",
+      "risk_id": "three_meter_logistics_fail",
+      "severity": "procurement_review",
+      "trigger": "Vendor cannot ship/protect/inspect 3 m segments or requires a different maximum length."
+    },
+    {
+      "affected_review": [
+        "C04_coupon",
+        "ferrule_spigot_bond",
+        "manufacturing_test"
+      ],
+      "engineering_read": "C04 and splice concepts depend on bond and contact repeatability, not only tube strength.",
+      "risk_id": "surface_prep_incompatible",
+      "severity": "review_required",
+      "trigger": "Vendor finish or coating is incompatible with structural bonding, ferrules, saddle rings, or spigots."
+    },
+    {
+      "affected_review": [
+        "station_manifest",
+        "drawing_control",
+        "procurement"
+      ],
+      "engineering_read": "This can put sleeves, hard ribs, or cut lengths in the wrong place without changing any software test.",
+      "risk_id": "station_convention_mixed",
+      "severity": "dangerous_assumption",
+      "trigger": "Vendor or shop drawing mixes 3 m transport splice stations with materialized spar-joint rib stations or aero/rib tip extents."
+    },
+    {
+      "affected_review": [
+        "coupon_plan",
+        "supplier_screening",
+        "procurement"
+      ],
+      "engineering_read": "No traceability means vendor data cannot close the current coupon/local FEM readiness boundary.",
+      "risk_id": "qa_traceability_missing",
+      "severity": "procurement_review",
+      "trigger": "Vendor cannot provide certificates, batch traceability, dimensional report, same-batch coupons, or replacement policy."
+    }
+  ],
+  "schema_version": "baseline_a_carbon_tube_rfq_pack_v1",
+  "source_artifacts": [
+    "output/baseline_A_team_release/geometry_freeze.json",
+    "output/baseline_A_team_release/manufacturable_geometry_audit/geometry_discretization_report.csv",
+    "output/baseline_A_team_release/manufacturable_geometry_audit/smoothness_warning.json",
+    "output/current_pathfinder_materialized_rib_contract_audit/materialized_rib_contract_audit.json",
+    "output/current_pathfinder_spar_splice_design/splice_design_report.json",
+    "output/current_pathfinder_p1_load_path_mass_closure/p1_load_path_mass_closure.json",
+    "data/carbon_tubes.csv"
+  ],
+  "verdict": "carbon_tube_rfq_pack_ready"
+}

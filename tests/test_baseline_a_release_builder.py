@@ -134,6 +134,7 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
     work_packages = (output_dir / "team_work_packages.md").read_text(encoding="utf-8")
     for queue_item in (
         "design-space freeze audit",
+        "carbon tube RFQ + procurement pack",
         "main-wing SU2 baseline validation",
         "QPROP/XROTOR propulsion interface",
         "airfoil database CST/NSGA background lane",
@@ -143,3 +144,11 @@ def test_interface_packs_and_work_queue_keep_lanes_and_claims_separate(tmp_path:
     assert "Do not implement SU2/NSGA/propeller optimization in this release-builder task" in (
         work_packages
     )
+    assert "carbon_tube_rfq_pack_ready" in work_packages
+    assert "execute WO-006: Main-Wing SU2 Baseline Validation" in work_packages
+
+    carbon_rfq = (output_dir / "carbon_tube_rfq_spec.md").read_text(encoding="utf-8")
+    assert "carbon_tube_rfq_pack_ready" in carbon_rfq
+    assert "not a purchase order" in carbon_rfq
+    assert "controlled_station_span_splice_manifest.csv" in carbon_rfq
+    assert "0.345 m stiffness label is not vendor drawing control" in carbon_rfq

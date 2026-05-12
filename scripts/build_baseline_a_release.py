@@ -850,7 +850,8 @@ def _render_manufacturing_plan(context: Mapping[str, Any]) -> str:
             "- C04 saddle/yoke/clamp coupon.",
             "- C04 local FEM and coupon correlation package.",
             "- 1 m wing-bay v2 with rib/collar/skin-sag evidence.",
-            "- Carbon tube RFQ for main/rear spar and splice-fit tolerances.",
+            "- Carbon tube RFQ screening using `carbon_tube_rfq_pack.md` and "
+            "`controlled_station_span_splice_manifest.csv`.",
             "",
             "## Do Not Claim Yet",
             "",
@@ -874,21 +875,42 @@ def _render_carbon_tube_rfq(context: Mapping[str, Any]) -> str:
         [
             "# Carbon Tube RFQ Spec",
             "",
-            "This is an RFQ screening spec, not a released production drawing.",
+            "Verdict: `carbon_tube_rfq_pack_ready`",
+            "",
+            "This is a vendor-facing RFQ screening spec. It is not a purchase "
+            "order, not final supplier selection, not production drawing control, "
+            "and not final aircraft sign-off.",
+            "",
+            "## Pack Files",
+            "",
+            "- `carbon_tube_rfq_pack.md`: readable RFQ package and engineering boundary.",
+            "- `controlled_station_span_splice_manifest.csv`: one RFQ station/span convention.",
+            "- `vendor_questionnaire.md`: supplier response questions.",
+            "- `procurement_risk_register.json`: review and reopen triggers.",
+            "- `tube_splice_tolerance_requirements.csv`: tube/splice/tolerance request table.",
+            "- `rfq_daily_review.md`: one-page review summary.",
+            "",
+            "## Controlled RFQ Convention",
+            "",
+            "- Use positive half-wing `y` from aircraft centerline/root for RFQ language; mirror to both sides.",
+            "- Structural procurement basis: `16.500 m` half-span, `3.000 m` maximum transport panel.",
+            "- RFQ splice station basis: y = `3 / 6 / 9 / 12 / 15 m` on each half-wing.",
+            "- Materialized rib basis for release language: `0.30 m` physical rib station trace.",
+            "- Aero/rib extents beyond the 16.5 m structural basis are reference/open until the station manifest is drawing-controlled.",
             "",
             "## Requested Tube Families",
             "",
             "- Main spar reference: 100 mm OD / 98 mm ID HM CFRP tube family.",
             "- Rear spar reference: 80 mm OD / 78 mm ID HM CFRP tube family.",
             "- Splice spigot family: internal CFRP spigot, 4D overlap each side.",
-            "- Inboard splice wall reference: 1.02 mm screening wall at the highest-load station.",
+            "- Inboard y=3 m splice warning: 1.02 mm screening spigot wall with zero bending margin.",
             "",
-            "## Vendor Questions",
+            "## WO-004 Warning Resolved For RFQ Language",
             "",
-            "- OD/ID tolerance, straightness, and ovality over 3 m shipped segments.",
-            "- Layup schedule, fiber modulus class, resin system, cure temperature, and QA coupons.",
-            "- Bond surface preparation compatibility for saddle rings, ferrules, and spigots.",
-            "- Minimum order length, shipping limit, damage inspection, and replacement policy.",
+            "- Control the RFQ to the 0.30 m physical rib station trace. The relaxed 0.345 m stiffness label is not vendor drawing control.",
+            "- Do not mix 3 m transport splice stations with materialized spar-joint rib stations.",
+            "- Do not treat continuous smooth geometry dimensions as shop-grid dimensions.",
+            "- Do not treat airfoil/control/transition/transport station contracts as final drawing control.",
             "",
             "## Change-Control Boundary",
             "",
@@ -950,14 +972,14 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
             "Completed with verdict `geometry_freeze_needs_fix`; no large external-shape reopen, "
             "but station/span/splice manifest must be controlled before RFQ/shop use.",
         ),
-    ]
-    queue = [
         (
             "WO-005",
             "carbon tube RFQ + procurement pack",
-            "Turn screening tube, splice, tolerance, and station assumptions into a vendor-facing "
-            "question pack without committing procurement.",
+            "Completed with verdict `carbon_tube_rfq_pack_ready`; vendor screening pack now "
+            "carries tube, splice, tolerance, station, and procurement risk boundaries.",
         ),
+    ]
+    queue = [
         (
             "WO-006",
             "main-wing SU2 baseline validation",
@@ -1037,16 +1059,15 @@ def _render_team_work_packages(context: Mapping[str, Any]) -> str:
             "## Next Recommended Codex Goal",
             "",
             "```text",
-            "/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-005: Carbon Tube RFQ + Procurement Pack.",
+            "/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006: Main-Wing SU2 Baseline Validation.",
             "Read README.md, CURRENT_MAINLINE.md, output/baseline_A_team_release/, "
-            "output/baseline_A_team_release/manufacturable_geometry_audit/, and "
-            "docs/AI_WORK_ORDER_PROTOCOL.md first. Build a vendor-facing screening "
-            "RFQ pack for carbon tubes, splice fit, tolerances, QA coupons, 3 m "
-            "shipping segments, station/span/splice manifest, and supplier questions. "
-            "Do not place orders, choose a supplier, or change spar specs without user "
-            "decision. Carry WO-004 warnings explicitly, output verdict, changed files, "
+            "output/baseline_A_team_release/carbon_tube_rfq_pack.md, and "
+            "docs/AI_WORK_ORDER_PROTOCOL.md first. Build a bounded main-wing SU2 "
+            "baseline calibration for Baseline A aero-model comparison. Do not run "
+            "full design-space CFD, do not use SU2 as final truth, and do not let "
+            "CFD results pass structural blockers. Output verdict, changed files, "
             "verification, engineering caveats, reviewer prompt, and next work order; "
-            "run relevant tests/ruff/build release/git diff checks, then commit only WO-005.",
+            "run relevant tests/ruff/build checks, then commit only WO-006.",
             "```",
             "",
             "## Reviewer Prompt",
