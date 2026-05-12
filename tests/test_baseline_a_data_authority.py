@@ -142,6 +142,41 @@ def test_historical_generated_ready_verdicts_are_allowed_when_repair_labeled(
     assert mod.check_authority_violations(tmp_path) == []
 
 
+def test_checker_flags_paused_wo006_next_recommended_goal_context(tmp_path: Path) -> None:
+    mod = _load_module()
+    work_orders_dir = tmp_path / "docs" / "work_orders"
+    work_orders_dir.mkdir(parents=True)
+
+    (work_orders_dir / "QUEUE.md").write_text(
+        "\n".join(
+            [
+                "# Baseline A Work Order Queue",
+                "",
+                "| ID | Priority | Status | Work order | Owner lane | Why now |",
+                "|---|---:|---|---|---|---|",
+                "| WO-006 | P1 | paused | Main-Wing SU2 Baseline Validation | aero validation | Paused until data authority is restored |",
+                "",
+                "## Next Recommended Work Order",
+                "",
+                "```text",
+                "/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006: Main-Wing SU2 Baseline Validation.",
+                "",
+                "Task:",
+                "Build a bounded main-wing SU2 baseline validation for the current Baseline A pathfinder.",
+                "```",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    violations = mod.check_authority_violations(tmp_path)
+    violation_ids = {violation.rule_id for violation in violations}
+
+    assert "wo006_next_recommended_goal_without_prerequisite" in violation_ids
+    assert "wo006_paste_ready_goal_while_paused" in violation_ids
+    assert "queue_paused_wo006_but_recommended_goal_executes_wo006" in violation_ids
+
+
 def test_audit_artifacts_include_inventory_conflicts_authority_and_gate_debt(tmp_path: Path) -> None:
     mod = _load_module()
     docs_dir = tmp_path / "docs"

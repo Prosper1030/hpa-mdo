@@ -393,12 +393,18 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
+WO-006 SU2 remains paused. The next recommended task is the final
+data-authority restoration / unblock review, not SU2 execution. Do not start
+WO-006 until the checker, authority table, and conflict register show that the
+blocking mass/span/RFQ authority conflicts are repaired.
+
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006: Main-Wing SU2 Baseline Validation.
+/goal In /Volumes/Samsung SSD/hpa-mdo, complete the final Baseline A data-authority restoration and WO-006 unblock review.
 
 Role:
 代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest and
-do not overclaim screening evidence.
+do not overclaim screening evidence. WO-006 SU2 remains paused unless this
+review proves the data-authority restoration is complete.
 
 Read first:
 - README.md
@@ -409,27 +415,35 @@ Read first:
 - output/baseline_A_team_release/carbon_tube_rfq_pack.md
 
 Task:
-Build a bounded main-wing SU2 baseline validation for the current Baseline A
-pathfinder. Compare the current low-order aero model against a limited SU2
-baseline without treating SU2 as final truth and without using CFD to pass
-structural blockers.
+Complete the final data-authority restoration / unblock review before WO-006.
+Confirm that current-channel docs, generated release/RFQ artifacts, the
+authority table, and the conflict register no longer promote suspect mass,
+span, RFQ, procurement, power, or release claims as active truth. If restoration
+is proven, recommend WO-006 as the next work order with explicit prerequisite
+evidence; if not, keep WO-006 paused and name the remaining blocker.
 
 Boundary:
-Do not run full design-space CFD, propeller optimization, NSGA, random
-disturbance simulation, or final CAD automation. Do not call SU2 final aircraft
-truth. Ask the user only if the evidence affects large external shape, spar
-spec, mass/CG, procurement commitment, or Baseline A reopen.
+Do not run SU2, QPROP/XROTOR, full design-space CFD, propeller optimization,
+NSGA, random disturbance simulation, procurement, vendor selection, or final CAD
+automation. Do not turn checker pass/fail into aircraft sign-off. Ask the user
+only if the evidence affects large external shape, spar spec, mass/CG,
+procurement commitment, or Baseline A reopen.
 
 Required output:
-- verdict: su2_baseline_calibration_usable / su2_baseline_needs_fix / su2_baseline_reopen_risk
+- verdict: baseline_A_data_authority_restored / data_authority_queue_conflict_remaining / checker_context_guard_incomplete
 - changed files
+- exact authority blocker restored or still open
 - verification
 - engineering caveats
+- whether WO-006 may proceed
 - reviewer prompt
 - next recommended work order
 
 Verification:
-- run relevant tests
+- run scripts/build_baseline_a_release.py
+- run scripts/build_carbon_tube_rfq_pack.py
+- run scripts/check_baseline_a_data_authority.py --write-audit
+- run targeted authority/release/RFQ tests
 - run ruff on changed Python files
 - run git diff --check
 - git add -p only this work-order scope and commit

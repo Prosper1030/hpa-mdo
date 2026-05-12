@@ -622,9 +622,39 @@ def _file_sequence_violations(
 ) -> list[AuthorityViolation]:
     """Catch contradictions that need file-order context."""
     saw_16p5_not_procurement: tuple[int, str] | None = None
+    wo006_paused_line: tuple[int, str] | None = None
+    next_recommended_goals: list[tuple[int, str]] = []
     violations: list[AuthorityViolation] = []
-    for line_number, line in lines:
+    for index, (line_number, line) in enumerate(lines):
         normalized = _normalize(line)
+        if _line_marks_wo006_paused(normalized):
+            wo006_paused_line = (line_number, line.strip())
+
+        if _is_next_recommended_heading(normalized):
+            for goal_line_number, goal_line in lines[index + 1 : index + 11]:
+                goal_normalized = _normalize(goal_line)
+                if not _is_wo006_goal_line(goal_normalized):
+                    continue
+                context = [text for _number, text in lines[index : index + 11]]
+                if not _has_data_authority_prerequisite_context(context):
+                    violations.append(
+                        AuthorityViolation(
+                            rule_id="wo006_next_recommended_goal_without_prerequisite",
+                            file=rel,
+                            line=goal_line_number,
+                            raw_text=goal_line.strip(),
+                            risk_level="blocking",
+                            message=(
+                                "A Next Recommended Work Order block cannot point "
+                                "to a WO-006 goal unless data-authority restoration "
+                                "is named as a prerequisite."
+                            ),
+                        )
+                    )
+                if _is_wo006_execute_goal_line(goal_normalized):
+                    next_recommended_goals.append((goal_line_number, goal_line.strip()))
+                break
+
         if _is_16p5_not_procurement_truth(normalized):
             saw_16p5_not_procurement = (line_number, line.strip())
             continue
@@ -647,7 +677,102 @@ def _file_sequence_violations(
                 )
             )
             saw_16p5_not_procurement = None
+    if wo006_paused_line is not None:
+        paused_line_number, _paused_text = wo006_paused_line
+        for goal_line_number, goal_line in _wo006_execute_goal_lines(lines):
+            violations.append(
+                AuthorityViolation(
+                    rule_id="wo006_paste_ready_goal_while_paused",
+                    file=rel,
+                    line=goal_line_number,
+                    raw_text=goal_line,
+                    risk_level="blocking",
+                    message=(
+                        "A paste-ready /goal cannot execute WO-006 while the "
+                        f"queue still marks WO-006 paused at line {paused_line_number}."
+                    ),
+                )
+            )
+        for goal_line_number, goal_line in next_recommended_goals:
+            violations.append(
+                AuthorityViolation(
+                    rule_id="queue_paused_wo006_but_recommended_goal_executes_wo006",
+                    file=rel,
+                    line=goal_line_number,
+                    raw_text=goal_line,
+                    risk_level="blocking",
+                    message=(
+                        "The queue table marks WO-006 paused, but the recommended "
+                        "goal still tells a worker to execute WO-006."
+                    ),
+                )
+            )
     return violations
+
+
+def _line_marks_wo006_paused(normalized: str) -> bool:
+    return "wo-006" in normalized and _has_any(normalized, ("paused", "pause", "暫停"))
+
+
+def _is_next_recommended_heading(normalized: str) -> bool:
+    heading = normalized.lstrip("# ").strip()
+    return heading in {
+        "next recommended work order",
+        "next recommended goal",
+        "next recommended task",
+    }
+
+
+def _is_wo006_goal_line(normalized: str) -> bool:
+    return normalized.startswith("/goal ") and "wo-006" in normalized
+
+
+def _is_wo006_execute_goal_line(normalized: str) -> bool:
+    return _is_wo006_goal_line(normalized) and _has_any(
+        normalized,
+        (
+            "execute wo-006",
+            "start wo-006",
+            "run wo-006",
+            "執行 wo-006",
+            "開始 wo-006",
+        ),
+    )
+
+
+def _wo006_execute_goal_lines(lines: Sequence[tuple[int, str]]) -> list[tuple[int, str]]:
+    return [
+        (line_number, line.strip())
+        for line_number, line in lines
+        if _is_wo006_execute_goal_line(_normalize(line))
+    ]
+
+
+def _has_data_authority_prerequisite_context(lines: Sequence[str]) -> bool:
+    normalized = _normalize(" ".join(lines))
+    return _has_any(
+        normalized,
+        (
+            "data-authority restoration",
+            "data authority restoration",
+            "data-authority repair",
+            "data authority repair",
+            "data-authority restored",
+            "data authority restored",
+            "authority restoration",
+            "authority restored",
+            "checker passes",
+            "checker/audit",
+            "prerequisite",
+            "remains paused",
+            "stays paused",
+            "until data authority",
+            "until data-authority",
+            "前提",
+            "修復",
+            "暫停",
+        ),
+    )
 
 
 def _has_active_repaired_ready_verdict(normalized: str) -> bool:
