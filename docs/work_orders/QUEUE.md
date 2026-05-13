@@ -84,15 +84,15 @@ Current release package:
   positive drag but `CD=0.5555196327` is far outside AVL/Tier2-profile/VSPAERO
   sanity bounds. R6 multizone can launch and remains the next route, but it is
   not force/coefficient evidence yet.
-- WO-006H CFD limit-scaling campaign is complete with verdict
-  `wo006h_hard_limit_escalation_package_ready_after_serious_scaling`. Artifacts
-  live in
-  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/`.
-  It proves current-GO no-BL HXT can scale locally to `1,605,198`,
-  `3,046,012`, and `3,596,163` cells with marker/quality pass, then fails at
-  the next `h=0.04` rung. BL/core variants still fail the conformal interface
-  gate, so WO-006H is a hard-limit / larger-compute package, not aerodynamic
-  calibration evidence.
+- WO-006H reopened CFD campaign is complete with verdict
+  `su2_local_hard_limit_proven_with_executable_hpc_case`. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/`.
+  It proves current-GO no-BL HXT can scale locally to `3,790,657` cells /
+  `675,820` nodes with marker/quality pass, then finer no-BL probes fail at
+  topology/PLC-style gates rather than memory exhaustion. BL/core variants still
+  fail the conformal interface gate, so WO-006H is local hard-limit evidence
+  plus an executable HPC case targeting the missing fine no-BL and BL/core
+  routes, not aerodynamic calibration evidence.
 
 ## Queue Rules
 
@@ -127,7 +127,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | With data-authority checker prerequisite preserved, WO-006H adds serious local scaling and an HPC package, but no credible SU2 CL/CD; next repair must address BL/core conformal topology, y+, force ownership, and grid V&V before any calibration claim |
+| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | With data-authority checker prerequisite preserved, reopened WO-006H reaches accepted `su2_local_hard_limit_proven_with_executable_hpc_case`, but no credible SU2 CL/CD; next repair/HPC execution must address fine no-BL topology, BL/core conformal topology, y+, force ownership, and grid V&V before any calibration claim |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |

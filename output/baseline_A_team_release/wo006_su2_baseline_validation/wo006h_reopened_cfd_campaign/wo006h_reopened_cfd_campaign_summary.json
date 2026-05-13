@@ -1,0 +1,445 @@
+{
+  "schema_version": "wo006h_reopened_cfd_campaign_summary.v1",
+  "verdict": "su2_local_hard_limit_proven_with_executable_hpc_case",
+  "acceptable_final_verdict": true,
+  "authority_basis": {
+    "design_gross_mass_kg": 98.5,
+    "full_span_m": 34.332286,
+    "half_span_m": 17.166143,
+    "blocked_legacy_mass_kg": "106.828608 kg is suspect screening only",
+    "blocked_legacy_half_span_m": "16.5 m is local/splice screening only"
+  },
+  "gate_status": {
+    "physical_result": false,
+    "low_confidence_result": false,
+    "serious_no_bl_success": true,
+    "failed_finer_no_bl_rungs": true,
+    "serious_bl_core_blocker": true,
+    "hpc_targets_missing_cases": true
+  },
+  "hpc_package_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/hpc_executable_case",
+  "required_hpc_case_ids": [
+    "bl_core_preserve_alg10_32x2",
+    "bl_core_preserve_alg1_32x2",
+    "mesh_h004_delaunay",
+    "mesh_h004_hxt",
+    "mesh_h005_hxt"
+  ],
+  "observed_hpc_case_ids": [
+    "bl_core_preserve_alg10_32x2",
+    "bl_core_preserve_alg1_32x2",
+    "bl_core_remesh_alg10_32x2",
+    "mesh_h004_delaunay",
+    "mesh_h004_hxt",
+    "mesh_h0055_hxt",
+    "mesh_h005_hxt"
+  ],
+  "attempt_count": 12,
+  "attempts": [
+    {
+      "schema_version": "wo006h_reopened_core_preserve_long_attempt.v1",
+      "attempt_id": "core_preserve_interface_alg1_h1p0_900s",
+      "status": "meshed",
+      "route": "r6_owned_bl_core_preserved_interface_long_timeout",
+      "mesh_size": 1.0,
+      "mesh_algorithm3d": 1,
+      "preserve_boundary_mesh": true,
+      "volume_element_count": 20582,
+      "node_count": 56947,
+      "mesh_quality_status": "fail",
+      "mesh_quality_blockers": [
+        "non_positive_min_sicn",
+        "non_positive_min_sige",
+        "non_positive_volume"
+      ],
+      "unmatched_core_interface_face_count": 158,
+      "unmatched_bl_boundary_face_count": 4672,
+      "can_merge_core_with_bl_block": false,
+      "min_sicn": -0.004344947875822934,
+      "min_sige": -0.0015717144304018015,
+      "non_positive_volume_count": 173,
+      "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_core_preserve_interface_alg1_h1p0_900s/core_preserved_interface_alg1_h1p0.msh",
+      "su2_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_core_preserve_interface_alg1_h1p0_900s/core_preserved_interface_alg1_h1p0.su2",
+      "elapsed_seconds": 182.90344786643982,
+      "ru_maxrss": 268877824,
+      "boundary_layer_present": true,
+      "coefficient_interpretable": false,
+      "engineering_read": "Longer preserved-interface BL/core probe. It is not CFD evidence unless quality and zero-unmatched coupling gates pass.",
+      "process_exitcode": 0,
+      "peak_sampled_rss_kb": 238496,
+      "rss_samples": [
+        {
+          "elapsed_seconds": 0.003651142120361328,
+          "rss_kb": 9600
+        },
+        {
+          "elapsed_seconds": 5.011702060699463,
+          "rss_kb": 149824
+        },
+        {
+          "elapsed_seconds": 10.017031192779541,
+          "rss_kb": 152992
+        },
+        {
+          "elapsed_seconds": 15.025169134140015,
+          "rss_kb": 155376
+        },
+        {
+          "elapsed_seconds": 20.033579111099243,
+          "rss_kb": 157376
+        },
+        {
+          "elapsed_seconds": 25.04153323173523,
+          "rss_kb": 159120
+        },
+        {
+          "elapsed_seconds": 30.049787282943726,
+          "rss_kb": 160704
+        },
+        {
+          "elapsed_seconds": 35.0581910610199,
+          "rss_kb": 162128
+        },
+        {
+          "elapsed_seconds": 40.06649613380432,
+          "rss_kb": 163456
+        },
+        {
+          "elapsed_seconds": 45.074801206588745,
+          "rss_kb": 164640
+        },
+        {
+          "elapsed_seconds": 50.08292508125305,
+          "rss_kb": 165824
+        },
+        {
+          "elapsed_seconds": 55.09111499786377,
+          "rss_kb": 166912
+        },
+        {
+          "elapsed_seconds": 60.09966802597046,
+          "rss_kb": 160368
+        },
+        {
+          "elapsed_seconds": 65.10808300971985,
+          "rss_kb": 161376
+        },
+        {
+          "elapsed_seconds": 70.11637115478516,
+          "rss_kb": 162320
+        },
+        {
+          "elapsed_seconds": 75.12497615814209,
+          "rss_kb": 163248
+        },
+        {
+          "elapsed_seconds": 80.13325428962708,
+          "rss_kb": 164112
+        },
+        {
+          "elapsed_seconds": 85.14148020744324,
+          "rss_kb": 164960
+        },
+        {
+          "elapsed_seconds": 90.14951920509338,
+          "rss_kb": 165792
+        },
+        {
+          "elapsed_seconds": 95.1576292514801,
+          "rss_kb": 166608
+        },
+        {
+          "elapsed_seconds": 100.16579914093018,
+          "rss_kb": 167408
+        },
+        {
+          "elapsed_seconds": 105.17409300804138,
+          "rss_kb": 168144
+        },
+        {
+          "elapsed_seconds": 110.18217611312866,
+          "rss_kb": 168880
+        },
+        {
+          "elapsed_seconds": 115.19092297554016,
+          "rss_kb": 169584
+        },
+        {
+          "elapsed_seconds": 120.19913816452026,
+          "rss_kb": 170272
+        },
+        {
+          "elapsed_seconds": 125.20748591423035,
+          "rss_kb": 170960
+        },
+        {
+          "elapsed_seconds": 130.21552109718323,
+          "rss_kb": 171600
+        },
+        {
+          "elapsed_seconds": 135.22398018836975,
+          "rss_kb": 172240
+        },
+        {
+          "elapsed_seconds": 140.2324779033661,
+          "rss_kb": 172928
+        },
+        {
+          "elapsed_seconds": 145.24070191383362,
+          "rss_kb": 174752
+        },
+        {
+          "elapsed_seconds": 150.24909210205078,
+          "rss_kb": 176992
+        },
+        {
+          "elapsed_seconds": 155.25740814208984,
+          "rss_kb": 178880
+        },
+        {
+          "elapsed_seconds": 160.26584124565125,
+          "rss_kb": 180640
+        },
+        {
+          "elapsed_seconds": 165.27384614944458,
+          "rss_kb": 182464
+        },
+        {
+          "elapsed_seconds": 170.2822060585022,
+          "rss_kb": 184304
+        },
+        {
+          "elapsed_seconds": 175.29030203819275,
+          "rss_kb": 186128
+        },
+        {
+          "elapsed_seconds": 180.29840302467346,
+          "rss_kb": 238496
+        }
+      ],
+      "source_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_core_preserve_interface_alg1_h1p0_900s/attempt_summary.json"
+    },
+    {
+      "schema_version": "wo006h_reopened_full_bl_boundary_core_probe.v1",
+      "status": "failed",
+      "failure_code": "Exception",
+      "error": "PLC Error:  A segment and a facet intersect at point",
+      "traceback": "Traceback (most recent call last):\n  File \"<stdin>\", line 57, in <module>\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/gmsh.py\", line 2189, in generate\n    raise Exception(logger.getLastError())\nException: PLC Error:  A segment and a facet intersect at point\n",
+      "elapsed_seconds": 325.37822103500366,
+      "ru_maxrss": 259342336,
+      "source_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_full_bl_boundary_core_preserve_alg1_h1p0/attempt_summary.json",
+      "attempt_id": "attempt_full_bl_boundary_core_preserve_alg1_h1p0"
+    },
+    {
+      "schema_version": "wo006h_reopened_no_bl_alt_algorithm_attempt.v1",
+      "attempt_id": "no_bl_h_0p04_alg1_delaunay",
+      "status": "failed",
+      "route": "current_go_mesh_native_no_bl_delaunay_scaling",
+      "mesh_size": 0.04,
+      "mesh_algorithm3d": 1,
+      "failure_code": "Exception",
+      "error": "Invalid boundary mesh (overlapping facets) on surface 869 surface 992",
+      "traceback": "Traceback (most recent call last):\n  File \"<stdin>\", line 30, in worker\n  File \"/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/mesh_native/gmsh_polyhedral.py\", line 938, in write_faceted_volume_su2_case\n    mesh_report = write_faceted_volume_mesh(\n  File \"/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/mesh_native/gmsh_polyhedral.py\", line 179, in write_faceted_volume_mesh\n    gmsh.model.mesh.generate(3)\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/gmsh.py\", line 2189, in generate\n    raise Exception(logger.getLastError())\nException: Invalid boundary mesh (overlapping facets) on surface 869 surface 992\n",
+      "elapsed_seconds": 8.426302909851074,
+      "ru_maxrss": 665370624,
+      "process_exitcode": 0,
+      "peak_sampled_rss_kb": 320016,
+      "rss_samples": [
+        {
+          "elapsed_seconds": 0.003922939300537109,
+          "rss_kb": 9904
+        },
+        {
+          "elapsed_seconds": 5.013243913650513,
+          "rss_kb": 320016
+        }
+      ],
+      "source_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p04_alg1_delaunay/attempt_summary.json"
+    },
+    {
+      "attempt_id": "no_bl_h_0p055",
+      "status": "meshed",
+      "route": "current_go_mesh_native_no_bl_hxt_scaling",
+      "mesh_size": 0.055,
+      "volume_element_count": 3790657,
+      "node_count": 675820,
+      "mesh_quality_status": "pass",
+      "mesh_quality_blockers": [],
+      "marker_audit_status": "pass",
+      "min_gamma": 2.1973327933869763e-06,
+      "min_sicn": 0.000196118966245022,
+      "min_sige": 0.0003681988486896963,
+      "non_positive_volume_count": 0,
+      "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p055_hxt/local_no_bl_scaling/no_bl_h_0p055/mesh.su2",
+      "runtime_cfg_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p055_hxt/local_no_bl_scaling/no_bl_h_0p055/su2_runtime.cfg",
+      "elapsed_seconds": 83.30125403404236,
+      "ru_maxrss": 3577921536,
+      "boundary_layer_present": false,
+      "coefficient_interpretable": false,
+      "engineering_read": "No-BL mesh scaling evidence only. Marker/quality pass can support solver wiring, but no-BL tetra drag is not HPA viscous CFD truth.",
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p055_hxt/local_no_bl_scaling/no_bl_h_0p055",
+      "process_exitcode": 0,
+      "source_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p055_hxt/local_no_bl_scaling/no_bl_h_0p055/attempt_summary.json"
+    },
+    {
+      "attempt_id": "no_bl_h_0p05",
+      "status": "failed",
+      "route": "current_go_mesh_native_no_bl_hxt_scaling",
+      "mesh_size": 0.05,
+      "failure_code": "Exception",
+      "error": "HXT 3D mesh failed",
+      "elapsed_seconds": 1.649428129196167,
+      "ru_maxrss": 654606336,
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p05_hxt/local_no_bl_scaling/no_bl_h_0p05",
+      "process_exitcode": 0,
+      "source_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p05_hxt/local_no_bl_scaling/no_bl_h_0p05/attempt_summary.json"
+    },
+    {
+      "attempt_id": "core_preserve_alg10_h1p0",
+      "status": "timeout",
+      "failure_code": "local_timeout",
+      "timeout_seconds": 180.0,
+      "elapsed_seconds": 180.00838494300842,
+      "process_exitcode": -15,
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_preserve_alg10_h1p0",
+      "engineering_read": "Local process exceeded the bounded runtime. Treat this as local scaling evidence, not as proof the physics is impossible.",
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_preserve_alg10_h1p0/attempt_summary.json"
+    },
+    {
+      "attempt_id": "core_preserve_alg1_h1p0",
+      "status": "timeout",
+      "failure_code": "local_timeout",
+      "timeout_seconds": 180.0,
+      "elapsed_seconds": 180.00945401191711,
+      "process_exitcode": -15,
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_preserve_alg1_h1p0",
+      "engineering_read": "Local process exceeded the bounded runtime. Treat this as local scaling evidence, not as proof the physics is impossible.",
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_preserve_alg1_h1p0/attempt_summary.json"
+    },
+    {
+      "attempt_id": "core_remesh_alg10_h0p5",
+      "status": "meshed",
+      "route": "r6_owned_bl_core_variant",
+      "mesh_size": 0.5,
+      "mesh_algorithm3d": 10,
+      "preserve_boundary_mesh": false,
+      "volume_element_count": 24252,
+      "node_count": 61701,
+      "mesh_quality_status": "pass",
+      "mesh_quality_blockers": [],
+      "unmatched_core_interface_face_count": 158,
+      "unmatched_bl_boundary_face_count": 4672,
+      "can_merge_core_with_bl_block": false,
+      "min_sicn": 1.4001561059445996e-06,
+      "min_sige": 0.00023730481661063494,
+      "non_positive_volume_count": 0,
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_remesh_alg10_h0p5/core.msh",
+      "su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_remesh_alg10_h0p5/core.su2",
+      "elapsed_seconds": 30.522868871688843,
+      "ru_maxrss": 305250304,
+      "boundary_layer_present": true,
+      "coefficient_interpretable": false,
+      "engineering_read": "Owned BL block/core topology variant. It is not a CFD result unless quality and zero-unmatched coupling gates pass.",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_remesh_alg10_h0p5",
+      "process_exitcode": 0,
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_remesh_alg10_h0p5/attempt_summary.json"
+    },
+    {
+      "attempt_id": "no_bl_h_0p04",
+      "status": "failed",
+      "route": "current_go_mesh_native_no_bl_hxt_scaling",
+      "mesh_size": 0.04,
+      "failure_code": "Exception",
+      "error": "HXT 3D mesh failed",
+      "elapsed_seconds": 1.9263081550598145,
+      "ru_maxrss": 805175296,
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p04",
+      "process_exitcode": 0,
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p04/attempt_summary.json"
+    },
+    {
+      "attempt_id": "no_bl_h_0p06",
+      "status": "meshed",
+      "route": "current_go_mesh_native_no_bl_hxt_scaling",
+      "mesh_size": 0.06,
+      "volume_element_count": 3596163,
+      "node_count": 638397,
+      "mesh_quality_status": "pass",
+      "mesh_quality_blockers": [],
+      "marker_audit_status": "pass",
+      "min_gamma": 3.2335787808854153e-06,
+      "min_sicn": 0.00018411604877261497,
+      "min_sige": 0.0006959566709350968,
+      "non_positive_volume_count": 0,
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p06/mesh.su2",
+      "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p06/su2_runtime.cfg",
+      "elapsed_seconds": 76.04604983329773,
+      "ru_maxrss": 3358605312,
+      "boundary_layer_present": false,
+      "coefficient_interpretable": false,
+      "engineering_read": "No-BL mesh scaling evidence only. Marker/quality pass can support solver wiring, but no-BL tetra drag is not HPA viscous CFD truth.",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p06",
+      "process_exitcode": 0,
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p06/attempt_summary.json"
+    },
+    {
+      "attempt_id": "no_bl_h_0p08",
+      "status": "meshed",
+      "route": "current_go_mesh_native_no_bl_hxt_scaling",
+      "mesh_size": 0.08,
+      "volume_element_count": 3046012,
+      "node_count": 533411,
+      "mesh_quality_status": "pass",
+      "mesh_quality_blockers": [],
+      "marker_audit_status": "pass",
+      "min_gamma": 1.8923983814114328e-07,
+      "min_sicn": 0.00016483180440647372,
+      "min_sige": 0.0004050949652707565,
+      "non_positive_volume_count": 0,
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p08/mesh.su2",
+      "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p08/su2_runtime.cfg",
+      "elapsed_seconds": 67.44703984260559,
+      "ru_maxrss": 2925477888,
+      "boundary_layer_present": false,
+      "coefficient_interpretable": false,
+      "engineering_read": "No-BL mesh scaling evidence only. Marker/quality pass can support solver wiring, but no-BL tetra drag is not HPA viscous CFD truth.",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p08",
+      "process_exitcode": 0,
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p08/attempt_summary.json"
+    },
+    {
+      "attempt_id": "no_bl_h_0p1",
+      "status": "meshed",
+      "route": "current_go_mesh_native_no_bl_hxt_scaling",
+      "mesh_size": 0.1,
+      "volume_element_count": 1605198,
+      "node_count": 291077,
+      "mesh_quality_status": "pass",
+      "mesh_quality_blockers": [],
+      "marker_audit_status": "pass",
+      "min_gamma": 2.1677136735805517e-06,
+      "min_sicn": 0.00020070198055750955,
+      "min_sige": 0.000633898553537907,
+      "non_positive_volume_count": 0,
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p1/mesh.su2",
+      "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p1/su2_runtime.cfg",
+      "elapsed_seconds": 47.451003313064575,
+      "ru_maxrss": 1950302208,
+      "boundary_layer_present": false,
+      "coefficient_interpretable": false,
+      "engineering_read": "No-BL mesh scaling evidence only. Marker/quality pass can support solver wiring, but no-BL tetra drag is not HPA viscous CFD truth.",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p1",
+      "process_exitcode": 0,
+      "source_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_no_bl_scaling/no_bl_h_0p1/attempt_summary.json"
+    }
+  ],
+  "engineering_read": "Local evidence now separates two facts: no-BL HXT can mesh a serious 3.8M-cell control case, but finer no-BL rungs and BL/core routes fail at current surface/PLC/topology gates before credible viscous CFD. The HPC package targets those missing finer and BL/viscous cases rather than rerunning only already-successful coarser no-BL meshes.",
+  "blocked_claims": [
+    "grid-independent Baseline A SU2 CL/CD/Cm",
+    "BL-resolved local postprocessed y+",
+    "drag/power calibration",
+    "Baseline A reopen evidence",
+    "RFQ/procurement truth",
+    "final aircraft sign-off"
+  ]
+}

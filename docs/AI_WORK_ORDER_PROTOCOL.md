@@ -77,16 +77,19 @@ Current authority:
   (`CL=1.289421542`, `CD=0.5555196327`) is rejected as far too draggy and not
   converged; the multizone probe launches but is only route evidence until core
   quality, wake/span-cap coupling, and force coefficient ownership pass.
-- WO-006H CFD limit-scaling campaign is complete as a larger-compute package:
-  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/`.
-  Verdict: `wo006h_hard_limit_escalation_package_ready_after_serious_scaling`.
-  It adds serious local scaling evidence after WO-006G: current-GO no-BL HXT
-  meshes reached `1,605,198`, `3,046,012`, and `3,596,163` cells with marker /
-  quality pass, then `h=0.04` failed with `HXT 3D mesh failed`. BL/core variants
-  still do not clear the conformal interface gate: preserved-interface variants
-  timed out locally, and the remeshed-core variant still has unmatched BL/core
-  faces. Treat WO-006H as hard-limit / HPC-package evidence only, not as SU2
-  aero calibration.
+- WO-006H reopened CFD campaign is complete as a local-hard-limit plus executable
+  HPC case:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/`.
+  Verdict: `su2_local_hard_limit_proven_with_executable_hpc_case`. It supersedes
+  the earlier H larger-compute-only verdict. Local no-BL HXT control reached
+  `3,790,657` cells / `675,820` nodes with marker / quality pass, but no-BL
+  remains resource / marker / sign-control evidence only. Finer no-BL probes
+  (`h=0.05` HXT and `h=0.04` Delaunay) fail quickly with topology/PLC-style
+  errors, not memory exhaustion. BL/core still does not clear the conformal
+  interface gate: full BL boundary preserved-core fails with PLC intersection,
+  and preserved-interface Alg1 has non-positive volumes plus unmatched BL/core
+  faces. Treat WO-006H as local toolchain/topology hard-limit evidence with an
+  executable HPC case, not as SU2 aero calibration.
 
 ## Baseline A Rule
 

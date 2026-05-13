@@ -1,21 +1,26 @@
 # HPA-MDO：人力飛機新概念設計管線
 
-## 2026-05-13 WO-006H CFD Scaling / Larger-Compute Package
+## 2026-05-13 WO-006H Reopened CFD Campaign
 
-WO-006H 已在 current Baseline A main-wing 上補做 serious local scaling，artifact 在
-`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/`。
-Verdict 是 `wo006h_hard_limit_escalation_package_ready_after_serious_scaling`。
+WO-006H 已重新打開並補做 serious local CFD/mesh campaign，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/`。
+接受 verdict 是 `su2_local_hard_limit_proven_with_executable_hpc_case`。
 
-工程判讀：本機 mesh-native no-BL HXT ladder 可以從 R3 的 `936,017` cells 往上推到
-`1,605,198`、`3,046,012`、`3,596,163` cells，marker / quality gate 通過；下一個
-`h=0.04` rung 則直接 `HXT 3D mesh failed`。這證明 current GO no-BL route 可做
-multi-million-cell resource / marker / sign-control scaling，但仍不是 viscous HPA drag truth。
-R6 BL/core 變體沒有通過 conformal handoff：preserved-interface variants 各自 timeout，
-remeshed-core variant 雖然 quality pass，但仍有 `158` unmatched core interface faces 與
-`4672` unmatched BL boundary faces。因此目前仍沒有 physically credible 或 low-confidence
-SU2 CL/CD/Cm；可交付的是 executable larger-compute package
-`wo006h_cfd_limit_scaling/hpc_escalation_package/`，下一台機器可直接重跑更長 timeout /
-更大記憶體的 mesh ladder 與 BL/core 修復。
+工程判讀：這不是 Baseline A SU2 aerodynamic result。本機 no-BL HXT control 可到
+`3,790,657` cells、`675,820` nodes，marker / quality gate 通過；但這仍是 no-BL
+resource / marker / sign-control evidence，不是 viscous HPA drag truth。更細 rung 不是硬體
+記憶體牆：`h=0.05` HXT 在約 `1.65 s` 失敗、`h=0.04` Delaunay 在約 `8.43 s` 失敗且 peak
+memory 低，錯誤分別是 `HXT 3D mesh failed` 與 boundary overlapping facets。BL/core 方向也
+沒有可用 handoff：full BL boundary preserved-core probe 跑約 `325 s` 後以 PLC segment/facet
+intersection 失敗；preserved-interface Alg1 mesh 可完成，但有 `173` non-positive volumes、
+`158` unmatched core interface faces 與 `4672` unmatched BL boundary faces。因此目前沒有
+physically credible 或 low-confidence SU2 CL/CD/Cm、沒有 postprocessed y+、沒有
+mesh-sensitivity-controlled viscous result。
+
+可交付的是 executable HPC package
+`wo006h_reopened_cfd_campaign/hpc_executable_case/`。它針對缺口重跑 `h=0.05` / `h=0.04`
+HXT、`h=0.04` Delaunay，以及 preserved-interface BL/core routes；不是只重跑已成功的小一點
+no-BL mesh。
 
 ## 2026-05-13 WO-006G SU2 CFD V&V Reset
 
@@ -124,7 +129,7 @@ evidence；下一步應從 R6 preserved-core quality 與 multizone/merged coeffi
 - WO-005 carbon tube RFQ pack 只能當 draft/vendor-screening；不能下單、選 vendor、放 shop drawing。
 - WO-006 只能做 bounded aero calibration；不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
-- WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route；WO-006R2 已把 current high-mesh / BL blocker 定位到 surface topology；WO-006R3 已產出 serious high-mesh no-BL handoff，但 BL route 與 CFD evidence gate 仍未達成。
+- WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route；WO-006R2 已把 current high-mesh / BL blocker 定位到 surface topology；WO-006R3 已產出 serious high-mesh no-BL handoff；WO-006H reopened campaign 已達 accepted `su2_local_hard_limit_proven_with_executable_hpc_case`，但仍沒有可用 SU2 CL/CD/Cm。
 - WO-006R6 verdict 是 `wo006r6_core_quality_limitation_proven`；current GO 已有 owned-BL topology basis 和 preserved-interface core evidence，但 core quality 與 wake/span-cap conformal topology 仍未達成，沒有 conformal mixed BL+core SU2 handoff，沒有 `bl_mesh_handoff.v1.json`，沒有 postprocessed y+，也沒有可解讀係數。
 - WO-006F verdict 是 `wo006f_campaign_incomplete`；目前沒有 physically credible SU2 CL/CD 可用於 Baseline A aero calibration。`attempt_10` 證明 SU2 multizone 是開放修復 route，但還不是 coefficient evidence。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
@@ -611,7 +616,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸仍不是 shop drawing；WO-005 已補 RFQ screening station/span/splice manifest，尚未變成 drawing release |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
 | Rib / root / wire hardware / composite detail | 開放 validation blockers，需要後續實體化與 detail evidence |
-| SU2 / mesh-native CFD | WO-006 可做 bounded aero calibration；WO-006F 尚未得到可信 SU2 CL/CD，下一步是 R6 preserved-core quality、wake/span-cap coupling 與 multizone/merged coefficient ownership，仍不是目前 performance truth |
+| SU2 / mesh-native CFD | WO-006 可做 bounded aero calibration；WO-006H reopened campaign 已達 local-hard-limit + executable HPC case，但尚未得到可信 SU2 CL/CD，下一步是執行/修復 fine no-BL topology、BL/core conformal topology、y+、force ownership 與 grid V&V，仍不是目前 performance truth |
 
 ---
 

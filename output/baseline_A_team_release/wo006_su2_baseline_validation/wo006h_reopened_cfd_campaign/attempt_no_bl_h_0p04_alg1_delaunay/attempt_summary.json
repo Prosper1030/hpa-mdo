@@ -1,0 +1,25 @@
+{
+  "schema_version": "wo006h_reopened_no_bl_alt_algorithm_attempt.v1",
+  "attempt_id": "no_bl_h_0p04_alg1_delaunay",
+  "status": "failed",
+  "route": "current_go_mesh_native_no_bl_delaunay_scaling",
+  "mesh_size": 0.04,
+  "mesh_algorithm3d": 1,
+  "failure_code": "Exception",
+  "error": "Invalid boundary mesh (overlapping facets) on surface 869 surface 992",
+  "traceback": "Traceback (most recent call last):\n  File \"<stdin>\", line 30, in worker\n  File \"/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/mesh_native/gmsh_polyhedral.py\", line 938, in write_faceted_volume_su2_case\n    mesh_report = write_faceted_volume_mesh(\n  File \"/Volumes/Samsung SSD/hpa-mdo/hpa_meshing_package/src/hpa_meshing/mesh_native/gmsh_polyhedral.py\", line 179, in write_faceted_volume_mesh\n    gmsh.model.mesh.generate(3)\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/gmsh.py\", line 2189, in generate\n    raise Exception(logger.getLastError())\nException: Invalid boundary mesh (overlapping facets) on surface 869 surface 992\n",
+  "elapsed_seconds": 8.426302909851074,
+  "ru_maxrss": 665370624,
+  "process_exitcode": 0,
+  "peak_sampled_rss_kb": 320016,
+  "rss_samples": [
+    {
+      "elapsed_seconds": 0.003922939300537109,
+      "rss_kb": 9904
+    },
+    {
+      "elapsed_seconds": 5.013243913650513,
+      "rss_kb": 320016
+    }
+  ]
+}

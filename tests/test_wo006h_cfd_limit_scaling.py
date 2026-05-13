@@ -27,7 +27,7 @@ def test_required_cl_uses_current_authority_values() -> None:
     assert module.required_cl() == pytest.approx(1.11697, rel=1e-4)
 
 
-def test_classify_verdict_requires_serious_scaling_before_hard_limit() -> None:
+def test_classify_verdict_does_not_promote_single_timeout_to_hard_limit() -> None:
     module = _load_module()
 
     assert (
@@ -58,12 +58,50 @@ def test_classify_verdict_requires_serious_scaling_before_hard_limit() -> None:
             no_bl_attempts=[{"status": "timeout", "mesh_size": 0.10}],
             core_attempts=[{"status": "timeout"}],
         )
-        == "wo006h_hard_limit_escalation_package_ready_after_serious_scaling"
+        == "wo006h_campaign_incomplete_needs_more_scaling"
     )
     assert (
         module.classify_verdict(
             no_bl_attempts=[{"status": "meshed", "volume_element_count": 1_500_000}],
             core_attempts=[{"status": "timeout"}],
         )
-        == "wo006h_hard_limit_escalation_package_ready_after_serious_scaling"
+        == "wo006h_serious_no_bl_scaling_only_not_cfd_result"
     )
+
+
+def test_no_bl_attempt_records_selected_gmsh_3d_algorithm() -> None:
+    module = _load_module()
+
+    attempt = module.NoBlMeshAttempt(
+        attempt_id="no_bl_h_0p04_alg1",
+        mesh_size=0.04,
+        farfield_mesh_size=4.0,
+        wing_refinement_radius=6.0,
+        feature_refinement_size=0.12,
+        timeout_seconds=900.0,
+        mesh_algorithm3d=1,
+    )
+
+    assert attempt.mesh_algorithm3d == 1
+
+
+def test_hpc_package_targets_failed_finer_and_bl_routes(tmp_path: Path) -> None:
+    module = _load_module()
+
+    module.write_hpc_package(tmp_path)
+
+    case_matrix = (tmp_path / "case_matrix.csv").read_text(encoding="utf-8")
+    run_script = (tmp_path / "run_hpc_campaign.sh").read_text(encoding="utf-8")
+    slurm_script = (tmp_path / "slurm_wo006h_mesh_ladder.sbatch").read_text(encoding="utf-8")
+
+    assert "mesh_h005_hxt" in case_matrix
+    assert "mesh_h004_hxt" in case_matrix
+    assert "mesh_h004_delaunay" in case_matrix
+    assert "bl_core_preserve_alg1_32x2" in case_matrix
+    assert "--mesh-sizes 0.04" in run_script
+    assert "--no-bl-mesh-algorithm3d 1" in run_script
+    assert "CORE_TIMEOUT_SECONDS" in run_script
+    assert '--hpc-package-dir "$PACKAGE_DIR"' in run_script
+    assert 'CORE_TIMEOUT_SECONDS="${CORE_TIMEOUT_SECONDS:-7200}"' in slurm_script
+    assert "hpc_escalation_package" not in run_script
+    assert "hpc_escalation_package" not in slurm_script

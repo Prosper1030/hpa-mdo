@@ -1,0 +1,182 @@
+{
+  "schema_version": "wo006h_reopened_core_preserve_long_attempt.v1",
+  "attempt_id": "core_preserve_interface_alg1_h1p0_900s",
+  "status": "meshed",
+  "route": "r6_owned_bl_core_preserved_interface_long_timeout",
+  "mesh_size": 1.0,
+  "mesh_algorithm3d": 1,
+  "preserve_boundary_mesh": true,
+  "volume_element_count": 20582,
+  "node_count": 56947,
+  "mesh_quality_status": "fail",
+  "mesh_quality_blockers": [
+    "non_positive_min_sicn",
+    "non_positive_min_sige",
+    "non_positive_volume"
+  ],
+  "unmatched_core_interface_face_count": 158,
+  "unmatched_bl_boundary_face_count": 4672,
+  "can_merge_core_with_bl_block": false,
+  "min_sicn": -0.004344947875822934,
+  "min_sige": -0.0015717144304018015,
+  "non_positive_volume_count": 173,
+  "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_core_preserve_interface_alg1_h1p0_900s/core_preserved_interface_alg1_h1p0.msh",
+  "su2_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_core_preserve_interface_alg1_h1p0_900s/core_preserved_interface_alg1_h1p0.su2",
+  "elapsed_seconds": 182.90344786643982,
+  "ru_maxrss": 268877824,
+  "boundary_layer_present": true,
+  "coefficient_interpretable": false,
+  "engineering_read": "Longer preserved-interface BL/core probe. It is not CFD evidence unless quality and zero-unmatched coupling gates pass.",
+  "process_exitcode": 0,
+  "peak_sampled_rss_kb": 238496,
+  "rss_samples": [
+    {
+      "elapsed_seconds": 0.003651142120361328,
+      "rss_kb": 9600
+    },
+    {
+      "elapsed_seconds": 5.011702060699463,
+      "rss_kb": 149824
+    },
+    {
+      "elapsed_seconds": 10.017031192779541,
+      "rss_kb": 152992
+    },
+    {
+      "elapsed_seconds": 15.025169134140015,
+      "rss_kb": 155376
+    },
+    {
+      "elapsed_seconds": 20.033579111099243,
+      "rss_kb": 157376
+    },
+    {
+      "elapsed_seconds": 25.04153323173523,
+      "rss_kb": 159120
+    },
+    {
+      "elapsed_seconds": 30.049787282943726,
+      "rss_kb": 160704
+    },
+    {
+      "elapsed_seconds": 35.0581910610199,
+      "rss_kb": 162128
+    },
+    {
+      "elapsed_seconds": 40.06649613380432,
+      "rss_kb": 163456
+    },
+    {
+      "elapsed_seconds": 45.074801206588745,
+      "rss_kb": 164640
+    },
+    {
+      "elapsed_seconds": 50.08292508125305,
+      "rss_kb": 165824
+    },
+    {
+      "elapsed_seconds": 55.09111499786377,
+      "rss_kb": 166912
+    },
+    {
+      "elapsed_seconds": 60.09966802597046,
+      "rss_kb": 160368
+    },
+    {
+      "elapsed_seconds": 65.10808300971985,
+      "rss_kb": 161376
+    },
+    {
+      "elapsed_seconds": 70.11637115478516,
+      "rss_kb": 162320
+    },
+    {
+      "elapsed_seconds": 75.12497615814209,
+      "rss_kb": 163248
+    },
+    {
+      "elapsed_seconds": 80.13325428962708,
+      "rss_kb": 164112
+    },
+    {
+      "elapsed_seconds": 85.14148020744324,
+      "rss_kb": 164960
+    },
+    {
+      "elapsed_seconds": 90.14951920509338,
+      "rss_kb": 165792
+    },
+    {
+      "elapsed_seconds": 95.1576292514801,
+      "rss_kb": 166608
+    },
+    {
+      "elapsed_seconds": 100.16579914093018,
+      "rss_kb": 167408
+    },
+    {
+      "elapsed_seconds": 105.17409300804138,
+      "rss_kb": 168144
+    },
+    {
+      "elapsed_seconds": 110.18217611312866,
+      "rss_kb": 168880
+    },
+    {
+      "elapsed_seconds": 115.19092297554016,
+      "rss_kb": 169584
+    },
+    {
+      "elapsed_seconds": 120.19913816452026,
+      "rss_kb": 170272
+    },
+    {
+      "elapsed_seconds": 125.20748591423035,
+      "rss_kb": 170960
+    },
+    {
+      "elapsed_seconds": 130.21552109718323,
+      "rss_kb": 171600
+    },
+    {
+      "elapsed_seconds": 135.22398018836975,
+      "rss_kb": 172240
+    },
+    {
+      "elapsed_seconds": 140.2324779033661,
+      "rss_kb": 172928
+    },
+    {
+      "elapsed_seconds": 145.24070191383362,
+      "rss_kb": 174752
+    },
+    {
+      "elapsed_seconds": 150.24909210205078,
+      "rss_kb": 176992
+    },
+    {
+      "elapsed_seconds": 155.25740814208984,
+      "rss_kb": 178880
+    },
+    {
+      "elapsed_seconds": 160.26584124565125,
+      "rss_kb": 180640
+    },
+    {
+      "elapsed_seconds": 165.27384614944458,
+      "rss_kb": 182464
+    },
+    {
+      "elapsed_seconds": 170.2822060585022,
+      "rss_kb": 184304
+    },
+    {
+      "elapsed_seconds": 175.29030203819275,
+      "rss_kb": 186128
+    },
+    {
+      "elapsed_seconds": 180.29840302467346,
+      "rss_kb": 238496
+    }
+  ]
+}

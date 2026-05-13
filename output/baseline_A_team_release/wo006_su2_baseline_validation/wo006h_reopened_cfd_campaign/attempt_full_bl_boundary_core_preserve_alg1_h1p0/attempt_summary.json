@@ -1,0 +1,9 @@
+{
+  "schema_version": "wo006h_reopened_full_bl_boundary_core_probe.v1",
+  "status": "failed",
+  "failure_code": "Exception",
+  "error": "PLC Error:  A segment and a facet intersect at point",
+  "traceback": "Traceback (most recent call last):\n  File \"<stdin>\", line 57, in <module>\n  File \"/Volumes/Samsung SSD/hpa-mdo/.venv/lib/python3.10/site-packages/gmsh.py\", line 2189, in generate\n    raise Exception(logger.getLastError())\nException: PLC Error:  A segment and a facet intersect at point\n",
+  "elapsed_seconds": 325.37822103500366,
+  "ru_maxrss": 259342336
+}

@@ -99,16 +99,20 @@ screening evidence 讀，不是現行 release / procurement truth。
   目前本機 OpenVSP/Gmsh/SU2 工具鏈不能產出可用 Baseline A SU2 aero calibration。後續必須先升級
   CFD-grade geometry cleanup、BL-resolved mesh family、足夠 compute resource，以及 low-Re
   transition / grid-convergence V&V workflow，不能把 route/debug evidence 升格成性能真相。
-- WO-006H CFD limit-scaling campaign 已產出
-  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/`，
-  verdict 是 `wo006h_hard_limit_escalation_package_ready_after_serious_scaling`。這不是
-  SU2 aerodynamic result；它補上 G 之後缺的 serious local scaling evidence。Current-GO
-  no-BL HXT ladder 在本機成功到 `1,605,198`、`3,046,012`、`3,596,163` cells，下一個
-  `h=0.04` rung 失敗為 `HXT 3D mesh failed`。BL/core preserved-interface variants
-  在 bounded local timeout 內未完成；remeshed-core variant quality pass 但仍有 `158`
-  unmatched core interface faces 與 `4672` unmatched BL boundary faces，所以沒有 conformal
-  BL-resolved handoff、沒有 postprocessed y+、沒有可解讀 CL/CD/Cm。WO-006H 的可用輸出是
-  directly runnable `hpc_escalation_package/`，不是 Baseline A drag/power calibration。
+- WO-006H reopened CFD campaign 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/`，
+  verdict 是 `su2_local_hard_limit_proven_with_executable_hpc_case`。這仍不是 SU2
+  aerodynamic result；它取代先前只到 larger-compute package 的 H 結論。本機 no-BL HXT
+  control 可到 `3,790,657` cells / `675,820` nodes 且 marker / quality pass，但 no-BL
+  只能當 resource / marker / sign-control evidence。更細 no-BL rung 以 topology/PLC 類錯誤
+  快速失敗（`h=0.05` HXT、`h=0.04` Delaunay），不是 memory 接近上限；BL/core route 也仍未
+  過 conformal handoff gate（full BL boundary preserved-core PLC fail，preserved-interface
+  Alg1 mesh 有 `173` non-positive volumes、`158` unmatched core interface faces 與 `4672`
+  unmatched BL boundary faces）。因此沒有 conformal BL-resolved handoff、沒有 postprocessed
+  y+、沒有可解讀 CL/CD/Cm。可用輸出是 directly runnable
+  `wo006h_reopened_cfd_campaign/hpc_executable_case/`，它會針對 `h=0.05` / `h=0.04` no-BL
+  topology probes 與 BL/core preserved-interface cases 重跑，不是 Baseline A drag/power
+  calibration。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

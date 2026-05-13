@@ -1,0 +1,12 @@
+{
+  "attempt_id": "no_bl_h_0p05",
+  "status": "failed",
+  "route": "current_go_mesh_native_no_bl_hxt_scaling",
+  "mesh_size": 0.05,
+  "failure_code": "Exception",
+  "error": "HXT 3D mesh failed",
+  "elapsed_seconds": 1.649428129196167,
+  "ru_maxrss": 654606336,
+  "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_reopened_cfd_campaign/attempt_no_bl_h_0p05_hxt/local_no_bl_scaling/no_bl_h_0p05",
+  "process_exitcode": 0
+}

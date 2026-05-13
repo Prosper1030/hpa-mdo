@@ -85,6 +85,7 @@ class NoBlMeshAttempt:
     wing_refinement_radius: float
     feature_refinement_size: float
     timeout_seconds: float
+    mesh_algorithm3d: int = 10
 
 
 @dataclass(frozen=True)
@@ -125,25 +126,13 @@ def classify_verdict(
     if credible_mesh:
         return "wo006h_bl_mesh_route_ready_needs_solver_grid_study"
     serious_no_bl = any(_is_serious_no_bl_scaling_attempt(attempt) for attempt in no_bl_attempts)
-    hard_limit = any(
-        attempt.get("status") in {"timeout", "failed", "terminated"}
-        for attempt in [*no_bl_attempts, *core_attempts]
-    )
-    if serious_no_bl and hard_limit:
-        return "wo006h_hard_limit_escalation_package_ready_after_serious_scaling"
     if serious_no_bl:
         return "wo006h_serious_no_bl_scaling_only_not_cfd_result"
     return "wo006h_campaign_incomplete_needs_more_scaling"
 
 
 def _is_serious_no_bl_scaling_attempt(attempt: Mapping[str, Any]) -> bool:
-    if int(attempt.get("volume_element_count") or 0) >= 1_000_000:
-        return True
-    try:
-        mesh_size = float(attempt.get("mesh_size"))
-    except (TypeError, ValueError):
-        return False
-    return mesh_size <= 0.10 and attempt.get("status") in {"timeout", "failed", "terminated"}
+    return attempt.get("status") == "meshed" and int(attempt.get("volume_element_count") or 0) >= 1_000_000
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -156,6 +145,12 @@ def main(argv: list[str] | None = None) -> int:
         nargs="+",
         default=[0.10, 0.08, 0.06],
         help="No-BL wing mesh sizes to attempt. Existing R3 0.12/0.15 evidence is reused.",
+    )
+    parser.add_argument(
+        "--no-bl-mesh-algorithm3d",
+        type=int,
+        default=10,
+        help="Gmsh Mesh.Algorithm3D for no-BL controls; 10=HXT, 1=Delaunay.",
     )
     parser.add_argument("--mesh-timeout-seconds", type=float, default=900.0)
     parser.add_argument("--core-timeout-seconds", type=float, default=180.0)
@@ -190,6 +185,7 @@ def main(argv: list[str] | None = None) -> int:
                 output_dir=output_dir / "local_no_bl_scaling",
                 mesh_sizes=args.mesh_sizes,
                 timeout_seconds=args.mesh_timeout_seconds,
+                mesh_algorithm3d=args.no_bl_mesh_algorithm3d,
             )
         if not args.skip_core_variants:
             core_attempts = run_core_variant_attempts(
@@ -233,6 +229,7 @@ def run_no_bl_mesh_ladder(
     output_dir: Path,
     mesh_sizes: Sequence[float],
     timeout_seconds: float,
+    mesh_algorithm3d: int = 10,
 ) -> list[dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     attempts = [
@@ -243,6 +240,7 @@ def run_no_bl_mesh_ladder(
             wing_refinement_radius=6.0,
             feature_refinement_size=max(0.12, 1.5 * float(mesh_size)),
             timeout_seconds=timeout_seconds,
+            mesh_algorithm3d=int(mesh_algorithm3d),
         )
         for mesh_size in mesh_sizes
     ]
@@ -265,6 +263,13 @@ def no_bl_mesh_worker(queue: Any, *, payload: Mapping[str, Any], case_dir: str) 
     start = time.time()
     case_path = Path(case_dir)
     case_path.mkdir(parents=True, exist_ok=True)
+    mesh_algorithm3d = int(payload.get("mesh_algorithm3d", 10))
+    if mesh_algorithm3d == 10:
+        route = "current_go_mesh_native_no_bl_hxt_scaling"
+    elif mesh_algorithm3d == 1:
+        route = "current_go_mesh_native_no_bl_delaunay_scaling"
+    else:
+        route = f"current_go_mesh_native_no_bl_alg{mesh_algorithm3d}_scaling"
     try:
         geometry = load_campaign_geometry(points_per_side=32, spanwise_subdivisions=2)
         wing = build_current_go_wing_surface(geometry)
@@ -300,7 +305,7 @@ def no_bl_mesh_worker(queue: Any, *, payload: Mapping[str, Any], case_dir: str) 
             conv_cauchy_eps="1e-4",
             output_files=("RESTART_ASCII", "SURFACE_CSV"),
             gmsh_threads=4,
-            mesh_algorithm3d=10,
+            mesh_algorithm3d=mesh_algorithm3d,
             surface_triangulation_policy="shorter_diagonal",
         )
         _patch_runtime_reference_origin(Path(report["runtime_cfg_path"]), geometry.moment_origin_m)
@@ -310,8 +315,9 @@ def no_bl_mesh_worker(queue: Any, *, payload: Mapping[str, Any], case_dir: str) 
         row = {
             "attempt_id": payload["attempt_id"],
             "status": "meshed",
-            "route": "current_go_mesh_native_no_bl_hxt_scaling",
+            "route": route,
             "mesh_size": payload["mesh_size"],
+            "mesh_algorithm3d": mesh_algorithm3d,
             "volume_element_count": mesh_report.get("volume_element_count"),
             "node_count": mesh_report.get("node_count"),
             "mesh_quality_status": (mesh_report.get("mesh_quality_gate") or {}).get("status"),
@@ -336,8 +342,9 @@ def no_bl_mesh_worker(queue: Any, *, payload: Mapping[str, Any], case_dir: str) 
         row = {
             "attempt_id": payload.get("attempt_id"),
             "status": "failed",
-            "route": "current_go_mesh_native_no_bl_hxt_scaling",
+            "route": route,
             "mesh_size": payload.get("mesh_size"),
+            "mesh_algorithm3d": mesh_algorithm3d,
             "failure_code": exc.__class__.__name__,
             "error": str(exc),
             "elapsed_seconds": time.time() - start,
@@ -623,11 +630,6 @@ def official_sources() -> list[dict[str, str]]:
 
 
 def completion_interpretation(verdict: str) -> str:
-    if verdict == "wo006h_hard_limit_escalation_package_ready_after_serious_scaling":
-        return (
-            "Allowed completion state 3: local route/compute limits were exercised "
-            "after serious scaling attempts and a directly runnable HPC package was emitted."
-        )
     if verdict == "wo006h_serious_no_bl_scaling_only_not_cfd_result":
         return (
             "Not a CFD result. Local no-BL scaling succeeded, but BL/y+/convergence "
@@ -642,20 +644,6 @@ def engineering_read(
     core_attempts: Sequence[Mapping[str, Any]],
 ) -> str:
     max_no_bl = max((int(item.get("volume_element_count") or 0) for item in no_bl_attempts), default=0)
-    core_interface_pass = any(
-        item.get("can_merge_core_with_bl_block") is True
-        and int(item.get("unmatched_core_interface_face_count") or 0) == 0
-        and int(item.get("unmatched_bl_boundary_face_count") or 0) == 0
-        for item in core_attempts
-    )
-    if verdict == "wo006h_hard_limit_escalation_package_ready_after_serious_scaling":
-        return (
-            f"Local run reached {max_no_bl} no-BL cells or a higher attempted rung, "
-            "but the only scalable current route is still no-BL. BL/core variants did "
-            f"{'not ' if not core_interface_pass else ''}clear the quality/interface gate. "
-            "Therefore local output is not physically defensible CFD; the useful result "
-            "is the executable larger-compute package plus hard gate evidence."
-        )
     return (
         f"Largest local no-BL cell count observed: {max_no_bl}. This is route evidence "
         "only until a conformal BL-resolved mesh, y+, convergence, force stability, "
@@ -668,14 +656,14 @@ def write_hpc_package(package_dir: Path) -> None:
     (package_dir / "case_matrix.csv").write_text(
         "\n".join(
             [
-                "case_id,route,wing_h_m,expected_cells_order,solver,iterations,acceptance_gate",
-                "mesh_1m,no_bl_control,0.12,1e6,INC_NAVIER_STOKES,1000,debug_only_not_drag_truth",
-                "mesh_3m,no_bl_control,0.08,3e6,INC_NAVIER_STOKES,1000,debug_only_not_drag_truth",
-                "mesh_3p6m,no_bl_control,0.06,3e6-5e6,INC_NAVIER_STOKES,1000,resource_scaling_only",
-                "mesh_8m,no_bl_control,0.04,6e6-10e6,INC_NAVIER_STOKES,1000,resource_scaling_only",
-                "bl_core_coarse,owned_bl_core,0.20,1e6-2e6,INC_RANS_SA,2000,requires_quality_interface_yplus",
-                "bl_core_medium,owned_bl_core,0.14,5e6-8e6,INC_RANS_SA,2000,requires_grid_delta",
-                "bl_core_fine,owned_bl_core,0.10,10e6-15e6,INC_RANS_SA,2500,requires_grid_delta",
+                "case_id,route,wing_h_m,gmsh_algorithm3d,expected_cells_order,solver,iterations,acceptance_gate",
+                "mesh_h0055_hxt,no_bl_control,0.055,10,3.5e6-5e6,INC_NAVIER_STOKES,1000,resource_scaling_only_not_drag_truth",
+                "mesh_h005_hxt,no_bl_failed_finer,0.05,10,topology_threshold_probe,INC_NAVIER_STOKES,1000,diagnose_hxt_plc_failure",
+                "mesh_h004_hxt,no_bl_failed_finer,0.04,10,topology_threshold_probe,INC_NAVIER_STOKES,1000,diagnose_hxt_plc_failure",
+                "mesh_h004_delaunay,no_bl_failed_finer,0.04,1,topology_threshold_probe,INC_NAVIER_STOKES,1000,diagnose_delaunay_boundary_overlap",
+                "bl_core_preserve_alg1_32x2,owned_bl_core_preserved_interface,na,1,serious_current_go_bl_core_probe,INC_RANS_SA,2000,requires_quality_interface_yplus",
+                "bl_core_preserve_alg10_32x2,owned_bl_core_preserved_interface,na,10,serious_current_go_bl_core_probe,INC_RANS_SA,2000,requires_quality_interface_yplus",
+                "bl_core_remesh_alg10_32x2,owned_bl_core_rejected_control,na,10,interface_remesh_control,INC_RANS_SA,2000,reject_if_unmatched_faces_remain",
             ]
         )
         + "\n",
@@ -688,17 +676,34 @@ set -euo pipefail
 REPO_ROOT="${REPO_ROOT:-/Volumes/Samsung SSD/hpa-mdo}"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_hpc_run}"
 PYTHON="${PYTHON:-$REPO_ROOT/.venv/bin/python}"
+PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PATH="${SU2_BIN:-/Users/linyuan/.local/opt/su2/current/bin}:$PATH"
 export PYTHONPATH="$REPO_ROOT/src:$REPO_ROOT/hpa_meshing_package/src:${PYTHONPATH:-}"
 
 cd "$REPO_ROOT"
 "$PYTHON" scripts/check_baseline_a_data_authority.py --check-only
-"$PYTHON" scripts/run_wo006h_cfd_limit_scaling.py \\
-  --output-dir "$OUT_DIR" \\
-  --mesh-sizes 0.12 0.10 0.08 0.06 \\
-  --mesh-timeout-seconds "${MESH_TIMEOUT_SECONDS:-7200}" \\
-  --core-timeout-seconds "${CORE_TIMEOUT_SECONDS:-1800}" \\
-  --clean
+
+run_case() {
+  local case_name="$1"
+  shift
+  "$PYTHON" scripts/run_wo006h_cfd_limit_scaling.py \\
+    --output-dir "$OUT_DIR/$case_name" \\
+    "$@" \\
+    --mesh-timeout-seconds "${MESH_TIMEOUT_SECONDS:-7200}" \\
+    --core-timeout-seconds "${CORE_TIMEOUT_SECONDS:-7200}" \\
+    --clean
+}
+
+run_case mesh_h0055_hxt --mesh-sizes 0.055 --skip-core-variants
+run_case mesh_h005_hxt --mesh-sizes 0.05 --skip-core-variants
+run_case mesh_h004_hxt --mesh-sizes 0.04 --skip-core-variants
+run_case mesh_h004_delaunay --mesh-sizes 0.04 --no-bl-mesh-algorithm3d 1 --skip-core-variants
+run_case bl_core_variants_32x2 --skip-no-bl-ladder
+
+"$PYTHON" scripts/run_wo006h_reopened_cfd_campaign.py \\
+  --input-dir "$OUT_DIR" \\
+  --output-dir "$OUT_DIR/final_report" \\
+  --hpc-package-dir "$PACKAGE_DIR"
 """,
         encoding="utf-8",
     )
@@ -722,30 +727,40 @@ module load su2 || true
 export REPO_ROOT="${REPO_ROOT:-$PWD}"
 export OUT_DIR="${OUT_DIR:-$REPO_ROOT/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_hpc_run}"
 export MESH_TIMEOUT_SECONDS="${MESH_TIMEOUT_SECONDS:-7200}"
-export CORE_TIMEOUT_SECONDS="${CORE_TIMEOUT_SECONDS:-1800}"
-bash "$REPO_ROOT/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/hpc_escalation_package/run_hpc_campaign.sh"
+export CORE_TIMEOUT_SECONDS="${CORE_TIMEOUT_SECONDS:-7200}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+bash "$SCRIPT_DIR/run_hpc_campaign.sh"
 """,
         encoding="utf-8",
     )
     os.chmod(package_dir / "slurm_wo006h_mesh_ladder.sbatch", 0o755)
     (package_dir / "README.md").write_text(
-        """# WO-006H HPC Escalation Package
+        """# WO-006H Reopened CFD HPC Package
 
-This package is for current Baseline A main-wing CFD route escalation. It does
-not change external geometry or authority values.
+This package is for current Baseline A main-wing CFD route escalation after
+the reopened WO-006H local campaign. It targets the missing serious cases,
+not just already-successful smaller no-BL controls:
+
+- finer no-BL topology probes at `h=0.05` and `h=0.04`;
+- an alternate Gmsh 3D Delaunay probe at `h=0.04`;
+- preserved-interface BL/core probes with Gmsh algorithms 1 and 10;
+- an interface-remesh control that must remain rejected if unmatched faces
+  remain.
+
+It does not change external geometry or authority values.
 
 Run from a machine with this repo, Gmsh, SU2, and Python dependencies:
 
 ```bash
 export REPO_ROOT=/path/to/hpa-mdo
-bash "$REPO_ROOT/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/hpc_escalation_package/run_hpc_campaign.sh"
+bash /path/to/this/package/run_hpc_campaign.sh
 ```
 
 For Slurm:
 
 ```bash
 cd "$REPO_ROOT"
-sbatch output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/hpc_escalation_package/slurm_wo006h_mesh_ladder.sbatch
+sbatch /path/to/this/package/slurm_wo006h_mesh_ladder.sbatch
 ```
 
 Acceptance is not "SU2 ran." A result is usable only after authority, marker,
