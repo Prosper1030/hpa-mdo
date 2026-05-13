@@ -416,18 +416,20 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-WO-006 SU2 is now the next recommended task after data-authority restoration, but only as bounded aero
-calibration. The checker, authority table, and conflict register show current
-channel wording is clean; remaining mass/span/RFQ conflicts block release and
-procurement, not this bounded validation lane.
+WO-006R is now the next recommended task after data-authority restoration.
+WO-006 already showed that the current pathfinder VSP3 provider can materialize,
+but the route does not yet produce a usable `mesh_handoff.v1` or SU2 solver
+smoke. Repair the current VSP3 -> mesh -> SU2 handoff route before WO-007
+propulsion or any aerodynamic delta claim.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006 after data-authority restoration as bounded aero calibration only.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R after data-authority restoration: bounded current-pathfinder mesh/SU2 handoff route repair.
 
 Role:
-代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest and do
-not overclaim screening evidence. WO-006 SU2 is allowed only as bounded aero
-calibration, not release truth, RFQ/procurement truth, or final aircraft sign-off.
+代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest. You may
+spawn subagents/explorers/workers for independent subtasks, but keep write scopes
+disjoint, review their outputs before integrating them, and do not delegate the
+immediate blocking task if it is on your critical path.
 
 Read first:
 - README.md
@@ -435,35 +437,75 @@ Read first:
 - docs/AI_WORK_ORDER_PROTOCOL.md
 - docs/work_orders/QUEUE.md
 - output/baseline_A_team_release/
-- output/baseline_A_team_release/carbon_tube_rfq_pack.md
+- output/baseline_A_team_release/data_authority_table.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/
+- hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md if it exists
 
 Task:
-Run bounded main-wing SU2 validation for the current Baseline A pathfinder.
-Use `98.5 kg` and current pipeline span authority unless explicitly running a
-labeled sensitivity. Compare CL, CD, CDi, profile drag, and model deltas against
-AVL/Fourier/XFOIL/proxy evidence. Output a calibration read and reopen-risk
-read, but do not promote SU2 to release, procurement, RFQ, structural, or final
-aircraft truth.
+Repair or precisely isolate the current Baseline A pathfinder VSP3 -> mesh ->
+SU2 handoff blocker. Start from the WO-006 evidence: default bounded mesh timed
+out in Gmsh 3D volume insertion; coarse sensitivity failed boundary
+parametrization topology; no current-pathfinder `mesh_handoff.v1` or usable SU2
+CL/CD delta exists.
+
+The primary target is to materialize a documented `mesh_handoff.v1` for the
+current pathfinder and then a minimal SU2 case materialization / solver smoke if
+the mesh handoff is valid. If that cannot be done inside this work order, isolate
+the blocker to a precise fix target with enough evidence that the next agent can
+work on one concrete topology/meshing issue instead of re-searching the route.
+
+Data authority requirements:
+- Use `98.5 kg` as the design gross mass authority.
+- Use `34.332286 m` full span / `17.166143 m` half-span as current pipeline span
+  evidence unless a newer authority manifest is found and explicitly promoted.
+- Treat suspect P1 screening aggregate `106.828608 kg`, local/splice screening
+  reference `16.5 m`, old `output/phase*` artifacts, local splice outputs, and
+  generated RFQ outputs as screening/legacy/reference only unless the
+  data-authority checker says otherwise.
+- Reconcile the route-specific geometry numbers before claiming success:
+  pipeline `Bref`, STEP/mesh bounds y-span, OpenVSP selected component
+  `selected_geom_span_y`, Sref/Cref/Bref, moment origin, wall markers, and force
+  surface ownership. If `selected_geom_span_y` is a half-wing or component-local
+  value, label it clearly and do not let it override the pipeline span authority.
 
 Boundary:
-Do not run QPROP/XROTOR, full design-space CFD, propeller optimization, NSGA,
-random disturbance simulation, procurement, vendor selection, or final CAD
-automation. Do not turn SU2 or checker pass/fail into aircraft sign-off. Ask
-the user only if the evidence affects large external shape, spar spec, mass/CG,
-procurement commitment, or Baseline A reopen.
+Allowed: bounded route repair, small smoke meshes, reference-geometry gates,
+marker/force-surface ownership checks, SU2 case materialization, and a minimal
+solver smoke if and only if the mesh handoff is valid.
+
+Disallowed: full design-space CFD, performance optimization, QPROP/XROTOR,
+propeller optimization, NSGA, random disturbance simulation, procurement/vendor
+decisions, RFQ truth, structural blocker sign-off, final CAD automation, or any
+claim that SU2/mesh success is final aircraft sign-off.
+
+Do not change Baseline A external shape, mass/CG basis, spar/tube specification,
+or procurement status without stopping and flagging the user-decision point.
 
 Required output:
-- verdict: su2_baseline_calibration_usable / su2_baseline_needs_fix / su2_baseline_reopen_risk
+- verdict: wo006r_su2_solver_smoke_materialized / wo006r_mesh_handoff_ready_for_su2_smoke / wo006r_topology_blocker_isolated / wo006r_route_repair_incomplete
 - changed files
 - exact mass/span authority basis used
+- geometry/reference reconciliation table
+- route blocker register
+- whether `mesh_handoff.v1` exists and is valid
+- whether SU2 case materialization or solver smoke was reached
 - verification
 - engineering caveats
-- whether SU2 changes any Baseline A reopen risk
+- whether any Baseline A reopen trigger is approached; if no usable SU2 result
+  exists, say `not_evaluated`
 - reviewer prompt
 - next recommended work order
 
+Expected artifacts:
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/wo006r_route_repair.md
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/geometry_reference_reconciliation.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/route_blocker_register.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/mesh_handoff.v1.json or a precise blocker report explaining why it could not be written
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/su2_solver_smoke.v1.json if solver smoke is reached
+
 Verification:
-- run targeted SU2/calibration tests or smoke checks available in repo
+- run the bounded route repair script/probe you create or update
+- run targeted hpa_meshing / WO-006R tests
 - run scripts/check_baseline_a_data_authority.py --check-only
 - run ruff on changed Python files
 - run git diff --check
