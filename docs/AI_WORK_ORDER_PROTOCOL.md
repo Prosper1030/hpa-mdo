@@ -59,6 +59,15 @@ Current authority:
   partial at `wake_cut` / `span_cap`. A direct all-non-wall BL boundary core
   surface is not watertight. Treat R5 as a core-interface / mesh-quality blocker
   proof, not as BL/y+ CFD evidence or coefficient truth.
+- WO-006R6 core-interface repair is complete:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/`.
+  Verdict: `wo006r6_core_quality_limitation_proven`. It did not emit
+  `bl_mesh_handoff.v1.json`. The preserved-core route still keeps the interface
+  envelope, but core quality fails on non-positive SICN/SIGE/volume, and the
+  wake/span-cap topology is still not a zero-unmatched BL/core handoff. Treat R6
+  as a stronger blocker proof: next work must repair preserved-core quality
+  without remeshing the interface, then resolve the wake/span-cap topology
+  contract before any mixed-element SU2 handoff or coefficient claim.
 
 ## Baseline A Rule
 

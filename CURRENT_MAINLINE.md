@@ -68,6 +68,18 @@ screening evidence 讀，不是現行 release / procurement truth。
   partial，且全部 non-wall BL boundary 不能直接作為 watertight core inner boundary
   （124 bad edges）。因此目前 blocker 已縮小為 conformal core interface / mesh-quality
   repair；R5 仍沒有 postprocessed y+、沒有可解讀 SU2 coefficient、沒有 Baseline A reopen evidence。
+- WO-006R6 core-interface repair campaign 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/`，
+  verdict 是 `wo006r6_core_quality_limitation_proven`。R6 沒有寫出
+  `bl_mesh_handoff.v1.json`：preserved-core route 仍保留 interface envelope，但 core
+  quality gate 仍 fail（non-positive SICN/SIGE/volume），而且 wake/span-cap coupling
+  還是 partial。`core_interface_topology_audit.json` 顯示 zero-unmatched interface 未達成：
+  core side 還有 94 個 unmatched faces（`span_cap` 62、`wake_cut` 32），BL boundary side
+  還有 3136 個 unmatched faces（`span_cap` 1536、`wake_cut` 1600），full non-wall boundary
+  仍不是 watertight（124 bad edges）。因此目前 blocker 不是 SU2 coefficient 或 solver
+  tuning，而是 preserved-core quality repair 加上 wake/span-cap 真正 conformal topology
+  contract；R6 仍沒有 postprocessed y+、沒有可解讀 SU2 coefficient、沒有 Baseline A reopen
+  evidence。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

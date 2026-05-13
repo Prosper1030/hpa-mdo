@@ -1,0 +1,7 @@
+{
+  "schema_version": "wo006r6_probe_su2_policy.v1",
+  "candidate_su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+  "probe_su2_is_final": false,
+  "final_handoff_allowed": false,
+  "policy": "A core or BL probe SU2 can be parser-readable evidence, but it is not a final merged BL+core handoff and must not be used for coefficients."
+}

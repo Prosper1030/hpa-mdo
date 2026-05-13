@@ -1,0 +1,260 @@
+{
+  "status": "meshed",
+  "route": "mesh_native_bl_block_core_tet_smoke",
+  "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.msh",
+  "su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+  "volume_count": 1,
+  "node_count": 29497,
+  "volume_element_count": 11644,
+  "volume_element_type_counts": {
+    "4": 10588,
+    "7": 1056
+  },
+  "inner_boundary": {
+    "marker_counts": {
+      "bl_outer_interface": 1024,
+      "wake_cut": 32,
+      "span_cap": 62
+    },
+    "surface_entity_count": 1118,
+    "input_mesh_element_counts": {
+      "bl_outer_interface": {
+        "face_count": 1024,
+        "triangle_face_count": 0,
+        "quad_face_count": 1024,
+        "triangulated_face_count": 2048
+      },
+      "span_cap": {
+        "face_count": 62,
+        "triangle_face_count": 62,
+        "quad_face_count": 0,
+        "triangulated_face_count": 62
+      },
+      "wake_cut": {
+        "face_count": 32,
+        "triangle_face_count": 0,
+        "quad_face_count": 32,
+        "triangulated_face_count": 64
+      }
+    },
+    "generated_mesh_element_counts": {
+      "bl_outer_interface": {
+        "entity_count": 1024,
+        "element_count": 1024,
+        "element_type_counts": {
+          "3": 1024
+        }
+      },
+      "span_cap": {
+        "entity_count": 62,
+        "element_count": 62,
+        "element_type_counts": {
+          "2": 62
+        }
+      },
+      "wake_cut": {
+        "entity_count": 32,
+        "element_count": 32,
+        "element_type_counts": {
+          "3": 32
+        }
+      }
+    }
+  },
+  "farfield": {
+    "marker_counts": {
+      "farfield": 6
+    },
+    "surface_entity_count": 12,
+    "input_mesh_element_counts": {
+      "farfield": {
+        "face_count": 6,
+        "triangle_face_count": 0,
+        "quad_face_count": 6,
+        "triangulated_face_count": 12
+      }
+    },
+    "generated_mesh_element_counts": {
+      "farfield": {
+        "entity_count": 12,
+        "element_count": 2366,
+        "element_type_counts": {
+          "2": 2366
+        }
+      }
+    }
+  },
+  "interface_conformality": {
+    "status": "preserved",
+    "can_merge_with_owned_bl_block": true,
+    "expected_boundary_representation": "native",
+    "missing_markers": [],
+    "extra_markers": [],
+    "remeshed_markers": [],
+    "markers": {
+      "bl_outer_interface": {
+        "input_expected_element_count": 1024,
+        "input_expected_element_type_counts": {
+          "3": 1024
+        },
+        "generated_element_count": 1024,
+        "generated_element_type_counts": {
+          "3": 1024
+        },
+        "preserved": true
+      },
+      "span_cap": {
+        "input_expected_element_count": 62,
+        "input_expected_element_type_counts": {
+          "2": 62
+        },
+        "generated_element_count": 62,
+        "generated_element_type_counts": {
+          "2": 62
+        },
+        "preserved": true
+      },
+      "wake_cut": {
+        "input_expected_element_count": 32,
+        "input_expected_element_type_counts": {
+          "3": 32
+        },
+        "generated_element_count": 32,
+        "generated_element_type_counts": {
+          "3": 32
+        },
+        "preserved": true
+      }
+    },
+    "interpretation": "Core boundary mesh matches the input interface element counts."
+  },
+  "bl_block_coupling": {
+    "status": "partial",
+    "can_merge_core_with_bl_block": false,
+    "matched_face_count": 1024,
+    "matched_face_counts_by_marker_pair": {
+      "bl_outer_interface->bl_outer_interface": 1024
+    },
+    "unmatched_core_interface_face_count": 94,
+    "unmatched_core_interface_face_counts_by_marker": {
+      "span_cap": 62,
+      "wake_cut": 32
+    },
+    "unmatched_bl_boundary_face_count": 3136,
+    "unmatched_bl_boundary_face_counts_by_marker": {
+      "span_cap": 1536,
+      "wake_cut": 1600
+    },
+    "interpretation": "Core interface is mesh-preserved but does not yet match every non-wall BL block boundary face; do not write a merged viscous mesh."
+  },
+  "mesh_sizing": {
+    "inner_mesh_size": 1.0,
+    "farfield_mesh_size": 8.0,
+    "preserve_boundary_mesh": true
+  },
+  "compute": {
+    "gmsh_threads": 4,
+    "general_num_threads": 4,
+    "mesh_max_num_threads_1d": 4,
+    "mesh_max_num_threads_2d": 4,
+    "mesh_max_num_threads_3d": 4,
+    "mesh_algorithm3d": 1
+  },
+  "quality_metrics": {
+    "volume_element_count": 11644,
+    "volume_element_type_counts": {
+      "4": 10588,
+      "7": 1056
+    },
+    "tetra_element_count": 10588,
+    "tetrahedron_count": 10588,
+    "pyramid_element_count": 1056,
+    "prism_element_count": 0,
+    "hexahedron_element_count": 0,
+    "ill_shaped_tet_count": null,
+    "ill_shaped_volume_element_count": 91,
+    "non_positive_min_sicn_count": 91,
+    "non_positive_min_sige_count": 91,
+    "non_positive_volume_count": 53,
+    "min_gamma": 1.7883176327131676e-07,
+    "min_sicn": -0.00864983589849344,
+    "min_sige": -0.0035883220612220783,
+    "min_volume": -2.9559112035789902e-06,
+    "gamma_percentiles": {
+      "p01": 2.261856580856742e-05,
+      "p05": 0.0022709470707808627,
+      "p50": 0.12477206639792057
+    },
+    "min_sicn_percentiles": {
+      "p01": 0.00030213841581604964,
+      "p05": 0.008568075608505263,
+      "p50": 0.1478271715204033
+    },
+    "min_sige_percentiles": {
+      "p01": 0.00028452885082374933,
+      "p05": 0.029202424309146484,
+      "p50": 0.5036072388286885
+    },
+    "volume_percentiles": {
+      "p01": 1.1905196012119443e-06,
+      "p05": 4.331027284053378e-05,
+      "p50": 0.021001207266700392
+    }
+  },
+  "mesh_quality_gate": {
+    "status": "fail",
+    "blockers": [
+      "non_positive_min_sicn",
+      "non_positive_min_sige",
+      "non_positive_volume"
+    ],
+    "warnings": [
+      "very_low_min_gamma",
+      "low_p01_gamma"
+    ],
+    "warning_thresholds": {
+      "min_gamma": 0.0001,
+      "min_sicn": 0.0001,
+      "p01_gamma": 0.02
+    }
+  },
+  "production_scale_gate": {
+    "status": "underresolved",
+    "target_volume_elements": 1000000,
+    "observed_volume_elements": 11644,
+    "shortfall_volume_elements": 988356,
+    "observed_to_target_ratio": 0.011644
+  },
+  "physical_groups": {
+    "bl_outer_interface": {
+      "dimension": 2,
+      "physical_tag": 1,
+      "entity_count": 1024
+    },
+    "wake_cut": {
+      "dimension": 2,
+      "physical_tag": 2,
+      "entity_count": 32
+    },
+    "span_cap": {
+      "dimension": 2,
+      "physical_tag": 3,
+      "entity_count": 62
+    },
+    "farfield": {
+      "dimension": 2,
+      "physical_tag": 4,
+      "entity_count": 12
+    },
+    "fluid_core": {
+      "dimension": 3,
+      "physical_tag": 5,
+      "entity_count": 1
+    }
+  },
+  "caveats": [
+    "not a final conformal BL+core merge",
+    "BL block outer envelope is treated as an inner obstacle for core smoke only",
+    "Gmsh is used only for outer core tet fill; BL cells remain mesh-native owned"
+  ]
+}

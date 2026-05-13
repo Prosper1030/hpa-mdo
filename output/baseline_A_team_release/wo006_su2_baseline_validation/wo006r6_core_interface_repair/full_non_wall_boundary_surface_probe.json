@@ -1,0 +1,12 @@
+{
+  "schema_version": "wo006r6_full_non_wall_boundary_surface_probe.v1",
+  "status": "not_watertight",
+  "can_use_as_core_inner_boundary": false,
+  "marker_counts": {
+    "bl_outer_interface": 1024,
+    "wake_cut": 1600,
+    "span_cap": 1536
+  },
+  "error": "Non-watertight surface: 124 bad edges",
+  "engineering_read": "The full non-wall BL boundary is not a closed core inner surface. It cannot be sent directly to Gmsh as the conformal core boundary."
+}

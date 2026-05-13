@@ -63,6 +63,17 @@ BL/core coupling 仍只有 partial：`wake_cut` 與 `span_cap` 還有 unmatched 
 surface（124 bad edges）。因此目前最小 blocker 是 conformal core interface / mesh-quality
 repair，不是係數、solver tuning 或資料權威問題。
 
+WO-006R6 core-interface repair campaign 已新增，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/`。
+Verdict 是 `wo006r6_core_quality_limitation_proven`：R6 仍沒有產生
+`bl_mesh_handoff.v1.json`，也沒有 real merged mixed-element BL+core SU2 mesh。Preserved-core
+route 仍可保留 interface envelope，但 core mesh quality gate 仍 fail
+（non-positive SICN/SIGE/volume）；同時 interface topology audit 仍顯示 zero-unmatched
+未達成：`wake_cut` / `span_cap` 還有 94 個 core interface unmatched faces 與 3136 個
+BL boundary unmatched faces，full non-wall boundary 仍是 124 bad edges。下一步不能把這當
+writer 小修；要先修 preserved-core quality，且後續仍要重做 wake/span-cap 的真實 conformal
+BL/core topology contract。
+
 目前 gate 讀法：
 
 - `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
@@ -73,7 +84,7 @@ repair，不是係數、solver tuning 或資料權威問題。
 - WO-006 只能做 bounded aero calibration；不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
 - WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route；WO-006R2 已把 current high-mesh / BL blocker 定位到 surface topology；WO-006R3 已產出 serious high-mesh no-BL handoff，但 BL route 與 CFD evidence gate 仍未達成。
-- WO-006R5 verdict 是 `wo006r5_core_merge_limitation_proven`；current GO 已有 owned-BL topology basis 和 preserved-interface core evidence，但沒有 conformal mixed BL+core SU2 handoff，沒有 `bl_mesh_handoff.v1.json`，沒有 postprocessed y+，也沒有可解讀係數。
+- WO-006R6 verdict 是 `wo006r6_core_quality_limitation_proven`；current GO 已有 owned-BL topology basis 和 preserved-interface core evidence，但 core quality 與 wake/span-cap conformal topology 仍未達成，沒有 conformal mixed BL+core SU2 handoff，沒有 `bl_mesh_handoff.v1.json`，沒有 postprocessed y+，也沒有可解讀係數。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
 

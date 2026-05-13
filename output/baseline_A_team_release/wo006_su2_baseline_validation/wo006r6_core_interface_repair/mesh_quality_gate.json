@@ -1,0 +1,79 @@
+{
+  "schema_version": "wo006r6_mesh_quality_gate.v1",
+  "status": "fail",
+  "blockers": [
+    "core_mesh_quality_gate_not_pass",
+    "merged_bl_core_quality_not_proven"
+  ],
+  "owned_bl_block_quality": {
+    "cell_count": 24576,
+    "min_estimated_volume_m3": 1.337006168004603e-07,
+    "non_positive_volume_count": 0,
+    "min_span_interval_m": 0.4291534999999982,
+    "max_span_interval_m": 1.6307834999999997,
+    "min_section_first_layer_height_m": 4.999999999998514e-05,
+    "max_section_first_layer_height_m": 5.0000000000021625e-05,
+    "boundary_face_count": 5120,
+    "unowned_boundary_face_count": 0
+  },
+  "core_mesh_quality_gate": {
+    "status": "fail",
+    "blockers": [
+      "non_positive_min_sicn",
+      "non_positive_min_sige",
+      "non_positive_volume"
+    ],
+    "warnings": [
+      "very_low_min_gamma",
+      "low_p01_gamma"
+    ],
+    "warning_thresholds": {
+      "min_gamma": 0.0001,
+      "min_sicn": 0.0001,
+      "p01_gamma": 0.02
+    }
+  },
+  "core_quality_metrics": {
+    "volume_element_count": 11644,
+    "volume_element_type_counts": {
+      "4": 10588,
+      "7": 1056
+    },
+    "tetra_element_count": 10588,
+    "tetrahedron_count": 10588,
+    "pyramid_element_count": 1056,
+    "prism_element_count": 0,
+    "hexahedron_element_count": 0,
+    "ill_shaped_tet_count": null,
+    "ill_shaped_volume_element_count": 91,
+    "non_positive_min_sicn_count": 91,
+    "non_positive_min_sige_count": 91,
+    "non_positive_volume_count": 53,
+    "min_gamma": 1.7883176327131676e-07,
+    "min_sicn": -0.00864983589849344,
+    "min_sige": -0.0035883220612220783,
+    "min_volume": -2.9559112035789902e-06,
+    "gamma_percentiles": {
+      "p01": 2.261856580856742e-05,
+      "p05": 0.0022709470707808627,
+      "p50": 0.12477206639792057
+    },
+    "min_sicn_percentiles": {
+      "p01": 0.00030213841581604964,
+      "p05": 0.008568075608505263,
+      "p50": 0.1478271715204033
+    },
+    "min_sige_percentiles": {
+      "p01": 0.00028452885082374933,
+      "p05": 0.029202424309146484,
+      "p50": 0.5036072388286885
+    },
+    "volume_percentiles": {
+      "p01": 1.1905196012119443e-06,
+      "p05": 4.331027284053378e-05,
+      "p50": 0.021001207266700392
+    }
+  },
+  "merged_mesh_quality_gate": null,
+  "engineering_read": "Positive BL cells are necessary but insufficient. R6 requires the core and eventual merged mesh to have zero non-positive volume, SICN, and SIGE elements before any handoff manifest exists."
+}

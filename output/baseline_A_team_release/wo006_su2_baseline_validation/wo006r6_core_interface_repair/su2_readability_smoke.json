@@ -1,0 +1,85 @@
+{
+  "schema_version": "wo006r6_su2_readability_smoke.v1",
+  "status": "fail",
+  "blockers": [
+    "merged_bl_core_su2_mesh_missing"
+  ],
+  "final_mesh_path": null,
+  "final_solver_run": false,
+  "probe_parser_reads": {
+    "owned_bl_block_probe": {
+      "status": "parsed",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/owned_bl_block_probe.su2",
+      "summary": {
+        "ndime": 3,
+        "nelem": 24576,
+        "npoin": 27225,
+        "nmark": 4,
+        "markers": {
+          "bl_outer_interface": {
+            "element_count": 1024,
+            "element_type_counts": {
+              "9": 1024
+            }
+          },
+          "span_cap": {
+            "element_count": 1536,
+            "element_type_counts": {
+              "9": 1536
+            }
+          },
+          "wake_cut": {
+            "element_count": 1600,
+            "element_type_counts": {
+              "9": 1600
+            }
+          },
+          "wing_wall": {
+            "element_count": 960,
+            "element_type_counts": {
+              "9": 960
+            }
+          }
+        }
+      }
+    },
+    "preserved_core_probe": {
+      "status": "parsed",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+      "summary": {
+        "ndime": 3,
+        "nelem": 11644,
+        "npoin": 3361,
+        "nmark": 4,
+        "markers": {
+          "bl_outer_interface": {
+            "element_count": 1024,
+            "element_type_counts": {
+              "9": 1024
+            }
+          },
+          "wake_cut": {
+            "element_count": 32,
+            "element_type_counts": {
+              "9": 32
+            }
+          },
+          "span_cap": {
+            "element_count": 62,
+            "element_type_counts": {
+              "5": 62
+            }
+          },
+          "farfield": {
+            "element_count": 2366,
+            "element_type_counts": {
+              "5": 2366
+            }
+          }
+        }
+      }
+    }
+  },
+  "coefficient_interpretable": false,
+  "reason": "No final merged mixed-element BL+core SU2 mesh exists, so probe readability is not promoted to CFD evidence."
+}

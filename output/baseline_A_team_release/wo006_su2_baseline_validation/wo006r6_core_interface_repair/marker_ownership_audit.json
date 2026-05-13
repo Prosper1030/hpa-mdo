@@ -1,0 +1,62 @@
+{
+  "schema_version": "wo006r6_marker_ownership_audit.v1",
+  "status": "fail",
+  "blockers": [
+    "final_merged_marker_ownership_not_proven"
+  ],
+  "owned_bl_block_markers": {
+    "bl_outer_interface": {
+      "element_count": 1024,
+      "element_type_counts": {
+        "9": 1024
+      }
+    },
+    "span_cap": {
+      "element_count": 1536,
+      "element_type_counts": {
+        "9": 1536
+      }
+    },
+    "wake_cut": {
+      "element_count": 1600,
+      "element_type_counts": {
+        "9": 1600
+      }
+    },
+    "wing_wall": {
+      "element_count": 960,
+      "element_type_counts": {
+        "9": 960
+      }
+    }
+  },
+  "core_probe_physical_groups": {
+    "bl_outer_interface": {
+      "dimension": 2,
+      "physical_tag": 1,
+      "entity_count": 1024
+    },
+    "wake_cut": {
+      "dimension": 2,
+      "physical_tag": 2,
+      "entity_count": 32
+    },
+    "span_cap": {
+      "dimension": 2,
+      "physical_tag": 3,
+      "entity_count": 62
+    },
+    "farfield": {
+      "dimension": 2,
+      "physical_tag": 4,
+      "entity_count": 12
+    },
+    "fluid_core": {
+      "dimension": 3,
+      "physical_tag": 5,
+      "entity_count": 1
+    }
+  },
+  "final_mesh_boundary_markers": null,
+  "policy": "Final SU2 boundary markers should expose real computational boundaries such as wing_wall and farfield. A conformal BL/core interface must be internal connectivity, not a solver boundary marker."
+}

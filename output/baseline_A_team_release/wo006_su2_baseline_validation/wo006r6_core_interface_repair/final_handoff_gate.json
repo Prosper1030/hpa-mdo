@@ -1,0 +1,30 @@
+{
+  "schema_version": "wo006r6_final_handoff_gate.v1",
+  "status": "blocked",
+  "can_write_bl_mesh_handoff": false,
+  "blockers": [
+    "probe_su2_not_final",
+    "final_merged_su2_missing",
+    "unmatched_core_interface_faces",
+    "unmatched_bl_boundary_faces",
+    "bl_core_coupling_not_pass",
+    "marker_ownership_not_pass",
+    "mesh_quality_not_pass",
+    "non_positive_elements_present"
+  ],
+  "artifact_role": "probe_su2",
+  "candidate_su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+  "evidence": {
+    "core_status": "meshed",
+    "unmatched_core_interface_face_count": 94,
+    "unmatched_bl_boundary_face_count": 3136,
+    "marker_ownership_status": "fail",
+    "mesh_quality_status": "fail",
+    "non_positive_counts": {
+      "non_positive_min_sicn_count": 91,
+      "non_positive_min_sige_count": 91,
+      "non_positive_volume_count": 53
+    },
+    "su2_readability_status": "parsed"
+  }
+}

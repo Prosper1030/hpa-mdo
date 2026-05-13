@@ -1,0 +1,57 @@
+{
+  "route": "mesh_native_wing_boundary_layer_block_su2",
+  "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/owned_bl_block_probe.su2",
+  "node_count": 27225,
+  "volume_element_count": 24576,
+  "marker_summary": {
+    "bl_outer_interface": {
+      "element_count": 1024,
+      "element_type_counts": {
+        "9": 1024
+      }
+    },
+    "span_cap": {
+      "element_count": 1536,
+      "element_type_counts": {
+        "9": 1536
+      }
+    },
+    "wake_cut": {
+      "element_count": 1600,
+      "element_type_counts": {
+        "9": 1600
+      }
+    },
+    "wing_wall": {
+      "element_count": 960,
+      "element_type_counts": {
+        "9": 960
+      }
+    }
+  },
+  "block_quality": {
+    "cell_count": 24576,
+    "min_estimated_volume_m3": 1.337006168004603e-07,
+    "non_positive_volume_count": 0,
+    "min_span_interval_m": 0.4291534999999982,
+    "max_span_interval_m": 1.6307834999999997,
+    "min_section_first_layer_height_m": 4.999999999998514e-05,
+    "max_section_first_layer_height_m": 5.0000000000021625e-05,
+    "boundary_face_count": 5120,
+    "unowned_boundary_face_count": 0
+  },
+  "block_metadata": {
+    "station_count": 33,
+    "span_interval_count": 32,
+    "section_vertex_count": 825,
+    "section_cell_count": 768,
+    "layer_count": 24,
+    "first_layer_height_m": 5e-05,
+    "growth_ratio": 1.24,
+    "twist_axis_x": 0.25
+  },
+  "caveats": [
+    "not a complete farfield CFD domain",
+    "intended for SU2 parser and marker ownership smoke before core-volume merge"
+  ]
+}

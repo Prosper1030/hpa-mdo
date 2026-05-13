@@ -1,0 +1,29 @@
+{
+  "schema_version": "wo006r6_core_interface_topology_audit.v1",
+  "status": "fail",
+  "zero_unmatched_interface_faces": false,
+  "core_interface_marker_counts": {
+    "bl_outer_interface": 1024,
+    "wake_cut": 32,
+    "span_cap": 62
+  },
+  "owned_bl_boundary_marker_counts": {
+    "wing_wall": 960,
+    "bl_outer_interface": 1024,
+    "wake_cut": 1600,
+    "span_cap": 1536
+  },
+  "unmatched_core_interface_face_count": 94,
+  "unmatched_core_interface_face_counts_by_marker": {
+    "span_cap": 62,
+    "wake_cut": 32
+  },
+  "unmatched_bl_boundary_face_count": 3136,
+  "unmatched_bl_boundary_face_counts_by_marker": {
+    "span_cap": 1536,
+    "wake_cut": 1600
+  },
+  "full_non_wall_boundary_probe_status": "not_watertight",
+  "full_non_wall_boundary_can_use_as_core_inner_boundary": false,
+  "engineering_read": "The BL/core handoff is acceptable only if the core inner boundary is the same face set as the BL block interface. Preserving a smaller closure envelope is useful evidence, but wake/span-cap unmatched faces mean the final fluid-volume topology is still not closed."
+}
