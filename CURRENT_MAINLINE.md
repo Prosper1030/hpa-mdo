@@ -26,6 +26,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   `CD=0.4752310368`、residuals finite、no NaN/Inf）。這是 route-level force
   evidence，不是 BL/y+ viscous drag calibration、grid-converged aero model、Baseline A
   reopen evidence 或 performance truth；`CD` 明顯偏高，必須保留 no-BL trust boundary。
+- WO-006I CFD setup gate reset 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006i_setup_preflight_reset/`。
+  Verdict 是 `GOAL_STATUS=INCOMPLETE`、`CFD_STATUS=mesh_ladder_incomplete`，且
+  `baseline_a_wall_resolved_bl_preflight_gate_v1` 在 solver 前 blocked：目前 no-BL
+  setup 缺 conformal BL/core handoff、postprocessed near-wall y+ 與 CFD-grade setup
+  gate。先前 `wo006i_grid_convergence_campaign/` 的 `0.49M`、`1.61M`、`3.05M`、
+  `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
+  它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、
+  drag/power truth 或 Baseline A reopen evidence。後續若要跑 medium/fine，必須先修
+  BL/BC/near-wall setup；重放 no-BL 只能用 diagnostic flag，不能完成 CFD goal。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

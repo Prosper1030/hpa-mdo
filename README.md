@@ -1,5 +1,22 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-13 WO-006I CFD Setup Gate Reset
+
+WO-006I 已改成先擋 setup，而不是繼續把 no-BL route 往大網格跑。新的 preflight artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006i_setup_preflight_reset/`：
+`GOAL_STATUS=INCOMPLETE`、`CFD_STATUS=mesh_ladder_incomplete`，並且 `blocked_before_solver`。
+
+工程判讀：先前 `wo006i_grid_convergence_campaign/` 裡的 `0.49M`、`1.61M`、`3.05M`、`3.63M`
+no-BL RANS/SA ladder 只能當已知錯誤 setup 的 diagnostic/quarantine evidence。它沒有
+conformal BL/core handoff、沒有 postprocessed y+，force window 也不穩；所以即使有 finite
+`CL/CD/Cm` history，也不得宣稱 low-confidence CFD、grid convergence、drag/power truth、
+Baseline A reopen evidence、RFQ/procurement truth 或 final aircraft sign-off。
+
+後續 WO-006 CFD 若要繼續跑，必須先過 `baseline_a_wall_resolved_bl_preflight_gate_v1`：
+no-slip wall BC、farfield marker、conformal BL/core handoff、near-wall/y+ evidence、同幾何
+coarse/medium/fine ladder 與 residual/force stability 都要在同一 setup 下成立。若只是要重放
+no-BL debug，必須明確使用 diagnostic flag，且結果仍不能完成 CFD goal。
+
 ## 2026-05-13 WO-006 Current-GO CFD Completion Evidence
 
 Current-GO main-wing no-BL mesh-native CFD completion case 已產出，artifact 在
