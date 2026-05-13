@@ -1,0 +1,580 @@
+{
+  "route": "current_go_mesh_native_no_bl_hxt_completion",
+  "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/mesh.su2",
+  "gmsh_mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/mesh.msh",
+  "runtime_cfg_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/su2_runtime.cfg",
+  "report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/mesh_native_faceted_su2_smoke_report.json",
+  "mesh_report": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/mesh.msh",
+    "su2_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/mesh.su2",
+    "volume_count": 1,
+    "node_count": 98955,
+    "volume_element_count": 490116,
+    "volume_element_type_counts": {
+      "4": 490116
+    },
+    "mesh_sizing": {
+      "default_mesh_size": 3.75,
+      "wing_mesh_size": 0.15,
+      "farfield_mesh_size": 6.0,
+      "wing_refinement_radius": 6.0,
+      "refinement_boxes": [
+        {
+          "name": "trailing_edge_refinement_region",
+          "size": 0.22499999999999998,
+          "outside_size": 6.0,
+          "transition_thickness": 0.6259465807858978,
+          "x_min": 1.001841628566458,
+          "x_max": 1.5025988931951761,
+          "y_min": -17.16614300000001,
+          "y_max": 17.16614300000001,
+          "z_min": -1.0314514480855828,
+          "z_max": 3.6280155801643503
+        },
+        {
+          "name": "tip_left_refinement_region",
+          "size": 0.22499999999999998,
+          "outside_size": 6.0,
+          "transition_thickness": 0.6259465807858978,
+          "x_min": 0.0003270993090215002,
+          "x_max": 1.252220260880817,
+          "y_min": -17.16614300000001,
+          "y_max": -15.914249838428214,
+          "z_min": -1.0314514480855828,
+          "z_max": 3.6280155801643503
+        },
+        {
+          "name": "tip_right_refinement_region",
+          "size": 0.22499999999999998,
+          "outside_size": 6.0,
+          "transition_thickness": 0.6259465807858978,
+          "x_min": 0.0003270993090215002,
+          "x_max": 1.252220260880817,
+          "y_min": 15.914249838428214,
+          "y_max": 17.16614300000001,
+          "z_min": -1.0314514480855828,
+          "z_max": 3.6280155801643503
+        },
+        {
+          "name": "wake_refinement_region",
+          "size": 0.22499999999999998,
+          "outside_size": 6.0,
+          "transition_thickness": 0.6259465807858978,
+          "x_min": 1.252220260880817,
+          "x_max": 6.259792907167999,
+          "y_min": -17.792089580785905,
+          "y_max": 17.792089580785905,
+          "z_min": -1.0314514480855828,
+          "z_max": 3.6280155801643503
+        }
+      ],
+      "background_field": {
+        "type": "Min",
+        "field_tag": 7,
+        "fields": [
+          {
+            "type": "DistanceThreshold",
+            "field_tag": 2,
+            "distance_field_tag": 1,
+            "threshold_field_tag": 2,
+            "node_count": 2048
+          },
+          {
+            "type": "Box",
+            "field_tag": 3,
+            "name": "trailing_edge_refinement_region",
+            "size": 0.22499999999999998,
+            "outside_size": 6.0,
+            "transition_thickness": 0.6259465807858978,
+            "x_min": 1.001841628566458,
+            "x_max": 1.5025988931951761,
+            "y_min": -17.16614300000001,
+            "y_max": 17.16614300000001,
+            "z_min": -1.0314514480855828,
+            "z_max": 3.6280155801643503
+          },
+          {
+            "type": "Box",
+            "field_tag": 4,
+            "name": "tip_left_refinement_region",
+            "size": 0.22499999999999998,
+            "outside_size": 6.0,
+            "transition_thickness": 0.6259465807858978,
+            "x_min": 0.0003270993090215002,
+            "x_max": 1.252220260880817,
+            "y_min": -17.16614300000001,
+            "y_max": -15.914249838428214,
+            "z_min": -1.0314514480855828,
+            "z_max": 3.6280155801643503
+          },
+          {
+            "type": "Box",
+            "field_tag": 5,
+            "name": "tip_right_refinement_region",
+            "size": 0.22499999999999998,
+            "outside_size": 6.0,
+            "transition_thickness": 0.6259465807858978,
+            "x_min": 0.0003270993090215002,
+            "x_max": 1.252220260880817,
+            "y_min": 15.914249838428214,
+            "y_max": 17.16614300000001,
+            "z_min": -1.0314514480855828,
+            "z_max": 3.6280155801643503
+          },
+          {
+            "type": "Box",
+            "field_tag": 6,
+            "name": "wake_refinement_region",
+            "size": 0.22499999999999998,
+            "outside_size": 6.0,
+            "transition_thickness": 0.6259465807858978,
+            "x_min": 1.252220260880817,
+            "x_max": 6.259792907167999,
+            "y_min": -17.792089580785905,
+            "y_max": 17.792089580785905,
+            "z_min": -1.0314514480855828,
+            "z_max": 3.6280155801643503
+          }
+        ]
+      },
+      "surface_triangulation_policy": "shorter_diagonal"
+    },
+    "compute": {
+      "gmsh_threads": 4,
+      "general_num_threads": 4,
+      "mesh_max_num_threads_1d": 4,
+      "mesh_max_num_threads_2d": 4,
+      "mesh_max_num_threads_3d": 4,
+      "mesh_algorithm3d": 10
+    },
+    "quality_metrics": {
+      "volume_element_count": 490116,
+      "volume_element_type_counts": {
+        "4": 490116
+      },
+      "tetra_element_count": 490116,
+      "tetrahedron_count": 490116,
+      "pyramid_element_count": 0,
+      "prism_element_count": 0,
+      "hexahedron_element_count": 0,
+      "ill_shaped_tet_count": 0,
+      "ill_shaped_volume_element_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_gamma": 7.422291800164076e-07,
+      "min_sicn": 0.00015330767060521604,
+      "min_sige": 0.00034865060248014373,
+      "min_volume": 4.716103497461677e-09,
+      "gamma_percentiles": {
+        "p01": 0.016774591432043306,
+        "p05": 0.07147643478355327,
+        "p50": 0.7565615635372224
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.01992847630157642,
+        "p05": 0.07661553294053418,
+        "p50": 0.7939215849374899
+      },
+      "min_sige_percentiles": {
+        "p01": 0.2635926075577115,
+        "p05": 0.42843699516091655,
+        "p50": 0.8237342297467689
+      },
+      "volume_percentiles": {
+        "p01": 5.767812189743375e-06,
+        "p05": 2.7967093452925894e-05,
+        "p50": 0.001671161161340396
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [
+        "very_low_min_gamma",
+        "low_p01_gamma"
+      ],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "su2_boundary_ownership": {
+      "schema_version": "su2_boundary_face_ownership.v1",
+      "status": "pass",
+      "blockers": [],
+      "path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/mesh.su2",
+      "volume_element_count": 490116,
+      "volume_boundary_face_count": 69432,
+      "marker_face_count": 69432,
+      "associated_marker_face_count": 69432,
+      "orphan_marker_face_count": 0,
+      "duplicate_marker_face_count": 0,
+      "unsupported_volume_element_type_counts": {},
+      "unsupported_marker_element_type_counts": {},
+      "markers": {
+        "farfield": {
+          "element_count": 11476,
+          "associated_face_count": 11476,
+          "orphan_face_count": 0,
+          "duplicate_face_count": 0,
+          "unsupported_element_type_counts": {},
+          "orphan_samples": []
+        },
+        "wing_wall": {
+          "element_count": 57956,
+          "associated_face_count": 57956,
+          "orphan_face_count": 0,
+          "duplicate_face_count": 0,
+          "unsupported_element_type_counts": {},
+          "orphan_samples": []
+        }
+      },
+      "orphan_samples": [],
+      "engineering_read": "SU2 requires marker elements to coincide with exterior volume faces; a marker count audit alone is insufficient for solver-readability."
+    },
+    "production_scale_gate": {
+      "status": "underresolved",
+      "target_volume_elements": 1000000,
+      "observed_volume_elements": 490116,
+      "shortfall_volume_elements": 509884,
+      "observed_to_target_ratio": 0.490116
+    },
+    "surface_triangle_count": 4104,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 4092
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ]
+  },
+  "marker_audit": {
+    "status": "pass",
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "boundary_condition_markers": {
+      "MARKER_HEATFLUX": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "missing_from_mesh": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 490116,
+      "npoin": 98955,
+      "nmark": 2,
+      "markers": {
+        "wing_wall": {
+          "element_count": 57956,
+          "element_type_counts": {
+            "5": 57956
+          }
+        },
+        "farfield": {
+          "element_count": 11476,
+          "element_type_counts": {
+            "5": 11476
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "solver": "INC_RANS",
+    "turbulence_model": "SA",
+    "transition_model": null,
+    "velocity_mps": 6.5,
+    "alpha_deg": 5.0,
+    "max_iterations": 160,
+    "ref_area": 33.420059598,
+    "ref_length": 1.003721543,
+    "mesh_size": 3.75,
+    "wall_profile": "adiabatic_no_slip",
+    "conv_num_method_flow": "JST",
+    "cfl_number": 0.15,
+    "linear_solver_error": "1e-5",
+    "linear_solver_iter": 12,
+    "jst_sensor_coeff": null,
+    "wall_function": null,
+    "freestream_turbulence_intensity": 0.05,
+    "freestream_turb2lam_visc_ratio": 10.0,
+    "conv_cauchy_elems": 999,
+    "conv_cauchy_eps": "1e-12",
+    "output_files": [
+      "RESTART_ASCII",
+      "SURFACE_CSV"
+    ],
+    "gmsh_threads": 4,
+    "mesh_algorithm3d": 10,
+    "surface_triangulation_policy": "shorter_diagonal"
+  },
+  "caveats": [
+    "wing boundary is faceted from mesh-native panels",
+    "tet volume mesh only; no boundary-layer prism strategy",
+    "smoke case is not a convergence or aerodynamic validation case"
+  ],
+  "schema_version": "wo006_current_go_cfd_completion.v1",
+  "run_status": "completed",
+  "failure_code": null,
+  "returncode": 0,
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "4",
+    "su2_runtime.cfg"
+  ],
+  "solver_log_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/solver.log",
+  "history_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/history.csv",
+  "history": {
+    "row_count": 160,
+    "final_iteration": 159,
+    "final_coefficients": {
+      "cl": 1.106421874,
+      "cd": 0.4752310368,
+      "cmx": -0.08741335214,
+      "cmy": -0.2347044764,
+      "cmz": 0.03188226842
+    },
+    "final_residuals": {
+      "rms[P]": -1.631838725,
+      "rms[U]": -0.3570998067,
+      "rms[V]": -0.8015547087,
+      "rms[W]": -0.2727150613,
+      "rms[nu]": -5.764688778
+    }
+  },
+  "iterative_gate": {
+    "status": "warn",
+    "confidence": "medium",
+    "checks": {
+      "history_rows": {
+        "status": "pass",
+        "observed": {
+          "history_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/history.csv",
+          "row_count": 160,
+          "columns": [
+            "Time_Iter",
+            "Outer_Iter",
+            "Inner_Iter",
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]",
+            "rms[nu]",
+            "RefForce",
+            "CD",
+            "CL",
+            "CSF",
+            "CMx",
+            "CMy",
+            "CMz",
+            "CFx",
+            "CFy",
+            "CFz",
+            "CEff"
+          ]
+        },
+        "expected": {
+          "history_file_exists": true,
+          "parseable_rows": true
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "iteration_budget": {
+        "status": "pass",
+        "observed": {
+          "row_count": 160,
+          "final_iteration": 159
+        },
+        "expected": {
+          "minimum_iterations": 20,
+          "tail_window": 10
+        },
+        "warnings": [],
+        "notes": []
+      },
+      "residual_trend": {
+        "status": "warn",
+        "observed": {
+          "columns": [
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]",
+            "rms[nu]"
+          ],
+          "improvement_by_column": {
+            "rms[P]": 0.01601869450000004,
+            "rms[U]": 0.011407181000000044,
+            "rms[V]": -0.17683525035000003,
+            "rms[W]": -0.10125634469999995,
+            "rms[nu]": 0.07187180299999962
+          },
+          "improved_columns": [
+            "rms[P]",
+            "rms[U]",
+            "rms[nu]"
+          ],
+          "startup_skip": 5,
+          "baseline_median_by_column": {
+            "rms[P]": -1.612578134,
+            "rms[U]": -0.3378964577,
+            "rms[V]": -0.9846636343,
+            "rms[W]": -0.3679613575,
+            "rms[nu]": -5.688810761
+          },
+          "tail_median_by_column": {
+            "rms[P]": -1.6285968285,
+            "rms[U]": -0.34930363870000003,
+            "rms[V]": -0.80782838395,
+            "rms[W]": -0.26670501280000003,
+            "rms[nu]": -5.760682564
+          },
+          "median_log_drop": 0.011407181000000044
+        },
+        "expected": {
+          "minimum_median_log_drop": 0.5
+        },
+        "warnings": [
+          "residual_drop_below_threshold"
+        ],
+        "notes": [
+          "Residual columns are treated as log10 RMS values, so lower is better.",
+          "Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+        ]
+      },
+      "coefficient_stability": {
+        "status": "pass",
+        "observed": {
+          "tail_window": 10,
+          "cl": {
+            "status": "pass",
+            "tail_mean": 1.1011748172,
+            "tail_range": 0.01123002400000006,
+            "tail_delta": 0.01123002400000006,
+            "tail_relative_range": 0.01014985717825754,
+            "scale": 1.106421874,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.022128437480000002,
+            "warn_delta_limit": 0.055321093700000004
+          },
+          "cd": {
+            "status": "pass",
+            "tail_mean": 0.4739413438000001,
+            "tail_range": 0.002953165400000013,
+            "tail_delta": 0.002953165400000013,
+            "tail_relative_range": 0.006214167786442043,
+            "scale": 0.4752310368,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.009504620736,
+            "warn_delta_limit": 0.023761551840000002
+          },
+          "cm": {
+            "status": "pass",
+            "tail_mean": -0.23607314771,
+            "tail_range": 0.002544006200000004,
+            "tail_delta": 0.002544006200000004,
+            "tail_relative_range": 0.010776347181701262,
+            "scale": 0.23607314771,
+            "pass_relative_range_limit": 0.02,
+            "warn_relative_range_limit": 0.05,
+            "pass_delta_limit": 0.0047214629541999995,
+            "warn_delta_limit": 0.0118036573855
+          }
+        },
+        "expected": {
+          "tail_window": 10,
+          "pass_relative_range_limit": 0.02,
+          "warn_relative_range_limit": 0.05,
+          "absolute_tolerance": 0.0005
+        },
+        "warnings": [],
+        "notes": []
+      }
+    },
+    "warnings": [
+      "residual_trend:residual_drop_below_threshold"
+    ],
+    "notes": [
+      "Iterative gate reads history.csv directly and does not infer extra solver state.",
+      "residual_trend:Residual columns are treated as log10 RMS values, so lower is better.",
+      "residual_trend:Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+    ]
+  },
+  "authority_basis": {
+    "design_gross_mass_kg": 98.5,
+    "full_span_m": 34.332286,
+    "half_span_m": 17.166143,
+    "sref_m2": 33.420059598,
+    "cref_m": 1.003721543,
+    "bref_m": 34.332286,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pa_s": 1.7894e-05,
+    "velocity_mps": 6.5,
+    "geometry_source": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv"
+  },
+  "geometry_recovery": {
+    "status": "pass",
+    "tolerance_m": 1e-06,
+    "recovered_full_span_m": 34.332286,
+    "authority_full_span_m": 34.332286,
+    "recovered_half_span_m": 17.166143,
+    "authority_half_span_m": 17.166143,
+    "external_shape_changed": false
+  },
+  "boundary_layer_status": "not_used_no_bl_route",
+  "external_shape_changed": false,
+  "engineering_trust_boundary": "No-BL RANS on a tet mesh is acceptable here only as finite SU2 route/force evidence. It is not BL-resolved drag, power, y+, grid V&V, RFQ, or final aircraft sign-off evidence.",
+  "completion_gate": {
+    "schema_version": "wo006_current_go_completion_gate.v1",
+    "status": "pass",
+    "blockers": [],
+    "warnings": [
+      "no_bl_drag_high_not_calibration_truth"
+    ],
+    "minimum_iterations": 100,
+    "su2_iterations_completed": 159,
+    "cl": 1.106421874,
+    "cd": 0.4752310368,
+    "residual_status": "pass",
+    "nan_inf_status": "pass",
+    "mesh_quality_status": "pass",
+    "marker_status": "pass",
+    "marker_policy": {
+      "required": [
+        "wing_wall",
+        "farfield"
+      ],
+      "symmetry": "not_used_full_span_current_go_mesh_native_route"
+    },
+    "force_evidence_role": "finite current-GO no-BL SU2 force history; usable as route-level force evidence, not BL/y+ viscous drag calibration"
+  }
+}

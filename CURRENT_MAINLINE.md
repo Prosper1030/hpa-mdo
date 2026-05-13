@@ -18,6 +18,14 @@ screening evidence 讀，不是現行 release / procurement truth。
 - WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
 - WO-006 只能作 bounded aero calibration；必須使用 `98.5 kg` 與 current pipeline span authority，除非明確做 sensitivity。
 - WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
+- WO-006 current-GO no-BL CFD completion evidence 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/`。
+  Completion gate 是 `pass`：newly generated full-span current-GO mesh 有 `490,116`
+  tets、`wing_wall` / `farfield` marker audit pass、no non-positive volume/SICN/SIGE，
+  SU2 跑完 `159` iterations 並寫出 finite force history（`CL=1.106421874`、
+  `CD=0.4752310368`、residuals finite、no NaN/Inf）。這是 route-level force
+  evidence，不是 BL/y+ viscous drag calibration、grid-converged aero model、Baseline A
+  reopen evidence 或 performance truth；`CD` 明顯偏高，必須保留 no-BL trust boundary。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
@@ -310,9 +318,10 @@ conservative screening candidate」，不是 final design。
   derivative audit、tail/CG/trim/stability screening、tail-aware closure 與 P1 mass-integrated
   closure evidence。managed CG row 下 trim / static / directional authority pass，但 tailboom/pivot
   hardware、measured mass manifest 與 final flight-dynamics sign-off 尚未完成。
-- WO-006 SU2 可作 bounded aero calibration 往下跑；WO-006R1 已提供 current GO mesh-native
-  smoke route，但它仍不是目前 performance claim truth。下一步要補 near-wall/BL/y+、solver
-  stability 與 coefficient sanity，不能把 3-iteration smoke 當 drag/power evidence。
+- WO-006 SU2 current-GO no-BL route 已可跑出 finite 159-iteration force history；這是
+  route-level CFD evidence，但仍不是目前 performance claim truth。下一步要補
+  near-wall/BL/y+、grid V&V 與 drag sanity，不能把 no-BL high-drag result 當 drag/power
+  evidence。
 - Rib 目前是下游 bracing / shell bay / load-transfer 實體化問題，不是主線 candidate
   generation 的短線最大優先，除非它被證明會改變 aero-structure closure 的候選排序。
 
@@ -922,7 +931,9 @@ Baseline A change control，必要時觸發 spar-spec / procurement / reopen rev
 
 ## 11. 暫停中的主翼 mesh-native CFD / SU2 支線
 
-這不是目前正式主線，也不是可用來背書人力飛機性能的 CFD 結果。它是 2026-05-01 凍結下來的高保真氣動支線：
+這不是目前正式主線，也不是可用來背書人力飛機性能的 CFD 結果。2026-05-13 current-GO
+no-BL completion case 已補上 finite route-level force history，但 BL/y+、grid V&V 與 drag
+calibration 仍未完成；下列 2026-05-01 凍結支線仍是高保真氣動參考：
 
 ```text
 OpenVSP main-wing sections
@@ -935,11 +946,12 @@ OpenVSP main-wing sections
 
 - VSP-native section extraction 比舊 AVL-driven source 更接近設計者在 VSP 看到的主翼；
 - 1.1M 級 wall-resolved BL mesh 可以生成並通過目前 mesh quality gate；
-- SU2 可讀 mesh，`wing_wall` / `farfield` marker audit pass，4-thread smoke 可執行。
+- SU2 可讀 mesh，`wing_wall` / `farfield` marker audit pass，4-thread smoke 可執行；
+- current-GO no-BL completion case 可跑完 159 iterations 並寫出 finite CL/CD route evidence。
 
 目前尚未證明：
 
-- 可信 CL/CD/Cm；
+- BL-resolved / grid-converged 可信 CL/CD/Cm；
 - grid independence；
 - 人力飛機低雷諾數 / boundary-layer / transition 物理合理；
 - 5M+ cell 等級網格可穩定生成；
