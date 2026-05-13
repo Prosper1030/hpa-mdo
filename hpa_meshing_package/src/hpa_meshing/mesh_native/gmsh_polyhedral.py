@@ -483,6 +483,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
     production_target_volume_elements: int = 1_000_000,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 10,
+    surface_triangulation_policy: str = "shorter_diagonal",
 ) -> dict[str, Any]:
     """Generate a mesh-native mixed prism/tet volume mesh with a wall BL.
 
@@ -528,6 +529,8 @@ def write_faceted_volume_mesh_with_boundary_layer(
     resolved_mesh_algorithm3d = int(mesh_algorithm3d)
     if resolved_mesh_algorithm3d <= 0:
         raise ValueError("mesh_algorithm3d must be positive")
+    if surface_triangulation_policy not in {"fixed_diagonal", "shorter_diagonal"}:
+        raise ValueError("Unsupported surface_triangulation_policy")
 
     gmsh.initialize()
     try:
@@ -552,7 +555,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
             gmsh,
             wing.faces,
             vertices=wing.vertices,
-            triangulation_policy="fixed_diagonal",
+            triangulation_policy=surface_triangulation_policy,
             point_tags=point_tags,
             line_cache=line_cache,
             node_offset=0,
@@ -667,6 +670,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
                 "wing_mesh_size": float(resolved_wing_mesh_size),
                 "farfield_mesh_size": float(resolved_farfield_mesh_size),
                 "wing_refinement_radius": float(resolved_wing_refinement_radius),
+                "surface_triangulation_policy": surface_triangulation_policy,
                 "refinement_boxes": resolved_refinement_boxes,
                 "background_field": mesh_size_field,
             },
@@ -1058,6 +1062,7 @@ def write_faceted_boundary_layer_su2_case(
     boundary_layer_layers: int = 24,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 10,
+    surface_triangulation_policy: str = "shorter_diagonal",
 ) -> dict[str, Any]:
     if ref_area <= 0.0:
         raise ValueError("ref_area must be positive")
@@ -1088,6 +1093,7 @@ def write_faceted_boundary_layer_su2_case(
         boundary_layer_layers=boundary_layer_layers,
         gmsh_threads=gmsh_threads,
         mesh_algorithm3d=mesh_algorithm3d,
+        surface_triangulation_policy=surface_triangulation_policy,
     )
     runtime_cfg_path.write_text(
         _smoke_cfg_text(
@@ -1152,6 +1158,7 @@ def write_faceted_boundary_layer_su2_case(
             "output_files": list(output_files),
             "gmsh_threads": int(max(1, gmsh_threads)),
             "mesh_algorithm3d": int(mesh_algorithm3d),
+            "surface_triangulation_policy": surface_triangulation_policy,
             "boundary_layer": {
                 "first_height_m": float(boundary_layer_first_height),
                 "growth_ratio": float(boundary_layer_growth_ratio),
@@ -1214,6 +1221,7 @@ def run_faceted_boundary_layer_su2_smoke(
     boundary_layer_layers: int = 24,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 10,
+    surface_triangulation_policy: str = "shorter_diagonal",
 ) -> dict[str, Any]:
     if cfd_evidence_min_iterations <= 0:
         raise ValueError("cfd_evidence_min_iterations must be positive")
@@ -1251,6 +1259,7 @@ def run_faceted_boundary_layer_su2_smoke(
         boundary_layer_layers=boundary_layer_layers,
         gmsh_threads=gmsh_threads,
         mesh_algorithm3d=mesh_algorithm3d,
+        surface_triangulation_policy=surface_triangulation_policy,
     )
     case_path = Path(case_dir)
     solver_path = _resolve_solver_command(solver_command)

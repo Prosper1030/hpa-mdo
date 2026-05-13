@@ -36,6 +36,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、
   drag/power truth 或 Baseline A reopen evidence。後續若要跑 medium/fine，必須先修
   BL/BC/near-wall setup；重放 no-BL 只能用 diagnostic flag，不能完成 CFD goal。
+- WO-006J faceted BL setup probe 已把 Gmsh BL writer 接上 `surface_triangulation_policy`，
+  預設 `shorter_diagonal`，不改 Baseline A 外形。低成本 current-GO BL probe 顯示 fixed
+  diagonal 有 `93` 個 non-positive BL volumes；shorter diagonal 把 non-positive volume 清為
+  `0`，但仍有 `10` 個負 SICN/SIGE prism，對稱集中在 `y≈±13.88 m`、`x≈0.790 m` 的
+  DAE31 -> CST tip airfoil transition aft/TE 附近。BL 厚度 sweep 不會消掉這 10 個壞 shape，
+  pps32/span2 反而回到已知 `Unknown curve -1550`。因此這是 BL setup repair progress，
+  不是 CFD coefficient evidence；下一步是 transition surface / TE local BL prism shape 修復。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

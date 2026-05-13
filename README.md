@@ -17,6 +17,18 @@ no-slip wall BC、farfield marker、conformal BL/core handoff、near-wall/y+ evi
 coarse/medium/fine ladder 與 residual/force stability 都要在同一 setup 下成立。若只是要重放
 no-BL debug，必須明確使用 diagnostic flag，且結果仍不能完成 CFD goal。
 
+## 2026-05-13 WO-006J Faceted BL Setup Probe
+
+WO-006J 針對 current-GO faceted Gmsh BL route 補上 `surface_triangulation_policy`，預設使用
+`shorter_diagonal`。這沿用先前 DAE31 transition 坑的修法，沒有改 Baseline A 外形。低成本
+current-GO BL probe 顯示：fixed diagonal 會產生 `93` 個 non-positive BL volumes；改成
+shorter diagonal 後 non-positive volume 清為 `0`，但仍有 `10` 個負 SICN/SIGE prism，位置對稱
+集中在 `y≈±13.88 m`、`x≈0.790 m` 的 DAE31 -> CST tip airfoil transition aft/TE 附近。
+
+工程判讀：這是 BL setup repair progress，不是 CFD result。它證明接下來要修的是 transition
+surface / TE local BL prism shape；單純改 BL 總厚度或把 pps32/span2 硬開大不是答案，後者又回到
+已知 `Unknown curve -1550` 拓撲坑。
+
 ## 2026-05-13 WO-006 Current-GO CFD Completion Evidence
 
 Current-GO main-wing no-BL mesh-native CFD completion case 已產出，artifact 在
