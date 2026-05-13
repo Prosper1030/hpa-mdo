@@ -44,6 +44,13 @@ Current release package:
   3-iteration SU2 readability smoke. It is not yet CL/CD/CDi/profile-drag
   calibration evidence because the mesh is underresolved, lacks BL/y+, and
   coefficient sanity fails.
+- WO-006R2 CFD recovery campaign is complete with verdict
+  `wo006r2_current_geometry_adapter_blocker_isolated`. It reused the old
+  1.125M-cell BL/HXT template and 1.515M-cell failure boundary, then adapted the
+  route to current no-touch `avl_parity` GO geometry. The serious BL and
+  high-mesh no-BL attempts now block at Gmsh HXT PLC / surface panel
+  intersection, not at SU2 force/reference tuning. No interpretable CFD
+  coefficient or Baseline A reopen evidence exists yet.
 
 ## Queue Rules
 
@@ -78,7 +85,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | Data-authority restored R1 current GO mesh-native bridge produced `wo006r1_go_cfd_bridge_smoke_ready`; next repair is near-wall/BL/y+ and solver stability before aero delta calibration |
+| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | After data-authority restoration, R2 isolated the blocker to current GO surface panel / section-transition topology after reusing old 1M+ BL/HXT evidence; next repair is topology localization and adapter fix before near-wall/BL CFD evidence |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -273,6 +280,18 @@ and coefficient sanity fails. Next work should upgrade the current GO mesh-nativ
 route toward near-wall/BL quality and stable solver trends without changing
 external shape, mass, CG, or span authority.
 
+R2 read: `wo006r2_current_geometry_adapter_blocker_isolated`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/`.
+R2 reused the old serious mesh-native evidence: the `wing_h=0.20 m` 1,125,409-cell
+BL/HXT route as the primary template, the `wing_h=0.15 m` 1,515,251-cell failure
+as the finer-boundary warning, and the 717,901-cell no-BL long run only as
+solver/reference sign evidence. Current no-touch `avl_parity` GO geometry
+remained fixed. The coarse control mesh succeeded, but serious BL and high-mesh
+attempts hit Gmsh HXT PLC / surface panel intersections around section brackets
+4-5 and 2-3. No SU2 coefficient is interpretable and Baseline A reopen remains
+`not_evaluated`. Next work should localize and repair the current-GO surface
+panel / tessellation adapter without changing external shape.
+
 ### WO-007: QPROP / XROTOR Propulsion Interface
 
 Purpose: give the drivetrain/propulsion team a clear design box while preserving
@@ -433,69 +452,54 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-WO-006R0 is now the next recommended task after data-authority restoration. Do
-not blindly repair the WO-006 ESP/STEP/BREP-style handoff route before comparing
-it against the frozen mesh-native CFD line. WO-006 showed that the current
-pathfinder VSP3 can materialize through `esp_rebuilt`, but the resulting Gmsh
-thin-sheet route does not yet produce a usable `mesh_handoff.v1`; the older
-mesh-native freeze report already retired STEP/BREP repair as the CFD primary
-path for the Black Cat line. The next task is therefore route lineage and route
-selection, not another local Gmsh patch.
+WO-006R3 is now the next recommended task after data-authority restoration. Do
+not reopen route selection or stop at another tiny smoke. WO-006R2 already reused
+the old 1M+ BL/HXT evidence and isolated the current blocker to current-GO
+surface panel / section-transition topology. The next task is a surface-topology
+repair campaign that keeps the external Baseline A geometry fixed while making
+the mesh-native adapter produce a valid serious BL/high-mesh handoff.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R0 after data-authority restoration: SU2 route lineage audit and Baseline A CFD route selection.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R3 after data-authority restoration: run an autonomous current-GO surface-topology repair campaign for the mesh-native CFD adapter, starting from WO-006R2 PLC intersection evidence, old 1M+ BL/HXT route evidence, and official Gmsh/SU2/OpenVSP documentation; keep Baseline A external shape and authority data fixed, and iterate until a serious BL/high-mesh handoff is produced or the exact adapter limitation is proven.
 
 Role:
-代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest. You may
-spawn subagents/explorers/workers for independent subtasks, but keep write scopes
-disjoint, review their outputs before integrating them, and do not delegate the
-immediate blocking task if it is on your critical path.
+You are the CFD geometry-adapter lead. Do not behave like a one-shot script
+worker. Your job is to fix or precisely prove the current GO surface topology
+blocker that prevents the serious mesh-native BL/high-mesh route from reaching
+SU2. Use subagents for evidence mining, topology inspection, documentation
+research, implementation attempts, and adversarial review. Make them compare
+findings before you choose the repair route.
 
 Read first:
 - README.md
 - CURRENT_MAINLINE.md
 - docs/AI_WORK_ORDER_PROTOCOL.md
 - docs/work_orders/QUEUE.md
-- output/baseline_A_team_release/
-- output/baseline_A_team_release/data_authority_table.csv
 - output/baseline_A_team_release/wo006_su2_baseline_validation/
-- hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md
-- hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/hpa_main_wing_cfd_method_review.v1.md
-- hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/mesh_native_hxt_thread_profile.v1.md
-- hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.md
-- hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.md
-- hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.md
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/
+- output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/
+- hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/
+- hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/
+- hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/
 
 Task:
-Audit the current WO-006 SU2 route choice before implementing another repair.
-Explain, with repo evidence, which CFD route should become the next bounded
-Baseline A aero-calibration lane.
+Start from the exact WO-006R2 blocker locations:
+- section bracket 4-5 around y ~= 12.54-12.59 m, `dae31 -> cst_tip...`
+  transition, PLC segment/facet intersections;
+- section bracket 2-3 around y ~= 7.47 m, same `dae31` family but surface
+  segment intersection;
+- old `wing_h=0.20 m` 1,125,409-cell BL/HXT route as the serious target;
+- old `wing_h=0.15 m` 1,515,251-cell failure as the warning boundary.
 
-Compare at least these lanes:
-1. WO-006 current-pathfinder route:
-   current Baseline A VSP3 -> esp_rebuilt / STEP-BREP-like normalized geometry
-   -> Gmsh thin-sheet surface -> mesh_handoff -> SU2 handoff.
-   Current evidence: provider materializes, but default bounded mesh times out in
-   Gmsh 3D volume insertion and coarse sensitivity fails boundary/topology
-   reconstruction. Record the exact Gmsh error and suspicious surface evidence.
-2. Frozen mesh-native route:
-   OpenVSP sections -> mesh-native indexed wing surface -> marker-owned
-   wing/farfield faces -> Gmsh HXT / optional BL -> SU2 smoke.
-   Current evidence: this route connected for the Black Cat line and produced
-   marker-owned SU2-readable meshes, including the 1.1M BL smoke case, but it is
-   not physically validated CFD and it is not yet adapted/proven for the current
-   Baseline A pathfinder.
-3. Existing real main-wing handoff artifacts under `hpa_meshing_package/docs/reports/`:
-   identify which ones are Black Cat / legacy diagnostic, which are reusable
-   route modules, and which, if any, can be directly used for current Baseline A.
-
-Output a route decision:
-- If the correct next move is to adapt the mesh-native route to current Baseline
-  A, say so and define the adapter work order.
-- If the current WO-006 esp_rebuilt/Gmsh route should still be repaired, justify
-  why it is not violating the mesh-native freeze no-go guidance.
-- If neither is ready, isolate the missing bridge and write the next exact fix
-  target.
+Do a real topology campaign. Inspect the generated wing surface panels, airfoil
+loops, station ordering, trailing-edge closure, root/tip cap ownership,
+spanwise subdivision, diagonalization/triangulation choice, and farfield/wing
+interface. Use Gmsh/OpenVSP/SU2 documentation and repo history. Try multiple
+adapter-level repairs that do not change external shape, such as safer panel
+diagonalization, section-transition resampling, local panel split, tolerance
+cleanup, duplicate-point removal, airfoil loop orientation repair, cap topology
+repair, or surface-only preflight intersection checks. Choose the least invasive
+repair that makes engineering sense.
 
 Data authority requirements:
 - Use `98.5 kg` as the design gross mass authority.
@@ -505,32 +509,35 @@ Data authority requirements:
   reference `16.5 m`, old `output/phase*` artifacts, local splice outputs, and
   generated RFQ outputs as screening/legacy/reference only unless the
   data-authority checker says otherwise.
-- Reconcile the route-specific geometry numbers before claiming success:
-  pipeline `Bref`, STEP/mesh bounds y-span, OpenVSP selected component
-  `selected_geom_span_y`, Sref/Cref/Bref, moment origin, wall markers, and force
-  surface ownership. If `selected_geom_span_y` is a half-wing or component-local
-  value, label it clearly and do not let it override the pipeline span authority.
+- Reconcile route-specific geometry numbers before claiming success: pipeline
+  `Bref`, mesh bounds y-span, Sref/Cref/Bref, moment origin, wall markers, and
+  force-surface ownership.
+- Keep current `avl_parity` GO/Baseline A geometry fixed. Do not change
+  external shape, span, Sref/Cref/Bref, mass, CG, spar, RFQ, or procurement
+  truth to make the mesh easier.
 
 Boundary:
-Allowed: read existing artifacts, run lightweight route-inspection commands,
-write a small audit script if useful, and produce a route-selection package.
+Allowed: topology inspection scripts, surface self-intersection localization,
+adapter/tessellation fixes, bounded mesh attempts, BL/high-mesh handoff attempts,
+marker audit, and minimal SU2 materialization only after mesh handoff is valid.
 
 Disallowed: full design-space CFD, performance optimization, QPROP/XROTOR,
 propeller optimization, NSGA, random disturbance simulation, procurement/vendor
-decisions, RFQ truth, structural blocker sign-off, final CAD automation, heavy
-SU2 runs, or local mesh repair patches before the route decision is written.
+decisions, RFQ truth, structural blocker sign-off, final CAD automation, or any
+claim that a mesh pass is aerodynamic validation.
 
 Do not change Baseline A external shape, mass/CG basis, spar/tube specification,
 or procurement status without stopping and flagging the user-decision point.
 
 Required output:
-- verdict: wo006r0_mesh_native_adapter_recommended / wo006r0_current_handoff_repair_justified / wo006r0_route_bridge_missing / wo006r0_route_decision_incomplete
+- verdict: wo006r3_surface_topology_repaired / wo006r3_bl_handoff_ready / wo006r3_high_mesh_handoff_ready / wo006r3_adapter_limitation_proven / wo006r3_campaign_incomplete
 - changed files
 - exact mass/span authority basis used
-- route lineage table
-- route evidence comparison table
-- current WO-006 blocker explanation in plain language
-- next data-authority-bounded route work-order recommendation
+- topology root-cause explanation in plain language
+- old evidence reused and why
+- repair attempts tried and rejected/accepted
+- whether the serious BL/high-mesh handoff now materializes
+- whether any SU2 coefficient is interpretable; normally no unless CFD evidence gate passes
 - verification
 - engineering caveats
 - whether any Baseline A reopen trigger is approached; if no usable SU2 result
@@ -539,14 +546,16 @@ Required output:
 - next recommended work order
 
 Expected artifacts:
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/wo006r0_route_lineage_audit.md
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/route_evidence_comparison.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/current_blocker_register.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/recommended_wo006r1_goal.md
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/topology_root_cause_report.md
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/plc_intersection_localization.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/repair_attempts_summary.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/mesh_handoff.v1.json if handoff succeeds
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/blocker_register.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/next_goal.md
 
 Verification:
-- run any audit script or artifact parser created for WO-006R0
-- run targeted tests if Python code changes
+- run the WO-006R3 topology/mesh campaign script or probes
+- run targeted tests for changed code
 - run scripts/check_baseline_a_data_authority.py --check-only
 - run ruff on changed Python files
 - run git diff --check

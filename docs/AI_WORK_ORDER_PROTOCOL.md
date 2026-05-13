@@ -29,6 +29,11 @@ Current authority:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/`.
   It proves a repeatable coarse mesh/SU2 readability route, not usable CL/CD,
   drag/power calibration, release truth, procurement truth, or aircraft sign-off.
+- WO-006R2 CFD recovery campaign isolated the current blocker at current-GO
+  surface panel / section-transition topology:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/`.
+  It reused the old 1M+ BL/HXT route evidence but still produced no usable CFD
+  coefficients and no Baseline A reopen evidence.
 
 ## Baseline A Rule
 
