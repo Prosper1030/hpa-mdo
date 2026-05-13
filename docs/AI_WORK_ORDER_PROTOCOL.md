@@ -34,6 +34,14 @@ Current authority:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/`.
   It reused the old 1M+ BL/HXT route evidence but still produced no usable CFD
   coefficients and no Baseline A reopen evidence.
+- WO-006R3 surface-topology repair produced a current-GO high-mesh no-BL SU2
+  handoff:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/`.
+  Treat it as route/handoff evidence only. It has marker-owned mesh handoff and
+  solver readability evidence, but no boundary-layer/y+ evidence, no usable
+  CL/CD/CDi, no drag/power calibration, and no Baseline A reopen evidence.
+  WO-006R4 must continue from the remaining BL/HXT topology blockers instead of
+  using WO-006R3 coefficients as aerodynamic truth.
 
 ## Baseline A Rule
 
