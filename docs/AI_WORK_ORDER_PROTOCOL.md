@@ -77,6 +77,16 @@ Current authority:
   (`CL=1.289421542`, `CD=0.5555196327`) is rejected as far too draggy and not
   converged; the multizone probe launches but is only route evidence until core
   quality, wake/span-cap coupling, and force coefficient ownership pass.
+- WO-006H CFD limit-scaling campaign is complete as a larger-compute package:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/`.
+  Verdict: `wo006h_hard_limit_escalation_package_ready_after_serious_scaling`.
+  It adds serious local scaling evidence after WO-006G: current-GO no-BL HXT
+  meshes reached `1,605,198`, `3,046,012`, and `3,596,163` cells with marker /
+  quality pass, then `h=0.04` failed with `HXT 3D mesh failed`. BL/core variants
+  still do not clear the conformal interface gate: preserved-interface variants
+  timed out locally, and the remeshed-core variant still has unmatched BL/core
+  faces. Treat WO-006H as hard-limit / HPC-package evidence only, not as SU2
+  aero calibration.
 
 ## Baseline A Rule
 

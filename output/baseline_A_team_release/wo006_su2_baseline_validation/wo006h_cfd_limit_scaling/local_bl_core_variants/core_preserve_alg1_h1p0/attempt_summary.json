@@ -1,0 +1,10 @@
+{
+  "attempt_id": "core_preserve_alg1_h1p0",
+  "status": "timeout",
+  "failure_code": "local_timeout",
+  "timeout_seconds": 180.0,
+  "elapsed_seconds": 180.00945401191711,
+  "process_exitcode": -15,
+  "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/local_bl_core_variants/core_preserve_alg1_h1p0",
+  "engineering_read": "Local process exceeded the bounded runtime. Treat this as local scaling evidence, not as proof the physics is impossible."
+}

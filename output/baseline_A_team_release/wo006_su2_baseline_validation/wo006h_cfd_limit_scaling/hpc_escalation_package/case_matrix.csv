@@ -1,0 +1,8 @@
+case_id,route,wing_h_m,expected_cells_order,solver,iterations,acceptance_gate
+mesh_1m,no_bl_control,0.12,1e6,INC_NAVIER_STOKES,1000,debug_only_not_drag_truth
+mesh_3m,no_bl_control,0.08,3e6,INC_NAVIER_STOKES,1000,debug_only_not_drag_truth
+mesh_3p6m,no_bl_control,0.06,3e6-5e6,INC_NAVIER_STOKES,1000,resource_scaling_only
+mesh_8m,no_bl_control,0.04,6e6-10e6,INC_NAVIER_STOKES,1000,resource_scaling_only
+bl_core_coarse,owned_bl_core,0.20,1e6-2e6,INC_RANS_SA,2000,requires_quality_interface_yplus
+bl_core_medium,owned_bl_core,0.14,5e6-8e6,INC_RANS_SA,2000,requires_grid_delta
+bl_core_fine,owned_bl_core,0.10,10e6-15e6,INC_RANS_SA,2500,requires_grid_delta

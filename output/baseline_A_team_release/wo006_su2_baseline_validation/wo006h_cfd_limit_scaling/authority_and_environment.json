@@ -1,0 +1,99 @@
+{
+  "schema_version": "wo006h_authority_and_environment.v1",
+  "authority": {
+    "design_gross_mass_kg": 98.5,
+    "full_span_m": 34.332286,
+    "half_span_m": 17.166143,
+    "sref_m2": 33.420059598,
+    "cref_m": 1.003721543,
+    "bref_m": 34.332286,
+    "velocity_mps": 6.5,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pa_s": 1.7894e-05,
+    "required_cl": 1.1169066577311904,
+    "blocked_legacy_mass_kg": "106.828608 kg is suspect screening only",
+    "blocked_legacy_half_span_m": "16.5 m is local/splice screening only"
+  },
+  "machine": {
+    "hw_memsize_bytes": 17179869184,
+    "hw_ncpu": 10,
+    "hw_logicalcpu": 10,
+    "uname": "Darwin linyuandeMac-mini.local 25.4.0 Darwin Kernel Version 25.4.0: Thu Mar 19 19:31:09 PDT 2026; root:xnu-12377.101.15~1/RELEASE_ARM64_T8132 arm64",
+    "cwd": "/Volumes/Samsung SSD/hpa-mdo"
+  },
+  "toolchain": {
+    "SU2_CFD": "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "SU2_DEF": "/Users/linyuan/.local/opt/su2/current/bin/SU2_DEF",
+    "gmsh": "/opt/homebrew/bin/gmsh",
+    "vspscript": "/Users/linyuan/.local/bin/vspscript",
+    "python": "/Volumes/Samsung SSD/hpa-mdo/.venv/bin/python"
+  },
+  "old_evidence": [
+    {
+      "evidence": "WO-006R3 current-GO no-BL high mesh",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe",
+      "volume_elements": 936017,
+      "node_count": 176542,
+      "boundary_layer": "none",
+      "read": "marker/quality pass, solver timeout at iter 75; not drag evidence"
+    },
+    {
+      "evidence": "Old mesh-native BL HXT best route",
+      "path": "hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/mesh_native_hxt_thread_profile.v1.md",
+      "volume_elements": 1125409,
+      "node_count": 531054,
+      "boundary_layer": "24 layers, first height 5e-5 m",
+      "read": "best old BL route, not current coefficient truth"
+    },
+    {
+      "evidence": "Old no-BL 1000-iter solver stability",
+      "path": "hpa_meshing_package/docs/reports/mesh_native_blackcat_vsp_su2_iter1000/mesh_native_blackcat_vsp_su2_iter1000.v1.md",
+      "volume_elements": 717901,
+      "node_count": 258378,
+      "boundary_layer": "none",
+      "read": "positive drag stability reference only; CD too high/no BL"
+    },
+    {
+      "evidence": "WO-006F best final sign-correct no-BL RANS",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_06_medium_no_bl_inc_rans_sa_alpha5_zpos_no_wallfn",
+      "volume_elements": 434928,
+      "node_count": null,
+      "boundary_layer": "none",
+      "read": "CL=1.289, CD=0.556 rejected as non-HPA and not converged"
+    },
+    {
+      "evidence": "WO-006R6 owned BL/core repair",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair",
+      "volume_elements": "24576 BL cells plus 11644 core probe elements",
+      "node_count": null,
+      "boundary_layer": "owned BL block exists",
+      "read": "fails final handoff: unmatched faces and non-positive core elements"
+    }
+  ],
+  "official_sources": [
+    {
+      "topic": "SU2 wall BC and marker semantics",
+      "url": "https://su2code.github.io/docs_v7/Markers-and-BC/"
+    },
+    {
+      "topic": "SU2 turbulence and wall functions",
+      "url": "https://su2code.github.io/docs_v7/Theory/"
+    },
+    {
+      "topic": "Gmsh discrete entities, HXT, physical groups, BL extrusion",
+      "url": "https://gmsh.info/doc/texinfo/"
+    },
+    {
+      "topic": "OpenVSP CFD mesh API/export knobs",
+      "url": "https://openvsp.org/pyapi_docs/latest/openvsp.html"
+    },
+    {
+      "topic": "NASA CFD best-practice/V&V guidance",
+      "url": "https://ntrs.nasa.gov/api/citations/20040085757/downloads/20040085757.pdf"
+    },
+    {
+      "topic": "NASA turbulent-flow grid convergence guidance",
+      "url": "https://ntrs.nasa.gov/api/citations/20150005716/downloads/20150005716.pdf"
+    }
+  ]
+}

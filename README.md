@@ -1,5 +1,22 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-13 WO-006H CFD Scaling / Larger-Compute Package
+
+WO-006H 已在 current Baseline A main-wing 上補做 serious local scaling，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006h_cfd_limit_scaling/`。
+Verdict 是 `wo006h_hard_limit_escalation_package_ready_after_serious_scaling`。
+
+工程判讀：本機 mesh-native no-BL HXT ladder 可以從 R3 的 `936,017` cells 往上推到
+`1,605,198`、`3,046,012`、`3,596,163` cells，marker / quality gate 通過；下一個
+`h=0.04` rung 則直接 `HXT 3D mesh failed`。這證明 current GO no-BL route 可做
+multi-million-cell resource / marker / sign-control scaling，但仍不是 viscous HPA drag truth。
+R6 BL/core 變體沒有通過 conformal handoff：preserved-interface variants 各自 timeout，
+remeshed-core variant 雖然 quality pass，但仍有 `158` unmatched core interface faces 與
+`4672` unmatched BL boundary faces。因此目前仍沒有 physically credible 或 low-confidence
+SU2 CL/CD/Cm；可交付的是 executable larger-compute package
+`wo006h_cfd_limit_scaling/hpc_escalation_package/`，下一台機器可直接重跑更長 timeout /
+更大記憶體的 mesh ladder 與 BL/core 修復。
+
 ## 2026-05-13 WO-006G SU2 CFD V&V Reset
 
 WO-006G 已把 Baseline A main-wing SU2 線升級成工具鏈 escalation verdict，artifact 在
