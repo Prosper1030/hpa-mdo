@@ -32,7 +32,10 @@ Current authority:
 
 ## Baseline A Rule
 
-Baseline A is a bounded WO-006 calibration package, not final aircraft sign-off.
+Baseline A remains a team-release package, not final aircraft sign-off. The
+current restored authority gate only permits bounded WO-006 aero calibration;
+it does not promote the release package, RFQ/procurement artifacts, or SU2 smoke
+outputs into final design truth.
 
 The current generated evidence package is:
 
