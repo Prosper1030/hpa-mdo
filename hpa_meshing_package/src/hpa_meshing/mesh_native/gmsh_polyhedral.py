@@ -812,6 +812,74 @@ def run_faceted_volume_refinement_ladder(
     return report
 
 
+def evaluate_boundary_layer_core_merge_gate(
+    core_report: Mapping[str, Any],
+    *,
+    merged_mesh_path: Path | str | None,
+) -> dict[str, Any]:
+    """Gate whether a BL block plus core probe may be promoted to handoff.
+
+    A preserved core interface alone is not enough: the BL block must own every
+    core inner-boundary face that would become internal in the mixed mesh, and a
+    merged SU2 file must actually exist before a handoff manifest is written.
+    """
+    mesh_gate = core_report.get("mesh_quality_gate") or {}
+    conformality = core_report.get("interface_conformality") or {}
+    coupling = core_report.get("bl_block_coupling") or {}
+
+    blockers: list[str] = []
+    if core_report.get("status") != "meshed":
+        blockers.append("core_probe_not_meshed")
+    if mesh_gate.get("status") != "pass":
+        blockers.append("core_mesh_quality_gate_not_pass")
+    if conformality.get("can_merge_with_owned_bl_block") is not True:
+        blockers.append("core_interface_not_preserved")
+    if coupling.get("can_merge_core_with_bl_block") is not True:
+        blockers.append("owned_bl_core_coupling_incomplete")
+
+    resolved_merged_mesh_path = None if merged_mesh_path is None else Path(merged_mesh_path)
+    if resolved_merged_mesh_path is None or not resolved_merged_mesh_path.exists():
+        blockers.append("merged_mixed_su2_mesh_missing")
+
+    can_write = not blockers
+    return {
+        "schema_version": "boundary_layer_core_merge_gate.v1",
+        "status": "pass" if can_write else "blocked",
+        "can_write_bl_mesh_handoff": can_write,
+        "blockers": blockers,
+        "merged_mesh_path": None
+        if resolved_merged_mesh_path is None
+        else str(resolved_merged_mesh_path),
+        "evidence": {
+            "core_status": core_report.get("status"),
+            "core_su2_path": core_report.get("su2_path"),
+            "mesh_quality_status": mesh_gate.get("status"),
+            "mesh_quality_blockers": mesh_gate.get("blockers"),
+            "interface_conformality_status": conformality.get("status"),
+            "interface_can_merge": conformality.get("can_merge_with_owned_bl_block"),
+            "interface_remeshed_markers": conformality.get("remeshed_markers"),
+            "bl_core_coupling_status": coupling.get("status"),
+            "bl_core_can_merge": coupling.get("can_merge_core_with_bl_block"),
+            "unmatched_core_interface_face_count": coupling.get(
+                "unmatched_core_interface_face_count"
+            ),
+            "unmatched_core_interface_face_counts_by_marker": coupling.get(
+                "unmatched_core_interface_face_counts_by_marker"
+            ),
+            "unmatched_bl_boundary_face_count": coupling.get(
+                "unmatched_bl_boundary_face_count"
+            ),
+            "unmatched_bl_boundary_face_counts_by_marker": coupling.get(
+                "unmatched_bl_boundary_face_counts_by_marker"
+            ),
+        },
+        "policy": (
+            "Only write bl_mesh_handoff.v1.json after a conformal mixed BL+core "
+            "SU2 mesh exists and the BL/core ownership gate passes."
+        ),
+    }
+
+
 def write_faceted_volume_su2_case(
     wing: SurfaceMesh,
     farfield: SurfaceMesh,

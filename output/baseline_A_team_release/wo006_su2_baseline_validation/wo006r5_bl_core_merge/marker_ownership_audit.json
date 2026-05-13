@@ -1,0 +1,106 @@
+{
+  "schema_version": "wo006r5_marker_ownership_audit.v1",
+  "status": "fail",
+  "blockers": [
+    "final_merged_marker_ownership_not_proven"
+  ],
+  "final_mesh_boundary_markers": null,
+  "owned_bl_block_markers": {
+    "bl_outer_interface": {
+      "element_count": 1024,
+      "element_type_counts": {
+        "9": 1024
+      }
+    },
+    "span_cap": {
+      "element_count": 1536,
+      "element_type_counts": {
+        "9": 1536
+      }
+    },
+    "wake_cut": {
+      "element_count": 1600,
+      "element_type_counts": {
+        "9": 1600
+      }
+    },
+    "wing_wall": {
+      "element_count": 960,
+      "element_type_counts": {
+        "9": 960
+      }
+    }
+  },
+  "core_probe_physical_groups": {
+    "bl_outer_interface": {
+      "dimension": 2,
+      "physical_tag": 1,
+      "entity_count": 1024
+    },
+    "wake_cut": {
+      "dimension": 2,
+      "physical_tag": 2,
+      "entity_count": 32
+    },
+    "span_cap": {
+      "dimension": 2,
+      "physical_tag": 3,
+      "entity_count": 62
+    },
+    "farfield": {
+      "dimension": 2,
+      "physical_tag": 4,
+      "entity_count": 12
+    },
+    "fluid_core": {
+      "dimension": 3,
+      "physical_tag": 5,
+      "entity_count": 1
+    }
+  },
+  "core_probe_interface_conformality": {
+    "status": "preserved",
+    "can_merge_with_owned_bl_block": true,
+    "expected_boundary_representation": "native",
+    "missing_markers": [],
+    "extra_markers": [],
+    "remeshed_markers": [],
+    "markers": {
+      "bl_outer_interface": {
+        "input_expected_element_count": 1024,
+        "input_expected_element_type_counts": {
+          "3": 1024
+        },
+        "generated_element_count": 1024,
+        "generated_element_type_counts": {
+          "3": 1024
+        },
+        "preserved": true
+      },
+      "span_cap": {
+        "input_expected_element_count": 62,
+        "input_expected_element_type_counts": {
+          "2": 62
+        },
+        "generated_element_count": 62,
+        "generated_element_type_counts": {
+          "2": 62
+        },
+        "preserved": true
+      },
+      "wake_cut": {
+        "input_expected_element_count": 32,
+        "input_expected_element_type_counts": {
+          "3": 32
+        },
+        "generated_element_count": 32,
+        "generated_element_type_counts": {
+          "3": 32
+        },
+        "preserved": true
+      }
+    },
+    "interpretation": "Core boundary mesh matches the input interface element counts."
+  },
+  "policy": "The final SU2 mesh may expose wall/farfield boundary markers, but BL/core interface ownership must be proven as internal conformality evidence, not promoted as an aerodynamic boundary condition."
+}

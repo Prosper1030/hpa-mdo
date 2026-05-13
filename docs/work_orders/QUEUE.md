@@ -63,6 +63,14 @@ Current release package:
   BL+core SU2 handoff. Gmsh-owned BL remains blocked by DAE31-family PLC
   topology; remeshed-core workarounds are rejected because they change the
   BL-core interface. No coefficient is interpretable.
+- WO-006R5 BL+core merge is complete with verdict
+  `wo006r5_core_merge_limitation_proven`. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/`.
+  The preserved-core probe keeps the core interface envelope, but core quality
+  fails and BL/core coupling remains partial at `wake_cut` / `span_cap`; the
+  all-non-wall BL boundary shortcut is not watertight. No conformal mixed
+  BL+core SU2 handoff, no `bl_mesh_handoff.v1.json`, and no coefficient is
+  interpretable.
 
 ## Queue Rules
 
@@ -97,7 +105,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | With data-authority checker prerequisite preserved, R4 proved the remaining current-GO blocker is a conformal owned-BL + core merge / mixed-element SU2 writer gap, not coefficient interpretation; next repair is WO-006R5 BL+core handoff implementation |
+| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | With data-authority checker prerequisite preserved, R5 proved the remaining current-GO blocker is conformal core-interface / mesh-quality repair before any mixed BL+core SU2 handoff; next repair is WO-006R6 BL/core interface repair |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -320,6 +328,15 @@ mixed-element SU2 writer; preserved core probing fails quality/coupling, while
 remeshed core probing hides the interface problem. No `bl_mesh_handoff.v1.json`
 exists and no coefficient is interpretable.
 
+R5 read: `wo006r5_core_merge_limitation_proven`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/`.
+R5 keeps current authority data and external shape fixed. It proves the
+preserved-core interface envelope can be kept without remeshing, but the core
+mesh quality gate still fails and BL/core coupling remains partial at
+`wake_cut` / `span_cap`. The direct all-non-wall BL boundary core-surface shortcut
+is not watertight. No conformal mixed BL+core handoff exists, no
+`bl_mesh_handoff.v1.json` exists, and no coefficient is interpretable.
+
 ### WO-007: QPROP / XROTOR Propulsion Interface
 
 Purpose: give the drivetrain/propulsion team a clear design box while preserving
@@ -480,50 +497,49 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-With the data-authority checker prerequisite preserved, WO-006R4 is complete enough to define the next implementation target, but not
+With the data-authority checker prerequisite preserved, WO-006R5 is complete enough to define the next implementation target, but not
 enough to claim viscous CFD. The completed artifact bundle is
-`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`.
-Verdict: `wo006r4_adapter_limitation_proven`. It produced current-GO owned-BL
-topology evidence and core-probe evidence, but no conformal BL+core SU2 handoff,
-no postprocessed y+, and no interpretable coefficient.
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/`.
+Verdict: `wo006r5_core_merge_limitation_proven`. It produced current-GO owned-BL
+topology evidence and preserved-core interface evidence, but no conformal
+BL+core SU2 handoff, no postprocessed y+, and no interpretable coefficient.
 
-WO-006R5 is now the next recommended task with data-authority checker prerequisite:
-run `scripts/check_baseline_a_data_authority.py --check-only`, then implement the
-conformal owned-BL + core merge / mixed-element SU2 writer without changing
-Baseline A authority data.
+WO-006R6 is now the next recommended task with data-authority checker prerequisite:
+run `scripts/check_baseline_a_data_authority.py --check-only`, then repair the
+conformal core-interface / mesh-quality blocker before writing a mixed-element
+SU2 handoff, without changing Baseline A authority data.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R5: implement the conformal mesh-native owned-BL + core merge needed after WO-006R4.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R6: repair the current-GO conformal BL/core interface and mixed-element SU2 writer after WO-006R5.
 
 Read first:
 - README.md
 - CURRENT_MAINLINE.md
 - docs/AI_WORK_ORDER_PROTOCOL.md
 - docs/work_orders/QUEUE.md
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/route_decision.json
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/blocker_register.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/owned_bl_block_summary.json
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/core_probe_artifacts/
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/route_decision.json
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/blocker_register.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/marker_ownership_audit.json
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/interface_conformality_audit.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/mesh_quality_gate.json
 - output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/
 - hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/
 - hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/
 - hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/
 
 Task:
-Start from WO-006R4's smallest blocker:
-- current adapter lacks a conformal owned BL block + core merge / mixed-element
-  SU2 writer;
-- preserved core probe keeps the interface but fails core quality and still has
-  wake/span-cap coupling partial;
-- remeshed core probes pass more easily but are rejected because they change the
-  BL-core interface and hide the topology problem;
-- Gmsh-owned topological BL still fails at the R3 DAE31-family PLC points.
+Start from WO-006R5's smallest blocker:
+- preserved-core probe keeps the interface envelope but fails core quality;
+- BL/core coupling remains partial at `wake_cut` / `span_cap`;
+- the all-non-wall BL boundary shortcut is not watertight;
+- no final merged mixed-element SU2 handoff exists.
 
 Allowed:
-- implement a conformal merge between `WingBoundaryLayerBlock` and a core volume;
-- preserve `bl_outer_interface`, `wake_cut`, and `span_cap` ownership or prove
-  exactly why one category cannot be preserved yet;
+- repair the core interface envelope and quality blockers without changing
+  external shape;
+- preserve `bl_outer_interface`, `wake_cut`, and `span_cap` ownership with zero
+  unmatched interface faces;
 - write a mixed-element SU2 mesh only after marker / quality / interface gates
   pass;
 - keep Gmsh topological BL attempts as comparison/blocker evidence, not primary
@@ -537,7 +553,7 @@ Disallowed:
   sign-off claims.
 
 Required output:
-- verdict: wo006r5_bl_handoff_ready / wo006r5_merge_writer_blocked / wo006r5_geometry_deviation_risk / wo006r5_campaign_incomplete
+- verdict: wo006r6_bl_core_handoff_ready / wo006r6_core_merge_limitation_proven / wo006r6_writer_limitation_proven / wo006r6_campaign_incomplete
 - exact authority basis used
 - BL+core merge root-cause explanation in plain language
 - merge / writer attempts accepted or rejected
@@ -548,7 +564,7 @@ Required output:
 - verification, engineering caveats, reviewer prompt, and next work order
 
 Verification:
-- run the WO-006R5 BL+core merge campaign or probes
+- run the WO-006R6 BL+core interface repair campaign or probes
 - run targeted tests for changed code
 - run `scripts/check_baseline_a_data_authority.py --check-only`
 - run ruff on changed Python files

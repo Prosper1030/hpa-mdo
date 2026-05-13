@@ -7,6 +7,7 @@ from hpa_meshing.mesh_native.gmsh_polyhedral import (
     _cfd_evidence_gate,
     _boundary_layer_mesh_quality_gate,
     _coefficient_sanity_gate,
+    evaluate_boundary_layer_core_merge_gate,
     _mesh_quality_gate,
     _triangulate,
     build_wing_feature_refinement_boxes,
@@ -260,6 +261,34 @@ def test_write_boundary_layer_block_core_tet_mesh_can_preserve_input_interface(
     assert report["bl_block_coupling"]["can_merge_core_with_bl_block"] is False
     assert report["bl_block_coupling"]["unmatched_core_interface_face_count"] > 0
     assert report["mesh_sizing"]["preserve_boundary_mesh"] is True
+
+
+def test_boundary_layer_core_merge_gate_blocks_preserved_but_unmatched_interface():
+    gate = evaluate_boundary_layer_core_merge_gate(
+        {
+            "status": "meshed",
+            "su2_path": "/tmp/core_preserved_probe.su2",
+            "mesh_quality_gate": {"status": "pass", "blockers": []},
+            "interface_conformality": {
+                "status": "preserved",
+                "can_merge_with_owned_bl_block": True,
+                "remeshed_markers": [],
+            },
+            "bl_block_coupling": {
+                "status": "partial",
+                "can_merge_core_with_bl_block": False,
+                "unmatched_core_interface_face_count": 3,
+                "unmatched_bl_boundary_face_count": 5,
+            },
+        },
+        merged_mesh_path=None,
+    )
+
+    assert gate["status"] == "blocked"
+    assert gate["can_write_bl_mesh_handoff"] is False
+    assert "owned_bl_core_coupling_incomplete" in gate["blockers"]
+    assert "merged_mixed_su2_mesh_missing" in gate["blockers"]
+    assert gate["evidence"]["core_su2_path"] == "/tmp/core_preserved_probe.su2"
 
 
 def test_write_faceted_volume_mesh_with_boundary_layer_writes_mixed_su2_mesh(

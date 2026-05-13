@@ -52,6 +52,17 @@ coupling partial，remeshed core probe 則會改掉 BL-core interface，不能�
 handoff。因此目前最小 blocker 是「缺 conformal owned BL block + core merge / SU2 mixed-element
 writer」，不是 solver tuning 或可用係數問題。
 
+WO-006R5 BL+core merge campaign 已新增，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/`。
+Verdict 是 `wo006r5_core_merge_limitation_proven`：R5 沒有產生
+`bl_mesh_handoff.v1.json`，也沒有 conformal mixed BL+core SU2 handoff。Preserved-core
+probe 可保留 core interface envelope（`bl_outer_interface`、`wake_cut`、`span_cap`
+沒有被 remesh），但 core quality gate 仍 fail（non-positive SICN/SIGE/volume），且
+BL/core coupling 仍只有 partial：`wake_cut` 與 `span_cap` 還有 unmatched interface faces。
+把全部 non-wall BL boundary 直接當 core inner boundary 的捷徑也被證明不是 watertight
+surface（124 bad edges）。因此目前最小 blocker 是 conformal core interface / mesh-quality
+repair，不是係數、solver tuning 或資料權威問題。
+
 目前 gate 讀法：
 
 - `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
@@ -62,7 +73,7 @@ writer」，不是 solver tuning 或可用係數問題。
 - WO-006 只能做 bounded aero calibration；不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
 - WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route；WO-006R2 已把 current high-mesh / BL blocker 定位到 surface topology；WO-006R3 已產出 serious high-mesh no-BL handoff，但 BL route 與 CFD evidence gate 仍未達成。
-- WO-006R4 verdict 是 `wo006r4_adapter_limitation_proven`；current GO 已有 owned-BL topology basis，但沒有 conformal BL+core SU2 handoff，沒有 postprocessed y+，也沒有可解讀係數。
+- WO-006R5 verdict 是 `wo006r5_core_merge_limitation_proven`；current GO 已有 owned-BL topology basis 和 preserved-interface core evidence，但沒有 conformal mixed BL+core SU2 handoff，沒有 `bl_mesh_handoff.v1.json`，沒有 postprocessed y+，也沒有可解讀係數。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
 
@@ -547,7 +558,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸仍不是 shop drawing；WO-005 已補 RFQ screening station/span/splice manifest，尚未變成 drawing release |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
 | Rib / root / wire hardware / composite detail | 開放 validation blockers，需要後續實體化與 detail evidence |
-| SU2 / mesh-native CFD | WO-006 可做 bounded aero calibration；mesh-native product route 仍不是目前 performance truth |
+| SU2 / mesh-native CFD | WO-006 可做 bounded aero calibration；R5 已把 blocker 縮到 conformal core-interface / mesh-quality repair，仍不是目前 performance truth |
 
 ---
 

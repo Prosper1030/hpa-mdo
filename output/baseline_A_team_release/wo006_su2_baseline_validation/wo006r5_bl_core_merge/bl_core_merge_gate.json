@@ -1,0 +1,37 @@
+{
+  "schema_version": "boundary_layer_core_merge_gate.v1",
+  "status": "blocked",
+  "can_write_bl_mesh_handoff": false,
+  "blockers": [
+    "core_mesh_quality_gate_not_pass",
+    "owned_bl_core_coupling_incomplete",
+    "merged_mixed_su2_mesh_missing"
+  ],
+  "merged_mesh_path": null,
+  "evidence": {
+    "core_status": "meshed",
+    "core_su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+    "mesh_quality_status": "fail",
+    "mesh_quality_blockers": [
+      "non_positive_min_sicn",
+      "non_positive_min_sige",
+      "non_positive_volume"
+    ],
+    "interface_conformality_status": "preserved",
+    "interface_can_merge": true,
+    "interface_remeshed_markers": [],
+    "bl_core_coupling_status": "partial",
+    "bl_core_can_merge": false,
+    "unmatched_core_interface_face_count": 94,
+    "unmatched_core_interface_face_counts_by_marker": {
+      "span_cap": 62,
+      "wake_cut": 32
+    },
+    "unmatched_bl_boundary_face_count": 3136,
+    "unmatched_bl_boundary_face_counts_by_marker": {
+      "span_cap": 1536,
+      "wake_cut": 1600
+    }
+  },
+  "policy": "Only write bl_mesh_handoff.v1.json after a conformal mixed BL+core SU2 mesh exists and the BL/core ownership gate passes."
+}

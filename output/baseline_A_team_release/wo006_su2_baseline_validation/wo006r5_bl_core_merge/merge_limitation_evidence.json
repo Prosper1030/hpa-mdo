@@ -1,0 +1,146 @@
+{
+  "schema_version": "wo006r5_merge_limitation_evidence.v1",
+  "route": "mesh_native_owned_bl_block_plus_preserved_core_probe",
+  "verdict": "blocked",
+  "external_shape_changed": false,
+  "final_handoff_written": false,
+  "blockers": [
+    "core_mesh_quality_gate_not_pass",
+    "owned_bl_core_coupling_incomplete",
+    "merged_mixed_su2_mesh_missing"
+  ],
+  "owned_bl_block_probe": {
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/owned_bl_block_probe.su2",
+    "node_count": 27225,
+    "volume_element_count": 24576,
+    "marker_summary": {
+      "bl_outer_interface": {
+        "element_count": 1024,
+        "element_type_counts": {
+          "9": 1024
+        }
+      },
+      "span_cap": {
+        "element_count": 1536,
+        "element_type_counts": {
+          "9": 1536
+        }
+      },
+      "wake_cut": {
+        "element_count": 1600,
+        "element_type_counts": {
+          "9": 1600
+        }
+      },
+      "wing_wall": {
+        "element_count": 960,
+        "element_type_counts": {
+          "9": 960
+        }
+      }
+    },
+    "caveats": [
+      "not a complete farfield CFD domain",
+      "intended for SU2 parser and marker ownership smoke before core-volume merge"
+    ]
+  },
+  "core_probe": {
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.msh",
+    "su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+    "status": "meshed",
+    "interface_conformality": {
+      "status": "preserved",
+      "can_merge_with_owned_bl_block": true,
+      "expected_boundary_representation": "native",
+      "missing_markers": [],
+      "extra_markers": [],
+      "remeshed_markers": [],
+      "markers": {
+        "bl_outer_interface": {
+          "input_expected_element_count": 1024,
+          "input_expected_element_type_counts": {
+            "3": 1024
+          },
+          "generated_element_count": 1024,
+          "generated_element_type_counts": {
+            "3": 1024
+          },
+          "preserved": true
+        },
+        "span_cap": {
+          "input_expected_element_count": 62,
+          "input_expected_element_type_counts": {
+            "2": 62
+          },
+          "generated_element_count": 62,
+          "generated_element_type_counts": {
+            "2": 62
+          },
+          "preserved": true
+        },
+        "wake_cut": {
+          "input_expected_element_count": 32,
+          "input_expected_element_type_counts": {
+            "3": 32
+          },
+          "generated_element_count": 32,
+          "generated_element_type_counts": {
+            "3": 32
+          },
+          "preserved": true
+        }
+      },
+      "interpretation": "Core boundary mesh matches the input interface element counts."
+    },
+    "bl_block_coupling": {
+      "status": "partial",
+      "can_merge_core_with_bl_block": false,
+      "matched_face_count": 1024,
+      "matched_face_counts_by_marker_pair": {
+        "bl_outer_interface->bl_outer_interface": 1024
+      },
+      "unmatched_core_interface_face_count": 94,
+      "unmatched_core_interface_face_counts_by_marker": {
+        "span_cap": 62,
+        "wake_cut": 32
+      },
+      "unmatched_bl_boundary_face_count": 3136,
+      "unmatched_bl_boundary_face_counts_by_marker": {
+        "span_cap": 1536,
+        "wake_cut": 1600
+      },
+      "interpretation": "Core interface is mesh-preserved but does not yet match every non-wall BL block boundary face; do not write a merged viscous mesh."
+    },
+    "mesh_quality_gate": {
+      "status": "fail",
+      "blockers": [
+        "non_positive_min_sicn",
+        "non_positive_min_sige",
+        "non_positive_volume"
+      ],
+      "warnings": [
+        "very_low_min_gamma",
+        "low_p01_gamma"
+      ],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    }
+  },
+  "full_non_wall_boundary_probe": {
+    "schema_version": "wo006r5_full_non_wall_boundary_surface_probe.v1",
+    "status": "not_watertight",
+    "can_use_as_core_inner_boundary": false,
+    "marker_counts": {
+      "bl_outer_interface": 1024,
+      "wake_cut": 1600,
+      "span_cap": 1536
+    },
+    "error": "Non-watertight surface: 124 bad edges",
+    "engineering_read": "The full non-wall BL boundary is not a closed core inner surface. It cannot be sent directly to Gmsh as the conformal core boundary."
+  },
+  "smallest_current_limitation": "The current preserved-core route can be used as evidence only. The core interface envelope is preserved, but the preserved core still fails quality/coupling gates and the full non-wall BL boundary is not a watertight core inner surface.",
+  "engineering_read": "A no-slip BL mesh is not credible merely because the wall hex block exists. The wake and span-cap load paths between near-wall cells and the outer core must be conformal, or SU2 would see artificial gaps/internal boundaries."
+}

@@ -60,6 +60,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   conformal viscous handoff。下一步若要 BL handoff，必須實作 conformal owned BL block +
   core merge / mixed-element SU2 writer，再跑 marker / quality / readability gate。
   R4 沒有 postprocessed y+、沒有可解讀 SU2 coefficient、沒有 Baseline A reopen evidence。
+- WO-006R5 BL+core merge campaign 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/`，
+  verdict 是 `wo006r5_core_merge_limitation_proven`。R5 沒有寫出
+  `bl_mesh_handoff.v1.json`：preserved-core probe 保留了 core interface envelope，
+  但 core quality gate fail（non-positive SICN/SIGE/volume），BL/core coupling 仍是
+  partial，且全部 non-wall BL boundary 不能直接作為 watertight core inner boundary
+  （124 bad edges）。因此目前 blocker 已縮小為 conformal core interface / mesh-quality
+  repair；R5 仍沒有 postprocessed y+、沒有可解讀 SU2 coefficient、沒有 Baseline A reopen evidence。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

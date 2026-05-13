@@ -40,8 +40,8 @@ Current authority:
   Treat it as route/handoff evidence only. It has marker-owned mesh handoff and
   solver readability evidence, but no boundary-layer/y+ evidence, no usable
   CL/CD/CDi, no drag/power calibration, and no Baseline A reopen evidence.
-  WO-006R4 must continue from the remaining BL/HXT topology blockers instead of
-  using WO-006R3 coefficients as aerodynamic truth.
+  Later WO-006 work must continue from the BL/core ownership artifacts instead
+  of using WO-006R3 coefficients as aerodynamic truth.
 - WO-006R4 BL ownership repair is complete:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`.
   Verdict: `wo006r4_adapter_limitation_proven`. It did not emit
@@ -51,6 +51,14 @@ Current authority:
   topology and an estimated first-layer y+ basis, but the current adapter lacks a
   conformal owned-BL + core merge / mixed-element SU2 writer. Treat R4 as the
   next repair target definition, not as BL/y+ CFD evidence or coefficient truth.
+- WO-006R5 BL+core merge is complete:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/`.
+  Verdict: `wo006r5_core_merge_limitation_proven`. It did not emit
+  `bl_mesh_handoff.v1.json`. The preserved-core probe keeps the core interface
+  envelope without remeshing, but core quality still fails and BL/core coupling is
+  partial at `wake_cut` / `span_cap`. A direct all-non-wall BL boundary core
+  surface is not watertight. Treat R5 as a core-interface / mesh-quality blocker
+  proof, not as BL/y+ CFD evidence or coefficient truth.
 
 ## Baseline A Rule
 

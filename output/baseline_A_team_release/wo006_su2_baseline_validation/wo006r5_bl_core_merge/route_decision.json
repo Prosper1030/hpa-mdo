@@ -1,0 +1,268 @@
+{
+  "schema_version": "wo006r5_route_decision.v1",
+  "verdict": "wo006r5_core_merge_limitation_proven",
+  "bl_mesh_handoff_written": false,
+  "bl_mesh_handoff_path": null,
+  "bl_core_handoff_exists": false,
+  "coefficient_interpretable": false,
+  "baseline_a_reopen_status": "not_evaluated",
+  "external_shape_changed": false,
+  "format_authority_sources": {
+    "su2_mesh_file": "https://su2code.github.io/docs_v7/Mesh-File/",
+    "su2_markers_and_bc": "https://su2code.github.io/docs_v7/Markers-and-BC/",
+    "gmsh_texinfo": "https://gmsh.info/doc/texinfo/"
+  },
+  "authority_basis": {
+    "design_gross_mass_kg": 98.5,
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598,
+    "cref_m": 1.003721543,
+    "bref_m": 34.332286,
+    "geometry_source": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv",
+    "blocked_legacy_mass_kg": "106.828608 kg is not current truth",
+    "blocked_legacy_half_span_m": "16.5 m is not current pipeline truth"
+  },
+  "surface_deviation": {
+    "schema_version": "wo006r4_surface_geometry_deviation.v1",
+    "external_authority_files_changed": false,
+    "r4_new_adapter_cleanup_applied": false,
+    "comparison": "owned BL wall layer-0 nodes against current GO mesh-native wing surface",
+    "wall_vertex_count": 1023,
+    "wing_surface_vertex_count": 992,
+    "max_nearest_distance_m": 0.0,
+    "p95_nearest_distance_m": 0.0,
+    "mean_nearest_distance_m": 0.0,
+    "interpretation": "R4 did not change authority geometry. The owned BL wall is generated from the same current-GO mesh-native station data; any remaining deviation here is adapter/discretization evidence, not a source-shape change."
+  },
+  "owned_bl_block_summary": {
+    "block_cells": 24576,
+    "quality": {
+      "cell_count": 24576,
+      "min_estimated_volume_m3": 1.337006168004603e-07,
+      "non_positive_volume_count": 0,
+      "min_span_interval_m": 0.4291534999999982,
+      "max_span_interval_m": 1.6307834999999997,
+      "min_section_first_layer_height_m": 4.999999999998514e-05,
+      "max_section_first_layer_height_m": 5.0000000000021625e-05,
+      "boundary_face_count": 5120,
+      "unowned_boundary_face_count": 0
+    },
+    "boundary_layer": {
+      "first_height_m": 5e-05,
+      "growth_ratio": 1.24,
+      "layers": 24,
+      "total_thickness_m": 0.03617304985338917
+    }
+  },
+  "merge_gate": {
+    "schema_version": "boundary_layer_core_merge_gate.v1",
+    "status": "blocked",
+    "can_write_bl_mesh_handoff": false,
+    "blockers": [
+      "core_mesh_quality_gate_not_pass",
+      "owned_bl_core_coupling_incomplete",
+      "merged_mixed_su2_mesh_missing"
+    ],
+    "merged_mesh_path": null,
+    "evidence": {
+      "core_status": "meshed",
+      "core_su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+      "mesh_quality_status": "fail",
+      "mesh_quality_blockers": [
+        "non_positive_min_sicn",
+        "non_positive_min_sige",
+        "non_positive_volume"
+      ],
+      "interface_conformality_status": "preserved",
+      "interface_can_merge": true,
+      "interface_remeshed_markers": [],
+      "bl_core_coupling_status": "partial",
+      "bl_core_can_merge": false,
+      "unmatched_core_interface_face_count": 94,
+      "unmatched_core_interface_face_counts_by_marker": {
+        "span_cap": 62,
+        "wake_cut": 32
+      },
+      "unmatched_bl_boundary_face_count": 3136,
+      "unmatched_bl_boundary_face_counts_by_marker": {
+        "span_cap": 1536,
+        "wake_cut": 1600
+      }
+    },
+    "policy": "Only write bl_mesh_handoff.v1.json after a conformal mixed BL+core SU2 mesh exists and the BL/core ownership gate passes."
+  },
+  "marker_ownership_audit": {
+    "status": "fail",
+    "blockers": [
+      "final_merged_marker_ownership_not_proven"
+    ]
+  },
+  "mesh_quality_gate": {
+    "status": "fail",
+    "blockers": [
+      "core_mesh_quality_gate_not_pass",
+      "merged_bl_core_quality_not_proven"
+    ]
+  },
+  "su2_readability_smoke": {
+    "status": "fail",
+    "blockers": [
+      "merged_bl_core_su2_mesh_missing"
+    ]
+  },
+  "limitation": {
+    "schema_version": "wo006r5_merge_limitation_evidence.v1",
+    "route": "mesh_native_owned_bl_block_plus_preserved_core_probe",
+    "verdict": "blocked",
+    "external_shape_changed": false,
+    "final_handoff_written": false,
+    "blockers": [
+      "core_mesh_quality_gate_not_pass",
+      "owned_bl_core_coupling_incomplete",
+      "merged_mixed_su2_mesh_missing"
+    ],
+    "owned_bl_block_probe": {
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/owned_bl_block_probe.su2",
+      "node_count": 27225,
+      "volume_element_count": 24576,
+      "marker_summary": {
+        "bl_outer_interface": {
+          "element_count": 1024,
+          "element_type_counts": {
+            "9": 1024
+          }
+        },
+        "span_cap": {
+          "element_count": 1536,
+          "element_type_counts": {
+            "9": 1536
+          }
+        },
+        "wake_cut": {
+          "element_count": 1600,
+          "element_type_counts": {
+            "9": 1600
+          }
+        },
+        "wing_wall": {
+          "element_count": 960,
+          "element_type_counts": {
+            "9": 960
+          }
+        }
+      },
+      "caveats": [
+        "not a complete farfield CFD domain",
+        "intended for SU2 parser and marker ownership smoke before core-volume merge"
+      ]
+    },
+    "core_probe": {
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.msh",
+      "su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+      "status": "meshed",
+      "interface_conformality": {
+        "status": "preserved",
+        "can_merge_with_owned_bl_block": true,
+        "expected_boundary_representation": "native",
+        "missing_markers": [],
+        "extra_markers": [],
+        "remeshed_markers": [],
+        "markers": {
+          "bl_outer_interface": {
+            "input_expected_element_count": 1024,
+            "input_expected_element_type_counts": {
+              "3": 1024
+            },
+            "generated_element_count": 1024,
+            "generated_element_type_counts": {
+              "3": 1024
+            },
+            "preserved": true
+          },
+          "span_cap": {
+            "input_expected_element_count": 62,
+            "input_expected_element_type_counts": {
+              "2": 62
+            },
+            "generated_element_count": 62,
+            "generated_element_type_counts": {
+              "2": 62
+            },
+            "preserved": true
+          },
+          "wake_cut": {
+            "input_expected_element_count": 32,
+            "input_expected_element_type_counts": {
+              "3": 32
+            },
+            "generated_element_count": 32,
+            "generated_element_type_counts": {
+              "3": 32
+            },
+            "preserved": true
+          }
+        },
+        "interpretation": "Core boundary mesh matches the input interface element counts."
+      },
+      "bl_block_coupling": {
+        "status": "partial",
+        "can_merge_core_with_bl_block": false,
+        "matched_face_count": 1024,
+        "matched_face_counts_by_marker_pair": {
+          "bl_outer_interface->bl_outer_interface": 1024
+        },
+        "unmatched_core_interface_face_count": 94,
+        "unmatched_core_interface_face_counts_by_marker": {
+          "span_cap": 62,
+          "wake_cut": 32
+        },
+        "unmatched_bl_boundary_face_count": 3136,
+        "unmatched_bl_boundary_face_counts_by_marker": {
+          "span_cap": 1536,
+          "wake_cut": 1600
+        },
+        "interpretation": "Core interface is mesh-preserved but does not yet match every non-wall BL block boundary face; do not write a merged viscous mesh."
+      },
+      "mesh_quality_gate": {
+        "status": "fail",
+        "blockers": [
+          "non_positive_min_sicn",
+          "non_positive_min_sige",
+          "non_positive_volume"
+        ],
+        "warnings": [
+          "very_low_min_gamma",
+          "low_p01_gamma"
+        ],
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        }
+      }
+    },
+    "full_non_wall_boundary_probe": {
+      "schema_version": "wo006r5_full_non_wall_boundary_surface_probe.v1",
+      "status": "not_watertight",
+      "can_use_as_core_inner_boundary": false,
+      "marker_counts": {
+        "bl_outer_interface": 1024,
+        "wake_cut": 1600,
+        "span_cap": 1536
+      },
+      "error": "Non-watertight surface: 124 bad edges",
+      "engineering_read": "The full non-wall BL boundary is not a closed core inner surface. It cannot be sent directly to Gmsh as the conformal core boundary."
+    },
+    "smallest_current_limitation": "The current preserved-core route can be used as evidence only. The core interface envelope is preserved, but the preserved core still fails quality/coupling gates and the full non-wall BL boundary is not a watertight core inner surface.",
+    "engineering_read": "A no-slip BL mesh is not credible merely because the wall hex block exists. The wake and span-cap load paths between near-wall cells and the outer core must be conformal, or SU2 would see artificial gaps/internal boundaries."
+  },
+  "smallest_remaining_limitation": "The current preserved-core route can be used as evidence only. The core interface envelope is preserved, but the preserved core still fails quality/coupling gates and the full non-wall BL boundary is not a watertight core inner surface.",
+  "next_repair_target": "Repair the conformal core interface route so the preserved core quality and BL/core coupling gates pass; only then write the mixed-element SU2 merge and emit bl_mesh_handoff.v1.json from the actual merged mesh.",
+  "blocked_claims": [
+    "current BL/y+ CFD handoff",
+    "drag or power truth",
+    "Baseline A reopen evidence",
+    "final aircraft sign-off"
+  ]
+}
