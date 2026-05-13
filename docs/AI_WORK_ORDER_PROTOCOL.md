@@ -25,6 +25,10 @@ Current authority:
   RFQ/procurement truth, and not final aircraft sign-off.
 - WO-006 must use `98.5 kg` and current pipeline span authority unless explicitly
   studying sensitivity.
+- WO-006R1 current GO mesh-native bridge is smoke-ready only:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/`.
+  It proves a repeatable coarse mesh/SU2 readability route, not usable CL/CD,
+  drag/power calibration, release truth, procurement truth, or aircraft sign-off.
 
 ## Baseline A Rule
 

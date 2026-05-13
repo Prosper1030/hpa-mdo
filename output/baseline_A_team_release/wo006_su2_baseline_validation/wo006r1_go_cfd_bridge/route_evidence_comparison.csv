@@ -1,0 +1,4 @@
+route_id,route,classification,evidence,decision
+A,current Baseline A VSP3 -> esp_rebuilt/STEP-BREP-like geometry -> Gmsh thin-sheet -> SU2,legacy_blocked_reference,"WO-006 first bounded attempt: provider materialized, default 3D volume insertion timeout, coarse topology failure",do_not_repair_blindly
+B,current section_table + airfoil DAT -> mesh-native indexed surface -> marker-owned HXT mesh -> SU2,selected_primary,"current GO geometry package has reconciled section table, airfoil DAT files, Sref/Bref/Cref, and AVL Xref",implement_coarse_no_bl_smoke_first
+old_black_cat_mesh_native,Black Cat VSP-native mesh-native reports,route_evidence_only,proves mesh-native HXT/SU2 mechanics; not current Baseline A aerodynamic evidence,reuse_method_not_coefficients

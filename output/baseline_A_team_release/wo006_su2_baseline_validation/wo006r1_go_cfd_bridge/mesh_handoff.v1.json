@@ -1,0 +1,143 @@
+{
+  "compute": {
+    "general_num_threads": 4,
+    "gmsh_threads": 4,
+    "mesh_algorithm3d": 10,
+    "mesh_max_num_threads_1d": 4,
+    "mesh_max_num_threads_2d": 4,
+    "mesh_max_num_threads_3d": 4
+  },
+  "contract": "mesh_handoff.v1",
+  "geometry_source": {
+    "case_name": "current_avl_compromise_conservative_closed",
+    "export_mode": "production_inspection",
+    "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+    "known_limitations": [
+      "Diagnostic manual-inspection export only; no VSPAero or aerodynamic analysis was run.",
+      "Main wing planform, twist, and loaded z are reconstructed from the sidecar AVL sections.",
+      "OpenVSP wing sections are driven by span/chord/dihedral/twist; exact CST/DAE/ClarkY airfoil import status is recorded in vsp_export.",
+      "Reference empennage/fuselage geometry is not included because the sidecar AVL source is wing-only.",
+      "This file is cruise-normalized and monotone-chord. Use this for VSP/SolidWorks/fairing/manual geometry inspection."
+    ],
+    "mesh_native_adapter": {
+      "base_full_station_count": 17,
+      "base_half_station_count": 9,
+      "full_station_count": 49,
+      "points_per_side": 8,
+      "points_per_station": 14,
+      "spanwise_subdivisions": 3,
+      "surface_source": "production_inspection_section_table_plus_airfoil_dat",
+      "twist_axis_x": 0.25,
+      "x_le_source": "section_table_current_avl_x_le_zero"
+    },
+    "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+    "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+    "source_geometry": "sidecar_avl_loaded_shape"
+  },
+  "gmsh_mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/mesh.msh",
+  "limitations": [
+    "coarse no-BL mesh; not a wall-resolved drag mesh",
+    "intended for current GO/Baseline A SU2 readability and marker ownership only"
+  ],
+  "marker_audit": {
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "mesh_summary": {
+      "markers": {
+        "farfield": {
+          "element_count": 782,
+          "element_type_counts": {
+            "5": 782
+          }
+        },
+        "wing_wall": {
+          "element_count": 1372,
+          "element_type_counts": {
+            "5": 1372
+          }
+        }
+      },
+      "ndime": 3,
+      "nelem": 2902,
+      "nmark": 2,
+      "npoin": 1081
+    },
+    "missing_from_mesh": [],
+    "status": "pass",
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": []
+  },
+  "memory_safe_policy": {
+    "coarse_no_bl_first": true,
+    "design_space_cfd": false,
+    "mesh_timeout_seconds": 60.0
+  },
+  "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/mesh.su2",
+  "mesh_quality_gate": {
+    "blockers": [],
+    "status": "pass",
+    "warning_thresholds": {
+      "min_gamma": 0.0001,
+      "min_sicn": 0.0001,
+      "p01_gamma": 0.02
+    },
+    "warnings": [
+      "very_low_min_gamma",
+      "low_p01_gamma"
+    ]
+  },
+  "mesh_sizing": {
+    "background_field": {
+      "distance_field_tag": 1,
+      "field_tag": 2,
+      "node_count": 688,
+      "threshold_field_tag": 2,
+      "type": "DistanceThreshold"
+    },
+    "default_mesh_size": 8.0,
+    "farfield_mesh_size": 12.0,
+    "refinement_boxes": [],
+    "wing_mesh_size": 2.0,
+    "wing_refinement_radius": 12.0
+  },
+  "node_count": 1081,
+  "physical_groups": {
+    "farfield": {
+      "dimension": 2,
+      "entity_count": 12,
+      "physical_tag": 2
+    },
+    "fluid": {
+      "dimension": 3,
+      "entity_count": 1,
+      "physical_tag": 3
+    },
+    "wing_wall": {
+      "dimension": 2,
+      "entity_count": 1372,
+      "physical_tag": 1
+    }
+  },
+  "production_scale_gate": {
+    "observed_to_target_ratio": 0.002902,
+    "observed_volume_elements": 2902,
+    "shortfall_volume_elements": 997098,
+    "status": "underresolved",
+    "target_volume_elements": 1000000
+  },
+  "route": "mesh_native_current_go_faceted_hxt_coarse",
+  "schema_version": "wo006r1_mesh_handoff.v1",
+  "status": "written",
+  "surface_triangle_count": 1384,
+  "volume_element_count": 2902
+}

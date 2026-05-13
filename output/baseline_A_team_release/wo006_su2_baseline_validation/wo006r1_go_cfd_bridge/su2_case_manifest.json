@@ -1,0 +1,100 @@
+{
+  "authority_basis": {
+    "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv",
+    "bref_m": 34.332286,
+    "cref_m": 1.003721543,
+    "design_gross_mass_kg": 98.5,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598
+  },
+  "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case",
+  "limitations": [
+    "INC_EULER coarse smoke; no BL/prism layer and no viscous drag credibility",
+    "case materialization is not convergence or aero validation"
+  ],
+  "marker_audit": {
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "mesh_summary": {
+      "markers": {
+        "farfield": {
+          "element_count": 782,
+          "element_type_counts": {
+            "5": 782
+          }
+        },
+        "wing_wall": {
+          "element_count": 1372,
+          "element_type_counts": {
+            "5": 1372
+          }
+        }
+      },
+      "ndime": 3,
+      "nelem": 2902,
+      "nmark": 2,
+      "npoin": 1081
+    },
+    "missing_from_mesh": [],
+    "status": "pass",
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": []
+  },
+  "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/mesh.su2",
+  "mesh_report_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/mesh_native_faceted_su2_smoke_report.json",
+  "route": "mesh_native_current_go_faceted_hxt_coarse",
+  "runtime": {
+    "alpha_deg": 0.0,
+    "cfl_number": 1.0,
+    "conv_cauchy_elems": null,
+    "conv_cauchy_eps": null,
+    "conv_num_method_flow": "FDS",
+    "freestream_turb2lam_visc_ratio": 10.0,
+    "freestream_turbulence_intensity": 0.05,
+    "gmsh_threads": 4,
+    "jst_sensor_coeff": null,
+    "linear_solver_error": "1e-6",
+    "linear_solver_iter": 10,
+    "max_iterations": 3,
+    "mesh_algorithm3d": 10,
+    "mesh_size": 8.0,
+    "output_files": [
+      "RESTART_ASCII",
+      "PARAVIEW_ASCII",
+      "SURFACE_CSV"
+    ],
+    "ref_area": 33.420059598,
+    "ref_length": 1.003721543,
+    "ref_origin_moment": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "solver": "INC_EULER",
+    "solver_timeout_seconds": 45.0,
+    "transition_model": null,
+    "turbulence_model": "NONE",
+    "velocity_mps": 6.5,
+    "wall_function": null,
+    "wall_profile": "euler_slip"
+  },
+  "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/su2_runtime.cfg",
+  "schema_version": "wo006r1_su2_case_manifest.v1",
+  "status": "su2_case_materialized"
+}

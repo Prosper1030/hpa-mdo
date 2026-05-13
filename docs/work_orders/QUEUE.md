@@ -38,6 +38,12 @@ Current release package:
   but default mesh handoff timed out in Gmsh volume insertion and coarse
   sensitivity failed boundary parametrization topology, so no usable
   current-pathfinder SU2 CL/CD delta exists yet.
+- WO-006R1 current GO mesh-native bridge is complete with verdict
+  `wo006r1_go_cfd_bridge_smoke_ready`. It writes a current-authority coarse
+  no-BL `mesh_handoff.v1`, materializes a marker-owned SU2 case, and runs a
+  3-iteration SU2 readability smoke. It is not yet CL/CD/CDi/profile-drag
+  calibration evidence because the mesh is underresolved, lacks BL/y+, and
+  coefficient sanity fails.
 
 ## Queue Rules
 
@@ -72,7 +78,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | First bounded current-pathfinder attempt produced `su2_baseline_needs_fix`; repair current VSP3 -> mesh_handoff.v1 -> SU2 handoff before aero delta calibration |
+| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | Data-authority restored R1 current GO mesh-native bridge produced `wo006r1_go_cfd_bridge_smoke_ready`; next repair is near-wall/BL/y+ and solver stability before aero delta calibration |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -255,6 +261,17 @@ sensitivity probe failed boundary parametrization topology. No current-pathfinde
 `mesh_handoff.v1` or usable SU2 CL/CD/CDi/profile-drag delta exists yet. Treat
 this as SU2 route repair evidence, not Baseline A reopen, release truth,
 RFQ/procurement truth, structural sign-off, or final aircraft sign-off.
+
+R1 read: `wo006r1_go_cfd_bridge_smoke_ready`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/`.
+R1 selects the mesh-native route from current production-inspection
+`section_table.csv` + `airfoils/*.dat`, writes marker-owned wing/farfield faces,
+materializes a coarse HXT no-BL `mesh_handoff.v1` and SU2 case, and runs a
+3-iteration solver readability smoke. The result is still not aerodynamic
+calibration evidence: the mesh has only about 2.9k volume elements, no BL/y+, no convergence,
+and coefficient sanity fails. Next work should upgrade the current GO mesh-native
+route toward near-wall/BL quality and stable solver trends without changing
+external shape, mass, CG, or span authority.
 
 ### WO-007: QPROP / XROTOR Propulsion Interface
 

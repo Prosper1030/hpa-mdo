@@ -1,0 +1,3 @@
+stage,status,failure,evidence,owner,do_not_change
+aero_calibration,not_usable,coarse_no_bl_smoke_only,mesh/SU2 readability does not provide wall-resolved drag or convergence,data-authority-restored bounded CFD calibration worker,do not use old Black Cat CL/CD as current Baseline A result
+solver_smoke,readability_only,coefficient_sanity_not_passed,"{""observed_cd"": -0.8452178079, ""reasons"": [""negative_cd""], ""status"": ""fail""}",data-authority-restored bounded CFD calibration worker,do not claim SU2 drag/power delta from this smoke

@@ -1,0 +1,38 @@
+{
+  "authority_basis": {
+    "bref_m": 34.332286,
+    "cref_m": 1.003721543,
+    "design_gross_mass_kg": 98.5,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598
+  },
+  "legacy_route_status": "blocked_reference_only",
+  "mesh_native_reason": "current_go_section_table_and_airfoil_dat_available",
+  "rejected_primary_route": "current_vsp3_esp_rebuilt_step_brep_gmsh",
+  "route_A_old_wo006": {
+    "blockers": [
+      "default probe timed out in Gmsh 3D volume insertion",
+      "coarse sensitivity failed boundary parametrization topology",
+      "no current pathfinder mesh_handoff.v1",
+      "no usable current pathfinder SU2 CL/CD"
+    ],
+    "decision": "do_not_repair_blindly",
+    "route": "current Baseline A VSP3 -> esp_rebuilt -> STEP/BREP-like geometry -> Gmsh thin-sheet -> SU2",
+    "status": "blocked_reference_only"
+  },
+  "route_B_mesh_native": {
+    "known_risk": "raw 9-station surface can be too warped near airfoil-transition; spanwise subdivisions are required",
+    "memory_safe_policy": "coarse no-BL smoke first, no design-space CFD, bounded child process",
+    "route": "section_table + airfoil DAT -> indexed wing surface -> marker-owned faces -> HXT coarse mesh -> SU2",
+    "status": "selected"
+  },
+  "schema_version": "wo006r1_route_decision.v1",
+  "selected_route": "mesh_native_current_go_section_table",
+  "verdict": "mesh_native_selected_for_current_go_bridge"
+}

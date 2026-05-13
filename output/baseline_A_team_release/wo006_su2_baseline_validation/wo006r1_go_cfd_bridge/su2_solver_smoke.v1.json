@@ -1,0 +1,205 @@
+{
+  "aero_coefficients_interpretable": false,
+  "authority_basis": {
+    "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv",
+    "bref_m": 34.332286,
+    "cref_m": 1.003721543,
+    "design_gross_mass_kg": 98.5,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598
+  },
+  "cfd_evidence_gate": {
+    "configured_max_iterations": 3,
+    "iterative_gate_status": "fail",
+    "minimum_iterations": 1000,
+    "observed_final_iteration": 2,
+    "policy": "configured_solver_budget_must_allow_1000plus_iterations_for_cfd_evidence",
+    "reasons": [
+      "iteration_budget_below_cfd_evidence_minimum",
+      "iterative_gate_not_pass"
+    ],
+    "status": "fail"
+  },
+  "coefficient_sanity_gate": {
+    "observed_cd": -0.8452178079,
+    "reasons": [
+      "negative_cd"
+    ],
+    "status": "fail"
+  },
+  "engineering_read": "SU2 can read and step the current GO mesh-native case, but this is not converged or coefficient-credible CFD.",
+  "execution_mode": "bounded_solver_readability_smoke",
+  "failure_code": null,
+  "history": {
+    "final_coefficients": {
+      "cd": -0.8452178079,
+      "cl": 0.2666424003,
+      "cmx": -0.1585607508,
+      "cmy": -0.7706078516,
+      "cmz": 0.9449604163
+    },
+    "final_iteration": 2,
+    "row_count": 3
+  },
+  "history_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/history.csv",
+  "iterative_gate": {
+    "checks": {
+      "coefficient_stability": {
+        "expected": {
+          "absolute_tolerance": 0.0005,
+          "pass_relative_range_limit": 0.02,
+          "tail_window": 10,
+          "warn_relative_range_limit": 0.05
+        },
+        "notes": [],
+        "observed": {
+          "cd": {
+            "count": 3,
+            "status": "fail"
+          },
+          "cl": {
+            "count": 3,
+            "status": "fail"
+          },
+          "cm": {
+            "count": 3,
+            "status": "fail"
+          },
+          "tail_window": 10
+        },
+        "status": "fail",
+        "warnings": [
+          "insufficient_points=cl",
+          "insufficient_points=cd",
+          "insufficient_points=cm"
+        ]
+      },
+      "history_rows": {
+        "expected": {
+          "history_file_exists": true,
+          "parseable_rows": true
+        },
+        "notes": [],
+        "observed": {
+          "columns": [
+            "Time_Iter",
+            "Outer_Iter",
+            "Inner_Iter",
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]",
+            "RefForce",
+            "CD",
+            "CL",
+            "CSF",
+            "CMx",
+            "CMy",
+            "CMz",
+            "CFx",
+            "CFy",
+            "CFz",
+            "CEff"
+          ],
+          "history_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/history.csv",
+          "row_count": 3
+        },
+        "status": "pass",
+        "warnings": []
+      },
+      "iteration_budget": {
+        "expected": {
+          "minimum_iterations": 20,
+          "tail_window": 10
+        },
+        "notes": [],
+        "observed": {
+          "final_iteration": 2,
+          "row_count": 3
+        },
+        "status": "fail",
+        "warnings": [
+          "row_count_below_tail_window"
+        ]
+      },
+      "residual_trend": {
+        "expected": {
+          "minimum_median_log_drop": 0.5
+        },
+        "notes": [
+          "Residual columns are treated as log10 RMS values, so lower is better.",
+          "Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+        ],
+        "observed": {
+          "baseline_median_by_column": {
+            "rms[P]": 1.738966676,
+            "rms[U]": 3.506972595,
+            "rms[V]": 2.613551721,
+            "rms[W]": 2.936938556
+          },
+          "columns": [
+            "rms[P]",
+            "rms[U]",
+            "rms[V]",
+            "rms[W]"
+          ],
+          "improved_columns": [
+            "rms[P]",
+            "rms[U]",
+            "rms[V]"
+          ],
+          "improvement_by_column": {
+            "rms[P]": 0.10477692999999988,
+            "rms[U]": 0.04413090900000016,
+            "rms[V]": 0.08504580599999967,
+            "rms[W]": -0.014650087000000145
+          },
+          "median_log_drop": 0.06458835749999992,
+          "startup_skip": 1,
+          "tail_median_by_column": {
+            "rms[P]": 1.634189746,
+            "rms[U]": 3.462841686,
+            "rms[V]": 2.528505915,
+            "rms[W]": 2.951588643
+          }
+        },
+        "status": "warn",
+        "warnings": [
+          "residual_drop_below_threshold"
+        ]
+      }
+    },
+    "confidence": "low",
+    "notes": [
+      "Iterative gate reads history.csv directly and does not infer extra solver state.",
+      "residual_trend:Residual columns are treated as log10 RMS values, so lower is better.",
+      "residual_trend:Residual trend ignores the startup transient rows before comparing early-vs-tail medians."
+    ],
+    "status": "fail",
+    "warnings": [
+      "iteration_budget:row_count_below_tail_window",
+      "residual_trend:residual_drop_below_threshold",
+      "coefficient_stability:insufficient_points=cl",
+      "coefficient_stability:insufficient_points=cd",
+      "coefficient_stability:insufficient_points=cm"
+    ]
+  },
+  "iterative_gate_status": "fail",
+  "returncode": 0,
+  "run_status": "completed",
+  "schema_version": "wo006r1_su2_solver_smoke.v1",
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "1",
+    "su2_runtime.cfg"
+  ],
+  "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/artifacts/mesh_native_su2_case/solver.log",
+  "solver_timeout_seconds": 45.0
+}

@@ -13,6 +13,15 @@ boundary parametrization topology；沒有 current-pathfinder `mesh_handoff.v1`�
 SU2 CL/CD/CDi/profile-drag delta。這是 SU2 route repair evidence，不是 Baseline A reopen、
 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 
+WO-006R1 已新增 current GO mesh-native CFD bridge，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/`。
+Verdict 是 `wo006r1_go_cfd_bridge_smoke_ready`：用 current production-inspection
+`section_table.csv` + `airfoils/*.dat` 建出 marker-owned indexed wing/farfield surface，
+產生 coarse HXT no-BL `mesh_handoff.v1`、SU2 case，並跑完 3-iteration solver readability
+smoke。這只代表 current Baseline A 已有 repeatable mesh/SU2 smoke route；mesh 只有約
+2.9k volume elements、無 BL/y+，且 smoke CD 為負，所以仍不能拿來做 CL/CD/CDi/profile-drag
+calibration、drag/power reopen、release truth、RFQ/procurement truth 或 final aircraft sign-off。
+
 目前 gate 讀法：
 
 - `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
@@ -22,7 +31,7 @@ release truth、RFQ/procurement truth 或 final aircraft sign-off。
 - WO-005 carbon tube RFQ pack 只能當 draft/vendor-screening；不能下單、選 vendor、放 shop drawing。
 - WO-006 只能做 bounded aero calibration；不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
-- WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；下一步先修 current pathfinder mesh/SU2 handoff route，再做 aero delta calibration。
+- WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route，但下一步仍要做 near-wall/BL/y+ 與 solver stability，才能談 aero delta calibration。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
 

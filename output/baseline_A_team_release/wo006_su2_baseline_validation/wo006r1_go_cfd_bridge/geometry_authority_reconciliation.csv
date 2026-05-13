@@ -1,0 +1,9 @@
+topic,value,unit,authority_class,source,wo006r1_use
+design_gross_mass,98.5,kg,user_authority,latest explicit user instruction + data_authority_table.csv,used as WO-006R1 mass basis only
+pipeline_full_span,34.332286,m,current_pipeline_truth,/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json,used as Bref and full-span geometry check
+pipeline_half_span,17.166143,m,current_pipeline_truth,/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv,used as half-span station extent
+Sref,33.4200596,m^2,current_pipeline_truth,/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json,used for SU2 REF_AREA
+Cref,1.00372154,m,current_pipeline_truth,/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json,used for SU2 REF_LENGTH
+moment_origin_x,0.246276512,m,current_pipeline_truth,/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl,used for SU2 REF_ORIGIN_MOMENT_X
+local_splice_half_span,16.5,m,screening_estimate,local/splice screening outputs,classified only; not used in WO-006R1
+p1_screening_mass,106.828608,kg,screening_estimate,P1 generated aggregate,classified only; not used in WO-006R1

@@ -24,6 +24,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   mesh timeout、coarse sensitivity boundary parametrization topology failed，沒有 usable
   current-pathfinder SU2 CL/CD delta；這是 route repair evidence，不是 Baseline A reopen
   或 performance claim。
+- WO-006R1 current GO mesh-native bridge 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/`，
+  verdict 是 `wo006r1_go_cfd_bridge_smoke_ready`。它選擇 current production-inspection
+  `section_table.csv` + `airfoils/*.dat`，而不是繼續盲修舊 STEP/BREP route；已寫出
+  marker-owned coarse no-BL `mesh_handoff.v1`、SU2 case，並跑完 3-iteration SU2 readability
+  smoke。這仍不是 usable CL/CD/CDi/profile-drag calibration，因為 mesh underresolved、無 BL/y+、
+  solver 未收斂且 smoke CD sanity failed。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 
@@ -221,8 +228,9 @@ conservative screening candidate」，不是 final design。
   derivative audit、tail/CG/trim/stability screening、tail-aware closure 與 P1 mass-integrated
   closure evidence。managed CG row 下 trim / static / directional authority pass，但 tailboom/pivot
   hardware、measured mass manifest 與 final flight-dynamics sign-off 尚未完成。
-- WO-006 SU2 可作 bounded aero calibration 往下跑；mesh-native CFD product route 仍不是
-  目前 performance claim truth。
+- WO-006 SU2 可作 bounded aero calibration 往下跑；WO-006R1 已提供 current GO mesh-native
+  smoke route，但它仍不是目前 performance claim truth。下一步要補 near-wall/BL/y+、solver
+  stability 與 coefficient sanity，不能把 3-iteration smoke 當 drag/power evidence。
 - Rib 目前是下游 bracing / shell bay / load-transfer 實體化問題，不是主線 candidate
   generation 的短線最大優先，除非它被證明會改變 aero-structure closure 的候選排序。
 
