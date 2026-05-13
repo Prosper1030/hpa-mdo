@@ -1,0 +1,37 @@
+{
+  "schema_version": "wo006f_force_reference_audit.v1",
+  "current_authority": {
+    "design_gross_mass_kg": 98.5,
+    "full_span_m": 34.332286,
+    "half_span_m": 17.166143,
+    "sref_m2": 33.420059598,
+    "cref_m": 1.003721543,
+    "bref_m": 34.332286,
+    "geometry_manifest": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json"
+  },
+  "blocked_legacy_values": {
+    "legacy_106p828608kg": "blocked_not_current_truth",
+    "legacy_16p5m_half_span": "blocked_not_current_pipeline_truth"
+  },
+  "su2_runtime_convention": {
+    "system_measurements": "SI",
+    "velocity_mps": 6.5,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pa_s": 1.7894e-05,
+    "wall_marker": "wing_wall",
+    "farfield_marker": "farfield",
+    "no_slip_wall": "MARKER_HEATFLUX=(wing_wall,0.0)",
+    "force_reference": "REF_AREA=Sref, REF_LENGTH=Cref, moment origin from current pipeline"
+  },
+  "acceptance_logic": {
+    "positive_drag_required": true,
+    "operating_point_cl_band": [
+      0.9,
+      1.5
+    ],
+    "low_confidence_cd_upper_sanity": 0.09,
+    "negative_cd": "reject",
+    "no_bl_drag": "not_result_ready",
+    "multizone_probe": "route_evidence_until_force_coefficients_and_quality_gate_pass"
+  }
+}

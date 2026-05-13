@@ -71,6 +71,19 @@ Current release package:
   all-non-wall BL boundary shortcut is not watertight. No conformal mixed
   BL+core SU2 handoff, no `bl_mesh_handoff.v1.json`, and no coefficient is
   interpretable.
+- WO-006R6 core-interface repair is complete with verdict
+  `wo006r6_core_quality_limitation_proven`. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/`.
+  Preserved-core interface envelope exists, but core quality fails on
+  non-positive elements and wake/span-cap coupling is not zero-unmatched. No
+  coefficient is interpretable.
+- WO-006F SU2 engineering-result recovery campaign is complete as a package with
+  verdict `wo006f_campaign_incomplete`. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.
+  No final physically credible SU2 CL/CD exists; no-BL RANS recovered lift with
+  positive drag but `CD=0.5555196327` is far outside AVL/Tier2-profile/VSPAERO
+  sanity bounds. R6 multizone can launch and remains the next route, but it is
+  not force/coefficient evidence yet.
 
 ## Queue Rules
 
@@ -105,7 +118,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | With data-authority checker prerequisite preserved, R6 proved the preserved-core quality blocker remains active and wake/span-cap conformal topology is still not handoff-ready; next repair must address core quality before any mixed BL+core SU2 handoff |
+| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | With data-authority checker prerequisite preserved, WO-006F did not produce credible SU2 CL/CD; next repair must address R6 preserved-core quality, wake/span-cap coupling, and multizone/merged coefficient ownership before any calibration claim |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -256,7 +269,7 @@ aircraft.
 
 ### WO-006: Main-Wing SU2 Baseline Validation
 
-Status: needs_fix after first bounded current-pathfinder attempt.
+Status: needs_fix after WO-006F SU2 engineering-result recovery campaign.
 
 Purpose: calibrate current Baseline A aerodynamic models against a bounded SU2
 baseline, similar in spirit to using CCX to calibrate structural fast models.
@@ -336,6 +349,22 @@ mesh quality gate still fails and BL/core coupling remains partial at
 `wake_cut` / `span_cap`. The direct all-non-wall BL boundary core-surface shortcut
 is not watertight. No conformal mixed BL+core handoff exists, no
 `bl_mesh_handoff.v1.json` exists, and no coefficient is interpretable.
+
+R6 read: `wo006r6_core_quality_limitation_proven`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/`.
+R6 preserved the core interface envelope but still failed core quality
+(`non-positive SICN/SIGE/volume`) and did not close wake/span-cap coupling. It
+does not provide y+, a merged BL+core SU2 handoff, or interpretable coefficients.
+
+WO-006F read: `wo006f_campaign_incomplete`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.
+The campaign tried no-BL NS/RANS/Euler, OpenVSP/Gmsh, OpenVSP CFDMesh, and R6
+BL/core multizone probes. SU2 did not produce a final physically credible CL/CD
+pair: no-BL RANS was sign-correct (`CL=1.289421542`, `CD=0.5555196327`) but
+too draggy and not converged, while Euler positive windows were not stable final
+states. R6 multizone launches and is the best next route, but it remains route
+evidence until core quality, wake/span-cap coupling, and coefficient ownership
+are fixed.
 
 ### WO-007: QPROP / XROTOR Propulsion Interface
 

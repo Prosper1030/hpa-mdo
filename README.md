@@ -74,6 +74,16 @@ BL boundary unmatched faces，full non-wall boundary 仍是 124 bad edges。下�
 writer 小修；要先修 preserved-core quality，且後續仍要重做 wake/span-cap 的真實 conformal
 BL/core topology contract。
 
+WO-006F SU2 engineering-result recovery campaign 已新增，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`。
+Verdict 是 `wo006f_campaign_incomplete`：SU2 有跑出 sign-correct 但不可採信的 no-BL
+RANS final pair（`CL=1.289421542`、`CD=0.5555196327`），drag 比 AVL + Tier2
+profile-proxy / old VSPAERO sanity bounds 高太多且未收斂；Euler 曾短暫穿過正 lift/drag
+區間，但會漂到負 drag。OpenVSP/Gmsh 替代 route 仍被 thin-wing topology 擋住；R6 BL/core
+兩區 multizone route 可啟動，但 core quality / wake-span-cap coupling / force coefficient
+ownership 未過 gate。因此 WO-006F 不是 SU2 calibration success、不是 Baseline A reopen
+evidence；下一步應從 R6 preserved-core quality 與 multizone/merged coefficient ownership 下手。
+
 目前 gate 讀法：
 
 - `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
@@ -85,6 +95,7 @@ BL/core topology contract。
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
 - WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route；WO-006R2 已把 current high-mesh / BL blocker 定位到 surface topology；WO-006R3 已產出 serious high-mesh no-BL handoff，但 BL route 與 CFD evidence gate 仍未達成。
 - WO-006R6 verdict 是 `wo006r6_core_quality_limitation_proven`；current GO 已有 owned-BL topology basis 和 preserved-interface core evidence，但 core quality 與 wake/span-cap conformal topology 仍未達成，沒有 conformal mixed BL+core SU2 handoff，沒有 `bl_mesh_handoff.v1.json`，沒有 postprocessed y+，也沒有可解讀係數。
+- WO-006F verdict 是 `wo006f_campaign_incomplete`；目前沒有 physically credible SU2 CL/CD 可用於 Baseline A aero calibration。`attempt_10` 證明 SU2 multizone 是開放修復 route，但還不是 coefficient evidence。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
 
@@ -569,7 +580,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸仍不是 shop drawing；WO-005 已補 RFQ screening station/span/splice manifest，尚未變成 drawing release |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
 | Rib / root / wire hardware / composite detail | 開放 validation blockers，需要後續實體化與 detail evidence |
-| SU2 / mesh-native CFD | WO-006 可做 bounded aero calibration；R5 已把 blocker 縮到 conformal core-interface / mesh-quality repair，仍不是目前 performance truth |
+| SU2 / mesh-native CFD | WO-006 可做 bounded aero calibration；WO-006F 尚未得到可信 SU2 CL/CD，下一步是 R6 preserved-core quality、wake/span-cap coupling 與 multizone/merged coefficient ownership，仍不是目前 performance truth |
 
 ---
 

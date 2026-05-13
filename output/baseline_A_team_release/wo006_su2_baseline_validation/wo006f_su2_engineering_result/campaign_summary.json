@@ -1,0 +1,558 @@
+{
+  "schema_version": "wo006f_su2_engineering_result.v1",
+  "verdict": "wo006f_campaign_incomplete",
+  "authority": {
+    "design_gross_mass_kg": 98.5,
+    "full_span_m": 34.332286,
+    "half_span_m": 17.166143,
+    "sref_m2": 33.420059598,
+    "cref_m": 1.003721543,
+    "bref_m": 34.332286,
+    "geometry_manifest": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json"
+  },
+  "su2_physical_cl_cd_produced": false,
+  "route_that_worked": null,
+  "route_evidence": {
+    "no_bl_rans": "attempt_06 produced positive drag and operating-point lift, but CD=0.556 is far above AVL/Tier2-profile/VSPAERO sanity bounds and the run did not converge",
+    "low_cfl_euler": "attempt_08 passed through a plausible positive window, then drifted into negative drag before completion",
+    "openvsp_gmsh": "attempt_07 failed STEP/OCC and STL fallback meshing with PLC/overlapping-facet errors",
+    "openvsp_native_cfdmesh": "attempt_09 did not produce a usable exported mesh artifact in this run",
+    "r6_multizone": "attempt_10 launched as official SU2 fluid-fluid multizone, but only as a probe; core quality/coupling and force-output gates remain blocked"
+  },
+  "attempts": [
+    {
+      "attempt_id": "attempt_01_high_mesh_no_bl_inc_ns_cfl0p5",
+      "route": "R3 high-mesh no-BL incompressible Navier-Stokes at alpha 0",
+      "mesh_family": "R3 current-GO no-BL 0.12 m faceted tet mesh",
+      "solver_family": "INC_NAVIER_STOKES laminar",
+      "boundary_layer_status": "none",
+      "purpose": "check whether the readable high-mesh no-BL route can recover lift",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_01_high_mesh_no_bl_inc_ns_cfl0p5",
+      "case_dir_exists": true,
+      "solver_status": "incomplete_or_interrupted",
+      "classification": "reject_lift_below_operating_point",
+      "final_iteration": 119.0,
+      "final_cl": 0.3819301945,
+      "final_cd": 0.176003583,
+      "final_cmy": 0.03633784861,
+      "best_positive_window": null,
+      "notes": []
+    },
+    {
+      "attempt_id": "attempt_02_medium_no_bl_inc_ns_alpha5_zpos",
+      "route": "medium no-BL incompressible Navier-Stokes at +5 deg velocity vector",
+      "mesh_family": "R3 current-GO no-BL 0.15 m faceted tet mesh",
+      "solver_family": "INC_NAVIER_STOKES laminar",
+      "boundary_layer_status": "none",
+      "purpose": "check lift sign/magnitude by changing the freestream vector convention",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_02_medium_no_bl_inc_ns_alpha5_zpos",
+      "case_dir_exists": true,
+      "solver_status": "incomplete_or_interrupted",
+      "classification": "reject_drag_far_above_sanity_bounds",
+      "final_iteration": 64.0,
+      "final_cl": 1.254907402,
+      "final_cd": 0.525928768,
+      "final_cmy": -0.2418104745,
+      "best_positive_window": null,
+      "notes": []
+    },
+    {
+      "attempt_id": "attempt_03_medium_no_bl_inc_euler_alpha5_zpos",
+      "route": "medium no-BL incompressible Euler at +5 deg velocity vector",
+      "mesh_family": "R3 current-GO no-BL 0.15 m faceted tet mesh",
+      "solver_family": "INC_EULER slip wall",
+      "boundary_layer_status": "none",
+      "purpose": "separate pressure/inflow convention from no-slip drag contamination",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_03_medium_no_bl_inc_euler_alpha5_zpos",
+      "case_dir_exists": true,
+      "solver_status": "incomplete_or_interrupted",
+      "classification": "reject_negative_drag",
+      "final_iteration": 64.0,
+      "final_cl": 0.9677444102,
+      "final_cd": -0.0251240078,
+      "final_cmy": -0.3398935362,
+      "best_positive_window": {
+        "history_file": "history.csv",
+        "iteration": 24.0,
+        "cl": 1.231788403,
+        "cd": 0.0143442623
+      },
+      "notes": []
+    },
+    {
+      "attempt_id": "attempt_04_medium_no_bl_inc_rans_sa_wallfn_alpha5_zpos",
+      "route": "medium no-BL incompressible RANS SA with wall functions",
+      "mesh_family": "R3 current-GO no-BL 0.15 m faceted tet mesh",
+      "solver_family": "INC_RANS SA",
+      "boundary_layer_status": "wall function on a no-BL mesh",
+      "purpose": "test whether a wall-function shortcut can run before BL topology exists",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_04_medium_no_bl_inc_rans_sa_wallfn_alpha5_zpos",
+      "case_dir_exists": true,
+      "solver_status": "error_exit",
+      "classification": "reject_drag_far_above_sanity_bounds",
+      "final_iteration": 46.0,
+      "final_cl": 1.266943331,
+      "final_cd": 0.5487791584,
+      "final_cmy": -0.2654147074,
+      "best_positive_window": null,
+      "notes": [
+        "wall_function_yplus_warnings"
+      ]
+    },
+    {
+      "attempt_id": "attempt_05_medium_compressible_euler_alpha5",
+      "route": "medium no-BL compressible Euler low-Mach shortcut",
+      "mesh_family": "R3 current-GO no-BL 0.15 m faceted tet mesh",
+      "solver_family": "EULER compressible",
+      "boundary_layer_status": "none",
+      "purpose": "test a compressible low-Mach fallback",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_05_medium_compressible_euler_alpha5",
+      "case_dir_exists": true,
+      "solver_status": "incomplete_or_interrupted",
+      "classification": "reject_negative_drag",
+      "final_iteration": 11.0,
+      "final_cl": -4.523554638,
+      "final_cd": -5.664930962,
+      "final_cmy": -0.905771736,
+      "best_positive_window": null,
+      "notes": []
+    },
+    {
+      "attempt_id": "attempt_06_medium_no_bl_inc_rans_sa_alpha5_zpos_no_wallfn",
+      "route": "medium no-BL incompressible RANS SA without wall functions",
+      "mesh_family": "R3 current-GO no-BL 0.15 m faceted tet mesh",
+      "solver_family": "INC_RANS SA",
+      "boundary_layer_status": "none",
+      "purpose": "remove the invalid wall-function shortcut and check if RANS can run",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_06_medium_no_bl_inc_rans_sa_alpha5_zpos_no_wallfn",
+      "case_dir_exists": true,
+      "solver_status": "exit_success",
+      "classification": "reject_drag_far_above_sanity_bounds",
+      "final_iteration": 159.0,
+      "final_cl": 1.289421542,
+      "final_cd": 0.5555196327,
+      "final_cmy": -0.2708916302,
+      "best_positive_window": null,
+      "notes": [
+        "max_iterations_reached_before_convergence",
+        "cauchy_cd=0.00261144_criterion=1e-12"
+      ]
+    },
+    {
+      "attempt_id": "attempt_07_openvsp_gmsh_current_vsp",
+      "route": "OpenVSP STEP/STL export plus repo Gmsh external-flow generator",
+      "mesh_family": "current production-inspection VSP3 STEP/STL",
+      "solver_family": "not reached",
+      "boundary_layer_status": "none",
+      "purpose": "test a route independent of the mesh-native R6 BL/core path",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_07_openvsp_gmsh_current_vsp",
+      "case_dir_exists": true,
+      "solver_status": "not_run_or_no_log",
+      "classification": "no_usable_su2_coefficients",
+      "final_iteration": null,
+      "final_cl": null,
+      "final_cd": null,
+      "final_cmy": null,
+      "best_positive_window": null,
+      "notes": []
+    },
+    {
+      "attempt_id": "attempt_08_medium_no_bl_inc_euler_alpha5_zpos_low_cfl",
+      "route": "medium no-BL incompressible Euler at lower CFL",
+      "mesh_family": "R3 current-GO no-BL 0.15 m faceted tet mesh",
+      "solver_family": "INC_EULER slip wall",
+      "boundary_layer_status": "none",
+      "purpose": "check whether the inviscid pressure convention can settle with damping",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_08_medium_no_bl_inc_euler_alpha5_zpos_low_cfl",
+      "case_dir_exists": true,
+      "solver_status": "incomplete_or_interrupted",
+      "classification": "reject_negative_drag",
+      "final_iteration": 282.0,
+      "final_cl": 0.7631996807,
+      "final_cd": -0.153090993,
+      "final_cmy": -0.2344220078,
+      "best_positive_window": {
+        "history_file": "history.csv",
+        "iteration": 199.0,
+        "cl": 1.237370791,
+        "cd": 0.0002318312479
+      },
+      "notes": []
+    },
+    {
+      "attempt_id": "attempt_09_openvsp_native_cfdmesh",
+      "route": "OpenVSP native CFDMesh Gmsh/STL export",
+      "mesh_family": "current production-inspection VSP3 CFDMesh",
+      "solver_family": "not reached",
+      "boundary_layer_status": "none",
+      "purpose": "test OpenVSP's own CFDMesh path",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_09_openvsp_native_cfdmesh",
+      "case_dir_exists": true,
+      "solver_status": "not_run_or_no_log",
+      "classification": "no_usable_su2_coefficients",
+      "final_iteration": null,
+      "final_cl": null,
+      "final_cd": null,
+      "final_cmy": null,
+      "best_positive_window": null,
+      "notes": []
+    },
+    {
+      "attempt_id": "attempt_10_r6_two_zone_multizone_probe",
+      "route": "R6 BL/core two-zone SU2 multizone probe",
+      "mesh_family": "R6 owned BL block plus preserved-interface core probe",
+      "solver_family": "INC_NAVIER_STOKES multizone",
+      "boundary_layer_status": "owned BL block present, core quality failed",
+      "purpose": "test whether official SU2 multizone can avoid the merged writer bottleneck",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/attempt_10_r6_two_zone_multizone_probe",
+      "case_dir_exists": true,
+      "solver_status": "exit_success",
+      "classification": "solver_or_mesh_probe_no_coefficients",
+      "final_iteration": null,
+      "final_cl": null,
+      "final_cd": null,
+      "final_cmy": null,
+      "best_positive_window": null,
+      "notes": [
+        "max_iterations_reached_before_convergence"
+      ]
+    }
+  ],
+  "mesh_quality": {
+    "schema_version": "wo006f_mesh_quality_audit.v1",
+    "r3_high_mesh_no_bl": {
+      "source": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/mesh_native_faceted_su2_smoke_report.json",
+      "volume_element_count": null,
+      "node_count": null,
+      "marker_audit": {
+        "status": "pass",
+        "mesh_markers": [
+          "farfield",
+          "wing_wall"
+        ],
+        "boundary_condition_markers": {
+          "MARKER_HEATFLUX": [
+            "wing_wall"
+          ],
+          "MARKER_FAR": [
+            "farfield"
+          ]
+        },
+        "missing_from_mesh": [],
+        "unassigned_mesh_markers": [],
+        "zero_element_markers": [],
+        "mesh_summary": {
+          "ndime": 3,
+          "nelem": 936017,
+          "npoin": 176542,
+          "nmark": 2,
+          "markers": {
+            "wing_wall": {
+              "element_count": 73632,
+              "element_type_counts": {
+                "5": 73632
+              }
+            },
+            "farfield": {
+              "element_count": 18096,
+              "element_type_counts": {
+                "5": 18096
+              }
+            }
+          }
+        }
+      },
+      "interpretation": "readable no-BL tet handoff; not wall-resolved drag evidence"
+    },
+    "r6_owned_bl_block": {
+      "source": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/owned_bl_block_writer_probe.json",
+      "volume_element_count": 24576,
+      "marker_summary": {
+        "bl_outer_interface": {
+          "element_count": 1024,
+          "element_type_counts": {
+            "9": 1024
+          }
+        },
+        "span_cap": {
+          "element_count": 1536,
+          "element_type_counts": {
+            "9": 1536
+          }
+        },
+        "wake_cut": {
+          "element_count": 1600,
+          "element_type_counts": {
+            "9": 1600
+          }
+        },
+        "wing_wall": {
+          "element_count": 960,
+          "element_type_counts": {
+            "9": 960
+          }
+        }
+      },
+      "block_quality": {
+        "cell_count": 24576,
+        "min_estimated_volume_m3": 1.337006168004603e-07,
+        "non_positive_volume_count": 0,
+        "min_span_interval_m": 0.4291534999999982,
+        "max_span_interval_m": 1.6307834999999997,
+        "min_section_first_layer_height_m": 4.999999999998514e-05,
+        "max_section_first_layer_height_m": 5.0000000000021625e-05,
+        "boundary_face_count": 5120,
+        "unowned_boundary_face_count": 0
+      },
+      "interpretation": "owned near-wall BL block exists and has positive cells, but is not a complete farfield CFD domain"
+    },
+    "r6_preserved_core": {
+      "source": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_summary.json",
+      "volume_element_count": 11644,
+      "quality_metrics": {
+        "volume_element_count": 11644,
+        "volume_element_type_counts": {
+          "4": 10588,
+          "7": 1056
+        },
+        "tetra_element_count": 10588,
+        "tetrahedron_count": 10588,
+        "pyramid_element_count": 1056,
+        "prism_element_count": 0,
+        "hexahedron_element_count": 0,
+        "ill_shaped_tet_count": null,
+        "ill_shaped_volume_element_count": 91,
+        "non_positive_min_sicn_count": 91,
+        "non_positive_min_sige_count": 91,
+        "non_positive_volume_count": 53,
+        "min_gamma": 1.7883176327131676e-07,
+        "min_sicn": -0.00864983589849344,
+        "min_sige": -0.0035883220612220783,
+        "min_volume": -2.9559112035789902e-06,
+        "gamma_percentiles": {
+          "p01": 2.261856580856742e-05,
+          "p05": 0.0022709470707808627,
+          "p50": 0.12477206639792057
+        },
+        "min_sicn_percentiles": {
+          "p01": 0.00030213841581604964,
+          "p05": 0.008568075608505263,
+          "p50": 0.1478271715204033
+        },
+        "min_sige_percentiles": {
+          "p01": 0.00028452885082374933,
+          "p05": 0.029202424309146484,
+          "p50": 0.5036072388286885
+        },
+        "volume_percentiles": {
+          "p01": 1.1905196012119443e-06,
+          "p05": 4.331027284053378e-05,
+          "p50": 0.021001207266700392
+        }
+      },
+      "mesh_quality_gate": {
+        "status": "fail",
+        "blockers": [
+          "non_positive_min_sicn",
+          "non_positive_min_sige",
+          "non_positive_volume"
+        ],
+        "warnings": [
+          "very_low_min_gamma",
+          "low_p01_gamma"
+        ],
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        }
+      },
+      "bl_block_coupling": {
+        "status": "partial",
+        "can_merge_core_with_bl_block": false,
+        "matched_face_count": 1024,
+        "matched_face_counts_by_marker_pair": {
+          "bl_outer_interface->bl_outer_interface": 1024
+        },
+        "unmatched_core_interface_face_count": 94,
+        "unmatched_core_interface_face_counts_by_marker": {
+          "span_cap": 62,
+          "wake_cut": 32
+        },
+        "unmatched_bl_boundary_face_count": 3136,
+        "unmatched_bl_boundary_face_counts_by_marker": {
+          "span_cap": 1536,
+          "wake_cut": 1600
+        },
+        "interpretation": "Core interface is mesh-preserved but does not yet match every non-wall BL block boundary face; do not write a merged viscous mesh."
+      },
+      "interpretation": "core zone can be meshed and preserved, but current quality/coupling fail blocks a credible result"
+    },
+    "r6_final_handoff_gate": {
+      "schema_version": "wo006r6_final_handoff_gate.v1",
+      "status": "blocked",
+      "can_write_bl_mesh_handoff": false,
+      "blockers": [
+        "probe_su2_not_final",
+        "final_merged_su2_missing",
+        "unmatched_core_interface_faces",
+        "unmatched_bl_boundary_faces",
+        "bl_core_coupling_not_pass",
+        "marker_ownership_not_pass",
+        "mesh_quality_not_pass",
+        "non_positive_elements_present"
+      ],
+      "artifact_role": "probe_su2",
+      "candidate_su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+      "evidence": {
+        "core_status": "meshed",
+        "unmatched_core_interface_face_count": 94,
+        "unmatched_bl_boundary_face_count": 3136,
+        "marker_ownership_status": "fail",
+        "mesh_quality_status": "fail",
+        "non_positive_counts": {
+          "non_positive_min_sicn_count": 91,
+          "non_positive_min_sige_count": 91,
+          "non_positive_volume_count": 53
+        },
+        "su2_readability_status": "parsed"
+      }
+    }
+  },
+  "force_reference_audit": {
+    "schema_version": "wo006f_force_reference_audit.v1",
+    "current_authority": {
+      "design_gross_mass_kg": 98.5,
+      "full_span_m": 34.332286,
+      "half_span_m": 17.166143,
+      "sref_m2": 33.420059598,
+      "cref_m": 1.003721543,
+      "bref_m": 34.332286,
+      "geometry_manifest": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json"
+    },
+    "blocked_legacy_values": {
+      "legacy_106p828608kg": "blocked_not_current_truth",
+      "legacy_16p5m_half_span": "blocked_not_current_pipeline_truth"
+    },
+    "su2_runtime_convention": {
+      "system_measurements": "SI",
+      "velocity_mps": 6.5,
+      "density_kgpm3": 1.225,
+      "dynamic_viscosity_pa_s": 1.7894e-05,
+      "wall_marker": "wing_wall",
+      "farfield_marker": "farfield",
+      "no_slip_wall": "MARKER_HEATFLUX=(wing_wall,0.0)",
+      "force_reference": "REF_AREA=Sref, REF_LENGTH=Cref, moment origin from current pipeline"
+    },
+    "acceptance_logic": {
+      "positive_drag_required": true,
+      "operating_point_cl_band": [
+        0.9,
+        1.5
+      ],
+      "low_confidence_cd_upper_sanity": 0.09,
+      "negative_cd": "reject",
+      "no_bl_drag": "not_result_ready",
+      "multizone_probe": "route_evidence_until_force_coefficients_and_quality_gate_pass"
+    }
+  },
+  "sanity_comparison": [
+    {
+      "case": "AVL conservative_best induced CDi",
+      "cl": 1.16853,
+      "cd": 0.0127613,
+      "role": "avl_induced_sanity_bound"
+    },
+    {
+      "case": "Tier2 XFOIL/profile proxy CD",
+      "cl": 1.16853,
+      "cd": 0.009368851143241826,
+      "role": "xfoil_profile_proxy_sanity_bound"
+    },
+    {
+      "case": "AVL plus Tier2 profile proxy CD_total",
+      "cl": 1.16853,
+      "cd": 0.026020030502038057,
+      "role": "combined_sanity_bound"
+    },
+    {
+      "case": "VSPAERO panel reference",
+      "cl": 1.287645495943,
+      "cd": 0.045068093845,
+      "role": "lower_order_panel_sanity_bound"
+    },
+    {
+      "case": "attempt_01_high_mesh_no_bl_inc_ns_cfl0p5",
+      "cl": 0.3819301945,
+      "cd": 0.176003583,
+      "role": "reject_lift_below_operating_point"
+    },
+    {
+      "case": "attempt_02_medium_no_bl_inc_ns_alpha5_zpos",
+      "cl": 1.254907402,
+      "cd": 0.525928768,
+      "role": "reject_drag_far_above_sanity_bounds"
+    },
+    {
+      "case": "attempt_03_medium_no_bl_inc_euler_alpha5_zpos",
+      "cl": 0.9677444102,
+      "cd": -0.0251240078,
+      "role": "reject_negative_drag"
+    },
+    {
+      "case": "attempt_03_medium_no_bl_inc_euler_alpha5_zpos transient positive window",
+      "cl": 1.231788403,
+      "cd": 0.0143442623,
+      "role": "transient_not_final"
+    },
+    {
+      "case": "attempt_04_medium_no_bl_inc_rans_sa_wallfn_alpha5_zpos",
+      "cl": 1.266943331,
+      "cd": 0.5487791584,
+      "role": "reject_drag_far_above_sanity_bounds"
+    },
+    {
+      "case": "attempt_05_medium_compressible_euler_alpha5",
+      "cl": -4.523554638,
+      "cd": -5.664930962,
+      "role": "reject_negative_drag"
+    },
+    {
+      "case": "attempt_06_medium_no_bl_inc_rans_sa_alpha5_zpos_no_wallfn",
+      "cl": 1.289421542,
+      "cd": 0.5555196327,
+      "role": "reject_drag_far_above_sanity_bounds"
+    },
+    {
+      "case": "attempt_07_openvsp_gmsh_current_vsp",
+      "cl": null,
+      "cd": null,
+      "role": "no_usable_su2_coefficients"
+    },
+    {
+      "case": "attempt_08_medium_no_bl_inc_euler_alpha5_zpos_low_cfl",
+      "cl": 0.7631996807,
+      "cd": -0.153090993,
+      "role": "reject_negative_drag"
+    },
+    {
+      "case": "attempt_08_medium_no_bl_inc_euler_alpha5_zpos_low_cfl transient positive window",
+      "cl": 1.237370791,
+      "cd": 0.0002318312479,
+      "role": "transient_not_final"
+    },
+    {
+      "case": "attempt_09_openvsp_native_cfdmesh",
+      "cl": null,
+      "cd": null,
+      "role": "no_usable_su2_coefficients"
+    },
+    {
+      "case": "attempt_10_r6_two_zone_multizone_probe",
+      "cl": null,
+      "cd": null,
+      "role": "solver_or_mesh_probe_no_coefficients"
+    }
+  ],
+  "engineering_interpretation": "WO-006F did not produce an engineering-credible SU2 aerodynamic result. The useful new evidence is that a damped RANS no-BL setup can run and recover lift with positive drag, but its drag is physically too large against the AVL/Tier2 profile-proxy and VSPAERO sanity envelope; and that an official SU2 multizone BL/core route can launch, so the next repair, with the data-authority checker still as prerequisite, should focus on R6 core quality, wake/span-cap closure, and multizone/merged-force coefficient ownership."
+}

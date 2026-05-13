@@ -80,6 +80,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   tuning，而是 preserved-core quality repair 加上 wake/span-cap 真正 conformal topology
   contract；R6 仍沒有 postprocessed y+、沒有可解讀 SU2 coefficient、沒有 Baseline A reopen
   evidence。
+- WO-006F SU2 engineering-result recovery campaign 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`，
+  verdict 是 `wo006f_campaign_incomplete`。它嘗試 no-BL NS/RANS/Euler、OpenVSP/Gmsh、
+  OpenVSP CFDMesh 與 R6 BL/core multizone probe。唯一 final sign-correct pair 是 no-BL
+  RANS `CL=1.289421542`、`CD=0.5555196327`，但 drag 比 AVL + Tier2 profile-proxy /
+  old VSPAERO sanity bounds 高太多且未收斂，不能當 aero calibration；Euler positive
+  window 不是 final/stable。R6 multizone 可啟動，代表 SU2 route 仍開放，但目前仍沒有
+  physically credible SU2 CL/CD、沒有 Baseline A reopen evidence。下一步是修 R6
+  preserved-core quality、wake/span-cap coupling 與 multizone/merged force coefficient
+  ownership。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

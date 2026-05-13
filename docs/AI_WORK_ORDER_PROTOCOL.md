@@ -68,6 +68,15 @@ Current authority:
   as a stronger blocker proof: next work must repair preserved-core quality
   without remeshing the interface, then resolve the wake/span-cap topology
   contract before any mixed-element SU2 handoff or coefficient claim.
+- WO-006F SU2 engineering-result recovery campaign is complete as a campaign
+  package:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.
+  Verdict: `wo006f_campaign_incomplete`. It ran no-BL NS/RANS/Euler,
+  OpenVSP/Gmsh, OpenVSP CFDMesh, and R6 BL/core multizone probes. No final
+  physically credible SU2 CL/CD exists. The sign-correct no-BL RANS pair
+  (`CL=1.289421542`, `CD=0.5555196327`) is rejected as far too draggy and not
+  converged; the multizone probe launches but is only route evidence until core
+  quality, wake/span-cap coupling, and force coefficient ownership pass.
 
 ## Baseline A Rule
 

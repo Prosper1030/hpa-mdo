@@ -1,0 +1,11 @@
+attempt_id,route,solver_status,classification,final_iteration,final_cl,final_cd,boundary_layer_status,notes
+attempt_01_high_mesh_no_bl_inc_ns_cfl0p5,R3 high-mesh no-BL incompressible Navier-Stokes at alpha 0,incomplete_or_interrupted,reject_lift_below_operating_point,119.0,0.3819301945,0.176003583,none,[]
+attempt_02_medium_no_bl_inc_ns_alpha5_zpos,medium no-BL incompressible Navier-Stokes at +5 deg velocity vector,incomplete_or_interrupted,reject_drag_far_above_sanity_bounds,64.0,1.254907402,0.525928768,none,[]
+attempt_03_medium_no_bl_inc_euler_alpha5_zpos,medium no-BL incompressible Euler at +5 deg velocity vector,incomplete_or_interrupted,reject_negative_drag,64.0,0.9677444102,-0.0251240078,none,[]
+attempt_04_medium_no_bl_inc_rans_sa_wallfn_alpha5_zpos,medium no-BL incompressible RANS SA with wall functions,error_exit,reject_drag_far_above_sanity_bounds,46.0,1.266943331,0.5487791584,wall function on a no-BL mesh,"[""wall_function_yplus_warnings""]"
+attempt_05_medium_compressible_euler_alpha5,medium no-BL compressible Euler low-Mach shortcut,incomplete_or_interrupted,reject_negative_drag,11.0,-4.523554638,-5.664930962,none,[]
+attempt_06_medium_no_bl_inc_rans_sa_alpha5_zpos_no_wallfn,medium no-BL incompressible RANS SA without wall functions,exit_success,reject_drag_far_above_sanity_bounds,159.0,1.289421542,0.5555196327,none,"[""max_iterations_reached_before_convergence"", ""cauchy_cd=0.00261144_criterion=1e-12""]"
+attempt_07_openvsp_gmsh_current_vsp,OpenVSP STEP/STL export plus repo Gmsh external-flow generator,not_run_or_no_log,no_usable_su2_coefficients,,,,none,[]
+attempt_08_medium_no_bl_inc_euler_alpha5_zpos_low_cfl,medium no-BL incompressible Euler at lower CFL,incomplete_or_interrupted,reject_negative_drag,282.0,0.7631996807,-0.153090993,none,[]
+attempt_09_openvsp_native_cfdmesh,OpenVSP native CFDMesh Gmsh/STL export,not_run_or_no_log,no_usable_su2_coefficients,,,,none,[]
+attempt_10_r6_two_zone_multizone_probe,R6 BL/core two-zone SU2 multizone probe,exit_success,solver_or_mesh_probe_no_coefficients,,,,"owned BL block present, core quality failed","[""max_iterations_reached_before_convergence""]"

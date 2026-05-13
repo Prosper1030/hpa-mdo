@@ -1,0 +1,201 @@
+{
+  "schema_version": "wo006f_mesh_quality_audit.v1",
+  "r3_high_mesh_no_bl": {
+    "source": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/mesh_native_faceted_su2_smoke_report.json",
+    "volume_element_count": null,
+    "node_count": null,
+    "marker_audit": {
+      "status": "pass",
+      "mesh_markers": [
+        "farfield",
+        "wing_wall"
+      ],
+      "boundary_condition_markers": {
+        "MARKER_HEATFLUX": [
+          "wing_wall"
+        ],
+        "MARKER_FAR": [
+          "farfield"
+        ]
+      },
+      "missing_from_mesh": [],
+      "unassigned_mesh_markers": [],
+      "zero_element_markers": [],
+      "mesh_summary": {
+        "ndime": 3,
+        "nelem": 936017,
+        "npoin": 176542,
+        "nmark": 2,
+        "markers": {
+          "wing_wall": {
+            "element_count": 73632,
+            "element_type_counts": {
+              "5": 73632
+            }
+          },
+          "farfield": {
+            "element_count": 18096,
+            "element_type_counts": {
+              "5": 18096
+            }
+          }
+        }
+      }
+    },
+    "interpretation": "readable no-BL tet handoff; not wall-resolved drag evidence"
+  },
+  "r6_owned_bl_block": {
+    "source": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/owned_bl_block_writer_probe.json",
+    "volume_element_count": 24576,
+    "marker_summary": {
+      "bl_outer_interface": {
+        "element_count": 1024,
+        "element_type_counts": {
+          "9": 1024
+        }
+      },
+      "span_cap": {
+        "element_count": 1536,
+        "element_type_counts": {
+          "9": 1536
+        }
+      },
+      "wake_cut": {
+        "element_count": 1600,
+        "element_type_counts": {
+          "9": 1600
+        }
+      },
+      "wing_wall": {
+        "element_count": 960,
+        "element_type_counts": {
+          "9": 960
+        }
+      }
+    },
+    "block_quality": {
+      "cell_count": 24576,
+      "min_estimated_volume_m3": 1.337006168004603e-07,
+      "non_positive_volume_count": 0,
+      "min_span_interval_m": 0.4291534999999982,
+      "max_span_interval_m": 1.6307834999999997,
+      "min_section_first_layer_height_m": 4.999999999998514e-05,
+      "max_section_first_layer_height_m": 5.0000000000021625e-05,
+      "boundary_face_count": 5120,
+      "unowned_boundary_face_count": 0
+    },
+    "interpretation": "owned near-wall BL block exists and has positive cells, but is not a complete farfield CFD domain"
+  },
+  "r6_preserved_core": {
+    "source": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_summary.json",
+    "volume_element_count": 11644,
+    "quality_metrics": {
+      "volume_element_count": 11644,
+      "volume_element_type_counts": {
+        "4": 10588,
+        "7": 1056
+      },
+      "tetra_element_count": 10588,
+      "tetrahedron_count": 10588,
+      "pyramid_element_count": 1056,
+      "prism_element_count": 0,
+      "hexahedron_element_count": 0,
+      "ill_shaped_tet_count": null,
+      "ill_shaped_volume_element_count": 91,
+      "non_positive_min_sicn_count": 91,
+      "non_positive_min_sige_count": 91,
+      "non_positive_volume_count": 53,
+      "min_gamma": 1.7883176327131676e-07,
+      "min_sicn": -0.00864983589849344,
+      "min_sige": -0.0035883220612220783,
+      "min_volume": -2.9559112035789902e-06,
+      "gamma_percentiles": {
+        "p01": 2.261856580856742e-05,
+        "p05": 0.0022709470707808627,
+        "p50": 0.12477206639792057
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.00030213841581604964,
+        "p05": 0.008568075608505263,
+        "p50": 0.1478271715204033
+      },
+      "min_sige_percentiles": {
+        "p01": 0.00028452885082374933,
+        "p05": 0.029202424309146484,
+        "p50": 0.5036072388286885
+      },
+      "volume_percentiles": {
+        "p01": 1.1905196012119443e-06,
+        "p05": 4.331027284053378e-05,
+        "p50": 0.021001207266700392
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "fail",
+      "blockers": [
+        "non_positive_min_sicn",
+        "non_positive_min_sige",
+        "non_positive_volume"
+      ],
+      "warnings": [
+        "very_low_min_gamma",
+        "low_p01_gamma"
+      ],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "bl_block_coupling": {
+      "status": "partial",
+      "can_merge_core_with_bl_block": false,
+      "matched_face_count": 1024,
+      "matched_face_counts_by_marker_pair": {
+        "bl_outer_interface->bl_outer_interface": 1024
+      },
+      "unmatched_core_interface_face_count": 94,
+      "unmatched_core_interface_face_counts_by_marker": {
+        "span_cap": 62,
+        "wake_cut": 32
+      },
+      "unmatched_bl_boundary_face_count": 3136,
+      "unmatched_bl_boundary_face_counts_by_marker": {
+        "span_cap": 1536,
+        "wake_cut": 1600
+      },
+      "interpretation": "Core interface is mesh-preserved but does not yet match every non-wall BL block boundary face; do not write a merged viscous mesh."
+    },
+    "interpretation": "core zone can be meshed and preserved, but current quality/coupling fail blocks a credible result"
+  },
+  "r6_final_handoff_gate": {
+    "schema_version": "wo006r6_final_handoff_gate.v1",
+    "status": "blocked",
+    "can_write_bl_mesh_handoff": false,
+    "blockers": [
+      "probe_su2_not_final",
+      "final_merged_su2_missing",
+      "unmatched_core_interface_faces",
+      "unmatched_bl_boundary_faces",
+      "bl_core_coupling_not_pass",
+      "marker_ownership_not_pass",
+      "mesh_quality_not_pass",
+      "non_positive_elements_present"
+    ],
+    "artifact_role": "probe_su2",
+    "candidate_su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
+    "evidence": {
+      "core_status": "meshed",
+      "unmatched_core_interface_face_count": 94,
+      "unmatched_bl_boundary_face_count": 3136,
+      "marker_ownership_status": "fail",
+      "mesh_quality_status": "fail",
+      "non_positive_counts": {
+        "non_positive_min_sicn_count": 91,
+        "non_positive_min_sige_count": 91,
+        "non_positive_volume_count": 53
+      },
+      "su2_readability_status": "parsed"
+    }
+  }
+}
