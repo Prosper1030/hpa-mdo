@@ -529,7 +529,11 @@ def write_faceted_volume_mesh_with_boundary_layer(
     resolved_mesh_algorithm3d = int(mesh_algorithm3d)
     if resolved_mesh_algorithm3d <= 0:
         raise ValueError("mesh_algorithm3d must be positive")
-    if surface_triangulation_policy not in {"fixed_diagonal", "shorter_diagonal"}:
+    if surface_triangulation_policy not in {
+        "fixed_diagonal",
+        "shorter_diagonal",
+        "max_min_angle",
+    }:
         raise ValueError("Unsupported surface_triangulation_policy")
 
     gmsh.initialize()
@@ -1861,21 +1865,119 @@ def _triangulate(
     if len(nodes) == 3:
         return [nodes]
     if len(nodes) == 4:
-        if triangulation_policy not in {"fixed_diagonal", "shorter_diagonal"}:
+        if triangulation_policy not in {
+            "fixed_diagonal",
+            "shorter_diagonal",
+            "max_min_angle",
+        }:
             raise ValueError(f"Unsupported triangulation policy: {triangulation_policy}")
+        fixed = [
+            (nodes[0], nodes[1], nodes[2]),
+            (nodes[0], nodes[2], nodes[3]),
+        ]
+        alternate = [
+            (nodes[0], nodes[1], nodes[3]),
+            (nodes[1], nodes[2], nodes[3]),
+        ]
+        if triangulation_policy == "max_min_angle" and vertices is not None:
+            diag_02 = _distance_3d(vertices[nodes[0]], vertices[nodes[2]])
+            diag_13 = _distance_3d(vertices[nodes[1]], vertices[nodes[3]])
+            fixed_score = _triangulation_quality_score(
+                fixed,
+                vertices=vertices,
+                diagonal_length=diag_02,
+            )
+            alternate_score = _triangulation_quality_score(
+                alternate,
+                vertices=vertices,
+                diagonal_length=diag_13,
+            )
+            if alternate_score > fixed_score:
+                return alternate
+            return fixed
         if triangulation_policy == "shorter_diagonal" and vertices is not None:
             diag_02 = _distance_3d(vertices[nodes[0]], vertices[nodes[2]])
             diag_13 = _distance_3d(vertices[nodes[1]], vertices[nodes[3]])
             if diag_13 < diag_02:
-                return [
-                    (nodes[0], nodes[1], nodes[3]),
-                    (nodes[1], nodes[2], nodes[3]),
-                ]
-        return [
-            (nodes[0], nodes[1], nodes[2]),
-            (nodes[0], nodes[2], nodes[3]),
-        ]
+                return alternate
+        return fixed
     raise ValueError("Only triangle and quad faces can be converted to plane surfaces")
+
+
+def _triangulation_quality_score(
+    triangles: Sequence[tuple[int, int, int]],
+    *,
+    vertices: Sequence[tuple[float, float, float]],
+    diagonal_length: float,
+) -> tuple[float, float, float]:
+    min_angle = min(
+        _triangle_min_angle_radians(
+            vertices[triangle[0]],
+            vertices[triangle[1]],
+            vertices[triangle[2]],
+        )
+        for triangle in triangles
+    )
+    min_area = min(
+        _triangle_area_3d(
+            vertices[triangle[0]],
+            vertices[triangle[1]],
+            vertices[triangle[2]],
+        )
+        for triangle in triangles
+    )
+    return (min_angle, min_area, -diagonal_length)
+
+
+def _triangle_min_angle_radians(
+    a: tuple[float, float, float],
+    b: tuple[float, float, float],
+    c: tuple[float, float, float],
+) -> float:
+    return min(
+        _angle_between_3d(a, b, c),
+        _angle_between_3d(b, a, c),
+        _angle_between_3d(c, a, b),
+    )
+
+
+def _angle_between_3d(
+    center: tuple[float, float, float],
+    left: tuple[float, float, float],
+    right: tuple[float, float, float],
+) -> float:
+    left_vec = (
+        left[0] - center[0],
+        left[1] - center[1],
+        left[2] - center[2],
+    )
+    right_vec = (
+        right[0] - center[0],
+        right[1] - center[1],
+        right[2] - center[2],
+    )
+    left_norm = math.sqrt(sum(component * component for component in left_vec))
+    right_norm = math.sqrt(sum(component * component for component in right_vec))
+    if left_norm <= 0.0 or right_norm <= 0.0:
+        return 0.0
+    dot = sum(left_vec[index] * right_vec[index] for index in range(3))
+    cos_angle = max(-1.0, min(1.0, dot / (left_norm * right_norm)))
+    return math.acos(cos_angle)
+
+
+def _triangle_area_3d(
+    a: tuple[float, float, float],
+    b: tuple[float, float, float],
+    c: tuple[float, float, float],
+) -> float:
+    ab = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    ac = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    cross = (
+        ab[1] * ac[2] - ab[2] * ac[1],
+        ab[2] * ac[0] - ab[0] * ac[2],
+        ab[0] * ac[1] - ab[1] * ac[0],
+    )
+    return 0.5 * math.sqrt(sum(component * component for component in cross))
 
 
 def _distance_3d(
