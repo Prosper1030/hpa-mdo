@@ -1,5 +1,5 @@
-audit_scope,marker,expected_element_count,observed_element_count,preserved,unmatched_bl_boundary_faces,unmatched_core_interface_faces,can_merge,notes
-preserved_core_interface_envelope,bl_outer_interface,1024,1024,true,,,true,Core boundary mesh matches the input interface element counts.
-preserved_core_interface_envelope,wake_cut,32,32,true,1600,32,true,Core boundary mesh matches the input interface element counts.
-preserved_core_interface_envelope,span_cap,62,62,true,1536,62,true,Core boundary mesh matches the input interface element counts.
-full_non_wall_boundary_direct_core_probe,all_non_wall,,,false,,,false,Non-watertight surface: 124 bad edges
+audit_scope,marker,expected_element_count,observed_element_count,preserved,unmatched_bl_boundary_faces,unmatched_core_interface_faces,interface_envelope_preserved,full_bl_core_can_merge,notes
+preserved_core_interface_envelope,bl_outer_interface,1024,1024,true,,,true,false,Core boundary mesh matches the input interface element counts.
+preserved_core_interface_envelope,wake_cut,32,32,true,1600,32,true,false,Core boundary mesh matches the input interface element counts.
+preserved_core_interface_envelope,span_cap,62,62,true,1536,62,true,false,Core boundary mesh matches the input interface element counts.
+full_non_wall_boundary_direct_core_probe,all_non_wall,,,false,,,false,false,Non-watertight surface: 124 bad edges

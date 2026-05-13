@@ -77,7 +77,8 @@ INTERFACE_CSV_FIELDS = (
     "preserved",
     "unmatched_bl_boundary_faces",
     "unmatched_core_interface_faces",
-    "can_merge",
+    "interface_envelope_preserved",
+    "full_bl_core_can_merge",
     "notes",
 )
 
@@ -135,9 +136,11 @@ def run_campaign(
     )
     _write_json(output_dir / "bl_core_merge_gate.json", merge_gate)
 
-    deviation_report = build_surface_geometry_deviation(
-        build_current_go_wing_surface(geometry),
-        block,
+    deviation_report = normalize_r5_surface_geometry_deviation(
+        build_surface_geometry_deviation(
+            build_current_go_wing_surface(geometry),
+            block,
+        )
     )
     geometry_deviation_report = render_geometry_deviation_report(deviation_report)
     (output_dir / "geometry_deviation_report.md").write_text(
@@ -508,6 +511,8 @@ def build_interface_conformality_rows(
     markers = conformality.get("markers") if isinstance(conformality.get("markers"), dict) else {}
     unmatched_bl = coupling.get("unmatched_bl_boundary_face_counts_by_marker") or {}
     unmatched_core = coupling.get("unmatched_core_interface_face_counts_by_marker") or {}
+    interface_envelope_preserved = conformality.get("can_merge_with_owned_bl_block") is True
+    full_bl_core_can_merge = coupling.get("can_merge_core_with_bl_block") is True
     rows: list[dict[str, str]] = []
     for marker in ("bl_outer_interface", "wake_cut", "span_cap"):
         marker_info = markers.get(marker, {}) if isinstance(markers, dict) else {}
@@ -524,7 +529,8 @@ def build_interface_conformality_rows(
                 "preserved": str(bool(marker_info.get("preserved"))).lower(),
                 "unmatched_bl_boundary_faces": _str_or_empty(unmatched_bl.get(marker)),
                 "unmatched_core_interface_faces": _str_or_empty(unmatched_core.get(marker)),
-                "can_merge": str(conformality.get("can_merge_with_owned_bl_block") is True).lower(),
+                "interface_envelope_preserved": str(interface_envelope_preserved).lower(),
+                "full_bl_core_can_merge": str(full_bl_core_can_merge).lower(),
                 "notes": str(conformality.get("interpretation") or ""),
             }
         )
@@ -537,11 +543,29 @@ def build_interface_conformality_rows(
             "preserved": "false",
             "unmatched_bl_boundary_faces": "",
             "unmatched_core_interface_faces": "",
-            "can_merge": str(non_wall_probe.get("can_use_as_core_inner_boundary") is True).lower(),
+            "interface_envelope_preserved": "false",
+            "full_bl_core_can_merge": str(
+                non_wall_probe.get("can_use_as_core_inner_boundary") is True
+            ).lower(),
             "notes": str(non_wall_probe.get("error") or non_wall_probe.get("engineering_read") or ""),
         }
     )
     return rows
+
+
+def normalize_r5_surface_geometry_deviation(deviation_report: Mapping[str, Any]) -> dict[str, Any]:
+    report = dict(deviation_report)
+    report["schema_version"] = "wo006r5_surface_geometry_deviation.v1"
+    report["r5_new_adapter_cleanup_applied"] = report.pop(
+        "r4_new_adapter_cleanup_applied",
+        False,
+    )
+    report["interpretation"] = (
+        "R5 did not change authority geometry. The owned BL wall is generated "
+        "from the same current-GO mesh-native station data; any remaining "
+        "deviation here is adapter/discretization evidence, not a source-shape change."
+    )
+    return report
 
 
 def build_mesh_quality_gate(

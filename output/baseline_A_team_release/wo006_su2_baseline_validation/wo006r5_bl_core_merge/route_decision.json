@@ -24,16 +24,16 @@
     "blocked_legacy_half_span_m": "16.5 m is not current pipeline truth"
   },
   "surface_deviation": {
-    "schema_version": "wo006r4_surface_geometry_deviation.v1",
+    "schema_version": "wo006r5_surface_geometry_deviation.v1",
     "external_authority_files_changed": false,
-    "r4_new_adapter_cleanup_applied": false,
     "comparison": "owned BL wall layer-0 nodes against current GO mesh-native wing surface",
     "wall_vertex_count": 1023,
     "wing_surface_vertex_count": 992,
     "max_nearest_distance_m": 0.0,
     "p95_nearest_distance_m": 0.0,
     "mean_nearest_distance_m": 0.0,
-    "interpretation": "R4 did not change authority geometry. The owned BL wall is generated from the same current-GO mesh-native station data; any remaining deviation here is adapter/discretization evidence, not a source-shape change."
+    "interpretation": "R5 did not change authority geometry. The owned BL wall is generated from the same current-GO mesh-native station data; any remaining deviation here is adapter/discretization evidence, not a source-shape change.",
+    "r5_new_adapter_cleanup_applied": false
   },
   "owned_bl_block_summary": {
     "block_cells": 24576,

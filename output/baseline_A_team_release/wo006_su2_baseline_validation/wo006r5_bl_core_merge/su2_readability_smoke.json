@@ -48,7 +48,7 @@
       "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
       "summary": {
         "ndime": 3,
-        "nelem": 11741,
+        "nelem": 11705,
         "npoin": 3359,
         "nmark": 4,
         "markers": {
@@ -71,9 +71,9 @@
             }
           },
           "farfield": {
-            "element_count": 2368,
+            "element_count": 2366,
             "element_type_counts": {
-              "5": 2368
+              "5": 2366
             }
           }
         }

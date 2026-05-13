@@ -8,4 +8,4 @@
 - P95 nearest distance (m): `0.0`
 - Mean nearest distance (m): `0.0`
 
-R4 did not change authority geometry. The owned BL wall is generated from the same current-GO mesh-native station data; any remaining deviation here is adapter/discretization evidence, not a source-shape change.
+R5 did not change authority geometry. The owned BL wall is generated from the same current-GO mesh-native station data; any remaining deviation here is adapter/discretization evidence, not a source-shape change.

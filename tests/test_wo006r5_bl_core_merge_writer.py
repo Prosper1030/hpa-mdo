@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import importlib.util
 import sys
 from pathlib import Path
@@ -64,6 +65,21 @@ def test_wo006r5_report_only_run_writes_limitation_artifacts_without_handoff(
     ):
         assert (tmp_path / "wo006r5" / name).exists()
     assert not (tmp_path / "wo006r5" / "bl_mesh_handoff.v1.json").exists()
+
+    geometry_report = (tmp_path / "wo006r5" / "geometry_deviation_report.md").read_text(
+        encoding="utf-8"
+    )
+    assert "R5 did not change authority geometry" in geometry_report
+    assert "R4 did not change authority geometry" not in geometry_report
+
+    with (tmp_path / "wo006r5" / "interface_conformality_audit.csv").open(
+        encoding="utf-8",
+        newline="",
+    ) as handle:
+        rows = list(csv.DictReader(handle))
+    assert "can_merge" not in rows[0]
+    assert rows[0]["interface_envelope_preserved"] in {"true", "false"}
+    assert rows[0]["full_bl_core_can_merge"] == "false"
 
 
 def test_wo006r5_core_probe_uses_non_final_probe_su2_name(

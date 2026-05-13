@@ -5,9 +5,9 @@
   "su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r5_bl_core_merge/core_probe_artifacts/preserved_interface_probe/core_preserved_interface_probe.su2",
   "volume_count": 1,
   "node_count": 29495,
-  "volume_element_count": 11741,
+  "volume_element_count": 11705,
   "volume_element_type_counts": {
-    "4": 10685,
+    "4": 10649,
     "7": 1056
   },
   "inner_boundary": {
@@ -77,9 +77,9 @@
     "generated_mesh_element_counts": {
       "farfield": {
         "entity_count": 12,
-        "element_count": 2368,
+        "element_count": 2366,
         "element_type_counts": {
-          "2": 2368
+          "2": 2366
         }
       }
     }
@@ -161,44 +161,44 @@
     "mesh_algorithm3d": 1
   },
   "quality_metrics": {
-    "volume_element_count": 11741,
+    "volume_element_count": 11705,
     "volume_element_type_counts": {
-      "4": 10685,
+      "4": 10649,
       "7": 1056
     },
-    "tetra_element_count": 10685,
-    "tetrahedron_count": 10685,
+    "tetra_element_count": 10649,
+    "tetrahedron_count": 10649,
     "pyramid_element_count": 1056,
     "prism_element_count": 0,
     "hexahedron_element_count": 0,
     "ill_shaped_tet_count": null,
-    "ill_shaped_volume_element_count": 100,
-    "non_positive_min_sicn_count": 100,
-    "non_positive_min_sige_count": 100,
-    "non_positive_volume_count": 51,
-    "min_gamma": 7.682402762896765e-10,
-    "min_sicn": -0.026318265210435978,
-    "min_sige": -0.017933447921705002,
-    "min_volume": -0.00010608509321407089,
+    "ill_shaped_volume_element_count": 102,
+    "non_positive_min_sicn_count": 102,
+    "non_positive_min_sige_count": 102,
+    "non_positive_volume_count": 59,
+    "min_gamma": 2.1131579982212478e-07,
+    "min_sicn": -0.008267285885751848,
+    "min_sige": -0.0034794753566242706,
+    "min_volume": -2.9559112035789902e-06,
     "gamma_percentiles": {
-      "p01": 1.3700756838181957e-05,
-      "p05": 0.0016388363681189154,
-      "p50": 0.12776031060523554
+      "p01": 2.4147641975404657e-05,
+      "p05": 0.0026217029812154787,
+      "p50": 0.12093078928669465
     },
     "min_sicn_percentiles": {
-      "p01": 5.970797330064563e-05,
-      "p05": 0.0069444685370583905,
-      "p50": 0.15915486989501368
+      "p01": 8.777209800018464e-05,
+      "p05": 0.009507813817485793,
+      "p50": 0.14471588332441346
     },
     "min_sige_percentiles": {
-      "p01": 2.8577051559280805e-05,
-      "p05": 0.01882701837727238,
-      "p50": 0.49851787875946063
+      "p01": 3.8303905674235087e-05,
+      "p05": 0.027561189121549055,
+      "p50": 0.508866565354605
     },
     "volume_percentiles": {
-      "p01": 3.0549152695591866e-07,
-      "p05": 2.826586493242828e-05,
-      "p50": 0.019695561952144874
+      "p01": 9.324996740217664e-07,
+      "p05": 2.9626923107549083e-05,
+      "p50": 0.022264689509306036
     }
   },
   "mesh_quality_gate": {
@@ -221,9 +221,9 @@
   "production_scale_gate": {
     "status": "underresolved",
     "target_volume_elements": 1000000,
-    "observed_volume_elements": 11741,
-    "shortfall_volume_elements": 988259,
-    "observed_to_target_ratio": 0.011741
+    "observed_volume_elements": 11705,
+    "shortfall_volume_elements": 988295,
+    "observed_to_target_ratio": 0.011705
   },
   "physical_groups": {
     "bl_outer_interface": {
