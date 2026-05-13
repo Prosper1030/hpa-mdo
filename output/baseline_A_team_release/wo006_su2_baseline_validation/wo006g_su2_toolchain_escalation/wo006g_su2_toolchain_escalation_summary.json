@@ -1,0 +1,50 @@
+{
+  "schema_version": "wo006g_su2_toolchain_escalation.v1",
+  "date": "2026-05-13",
+  "allowed_verdict": "su2_toolchain_escalation_required_after_exhaustive_failure",
+  "authority_basis": {
+    "design_gross_mass_kg": 98.5,
+    "full_span_m": 34.332286,
+    "half_span_m": 17.166143,
+    "sref_m2": 33.420059598,
+    "cref_m": 1.003721543,
+    "bref_m": 34.332286,
+    "velocity_mps": 6.5
+  },
+  "result_readiness": {
+    "physical_su2_result_ready": false,
+    "low_confidence_su2_result_ready": false,
+    "toolchain_escalation_required": true
+  },
+  "primary_reasons": [
+    "current_openvsp_geometry_is_not_clean_watertight_cfd_solid",
+    "current_bl_core_topology_not_conformal",
+    "preserved_core_quality_fails_non_positive_elements",
+    "no_current_bl_resolved_or_transition_ready_mesh_family",
+    "no_force_stable_positive_grid_independent_su2_coefficients",
+    "current_local_16gb_toolchain_not_sized_for_hpa_grade_grid_family"
+  ],
+  "minimum_future_gates": [
+    "data_authority_gate",
+    "geometry_gate",
+    "mesh_quality_and_marker_ownership_gate",
+    "near_wall_yplus_gate",
+    "low_re_transition_physics_gate",
+    "force_history_stability_gate",
+    "grid_study_gate",
+    "hpa_magnitude_gate"
+  ],
+  "do_not_promote": [
+    "no_bl_tetra_drag",
+    "negative_drag_euler_windows",
+    "10_iteration_smoke",
+    "nonmatching_multizone_with_absurd_drag",
+    "openvsp_step_stl_route_without_geometry_cleanup"
+  ],
+  "required_escalations": [
+    "cfd_grade_geometry_cleanup_or_remodel",
+    "bl_resolved_mesh_family_capable_mesher",
+    "larger_compute_environment_for_multi_million_cell_runs",
+    "transition_capable_su2_validation_before_baseline_drag_claim"
+  ]
+}

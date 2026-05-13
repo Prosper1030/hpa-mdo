@@ -1,5 +1,19 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-13 WO-006G SU2 CFD V&V Reset
+
+WO-006G 已把 Baseline A main-wing SU2 線升級成工具鏈 escalation verdict，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006g_su2_toolchain_escalation/`。
+Allowed verdict 是 `su2_toolchain_escalation_required_after_exhaustive_failure`。
+
+工程判讀：目前沒有 physically credible 或 low-confidence SU2 aerodynamic result。這不是因為單一
+小網格或單一 solver knob 失敗，而是因為 current OpenVSP geometry 不是乾淨 watertight CFD solid，
+current BL/core topology 還沒有 conformal / quality-passing final mesh，現有 no-BL / multizone
+coefficients 沒有 force-stable、wall-resolved、transition-aware、grid-independent evidence。後續若要
+可信 SU2，必須先升級到 CFD-grade geometry cleanup、BL-resolved mesh family、足夠 compute
+resource，以及 low-Re transition / grid-convergence V&V workflow；不能再把 10-iteration smoke、
+no-BL drag、negative-drag Euler window 或 10k/100k/1M 級 debug mesh 當 aero calibration。
+
 ## 2026-05-13 Bounded WO-006 Data-Authority Gate
 
 Baseline A data-authority 已恢復到足以讓 **WO-006 bounded SU2 aero calibration** 往下走；

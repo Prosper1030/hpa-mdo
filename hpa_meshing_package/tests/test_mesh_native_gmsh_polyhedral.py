@@ -26,6 +26,7 @@ from hpa_meshing.mesh_native.near_wall_block import (
     build_wing_boundary_layer_block,
 )
 from hpa_meshing.mesh_native.su2_structured import parse_su2_marker_summary
+from hpa_meshing.mesh_native.su2_structured import audit_su2_boundary_face_ownership
 from hpa_meshing.mesh_native.wing_surface import (
     Face,
     Reference,
@@ -261,6 +262,82 @@ def test_write_boundary_layer_block_core_tet_mesh_can_preserve_input_interface(
     assert report["bl_block_coupling"]["can_merge_core_with_bl_block"] is False
     assert report["bl_block_coupling"]["unmatched_core_interface_face_count"] > 0
     assert report["mesh_sizing"]["preserve_boundary_mesh"] is True
+
+
+def test_su2_boundary_face_ownership_audit_passes_exterior_marker_faces(tmp_path: Path):
+    su2_path = tmp_path / "owned_boundary.su2"
+    su2_path.write_text(
+        "\n".join(
+            [
+                "NDIME= 3",
+                "NELEM= 1",
+                "12 0 1 2 3 4 5 6 7 0",
+                "NPOIN= 8",
+                "0 0 0 0",
+                "1 0 0 1",
+                "1 1 0 2",
+                "0 1 0 3",
+                "0 0 1 4",
+                "1 0 1 5",
+                "1 1 1 6",
+                "0 1 1 7",
+                "NMARK= 2",
+                "MARKER_TAG= bottom",
+                "MARKER_ELEMS= 1",
+                "9 0 1 2 3",
+                "MARKER_TAG= top",
+                "MARKER_ELEMS= 1",
+                "9 4 5 6 7",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    audit = audit_su2_boundary_face_ownership(su2_path)
+
+    assert audit["status"] == "pass"
+    assert audit["blockers"] == []
+    assert audit["associated_marker_face_count"] == 2
+    assert audit["orphan_marker_face_count"] == 0
+
+
+def test_su2_boundary_face_ownership_audit_rejects_internal_marker_face(
+    tmp_path: Path,
+):
+    su2_path = tmp_path / "orphan_boundary.su2"
+    su2_path.write_text(
+        "\n".join(
+            [
+                "NDIME= 3",
+                "NELEM= 1",
+                "12 0 1 2 3 4 5 6 7 0",
+                "NPOIN= 8",
+                "0 0 0 0",
+                "1 0 0 1",
+                "1 1 0 2",
+                "0 1 0 3",
+                "0 0 1 4",
+                "1 0 1 5",
+                "1 1 1 6",
+                "0 1 1 7",
+                "NMARK= 1",
+                "MARKER_TAG= diagonal_cut",
+                "MARKER_ELEMS= 1",
+                "9 0 1 6 5",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    audit = audit_su2_boundary_face_ownership(su2_path)
+
+    assert audit["status"] == "fail"
+    assert "marker_face_without_volume_boundary_owner" in audit["blockers"]
+    assert audit["associated_marker_face_count"] == 0
+    assert audit["orphan_marker_face_count"] == 1
+    assert audit["markers"]["diagonal_cut"]["orphan_samples"][0]["nodes"] == [0, 1, 6, 5]
 
 
 def test_boundary_layer_core_merge_gate_blocks_preserved_but_unmatched_interface():

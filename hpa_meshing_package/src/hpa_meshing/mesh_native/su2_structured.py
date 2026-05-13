@@ -14,8 +14,22 @@ from .near_wall_block import WingBoundaryLayerBlock
 from .wing_surface import SurfaceMesh, Vertex
 
 SU2_QUAD = 9
+SU2_TETRAHEDRON = 10
 SU2_HEXAHEDRON = 12
+SU2_PRISM = 13
+SU2_PYRAMID = 14
 _AXES = ("x", "y", "z")
+
+_SU2_VOLUME_NODE_COUNTS = {
+    SU2_TETRAHEDRON: 4,
+    SU2_HEXAHEDRON: 8,
+    SU2_PRISM: 6,
+    SU2_PYRAMID: 5,
+}
+_SU2_SURFACE_NODE_COUNTS = {
+    SU2_QUAD: 4,
+    5: 3,
+}
 
 
 def write_structured_box_shell_su2(
@@ -368,6 +382,222 @@ def parse_su2_marker_summary(path: Path | str) -> dict[str, Any]:
         "nmark": nmark,
         "markers": markers,
     }
+
+
+def audit_su2_boundary_face_ownership(path: Path | str) -> dict[str, Any]:
+    """Check that every SU2 marker element is an exterior face of a volume cell."""
+    mesh = _parse_su2_connectivity(path)
+    boundary_faces, unsupported_volume_counts = _volume_boundary_face_keys(
+        mesh["volume_elements"]
+    )
+
+    marker_face_usage: dict[tuple[int, ...], int] = {}
+    for marker_elements in mesh["markers"].values():
+        for element in marker_elements:
+            node_count = _SU2_SURFACE_NODE_COUNTS.get(element["type"])
+            if node_count is None:
+                continue
+            marker_face_usage[_face_key(element["nodes"][:node_count])] = (
+                marker_face_usage.get(_face_key(element["nodes"][:node_count]), 0) + 1
+            )
+
+    markers: dict[str, dict[str, Any]] = {}
+    unsupported_marker_counts: dict[str, int] = {}
+    associated_total = 0
+    orphan_total = 0
+    duplicate_total = 0
+    orphan_samples: list[dict[str, Any]] = []
+    for marker, marker_elements in sorted(mesh["markers"].items()):
+        marker_associated = 0
+        marker_orphan = 0
+        marker_duplicate = 0
+        marker_unsupported_counts: dict[str, int] = {}
+        marker_orphan_samples: list[dict[str, Any]] = []
+        for element_index, element in enumerate(marker_elements):
+            node_count = _SU2_SURFACE_NODE_COUNTS.get(element["type"])
+            if node_count is None:
+                key = str(element["type"])
+                marker_unsupported_counts[key] = marker_unsupported_counts.get(key, 0) + 1
+                unsupported_marker_counts[key] = unsupported_marker_counts.get(key, 0) + 1
+                continue
+            nodes = element["nodes"][:node_count]
+            face_key = _face_key(nodes)
+            if face_key in boundary_faces:
+                marker_associated += 1
+            else:
+                marker_orphan += 1
+                sample = {
+                    "marker": marker,
+                    "element_index": element_index,
+                    "element_type": element["type"],
+                    "nodes": list(nodes),
+                }
+                if len(marker_orphan_samples) < 5:
+                    marker_orphan_samples.append(sample)
+                if len(orphan_samples) < 10:
+                    orphan_samples.append(sample)
+            if marker_face_usage.get(face_key, 0) > 1:
+                marker_duplicate += 1
+
+        associated_total += marker_associated
+        orphan_total += marker_orphan
+        duplicate_total += marker_duplicate
+        markers[marker] = {
+            "element_count": len(marker_elements),
+            "associated_face_count": marker_associated,
+            "orphan_face_count": marker_orphan,
+            "duplicate_face_count": marker_duplicate,
+            "unsupported_element_type_counts": dict(sorted(marker_unsupported_counts.items())),
+            "orphan_samples": marker_orphan_samples,
+        }
+
+    blockers: list[str] = []
+    if unsupported_volume_counts:
+        blockers.append("unsupported_volume_element_type")
+    if unsupported_marker_counts:
+        blockers.append("unsupported_marker_element_type")
+    if orphan_total:
+        blockers.append("marker_face_without_volume_boundary_owner")
+    if duplicate_total:
+        blockers.append("duplicate_marker_boundary_face")
+
+    marker_face_total = sum(len(elements) for elements in mesh["markers"].values())
+    return {
+        "schema_version": "su2_boundary_face_ownership.v1",
+        "status": "pass" if not blockers else "fail",
+        "blockers": blockers,
+        "path": str(path),
+        "volume_element_count": len(mesh["volume_elements"]),
+        "volume_boundary_face_count": len(boundary_faces),
+        "marker_face_count": marker_face_total,
+        "associated_marker_face_count": associated_total,
+        "orphan_marker_face_count": orphan_total,
+        "duplicate_marker_face_count": duplicate_total,
+        "unsupported_volume_element_type_counts": dict(sorted(unsupported_volume_counts.items())),
+        "unsupported_marker_element_type_counts": dict(sorted(unsupported_marker_counts.items())),
+        "markers": markers,
+        "orphan_samples": orphan_samples,
+        "engineering_read": (
+            "SU2 requires marker elements to coincide with exterior volume faces; "
+            "a marker count audit alone is insufficient for solver-readability."
+        ),
+    }
+
+
+def _parse_su2_connectivity(path: Path | str) -> dict[str, Any]:
+    lines = [
+        line.strip()
+        for line in Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+        if line.strip() and not line.lstrip().startswith("%")
+    ]
+    volume_elements: list[dict[str, Any]] = []
+    markers: dict[str, list[dict[str, Any]]] = {}
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line.startswith("NELEM="):
+            element_count = int(line.split("=", 1)[1].strip())
+            volume_elements = [
+                _parse_su2_element_line(lines[index + 1 + offset])
+                for offset in range(element_count)
+            ]
+            index += element_count + 1
+            continue
+        if line.startswith("NPOIN="):
+            point_count = int(line.split("=", 1)[1].strip())
+            index += point_count + 1
+            continue
+        if line.startswith("NMARK="):
+            marker_count = int(line.split("=", 1)[1].strip())
+            index += 1
+            for _ in range(marker_count):
+                marker_line = lines[index]
+                if not marker_line.startswith("MARKER_TAG="):
+                    raise ValueError(f"Expected MARKER_TAG line in SU2 mesh: {marker_line}")
+                marker = marker_line.split("=", 1)[1].strip()
+                elem_line = lines[index + 1]
+                if not elem_line.startswith("MARKER_ELEMS="):
+                    raise ValueError(f"Expected MARKER_ELEMS line in SU2 mesh: {elem_line}")
+                marker_element_count = int(elem_line.split("=", 1)[1].strip())
+                markers[marker] = [
+                    _parse_su2_element_line(lines[index + 2 + offset])
+                    for offset in range(marker_element_count)
+                ]
+                index += marker_element_count + 2
+            continue
+        index += 1
+    return {"volume_elements": volume_elements, "markers": markers}
+
+
+def _parse_su2_element_line(line: str) -> dict[str, Any]:
+    parts = line.split()
+    if not parts:
+        raise ValueError("Empty SU2 element line")
+    return {
+        "type": int(parts[0]),
+        "nodes": [int(value) for value in parts[1:]],
+    }
+
+
+def _volume_boundary_face_keys(
+    volume_elements: Sequence[dict[str, Any]],
+) -> tuple[set[tuple[int, ...]], dict[str, int]]:
+    face_counts: dict[tuple[int, ...], int] = {}
+    unsupported_counts: dict[str, int] = {}
+    for element in volume_elements:
+        node_count = _SU2_VOLUME_NODE_COUNTS.get(element["type"])
+        if node_count is None:
+            key = str(element["type"])
+            unsupported_counts[key] = unsupported_counts.get(key, 0) + 1
+            continue
+        nodes = tuple(element["nodes"][:node_count])
+        for face_nodes in _volume_element_faces(element["type"], nodes):
+            key = _face_key(face_nodes)
+            face_counts[key] = face_counts.get(key, 0) + 1
+    return {face for face, count in face_counts.items() if count == 1}, unsupported_counts
+
+
+def _volume_element_faces(
+    element_type: int,
+    nodes: Sequence[int],
+) -> tuple[tuple[int, ...], ...]:
+    if element_type == SU2_TETRAHEDRON:
+        return (
+            (nodes[0], nodes[2], nodes[1]),
+            (nodes[0], nodes[1], nodes[3]),
+            (nodes[1], nodes[2], nodes[3]),
+            (nodes[2], nodes[0], nodes[3]),
+        )
+    if element_type == SU2_HEXAHEDRON:
+        return (
+            (nodes[0], nodes[1], nodes[2], nodes[3]),
+            (nodes[4], nodes[7], nodes[6], nodes[5]),
+            (nodes[0], nodes[4], nodes[5], nodes[1]),
+            (nodes[1], nodes[5], nodes[6], nodes[2]),
+            (nodes[2], nodes[6], nodes[7], nodes[3]),
+            (nodes[3], nodes[7], nodes[4], nodes[0]),
+        )
+    if element_type == SU2_PRISM:
+        return (
+            (nodes[0], nodes[2], nodes[1]),
+            (nodes[3], nodes[4], nodes[5]),
+            (nodes[0], nodes[1], nodes[4], nodes[3]),
+            (nodes[1], nodes[2], nodes[5], nodes[4]),
+            (nodes[2], nodes[0], nodes[3], nodes[5]),
+        )
+    if element_type == SU2_PYRAMID:
+        return (
+            (nodes[0], nodes[3], nodes[2], nodes[1]),
+            (nodes[0], nodes[1], nodes[4]),
+            (nodes[1], nodes[2], nodes[4]),
+            (nodes[2], nodes[3], nodes[4]),
+            (nodes[3], nodes[0], nodes[4]),
+        )
+    return ()
+
+
+def _face_key(nodes: Sequence[int]) -> tuple[int, ...]:
+    return tuple(sorted(int(node) for node in nodes))
 
 
 def _resolve_solver_command(solver_command: str) -> str:

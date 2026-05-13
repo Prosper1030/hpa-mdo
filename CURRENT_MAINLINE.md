@@ -90,6 +90,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   physically credible SU2 CL/CD、沒有 Baseline A reopen evidence。下一步是修 R6
   preserved-core quality、wake/span-cap coupling 與 multizone/merged force coefficient
   ownership。
+- WO-006G SU2 CFD V&V reset / escalation dossier 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006g_su2_toolchain_escalation/`，
+  allowed verdict 是 `su2_toolchain_escalation_required_after_exhaustive_failure`。這會取代
+  「繼續小網格 solver iteration」作為目前 WO-006 SU2 線的工程結論：current OpenVSP geometry
+  不是乾淨 watertight CFD solid，current BL/core route 沒有 conformal / quality-passing final mesh，
+  現有係數沒有 wall-resolved、transition-aware、force-stable、grid-independent evidence；因此
+  目前本機 OpenVSP/Gmsh/SU2 工具鏈不能產出可用 Baseline A SU2 aero calibration。後續必須先升級
+  CFD-grade geometry cleanup、BL-resolved mesh family、足夠 compute resource，以及 low-Re
+  transition / grid-convergence V&V workflow，不能把 route/debug evidence 升格成性能真相。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

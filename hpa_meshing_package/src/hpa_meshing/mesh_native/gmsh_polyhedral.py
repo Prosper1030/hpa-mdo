@@ -15,6 +15,7 @@ from .su2_structured import (
     _parse_smoke_history,
     _resolve_solver_command,
     _smoke_cfg_text,
+    audit_su2_boundary_face_ownership,
     audit_su2_case_markers,
 )
 from .wing_surface import Face, SurfaceMesh, orient_surface_mesh_outward
@@ -186,8 +187,10 @@ def write_faceted_volume_mesh(
         volume_element_count = sum(volume_type_counts.values())
         quality_metrics = _collect_volume_quality_metrics(gmsh)
         gmsh.write(str(msh_path))
+        su2_boundary_ownership = None
         if su2_output_path is not None:
             gmsh.write(str(su2_output_path))
+            su2_boundary_ownership = audit_su2_boundary_face_ownership(su2_output_path)
 
         return {
             "status": "meshed",
@@ -210,6 +213,7 @@ def write_faceted_volume_mesh(
             "compute": thread_settings,
             "quality_metrics": quality_metrics,
             "mesh_quality_gate": _mesh_quality_gate(quality_metrics),
+            "su2_boundary_ownership": su2_boundary_ownership,
             "production_scale_gate": _production_scale_gate(
                 volume_element_count,
                 target_volume_elements=production_target_volume_elements,
@@ -401,8 +405,10 @@ def write_boundary_layer_block_core_tet_mesh(
         volume_element_count = sum(volume_type_counts.values())
         quality_metrics = _collect_volume_quality_metrics(gmsh)
         gmsh.write(str(msh_path))
+        su2_boundary_ownership = None
         if su2_output_path is not None:
             gmsh.write(str(su2_output_path))
+            su2_boundary_ownership = audit_su2_boundary_face_ownership(su2_output_path)
 
         return {
             "status": "meshed",
@@ -441,6 +447,7 @@ def write_boundary_layer_block_core_tet_mesh(
             "compute": thread_settings,
             "quality_metrics": quality_metrics,
             "mesh_quality_gate": _mesh_quality_gate(quality_metrics),
+            "su2_boundary_ownership": su2_boundary_ownership,
             "production_scale_gate": _production_scale_gate(
                 volume_element_count,
                 target_volume_elements=production_target_volume_elements,
