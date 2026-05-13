@@ -1,0 +1,90 @@
+{
+  "schema_version": "wo006_su2_baseline_validation.v1",
+  "verdict": "su2_baseline_needs_fix",
+  "data_authority": {
+    "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv",
+    "design_gross_mass_kg": 98.5,
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "authority_note": "WO-006 is bounded aero calibration only; it is not release, RFQ/procurement, structural, or final aircraft sign-off truth."
+  },
+  "geometry_basis": {
+    "path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+    "case_name": "current_avl_compromise_conservative_closed",
+    "Sref": 33.420059598,
+    "Bref": 34.332286,
+    "Cref": 1.003721543,
+    "computed_span_m": 34.332286,
+    "loaded_tip_z_m": 2.62856087,
+    "source_geometry": "sidecar_avl_loaded_shape"
+  },
+  "model_sources": {
+    "selected_avl_recheck_csv": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/tier2_loaded_shape_selected_avl_recheck.csv",
+    "closure_summary_csv": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_closure/aero_structure_closure_summary.csv"
+  },
+  "mesh_probes": [
+    {
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/smoke/current_pathfinder_mesh_handoff/main_wing_real_mesh_handoff_probe.v1.json",
+      "probe_status": "mesh_handoff_timeout",
+      "mesh_handoff_status": "missing",
+      "failure_code": null,
+      "error": "bounded_mesh_handoff_timeout_after_60.0s",
+      "probe_global_min_size": 0.2,
+      "probe_global_max_size": 0.8,
+      "volume_element_count": null,
+      "blocking_reasons": [
+        "main_wing_real_geometry_mesh_handoff_timeout",
+        "main_wing_real_geometry_mesh3d_volume_insertion_timeout",
+        "main_wing_solver_not_run",
+        "convergence_gate_not_run"
+      ]
+    },
+    {
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/smoke/current_pathfinder_mesh_handoff_coarse_sensitivity/main_wing_real_mesh_handoff_probe.v1.json",
+      "probe_status": "mesh_handoff_blocked",
+      "mesh_handoff_status": "missing",
+      "failure_code": "gmsh_boundary_parametrization_topology",
+      "error": "Wrong topology of boundary mesh for parametrization",
+      "probe_global_min_size": 0.5,
+      "probe_global_max_size": 1.5,
+      "volume_element_count": 0,
+      "blocking_reasons": [
+        "main_wing_real_geometry_mesh_handoff_blocked",
+        "main_wing_real_geometry_boundary_parametrization_topology_failed",
+        "main_wing_solver_not_run",
+        "convergence_gate_not_run"
+      ]
+    }
+  ],
+  "su2_handoff_probe": {
+    "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/smoke/current_pathfinder_su2_handoff_blocked/main_wing_real_su2_handoff_probe.v1.json",
+    "materialization_status": "blocked_before_su2_handoff",
+    "su2_contract": null,
+    "source_mesh_handoff_status": "missing",
+    "volume_element_count": 0,
+    "blocking_reasons": [
+      "main_wing_real_mesh_handoff_not_available",
+      "main_wing_real_su2_handoff_not_materialized"
+    ],
+    "error": "Wrong topology of boundary mesh for parametrization"
+  },
+  "selected_solver_report": null,
+  "su2_status": "su2_unavailable_mesh_blocked",
+  "metrics": {
+    "su2_cl": null,
+    "su2_cd": null,
+    "su2_power_w": null,
+    "model_cd_total": 0.026020030502038057,
+    "model_power_w": 174.60027944116567,
+    "su2_cd_delta_pct_vs_model": null,
+    "su2_power_delta_pct_vs_model": null,
+    "solver_usable": false
+  },
+  "limitations": [
+    "bounded_aero_calibration_only",
+    "not_release_truth",
+    "not_rfq_or_procurement_truth",
+    "not_structural_signoff",
+    "not_final_aircraft_signoff"
+  ]
+}

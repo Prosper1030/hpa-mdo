@@ -1,0 +1,27 @@
+{
+  "verdict": "su2_baseline_needs_fix",
+  "reopen_trigger_status": "not_evaluated",
+  "max_drag_or_power_delta_pct": null,
+  "trigger_band_pct": [
+    5.0,
+    8.0
+  ],
+  "reason": "Current pathfinder SU2 is not usable for aerodynamic deltas.",
+  "blocking_reasons": [
+    "main_wing_real_geometry_mesh_handoff_timeout",
+    "main_wing_real_geometry_mesh3d_volume_insertion_timeout",
+    "main_wing_solver_not_run",
+    "convergence_gate_not_run",
+    "main_wing_real_geometry_mesh_handoff_blocked",
+    "main_wing_real_geometry_boundary_parametrization_topology_failed",
+    "main_wing_real_mesh_handoff_not_available",
+    "main_wing_real_su2_handoff_not_materialized"
+  ],
+  "allowed_use": "route fix planning and bounded calibration setup only",
+  "disallowed_use": [
+    "release truth",
+    "RFQ/procurement truth",
+    "structural blocker pass/fail",
+    "final aircraft sign-off"
+  ]
+}

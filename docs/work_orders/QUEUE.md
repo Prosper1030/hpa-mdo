@@ -33,6 +33,11 @@ Current release package:
   procurement, RFQ truth, shop drawings, and final aircraft sign-off.
   Coupon/local FEM planning may continue inside screening boundaries, and WO-005
   remains draft-only.
+- WO-006 first bounded current-pathfinder attempt is complete with verdict
+  `su2_baseline_needs_fix`. The current pathfinder VSP3 provider materializes,
+  but default mesh handoff timed out in Gmsh volume insertion and coarse
+  sensitivity failed boundary parametrization topology, so no usable
+  current-pathfinder SU2 CL/CD delta exists yet.
 
 ## Queue Rules
 
@@ -67,7 +72,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | queued_bounded | Main-Wing SU2 Baseline Validation | aero validation | May proceed after data-authority restoration only as bounded aero calibration using 98.5 kg and current pipeline span authority; not release/RFQ/procurement/final truth |
+| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | First bounded current-pathfinder attempt produced `su2_baseline_needs_fix`; repair current VSP3 -> mesh_handoff.v1 -> SU2 handoff before aero delta calibration |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -218,8 +223,7 @@ aircraft.
 
 ### WO-006: Main-Wing SU2 Baseline Validation
 
-Status: queued_bounded after Baseline A data authority restoration for bounded
-aero calibration.
+Status: needs_fix after first bounded current-pathfinder attempt.
 
 Purpose: calibrate current Baseline A aerodynamic models against a bounded SU2
 baseline, similar in spirit to using CCX to calibrate structural fast models.
@@ -242,6 +246,15 @@ Disallowed scope:
 
 Required verdict: `su2_baseline_calibration_usable`,
 `su2_baseline_needs_fix`, or `su2_baseline_reopen_risk`.
+
+Current read: `su2_baseline_needs_fix`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/`. The current
+pathfinder VSP3 uses the `98.5 kg` / `34.332286 m` authority basis, but the
+default bounded mesh probe timed out in Gmsh 3D volume insertion and the coarse
+sensitivity probe failed boundary parametrization topology. No current-pathfinder
+`mesh_handoff.v1` or usable SU2 CL/CD/CDi/profile-drag delta exists yet. Treat
+this as SU2 route repair evidence, not Baseline A reopen, release truth,
+RFQ/procurement truth, structural sign-off, or final aircraft sign-off.
 
 ### WO-007: QPROP / XROTOR Propulsion Interface
 

@@ -1,0 +1,6 @@
+model_or_case,status,source_path,cl,cd,cdi,profile_cd,cd0_total,cd_total,p_crank_w,p_crank_conservative_w,delta_cl_vs_su2,delta_cd_total_vs_su2_pct,delta_cdi_vs_su2_pct,delta_profile_cd_vs_su2_pct,delta_power_vs_su2_pct,notes
+avl_loaded_shape_conservative_best,selected_assignment_avl_rerun_ok,,1.16853,,0.0127613,,,,,,,,,,,AVL loaded-shape screening reference; no SU2 split for CDi.
+tier2_xfoil_profile_drag,full_polar_mission_grade_candidate,,,,,0.009368851143,0.0132587305,,,,,,,,,XFOIL/Tier2 profile source; SU2 smoke does not provide profile/induced split.
+closure_proxy_conservative_best,closed_for_screening,,1.16853,,0.0127613,0.009368851143,0.0132587305,0.0260200305,174.6002794,178.8818397,,,,,,Current screening proxy from AVL induced drag plus Tier2 profile drag.
+fourier_avl_trace,not_promoted_current_trace,,,,,,,,,,,,,,,"Fourier-AVL tooling exists, but this checkout lacks a promoted current Stage-0-to-pathfinder trace."
+current_pathfinder_su2,su2_unavailable_mesh_blocked,,,,,,,,,,,,,,,SU2 integrated coefficients only; no CDi/profile decomposition in this bounded artifact.

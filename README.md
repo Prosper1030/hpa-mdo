@@ -4,6 +4,15 @@
 
 Baseline A data-authority 已恢復到足以讓 **WO-006 bounded SU2 aero calibration** 往下走；
 這不是 release-ready、RFQ/procurement-ready 或 final aircraft sign-off。
+
+WO-006 bounded current-pathfinder smoke 已完成第一輪，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/`。Verdict 是
+`su2_baseline_needs_fix`：current pathfinder VSP3 provider 可 materialize，但
+default bounded mesh 在 Gmsh 3D volume insertion timeout，coarse sensitivity 則卡在
+boundary parametrization topology；沒有 current-pathfinder `mesh_handoff.v1`，因此沒有可用的
+SU2 CL/CD/CDi/profile-drag delta。這是 SU2 route repair evidence，不是 Baseline A reopen、
+release truth、RFQ/procurement truth 或 final aircraft sign-off。
+
 目前 gate 讀法：
 
 - `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
@@ -13,6 +22,7 @@ Baseline A data-authority 已恢復到足以讓 **WO-006 bounded SU2 aero calibr
 - WO-005 carbon tube RFQ pack 只能當 draft/vendor-screening；不能下單、選 vendor、放 shop drawing。
 - WO-006 只能做 bounded aero calibration；不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
+- WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；下一步先修 current pathfinder mesh/SU2 handoff route，再做 aero delta calibration。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
 

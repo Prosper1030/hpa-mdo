@@ -18,6 +18,12 @@ screening evidence 讀，不是現行 release / procurement truth。
 - WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
 - WO-006 只能作 bounded aero calibration；必須使用 `98.5 kg` 與 current pipeline span authority，除非明確做 sensitivity。
 - WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
+- WO-006 第一輪 current-pathfinder bounded smoke 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
+  `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
+  mesh timeout、coarse sensitivity boundary parametrization topology failed，沒有 usable
+  current-pathfinder SU2 CL/CD delta；這是 route repair evidence，不是 Baseline A reopen
+  或 performance claim。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 
