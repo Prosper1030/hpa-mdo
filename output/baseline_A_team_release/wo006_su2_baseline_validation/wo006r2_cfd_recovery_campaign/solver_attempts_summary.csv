@@ -1,0 +1,5 @@
+attempt_id,run_status,failure_code,iterations_configured,final_iteration,final_cl,final_cd,coefficient_sanity,cfd_evidence_gate,iterative_gate,history_path
+attempt_00_avl_parity_coarse_bridge_control,not_run,,3,,,,,,,
+attempt_01_replay_old_mesh_native_bl_template,,,1000,,,,,,,
+attempt_02_current_go_bl_coarser_quality_probe,,,1000,,,,,,,
+attempt_03_current_go_high_mesh_no_bl_solver_control,,,1000,,,,,,,

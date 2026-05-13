@@ -1,0 +1,49 @@
+{
+  "boundary_layer_policy": {
+    "recommended_first_layer_height_m": 5e-05,
+    "recommended_growth_ratio": 1.24,
+    "recommended_layers": 24,
+    "recommended_total_thickness_m": 0.03617304985338917,
+    "wall_resolved_target": "prefer_yplus_0p5_to_1p5_and_under_5_without_wall_model"
+  },
+  "current_go_chord_refs_m": {
+    "mean_aerodynamic_chord": 1.003721543,
+    "root": 1.256773096,
+    "tip": 0.64500409
+  },
+  "current_go_first_layer_yplus_estimate": {
+    "estimate_model": "turbulent_schlichting",
+    "first_layer_height_m": 5e-05,
+    "yplus_for_5e-5m": 1.0422270637727162
+  },
+  "current_go_reynolds_by_chord": {
+    "mean_aerodynamic_chord": 446637.57606669836,
+    "root": 559240.8503911927,
+    "tip": 287014.92492595286
+  },
+  "engineering_read": "The first-layer estimate keeps the old 5e-5 m BL policy in the right wall-resolved order for the current GO mean chord; this is an estimate, not postprocessed surface y+ from SU2.",
+  "first_cell_height_estimates_m": {
+    "target_yplus_1": {
+      "cf": 0.004388647053436818,
+      "cf_model": "turbulent_schlichting",
+      "first_cell_height_m": 4.7974190786225595e-05,
+      "friction_velocity_mps": 0.30448344619018747,
+      "reynolds_number": 446637.57606669836,
+      "target_yplus": 1.0
+    },
+    "target_yplus_5": {
+      "cf": 0.004388647053436818,
+      "cf_model": "turbulent_schlichting",
+      "first_cell_height_m": 0.00023987095393112798,
+      "friction_velocity_mps": 0.30448344619018747,
+      "reynolds_number": 446637.57606669836,
+      "target_yplus": 5.0
+    }
+  },
+  "flow_condition": {
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pa_s": 1.7894e-05,
+    "velocity_mps": 6.5
+  },
+  "schema_version": "wo006r2_yplus_nearwall_summary.v1"
+}

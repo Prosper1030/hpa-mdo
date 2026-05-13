@@ -1,0 +1,38 @@
+{
+  "blocked_legacy_values": {
+    "legacy_local_splice_half_span_status": "blocked_not_current_truth",
+    "legacy_screening_mass_status": "blocked_not_current_truth",
+    "use_status": "do_not_promote_to_current_truth"
+  },
+  "coefficient_acceptance": {
+    "comparison_to_avl_vspaero": "only_after_cfd_case_is_interpretable",
+    "minimum_iteration_gate": 1000,
+    "negative_cd_status": "reject",
+    "requires_iterative_gate_pass": true,
+    "requires_marker_audit_pass": true,
+    "requires_mesh_quality_gate_pass": true
+  },
+  "current_authority": {
+    "bref_m": 34.332286,
+    "cref_m": 1.003721543,
+    "design_gross_mass_kg": 98.5,
+    "full_span_m": 34.332286,
+    "geometry_source": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv",
+    "half_span_m": 17.166143,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "sref_m2": 33.420059598
+  },
+  "force_marker_contract": {
+    "farfield_marker": "farfield",
+    "monitoring_marker": "wing_wall",
+    "plotting_marker": "wing_wall",
+    "symmetry_marker": null,
+    "symmetry_status": "not_used_full_wing_current_mesh_native_adapter",
+    "wall_marker": "wing_wall"
+  },
+  "schema_version": "wo006r2_force_reference_audit.v1"
+}

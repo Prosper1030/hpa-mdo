@@ -1,0 +1,208 @@
+{
+  "route": "mesh_native_faceted_gmsh_volume_su2_smoke_case",
+  "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.su2",
+  "gmsh_mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.msh",
+  "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/su2_runtime.cfg",
+  "report_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh_native_faceted_su2_smoke_report.json",
+  "mesh_report": {
+    "status": "meshed",
+    "route": "mesh_native_faceted_gmsh_volume",
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.msh",
+    "su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.su2",
+    "volume_count": 1,
+    "node_count": 1441,
+    "volume_element_count": 3945,
+    "volume_element_type_counts": {
+      "4": 3945
+    },
+    "mesh_sizing": {
+      "default_mesh_size": 8.0,
+      "wing_mesh_size": 2.0,
+      "farfield_mesh_size": 12.0,
+      "wing_refinement_radius": 12.0,
+      "refinement_boxes": [],
+      "background_field": {
+        "type": "DistanceThreshold",
+        "field_tag": 2,
+        "distance_field_tag": 1,
+        "threshold_field_tag": 2,
+        "node_count": 688
+      }
+    },
+    "compute": {
+      "gmsh_threads": 4,
+      "general_num_threads": 4,
+      "mesh_max_num_threads_1d": 4,
+      "mesh_max_num_threads_2d": 4,
+      "mesh_max_num_threads_3d": 4,
+      "mesh_algorithm3d": 10
+    },
+    "quality_metrics": {
+      "volume_element_count": 3945,
+      "volume_element_type_counts": {
+        "4": 3945
+      },
+      "tetra_element_count": 3945,
+      "tetrahedron_count": 3945,
+      "pyramid_element_count": 0,
+      "prism_element_count": 0,
+      "hexahedron_element_count": 0,
+      "ill_shaped_tet_count": 0,
+      "ill_shaped_volume_element_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_gamma": 5.121547096776218e-05,
+      "min_sicn": 0.000266243874562346,
+      "min_sige": 0.004978949457509252,
+      "min_volume": 6.55909556478614e-05,
+      "gamma_percentiles": {
+        "p01": 0.009733784227322176,
+        "p05": 0.022113457720708773,
+        "p50": 0.48043117207241026
+      },
+      "min_sicn_percentiles": {
+        "p01": 0.013642789655721839,
+        "p05": 0.02901676508314595,
+        "p50": 0.4984875694584098
+      },
+      "min_sige_percentiles": {
+        "p01": 0.13685828306508302,
+        "p05": 0.2875490007399138,
+        "p50": 0.6595028727119364
+      },
+      "volume_percentiles": {
+        "p01": 0.0019518684290169368,
+        "p05": 0.006605313456734413,
+        "p50": 32.7654009025304
+      }
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [
+        "very_low_min_gamma",
+        "low_p01_gamma"
+      ],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "production_scale_gate": {
+      "status": "underresolved",
+      "target_volume_elements": 1000000,
+      "observed_volume_elements": 3945,
+      "shortfall_volume_elements": 996055,
+      "observed_to_target_ratio": 0.003945
+    },
+    "surface_triangle_count": 1384,
+    "physical_groups": {
+      "wing_wall": {
+        "dimension": 2,
+        "physical_tag": 1,
+        "entity_count": 1372
+      },
+      "farfield": {
+        "dimension": 2,
+        "physical_tag": 2,
+        "entity_count": 12
+      },
+      "fluid": {
+        "dimension": 3,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy"
+    ]
+  },
+  "marker_audit": {
+    "status": "pass",
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "boundary_condition_markers": {
+      "MARKER_EULER": [
+        "wing_wall"
+      ],
+      "MARKER_FAR": [
+        "farfield"
+      ]
+    },
+    "missing_from_mesh": [],
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": [],
+    "mesh_summary": {
+      "ndime": 3,
+      "nelem": 3945,
+      "npoin": 1441,
+      "nmark": 2,
+      "markers": {
+        "wing_wall": {
+          "element_count": 1372,
+          "element_type_counts": {
+            "5": 1372
+          }
+        },
+        "farfield": {
+          "element_count": 1482,
+          "element_type_counts": {
+            "5": 1482
+          }
+        }
+      }
+    }
+  },
+  "runtime": {
+    "solver": "INC_EULER",
+    "turbulence_model": "NONE",
+    "transition_model": null,
+    "velocity_mps": 6.5,
+    "alpha_deg": 0.0,
+    "max_iterations": 3,
+    "ref_area": 33.420059598,
+    "ref_length": 1.003721543,
+    "mesh_size": 8.0,
+    "wall_profile": "euler_slip",
+    "conv_num_method_flow": "FDS",
+    "cfl_number": 1.0,
+    "linear_solver_error": "1e-6",
+    "linear_solver_iter": 10,
+    "jst_sensor_coeff": null,
+    "wall_function": null,
+    "freestream_turbulence_intensity": 0.01,
+    "freestream_turb2lam_visc_ratio": 3.0,
+    "conv_cauchy_elems": 100,
+    "conv_cauchy_eps": "1e-4",
+    "output_files": [
+      "RESTART_ASCII",
+      "SURFACE_CSV"
+    ],
+    "gmsh_threads": 4,
+    "mesh_algorithm3d": 10
+  },
+  "caveats": [
+    "wing boundary is faceted from mesh-native panels",
+    "tet volume mesh only; no boundary-layer prism strategy",
+    "smoke case is not a convergence or aerodynamic validation case"
+  ],
+  "current_authority_reference": {
+    "design_gross_mass_kg": 98.5,
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598,
+    "cref_m": 1.003721543,
+    "bref_m": 34.332286,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv"
+  }
+}

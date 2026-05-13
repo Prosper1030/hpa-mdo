@@ -1,0 +1,323 @@
+{
+  "attempt_id": "attempt_00_avl_parity_coarse_bridge_control",
+  "attempt_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/attempt_runtime.log",
+  "attempt_log_tail": "",
+  "case_report": {
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy",
+      "smoke case is not a convergence or aerodynamic validation case"
+    ],
+    "current_authority_reference": {
+      "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv",
+      "bref_m": 34.332286,
+      "cref_m": 1.003721543,
+      "design_gross_mass_kg": 98.5,
+      "moment_origin_m": [
+        0.246276512,
+        0.0,
+        0.0
+      ],
+      "pipeline_full_span_m": 34.332286,
+      "pipeline_half_span_m": 17.166143,
+      "sref_m2": 33.420059598
+    },
+    "gmsh_mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.msh",
+    "marker_audit": {
+      "boundary_condition_markers": {
+        "MARKER_EULER": [
+          "wing_wall"
+        ],
+        "MARKER_FAR": [
+          "farfield"
+        ]
+      },
+      "mesh_markers": [
+        "farfield",
+        "wing_wall"
+      ],
+      "mesh_summary": {
+        "markers": {
+          "farfield": {
+            "element_count": 1482,
+            "element_type_counts": {
+              "5": 1482
+            }
+          },
+          "wing_wall": {
+            "element_count": 1372,
+            "element_type_counts": {
+              "5": 1372
+            }
+          }
+        },
+        "ndime": 3,
+        "nelem": 3945,
+        "nmark": 2,
+        "npoin": 1441
+      },
+      "missing_from_mesh": [],
+      "status": "pass",
+      "unassigned_mesh_markers": [],
+      "zero_element_markers": []
+    },
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.su2",
+    "mesh_report": {
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "compute": {
+        "general_num_threads": 4,
+        "gmsh_threads": 4,
+        "mesh_algorithm3d": 10,
+        "mesh_max_num_threads_1d": 4,
+        "mesh_max_num_threads_2d": 4,
+        "mesh_max_num_threads_3d": 4
+      },
+      "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.msh",
+      "mesh_quality_gate": {
+        "blockers": [],
+        "status": "pass",
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        },
+        "warnings": [
+          "very_low_min_gamma",
+          "low_p01_gamma"
+        ]
+      },
+      "mesh_sizing": {
+        "background_field": {
+          "distance_field_tag": 1,
+          "field_tag": 2,
+          "node_count": 688,
+          "threshold_field_tag": 2,
+          "type": "DistanceThreshold"
+        },
+        "default_mesh_size": 8.0,
+        "farfield_mesh_size": 12.0,
+        "refinement_boxes": [],
+        "wing_mesh_size": 2.0,
+        "wing_refinement_radius": 12.0
+      },
+      "node_count": 1441,
+      "physical_groups": {
+        "farfield": {
+          "dimension": 2,
+          "entity_count": 12,
+          "physical_tag": 2
+        },
+        "fluid": {
+          "dimension": 3,
+          "entity_count": 1,
+          "physical_tag": 3
+        },
+        "wing_wall": {
+          "dimension": 2,
+          "entity_count": 1372,
+          "physical_tag": 1
+        }
+      },
+      "production_scale_gate": {
+        "observed_to_target_ratio": 0.003945,
+        "observed_volume_elements": 3945,
+        "shortfall_volume_elements": 996055,
+        "status": "underresolved",
+        "target_volume_elements": 1000000
+      },
+      "quality_metrics": {
+        "gamma_percentiles": {
+          "p01": 0.009733784227322176,
+          "p05": 0.022113457720708773,
+          "p50": 0.48043117207241026
+        },
+        "hexahedron_element_count": 0,
+        "ill_shaped_tet_count": 0,
+        "ill_shaped_volume_element_count": 0,
+        "min_gamma": 5.121547096776218e-05,
+        "min_sicn": 0.000266243874562346,
+        "min_sicn_percentiles": {
+          "p01": 0.013642789655721839,
+          "p05": 0.02901676508314595,
+          "p50": 0.4984875694584098
+        },
+        "min_sige": 0.004978949457509252,
+        "min_sige_percentiles": {
+          "p01": 0.13685828306508302,
+          "p05": 0.2875490007399138,
+          "p50": 0.6595028727119364
+        },
+        "min_volume": 6.55909556478614e-05,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "prism_element_count": 0,
+        "pyramid_element_count": 0,
+        "tetra_element_count": 3945,
+        "tetrahedron_count": 3945,
+        "volume_element_count": 3945,
+        "volume_element_type_counts": {
+          "4": 3945
+        },
+        "volume_percentiles": {
+          "p01": 0.0019518684290169368,
+          "p05": 0.006605313456734413,
+          "p50": 32.7654009025304
+        }
+      },
+      "route": "mesh_native_faceted_gmsh_volume",
+      "status": "meshed",
+      "su2_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.su2",
+      "surface_triangle_count": 1384,
+      "volume_count": 1,
+      "volume_element_count": 3945,
+      "volume_element_type_counts": {
+        "4": 3945
+      }
+    },
+    "report_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh_native_faceted_su2_smoke_report.json",
+    "route": "mesh_native_faceted_gmsh_volume_su2_smoke_case",
+    "runtime": {
+      "alpha_deg": 0.0,
+      "cfl_number": 1.0,
+      "conv_cauchy_elems": 100,
+      "conv_cauchy_eps": "1e-4",
+      "conv_num_method_flow": "FDS",
+      "freestream_turb2lam_visc_ratio": 3.0,
+      "freestream_turbulence_intensity": 0.01,
+      "gmsh_threads": 4,
+      "jst_sensor_coeff": null,
+      "linear_solver_error": "1e-6",
+      "linear_solver_iter": 10,
+      "max_iterations": 3,
+      "mesh_algorithm3d": 10,
+      "mesh_size": 8.0,
+      "output_files": [
+        "RESTART_ASCII",
+        "SURFACE_CSV"
+      ],
+      "ref_area": 33.420059598,
+      "ref_length": 1.003721543,
+      "solver": "INC_EULER",
+      "transition_model": null,
+      "turbulence_model": "NONE",
+      "velocity_mps": 6.5,
+      "wall_function": null,
+      "wall_profile": "euler_slip"
+    },
+    "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/su2_runtime.cfg"
+  },
+  "elapsed_seconds": 1.8363690376281738,
+  "engineering_read": {
+    "aero_coefficients_interpretable": false,
+    "coefficient_sanity": null,
+    "marker_ownership": "pass",
+    "mesh_quality": "pass",
+    "solver_status": "not_run"
+  },
+  "geometry": {
+    "bref_m": 34.332286,
+    "case_name": "current_avl_compromise_conservative_closed",
+    "cref_m": 1.003721543,
+    "full_span_m": 34.332286,
+    "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/geometry_manifest.json",
+    "half_span_m": 17.166143,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv",
+    "sref_m2": 33.420059598
+  },
+  "mesh": {
+    "boundary_layer": {
+      "first_height_m": null,
+      "layers": null,
+      "present": false,
+      "quality_metrics": null,
+      "total_thickness_m": null,
+      "volume_element_type_counts": null
+    },
+    "marker_audit": {
+      "boundary_condition_markers": {
+        "MARKER_EULER": [
+          "wing_wall"
+        ],
+        "MARKER_FAR": [
+          "farfield"
+        ]
+      },
+      "mesh_markers": [
+        "farfield",
+        "wing_wall"
+      ],
+      "mesh_summary": {
+        "markers": {
+          "farfield": {
+            "element_count": 1482,
+            "element_type_counts": {
+              "5": 1482
+            }
+          },
+          "wing_wall": {
+            "element_count": 1372,
+            "element_type_counts": {
+              "5": 1372
+            }
+          }
+        },
+        "ndime": 3,
+        "nelem": 3945,
+        "nmark": 2,
+        "npoin": 1441
+      },
+      "missing_from_mesh": [],
+      "status": "pass",
+      "unassigned_mesh_markers": [],
+      "zero_element_markers": []
+    },
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/mesh.su2",
+    "mesh_quality_gate": {
+      "blockers": [],
+      "status": "pass",
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      },
+      "warnings": [
+        "very_low_min_gamma",
+        "low_p01_gamma"
+      ]
+    },
+    "node_count": 1441,
+    "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/attempt_00_avl_parity_coarse_bridge_control/su2_runtime.cfg",
+    "status": "meshed",
+    "volume_element_count": 3945
+  },
+  "mesh_kind": "no_bl",
+  "purpose": "Prove the no-touch avl_parity adapter can still make a coarse bridge mesh.",
+  "route": "current_go_avl_parity_coarse_no_bl_bridge_control",
+  "runtime_policy": {
+    "base_mesh_size": 8.0,
+    "farfield_mesh_size": 12.0,
+    "feature_refinement_size": null,
+    "max_iterations": 3,
+    "points_per_side": 8,
+    "run_solver": false,
+    "solver": "INC_EULER",
+    "spanwise_subdivisions": 3,
+    "turbulence_model": "NONE",
+    "wall_profile": "euler_slip",
+    "wing_mesh_size": 2.0
+  },
+  "solver": {
+    "reason": "disabled_or_mesh_not_eligible",
+    "run_status": "not_run"
+  },
+  "status": "completed"
+}

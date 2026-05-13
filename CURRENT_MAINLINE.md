@@ -31,6 +31,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   marker-owned coarse no-BL `mesh_handoff.v1`、SU2 case，並跑完 3-iteration SU2 readability
   smoke。這仍不是 usable CL/CD/CDi/profile-drag calibration，因為 mesh underresolved、無 BL/y+、
   solver 未收斂且 smoke CD sanity failed。
+- WO-006R2 current GO CFD recovery campaign 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/`，
+  verdict 是 `wo006r2_current_geometry_adapter_blocker_isolated`。它改用 no-touch
+  `avl_parity/current_avl_compromise_conservative_closed` geometry，保留外形不變；coarse
+  adapter control 只證明 marker-owned no-BL mesh 可寫出，不是 CFD evidence。舊 serious
+  mesh-native BL/HXT template 與 coarser BL probe 都在 Gmsh HXT PLC intersection 擋住，
+  high-mesh no-BL control 也在 surface topology 擋住，所以目前沒有可解讀 SU2 coefficient、
+  沒有 Baseline A reopen evidence；下一步必須在 data-authority checker 仍為 prerequisite
+  的條件下，定位並修 current GO surface panel / section-transition topology，不能改外形來繞過。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

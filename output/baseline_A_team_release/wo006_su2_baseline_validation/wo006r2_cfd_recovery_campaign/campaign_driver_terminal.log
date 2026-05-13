@@ -1,0 +1,9 @@
+PLC Error:  A segment and a facet intersect at point (0.827965,-12.5391,1.22456).
+  Segment: [5340,5335] #-1 (0)
+  Facet:   [4729,5345,4730] #23020
+PLC Error:  A segment and a facet intersect at point (0.825985,-12.5893,1.23679).
+  Segment: [4341,4346] #-1 (0)
+  Facet:   [3857,4350,4349] #23020
+PLC Error:  Two segments intersect at point (1.00786,-7.46727,0.398846).
+  Segment 1: [683, 684] #1927 (1368)
+  Segment 2: [742, 743] #2104 (1486)
