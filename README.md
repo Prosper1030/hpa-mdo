@@ -40,6 +40,18 @@ marker audit pass，且 SU2 readability smoke 可讀到 iteration 75；但 CFD e
 BL/HXT route 仍在 DAE31-family PLC segment/facet intersections 擋住。因此這是 serious
 high-mesh no-BL handoff，不是 BL handoff、不是可解讀 CL/CD、不是 Baseline A reopen evidence。
 
+WO-006R4 BL ownership repair campaign 已新增，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`。
+Verdict 是 `wo006r4_adapter_limitation_proven`：R4 沒有產生 `bl_mesh_handoff.v1.json`。
+Gmsh topological BL route 仍在 R3 的 DAE31-family PLC points 擋住；盲目把 shorter
+diagonalization 套到 BL 仍是 rejected workaround，因為它暴露 `Unknown curve -1550`。
+mesh-native owned-BL block 可以在 current GO 幾何上產生正體積近壁 block
+（first layer `5e-5 m`、24 layers、estimated y+ 約 `1.04`），且 R4 未新增外形 cleanup
+或改 authority source；但 preserved core probe 同時有 core quality fail 與 wake/span-cap
+coupling partial，remeshed core probe 則會改掉 BL-core interface，不能當 conformal viscous
+handoff。因此目前最小 blocker 是「缺 conformal owned BL block + core merge / SU2 mixed-element
+writer」，不是 solver tuning 或可用係數問題。
+
 目前 gate 讀法：
 
 - `98.5 kg` 是目前 design gross mass authority，除非使用者明確改掉。
@@ -50,6 +62,7 @@ high-mesh no-BL handoff，不是 BL handoff、不是可解讀 CL/CD、不是 Bas
 - WO-006 只能做 bounded aero calibration；不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
 - WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route；WO-006R2 已把 current high-mesh / BL blocker 定位到 surface topology；WO-006R3 已產出 serious high-mesh no-BL handoff，但 BL route 與 CFD evidence gate 仍未達成。
+- WO-006R4 verdict 是 `wo006r4_adapter_limitation_proven`；current GO 已有 owned-BL topology basis，但沒有 conformal BL+core SU2 handoff，沒有 postprocessed y+，也沒有可解讀係數。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。
 

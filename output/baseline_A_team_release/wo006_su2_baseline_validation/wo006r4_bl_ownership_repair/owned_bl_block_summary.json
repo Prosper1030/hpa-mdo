@@ -1,0 +1,45 @@
+{
+  "block_cells": 49152,
+  "block_vertices": 53625,
+  "boundary_layer": {
+    "first_height_m": 5e-05,
+    "growth_ratio": 1.24,
+    "layers": 24,
+    "total_thickness_m": 0.03617304985338917
+  },
+  "boundary_marker_counts": {
+    "bl_outer_interface": 2048,
+    "span_cap": 3072,
+    "wake_cut": 1600,
+    "wing_wall": 1984
+  },
+  "core_interface_marker_counts": {
+    "bl_outer_interface": 2048,
+    "span_cap": 126,
+    "wake_cut": 32
+  },
+  "engineering_read": "The current GO adapter can construct an owned wall BL block with positive estimated cells, but this is not a complete SU2 handoff until the core mesh boundary, wake cut, span caps, volume quality, and SU2 element writer are closed together.",
+  "marker_counts": {
+    "boundary_layer": 47616,
+    "trailing_edge_connector": 1536
+  },
+  "outer_interface_markers": [
+    "bl_outer_interface",
+    "wake_cut",
+    "span_cap"
+  ],
+  "quality": {
+    "boundary_face_count": 8704,
+    "cell_count": 49152,
+    "max_section_first_layer_height_m": 5.0000000000014246e-05,
+    "max_span_interval_m": 1.6307834999999997,
+    "min_estimated_volume_m3": 3.6189942032436084e-08,
+    "min_section_first_layer_height_m": 4.999999999996991e-05,
+    "min_span_interval_m": 0.4291534999999982,
+    "non_positive_volume_count": 0,
+    "unowned_boundary_face_count": 0
+  },
+  "route": "mesh_native_owned_boundary_layer_block",
+  "schema_version": "wo006r4_owned_bl_block_summary.v1",
+  "wall_marker": "wing_wall"
+}

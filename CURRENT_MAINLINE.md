@@ -49,6 +49,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   handoff，不是 BL/y+ viscous handoff；BL/HXT 仍卡在 DAE31-family PLC segment/facet
   intersections，CFD evidence gate 仍 fail，所以沒有可解讀 SU2 coefficient、沒有 Baseline A
   reopen evidence。
+- WO-006R4 BL ownership repair campaign 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`，
+  verdict 是 `wo006r4_adapter_limitation_proven`。R4 沒有寫出 `bl_mesh_handoff.v1.json`：
+  Gmsh topological BL extrusion 仍被 R3 定位的 DAE31-family PLC points 擋住，BL shorter
+  diagonalization 仍因 `Unknown curve -1550` 被拒絕。current GO mesh-native owned-BL block
+  可以建立正體積近壁 block（first layer `5e-5 m`、24 layers、estimated y+ 約 `1.04`）且
+  R4 未新增外形 cleanup；但 preserved-interface core probe 有 core quality fail 與
+  wake/span-cap coupling partial，remeshed core probe 會改掉 BL-core interface，不能當
+  conformal viscous handoff。下一步若要 BL handoff，必須實作 conformal owned BL block +
+  core merge / mixed-element SU2 writer，再跑 marker / quality / readability gate。
+  R4 沒有 postprocessed y+、沒有可解讀 SU2 coefficient、沒有 Baseline A reopen evidence。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

@@ -1,0 +1,42 @@
+{
+  "allowed_use": "route recovery evidence only",
+  "blocked_use": [
+    "CL/CD/CDi/profile-drag calibration",
+    "drag or power truth",
+    "Baseline A reopen evidence",
+    "RFQ/procurement truth",
+    "final aircraft sign-off"
+  ],
+  "campaign_verdict": "wo006r4_adapter_limitation_proven",
+  "coefficient_interpretable": false,
+  "r3_no_bl_readability_context": {
+    "cfd_evidence_gate": {
+      "configured_max_iterations": 1000,
+      "iterative_gate_status": null,
+      "minimum_iterations": 1000,
+      "observed_final_iteration": 75,
+      "policy": "configured_solver_budget_must_allow_1000plus_iterations_for_cfd_evidence",
+      "reasons": [
+        "iterative_gate_not_pass"
+      ],
+      "status": "fail"
+    },
+    "coefficient_sanity_gate": {
+      "observed_cd": 0.09757426701,
+      "reasons": [],
+      "status": "pass"
+    },
+    "final_iteration": 75,
+    "run_status": "timeout"
+  },
+  "reasons": [
+    "no BL mesh handoff was written",
+    "owned BL block is not yet merged with a conformal core SU2 mesh",
+    "R3 high-mesh no-BL solver smoke remains readability evidence only",
+    "no postprocessed y+ field exists",
+    "no convergence/grid-pair evidence exists"
+  ],
+  "schema_version": "wo006r4_solver_evidence_gate.v1",
+  "solver_run_this_campaign": false,
+  "status": "fail"
+}

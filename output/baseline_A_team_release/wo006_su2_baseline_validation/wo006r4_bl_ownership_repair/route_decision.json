@@ -1,0 +1,79 @@
+{
+  "attempt_count": 7,
+  "attempt_status_counts": {
+    "blocked": 3,
+    "partial": 1,
+    "rejected_workaround": 3
+  },
+  "authority_basis": {
+    "blocked_legacy_half_span_m": "16.5 m is not current pipeline truth",
+    "blocked_legacy_mass_kg": "106.828608 kg is not current truth",
+    "bref_m": 34.332286,
+    "cref_m": 1.003721543,
+    "design_gross_mass_kg": 98.5,
+    "geometry_source": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv",
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598
+  },
+  "baseline_a_reopen_status": "not_evaluated",
+  "bl_mesh_handoff_path": null,
+  "bl_mesh_handoff_written": false,
+  "coefficient_interpretable": false,
+  "external_shape_changed": false,
+  "limitation_proof": {
+    "code_paths": [
+      "hpa_meshing.mesh_native.gmsh_polyhedral.write_faceted_volume_mesh_with_boundary_layer",
+      "hpa_meshing.mesh_native.near_wall_block.build_wing_boundary_layer_block",
+      "hpa_meshing.mesh_native.gmsh_polyhedral.write_boundary_layer_block_core_tet_mesh"
+    ],
+    "next_repair_target": "write a conformal BL+core ownership merge that preserves bl_outer_interface, wake_cut, and span_cap faces, then export mixed prisms/pyramids/tets to SU2 with wing_wall/farfield ownership and quality gates.",
+    "smallest_blocker": "current adapter lacks a conformal owned BL block + core merge/writer; Gmsh-owned BL extrusion still fails on DAE31-family PLC topology, while the mesh-native owned-BL core probes either fail preserved core quality or remesh the interface."
+  },
+  "owned_bl_block_summary": {
+    "block_cells": 49152,
+    "boundary_layer": {
+      "first_height_m": 5e-05,
+      "growth_ratio": 1.24,
+      "layers": 24,
+      "total_thickness_m": 0.03617304985338917
+    },
+    "quality": {
+      "boundary_face_count": 8704,
+      "cell_count": 49152,
+      "max_section_first_layer_height_m": 5.0000000000014246e-05,
+      "max_span_interval_m": 1.6307834999999997,
+      "min_estimated_volume_m3": 3.6189942032436084e-08,
+      "min_section_first_layer_height_m": 4.999999999996991e-05,
+      "min_span_interval_m": 0.4291534999999982,
+      "non_positive_volume_count": 0,
+      "unowned_boundary_face_count": 0
+    }
+  },
+  "rejected_routes": [
+    "Gmsh topological BL extrusion: still fails DAE31-family PLC points.",
+    "Blind shorter diagonalization on BL: produced Unknown curve -1550.",
+    "Owned BL block alone: positive wall cells but no conformal core/SU2 merge.",
+    "Remeshed core workaround: hides interface ownership by changing the BL-core boundary."
+  ],
+  "schema_version": "wo006r4_route_decision.v1",
+  "selected_route": "none",
+  "surface_deviation": {
+    "comparison": "owned BL wall layer-0 nodes against current GO mesh-native wing surface",
+    "external_authority_files_changed": false,
+    "interpretation": "R4 did not change authority geometry. The owned BL wall is generated from the same current-GO mesh-native station data; any remaining deviation here is adapter/discretization evidence, not a source-shape change.",
+    "max_nearest_distance_m": 0.0,
+    "mean_nearest_distance_m": 0.0,
+    "p95_nearest_distance_m": 0.0,
+    "r4_new_adapter_cleanup_applied": false,
+    "schema_version": "wo006r4_surface_geometry_deviation.v1",
+    "wall_vertex_count": 2079,
+    "wing_surface_vertex_count": 2048
+  },
+  "verdict": "wo006r4_adapter_limitation_proven"
+}

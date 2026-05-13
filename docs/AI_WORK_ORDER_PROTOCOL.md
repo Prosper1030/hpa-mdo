@@ -42,6 +42,15 @@ Current authority:
   CL/CD/CDi, no drag/power calibration, and no Baseline A reopen evidence.
   WO-006R4 must continue from the remaining BL/HXT topology blockers instead of
   using WO-006R3 coefficients as aerodynamic truth.
+- WO-006R4 BL ownership repair is complete:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`.
+  Verdict: `wo006r4_adapter_limitation_proven`. It did not emit
+  `bl_mesh_handoff.v1.json`. The Gmsh-owned BL route still fails at DAE31-family
+  PLC blockers, and blind BL diagonal swapping remains rejected after
+  `Unknown curve -1550`. The mesh-native owned-BL block has positive near-wall
+  topology and an estimated first-layer y+ basis, but the current adapter lacks a
+  conformal owned-BL + core merge / mixed-element SU2 writer. Treat R4 as the
+  next repair target definition, not as BL/y+ CFD evidence or coefficient truth.
 
 ## Baseline A Rule
 

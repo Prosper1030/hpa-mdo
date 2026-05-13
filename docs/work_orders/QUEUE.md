@@ -51,6 +51,18 @@ Current release package:
   high-mesh no-BL attempts now block at Gmsh HXT PLC / surface panel
   intersection, not at SU2 force/reference tuning. No interpretable CFD
   coefficient or Baseline A reopen evidence exists yet.
+- WO-006R3 surface-topology repair is complete with verdict
+  `wo006r3_high_mesh_handoff_ready`. It produced a current-GO high-mesh no-BL
+  SU2 readability handoff with `936,017` volume cells and marker audit pass, but
+  no BL/y+ handoff and no interpretable coefficient.
+- WO-006R4 BL ownership repair is complete with verdict
+  `wo006r4_adapter_limitation_proven`. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`.
+  The current adapter can build an owned near-wall BL block on current GO
+  geometry without changing source shape, but it still cannot write a conformal
+  BL+core SU2 handoff. Gmsh-owned BL remains blocked by DAE31-family PLC
+  topology; remeshed-core workarounds are rejected because they change the
+  BL-core interface. No coefficient is interpretable.
 
 ## Queue Rules
 
@@ -85,7 +97,7 @@ Baseline A should only reopen when one of these is supported by evidence:
 | WO-003 | P0 | done | Design-Space Freeze Audit | chief engineering + aero/geometry | Completed in `output/baseline_A_team_release/design_space_freeze_audit/`; verdict `baseline_A_freeze_reasonable` |
 | WO-004 | P0 | done | Manufacturable Smoothness / Discretization Audit | manufacturing + geometry | Completed in `output/baseline_A_team_release/manufacturable_geometry_audit/`; verdict `geometry_freeze_needs_fix` |
 | WO-005 | P0 | done | Carbon Tube RFQ + Procurement Pack | manufacturing + structures | Completed in `output/baseline_A_team_release/`; old `carbon_tube_rfq_pack_ready` is historical/generated evidence under data-authority repair, not active current truth; draft/vendor-screening only |
-| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | After data-authority restoration, R2 isolated the blocker to current GO surface panel / section-transition topology after reusing old 1M+ BL/HXT evidence; next repair is topology localization and adapter fix before near-wall/BL CFD evidence |
+| WO-006 | P1 | needs_fix | Main-Wing SU2 Baseline Validation | aero validation | With data-authority checker prerequisite preserved, R4 proved the remaining current-GO blocker is a conformal owned-BL + core merge / mixed-element SU2 writer gap, not coefficient interpretation; next repair is WO-006R5 BL+core handoff implementation |
 | WO-007 | P1 | queued | QPROP / XROTOR Propulsion Interface | propulsion | Give drivetrain a design box while keeping propulsion independent from C04/rib blockers |
 | WO-008 | P1 | queued | Competition Turn / Stall / Power Gate | mission + aero + controls | 180 deg turns every ~10 km can drive power/stall/control margins |
 | WO-009 | P1 | queued | Control Derivative Matrix | controls | Give control team a sign-convention-safe simulation reference |
@@ -292,6 +304,22 @@ attempts hit Gmsh HXT PLC / surface panel intersections around section brackets
 `not_evaluated`. Next work should localize and repair the current-GO surface
 panel / tessellation adapter without changing external shape.
 
+R3 read: `wo006r3_high_mesh_handoff_ready`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/`.
+R3 repaired DAE31 near-TE loop ordering and produced the serious current-GO
+high-mesh no-BL handoff (`936,017` volume cells, marker audit pass, SU2
+readability to iteration 75). It is not BL/y+ evidence and no coefficient is
+interpretable.
+
+R4 read: `wo006r4_adapter_limitation_proven`. Artifacts live in
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`.
+R4 compared the remaining Gmsh-owned BL blockers with a mesh-native owned-BL
+block route. The owned-BL block has positive estimated volumes and a plausible
+first-layer y+ basis, but the current adapter lacks a conformal BL+core merge and
+mixed-element SU2 writer; preserved core probing fails quality/coupling, while
+remeshed core probing hides the interface problem. No `bl_mesh_handoff.v1.json`
+exists and no coefficient is interpretable.
+
 ### WO-007: QPROP / XROTOR Propulsion Interface
 
 Purpose: give the drivetrain/propulsion team a clear design box while preserving
@@ -452,52 +480,54 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-WO-006R3 is complete enough to advance the queue, but not enough to claim
-viscous CFD. The completed artifact bundle is
-`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/`.
-Verdict: `wo006r3_high_mesh_handoff_ready`. It produced a current-GO high-mesh
-no-BL SU2 handoff (`936,017` volume cells, marker audit pass, SU2 readability
-smoke to iteration 75), but BL/HXT still fails at DAE31-family PLC
-segment/facet intersections. No SU2 coefficient is interpretable and Baseline A
-reopen remains `not_evaluated`.
+With the data-authority checker prerequisite preserved, WO-006R4 is complete enough to define the next implementation target, but not
+enough to claim viscous CFD. The completed artifact bundle is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/`.
+Verdict: `wo006r4_adapter_limitation_proven`. It produced current-GO owned-BL
+topology evidence and core-probe evidence, but no conformal BL+core SU2 handoff,
+no postprocessed y+, and no interpretable coefficient.
 
-WO-006R4 is now the next recommended task with data-authority checker prerequisite:
-run `scripts/check_baseline_a_data_authority.py --check-only`, then repair or
-prove the remaining BL surface/curve ownership limitation without changing
+WO-006R5 is now the next recommended task with data-authority checker prerequisite:
+run `scripts/check_baseline_a_data_authority.py --check-only`, then implement the
+conformal owned-BL + core merge / mixed-element SU2 writer without changing
 Baseline A authority data.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R4: convert the WO-006R3 high-mesh no-BL handoff into a BL-capable mesh-native route without changing Baseline A authority data.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R5: implement the conformal mesh-native owned-BL + core merge needed after WO-006R4.
 
 Read first:
 - README.md
 - CURRENT_MAINLINE.md
 - docs/AI_WORK_ORDER_PROTOCOL.md
 - docs/work_orders/QUEUE.md
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/route_decision.json
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/blocker_register.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/owned_bl_block_summary.json
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r4_bl_ownership_repair/core_probe_artifacts/
 - output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/mesh_handoff.v1.json
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/blocker_register.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/plc_intersection_localization.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/repair_attempts_summary.csv
 - hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/
 - hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/
 - hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/
 
 Task:
-Start from WO-006R3's remaining BL blockers:
-- final policy BL `wing_h=0.20 m`: PLC segment/facet intersection around
-  x=1.14443, y=-3.66499, z=0.0934631, section bracket 1-2, `dae31->dae31`;
-- final policy BL `wing_h=0.25 m`: PLC segment/facet intersection around
-  x=0.897016, y=-10.6883, z=0.857425, section bracket 3-4, `dae31->dae31`;
-- exploratory shorter-diagonal-on-BL run exposed `Unknown curve -1550`, so BL
-  needs a dedicated curve/surface ownership repair, not blind diagonal swapping.
+Start from WO-006R4's smallest blocker:
+- current adapter lacks a conformal owned BL block + core merge / mixed-element
+  SU2 writer;
+- preserved core probe keeps the interface but fails core quality and still has
+  wake/span-cap coupling partial;
+- remeshed core probes pass more easily but are rejected because they change the
+  BL-core interface and hide the topology problem;
+- Gmsh-owned topological BL still fails at the R3 DAE31-family PLC points.
 
 Allowed:
-- surface-wide segment/facet preflight;
-- BL extrusion curve-loop ownership audit;
-- local DAE31 cap / TE / surface ownership repair;
-- a mesh-native BL block route that avoids fragile Gmsh topological BL extrusion;
-- bounded BL/high-mesh handoff attempts and marker audit.
+- implement a conformal merge between `WingBoundaryLayerBlock` and a core volume;
+- preserve `bl_outer_interface`, `wake_cut`, and `span_cap` ownership or prove
+  exactly why one category cannot be preserved yet;
+- write a mixed-element SU2 mesh only after marker / quality / interface gates
+  pass;
+- keep Gmsh topological BL attempts as comparison/blocker evidence, not primary
+  if the owned-BL route is cleaner.
 
 Disallowed:
 - changing external geometry authority files, mass/CG, span, Sref/Cref/Bref,
@@ -507,17 +537,18 @@ Disallowed:
   sign-off claims.
 
 Required output:
-- verdict: wo006r4_bl_handoff_ready / wo006r4_adapter_limitation_proven / wo006r4_campaign_incomplete
+- verdict: wo006r5_bl_handoff_ready / wo006r5_merge_writer_blocked / wo006r5_geometry_deviation_risk / wo006r5_campaign_incomplete
 - exact authority basis used
-- BL root-cause explanation in plain language
-- repair attempts accepted/rejected
-- whether serious BL handoff materializes
+- BL+core merge root-cause explanation in plain language
+- merge / writer attempts accepted or rejected
+- whether serious BL handoff materializes and whether `bl_mesh_handoff.v1.json`
+  is emitted
 - whether any SU2 coefficient is interpretable; normally no unless CFD evidence
   gate passes
 - verification, engineering caveats, reviewer prompt, and next work order
 
 Verification:
-- run the WO-006R4 BL topology/mesh campaign or probes
+- run the WO-006R5 BL+core merge campaign or probes
 - run targeted tests for changed code
 - run `scripts/check_baseline_a_data_authority.py --check-only`
 - run ruff on changed Python files
