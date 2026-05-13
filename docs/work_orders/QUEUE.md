@@ -416,14 +416,17 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-WO-006R is now the next recommended task after data-authority restoration.
-WO-006 already showed that the current pathfinder VSP3 provider can materialize,
-but the route does not yet produce a usable `mesh_handoff.v1` or SU2 solver
-smoke. Repair the current VSP3 -> mesh -> SU2 handoff route before WO-007
-propulsion or any aerodynamic delta claim.
+WO-006R0 is now the next recommended task after data-authority restoration. Do
+not blindly repair the WO-006 ESP/STEP/BREP-style handoff route before comparing
+it against the frozen mesh-native CFD line. WO-006 showed that the current
+pathfinder VSP3 can materialize through `esp_rebuilt`, but the resulting Gmsh
+thin-sheet route does not yet produce a usable `mesh_handoff.v1`; the older
+mesh-native freeze report already retired STEP/BREP repair as the CFD primary
+path for the Black Cat line. The next task is therefore route lineage and route
+selection, not another local Gmsh patch.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R after data-authority restoration: bounded current-pathfinder mesh/SU2 handoff route repair.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R0 after data-authority restoration: SU2 route lineage audit and Baseline A CFD route selection.
 
 Role:
 代理總工程師 / AI work-order executor. Keep Baseline A engineering-honest. You may
@@ -439,20 +442,43 @@ Read first:
 - output/baseline_A_team_release/
 - output/baseline_A_team_release/data_authority_table.csv
 - output/baseline_A_team_release/wo006_su2_baseline_validation/
-- hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md if it exists
+- hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_line_freeze.v1.md
+- hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/hpa_main_wing_cfd_method_review.v1.md
+- hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/mesh_native_hxt_thread_profile.v1.md
+- hpa_meshing_package/docs/reports/main_wing_real_mesh_handoff_probe/main_wing_real_mesh_handoff_probe.v1.md
+- hpa_meshing_package/docs/reports/main_wing_real_su2_handoff_probe/main_wing_real_su2_handoff_probe.v1.md
+- hpa_meshing_package/docs/reports/main_wing_real_solver_smoke_probe/main_wing_real_solver_smoke_probe.v1.md
 
 Task:
-Repair or precisely isolate the current Baseline A pathfinder VSP3 -> mesh ->
-SU2 handoff blocker. Start from the WO-006 evidence: default bounded mesh timed
-out in Gmsh 3D volume insertion; coarse sensitivity failed boundary
-parametrization topology; no current-pathfinder `mesh_handoff.v1` or usable SU2
-CL/CD delta exists.
+Audit the current WO-006 SU2 route choice before implementing another repair.
+Explain, with repo evidence, which CFD route should become the next bounded
+Baseline A aero-calibration lane.
 
-The primary target is to materialize a documented `mesh_handoff.v1` for the
-current pathfinder and then a minimal SU2 case materialization / solver smoke if
-the mesh handoff is valid. If that cannot be done inside this work order, isolate
-the blocker to a precise fix target with enough evidence that the next agent can
-work on one concrete topology/meshing issue instead of re-searching the route.
+Compare at least these lanes:
+1. WO-006 current-pathfinder route:
+   current Baseline A VSP3 -> esp_rebuilt / STEP-BREP-like normalized geometry
+   -> Gmsh thin-sheet surface -> mesh_handoff -> SU2 handoff.
+   Current evidence: provider materializes, but default bounded mesh times out in
+   Gmsh 3D volume insertion and coarse sensitivity fails boundary/topology
+   reconstruction. Record the exact Gmsh error and suspicious surface evidence.
+2. Frozen mesh-native route:
+   OpenVSP sections -> mesh-native indexed wing surface -> marker-owned
+   wing/farfield faces -> Gmsh HXT / optional BL -> SU2 smoke.
+   Current evidence: this route connected for the Black Cat line and produced
+   marker-owned SU2-readable meshes, including the 1.1M BL smoke case, but it is
+   not physically validated CFD and it is not yet adapted/proven for the current
+   Baseline A pathfinder.
+3. Existing real main-wing handoff artifacts under `hpa_meshing_package/docs/reports/`:
+   identify which ones are Black Cat / legacy diagnostic, which are reusable
+   route modules, and which, if any, can be directly used for current Baseline A.
+
+Output a route decision:
+- If the correct next move is to adapt the mesh-native route to current Baseline
+  A, say so and define the adapter work order.
+- If the current WO-006 esp_rebuilt/Gmsh route should still be repaired, justify
+  why it is not violating the mesh-native freeze no-go guidance.
+- If neither is ready, isolate the missing bridge and write the next exact fix
+  target.
 
 Data authority requirements:
 - Use `98.5 kg` as the design gross mass authority.
@@ -469,26 +495,25 @@ Data authority requirements:
   value, label it clearly and do not let it override the pipeline span authority.
 
 Boundary:
-Allowed: bounded route repair, small smoke meshes, reference-geometry gates,
-marker/force-surface ownership checks, SU2 case materialization, and a minimal
-solver smoke if and only if the mesh handoff is valid.
+Allowed: read existing artifacts, run lightweight route-inspection commands,
+write a small audit script if useful, and produce a route-selection package.
 
 Disallowed: full design-space CFD, performance optimization, QPROP/XROTOR,
 propeller optimization, NSGA, random disturbance simulation, procurement/vendor
-decisions, RFQ truth, structural blocker sign-off, final CAD automation, or any
-claim that SU2/mesh success is final aircraft sign-off.
+decisions, RFQ truth, structural blocker sign-off, final CAD automation, heavy
+SU2 runs, or local mesh repair patches before the route decision is written.
 
 Do not change Baseline A external shape, mass/CG basis, spar/tube specification,
 or procurement status without stopping and flagging the user-decision point.
 
 Required output:
-- verdict: wo006r_su2_solver_smoke_materialized / wo006r_mesh_handoff_ready_for_su2_smoke / wo006r_topology_blocker_isolated / wo006r_route_repair_incomplete
+- verdict: wo006r0_mesh_native_adapter_recommended / wo006r0_current_handoff_repair_justified / wo006r0_route_bridge_missing / wo006r0_route_decision_incomplete
 - changed files
 - exact mass/span authority basis used
-- geometry/reference reconciliation table
-- route blocker register
-- whether `mesh_handoff.v1` exists and is valid
-- whether SU2 case materialization or solver smoke was reached
+- route lineage table
+- route evidence comparison table
+- current WO-006 blocker explanation in plain language
+- next data-authority-bounded route work-order recommendation
 - verification
 - engineering caveats
 - whether any Baseline A reopen trigger is approached; if no usable SU2 result
@@ -497,15 +522,14 @@ Required output:
 - next recommended work order
 
 Expected artifacts:
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/wo006r_route_repair.md
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/geometry_reference_reconciliation.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/route_blocker_register.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/mesh_handoff.v1.json or a precise blocker report explaining why it could not be written
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_route_repair/su2_solver_smoke.v1.json if solver smoke is reached
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/wo006r0_route_lineage_audit.md
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/route_evidence_comparison.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/current_blocker_register.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r0_route_lineage/recommended_wo006r1_goal.md
 
 Verification:
-- run the bounded route repair script/probe you create or update
-- run targeted hpa_meshing / WO-006R tests
+- run any audit script or artifact parser created for WO-006R0
+- run targeted tests if Python code changes
 - run scripts/check_baseline_a_data_authority.py --check-only
 - run ruff on changed Python files
 - run git diff --check
