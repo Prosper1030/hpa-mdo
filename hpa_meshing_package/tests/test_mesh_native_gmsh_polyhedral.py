@@ -102,6 +102,27 @@ def test_triangulate_quad_chooses_shorter_diagonal_for_warped_panels():
     ) == [(0, 1, 3), (1, 2, 3)]
 
 
+def test_triangulate_quad_can_choose_diagonal_by_minimum_triangle_angle():
+    face = Face(nodes=(0, 1, 2, 3), marker="wing_wall")
+    vertices = [
+        (0.0, 0.0, 0.0),
+        (1.179799097997854, 0.0, 0.0),
+        (2.507842902684846, 0.7254551682144338, 0.0),
+        (1.235730000243912, 2.9577884344643137, 0.0),
+    ]
+
+    assert _triangulate(
+        face,
+        vertices=vertices,
+        triangulation_policy="shorter_diagonal",
+    ) == [(0, 1, 2), (0, 2, 3)]
+    assert _triangulate(
+        face,
+        vertices=vertices,
+        triangulation_policy="max_min_angle",
+    ) == [(0, 1, 3), (1, 2, 3)]
+
+
 def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path):
     pytest.importorskip("gmsh")
     wing, farfield = _wing_and_close_farfield()
