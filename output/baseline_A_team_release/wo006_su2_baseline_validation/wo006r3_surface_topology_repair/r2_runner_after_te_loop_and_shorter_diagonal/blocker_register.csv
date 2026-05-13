@@ -1,0 +1,3 @@
+stage,status,blocker,evidence,next_fix
+attempt_01_replay_old_mesh_native_bl_template,blocked,Exception,"{""campaign_driver_tail"": """", ""plc_intersection_context"": [], ""tail"": ""Unknown curve -1550""}",inspect_attempt_summary_and_route_specific_logs
+attempt_02_current_go_bl_coarser_quality_probe,blocked,Exception,"{""campaign_driver_tail"": """", ""plc_intersection_context"": [], ""tail"": ""Unknown curve -1550""}",inspect_attempt_summary_and_route_specific_logs

@@ -1,0 +1,22 @@
+{
+  "attempt_count": 4,
+  "baseline_a_reopen_status": "not_evaluated",
+  "best_attempt": {
+    "attempt_id": "attempt_03_current_go_high_mesh_no_bl_solver_control",
+    "mesh_kind": "no_bl",
+    "mesh_quality_gate": "pass",
+    "route": "current_go_faceted_hxt_no_bl_high_mesh_solver_control",
+    "solver_status": "not_run",
+    "volume_element_count": 121961
+  },
+  "coefficient_interpretable": false,
+  "current_geometry_changed": false,
+  "engineering_caveats": [
+    "A passing code path is not final aircraft sign-off.",
+    "No old Black Cat coefficient is promoted to current Baseline A truth.",
+    "Negative CD or no-BL drag is rejected as calibration evidence.",
+    "Surface y+ here is estimated unless a solver surface postprocess is present."
+  ],
+  "schema_version": "wo006r2_final_engineering_verdict.v1",
+  "verdict": "wo006r2_bl_topology_blocker_isolated"
+}

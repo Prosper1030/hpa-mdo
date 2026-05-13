@@ -1596,10 +1596,26 @@ def _resample_airfoil_loop(
 
     upper_loop = [(x, _interp_z(upper, x)) for x in upper_x]
     lower_loop = [(x, _interp_z(lower, x)) for x in lower_x[1:-1]]
+    lower_loop = _repair_lower_branch_above_upper(upper_loop, lower_loop)
     loop = upper_loop + lower_loop
     if len(loop) != 2 * points_per_side - 2:
         raise ValueError("Internal airfoil resampling count mismatch")
     return loop
+
+
+def _repair_lower_branch_above_upper(
+    upper_loop: Sequence[tuple[float, float]],
+    lower_loop: Sequence[tuple[float, float]],
+    *,
+    minimum_gap: float = 1.0e-6,
+) -> list[tuple[float, float]]:
+    repaired: list[tuple[float, float]] = []
+    for x, lower_z in lower_loop:
+        upper_z = _interp_z(upper_loop, x)
+        if lower_z >= upper_z - minimum_gap:
+            lower_z = upper_z - minimum_gap
+        repaired.append((x, lower_z))
+    return repaired
 
 
 def _without_trailing_duplicate(

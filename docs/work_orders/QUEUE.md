@@ -452,114 +452,77 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-WO-006R3 is now the next recommended task after data-authority restoration. Do
-not reopen route selection or stop at another tiny smoke. WO-006R2 already reused
-the old 1M+ BL/HXT evidence and isolated the current blocker to current-GO
-surface panel / section-transition topology. The next task is a surface-topology
-repair campaign that keeps the external Baseline A geometry fixed while making
-the mesh-native adapter produce a valid serious BL/high-mesh handoff.
+WO-006R3 is complete enough to advance the queue, but not enough to claim
+viscous CFD. The completed artifact bundle is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/`.
+Verdict: `wo006r3_high_mesh_handoff_ready`. It produced a current-GO high-mesh
+no-BL SU2 handoff (`936,017` volume cells, marker audit pass, SU2 readability
+smoke to iteration 75), but BL/HXT still fails at DAE31-family PLC
+segment/facet intersections. No SU2 coefficient is interpretable and Baseline A
+reopen remains `not_evaluated`.
+
+WO-006R4 is now the next recommended task with data-authority checker prerequisite:
+run `scripts/check_baseline_a_data_authority.py --check-only`, then repair or
+prove the remaining BL surface/curve ownership limitation without changing
+Baseline A authority data.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R3 after data-authority restoration: run an autonomous current-GO surface-topology repair campaign for the mesh-native CFD adapter, starting from WO-006R2 PLC intersection evidence, old 1M+ BL/HXT route evidence, and official Gmsh/SU2/OpenVSP documentation; keep Baseline A external shape and authority data fixed, and iterate until a serious BL/high-mesh handoff is produced or the exact adapter limitation is proven.
-
-Role:
-You are the CFD geometry-adapter lead. Do not behave like a one-shot script
-worker. Your job is to fix or precisely prove the current GO surface topology
-blocker that prevents the serious mesh-native BL/high-mesh route from reaching
-SU2. Use subagents for evidence mining, topology inspection, documentation
-research, implementation attempts, and adversarial review. Make them compare
-findings before you choose the repair route.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute WO-006R4: convert the WO-006R3 high-mesh no-BL handoff into a BL-capable mesh-native route without changing Baseline A authority data.
 
 Read first:
 - README.md
 - CURRENT_MAINLINE.md
 - docs/AI_WORK_ORDER_PROTOCOL.md
 - docs/work_orders/QUEUE.md
-- output/baseline_A_team_release/wo006_su2_baseline_validation/
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r2_cfd_recovery_campaign/
-- output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/mesh_handoff.v1.json
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/blocker_register.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/plc_intersection_localization.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/repair_attempts_summary.csv
 - hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/
 - hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/
 - hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/
 
 Task:
-Start from the exact WO-006R2 blocker locations:
-- section bracket 4-5 around y ~= 12.54-12.59 m, `dae31 -> cst_tip...`
-  transition, PLC segment/facet intersections;
-- section bracket 2-3 around y ~= 7.47 m, same `dae31` family but surface
-  segment intersection;
-- old `wing_h=0.20 m` 1,125,409-cell BL/HXT route as the serious target;
-- old `wing_h=0.15 m` 1,515,251-cell failure as the warning boundary.
+Start from WO-006R3's remaining BL blockers:
+- final policy BL `wing_h=0.20 m`: PLC segment/facet intersection around
+  x=1.14443, y=-3.66499, z=0.0934631, section bracket 1-2, `dae31->dae31`;
+- final policy BL `wing_h=0.25 m`: PLC segment/facet intersection around
+  x=0.897016, y=-10.6883, z=0.857425, section bracket 3-4, `dae31->dae31`;
+- exploratory shorter-diagonal-on-BL run exposed `Unknown curve -1550`, so BL
+  needs a dedicated curve/surface ownership repair, not blind diagonal swapping.
 
-Do a real topology campaign. Inspect the generated wing surface panels, airfoil
-loops, station ordering, trailing-edge closure, root/tip cap ownership,
-spanwise subdivision, diagonalization/triangulation choice, and farfield/wing
-interface. Use Gmsh/OpenVSP/SU2 documentation and repo history. Try multiple
-adapter-level repairs that do not change external shape, such as safer panel
-diagonalization, section-transition resampling, local panel split, tolerance
-cleanup, duplicate-point removal, airfoil loop orientation repair, cap topology
-repair, or surface-only preflight intersection checks. Choose the least invasive
-repair that makes engineering sense.
+Allowed:
+- surface-wide segment/facet preflight;
+- BL extrusion curve-loop ownership audit;
+- local DAE31 cap / TE / surface ownership repair;
+- a mesh-native BL block route that avoids fragile Gmsh topological BL extrusion;
+- bounded BL/high-mesh handoff attempts and marker audit.
 
-Data authority requirements:
-- Use `98.5 kg` as the design gross mass authority.
-- Use `34.332286 m` full span / `17.166143 m` half-span as current pipeline span
-  evidence unless a newer authority manifest is found and explicitly promoted.
-- Treat suspect P1 screening aggregate `106.828608 kg`, local/splice screening
-  reference `16.5 m`, old `output/phase*` artifacts, local splice outputs, and
-  generated RFQ outputs as screening/legacy/reference only unless the
-  data-authority checker says otherwise.
-- Reconcile route-specific geometry numbers before claiming success: pipeline
-  `Bref`, mesh bounds y-span, Sref/Cref/Bref, moment origin, wall markers, and
-  force-surface ownership.
-- Keep current `avl_parity` GO/Baseline A geometry fixed. Do not change
-  external shape, span, Sref/Cref/Bref, mass, CG, spar, RFQ, or procurement
-  truth to make the mesh easier.
-
-Boundary:
-Allowed: topology inspection scripts, surface self-intersection localization,
-adapter/tessellation fixes, bounded mesh attempts, BL/high-mesh handoff attempts,
-marker audit, and minimal SU2 materialization only after mesh handoff is valid.
-
-Disallowed: full design-space CFD, performance optimization, QPROP/XROTOR,
-propeller optimization, NSGA, random disturbance simulation, procurement/vendor
-decisions, RFQ truth, structural blocker sign-off, final CAD automation, or any
-claim that a mesh pass is aerodynamic validation.
-
-Do not change Baseline A external shape, mass/CG basis, spar/tube specification,
-or procurement status without stopping and flagging the user-decision point.
+Disallowed:
+- changing external geometry authority files, mass/CG, span, Sref/Cref/Bref,
+  spar/RFQ, procurement truth, or Baseline A release status;
+- accepting no-BL coefficients as drag evidence;
+- QPROP/XROTOR, full design-space CFD, vendor decisions, or final aircraft
+  sign-off claims.
 
 Required output:
-- verdict: wo006r3_surface_topology_repaired / wo006r3_bl_handoff_ready / wo006r3_high_mesh_handoff_ready / wo006r3_adapter_limitation_proven / wo006r3_campaign_incomplete
-- changed files
-- exact mass/span authority basis used
-- topology root-cause explanation in plain language
-- old evidence reused and why
-- repair attempts tried and rejected/accepted
-- whether the serious BL/high-mesh handoff now materializes
-- whether any SU2 coefficient is interpretable; normally no unless CFD evidence gate passes
-- verification
-- engineering caveats
-- whether any Baseline A reopen trigger is approached; if no usable SU2 result
-  exists, say `not_evaluated`
-- reviewer prompt
-- next recommended work order
-
-Expected artifacts:
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/topology_root_cause_report.md
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/plc_intersection_localization.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/repair_attempts_summary.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/mesh_handoff.v1.json if handoff succeeds
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/blocker_register.csv
-- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/next_goal.md
+- verdict: wo006r4_bl_handoff_ready / wo006r4_adapter_limitation_proven / wo006r4_campaign_incomplete
+- exact authority basis used
+- BL root-cause explanation in plain language
+- repair attempts accepted/rejected
+- whether serious BL handoff materializes
+- whether any SU2 coefficient is interpretable; normally no unless CFD evidence
+  gate passes
+- verification, engineering caveats, reviewer prompt, and next work order
 
 Verification:
-- run the WO-006R3 topology/mesh campaign script or probes
+- run the WO-006R4 BL topology/mesh campaign or probes
 - run targeted tests for changed code
-- run scripts/check_baseline_a_data_authority.py --check-only
+- run `scripts/check_baseline_a_data_authority.py --check-only`
 - run ruff on changed Python files
-- run git diff --check
-- git add -p only this work-order scope and commit
+- run `git diff --check`
+- use `git add -p` only for this work-order scope and commit
 ```
 
 ## Reviewer Prompt Template

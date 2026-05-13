@@ -1,0 +1,3 @@
+stage,status,blocker,evidence,next_fix
+final_policy_campaign_attempt_01_bl_0p20,blocked,HXT 3D mesh failed: PLC segment/facet intersection,x=1.14443 y=-3.66499 z=0.0934631; section bracket 1-2; dae31->dae31,"dedicated BL surface/curve ownership repair or surface-wide segment/facet preflight, without changing external authority data"
+final_policy_campaign_attempt_02_bl_0p25,blocked,HXT 3D mesh failed: PLC segment/facet intersection,x=0.897016 y=-10.6883 z=0.857425; section bracket 3-4; dae31->dae31,dedicated BL topology repair; coarsening BL from 0.20 m to 0.25 m is insufficient

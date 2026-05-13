@@ -1,0 +1,436 @@
+{
+  "attempt_id": "attempt_03_current_go_high_mesh_no_bl_solver_control",
+  "attempt_log_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/attempt_runtime.log",
+  "attempt_log_tail": "",
+  "case_report": {
+    "caveats": [
+      "wing boundary is faceted from mesh-native panels",
+      "tet volume mesh only; no boundary-layer prism strategy",
+      "smoke case is not a convergence or aerodynamic validation case"
+    ],
+    "current_authority_reference": {
+      "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv",
+      "bref_m": 34.332286,
+      "cref_m": 1.003721543,
+      "design_gross_mass_kg": 98.5,
+      "moment_origin_m": [
+        0.246276512,
+        0.0,
+        0.0
+      ],
+      "pipeline_full_span_m": 34.332286,
+      "pipeline_half_span_m": 17.166143,
+      "sref_m2": 33.420059598
+    },
+    "gmsh_mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/mesh.msh",
+    "marker_audit": {
+      "boundary_condition_markers": {
+        "MARKER_FAR": [
+          "farfield"
+        ],
+        "MARKER_HEATFLUX": [
+          "wing_wall"
+        ]
+      },
+      "mesh_markers": [
+        "farfield",
+        "wing_wall"
+      ],
+      "mesh_summary": {
+        "markers": {
+          "farfield": {
+            "element_count": 4846,
+            "element_type_counts": {
+              "5": 4846
+            }
+          },
+          "wing_wall": {
+            "element_count": 33956,
+            "element_type_counts": {
+              "5": 33956
+            }
+          }
+        },
+        "ndime": 3,
+        "nelem": 121694,
+        "nmark": 2,
+        "npoin": 30958
+      },
+      "missing_from_mesh": [],
+      "status": "pass",
+      "unassigned_mesh_markers": [],
+      "zero_element_markers": []
+    },
+    "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/mesh.su2",
+    "mesh_report": {
+      "caveats": [
+        "wing boundary is faceted from mesh-native panels",
+        "tet volume mesh only; no boundary-layer prism strategy"
+      ],
+      "compute": {
+        "general_num_threads": 4,
+        "gmsh_threads": 4,
+        "mesh_algorithm3d": 10,
+        "mesh_max_num_threads_1d": 4,
+        "mesh_max_num_threads_2d": 4,
+        "mesh_max_num_threads_3d": 4
+      },
+      "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/mesh.msh",
+      "mesh_quality_gate": {
+        "blockers": [],
+        "status": "pass",
+        "warning_thresholds": {
+          "min_gamma": 0.0001,
+          "min_sicn": 0.0001,
+          "p01_gamma": 0.02
+        },
+        "warnings": [
+          "very_low_min_gamma",
+          "low_p01_gamma"
+        ]
+      },
+      "mesh_sizing": {
+        "background_field": {
+          "field_tag": 7,
+          "fields": [
+            {
+              "distance_field_tag": 1,
+              "field_tag": 2,
+              "node_count": 2048,
+              "threshold_field_tag": 2,
+              "type": "DistanceThreshold"
+            },
+            {
+              "field_tag": 3,
+              "name": "trailing_edge_refinement_region",
+              "outside_size": 8.0,
+              "size": 0.4,
+              "transition_thickness": 0.6259465807858978,
+              "type": "Box",
+              "x_max": 1.5025988931951761,
+              "x_min": 1.001841628566458,
+              "y_max": 17.16614300000001,
+              "y_min": -17.16614300000001,
+              "z_max": 3.6280155801643503,
+              "z_min": -1.0314514480855828
+            },
+            {
+              "field_tag": 4,
+              "name": "tip_left_refinement_region",
+              "outside_size": 8.0,
+              "size": 0.4,
+              "transition_thickness": 0.6259465807858978,
+              "type": "Box",
+              "x_max": 1.252220260880817,
+              "x_min": 0.0003270993090215002,
+              "y_max": -15.914249838428214,
+              "y_min": -17.16614300000001,
+              "z_max": 3.6280155801643503,
+              "z_min": -1.0314514480855828
+            },
+            {
+              "field_tag": 5,
+              "name": "tip_right_refinement_region",
+              "outside_size": 8.0,
+              "size": 0.4,
+              "transition_thickness": 0.6259465807858978,
+              "type": "Box",
+              "x_max": 1.252220260880817,
+              "x_min": 0.0003270993090215002,
+              "y_max": 17.16614300000001,
+              "y_min": 15.914249838428214,
+              "z_max": 3.6280155801643503,
+              "z_min": -1.0314514480855828
+            },
+            {
+              "field_tag": 6,
+              "name": "wake_refinement_region",
+              "outside_size": 8.0,
+              "size": 0.4,
+              "transition_thickness": 0.6259465807858978,
+              "type": "Box",
+              "x_max": 6.259792907167999,
+              "x_min": 1.252220260880817,
+              "y_max": 17.792089580785905,
+              "y_min": -17.792089580785905,
+              "z_max": 3.6280155801643503,
+              "z_min": -1.0314514480855828
+            }
+          ],
+          "type": "Min"
+        },
+        "default_mesh_size": 4.0,
+        "farfield_mesh_size": 8.0,
+        "refinement_boxes": [
+          {
+            "name": "trailing_edge_refinement_region",
+            "outside_size": 8.0,
+            "size": 0.4,
+            "transition_thickness": 0.6259465807858978,
+            "x_max": 1.5025988931951761,
+            "x_min": 1.001841628566458,
+            "y_max": 17.16614300000001,
+            "y_min": -17.16614300000001,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          },
+          {
+            "name": "tip_left_refinement_region",
+            "outside_size": 8.0,
+            "size": 0.4,
+            "transition_thickness": 0.6259465807858978,
+            "x_max": 1.252220260880817,
+            "x_min": 0.0003270993090215002,
+            "y_max": -15.914249838428214,
+            "y_min": -17.16614300000001,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          },
+          {
+            "name": "tip_right_refinement_region",
+            "outside_size": 8.0,
+            "size": 0.4,
+            "transition_thickness": 0.6259465807858978,
+            "x_max": 1.252220260880817,
+            "x_min": 0.0003270993090215002,
+            "y_max": 17.16614300000001,
+            "y_min": 15.914249838428214,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          },
+          {
+            "name": "wake_refinement_region",
+            "outside_size": 8.0,
+            "size": 0.4,
+            "transition_thickness": 0.6259465807858978,
+            "x_max": 6.259792907167999,
+            "x_min": 1.252220260880817,
+            "y_max": 17.792089580785905,
+            "y_min": -17.792089580785905,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          }
+        ],
+        "surface_triangulation_policy": "shorter_diagonal",
+        "wing_mesh_size": 0.25,
+        "wing_refinement_radius": 6.0
+      },
+      "node_count": 30958,
+      "physical_groups": {
+        "farfield": {
+          "dimension": 2,
+          "entity_count": 12,
+          "physical_tag": 2
+        },
+        "fluid": {
+          "dimension": 3,
+          "entity_count": 1,
+          "physical_tag": 3
+        },
+        "wing_wall": {
+          "dimension": 2,
+          "entity_count": 4092,
+          "physical_tag": 1
+        }
+      },
+      "production_scale_gate": {
+        "observed_to_target_ratio": 0.121694,
+        "observed_volume_elements": 121694,
+        "shortfall_volume_elements": 878306,
+        "status": "underresolved",
+        "target_volume_elements": 1000000
+      },
+      "quality_metrics": {
+        "gamma_percentiles": {
+          "p01": 0.003043400939356103,
+          "p05": 0.01891996892839967,
+          "p50": 0.6215587035116561
+        },
+        "hexahedron_element_count": 0,
+        "ill_shaped_tet_count": 0,
+        "ill_shaped_volume_element_count": 0,
+        "min_gamma": 7.077288527886861e-07,
+        "min_sicn": 0.00010190419322452573,
+        "min_sicn_percentiles": {
+          "p01": 0.006259688109923321,
+          "p05": 0.022381437970036583,
+          "p50": 0.6712515364578009
+        },
+        "min_sige": 0.00023160933801330007,
+        "min_sige_percentiles": {
+          "p01": 0.11957815931734045,
+          "p05": 0.3320916102148084,
+          "p50": 0.7115620755338294
+        },
+        "min_volume": 1.5679692335450604e-08,
+        "non_positive_min_sicn_count": 0,
+        "non_positive_min_sige_count": 0,
+        "non_positive_volume_count": 0,
+        "prism_element_count": 0,
+        "pyramid_element_count": 0,
+        "tetra_element_count": 121694,
+        "tetrahedron_count": 121694,
+        "volume_element_count": 121694,
+        "volume_element_type_counts": {
+          "4": 121694
+        },
+        "volume_percentiles": {
+          "p01": 7.616709665453335e-06,
+          "p05": 3.420479310272371e-05,
+          "p50": 0.006028634771375718
+        }
+      },
+      "route": "mesh_native_faceted_gmsh_volume",
+      "status": "meshed",
+      "su2_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/mesh.su2",
+      "surface_triangle_count": 4104,
+      "volume_count": 1,
+      "volume_element_count": 121694,
+      "volume_element_type_counts": {
+        "4": 121694
+      }
+    },
+    "report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/mesh_native_faceted_su2_smoke_report.json",
+    "route": "mesh_native_faceted_gmsh_volume_su2_smoke_case",
+    "runtime": {
+      "alpha_deg": 0.0,
+      "cfl_number": 0.05,
+      "conv_cauchy_elems": 100,
+      "conv_cauchy_eps": "1e-4",
+      "conv_num_method_flow": "JST",
+      "freestream_turb2lam_visc_ratio": 3.0,
+      "freestream_turbulence_intensity": 0.01,
+      "gmsh_threads": 4,
+      "jst_sensor_coeff": null,
+      "linear_solver_error": "1e-6",
+      "linear_solver_iter": 20,
+      "max_iterations": 1000,
+      "mesh_algorithm3d": 10,
+      "mesh_size": 4.0,
+      "output_files": [
+        "RESTART_ASCII",
+        "SURFACE_CSV"
+      ],
+      "ref_area": 33.420059598,
+      "ref_length": 1.003721543,
+      "solver": "INC_NAVIER_STOKES",
+      "surface_triangulation_policy": "shorter_diagonal",
+      "transition_model": null,
+      "turbulence_model": "NONE",
+      "velocity_mps": 6.5,
+      "wall_function": null,
+      "wall_profile": "adiabatic_no_slip"
+    },
+    "runtime_cfg_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/su2_runtime.cfg"
+  },
+  "elapsed_seconds": 17.391820192337036,
+  "engineering_read": {
+    "aero_coefficients_interpretable": false,
+    "coefficient_sanity": null,
+    "marker_ownership": "pass",
+    "mesh_quality": "pass",
+    "solver_status": "not_run"
+  },
+  "geometry": {
+    "bref_m": 34.332286,
+    "case_name": "current_avl_compromise_conservative_closed",
+    "cref_m": 1.003721543,
+    "full_span_m": 34.332286,
+    "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/geometry_manifest.json",
+    "half_span_m": 17.166143,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv",
+    "sref_m2": 33.420059598
+  },
+  "mesh": {
+    "boundary_layer": {
+      "first_height_m": null,
+      "layers": null,
+      "present": false,
+      "quality_metrics": null,
+      "total_thickness_m": null,
+      "volume_element_type_counts": null
+    },
+    "marker_audit": {
+      "boundary_condition_markers": {
+        "MARKER_FAR": [
+          "farfield"
+        ],
+        "MARKER_HEATFLUX": [
+          "wing_wall"
+        ]
+      },
+      "mesh_markers": [
+        "farfield",
+        "wing_wall"
+      ],
+      "mesh_summary": {
+        "markers": {
+          "farfield": {
+            "element_count": 4846,
+            "element_type_counts": {
+              "5": 4846
+            }
+          },
+          "wing_wall": {
+            "element_count": 33956,
+            "element_type_counts": {
+              "5": 33956
+            }
+          }
+        },
+        "ndime": 3,
+        "nelem": 121694,
+        "nmark": 2,
+        "npoin": 30958
+      },
+      "missing_from_mesh": [],
+      "status": "pass",
+      "unassigned_mesh_markers": [],
+      "zero_element_markers": []
+    },
+    "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/mesh.su2",
+    "mesh_quality_gate": {
+      "blockers": [],
+      "status": "pass",
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      },
+      "warnings": [
+        "very_low_min_gamma",
+        "low_p01_gamma"
+      ]
+    },
+    "node_count": 30958,
+    "runtime_cfg_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/final_policy_campaign/attempt_03_current_go_high_mesh_no_bl_solver_control/su2_runtime.cfg",
+    "status": "meshed",
+    "volume_element_count": 121694
+  },
+  "mesh_kind": "no_bl",
+  "purpose": "Solver/reference control only if BL route cannot produce interpretable CFD.",
+  "route": "current_go_faceted_hxt_no_bl_high_mesh_solver_control",
+  "runtime_policy": {
+    "base_mesh_size": 4.0,
+    "farfield_mesh_size": 8.0,
+    "feature_refinement_size": 0.4,
+    "max_iterations": 1000,
+    "points_per_side": 32,
+    "run_solver": false,
+    "solver": "INC_NAVIER_STOKES",
+    "spanwise_subdivisions": 2,
+    "turbulence_model": "NONE",
+    "wall_profile": "adiabatic_no_slip",
+    "wing_mesh_size": 0.25
+  },
+  "solver": {
+    "reason": "disabled_or_mesh_not_eligible",
+    "run_status": "not_run"
+  },
+  "status": "completed"
+}

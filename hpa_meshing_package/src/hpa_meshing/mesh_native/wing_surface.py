@@ -141,6 +141,52 @@ def build_wing_surface(spec: WingSpec) -> SurfaceMesh:
     return oriented
 
 
+def preflight_wing_surface_airfoil_loop_intersections(
+    spec: WingSpec,
+    *,
+    tolerance: float = 1.0e-12,
+) -> list[dict[str, Any]]:
+    """Localize same-station airfoil loop self-intersections before Gmsh."""
+    stations = _ordered_stations(spec)
+    intersections: list[dict[str, Any]] = []
+    for station_index, station in enumerate(stations):
+        loop = _transform_station(station, spec.twist_axis_x)
+        point_count = len(loop)
+        for first_index in range(point_count):
+            first_next = (first_index + 1) % point_count
+            first_start = loop[first_index]
+            first_end = loop[first_next]
+            for second_index in range(first_index + 1, point_count):
+                second_next = (second_index + 1) % point_count
+                if _closed_loop_edges_are_adjacent(
+                    first_index,
+                    first_next,
+                    second_index,
+                    second_next,
+                ):
+                    continue
+                hit = _segment_intersection_xz(
+                    first_start,
+                    first_end,
+                    loop[second_index],
+                    loop[second_next],
+                    tolerance=tolerance,
+                )
+                if hit is None:
+                    continue
+                intersections.append(
+                    {
+                        "station_index": station_index,
+                        "station_y_m": station.y,
+                        "first_edge": (first_index, first_next),
+                        "second_edge": (second_index, second_next),
+                        "intersection_x_m": hit[0],
+                        "intersection_z_m": hit[1],
+                    }
+                )
+    return intersections
+
+
 def build_farfield_box_surface(
     body: SurfaceMesh,
     *,
@@ -307,6 +353,47 @@ def _bounds(vertices: Sequence[Vertex]) -> dict[str, float]:
         "z_min": min(vertex[2] for vertex in vertices),
         "z_max": max(vertex[2] for vertex in vertices),
     }
+
+
+def _closed_loop_edges_are_adjacent(
+    first_start: int,
+    first_end: int,
+    second_start: int,
+    second_end: int,
+) -> bool:
+    return bool({first_start, first_end}.intersection({second_start, second_end}))
+
+
+def _segment_intersection_xz(
+    first_start: Vertex,
+    first_end: Vertex,
+    second_start: Vertex,
+    second_end: Vertex,
+    *,
+    tolerance: float,
+) -> tuple[float, float] | None:
+    ax, az = first_start[0], first_start[2]
+    bx, bz = first_end[0], first_end[2]
+    cx, cz = second_start[0], second_start[2]
+    dx, dz = second_end[0], second_end[2]
+    abx = bx - ax
+    abz = bz - az
+    cdx = dx - cx
+    cdz = dz - cz
+    denominator = _cross_2d(abx, abz, cdx, cdz)
+    if abs(denominator) <= tolerance:
+        return None
+    acx = cx - ax
+    acz = cz - az
+    t = _cross_2d(acx, acz, cdx, cdz) / denominator
+    u = _cross_2d(acx, acz, abx, abz) / denominator
+    if tolerance < t < 1.0 - tolerance and tolerance < u < 1.0 - tolerance:
+        return ax + t * abx, az + t * abz
+    return None
+
+
+def _cross_2d(ax: float, az: float, bx: float, bz: float) -> float:
+    return ax * bz - az * bx
 
 
 def _required_mapping(payload: Mapping[str, Any], key: str) -> Mapping[str, Any]:

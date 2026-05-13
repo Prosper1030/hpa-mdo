@@ -4,6 +4,7 @@ import shutil
 import pytest
 
 from hpa_meshing.mesh_native.blackcat import (
+    _resample_airfoil_loop,
     build_blackcat_main_wing_surfaces_from_avl,
     build_blackcat_main_wing_surfaces_from_vsp,
     load_blackcat_main_wing_spec_from_avl,
@@ -14,12 +15,50 @@ from hpa_meshing.mesh_native.blackcat import (
     run_blackcat_main_wing_faceted_su2_smoke,
     run_blackcat_main_wing_su2_stability_ladder,
 )
-from hpa_meshing.mesh_native.wing_surface import build_wing_surface
+from hpa_meshing.mesh_native.wing_surface import (
+    preflight_wing_surface_airfoil_loop_intersections,
+    build_wing_surface,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 AVL_PATH = REPO_ROOT / "data" / "blackcat_004_full.avl"
 VSP_PATH = REPO_ROOT / "data" / "blackcat_004_origin.vsp3"
+
+
+def test_resample_airfoil_loop_repairs_near_te_branch_ordering():
+    raw_points = [
+        (1.0, 0.0),
+        (0.997, 0.0005),
+        (0.99, 0.001),
+        (0.5, 0.04),
+        (0.0, 0.0),
+        (0.5, -0.03),
+        (0.99, -0.001),
+        (0.997, 0.002),
+        (1.0, 0.0),
+    ]
+
+    points_per_side = 32
+    loop = _resample_airfoil_loop(raw_points, points_per_side=points_per_side)
+    upper_by_x = {round(x, 12): z for x, z in loop[:points_per_side]}
+
+    for x, lower_z in loop[points_per_side:]:
+        upper_z = upper_by_x.get(round(x, 12))
+        if upper_z is not None:
+            assert lower_z < upper_z
+
+
+def test_current_go_density_airfoil_loops_pass_segment_intersection_preflight():
+    spec = load_blackcat_main_wing_spec_from_avl(
+        AVL_PATH,
+        points_per_side=32,
+        spanwise_subdivisions=2,
+    )
+
+    intersections = preflight_wing_surface_airfoil_loop_intersections(spec)
+
+    assert intersections == []
 
 
 def test_load_blackcat_main_wing_spec_from_avl_builds_full_span_mesh_native_spec():

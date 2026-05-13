@@ -8,6 +8,7 @@ from hpa_meshing.mesh_native.gmsh_polyhedral import (
     _boundary_layer_mesh_quality_gate,
     _coefficient_sanity_gate,
     _mesh_quality_gate,
+    _triangulate,
     build_wing_feature_refinement_boxes,
     infer_wing_feature_extents,
     run_faceted_volume_refinement_ladder,
@@ -25,6 +26,7 @@ from hpa_meshing.mesh_native.near_wall_block import (
 )
 from hpa_meshing.mesh_native.su2_structured import parse_su2_marker_summary
 from hpa_meshing.mesh_native.wing_surface import (
+    Face,
     Reference,
     Station,
     WingSpec,
@@ -80,6 +82,22 @@ def _simple_wing_spec() -> WingSpec:
         root_rule="wall_cap",
         reference=Reference(sref_full=1.6, cref=0.8, bref_full=2.0),
     )
+
+
+def test_triangulate_quad_chooses_shorter_diagonal_for_warped_panels():
+    face = Face(nodes=(0, 1, 2, 3), marker="wing_wall")
+    vertices = [
+        (0.0, 0.0, 0.0),
+        (2.0, 0.0, 0.0),
+        (2.0, 2.0, 0.0),
+        (0.1, 0.1, 0.0),
+    ]
+
+    assert _triangulate(
+        face,
+        vertices=vertices,
+        triangulation_policy="shorter_diagonal",
+    ) == [(0, 1, 3), (1, 2, 3)]
 
 
 def test_write_faceted_volume_mesh_preserves_su2_boundary_markers(tmp_path: Path):

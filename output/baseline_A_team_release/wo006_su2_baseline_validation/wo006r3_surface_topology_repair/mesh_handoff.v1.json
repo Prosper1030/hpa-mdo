@@ -1,0 +1,281 @@
+{
+  "adapter_surface_canonicalization_note": "DAE31 lower branch samples that crossed above the upper branch are clamped just below the upper branch during mesh-native resampling; source authority files are unchanged.",
+  "adapter_surface_canonicalized": true,
+  "authority": {
+    "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv",
+    "bref_m": 34.332286,
+    "cref_m": 1.003721543,
+    "design_gross_mass_kg": 98.5,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598
+  },
+  "bl_status": {
+    "bl_handoff_ready": false,
+    "engineering_read": "BL route remains blocked by DAE31 same-family segment/facet PLC intersections after old WO-006R2 blockers were removed.",
+    "remaining_blockers": [
+      {
+        "blocker": "HXT 3D mesh failed: PLC segment/facet intersection",
+        "evidence": "x=1.14443 y=-3.66499 z=0.0934631; section bracket 1-2; dae31->dae31",
+        "next_fix": "dedicated BL surface/curve ownership repair or surface-wide segment/facet preflight, without changing external authority data",
+        "stage": "final_policy_campaign_attempt_01_bl_0p20",
+        "status": "blocked"
+      },
+      {
+        "blocker": "HXT 3D mesh failed: PLC segment/facet intersection",
+        "evidence": "x=0.897016 y=-10.6883 z=0.857425; section bracket 3-4; dae31->dae31",
+        "next_fix": "dedicated BL topology repair; coarsening BL from 0.20 m to 0.25 m is insufficient",
+        "stage": "final_policy_campaign_attempt_02_bl_0p25",
+        "status": "blocked"
+      }
+    ]
+  },
+  "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe",
+  "coefficient_interpretable": false,
+  "coefficient_interpretation_reason": "No BL/yplus and solver_readability_smoke cfd_evidence_gate failed at 75 iterations; coefficients are sign/readability evidence only.",
+  "external_authority_data_changed": false,
+  "gmsh_mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/mesh.msh",
+  "handoff_kind": "current_go_high_mesh_no_bl_su2_readability_handoff",
+  "marker_audit": {
+    "boundary_condition_markers": {
+      "MARKER_FAR": [
+        "farfield"
+      ],
+      "MARKER_HEATFLUX": [
+        "wing_wall"
+      ]
+    },
+    "mesh_markers": [
+      "farfield",
+      "wing_wall"
+    ],
+    "mesh_summary": {
+      "markers": {
+        "farfield": {
+          "element_count": 18096,
+          "element_type_counts": {
+            "5": 18096
+          }
+        },
+        "wing_wall": {
+          "element_count": 73632,
+          "element_type_counts": {
+            "5": 73632
+          }
+        }
+      },
+      "ndime": 3,
+      "nelem": 936017,
+      "nmark": 2,
+      "npoin": 176542
+    },
+    "missing_from_mesh": [],
+    "status": "pass",
+    "unassigned_mesh_markers": [],
+    "zero_element_markers": []
+  },
+  "mesh": {
+    "mesh_quality_gate": {
+      "blockers": [],
+      "status": "pass",
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      },
+      "warnings": [
+        "very_low_min_gamma"
+      ]
+    },
+    "mesh_sizing": {
+      "background_field": {
+        "field_tag": 7,
+        "fields": [
+          {
+            "distance_field_tag": 1,
+            "field_tag": 2,
+            "node_count": 2048,
+            "threshold_field_tag": 2,
+            "type": "DistanceThreshold"
+          },
+          {
+            "field_tag": 3,
+            "name": "trailing_edge_refinement_region",
+            "outside_size": 5.0,
+            "size": 0.18,
+            "transition_thickness": 0.6259465807858978,
+            "type": "Box",
+            "x_max": 1.5025988931951761,
+            "x_min": 1.001841628566458,
+            "y_max": 17.16614300000001,
+            "y_min": -17.16614300000001,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          },
+          {
+            "field_tag": 4,
+            "name": "tip_left_refinement_region",
+            "outside_size": 5.0,
+            "size": 0.18,
+            "transition_thickness": 0.6259465807858978,
+            "type": "Box",
+            "x_max": 1.252220260880817,
+            "x_min": 0.0003270993090215002,
+            "y_max": -15.914249838428214,
+            "y_min": -17.16614300000001,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          },
+          {
+            "field_tag": 5,
+            "name": "tip_right_refinement_region",
+            "outside_size": 5.0,
+            "size": 0.18,
+            "transition_thickness": 0.6259465807858978,
+            "type": "Box",
+            "x_max": 1.252220260880817,
+            "x_min": 0.0003270993090215002,
+            "y_max": 17.16614300000001,
+            "y_min": 15.914249838428214,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          },
+          {
+            "field_tag": 6,
+            "name": "wake_refinement_region",
+            "outside_size": 5.0,
+            "size": 0.18,
+            "transition_thickness": 0.6259465807858978,
+            "type": "Box",
+            "x_max": 6.259792907167999,
+            "x_min": 1.252220260880817,
+            "y_max": 17.792089580785905,
+            "y_min": -17.792089580785905,
+            "z_max": 3.6280155801643503,
+            "z_min": -1.0314514480855828
+          }
+        ],
+        "type": "Min"
+      },
+      "default_mesh_size": 2.5,
+      "farfield_mesh_size": 5.0,
+      "refinement_boxes": [
+        {
+          "name": "trailing_edge_refinement_region",
+          "outside_size": 5.0,
+          "size": 0.18,
+          "transition_thickness": 0.6259465807858978,
+          "x_max": 1.5025988931951761,
+          "x_min": 1.001841628566458,
+          "y_max": 17.16614300000001,
+          "y_min": -17.16614300000001,
+          "z_max": 3.6280155801643503,
+          "z_min": -1.0314514480855828
+        },
+        {
+          "name": "tip_left_refinement_region",
+          "outside_size": 5.0,
+          "size": 0.18,
+          "transition_thickness": 0.6259465807858978,
+          "x_max": 1.252220260880817,
+          "x_min": 0.0003270993090215002,
+          "y_max": -15.914249838428214,
+          "y_min": -17.16614300000001,
+          "z_max": 3.6280155801643503,
+          "z_min": -1.0314514480855828
+        },
+        {
+          "name": "tip_right_refinement_region",
+          "outside_size": 5.0,
+          "size": 0.18,
+          "transition_thickness": 0.6259465807858978,
+          "x_max": 1.252220260880817,
+          "x_min": 0.0003270993090215002,
+          "y_max": 17.16614300000001,
+          "y_min": 15.914249838428214,
+          "z_max": 3.6280155801643503,
+          "z_min": -1.0314514480855828
+        },
+        {
+          "name": "wake_refinement_region",
+          "outside_size": 5.0,
+          "size": 0.18,
+          "transition_thickness": 0.6259465807858978,
+          "x_max": 6.259792907167999,
+          "x_min": 1.252220260880817,
+          "y_max": 17.792089580785905,
+          "y_min": -17.792089580785905,
+          "z_max": 3.6280155801643503,
+          "z_min": -1.0314514480855828
+        }
+      ],
+      "wing_mesh_size": 0.12,
+      "wing_refinement_radius": 6.0
+    },
+    "node_count": 176542,
+    "production_scale_gate": {
+      "observed_to_target_ratio": 0.936017,
+      "observed_volume_elements": 936017,
+      "shortfall_volume_elements": 63983,
+      "status": "underresolved",
+      "target_volume_elements": 1000000
+    },
+    "surface_triangle_count": 4104,
+    "volume_element_count": 936017,
+    "volume_element_type_counts": {
+      "4": 936017
+    }
+  },
+  "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/mesh.su2",
+  "report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/mesh_native_faceted_su2_smoke_report.json",
+  "runtime_cfg_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/su2_runtime.cfg",
+  "schema_version": "wo006r3_mesh_handoff.v1",
+  "solver_readability_smoke": {
+    "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe",
+    "cfd_evidence_gate": {
+      "configured_max_iterations": 1000,
+      "iterative_gate_status": null,
+      "minimum_iterations": 1000,
+      "observed_final_iteration": 75,
+      "policy": "configured_solver_budget_must_allow_1000plus_iterations_for_cfd_evidence",
+      "reasons": [
+        "iterative_gate_not_pass"
+      ],
+      "status": "fail"
+    },
+    "coefficient_sanity_gate": {
+      "observed_cd": 0.09757426701,
+      "reasons": [],
+      "status": "pass"
+    },
+    "history": {
+      "final_coefficients": {
+        "cd": 0.09757426701,
+        "cl": 0.1870340475,
+        "cmx": 0.03196700543,
+        "cmy": -0.05192922785,
+        "cmz": -0.007735453777
+      },
+      "final_iteration": 75,
+      "row_count": 76
+    },
+    "history_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/history.csv",
+    "purpose": "readability smoke only; not a CFD evidence gate",
+    "returncode": null,
+    "run_status": "timeout",
+    "solver_command": [
+      "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+      "-t",
+      "4",
+      "su2_runtime.cfg"
+    ],
+    "solver_log_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/solver_readability_smoke.log"
+  },
+  "source_geometry": "output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/avl_parity/current_avl_compromise_conservative_closed/section_table.csv",
+  "verdict": "wo006r3_high_mesh_handoff_ready"
+}

@@ -36,6 +36,21 @@ def test_campaign_geometry_reuses_current_go_authority_and_bl_defaults():
     assert summary["current_go_first_layer_yplus_estimate"]["yplus_for_5e-5m"] > 0.0
 
 
+def test_current_go_surface_passes_airfoil_loop_intersection_preflight():
+    campaign = _load_campaign_module()
+    from hpa_meshing.mesh_native.wing_surface import (
+        preflight_wing_surface_airfoil_loop_intersections,
+    )
+
+    geometry = campaign.load_campaign_geometry(points_per_side=32, spanwise_subdivisions=2)
+    intersections = preflight_wing_surface_airfoil_loop_intersections(geometry.spec.wing_spec)
+
+    assert intersections == []
+    assert geometry.full_span_m == 34.332286
+    assert geometry.reference.sref_full == 33.420059598
+    assert geometry.reference.cref == 1.003721543
+
+
 def test_route_decision_matrix_records_old_serious_bl_route_as_selected_adapter():
     campaign = _load_campaign_module()
 

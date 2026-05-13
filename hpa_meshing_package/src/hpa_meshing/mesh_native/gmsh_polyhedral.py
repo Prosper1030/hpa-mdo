@@ -59,6 +59,7 @@ def write_faceted_volume_mesh(
     production_target_volume_elements: int = 1_000_000,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 10,
+    surface_triangulation_policy: str = "fixed_diagonal",
 ) -> dict[str, Any]:
     """Generate a Gmsh volume from mesh-native faceted boundary surfaces.
 
@@ -121,6 +122,8 @@ def write_faceted_volume_mesh(
         wing_surfaces = _add_mesh_surfaces(
             gmsh,
             wing.faces,
+            vertices=wing.vertices,
+            triangulation_policy=surface_triangulation_policy,
             point_tags=point_tags,
             line_cache=line_cache,
             node_offset=0,
@@ -128,6 +131,8 @@ def write_faceted_volume_mesh(
         farfield_surfaces = _add_mesh_surfaces(
             gmsh,
             farfield.faces,
+            vertices=farfield.vertices,
+            triangulation_policy=surface_triangulation_policy,
             point_tags=point_tags,
             line_cache=line_cache,
             node_offset=len(wing.vertices),
@@ -200,6 +205,7 @@ def write_faceted_volume_mesh(
                 "wing_refinement_radius": float(resolved_wing_refinement_radius),
                 "refinement_boxes": resolved_refinement_boxes,
                 "background_field": mesh_size_field,
+                "surface_triangulation_policy": surface_triangulation_policy,
             },
             "compute": thread_settings,
             "quality_metrics": quality_metrics,
@@ -310,6 +316,8 @@ def write_boundary_layer_block_core_tet_mesh(
             inner_surfaces_by_marker = _add_marked_mesh_surfaces(
                 gmsh,
                 inner_boundary.faces,
+                vertices=inner_boundary.vertices,
+                triangulation_policy="fixed_diagonal",
                 point_tags=point_tags,
                 line_cache=line_cache,
                 node_offset=0,
@@ -317,6 +325,8 @@ def write_boundary_layer_block_core_tet_mesh(
         farfield_surfaces_by_marker = _add_marked_mesh_surfaces(
             gmsh,
             farfield.faces,
+            vertices=farfield.vertices,
+            triangulation_policy="fixed_diagonal",
             point_tags=point_tags,
             line_cache=line_cache,
             node_offset=inner_point_offset,
@@ -534,6 +544,8 @@ def write_faceted_volume_mesh_with_boundary_layer(
         wing_surfaces = _add_mesh_surfaces(
             gmsh,
             wing.faces,
+            vertices=wing.vertices,
+            triangulation_policy="fixed_diagonal",
             point_tags=point_tags,
             line_cache=line_cache,
             node_offset=0,
@@ -541,6 +553,8 @@ def write_faceted_volume_mesh_with_boundary_layer(
         farfield_surfaces = _add_mesh_surfaces(
             gmsh,
             farfield.faces,
+            vertices=farfield.vertices,
+            triangulation_policy="fixed_diagonal",
             point_tags=point_tags,
             line_cache=line_cache,
             node_offset=len(wing.vertices),
@@ -714,6 +728,7 @@ def run_faceted_volume_refinement_ladder(
     refinement_boxes: Sequence[dict[str, Any]] | None = None,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 10,
+    surface_triangulation_policy: str = "shorter_diagonal",
 ) -> dict[str, Any]:
     """Run a coarse-to-fine mesh-size ladder with explicit cell-count guardrails."""
     if target_volume_elements <= 0:
@@ -750,6 +765,7 @@ def run_faceted_volume_refinement_ladder(
             production_target_volume_elements=target_volume_elements,
             gmsh_threads=gmsh_threads,
             mesh_algorithm3d=mesh_algorithm3d,
+            surface_triangulation_policy=surface_triangulation_policy,
         )
         case_report = {
             **mesh_report,
@@ -828,6 +844,7 @@ def write_faceted_volume_su2_case(
     refinement_boxes: Sequence[dict[str, Any]] | None = None,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 10,
+    surface_triangulation_policy: str = "shorter_diagonal",
 ) -> dict[str, Any]:
     if ref_area <= 0.0:
         raise ValueError("ref_area must be positive")
@@ -855,6 +872,7 @@ def write_faceted_volume_su2_case(
         refinement_boxes=refinement_boxes,
         gmsh_threads=gmsh_threads,
         mesh_algorithm3d=mesh_algorithm3d,
+        surface_triangulation_policy=surface_triangulation_policy,
     )
     runtime_cfg_path.write_text(
         _smoke_cfg_text(
@@ -919,6 +937,7 @@ def write_faceted_volume_su2_case(
             "output_files": list(output_files),
             "gmsh_threads": int(max(1, gmsh_threads)),
             "mesh_algorithm3d": int(mesh_algorithm3d),
+            "surface_triangulation_policy": surface_triangulation_policy,
         },
         "caveats": [
             *mesh_report["caveats"],
@@ -1462,13 +1481,19 @@ def _add_mesh_surfaces(
     gmsh,
     faces: list[Face],
     *,
+    vertices: Sequence[tuple[float, float, float]],
+    triangulation_policy: str,
     point_tags: list[int],
     line_cache: dict[tuple[int, int], tuple[int, int, int]],
     node_offset: int,
 ) -> list[int]:
     surfaces: list[int] = []
     for face in faces:
-        for triangle in _triangulate(face):
+        for triangle in _triangulate(
+            face,
+            vertices=vertices,
+            triangulation_policy=triangulation_policy,
+        ):
             shifted = tuple(node + node_offset for node in triangle)
             curve_loop = gmsh.model.geo.addCurveLoop(
                 [
@@ -1485,13 +1510,19 @@ def _add_marked_mesh_surfaces(
     gmsh,
     faces: list[Face],
     *,
+    vertices: Sequence[tuple[float, float, float]],
+    triangulation_policy: str,
     point_tags: list[int],
     line_cache: dict[tuple[int, int], tuple[int, int, int]],
     node_offset: int,
 ) -> dict[str, list[int]]:
     surfaces_by_marker: dict[str, list[int]] = {}
     for face in faces:
-        for triangle in _triangulate(face):
+        for triangle in _triangulate(
+            face,
+            vertices=vertices,
+            triangulation_policy=triangulation_policy,
+        ):
             shifted = tuple(node + node_offset for node in triangle)
             curve_loop = gmsh.model.geo.addCurveLoop(
                 [
@@ -1736,16 +1767,42 @@ def _bl_block_coupling_report(
     }
 
 
-def _triangulate(face: Face) -> list[tuple[int, int, int]]:
+def _triangulate(
+    face: Face,
+    *,
+    vertices: Sequence[tuple[float, float, float]] | None = None,
+    triangulation_policy: str = "fixed_diagonal",
+) -> list[tuple[int, int, int]]:
     nodes = tuple(face.nodes)
     if len(nodes) == 3:
         return [nodes]
     if len(nodes) == 4:
+        if triangulation_policy not in {"fixed_diagonal", "shorter_diagonal"}:
+            raise ValueError(f"Unsupported triangulation policy: {triangulation_policy}")
+        if triangulation_policy == "shorter_diagonal" and vertices is not None:
+            diag_02 = _distance_3d(vertices[nodes[0]], vertices[nodes[2]])
+            diag_13 = _distance_3d(vertices[nodes[1]], vertices[nodes[3]])
+            if diag_13 < diag_02:
+                return [
+                    (nodes[0], nodes[1], nodes[3]),
+                    (nodes[1], nodes[2], nodes[3]),
+                ]
         return [
             (nodes[0], nodes[1], nodes[2]),
             (nodes[0], nodes[2], nodes[3]),
         ]
     raise ValueError("Only triangle and quad faces can be converted to plane surfaces")
+
+
+def _distance_3d(
+    left: tuple[float, float, float],
+    right: tuple[float, float, float],
+) -> float:
+    return math.sqrt(
+        (left[0] - right[0]) ** 2
+        + (left[1] - right[1]) ** 2
+        + (left[2] - right[2]) ** 2
+    )
 
 
 def _line_between(

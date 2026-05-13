@@ -40,6 +40,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   high-mesh no-BL control 也在 surface topology 擋住，所以目前沒有可解讀 SU2 coefficient、
   沒有 Baseline A reopen evidence；下一步必須在 data-authority checker 仍為 prerequisite
   的條件下，定位並修 current GO surface panel / section-transition topology，不能改外形來繞過。
+- WO-006R3 current GO surface-topology repair campaign 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/`，
+  verdict 是 `wo006r3_high_mesh_handoff_ready`。它修正 DAE31 near-TE airfoil-loop ordering，
+  新增 same-station loop preflight，並把 shorter panel diagonalization 限定在 no-BL faceted
+  SU2 handoff route；current-GO no-BL `wing_h=0.12 m` mesh 目前有 `936,017` volume cells、
+  marker audit pass，SU2 readability smoke 到 iteration 75。這是 serious high-mesh no-BL
+  handoff，不是 BL/y+ viscous handoff；BL/HXT 仍卡在 DAE31-family PLC segment/facet
+  intersections，CFD evidence gate 仍 fail，所以沒有可解讀 SU2 coefficient、沒有 Baseline A
+  reopen evidence。
 - WO-007 QPROP/XROTOR 不能混入 structural blocker verdict。
 - P1/C04 是 coupon/local FEM readiness，screening result 不是 final aircraft sign-off。
 

@@ -1,0 +1,59 @@
+{
+  "adapter_surface_canonicalized": true,
+  "baseline_a_reopen_status": "not_evaluated",
+  "coefficient_interpretable": false,
+  "current_authority": {
+    "authority_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/data_authority_table.csv",
+    "bref_m": 34.332286,
+    "cref_m": 1.003721543,
+    "design_gross_mass_kg": 98.5,
+    "moment_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "pipeline_full_span_m": 34.332286,
+    "pipeline_half_span_m": 17.166143,
+    "sref_m2": 33.420059598
+  },
+  "engineering_caveats": [
+    "The high-mesh handoff is no-BL tetra only; it is not drag evidence.",
+    "BL/HXT remains blocked by DAE31-family surface topology/curve ownership.",
+    "A mesh pass and 75-iteration SU2 readability smoke do not satisfy the CFD evidence gate.",
+    "No Baseline A release, RFQ/procurement, or final aircraft sign-off is implied."
+  ],
+  "external_authority_data_changed": false,
+  "final_policy_campaign_verdict_from_r2_driver": "wo006r2_bl_topology_blocker_isolated",
+  "old_wo006r2_blockers_reproduced": false,
+  "remaining_blockers": [
+    {
+      "blocker": "HXT 3D mesh failed: PLC segment/facet intersection",
+      "evidence": "x=1.14443 y=-3.66499 z=0.0934631; section bracket 1-2; dae31->dae31",
+      "next_fix": "dedicated BL surface/curve ownership repair or surface-wide segment/facet preflight, without changing external authority data",
+      "stage": "final_policy_campaign_attempt_01_bl_0p20",
+      "status": "blocked"
+    },
+    {
+      "blocker": "HXT 3D mesh failed: PLC segment/facet intersection",
+      "evidence": "x=0.897016 y=-10.6883 z=0.857425; section bracket 3-4; dae31->dae31",
+      "next_fix": "dedicated BL topology repair; coarsening BL from 0.20 m to 0.25 m is insufficient",
+      "stage": "final_policy_campaign_attempt_02_bl_0p25",
+      "status": "blocked"
+    }
+  ],
+  "schema_version": "wo006r3_final_engineering_verdict.v1",
+  "serious_handoff": {
+    "bl_handoff_ready": false,
+    "handoff_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/mesh_handoff.v1.json",
+    "high_mesh_no_bl_handoff_ready": true,
+    "node_count": 176542,
+    "su2_readability_smoke": {
+      "cfd_evidence_gate": "fail",
+      "final_iteration": 75,
+      "history_rows": 76,
+      "run_status": "timeout"
+    },
+    "volume_element_count": 936017
+  },
+  "verdict": "wo006r3_high_mesh_handoff_ready"
+}

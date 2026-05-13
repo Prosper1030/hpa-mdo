@@ -1,0 +1,41 @@
+{
+  "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe",
+  "solver_command": [
+    "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+    "-t",
+    "4",
+    "su2_runtime.cfg"
+  ],
+  "purpose": "readability smoke only; not a CFD evidence gate",
+  "run_status": "timeout",
+  "returncode": null,
+  "history_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/history.csv",
+  "history": {
+    "row_count": 76,
+    "final_iteration": 75,
+    "final_coefficients": {
+      "cl": 0.1870340475,
+      "cd": 0.09757426701,
+      "cmx": 0.03196700543,
+      "cmy": -0.05192922785,
+      "cmz": -0.007735453777
+    }
+  },
+  "coefficient_sanity_gate": {
+    "status": "pass",
+    "reasons": [],
+    "observed_cd": 0.09757426701
+  },
+  "cfd_evidence_gate": {
+    "status": "fail",
+    "minimum_iterations": 1000,
+    "configured_max_iterations": 1000,
+    "observed_final_iteration": 75,
+    "iterative_gate_status": null,
+    "reasons": [
+      "iterative_gate_not_pass"
+    ],
+    "policy": "configured_solver_budget_must_allow_1000plus_iterations_for_cfd_evidence"
+  },
+  "solver_log_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/high_mesh_no_bl_wing_h_0p12_probe/solver_readability_smoke.log"
+}
