@@ -181,6 +181,20 @@ screening evidence 讀，不是現行 release / procurement truth。
   `localize_and_close_remaining_mixed_su2_boundary_leaks_before_solver`。這代表 writer
   路線已活、BL first-layer 估算仍是 `y+≈1.04` 量級，但仍不能跑 medium/fine solver
   ladder，也不能解讀 Baseline A CL/CD/Cm。
+- WO-006R26 已把 R25 剩餘 `68` 個 unmarked exterior volume faces 做成 marker
+  ownership localization / repair-plan artifact：
+  `wo006r26_remaining_boundary_leak_localization_probe/`。實跑結果沒有 unclassified
+  face，總 unmarked area `0.075898249 m^2`；adjacent source 是
+  `loop_cap_owner_pyramid_tet_split=64`、`core_tet_mesh=2`、
+  `culled_global_star_near_wall=2`，幾何分類是
+  `loop_cap_owner_pyramid_exterior=60`、`loop_cap_physical_wall_edge_closure=4`、
+  `candidate_wake_edge_receiver_boundary=2`、`core_wake_edge_receiver_boundary=2`。
+  repair plan 是只把這些已定位的 solid closure faces 補到 `wing_wall`。WO-006I
+  preflight 現在會把 active blocker 推進成
+  `near_wall_mixed_su2_boundary_marker_repair_not_applied`，並把舊 direct-stageback PLC
+  blocker 視為已由 core/mixed route supersede。下一步是把 R26 repair 寫回 mixed SU2
+  writer 並重跑 marker/quality audit；在 audit pass 前仍不能跑 medium/fine solver ladder
+  或解讀 Baseline A CL/CD/Cm。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；

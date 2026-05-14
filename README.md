@@ -166,6 +166,27 @@ marker，剩餘 unmarked area 約 `0.0759 m^2`。它們集中在 loop-cap fan / 
 recommended repair 是 `localize_and_close_remaining_mixed_su2_boundary_leaks_before_solver`。
 在這個 gate 過之前，不應該跑 Baseline A medium/fine SU2。
 
+## 2026-05-14 WO-006R26 Remaining Boundary Leak Localization Probe
+
+`scripts/probe_wo006r26_remaining_boundary_leak_localization.py` 接在 R25 後面，
+把最後 `68` 個 unmarked exterior volume faces 做成可審核的 marker ownership repair
+plan，而不是直接把它們硬塞進 SU2 solver。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r26_remaining_boundary_leak_localization_probe/`。
+
+實跑結果：`68` 張外露 face 全部被分類，沒有 unclassified face；總面積
+`0.075898249 m^2`，bounds 約 `x=0.000327-0.656936 m`、
+`y=±17.202316 m`、`z=2.597441-2.689000 m`。依 adjacent source 分成
+`loop_cap_owner_pyramid_tet_split=64`、`core_tet_mesh=2`、
+`culled_global_star_near_wall=2`；依幾何 ownership 分成
+`loop_cap_owner_pyramid_exterior=60`、`loop_cap_physical_wall_edge_closure=4`、
+`candidate_wake_edge_receiver_boundary=2`、`core_wake_edge_receiver_boundary=2`。
+repair plan 狀態是 `repair_plan_ready`，只允許把這些已定位的 solid closure faces 補到
+`wing_wall`。
+
+工程判讀：這把 R25 的 marker blocker 從「還有外露面，不可跑 solver」推進成
+「可套用的 bounded marker repair plan」。但 repair 尚未寫回 mixed SU2 writer，marker
+audit 也尚未 pass，所以仍不能跑 medium/fine CFD ladder，也不能解讀 Baseline A CL/CD/Cm。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

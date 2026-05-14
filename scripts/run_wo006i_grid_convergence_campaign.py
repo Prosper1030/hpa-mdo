@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r26_remaining_boundary_leak_localization_probe" / "summary.json",
     WO006_ROOT / "wo006r25_culled_mixed_su2_handoff_probe" / "summary.json",
     WO006_ROOT / "wo006r24_degenerate_cull_handoff_basis_probe" / "summary.json",
     WO006_ROOT / "wo006r22_global_star_split_basis_probe" / "summary.json",
@@ -380,6 +381,8 @@ def evaluate_cfd_setup_gate(
         blockers.append("near_wall_merged_mesh_handoff_missing")
     if core_closure_topology["status"] == "handoff_mixed_su2_marker_or_quality_blocked":
         blockers.append("near_wall_mixed_su2_boundary_marker_blocked")
+    if core_closure_topology["status"] == "handoff_mixed_su2_marker_repair_plan_ready":
+        blockers.append("near_wall_mixed_su2_boundary_marker_repair_not_applied")
     if core_closure_topology["status"] == "handoff_global_star_split_degenerate_reduction_required":
         blockers.append("near_wall_global_star_split_degenerate_cells")
     if core_closure_topology["status"] == "handoff_global_star_split_basis_blocked":
@@ -437,6 +440,7 @@ def _core_route_supersedes_direct_stageback(
             "handoff_global_star_split_basis_ready_mixed_mesh_pending",
             "handoff_degenerate_cull_basis_ready_mixed_mesh_pending",
             "handoff_mixed_su2_marker_or_quality_blocked",
+            "handoff_mixed_su2_marker_repair_plan_ready",
             "handoff_mixed_su2_ready_solver_ladder_pending",
             "handoff_global_star_split_degenerate_reduction_required",
             "handoff_global_star_split_basis_blocked",
@@ -1266,6 +1270,8 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    mixed_marker_repair_record: dict[str, Any] | None = None
+    mixed_marker_repair_ready = False
     mixed_handoff_record: dict[str, Any] | None = None
     mixed_handoff_blocked = False
     mixed_handoff_ready = False
@@ -1292,6 +1298,39 @@ def _core_closure_topology_summary(
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        marker_repair_plan = artifact.get("boundary_marker_repair_plan") or {}
+        if marker_repair_plan:
+            plan_status = str(marker_repair_plan.get("status") or "")
+            target_marker = str(marker_repair_plan.get("target_marker") or "")
+            leak_count = int(artifact.get("leak_count") or 0)
+            plan_face_count = int(marker_repair_plan.get("face_count") or 0)
+            mixed_marker_repair_ready = (
+                plan_status == "repair_plan_ready"
+                and target_marker == "wing_wall"
+                and leak_count > 0
+                and plan_face_count == leak_count
+            )
+            mixed_marker_repair_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": plan_status,
+                "target_marker": target_marker,
+                "face_count": plan_face_count,
+                "leak_count": leak_count,
+                "area_m2": marker_repair_plan.get("area_m2"),
+                "total_unmarked_area_m2": artifact.get("total_unmarked_area_m2"),
+                "leak_counts_by_adjacent_source": artifact.get(
+                    "leak_counts_by_adjacent_source"
+                ),
+                "leak_counts_by_classification": artifact.get(
+                    "leak_counts_by_classification"
+                ),
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(mixed_marker_repair_record)
+            continue
+
         mixed_handoff = artifact.get("mixed_su2_handoff") or {}
         if mixed_handoff:
             boundary_audit = artifact.get("volume_boundary_marker_audit") or {}
@@ -1824,6 +1863,8 @@ def _core_closure_topology_summary(
     )
     if mixed_handoff_ready:
         status = "handoff_mixed_su2_ready_solver_ladder_pending"
+    elif mixed_marker_repair_ready:
+        status = "handoff_mixed_su2_marker_repair_plan_ready"
     elif mixed_handoff_blocked:
         status = "handoff_mixed_su2_marker_or_quality_blocked"
     elif degenerate_cull_ready:
@@ -1931,6 +1972,26 @@ def _core_closure_topology_summary(
                     "unmarked exterior faces. Do not run SU2 until every exterior "
                     "face has explicit physical ownership and the config wall/farfield "
                     "markers match the mesh."
+                ),
+            }
+        )
+    elif status == "handoff_mixed_su2_marker_repair_plan_ready":
+        result.update(
+            {
+                "blocker": "near_wall_mixed_su2_boundary_marker_repair_not_applied",
+                "mixed_su2_handoff": mixed_handoff_record,
+                "boundary_marker_repair_plan": mixed_marker_repair_record,
+                "recommended_repair": (
+                    "apply_r26_boundary_marker_repair_to_mixed_su2_writer_then_"
+                    "rerun_marker_audit"
+                ),
+                "engineering_read": (
+                    "The latest R26 localization classified every remaining R25 "
+                    "unmarked exterior face as loop-cap / physical-wall-edge / "
+                    "wake-edge solid closure and produced a bounded wing_wall "
+                    "marker repair plan. Do not run SU2 until that repair is "
+                    "applied in the writer and the mixed-mesh boundary marker "
+                    "audit passes."
                 ),
             }
         )

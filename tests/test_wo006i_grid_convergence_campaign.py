@@ -1455,6 +1455,100 @@ def test_setup_gate_r25_mixed_handoff_boundary_leak_blocks_solver() -> None:
     )
 
 
+def test_setup_gate_r26_marker_repair_plan_supersedes_generic_r25_blocker() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        direct_stageback_artifacts=[
+            {
+                "schema_version": "wo006m_narrow_stageback_mesh_probe.v1",
+                "status": "failed",
+                "failure_code": "RuntimeError",
+                "diagnostic": {
+                    "diagnostic_family": "stageback_plc_segment_facet_intersection"
+                },
+            }
+        ],
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r26_remaining_boundary_leak_localization_probe.v1",
+                "verdict": "remaining_boundary_leaks_localized_repair_plan_ready",
+                "leak_count": 68,
+                "total_unmarked_area_m2": 0.0759,
+                "leak_counts_by_adjacent_source": {
+                    "loop_cap_owner_pyramid_tet_split": 64,
+                    "core_tet_mesh": 2,
+                    "culled_global_star_near_wall": 2,
+                },
+                "leak_counts_by_classification": {
+                    "loop_cap_owner_pyramid_exterior": 60,
+                    "loop_cap_physical_wall_edge_closure": 4,
+                    "candidate_wake_edge_receiver_boundary": 2,
+                    "core_wake_edge_receiver_boundary": 2,
+                },
+                "boundary_marker_repair_plan": {
+                    "status": "repair_plan_ready",
+                    "target_marker": "wing_wall",
+                    "face_count": 68,
+                    "area_m2": 0.0759,
+                },
+            },
+            {
+                "schema_version": "wo006r25_culled_mixed_su2_handoff_probe.v1",
+                "verdict": "mixed_su2_handoff_marker_or_quality_blocked",
+                "mixed_su2_handoff": {
+                    "status": "mixed_su2_handoff_written",
+                    "mesh_path": "/tmp/culled_global_star_mixed_handoff.su2",
+                    "node_count": 56873,
+                    "volume_element_count": 332221,
+                    "volume_element_type_counts": {"10": 332221},
+                    "marker_counts": {"wing_wall": 1924, "farfield": 2366},
+                },
+                "volume_boundary_marker_audit": {
+                    "status": "fail",
+                    "unmarked_boundary_face_count": 68,
+                    "unmarked_boundary_area_m2": 0.0759,
+                    "extra_marker_face_count": 0,
+                },
+                "mixed_mesh_quality": {
+                    "status": "pass",
+                    "non_positive_volume_count": 0,
+                },
+            },
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert (
+        result["core_closure_topology"]["status"]
+        == "handoff_mixed_su2_marker_repair_plan_ready"
+    )
+    assert "near_wall_mixed_su2_boundary_marker_repair_not_applied" in result["blockers"]
+    assert "near_wall_mixed_su2_boundary_marker_blocked" not in result["blockers"]
+    assert "direct_stageback_topology_plc_segment_facet" not in result["blockers"]
+    assert result["stageback_topology"]["status"] == "superseded_by_core_mesh_route"
+    assert (
+        result["core_closure_topology"]["recommended_repair"]
+        == "apply_r26_boundary_marker_repair_to_mixed_su2_writer_then_rerun_marker_audit"
+    )
+    plan = result["core_closure_topology"]["boundary_marker_repair_plan"]
+    assert plan["target_marker"] == "wing_wall"
+    assert plan["face_count"] == 68
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"
