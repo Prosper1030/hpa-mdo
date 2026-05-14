@@ -1240,6 +1240,96 @@ def run_phase3_closed_wall_wrapper_layer_window_probe(
     return report
 
 
+def run_phase3_closed_wall_te_stageback_layer_probe(
+    section_table_path: Path | str,
+    output_dir: Path | str,
+    *,
+    points_per_side: int = 42,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    full_wall_layers: int = 16,
+    cap_layers: int = 6,
+    stageback_segments: Sequence[int] = (0, 4, 6, 8),
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+) -> dict[str, Any]:
+    """Probe whether TE/aft BL stageback reduces closed-wrapper prism inversion."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    points_per_station = int(surface.metadata["points_per_station"])
+
+    rows: list[dict[str, Any]] = []
+    for stageback_segment_count in stageback_segments:
+        stageback_count = int(stageback_segment_count)
+        triangle_layer_counts: list[int] = []
+        stageback_primary_triangle_count = 0
+        cap_triangle_count = 0
+        for triangle, marker in wall_triangles:
+            if marker in DIAGNOSTIC_FORCE_MARKERS:
+                triangle_layer_counts.append(int(cap_layers))
+                cap_triangle_count += 1
+                continue
+            if marker in PRIMARY_FORCE_MARKERS and _triangle_touches_te_stageback_band(
+                triangle,
+                points_per_station=points_per_station,
+                stageback_segments=stageback_count,
+            ):
+                triangle_layer_counts.append(int(cap_layers))
+                stageback_primary_triangle_count += 1
+                continue
+            triangle_layer_counts.append(int(full_wall_layers))
+
+        volume = _direct_surface_prism_volume(
+            surface.vertices,
+            wall_triangles,
+            first_layer_height_m=first_layer_height_m,
+            growth_ratio=growth_ratio,
+            bl_layers=int(full_wall_layers),
+            triangle_layer_counts=triangle_layer_counts,
+        )
+        quality = _direct_prism_quality_metrics(volume)
+        rows.append(
+            {
+                "stageback_segments": stageback_count,
+                "full_wall_layers": int(full_wall_layers),
+                "cap_layers": int(cap_layers),
+                "stageback_primary_triangle_count": stageback_primary_triangle_count,
+                "cap_triangle_count": cap_triangle_count,
+                "boundary_layer_cell_count": len(volume["elements"]),
+                "direct_prism_quality": quality,
+                "direct_prism_quality_gate": _direct_prism_quality_gate(quality),
+            }
+        )
+
+    report = {
+        "route": "canonical_hybrid_halfwing_closed_wall_te_stageback_layer_probe",
+        "status": "closed_wall_te_stageback_probe_completed",
+        "case_dir": str(output_path),
+        "surface": {
+            "marker_counts": surface.marker_counts(),
+            "metadata": surface.metadata,
+        },
+        "rows": rows,
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "TE/aft stageback signed-volume diagnostic only. A positive row "
+                "still needs an explicit termination/collar topology, dual-quality "
+                "scan, and pressure sanity before any RANS route-smoke."
+            ),
+        },
+    }
+    report_path = output_path / "closed_wall_te_stageback_layer_report.json"
+    report["report_path"] = str(report_path)
+    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    return report
+
+
 def run_phase3_partial_wing_cap_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,
@@ -3109,8 +3199,21 @@ def _direct_surface_prism_volume(
     growth_ratio: float,
     bl_layers: int,
     edge_marker_map: Mapping[tuple[int, int], str] | None = None,
+    triangle_layer_counts: Sequence[int] | None = None,
 ) -> dict[str, Any]:
-    heights = [0.0, *_layer_cumulative_heights(first_layer_height_m, growth_ratio, bl_layers)]
+    if triangle_layer_counts is None:
+        effective_layer_counts = [int(bl_layers)] * len(triangles)
+    else:
+        if len(triangle_layer_counts) != len(triangles):
+            raise ValueError("triangle_layer_counts length must match triangles")
+        effective_layer_counts = [int(count) for count in triangle_layer_counts]
+    if any(count <= 0 for count in effective_layer_counts):
+        raise ValueError("all triangle layer counts must be positive")
+    max_layer_count = max(effective_layer_counts) if effective_layer_counts else int(bl_layers)
+    heights = [
+        0.0,
+        *_layer_cumulative_heights(first_layer_height_m, growth_ratio, max_layer_count),
+    ]
     normals = _surface_vertex_normals(base_vertices, [triangle for triangle, _ in triangles])
     base_count = len(base_vertices)
     nodes = [
@@ -3143,8 +3246,11 @@ def _direct_surface_prism_volume(
         )
         record["count"] = int(record["count"]) + 1
 
-    for layer in range(bl_layers):
-        for triangle, marker in triangles:
+    for layer in range(max_layer_count):
+        for triangle_index, (triangle, marker) in enumerate(triangles):
+            triangle_layers = effective_layer_counts[triangle_index]
+            if layer >= triangle_layers:
+                continue
             a, b, c = triangle
             prism = (
                 node(layer + 1, a),
@@ -3159,6 +3265,7 @@ def _direct_surface_prism_volume(
                 {
                     "marker": str(marker),
                     "layer": int(layer),
+                    "layer_count": int(triangle_layers),
                     "base_triangle": [int(a), int(b), int(c)],
                 }
             )
@@ -3166,7 +3273,7 @@ def _direct_surface_prism_volume(
             add_face(
                 (prism[0], prism[2], prism[1]),
                 SU2_TRIANGLE,
-                "bl_outer_interface" if layer == bl_layers - 1 else "_internal_bl_layer",
+                "bl_outer_interface" if layer == triangle_layers - 1 else "_internal_bl_layer",
             )
             add_face(
                 (prism[0], prism[3], prism[4], prism[1]),
@@ -3503,6 +3610,24 @@ def _direct_prism_side_marker(
     if edge_marker_map and key in edge_marker_map:
         return edge_marker_map[key]
     return source_marker
+
+
+def _triangle_touches_te_stageback_band(
+    triangle: Sequence[int],
+    *,
+    points_per_station: int,
+    stageback_segments: int,
+) -> bool:
+    if stageback_segments <= 0:
+        return False
+    segment_count = int(stageback_segments)
+    station_points = int(points_per_station)
+    local_indices = [int(node) % station_points for node in triangle]
+    return any(
+        local_index < segment_count
+        or local_index >= station_points - segment_count
+        for local_index in local_indices
+    )
 
 
 def _surface_vertex_normals(

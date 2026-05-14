@@ -427,6 +427,38 @@ def test_closed_wall_wrapper_layer_window_probe_records_no_viable_pps42_window(
     assert Path(report["report_path"]).exists()
 
 
+def test_closed_wall_te_stageback_probe_reduces_aft_prism_inversion(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_closed_wall_te_stageback_layer_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "closed_wall_te_stageback",
+        points_per_side=42,
+        spanwise_subdivisions=4,
+        full_wall_layers=16,
+        cap_layers=6,
+        stageback_segments=(0, 6),
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+    )
+
+    by_stageback = {row["stageback_segments"]: row for row in report["rows"]}
+
+    assert report["status"] == "closed_wall_te_stageback_probe_completed"
+    assert by_stageback[0]["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] > 0
+    assert (
+        by_stageback[6]["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"]
+        < by_stageback[0]["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"]
+    )
+    assert by_stageback[6]["direct_prism_quality_gate"]["status"] == "pass"
+    assert by_stageback[6]["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] == 0
+    assert by_stageback[6]["stageback_primary_triangle_count"] > 0
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+    assert Path(report["report_path"]).exists()
+
+
 def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
     tmp_path: Path,
 ) -> None:

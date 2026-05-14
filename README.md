@@ -179,6 +179,15 @@ signed volume gate pass，但這些薄層先前 dual proxy 仍是 `~1e10` 量級
 工程邊界：沒有簡單的 pps42 closed-wall layer count 同時滿足「足夠厚以隔離 core
 dual-volume」與「cap/TE prism 不翻轉」。下一步不能只縮 layers 或直接重跑 RANS；要處理
 TE/aft cap 的 BL termination / smoothed cap extrusion / transition-buffer topology。
+第一個 TE-stageback signed-volume probe 已產生：
+`closed_wall_te_stageback_pps42_l16_cap6/`。它保留 `points_per_side=42`、main
+wing wall `16` layers，但把 diagnostic cap/TE/tip/closure 與 TE 附近 primary triangles
+限制在 `6` layers；`stageback_segments=0` 時仍有 `124` 個 `wing_upper`
+non-positive prisms，而 `stageback_segments=2/4/6/8/10` 全部讓 prism signed-volume
+gate pass、non-positive count `0`。工程判讀：TE/aft stageback 是目前最有希望的
+closed-wrapper修正方向；但這只是 signed-volume diagnostic，還需要 explicit
+termination/collar sidewall、SU2-style dual proxy 與 pressure-only CD sanity 才能變成
+route-smoke candidate。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
