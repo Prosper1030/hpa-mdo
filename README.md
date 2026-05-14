@@ -75,6 +75,26 @@ core closure 推進到 `handoff_repair_basis_ready_mixed_mesh_pending`，active 
 `near_wall_merged_mesh_handoff_missing`；下一步是寫出 marker/quality-gated mixed BL+core
 SU2 handoff 並做 y+ probe，而不是直接跑 medium/fine solver。
 
+## 2026-05-14 WO-006R21 Split Assembly Conformality Probe
+
+`scripts/probe_wo006r21_split_assembly_conformality.py` 檢查 R17/R19/R20 的 local repair
+basis 能不能直接組成全域 conformal near-wall split volume。這一步是 mixed BL+core SU2
+writer 前的 topology gate：不是看單一 core-facing face 有沒有 match，而是把 candidate cells
+依目前 selected tet/prism pattern split 後，檢查 cell-to-cell internal faces 是否還有 unmatched
+triangles 或 non-manifold faces。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r21_split_assembly_conformality_probe/`。
+
+實跑結果：candidate cells `26880` 會被拆成 `161280` 個 local split volume elements；
+R17 selected core-facing cells `2638`。目前 assembly 不是 conformal：有 `7960` 個 internal
+split leak faces，另有 `64` 個 non-manifold split faces。這代表 R17 的 per-cell best pattern
+不能直接拿去寫 final mixed mesh；否則 SU2 會看到不合法的內部拓樸，而不是可解讀的 BL CFD。
+
+工程邊界：R21 把下一步收斂成全域 conformal split assignment 問題。WO-006I
+data-authority-restored preflight 現在的 active blocker 是
+`near_wall_split_assembly_internal_nonconformal`，mesh repair target 是
+`solve_global_conformal_near_wall_split_assignment_before_mixed_mesh_writer`。在這個 gate
+過之前，不應該跑 medium/fine SU2，也不應該宣稱 Baseline A CL/CD/Cm。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

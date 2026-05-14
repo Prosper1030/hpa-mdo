@@ -1172,6 +1172,97 @@ def test_setup_gate_r20_star_tessellation_keeps_solver_blocked_until_mixed_mesh(
     assert star["remaining_r17_residuals_after_r19_r20"] == {}
 
 
+def test_setup_gate_r21_split_assembly_refines_writer_blocker() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r21_split_assembly_conformality_probe.v1",
+                "verdict": "split_assembly_internal_nonconformal",
+                "split_assembly_conformality": {
+                    "status": "split_assembly_internal_nonconformal",
+                    "candidate_cell_count": 26880,
+                    "volume_element_count": 161280,
+                    "internal_split_leak_face_count": 7960,
+                    "nonmanifold_split_face_count": 64,
+                },
+            },
+            {
+                "schema_version": "wo006r20_left_tip_star_tessellation_probe.v1",
+                "verdict": "left_tip_star_tessellation_match_mixed_mesh_still_missing",
+                "left_tip_star_tessellation": {
+                    "status": "left_tip_star_tessellation_match",
+                    "target_cell_count": 2,
+                    "target_triangle_count": 12,
+                    "matched_target_triangle_count": 12,
+                    "non_positive_star_tet_count": 0,
+                    "remaining_r17_residuals_after_r19_r20": {},
+                },
+            },
+            {
+                "schema_version": "wo006r19_loop_cap_owner_pyramid_probe.v1",
+                "verdict": "loop_cap_owner_pyramids_match_tip_split_still_blocked",
+                "loop_cap_owner_pyramid": {
+                    "status": "loop_cap_owner_pyramids_match",
+                    "owner_pyramid_cell_count": 60,
+                    "physical_wall_edge_receiver_face_count": 60,
+                    "matched_core_wall_loop_cap_triangle_count": 60,
+                    "core_wall_loop_cap_triangle_count": 60,
+                    "non_positive_owner_pyramid_volume_count": 0,
+                    "remaining_hybrid_residuals_by_marker": {
+                        "core_tip_receiver_outer": 4,
+                        "wake_edge_receiver": 4,
+                    },
+                },
+            },
+            {
+                "schema_version": "wo006r17_hybrid_tet_prism_split_probe.v1",
+                "verdict": "hybrid_tet_prism_handoff_blocked",
+                "merged_handoff_status": "blocked_by_unowned_core_interface_triangles",
+                "hybrid_split_compatibility": {
+                    "status": "blocked_by_unowned_core_interface_triangles",
+                    "matched_core_triangle_count": 5590,
+                    "core_triangle_count": 5658,
+                    "unowned_core_triangles_by_marker": {"core_wall_loop_cap": 60},
+                    "incompatible_owned_core_triangles_by_marker": {
+                        "core_tip_receiver_outer": 4,
+                        "wake_edge_receiver": 4,
+                    },
+                },
+            },
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert (
+        result["core_closure_topology"]["status"]
+        == "handoff_split_assembly_internal_nonconformal"
+    )
+    assert "near_wall_split_assembly_internal_nonconformal" in result["blockers"]
+    assert (
+        result["core_closure_topology"]["recommended_repair"]
+        == "solve_global_conformal_near_wall_split_assignment_before_mixed_mesh_writer"
+    )
+    split = result["core_closure_topology"]["split_assembly_conformality"]
+    assert split["schema_version"] == "wo006r21_split_assembly_conformality_probe.v1"
+    assert split["internal_split_leak_face_count"] == 7960
+    assert split["nonmanifold_split_face_count"] == 64
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

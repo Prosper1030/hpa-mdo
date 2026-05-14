@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r21_split_assembly_conformality_probe" / "summary.json",
     WO006_ROOT / "wo006r20_left_tip_star_tessellation_probe" / "summary.json",
     WO006_ROOT / "wo006r19_loop_cap_owner_pyramid_probe" / "summary.json",
     WO006_ROOT / "wo006r18_handoff_residual_localization_probe" / "summary.json",
@@ -370,6 +371,8 @@ def evaluate_cfd_setup_gate(
         blockers.append("near_wall_merged_mesh_handoff_missing")
     if core_closure_topology["status"] == "handoff_repair_basis_ready_mixed_mesh_pending":
         blockers.append("near_wall_merged_mesh_handoff_missing")
+    if core_closure_topology["status"] == "handoff_split_assembly_internal_nonconformal":
+        blockers.append("near_wall_split_assembly_internal_nonconformal")
     if core_closure_topology["status"] == "blocked" and core_closure_topology.get(
         "wall_edge_gap_status"
     ) == ("blocked_by_physical_wall_edge_dependency"):
@@ -416,6 +419,7 @@ def _core_route_supersedes_direct_stageback(
             "handoff_prism_split_blocked",
             "core_mesh_ready_handoff_pending",
             "handoff_repair_basis_ready_mixed_mesh_pending",
+            "handoff_split_assembly_internal_nonconformal",
             "pass",
         }
     )
@@ -925,6 +929,9 @@ def render_report(summary: Mapping[str, Any]) -> str:
     left_tip_star_tessellation = (
         core_closure_topology.get("left_tip_star_tessellation") or {}
     )
+    split_assembly_conformality = (
+        core_closure_topology.get("split_assembly_conformality") or {}
+    )
     lines = [
         "# WO-006I Baseline A Main-Wing CFD Grid-Convergence Campaign",
         "",
@@ -954,6 +961,7 @@ def render_report(summary: Mapping[str, Any]) -> str:
         f"- R19 loop-cap owner pyramids: `{loop_cap_owner_pyramid.get('matched_core_wall_loop_cap_triangle_count')}` / `{loop_cap_owner_pyramid.get('core_wall_loop_cap_triangle_count')}`",
         f"- R20 left-tip star target triangles: `{left_tip_star_tessellation.get('matched_target_triangle_count')}` / `{left_tip_star_tessellation.get('target_triangle_count')}`",
         f"- R20 non-positive star tets: `{left_tip_star_tessellation.get('non_positive_star_tet_count')}`",
+        f"- R21 internal split leaks / non-manifold split faces: `{split_assembly_conformality.get('internal_split_leak_face_count')}` / `{split_assembly_conformality.get('nonmanifold_split_face_count')}`",
         f"- engineering read: `{setup_gate.get('engineering_read')}`",
         "",
         "## Physics Setup",
@@ -1227,6 +1235,8 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    split_assembly_record: dict[str, Any] | None = None
+    split_assembly_blocked = False
     left_tip_star_record: dict[str, Any] | None = None
     left_tip_star_ready = False
     loop_cap_owner_pyramid_record: dict[str, Any] | None = None
@@ -1241,6 +1251,30 @@ def _core_closure_topology_summary(
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        split_assembly = artifact.get("split_assembly_conformality") or {}
+        if split_assembly:
+            split_assembly_blocked = (
+                split_assembly.get("status") != "split_assembly_conformal"
+            )
+            split_assembly_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": split_assembly.get("status"),
+                "candidate_cell_count": split_assembly.get("candidate_cell_count"),
+                "volume_element_count": split_assembly.get("volume_element_count"),
+                "selected_cell_count": split_assembly.get("selected_cell_count"),
+                "internal_split_leak_face_count": split_assembly.get(
+                    "internal_split_leak_face_count"
+                ),
+                "nonmanifold_split_face_count": split_assembly.get(
+                    "nonmanifold_split_face_count"
+                ),
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(split_assembly_record)
+            continue
+
         left_tip_star = artifact.get("left_tip_star_tessellation") or {}
         if left_tip_star:
             remaining_after_star = (
@@ -1631,7 +1665,9 @@ def _core_closure_topology_summary(
         and hybrid_split_artifact_seen
         and hybrid_split_blocked
     )
-    if handoff_repair_basis_ready:
+    if split_assembly_blocked:
+        status = "handoff_split_assembly_internal_nonconformal"
+    elif handoff_repair_basis_ready:
         status = "handoff_repair_basis_ready_mixed_mesh_pending"
     elif hybrid_split_blocked:
         status = "handoff_hybrid_split_blocked"
@@ -1693,6 +1729,27 @@ def _core_closure_topology_summary(
                     "interface triangles still lack ownership or compatible "
                     "tessellation. Do not run medium/fine SU2 until those final "
                     "handoff gaps are materialized and y+ is postprocessed."
+                ),
+            }
+        )
+    elif status == "handoff_split_assembly_internal_nonconformal":
+        result.update(
+            {
+                "blocker": "near_wall_split_assembly_internal_nonconformal",
+                "hybrid_split_compatibility": hybrid_split_record,
+                "handoff_residual_localization": handoff_residual_record,
+                "loop_cap_owner_pyramid": loop_cap_owner_pyramid_record,
+                "left_tip_star_tessellation": left_tip_star_record,
+                "split_assembly_conformality": split_assembly_record,
+                "recommended_repair": (
+                    "solve_global_conformal_near_wall_split_assignment_before_mixed_mesh_writer"
+                ),
+                "engineering_read": (
+                    "The local R17/R19/R20 repair bases are not sufficient to write "
+                    "a whole mixed BL+core SU2 mesh: the current per-cell split choices "
+                    "leave unmatched internal split faces. The next repair must solve a "
+                    "globally conformal near-wall split assignment before any solver "
+                    "ladder is meaningful."
                 ),
             }
         )

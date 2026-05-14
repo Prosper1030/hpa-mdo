@@ -145,11 +145,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   `12/12` matched，`core_outer_edge_receiver=4`、`core_tip_receiver_outer=4`、
   `wake_edge_receiver=4`，star-tet volume 全為正（約 `2.71e-7` 到 `3.45e-7 m^3`），
   R19/R20 後的 R17 residuals 為 `{}`。因此前置狀態已推進到
-  `handoff_repair_basis_ready_mixed_mesh_pending`，active blocker 是
-  `near_wall_merged_mesh_handoff_missing`，不是 R10 wall-edge dependency、R12 geometric
-  self-intersection、舊 direct-stageback route，或仍未知的 left-tip residual；WO-006I
-  preflight 的 data-authority-restored mesh writer target 是
-  `write_marker_quality_gated_mixed_bl_core_su2_handoff_and_yplus_probe`。
+  `handoff_repair_basis_ready_mixed_mesh_pending`。WO-006R21 又補上 writer 前的全域 assembly
+  gate：把 R17 selected tet/prism patterns 套到 `26880` 個 candidate cells 後，會形成
+  `161280` 個 local split elements，但目前有 `7960` 個 internal split leak faces 和
+  `64` 個 non-manifold split faces。這表示 local core-face match 不能直接升級成 final mixed
+  mesh；active blocker 現在是 `near_wall_split_assembly_internal_nonconformal`，不是 R10
+  wall-edge dependency、R12 geometric self-intersection、舊 direct-stageback route，或仍未知的
+  left-tip residual；WO-006I preflight 的 data-authority-restored mesh repair target 是
+  `solve_global_conformal_near_wall_split_assignment_before_mixed_mesh_writer`。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
