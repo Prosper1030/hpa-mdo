@@ -189,6 +189,13 @@ closed-wrapper 修正方向；exposed internal step sidewalls 現在會標成
 `bl_termination_interface`，不會被混進 `wing_upper` / `te_wall` force wall。
 但這仍只是 signed-volume diagnostic，還需要把 termination interface 接到 tetra core、
 跑 SU2-style dual proxy 與 pressure-only CD sanity，才可能變成 route-smoke candidate。
+stageback core-hybrid writer 也已新增，會把 `bl_outer_interface` 與
+`bl_termination_interface` 一起交給 tetra core，並在 final SU2 marker set 裡隱藏這兩個
+internal interfaces。pps42/l16/cap6 sweep 顯示 `stageback_segments=6` 目前最好：
+prism quality gate pass、約 `16,637` core tets、max dual sub-volume proxy 約
+`6.04e9`，仍 fail `1e7` gate；core mesh size 從 `0.35` 掃到 `0.12` 時 core tet count
+與 dual proxy 不變，表示目前 blocker 不是單純全域 core sizing，而是 termination/outer
+BL interface 附近的 local grading 或 transition topology。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

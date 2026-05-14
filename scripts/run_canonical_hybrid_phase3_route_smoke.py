@@ -1343,6 +1343,149 @@ def run_phase3_closed_wall_te_stageback_layer_probe(
     return report
 
 
+def write_phase3_closed_wall_te_stageback_core_hybrid_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    full_wall_layers: int = 8,
+    cap_layers: int = 3,
+    stageback_segments: int = 2,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+) -> dict[str, Any]:
+    """Write a stageback BL + tetra-core hybrid mesh with hidden internal interfaces."""
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    points_per_station = int(surface.metadata["points_per_station"])
+    triangle_layer_counts: list[int] = []
+    for triangle, marker in wall_triangles:
+        if marker in DIAGNOSTIC_FORCE_MARKERS:
+            triangle_layer_counts.append(int(cap_layers))
+        elif marker in PRIMARY_FORCE_MARKERS and _triangle_touches_te_stageback_band(
+            triangle,
+            points_per_station=points_per_station,
+            stageback_segments=int(stageback_segments),
+        ):
+            triangle_layer_counts.append(int(cap_layers))
+        else:
+            triangle_layer_counts.append(int(full_wall_layers))
+
+    bl_volume = _direct_surface_prism_volume(
+        surface.vertices,
+        wall_triangles,
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=int(full_wall_layers),
+        triangle_layer_counts=triangle_layer_counts,
+    )
+    core = _direct_surface_prism_core_tets(
+        bl_volume,
+        surface_bounds=_bounds(surface.vertices),
+        core_mesh_size=core_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+    )
+    merged_nodes = list(bl_volume["nodes"])
+    core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
+    elements = [
+        *bl_volume["elements"],
+        *[
+            (SU2_TETRAHEDRON, tuple(core_node_map[int(node)] for node in nodes))
+            for nodes in core["tetra_elements"]
+        ],
+    ]
+    marker_faces = {
+        marker: list(faces)
+        for marker, faces in bl_volume["marker_faces"].items()
+        if marker not in {"bl_outer_interface", "bl_termination_interface"}
+    }
+    for marker, faces in core["marker_faces"].items():
+        marker_faces.setdefault(marker, []).extend(
+            [
+                (element_type, tuple(core_node_map[int(node)] for node in nodes))
+                for element_type, nodes in faces
+            ]
+        )
+    compacted_volume, node_compaction = _compact_volume_node_indices(
+        {
+            "nodes": merged_nodes,
+            "elements": elements,
+            "marker_faces": marker_faces,
+        }
+    )
+    element_sources = [
+        *[
+            _phase3_volume_element_source(element_type)
+            for element_type, _nodes in bl_volume["elements"]
+        ],
+        *(["tetra_core"] * len(core["tetra_elements"])),
+    ]
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        compacted_volume["nodes"],
+        compacted_volume["elements"],
+        element_sources=element_sources,
+        marker_faces=compacted_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
+
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            compacted_volume,
+            comments=(
+                "% Canonical hybrid half-wing closed-wall TE-stageback mesh.",
+                "% Internal BL outer/termination interfaces are hidden from SU2 markers.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    direct_prism_quality = _direct_prism_quality_metrics(bl_volume)
+    return {
+        "route": "canonical_hybrid_halfwing_closed_wall_te_stageback_core_hybrid",
+        "status": "closed_wall_te_stageback_core_hybrid_written",
+        "mesh_path": str(output_path),
+        "node_count": len(compacted_volume["nodes"]),
+        "volume_element_count": len(elements),
+        "volume_element_type_counts": {
+            str(SU2_PRISM): len(bl_volume["elements"]),
+            str(SU2_TETRAHEDRON): len(core["tetra_elements"]),
+        },
+        "termination_interface_quad_count": sum(
+            1
+            for element_type, _nodes in bl_volume["marker_faces"].get(
+                "bl_termination_interface",
+                [],
+            )
+            if int(element_type) == SU2_QUAD
+        ),
+        "node_compaction": node_compaction,
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "core_report": core["report"],
+        "dual_subvolume_proxy": dual_subvolume_proxy,
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(direct_prism_quality),
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Stageback core-hybrid topology candidate only. It must clear "
+                "dual-quality and pressure sanity before any RANS route-smoke."
+            ),
+        },
+    }
+
+
 def run_phase3_partial_wing_cap_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,
@@ -2979,12 +3122,20 @@ def _direct_surface_prism_core_tets(
 
 
 def _compact_outer_interface_surface(bl_volume: Mapping[str, Any]) -> SurfaceMesh:
-    """Return only the BL outer-interface vertices and triangular faces for Gmsh."""
-    interface_faces = [
-        tuple(int(node) for node in nodes)
-        for element_type, nodes in bl_volume["marker_faces"]["bl_outer_interface"]
-        if int(element_type) == SU2_TRIANGLE
-    ]
+    """Return BL outer/termination interface vertices and triangular faces for Gmsh."""
+    interface_faces: list[tuple[int, int, int]] = []
+    for marker in ("bl_outer_interface", "bl_termination_interface"):
+        for element_type, nodes in bl_volume["marker_faces"].get(marker, []):
+            face_nodes = tuple(int(node) for node in nodes)
+            if int(element_type) == SU2_TRIANGLE and len(face_nodes) == 3:
+                interface_faces.append(face_nodes)
+            elif int(element_type) == SU2_QUAD and len(face_nodes) == 4:
+                interface_faces.extend(
+                    [
+                        (face_nodes[0], face_nodes[1], face_nodes[2]),
+                        (face_nodes[0], face_nodes[2], face_nodes[3]),
+                    ]
+                )
     original_nodes = sorted({node for face in interface_faces for node in face})
     compact_by_original = {node: index for index, node in enumerate(original_nodes)}
     compact_vertices = [tuple(bl_volume["nodes"][node]) for node in original_nodes]

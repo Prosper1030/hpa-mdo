@@ -460,6 +460,37 @@ def test_closed_wall_te_stageback_probe_reduces_aft_prism_inversion(
     assert Path(report["report_path"]).exists()
 
 
+def test_closed_wall_te_stageback_core_hybrid_writer_hides_internal_interfaces(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_closed_wall_te_stageback_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "closed_wall_te_stageback_core.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        full_wall_layers=8,
+        cap_layers=3,
+        stageback_segments=2,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["status"] == "closed_wall_te_stageback_core_hybrid_written"
+    assert report["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] == 0
+    assert report["direct_prism_quality_gate"]["blockers"] == [
+        "root_symmetry_sidewall_quad_aspect_ratio_exceeds_1000",
+    ]
+    assert report["termination_interface_quad_count"] > 0
+    assert "bl_outer_interface" not in report["marker_summary"]
+    assert "bl_termination_interface" not in report["marker_summary"]
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
     tmp_path: Path,
 ) -> None:

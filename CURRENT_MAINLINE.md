@@ -181,6 +181,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `bl_termination_interface`，不再漏到 `wing_upper` / `te_wall` force wall。但它還不是
   route-smoke，因為 variable-layer stageback 仍需要 tetra-core merge、SU2-style
   dual proxy 與 pressure-only CD sanity。
+- stageback core-hybrid writer 已新增，會把 `bl_outer_interface` +
+  `bl_termination_interface` 當作 tetra-core inner boundary，final SU2 marker set 不輸出
+  這兩個 internal interfaces。pps42/l16/cap6 sweep 中 `stageback_segments=6` 目前最好：
+  prism quality gate pass、約 `16,637` core tets、max dual sub-volume proxy 約
+  `6.04e9`，仍 fail `1e7` route gate。core mesh size 從 `0.35` 掃到 `0.12` 時
+  tet count 與 dual proxy 不變，代表下一個 blocker 不是全域 core sizing，而是
+  termination/outer BL interface 附近的 local grading 或 transition topology。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality
