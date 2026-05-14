@@ -1,5 +1,28 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 Canonical Hybrid Half-Wing CFD Route Reset
+
+WO-006 active CFD delivery route 已重設為 `canonical_hybrid_halfwing_v0`。唯一可讀的
+active route state 是
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/manifest.yaml`，
+並可用 `scripts/check_canonical_hybrid_cfd_release.py` 檢查。
+
+工程決策：WO-006R25/R26/R27/R28/R29/R30 全部退回 forensic evidence。R27 只證明
+marker ownership；R28 證明 SU2 dual-control-volume quality 病態且 `CD=0.3916`
+仍 fail；R29 排除單純 primal adjacent-tet volume ratio；R30 重現 SU2-style
+`CV Sub-Volume Ratio≈2.0784e11` 並定位到 core/farfield tet construction。這些證據的
+用途是說明舊 custom all-tet / global-star / owner-pyramid handoff 為什麼不能再當
+active CFD route，不是開 R31 繼續修。
+
+新 route policy 寫死幾件事：half-wing、root symmetry、`wing_upper` / `wing_lower`
+作 primary force markers，`tip_wall` / `te_wall` / `closure_wall` 分開報告；BL 必須保留
+prism/hexa，core 才用 tetra，interface 必須 conformal；不得把 BL split 成 all-tet
+global-star handoff，不得把 closure face 靜默併入 `wing_wall` force marker，也不得把
+保守 numerics 跑完當成功。manifest 裡只允許四個 release gate：
+`TOOLCHAIN_PASS`、`PRESSURE_SANITY_PASS`、`ROUTE_SMOKE_PASS`、`GRID_LADDER_PASS`。
+目前還沒有任何 gate 被宣稱 pass；下一個 gate 是 Phase 1 `TOOLCHAIN_PASS`，必須先完成
+2D NACA / current root / current mid-or-tip airfoil wall-resolved RANS/SA sanity。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route

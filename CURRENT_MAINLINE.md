@@ -18,6 +18,16 @@ screening evidence 讀，不是現行 release / procurement truth。
 - WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
 - WO-006 只能作 bounded aero calibration；必須使用 `98.5 kg` 與 current pipeline span authority，除非明確做 sensitivity。
 - WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
+- WO-006 active CFD route 已重設為 `canonical_hybrid_halfwing_v0`；唯一 active
+  route state 是
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/manifest.yaml`。
+  `scripts/check_canonical_hybrid_cfd_release.py` 會檢查這個 manifest。WO-006R25 到
+  WO-006R30 只保留為 forensic evidence：R27/R28/R29/R30 證明 custom all-tet /
+  global-star / owner-pyramid mixed handoff 不能再作 active CFD delivery。後續不得再開
+  R31/R32 類型的 diagnostic commit，除非 `canonical_hybrid_halfwing_v0` 在 named phase
+  gate 失敗且 manifest 指向該 gate。新 route 必須保留 prism/hexa BL + tetra core
+  hybrid mesh，closure/tip/TE forces 必須分開，初始 3D viscous smoke 使用 geometry
+  incidence + `AOA=0`，且保守 numerics 跑完不算成功。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在
@@ -244,8 +254,9 @@ screening evidence 讀，不是現行 release / procurement truth。
   `2.07841e11`；最壞 point `56784` 位於
   `(-2.684534382258478, 21.21191727545568, 1.867804964000869)`，
   marker 是 `farfield`，incident source counts 是 `{"core_tet_mesh": 1704}`。
-  因此目前最直接的修復對象是 tip/farfield 周邊的 core/farfield tet construction
-  或 sizing transition，而不是再重跑 solver 或把問題歸咎於 no-slip marker wiring。
+  這份 evidence 現在是 forensic-only：它說明 R27/R28 custom all-tet handoff 的
+  core/farfield tet construction 已經不適合作 active route。不得把它解讀成 R31 繼續
+  local patch 的入口；下一步回到 `canonical_hybrid_halfwing_v0` 的 phase gate。
 - WO-006I grid-convergence gate 也會拒絕短尾段 force stability：CL/CD/Cm stability
   summary 必須至少覆蓋 `100` 個 iterations，CL/CD relative spread 需在 `1%` 內、Cm
   absolute spread 需在 `0.005` 內；舊 summary 若只用 25-row tail 宣稱 pass，會被
