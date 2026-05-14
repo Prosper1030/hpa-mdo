@@ -116,10 +116,13 @@ Current release package:
   It confirms AD's full near-wall boundary is watertight, but the core-facing
   subset remains open (`64` bad edges) unless physical-wall roles are borrowed;
   that full-shell shortcut is forbidden because it would mis-own `wing_wall`
-  and `physical_wall_edge_receiver` as core interface. With the data-authority
-  checker prerequisite preserved, the next WO-006 repair should materialize a
-  true core-facing closure without changing the external Baseline A wall shape,
-  then generate a marker/quality-gated core/farfield mesh.
+  and `physical_wall_edge_receiver` as core interface. The current edge-gap
+  audit confirms all `64` core-facing open edges pair with
+  `physical_wall_edge_receiver` (`60` tip pairs, `4` wake pairs,
+  `unexplained_bad_edge_count=0`). With the data-authority checker prerequisite
+  preserved, materialize a true core-facing
+  closure without changing the external Baseline A wall shape, then generate a
+  marker/quality-gated core/farfield mesh.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

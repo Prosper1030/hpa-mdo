@@ -276,7 +276,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   `not_watertight`，有 `64` 條 bad edges（`core_tip_receiver_outer=60`、
   `wake_edge_receiver=4`）。full-shell policy 是 `forbidden`，因為 full shell 含
   `wing_wall=960` 與 `physical_wall_edge_receiver=60`，不能借 physical wall 來補 core
-  interface。判讀：下一步必須 materialize 真正 core-facing closure，不能改 Baseline A
+  interface。edge-gap audit 進一步確認這 `64` 條 bad edges 全部由
+  `physical_wall_edge_receiver` 解釋（tip pair `60`、wake pair `4`，
+  `unexplained_bad_edge_count=0`）。判讀：下一步必須 materialize 真正 core-facing
+  closure，不能改 Baseline A
   external wall shape，也不能把 physical wall 誤標成 core interface；在此之前仍不能跑
   medium/fine SU2 或解讀 CL/CD/Cm。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出

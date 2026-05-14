@@ -241,7 +241,10 @@ Baseline A current geometry artifact 在
 `not_watertight`，有 `64` 條 bad edges（role touch：`core_tip_receiver_outer=60`、
 `wake_edge_receiver=4`）。同時 full-shell policy 是 `forbidden`，因為 full shell 含
 `wing_wall=960` 與 `physical_wall_edge_receiver=60`，不能借 physical wall 來補 core
-interface。
+interface。R10 edge-gap audit 現在把這 `64` 條邊全部配對到
+`physical_wall_edge_receiver`：`core_tip_receiver_outer + physical_wall_edge_receiver`
+有 `60` 條，`wake_edge_receiver + physical_wall_edge_receiver` 有 `4` 條，
+`unexplained_bad_edge_count=0`。
 
 工程判讀：WO-006AD 已修好 near-wall external surface closure，但 WO-006R10 證明下一步
 不是把 full shell 直接丟給 Gmsh，而是要 materialize 一個真正 core-facing 的 closure，

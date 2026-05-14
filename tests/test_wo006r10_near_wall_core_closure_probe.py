@@ -83,6 +83,16 @@ def test_core_closure_gate_blocks_using_full_shell_as_core_interface() -> None:
     assert summary["status"] == "core_interface_closure_blocked"
     assert summary["full_boundary_topology"]["status"] == "watertight"
     assert summary["core_facing_topology"]["status"] == "not_watertight"
+    assert summary["core_wall_edge_gap_audit"]["status"] == (
+        "blocked_by_physical_wall_edge_dependency"
+    )
+    assert summary["core_wall_edge_gap_audit"]["bad_edge_count"] == (
+        summary["core_facing_topology"]["bad_edge_count"]
+    )
+    assert summary["core_wall_edge_gap_audit"][
+        "all_bad_edges_explained_by_physical_wall_edge_receiver"
+    ] is True
+    assert summary["core_wall_edge_gap_audit"]["unexplained_bad_edge_count"] == 0
     assert summary["full_shell_core_interface_policy"]["status"] == "forbidden"
     assert "core_facing_surface_not_watertight" in summary["blockers"]
     assert "full_shell_contains_physical_wall_roles" in summary["blockers"]
@@ -105,7 +115,12 @@ def test_core_closure_probe_run_writes_artifacts(tmp_path: Path) -> None:
     assert summary["verdict"] == "near_wall_core_interface_closure_blocked"
     assert closure["full_boundary_topology"]["status"] == "watertight"
     assert closure["core_facing_topology"]["bad_edge_count"] > 0
+    assert closure["core_wall_edge_gap_audit"]["bad_edge_count"] == (
+        closure["core_facing_topology"]["bad_edge_count"]
+    )
+    assert closure["core_wall_edge_gap_audit"]["unexplained_bad_edge_count"] == 0
     assert closure["full_shell_core_interface_policy"]["status"] == "forbidden"
     assert "core_interface_not_materialized" in closure["blockers"]
     assert (tmp_path / "wo006r10" / "summary.json").exists()
+    assert (tmp_path / "wo006r10" / "core_wall_edge_gap_audit.csv").exists()
     assert (tmp_path / "wo006r10" / "near_wall_core_closure_report.md").exists()
