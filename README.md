@@ -188,6 +188,26 @@ blocker 已解掉；但這仍不是 final BL/core handoff。剩餘 blockers 是 
 merged mesh quality not run、SU2 marker/readability not run、near-wall/y+ not postprocessed、
 solver ladder not run；因此仍不能跑 medium/fine SU2 或解讀 CL/CD/Cm。
 
+## 2026-05-14 WO-006AD Near-Wall Merged Volume Candidate Probe
+
+WO-006AD 新增 `scripts/probe_wo006ad_near_wall_merged_volume_candidate.py`，把 owned BL
+block、wake receiver、sharp-TE stitch accounting、以及 materialized tip receiver 合成同一個
+near-wall volume candidate accounting object。它仍不是 Gmsh/SU2 handoff，只是把「原始
+BL span-cap / wake-cut 是否仍裸露成 solver boundary」這件事變成可檢查 artifact。
+
+Baseline A current geometry artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006ad_near_wall_merged_volume_candidate_probe/`。
+實跑 `points_per_side=16`、`spanwise_subdivisions=2` 得到
+`near_wall_volume_candidate_ready_core_mesh_pending`：`28875` nodes、`26880` volume cells
+（owned BL `24576`、wake receiver `768`、tip receiver `1536`），original exposed
+span-cap `0`、original exposed wake-cut `0`、stitched TE-base faces `64`、removed
+degenerate receiver-base faces `32`、non-positive receiver volumes `0`。
+
+工程判讀：這解的是 near-wall local ownership accounting，不是 CFD。剩餘 blockers 是
+core/farfield mesh not generated、merged mesh quality not run、SU2 marker/readability not run、
+near-wall/y+ not postprocessed、solver ladder not run；所以仍不能跑 medium/fine SU2 或解讀
+CL/CD/Cm。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔

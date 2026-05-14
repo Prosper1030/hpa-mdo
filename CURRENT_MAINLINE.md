@@ -239,6 +239,18 @@ screening evidence 讀，不是現行 release / procurement truth。
   判讀：`receiver_geometry_not_materialized` blocker 已解成 geometry candidate，但仍未有
   final merged mesh、mesh quality、SU2 marker/readability、near-wall/y+ 或 solver ladder；
   因此仍不能跑 medium/fine SU2 或解讀 CL/CD/Cm。
+- WO-006AD 新增 near-wall merged volume candidate probe：
+  `scripts/probe_wo006ad_near_wall_merged_volume_candidate.py` 將 owned BL block、wake
+  receiver、sharp-TE stitch accounting 與 materialized tip receiver 合成同一個 pre-core
+  volume accounting object。Baseline A current geometry artifact 在
+  `wo006ad_near_wall_merged_volume_candidate_probe/`；實跑 status 是
+  `near_wall_volume_candidate_ready_core_mesh_pending`，有 `28875` nodes、`26880`
+  near-wall volume cells（owned BL `24576`、wake receiver `768`、tip receiver `1536`），
+  original exposed span-cap `0`、original exposed wake-cut `0`、stitched TE-base faces
+  `64`、removed degenerate receiver-base faces `32`、non-positive receiver volumes `0`。
+  判讀：near-wall local ownership accounting 已可往 core/farfield mesh 生成推進，但仍不是
+  Gmsh/SU2 handoff；core/farfield mesh、mesh quality、SU2 marker/readability、near-wall/y+
+  與 solver ladder 都還沒過，因此不能跑 medium/fine SU2 或解讀 CL/CD/Cm。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
