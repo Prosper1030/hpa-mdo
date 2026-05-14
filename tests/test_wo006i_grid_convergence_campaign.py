@@ -930,6 +930,83 @@ def test_setup_gate_r17_hybrid_split_supersedes_r16_prism_split() -> None:
     assert superseded_r14[0]["status"] == "superseded_by_hybrid_split_probe"
 
 
+def test_setup_gate_r18_residual_localization_enriches_hybrid_blocker() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r18_handoff_residual_localization_probe.v1",
+                "verdict": "handoff_residuals_localized_repair_required",
+                "residuals": {
+                    "status": "blocked",
+                    "residual_triangle_count": 68,
+                    "unowned_residuals_by_marker": {"core_wall_loop_cap": 60},
+                    "incompatible_owned_residuals_by_marker": {
+                        "core_tip_receiver_outer": 4,
+                        "wake_edge_receiver": 4,
+                    },
+                    "loop_cap_fans": {
+                        "status": "owner_cells_missing",
+                        "fan_count": 2,
+                        "triangle_count": 60,
+                    },
+                    "incompatible_cells": {
+                        "status": "split_incompatible",
+                        "count": 2,
+                        "by_role": {"left_tip": 2},
+                    },
+                    "recommended_next_repair": (
+                        "materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split"
+                    ),
+                },
+            },
+            {
+                "schema_version": "wo006r17_hybrid_tet_prism_split_probe.v1",
+                "verdict": "hybrid_tet_prism_handoff_blocked",
+                "merged_handoff_status": "blocked_by_unowned_core_interface_triangles",
+                "hybrid_split_compatibility": {
+                    "status": "blocked_by_unowned_core_interface_triangles",
+                    "matched_core_triangle_count": 5590,
+                    "core_triangle_count": 5658,
+                    "unowned_core_triangles_by_marker": {
+                        "core_wall_loop_cap": 60,
+                    },
+                    "incompatible_owned_core_triangles_by_marker": {
+                        "core_tip_receiver_outer": 4,
+                        "wake_edge_receiver": 4,
+                    },
+                },
+            },
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert result["core_closure_topology"]["status"] == "handoff_hybrid_split_blocked"
+    assert (
+        result["core_closure_topology"]["recommended_repair"]
+        == "materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split"
+    )
+    residuals = result["core_closure_topology"]["handoff_residual_localization"]
+    assert residuals["schema_version"] == "wo006r18_handoff_residual_localization_probe.v1"
+    assert residuals["residual_triangle_count"] == 68
+    assert residuals["loop_cap_fan_count"] == 2
+    assert residuals["incompatible_cell_count"] == 2
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

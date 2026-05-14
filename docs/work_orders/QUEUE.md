@@ -171,12 +171,15 @@ Current release package:
   `core_outer_edge_receiver=128` and most wake/tip triangles. Remaining blockers
   are `core_wall_loop_cap=60` without candidate owner plus
   `wake_edge_receiver=4` / `core_tip_receiver_outer=4` incompatible owned
-  triangles. WO-006I preflight treats the old direct-stageback PLC failure, R14
+  triangles. WO-006R18 localizes that residual into two `core_wall_loop_cap`
+  fans (`30` triangles each, near `y≈±17.201-17.202 m`) and two
+  `tip_receiver/left_tip` cells (`26110`, `26111`) that each match `4/6`
+  target triangles. WO-006I preflight treats the old direct-stageback PLC failure, R14
   generic mismatch, R15 single-axis prism split, and R16 prism-only split as
   superseded diagnostic evidence and advances to
   `setup_near_wall_hybrid_tet_prism_handoff_not_compatible`; next repair should
-  materialize the remaining loop-cap/wake/tip ownership before y+ probe or any
-  solver ladder.
+  `materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split`
+  before y+ probe or any solver ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

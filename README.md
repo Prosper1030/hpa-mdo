@@ -20,6 +20,25 @@ mesh 約 `25,168` cells / `15,190` nodes，其中 BL quads `4,833`。SU2 在
 0.5 的工具鏈錯誤；Baseline A 目前的大 CD 更像幾何/BL prism/pressure setup 或 3D handoff
 問題。下一步仍要先修 Baseline A BL/core handoff quality，再回 coarse/medium/fine ladder。
 
+## 2026-05-14 WO-006R18 Handoff Residual Localization Probe
+
+`scripts/probe_wo006r18_handoff_residual_localization.py` 接在 R17 後面，專門把最後
+BL/core handoff residual 變成可修的幾何證據。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r18_handoff_residual_localization_probe/`。
+
+實跑結果和 R17 數字一致：共有 `68` 個 residual triangles；其中 `core_wall_loop_cap=60`
+是 unowned，另外 `core_tip_receiver_outer=4` / `wake_edge_receiver=4` 是 candidate-owned
+但 split incompatible。R18 把 loop-cap residual 分成左右兩個 fan，每個 `30` triangles /
+`31` nodes，位置在 `y≈±17.201-17.202 m`、`x=0.000327-0.644058 m`、
+`z=2.597761-2.689000 m`；split-incompatible 部分集中在兩個 `tip_receiver/left_tip`
+cells：`26110`、`26111`，各自 target `6` triangles、match `4`、unmatched `2`。
+
+WO-006I preflight 現在會讀 R18，active blocker 仍是
+`near_wall_hybrid_tet_prism_handoff_not_compatible`，但 recommended repair 已收斂成
+`materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split`。工程判讀：
+這還不是 CFD mesh，也沒有 y+ 或 CL/CD/Cm；它只是把下一個 repair target 從「修 handoff」
+縮到「先補兩個 loop-cap owner fan，再修左 tip receiver split」。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：
@@ -36,7 +55,8 @@ artifact 在
 active blocker 是 `near_wall_hybrid_tet_prism_handoff_not_compatible`。
 
 工程判讀：hybrid tet/prism 是目前最接近 mixed BL/core handoff 的方向，但還不是 CFD mesh。
-下一步要 materialize 剩餘 loop-cap owner，並修最後 8 個 wake/tip owned triangles；完成後才
+R18 已把這個 residual 定位成兩個 loop-cap fan 和兩個 left-tip receiver cells；下一步要
+materialize 剩餘 loop-cap owner，並修最後 8 個 wake/tip owned triangles；完成後才
 能寫 merged mixed SU2 mesh、做 marker/y+ gate，再談 coarse/medium/fine SU2 ladder。
 
 ## 2026-05-14 WO-006R16 Axis-Agnostic Prism-Split Probe
@@ -563,7 +583,9 @@ triangulated core boundary 只有 `1808/5658` triangles conformal，且 `core_wa
 `5590/5658`，但 `core_wall_loop_cap=60` 仍沒有 candidate owner，另有 `wake_edge_receiver=4`
 和 `core_tip_receiver_outer=4` split 不相容。因此 WO-006I preflight 現在把 active blocker
 定位成 `near_wall_hybrid_tet_prism_handoff_not_compatible`；舊 direct-stageback PLC failure
-只保留為 superseded diagnostic。下一步是補剩餘 loop-cap/wake/tip ownership，再做 y+ probe
+只保留為 superseded diagnostic。R18 進一步把 residual 定位成兩個 tip-side loop-cap fans
+和兩個 `tip_receiver/left_tip` cells (`26110`, `26111`)；下一步是
+`materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split`，再做 y+ probe
 和 solver ladder。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe

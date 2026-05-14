@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r18_handoff_residual_localization_probe" / "summary.json",
     WO006_ROOT / "wo006r17_hybrid_tet_prism_split_probe" / "summary.json",
     WO006_ROOT / "wo006r16_axis_agnostic_prism_split_probe" / "summary.json",
     WO006_ROOT / "wo006r15_prism_split_handoff_compatibility_probe" / "summary.json",
@@ -907,6 +908,12 @@ def summarize_history_stability(
 def render_report(summary: Mapping[str, Any]) -> str:
     gate = summary["grid_convergence_gate"]
     authority = summary["authority"]
+    setup_gate = summary.get("setup_gate") or {}
+    stageback_topology = setup_gate.get("stageback_topology") or {}
+    core_closure_topology = setup_gate.get("core_closure_topology") or {}
+    residual_localization = (
+        core_closure_topology.get("handoff_residual_localization") or {}
+    )
     lines = [
         "# WO-006I Baseline A Main-Wing CFD Grid-Convergence Campaign",
         "",
@@ -925,11 +932,15 @@ def render_report(summary: Mapping[str, Any]) -> str:
         "",
         "## CFD Setup Gate",
         "",
-        f"- setup gate: `{(summary.get('setup_gate') or {}).get('status')}`",
-        f"- policy: `{(summary.get('setup_gate') or {}).get('policy_id')}`",
-        f"- stageback topology: `{((summary.get('setup_gate') or {}).get('stageback_topology') or {}).get('status')}`",
-        f"- core closure topology: `{((summary.get('setup_gate') or {}).get('core_closure_topology') or {}).get('status')}`",
-        f"- engineering read: `{(summary.get('setup_gate') or {}).get('engineering_read')}`",
+        f"- setup gate: `{setup_gate.get('status')}`",
+        f"- policy: `{setup_gate.get('policy_id')}`",
+        f"- stageback topology: `{stageback_topology.get('status')}`",
+        f"- core closure topology: `{core_closure_topology.get('status')}`",
+        f"- core closure blocker: `{core_closure_topology.get('blocker')}`",
+        f"- recommended repair: `{core_closure_topology.get('recommended_repair')}`",
+        f"- R18 residual triangles: `{residual_localization.get('residual_triangle_count')}`",
+        f"- R18 loop-cap fans / incompatible cells: `{residual_localization.get('loop_cap_fan_count')}` / `{residual_localization.get('incompatible_cell_count')}`",
+        f"- engineering read: `{setup_gate.get('engineering_read')}`",
         "",
         "## Physics Setup",
         "",
@@ -1202,6 +1213,7 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    handoff_residual_record: dict[str, Any] | None = None
     hybrid_split_artifact_seen = False
     hybrid_split_blocked = False
     hybrid_split_record: dict[str, Any] | None = None
@@ -1211,6 +1223,36 @@ def _core_closure_topology_summary(
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        handoff_residuals = artifact.get("residuals") or {}
+        if handoff_residuals:
+            loop_cap_fans = handoff_residuals.get("loop_cap_fans") or {}
+            incompatible_cells = handoff_residuals.get("incompatible_cells") or {}
+            handoff_residual_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": handoff_residuals.get("status"),
+                "residual_triangle_count": handoff_residuals.get(
+                    "residual_triangle_count"
+                ),
+                "unowned_residuals_by_marker": handoff_residuals.get(
+                    "unowned_residuals_by_marker"
+                ),
+                "incompatible_owned_residuals_by_marker": handoff_residuals.get(
+                    "incompatible_owned_residuals_by_marker"
+                ),
+                "loop_cap_fan_count": loop_cap_fans.get("fan_count"),
+                "loop_cap_triangle_count": loop_cap_fans.get("triangle_count"),
+                "incompatible_cell_count": incompatible_cells.get("count"),
+                "incompatible_cells_by_role": incompatible_cells.get("by_role"),
+                "recommended_next_repair": handoff_residuals.get(
+                    "recommended_next_repair"
+                ),
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(handoff_residual_record)
+            continue
+
         hybrid_split_compatibility = artifact.get("hybrid_split_compatibility") or {}
         if hybrid_split_compatibility:
             hybrid_split_artifact_seen = True
@@ -1520,13 +1562,19 @@ def _core_closure_topology_summary(
         "full_shell_policy_status": full_shell_policy_status,
     }
     if status == "handoff_hybrid_split_blocked":
+        recommended_repair = "materialize_remaining_loop_cap_and_wake_tip_interface_ownership"
+        if handoff_residual_record and handoff_residual_record.get(
+            "recommended_next_repair"
+        ):
+            recommended_repair = str(
+                handoff_residual_record["recommended_next_repair"]
+            )
         result.update(
             {
                 "blocker": "near_wall_hybrid_tet_prism_handoff_not_compatible",
                 "hybrid_split_compatibility": hybrid_split_record,
-                "recommended_repair": (
-                    "materialize_remaining_loop_cap_and_wake_tip_interface_ownership"
-                ),
+                "handoff_residual_localization": handoff_residual_record,
+                "recommended_repair": recommended_repair,
                 "engineering_read": (
                     "The latest hybrid tet/prism split probe shows most of the "
                     "R13 core interface can now be reproduced by local mixed-cell "
