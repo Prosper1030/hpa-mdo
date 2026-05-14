@@ -31,6 +31,21 @@ family 是 `stageback_boundary_recovery_failed`。兩者 peak sampled RSS 都約
 TE/wake receiver 或 BL/core envelope，使 TE/wake/transition 拓樸先 watertight 且 quality
 gate pass，再談 SU2 route smoke。
 
+## 2026-05-14 WO-006U BL/Core Envelope Topology Probe
+
+WO-006U 新增 `scripts/probe_wo006u_bl_core_envelope_topology.py`，不跑 Gmsh / SU2，
+直接檢查 owned BL block 的 core-envelope topology。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006u_bl_core_envelope_topology_probe/`。
+
+實跑結果：current core-interface surface 是 watertight（`0` bad edges），但 tempting
+`full_non_wall_boundary` 不是 watertight，有 `124` 條 bad edges；這 `124` 條全部分類成
+`candidate_open_edge_touches_wing_wall`，marker combo 是 `span_cap=60`、`wake_cut=64`。
+
+工程判讀：R5 的 BL/core coupling 問題不是單純 Gmsh algorithm 或 timeout 問題。直接把
+all non-wall BL faces 丟給 core mesh 會把仍接 physical wing wall 的 wake/span-cap edges
+暴露成 open boundary。下一步應該先設計 owned TE/wake receiver/envelope，把 wall-touching
+edge closure 定義清楚，再嘗試 core tetra / mixed SU2 handoff。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔

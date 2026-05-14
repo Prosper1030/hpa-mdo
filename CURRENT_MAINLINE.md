@@ -152,6 +152,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   hardware/RAM limit。判讀：直接 global TE stageback 不能當 CFD mesh 修法；下一步
   必須是 owned TE/wake receiver 或 BL/core envelope repair，先讓 TE/wake/transition
   拓樸 watertight 且 quality gate pass。
+- WO-006U 已把 R5 BL/core envelope blocker 拆成純 topology evidence：
+  `scripts/probe_wo006u_bl_core_envelope_topology.py` 不跑 Gmsh / SU2，直接檢查 owned
+  BL block boundary，artifact 在 `wo006u_bl_core_envelope_topology_probe/`。current
+  core-interface surface 是 watertight（`0` bad edges），但 tempting
+  `full_non_wall_boundary` 不是 watertight，有 `124` 條 bad edges；全部分類為
+  `candidate_open_edge_touches_wing_wall`，marker combo 是 `span_cap=60`、`wake_cut=64`。
+  判讀：R5 的 next repair 不是盲掃 Gmsh algorithm，也不是把 all non-wall faces 直接
+  丟給 core mesh；必須先建 owned TE/wake receiver/envelope，把 wall-touching
+  wake/span-cap edge closure 定義清楚，再重跑 core tetra / mixed SU2 handoff gate。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
