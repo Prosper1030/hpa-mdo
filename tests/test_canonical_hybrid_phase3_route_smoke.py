@@ -342,6 +342,55 @@ def test_direct_surface_prism_core_hybrid_writer_merges_interface_without_marker
     }
 
 
+def test_closed_wall_wrapper_l16_clears_dual_proxy_but_not_root_aspect(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_direct_surface_prism_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "closed_wall_l16" / "mesh.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=16,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["dual_subvolume_proxy"]["status"] == "pass"
+    assert report["dual_subvolume_proxy"]["max_cv_sub_volume_ratio"] == 0.0
+    assert report["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] == 0
+    assert report["direct_prism_quality_gate"]["status"] == "fail"
+    assert (
+        "root_symmetry_sidewall_quad_aspect_ratio_exceeds_1000"
+        in report["direct_prism_quality_gate"]["blockers"]
+    )
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_closed_wall_wrapper_pps42_l16_fixes_root_aspect_but_inverts_cap_prisms() -> None:
+    module = _load_module()
+    surface = module.build_phase3_route_smoke_surface(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        points_per_side=42,
+        spanwise_subdivisions=4,
+    )
+    volume = module._direct_surface_prism_volume(
+        surface.vertices,
+        module._triangulated_wall_triangles(surface),
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=16,
+    )
+
+    quality = module._direct_prism_quality_metrics(volume)
+
+    assert quality["root_symmetry_quad_aspect"]["max"] < 1000.0
+    assert quality["prism_signed_volume"]["non_positive_count"] > 0
+
+
 def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
     tmp_path: Path,
 ) -> None:

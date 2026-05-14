@@ -105,6 +105,7 @@ evidence; it is a handoff/debug map for the next worker.
 | thin-collar pps42 core scale reaches 16 layers | pps42/l4 fills with `16,462` tetra in about `51 s`; pps42/l8 fills with `20,093` tetra in about `118 s`; pps42/l16 fills with `26,600` tetra in about `355 s`; all have forbidden core element counts `{}` | The collar+cap topology is not blocked by full chordwise resolution up to 16 layers, but Gmsh runtime grows quickly | Manual artifacts under `partial_wing_transition_collar_core_probe_pps42_l4_h1e-4/`, `_l8_h1e-4/`, and `_l16_h1e-4/` record the runs | Do not blindly run l24 as the next proof; write merged SU2 hybrid mesh and run marker/dual-quality/pressure sanity on l4 or l8 first |
 | first merged collar-core SU2 writer passes marker/readability gates | pps12/l4 merged writer outputs `5,376` prisms + `340` pyramids + `8,690` tetra; final markers are `wing_upper`, `wing_lower`, `tip_wall`, `te_wall`, `closure_wall`, `root_symmetry`, `farfield`; internal `bl_outer_interface` / `transition_collar_interface` are removed | The final SU2 writer must compact unused prism-layer nodes; otherwise SU2 aborts with `NPOIN` mismatch even though parser/ownership audits pass | `write_phase3_partial_wing_transition_collar_core_hybrid_su2()` now compacts unused nodes (`4` removed in pps12/l4), marker audit / ownership pass | Run pressure-only sanity before any RANS; do not treat writer success as route-smoke |
 | merged collar-core pressure smoke exposes new dual pathology | pps12/l4 pressure-only probe reads mesh but fails after `3` rows / iteration `2`; dual metrics are min orthogonality `0.0105006 deg`, max CV face-area aspect ratio `7.58862e9`, max CV sub-volume ratio `4.37135e11`; forces breakdown missing | The pyramid collar / local core interface likely creates sliver-like vertex-dual control volumes even though topology and marker ownership are now valid | Artifact `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/pressure_probe_report.json` records the failure | Fix collar/core-interface quality before RANS; likely need collar geometry/size/aspect gate or a different transition element policy |
+| closed-wall wrapper is a near-miss but not a pass | pps12/l16 closed-wall direct prism wrapper has no `>1e7` dual proxy hotspot and non-positive prism count `0`, but root sidewall aspect is about `3589`; pps42/l16 root aspect improves to about `966` but produces `245` non-positive prisms | Avoiding exposed partial-BL rim quads helps the dual proxy, but raw full-cap BL extrusion in high-resolution/deep-layer cases self-intersects near cap/TE/tip | `write_phase3_direct_surface_prism_core_hybrid_su2()` now reports `dual_subvolume_proxy`; tests lock the pps12/l16 and pps42/l16 tradeoff | Do not promote closed-wall wrapper to route-smoke until it has both positive prisms and root aspect pass, then pressure sanity |
 
 ## Phase 1 Toolchain Sanity Evidence
 
@@ -347,6 +348,31 @@ evidence; it is a handoff/debug map for the next worker.
 - Interpretation: pps42/l4 fixes the root sidewall aspect smoke gate but not the
   collar/core dual-volume blocker.  Do not promote pps42/l4 to pressure or RANS
   without a transition-topology repair.
+
+## Closed-Wall Wrapper Evidence
+
+- Script entry point:
+  `write_phase3_direct_surface_prism_core_hybrid_su2()` in
+  `scripts/run_canonical_hybrid_phase3_route_smoke.py`
+- New report field: `dual_subvolume_proxy`
+- pps12/l16 evidence:
+  - prisms / tetra: `22,880` / `6,032`
+  - total BL thickness: `0.004372106472375908 m`
+  - prism non-positive count: `0`
+  - root sidewall aspect: `3589.4598110984807`
+  - max dual proxy: `0.0` at record threshold `1e7`
+- pps42/l16 evidence:
+  - prisms / tetra: `85,280` / `12,269`
+  - total BL thickness: `0.004372106472375908 m`
+  - root sidewall aspect: `966.0355808294544`
+  - prism non-positive count: `245`
+  - max dual proxy: `28024188.19940058`
+- Engineering read: closed-wall extrusion confirms the dual blocker is strongly
+  tied to core adjacency at thin/partial BL edges, but raw full-cap extrusion is
+  still not a valid active route because the high-resolution/deep-layer case
+  introduces inverted prisms.  A viable next topology likely needs smoothed cap
+  extrusion, a closed wrapper with cap-layer controls, or a graded transition
+  buffer that keeps core tets off the thin BL layers without inverting caps.
 
 ## Known Unknowns
 

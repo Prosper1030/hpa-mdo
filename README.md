@@ -165,6 +165,12 @@ overlapping facets。因此下一步不能只調 thickness，必須重設 collar
 `16,462` tetra，root sidewall aspect 約 `966` 已過 smoke gate，但 dual proxy 仍是
 `1.1725639068823458e10`。所以 pps42/l4 不應升級成 pressure/RANS route。
 
+closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
+`pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
+仍約 `3589`；pps42/l16 root aspect 可降到約 `966`，但 cap/TE/tip 附近出現
+`245` 個 non-positive prisms。工程判讀：closed wrapper 說明「core 不要貼到薄 BL
+內層」是對的，但 raw full-cap extrusion 仍不可直接當 route-smoke mesh。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route

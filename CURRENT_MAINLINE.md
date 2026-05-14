@@ -155,6 +155,11 @@ screening evidence 讀，不是現行 release / procurement truth。
 - pps42/l4 merged writer 手動 probe 也仍 fail：`20,736` prisms + `580` pyramids +
   `16,462` tetra，root sidewall aspect 約 `966` 已過 smoke gate，但 dual proxy
   仍有 `1.1725639068823458e10`。因此解析度升到 pps42/l4 仍不能進 pressure/RANS。
+- closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
+  `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
+  sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
+  non-positive prisms。這條路證明足夠 BL outer thickness 能改善 dual proxy，但
+  raw full-cap extrusion 仍會在高解析/深層 BL 下自交，不能直接當 active mesh。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality

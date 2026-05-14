@@ -918,6 +918,13 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
             for nodes in core["tetra_elements"]
         ],
     ]
+    element_sources = [
+        *[
+            _phase3_volume_element_source(element_type)
+            for element_type, _nodes in bl_volume["elements"]
+        ],
+        *(["tetra_core"] * len(core["tetra_elements"])),
+    ]
     marker_faces = {
         marker: list(faces)
         for marker, faces in bl_volume["marker_faces"].items()
@@ -930,16 +937,27 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
                 for element_type, nodes in faces
             ]
         )
+    compacted_volume, node_compaction = _compact_volume_node_indices(
+        {
+            "nodes": merged_nodes,
+            "elements": elements,
+            "marker_faces": marker_faces,
+        }
+    )
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        compacted_volume["nodes"],
+        compacted_volume["elements"],
+        element_sources=element_sources,
+        marker_faces=compacted_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
 
     output_path = Path(out_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         _su2_volume_text(
-            {
-                "nodes": merged_nodes,
-                "elements": elements,
-                "marker_faces": marker_faces,
-            },
+            compacted_volume,
             comments=(
                 "% Canonical hybrid half-wing direct surface-prism BL + tetra-core mesh.",
                 "% This is a route-smoke candidate, not grid-ladder truth.",
@@ -961,16 +979,21 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
         "route": "canonical_hybrid_halfwing_direct_surface_prism_core_hybrid",
         "status": "direct_surface_prism_core_hybrid_written",
         "mesh_path": str(output_path),
-        "node_count": len(merged_nodes),
+        "node_count": len(compacted_volume["nodes"]),
         "volume_element_count": len(elements),
         "volume_element_type_counts": type_counts,
         "boundary_layer_cell_count": len(bl_volume["elements"]),
         "core_cell_count": len(core["tetra_elements"]),
+        "node_compaction": node_compaction,
         "marker_summary": marker_summary["markers"],
         "required_markers_present": required_markers_present,
         "su2_boundary_ownership": boundary_ownership,
         "core_report": core["report"],
-        "marker_area_vectors": _marker_area_vectors(merged_nodes, marker_faces),
+        "marker_area_vectors": _marker_area_vectors(
+            compacted_volume["nodes"],
+            compacted_volume["marker_faces"],
+        ),
+        "dual_subvolume_proxy": dual_subvolume_proxy,
         "direct_prism_quality": direct_prism_quality,
         "direct_prism_quality_gate": _direct_prism_quality_gate(
             direct_prism_quality
@@ -985,6 +1008,14 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
             "direct prism BL + core tetra topology only; SU2 route-smoke must still pass",
             "wall-normal offset quality and SU2 dual metrics remain solver-side gates",
         ],
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Closed-wall direct prism wrapper candidate only. It may clear the "
+                "dual proxy at some low-resolution layer counts, but it must also "
+                "pass prism signed volume, root sidewall aspect, and pressure sanity."
+            ),
+        },
     }
 
 
