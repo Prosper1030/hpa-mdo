@@ -2475,6 +2475,7 @@ def _partial_wing_transition_collar_volume(
     required_segments_by_marker = {marker: 0 for marker in DIAGNOSTIC_FORCE_MARKERS}
     required_segment_counts: list[int] = []
     single_base_edge_ratios: list[float] = []
+    segmentation_plan_records: list[dict[str, Any]] = []
     pyramid_signed_volumes: list[float] = []
 
     for marker, faces in _mapping(prism_volume.get("marker_faces")).items():
@@ -2489,10 +2490,24 @@ def _partial_wing_transition_collar_volume(
                     1,
                     math.ceil(edge_ratio / MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO),
                 )
+                planned_segment_base_edge_ratio = edge_ratio / required_segments
                 single_base_edge_ratios.append(edge_ratio)
                 required_segment_counts.append(required_segments)
                 required_segments_by_marker[str(marker)] = (
                     required_segments_by_marker.get(str(marker), 0) + required_segments
+                )
+                segmentation_plan_records.append(
+                    {
+                        "marker": str(marker),
+                        "face_nodes": [int(node) for node in nodes_tuple],
+                        "single_pyramid_base_edge_ratio": edge_ratio,
+                        "planned_segment_base_edge_ratio": (
+                            planned_segment_base_edge_ratio
+                        ),
+                        "required_segments": required_segments,
+                        "min_edge_length_m": min(edge_lengths),
+                        "max_edge_length_m": max(edge_lengths),
+                    }
                 )
                 owner = _single_face_owner(face_owners, nodes_tuple, SU2_PRISM)
                 apex = _collar_apex_for_prism_face(
@@ -2532,6 +2547,17 @@ def _partial_wing_transition_collar_volume(
             "max_single_pyramid_base_edge_ratio": (
                 max(single_base_edge_ratios) if single_base_edge_ratios else 0.0
             ),
+            "max_planned_segment_base_edge_ratio": (
+                max(
+                    record["planned_segment_base_edge_ratio"]
+                    for record in segmentation_plan_records
+                )
+                if segmentation_plan_records
+                else 0.0
+            ),
+            "plan_record_count": len(segmentation_plan_records),
+            "plan_samples": segmentation_plan_records[:8],
+            "split_policy": "split_longest_prism_rim_edge_pair",
         },
         "interface_triangle_count": len(marker_faces.get("transition_collar_interface", [])),
         "force_wall_rim_marker_leak_count": force_wall_rim_marker_leak_count,

@@ -97,7 +97,9 @@ without changing force-wall markers or creating cap self-intersections.  For the
 current pps42/l24 real-wing handoff, the single-pyramid rim quads have max base
 edge ratio about `1.64e4`; the current estimate to keep every segmented base
 below `1000` is `6,928` rim pieces total (`te_wall=4,376`, `tip_wall=1,944`,
-`closure_wall=608`).
+`closure_wall=608`).  The report now contains a per-quad
+`split_longest_prism_rim_edge_pair` plan; the predicted maximum post-split base
+edge ratio is about `997.8`.
 
 ## Question To Answer
 

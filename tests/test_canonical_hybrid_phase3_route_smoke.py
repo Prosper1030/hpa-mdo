@@ -668,6 +668,13 @@ def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
     assert segmentation["max_required_segments_per_quad"] > 1
     assert segmentation["total_required_rim_segments"] > sum(converted.values())
     assert segmentation["max_single_pyramid_base_edge_ratio"] > 1000.0
+    assert segmentation["plan_record_count"] == sum(converted.values())
+    assert segmentation["max_planned_segment_base_edge_ratio"] <= 1000.0
+    assert segmentation["split_policy"] == "split_longest_prism_rim_edge_pair"
+    sample = segmentation["plan_samples"][0]
+    assert sample["required_segments"] > 1
+    assert sample["planned_segment_base_edge_ratio"] <= 1000.0
+    assert sample["marker"] in module.DIAGNOSTIC_FORCE_MARKERS
     assert report["transition_collar"]["force_wall_rim_marker_leak_count"] == 0
     assert report["transition_collar"]["pyramid_signed_volume"]["non_positive_count"] == 0
     assert report["core_tetra_interface"]["status"] == "triangular_transition_interface_ready_caps_pending"
