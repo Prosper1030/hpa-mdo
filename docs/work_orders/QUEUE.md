@@ -84,6 +84,14 @@ Current release package:
   transition elements attached to the preserved `bl_outer_interface` quads; this
   points at the quad-to-tet transition/interface orientation, not solver
   iteration count.
+- WO-006R8 basic airfoil BL sanity benchmark is complete as a simple-route
+  diagnostic, not Baseline A evidence. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/`.
+  The `solver_2000` run uses 2D `NACA4412`, HPA Reynolds scale, Gmsh BL quads,
+  and SU2 `INC_RANS/SA` no-slip wall; it finishes with `CL=0.897777`,
+  `CD=0.022121`, `CMz=0.102940`. Drag order is plausible (`0.0XX`), but
+  Cauchy[CD] is not converged and last-100-iteration CD span is about `3.28%`,
+  so this is route sanity evidence only.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

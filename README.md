@@ -1,5 +1,25 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
+
+`scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route
+sanity case：2D `NACA4412`、chord `1.130189765 m`、`V=6.5 m/s`、`Re≈5.03e5`、
+`alpha=4 deg`，用 Gmsh `BoundaryLayer` 產生 wall-resolved BL quads，SU2 config 使用
+`INC_RANS + SA + MARKER_HEATFLUX=(airfoil,0.0) + MARKER_FAR=(farfield)`。這是 debug
+工具鏈用的簡單 case，不是 Baseline A 幾何，也不能替代 Baseline A mesh ladder。
+
+實跑 `solver_2000` artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/`：
+mesh 約 `31,322` cells / `18,281` nodes，其中 BL quads `4,833`。SU2 跑滿
+`2000` iterations，最後 `CL=0.897777`、`CD=0.022121`、`CMz=0.102940`；阻力量級是合理的
+`0.0XX`，不是 WO-006J/F 那種 `CD≈0.5-0.6`。但 SU2 log 仍顯示 Cauchy[CD] 未達收斂；
+最後 100 iter `CL` span 約 `0.47%`，`CD` span 約 `3.28%`，所以判讀是
+basic route sanity pass / force convergence incomplete。
+
+工程判讀：這證明「SU2 + viscous no-slip + BL」在簡單 HPA-Re case 上沒有先天把 CD 算成
+0.5 的工具鏈錯誤；Baseline A 目前的大 CD 更像幾何/BL prism/pressure setup 或 3D handoff
+問題。下一步仍要先修 Baseline A BL/core handoff quality，再回 coarse/medium/fine ladder。
+
 ## 2026-05-14 WO-006 Force-Stability Window Gate Hardening
 
 `scripts/run_wo006i_grid_convergence_campaign.py` 現在不只看 force stability summary

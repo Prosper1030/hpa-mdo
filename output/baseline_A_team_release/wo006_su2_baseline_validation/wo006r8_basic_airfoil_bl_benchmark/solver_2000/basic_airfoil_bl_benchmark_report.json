@@ -1,0 +1,159 @@
+{
+  "schema_version": "wo006r8_basic_airfoil_bl_benchmark.v1",
+  "goal_status": "INCOMPLETE",
+  "cfd_status": "mesh_ladder_incomplete",
+  "case": {
+    "airfoil": "NACA4412",
+    "chord_m": 1.130189765,
+    "velocity_mps": 6.5,
+    "alpha_deg": 4.0,
+    "density_kgpm3": 1.225,
+    "dynamic_viscosity_pas": 1.7894e-05,
+    "reynolds_number": 502913.60253786185,
+    "expected_cl": 0.6579736267392906,
+    "expected_cd_range": [
+      0.006,
+      0.08
+    ],
+    "absurd_cd_threshold": 0.2,
+    "boundary_layer": {
+      "first_layer_height_m": 4.854689636154494e-05,
+      "growth_ratio": 1.2,
+      "layer_count": 28,
+      "total_thickness_m": 0.03977074921514708,
+      "target_yplus": 1.0
+    },
+    "points_per_side": 65,
+    "farfield_radius_chord": 25.0,
+    "farfield_mesh_size_chord": 1.0,
+    "airfoil_mesh_size_chord": 0.02,
+    "max_iterations": 2000
+  },
+  "mesh": {
+    "status": "meshed",
+    "route": "wo006r8_basic_airfoil_bl_gmsh",
+    "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/basic_airfoil_bl.msh",
+    "su2_mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/mesh.su2",
+    "node_count": 18281,
+    "cell_count": 31322,
+    "cell_type_counts": {
+      "2": 26489,
+      "3": 4833
+    },
+    "boundary_layer_quad_count": 4833,
+    "physical_groups": {
+      "airfoil": {
+        "dimension": 1,
+        "physical_tag": 1,
+        "entity_count": 129
+      },
+      "farfield": {
+        "dimension": 1,
+        "physical_tag": 2,
+        "entity_count": 4
+      },
+      "fluid": {
+        "dimension": 2,
+        "physical_tag": 3,
+        "entity_count": 1
+      }
+    },
+    "marker_summary": {
+      "ndime": 2,
+      "nelem": 31322,
+      "npoin": 18281,
+      "nmark": 2,
+      "markers": {
+        "airfoil": {
+          "element_count": 179,
+          "element_type_counts": {
+            "3": 179
+          }
+        },
+        "farfield": {
+          "element_count": 228,
+          "element_type_counts": {
+            "3": 228
+          }
+        }
+      }
+    },
+    "boundary_layer": {
+      "first_layer_height_m": 4.854689636154494e-05,
+      "growth_ratio": 1.2,
+      "layer_count": 28,
+      "total_thickness_m": 0.03977074921514708,
+      "target_yplus": 1.0
+    }
+  },
+  "su2_config_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/su2_runtime.cfg",
+  "solver": {
+    "run_requested": true,
+    "run_status": "completed",
+    "returncode": 0,
+    "elapsed_s": 122.74089612485841,
+    "command": [
+      "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+      "-t",
+      "4",
+      "su2_runtime.cfg"
+    ],
+    "solver_log_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/solver.log",
+    "history_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/history.csv",
+    "history": {
+      "path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/history.csv",
+      "row_count": 2000,
+      "final_iteration": 1999,
+      "final_coefficients": {
+        "cl": 0.8977773862,
+        "cd": 0.02212081529,
+        "cmy": 0.1029399452
+      },
+      "tail_stability": {
+        "window_size": 100,
+        "cl_relative_span": 0.004664800044122442,
+        "cd_relative_span": 0.03276405644030962,
+        "cmy_relative_span": 0.008192171261770456,
+        "residual_log10_span": 0.15156672499999946
+      }
+    },
+    "coefficient_sanity_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [
+        "tail_force_window_not_within_1_percent"
+      ],
+      "final_coefficients": {
+        "cl": 0.8977773862,
+        "cd": 0.02212081529,
+        "cmy": 0.1029399452
+      },
+      "expected": {
+        "cl_sanity_estimate": 0.6579736267392906,
+        "cd_reasonable_range": [
+          0.006,
+          0.08
+        ],
+        "cd_absurd_high_threshold": 0.2
+      },
+      "stable_window": {
+        "window_size": 100,
+        "cl_relative_span": 0.004664800044122442,
+        "cd_relative_span": 0.03276405644030962,
+        "cmy_relative_span": 0.008192171261770456,
+        "residual_log10_span": 0.15156672499999946
+      },
+      "engineering_read": "solver_ran_but_not_converged"
+    }
+  },
+  "engineering_assessment": {
+    "status": "basic_sanity_case_available",
+    "blockers": [],
+    "interpretation": "Basic BL case is usable as route sanity, but it is not a Baseline A mesh ladder.",
+    "trust_boundary": "This diagnostic uses a 2D NACA 4412 cambered airfoil at HPA Reynolds scale. It can catch BL/BC/SU2 coefficient-scale failures, but it cannot replace Baseline A 3D grid convergence.",
+    "expected_cd_scale": "0.006-0.080"
+  },
+  "elapsed_s": 123.1043547920417,
+  "report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/basic_airfoil_bl_benchmark_report.json",
+  "markdown_report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/solver_2000/basic_airfoil_bl_benchmark_report.md"
+}

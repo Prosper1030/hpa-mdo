@@ -18,6 +18,13 @@ screening evidence 讀，不是現行 release / procurement truth。
 - WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
 - WO-006 只能作 bounded aero calibration；必須使用 `98.5 kg` 與 current pipeline span authority，除非明確做 sensitivity。
 - WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
+- WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
+  上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
+  Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。`solver_2000` 跑滿 2000 iter，
+  mesh `31,322` cells / `18,281` nodes / BL quads `4,833`，最後
+  `CL=0.897777`、`CD=0.022121`、`CMz=0.102940`。這通過 `0.0XX` drag-order sanity，
+  但 SU2 Cauchy[CD] 未收斂，最後 100 iter `CD` span 約 `3.28%`；所以它是
+  simple-route sanity evidence，不是 Baseline A CFD evidence 或 mesh ladder completion。
 - WO-006K 已修正 mesh-native SU2 incompressible RANS coefficient normalization：
   runtime config 現在使用 `INC_NONDIM=INITIAL_VALUES`，WO-006 grid setup gate 也會拒絕
   非 `INITIAL_VALUES` 的 CFD ladder。這是必要修正，但不是 high-CD 的唯一原因：
