@@ -83,6 +83,11 @@ screening evidence 讀，不是現行 release / procurement truth。
   它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、
   drag/power truth 或 Baseline A reopen evidence。後續若要跑 medium/fine，必須先修
   BL/BC/near-wall setup；重放 no-BL 只能用 diagnostic flag，不能完成 CFD goal。
+- WO-006I grid-convergence gate 也會拒絕短尾段 force stability：CL/CD/Cm stability
+  summary 必須至少覆蓋 `100` 個 iterations，CL/CD relative spread 需在 `1%` 內、Cm
+  absolute spread 需在 `0.005` 內；舊 summary 若只用 25-row tail 宣稱 pass，會被
+  `*_force_stability_window_too_short` blocker 擋下。這只是數值穩定最低門檻，不會覆蓋
+  BL/y+ 或 CD-order sanity gate。
 - WO-006J faceted BL setup probe 已把 Gmsh BL writer 接上 `surface_triangulation_policy`，
   預設 `shorter_diagonal`，不改 Baseline A 外形。低成本 current-GO BL probe 顯示 fixed
   diagonal 有 `93` 個 non-positive BL volumes；shorter diagonal 把 non-positive volume 清為

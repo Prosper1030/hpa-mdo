@@ -33,6 +33,7 @@ def _rung(
     boundary_layer_status: str = "pass",
     yplus_status: str = "pass",
     setup_id: str = "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+    force_window_rows: int = 100,
 ):
     return {
         "rung_id": rung_id,
@@ -57,7 +58,7 @@ def _rung(
             "force_stability": {
                 "status": "pass",
                 "max_relative_spread": force_spread,
-                "window_rows": 25,
+                "window_rows": force_window_rows,
             },
             "residual_stability": {
                 "status": "pass",
@@ -171,6 +172,33 @@ def test_grid_trend_rejects_marker_mismatch_or_unstable_forces() -> None:
     assert result["cfd_status"] == "mesh_ladder_incomplete"
     assert "medium_marker_or_config_mismatch" in result["blockers"]
     assert "fine_force_stability_fail" in result["blockers"]
+
+
+def test_grid_trend_rejects_short_force_stability_window_even_when_spread_is_small() -> None:
+    module = _load_module()
+    setup_gate = _good_setup_gate(module)
+
+    result = module.evaluate_grid_convergence(
+        [
+            _rung("coarse", cells=1_100_000, cl=1.20, cd=0.0350, cm=-0.03),
+            _rung("medium", cells=3_000_000, cl=1.18, cd=0.0348, cm=-0.031),
+            _rung(
+                "fine",
+                cells=9_000_000,
+                cl=1.17,
+                cd=0.0347,
+                cm=-0.0315,
+                force_window_rows=25,
+            ),
+        ],
+        require_wall_resolved=True,
+        setup_gate=setup_gate,
+    )
+
+    assert result["goal_status"] == "INCOMPLETE"
+    assert result["cfd_status"] == "mesh_ladder_incomplete"
+    assert result["force_stability_gate"]["minimum_window_rows"] == 100
+    assert "fine_force_stability_window_too_short" in result["blockers"]
 
 
 def test_grid_trend_rejects_order_of_magnitude_high_cd_even_when_stable() -> None:

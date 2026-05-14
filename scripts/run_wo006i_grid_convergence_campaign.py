@@ -138,6 +138,7 @@ def evaluate_grid_convergence(
     blockers: list[str] = []
     successful = []
     plausibility_failures: list[dict[str, Any]] = []
+    force_window_failures: list[dict[str, Any]] = []
 
     if setup_gate is not None and setup_gate.get("status") != "pass":
         blockers.extend(f"setup_{item}" for item in setup_gate.get("blockers", []))
@@ -181,6 +182,15 @@ def evaluate_grid_convergence(
         force_stability = su2.get("force_stability") or {}
         if force_stability.get("status") != "pass" or _force_stability_value_fails(force_stability):
             blockers.append(f"{rung_id}_force_stability_fail")
+        if _force_stability_window_fails(force_stability):
+            blockers.append(f"{rung_id}_force_stability_window_too_short")
+            force_window_failures.append(
+                {
+                    "rung_id": rung_id,
+                    "observed_window_rows": force_stability.get("window_rows"),
+                    "minimum_window_rows": FORCE_STABILITY_WINDOW_ROWS,
+                }
+            )
         residual_stability = su2.get("residual_stability") or {}
         if residual_stability.get("status") != "pass" or _residual_stability_value_fails(residual_stability):
             blockers.append(f"{rung_id}_residual_stability_fail")
@@ -261,6 +271,18 @@ def evaluate_grid_convergence(
                 "Baseline A main-wing CD should be O(0.0XX) in this low-speed setup; "
                 "CD above the conservative plausibility limit indicates setup/domain/"
                 "geometry/solver trouble even when the force history is numerically stable."
+            ),
+        },
+        "force_stability_gate": {
+            "status": "pass" if not force_window_failures else "fail",
+            "minimum_window_rows": FORCE_STABILITY_WINDOW_ROWS,
+            "cl_cd_relative_spread_max": FORCE_WINDOW_RELATIVE_TOL,
+            "cm_absolute_spread_max": CM_ABSOLUTE_TOL,
+            "failures": force_window_failures,
+            "engineering_basis": (
+                "A short tail of apparently steady coefficients is route smoke, not "
+                "CFD convergence evidence; CL/CD/Cm must stay within tolerance across "
+                "the configured 100-iteration window."
             ),
         },
         "engineering_trust_boundary": _trust_boundary(cfd_status),
@@ -977,6 +999,11 @@ def _force_stability_value_fails(payload: Mapping[str, Any]) -> bool:
     if cm_spread is not None and cm_spread > CM_ABSOLUTE_TOL:
         return True
     return False
+
+
+def _force_stability_window_fails(payload: Mapping[str, Any]) -> bool:
+    observed = _optional_float(payload.get("window_rows"))
+    return observed is None or observed < FORCE_STABILITY_WINDOW_ROWS
 
 
 def _residual_stability_value_fails(payload: Mapping[str, Any]) -> bool:

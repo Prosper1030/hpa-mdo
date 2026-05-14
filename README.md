@@ -1,5 +1,16 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006 Force-Stability Window Gate Hardening
+
+`scripts/run_wo006i_grid_convergence_campaign.py` 現在不只看 force stability summary
+宣稱 `pass`，也會硬性要求 CL/CD/Cm stability window 至少覆蓋 `100` 個 iterations。
+若外部或舊 artifact 只用短尾段（例如 25 rows）宣稱穩定，grid-convergence gate 會加入
+`*_force_stability_window_too_short` blocker，即使 CL/CD/Cm spread 看起來小於 `1%`。
+
+工程判讀：iteration 數不是收斂定義；100-iteration rolling force window 是最低可信數值穩定
+證據。即使通過這條，`CD≈0.5-0.6` 仍會被 HPA main-wing CD-order sanity gate 擋下，因為
+drag 量級應該是 `0.0XX`，不能把高阻力假穩定當 CFD 完成。
+
 ## 2026-05-14 WO-006S Sleeve-Mesh Hotspot Re-diagnosis
 
 WO-006S 用既有 `scripts/diagnose_wo006k_bl_hotspots.py` 重判 WO-006R 的
