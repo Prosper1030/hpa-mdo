@@ -1263,6 +1263,72 @@ def test_setup_gate_r21_split_assembly_refines_writer_blocker() -> None:
     assert split["nonmanifold_split_face_count"] == 64
 
 
+def test_setup_gate_r22_global_star_split_refines_blocker_to_degenerate_cells() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r22_global_star_split_basis_probe.v1",
+                "verdict": "global_star_split_basis_blocked",
+                "global_star_split_basis": {
+                    "status": "global_star_split_basis_degenerate_reduction_required",
+                    "candidate_cell_count": 26880,
+                    "volume_element_count": 322432,
+                    "target_triangle_count": 5594,
+                    "matched_target_triangle_count": 5594,
+                    "internal_split_leak_face_count": 0,
+                    "nonmanifold_split_face_count": 0,
+                    "non_positive_tet_count": 0,
+                    "degenerate_star_triangle_count": 128,
+                },
+            },
+            {
+                "schema_version": "wo006r21_split_assembly_conformality_probe.v1",
+                "verdict": "split_assembly_internal_nonconformal",
+                "split_assembly_conformality": {
+                    "status": "split_assembly_internal_nonconformal",
+                    "candidate_cell_count": 26880,
+                    "volume_element_count": 161280,
+                    "internal_split_leak_face_count": 7960,
+                    "nonmanifold_split_face_count": 64,
+                },
+            },
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert (
+        result["core_closure_topology"]["status"]
+        == "handoff_global_star_split_degenerate_reduction_required"
+    )
+    assert "near_wall_global_star_split_degenerate_cells" in result["blockers"]
+    assert "near_wall_split_assembly_internal_nonconformal" not in result["blockers"]
+    assert (
+        result["core_closure_topology"]["recommended_repair"]
+        == "reduce_degenerate_star_cells_before_mixed_mesh_writer"
+    )
+    star = result["core_closure_topology"]["global_star_split_basis"]
+    assert star["schema_version"] == "wo006r22_global_star_split_basis_probe.v1"
+    assert star["matched_target_triangle_count"] == 5594
+    assert star["internal_split_leak_face_count"] == 0
+    assert star["nonmanifold_split_face_count"] == 0
+    assert star["degenerate_star_triangle_count"] == 128
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

@@ -95,6 +95,25 @@ data-authority-restored preflight 現在的 active blocker 是
 `solve_global_conformal_near_wall_split_assignment_before_mixed_mesh_writer`。在這個 gate
 過之前，不應該跑 medium/fine SU2，也不應該宣稱 Baseline A CL/CD/Cm。
 
+## 2026-05-14 WO-006R22 Global Star Split Basis Probe
+
+`scripts/probe_wo006r22_global_star_split_basis.py` 接在 R21 後面，改用全域一致的
+cell-center star split basis：internal quad faces 用 deterministic diagonal，core-facing
+boundary faces 則使用 R19/R20 修復後的 target triangles。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r22_global_star_split_basis_probe/`。
+
+實跑結果：Baseline A current-GO near-wall/receiver candidate 仍是 `26,880` 個 cells；
+global-star split 產生 `322,432` 個非退化 tet elements，target triangles
+`5594/5594` match，internal split leaks `0`，non-manifold split faces `0`，
+non-positive tets `0`。剩餘 blocker 是 `128` 個 degenerate star triangles，集中成
+sharp-edge / zero-area cell reduction 問題，而不是 R21 的全域 internal nonconformal。
+
+工程邊界：R22 仍不是 final mixed SU2 mesh，沒有 marker/quality-gated BL+core handoff，
+沒有 near-wall y+，也沒有 SU2 ladder。WO-006I preflight 現在會把 active blocker 更新成
+`near_wall_global_star_split_degenerate_cells`，recommended repair 是
+`reduce_degenerate_star_cells_before_mixed_mesh_writer`。在這個 local cell reduction 過之前，
+不應該跑 medium/fine SU2，也不能宣稱 Baseline A CL/CD/Cm。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

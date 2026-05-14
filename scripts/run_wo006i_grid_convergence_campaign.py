@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r22_global_star_split_basis_probe" / "summary.json",
     WO006_ROOT / "wo006r21_split_assembly_conformality_probe" / "summary.json",
     WO006_ROOT / "wo006r20_left_tip_star_tessellation_probe" / "summary.json",
     WO006_ROOT / "wo006r19_loop_cap_owner_pyramid_probe" / "summary.json",
@@ -371,6 +372,12 @@ def evaluate_cfd_setup_gate(
         blockers.append("near_wall_merged_mesh_handoff_missing")
     if core_closure_topology["status"] == "handoff_repair_basis_ready_mixed_mesh_pending":
         blockers.append("near_wall_merged_mesh_handoff_missing")
+    if core_closure_topology["status"] == "handoff_global_star_split_basis_ready_mixed_mesh_pending":
+        blockers.append("near_wall_merged_mesh_handoff_missing")
+    if core_closure_topology["status"] == "handoff_global_star_split_degenerate_reduction_required":
+        blockers.append("near_wall_global_star_split_degenerate_cells")
+    if core_closure_topology["status"] == "handoff_global_star_split_basis_blocked":
+        blockers.append("near_wall_global_star_split_basis_blocked")
     if core_closure_topology["status"] == "handoff_split_assembly_internal_nonconformal":
         blockers.append("near_wall_split_assembly_internal_nonconformal")
     if core_closure_topology["status"] == "blocked" and core_closure_topology.get(
@@ -419,6 +426,9 @@ def _core_route_supersedes_direct_stageback(
             "handoff_prism_split_blocked",
             "core_mesh_ready_handoff_pending",
             "handoff_repair_basis_ready_mixed_mesh_pending",
+            "handoff_global_star_split_basis_ready_mixed_mesh_pending",
+            "handoff_global_star_split_degenerate_reduction_required",
+            "handoff_global_star_split_basis_blocked",
             "handoff_split_assembly_internal_nonconformal",
             "pass",
         }
@@ -932,6 +942,9 @@ def render_report(summary: Mapping[str, Any]) -> str:
     split_assembly_conformality = (
         core_closure_topology.get("split_assembly_conformality") or {}
     )
+    global_star_split_basis = (
+        core_closure_topology.get("global_star_split_basis") or {}
+    )
     lines = [
         "# WO-006I Baseline A Main-Wing CFD Grid-Convergence Campaign",
         "",
@@ -962,6 +975,8 @@ def render_report(summary: Mapping[str, Any]) -> str:
         f"- R20 left-tip star target triangles: `{left_tip_star_tessellation.get('matched_target_triangle_count')}` / `{left_tip_star_tessellation.get('target_triangle_count')}`",
         f"- R20 non-positive star tets: `{left_tip_star_tessellation.get('non_positive_star_tet_count')}`",
         f"- R21 internal split leaks / non-manifold split faces: `{split_assembly_conformality.get('internal_split_leak_face_count')}` / `{split_assembly_conformality.get('nonmanifold_split_face_count')}`",
+        f"- R22 global-star target triangles: `{global_star_split_basis.get('matched_target_triangle_count')}` / `{global_star_split_basis.get('target_triangle_count')}`",
+        f"- R22 leaks / non-manifold / degenerate star triangles: `{global_star_split_basis.get('internal_split_leak_face_count')}` / `{global_star_split_basis.get('nonmanifold_split_face_count')}` / `{global_star_split_basis.get('degenerate_star_triangle_count')}`",
         f"- engineering read: `{setup_gate.get('engineering_read')}`",
         "",
         "## Physics Setup",
@@ -1235,6 +1250,10 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    global_star_record: dict[str, Any] | None = None
+    global_star_ready = False
+    global_star_degenerate_reduction_required = False
+    global_star_blocked = False
     split_assembly_record: dict[str, Any] | None = None
     split_assembly_blocked = False
     left_tip_star_record: dict[str, Any] | None = None
@@ -1251,6 +1270,57 @@ def _core_closure_topology_summary(
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        global_star = artifact.get("global_star_split_basis") or {}
+        if global_star:
+            star_status = str(global_star.get("status") or artifact.get("verdict") or "")
+            internal_leaks = int(global_star.get("internal_split_leak_face_count") or 0)
+            nonmanifold = int(global_star.get("nonmanifold_split_face_count") or 0)
+            unmatched_targets = int(global_star.get("unmatched_target_triangle_count") or 0)
+            non_positive = int(global_star.get("non_positive_tet_count") or 0)
+            degenerate = int(global_star.get("degenerate_star_triangle_count") or 0)
+            global_star_ready = (
+                star_status == "global_star_split_basis_ready"
+                and internal_leaks == 0
+                and nonmanifold == 0
+                and unmatched_targets == 0
+                and non_positive == 0
+                and degenerate == 0
+            )
+            global_star_degenerate_reduction_required = (
+                star_status == "global_star_split_basis_degenerate_reduction_required"
+                and internal_leaks == 0
+                and nonmanifold == 0
+                and unmatched_targets == 0
+                and non_positive == 0
+                and degenerate > 0
+            )
+            global_star_blocked = not (
+                global_star_ready or global_star_degenerate_reduction_required
+            )
+            global_star_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": star_status,
+                "candidate_cell_count": global_star.get("candidate_cell_count"),
+                "volume_element_count": global_star.get("volume_element_count"),
+                "target_triangle_count": global_star.get("target_triangle_count"),
+                "matched_target_triangle_count": global_star.get(
+                    "matched_target_triangle_count"
+                ),
+                "unmatched_target_triangle_count": unmatched_targets,
+                "matched_target_triangles_by_marker": global_star.get(
+                    "matched_target_triangles_by_marker"
+                ),
+                "internal_split_leak_face_count": internal_leaks,
+                "nonmanifold_split_face_count": nonmanifold,
+                "non_positive_tet_count": non_positive,
+                "degenerate_star_triangle_count": degenerate,
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(global_star_record)
+            continue
+
         split_assembly = artifact.get("split_assembly_conformality") or {}
         if split_assembly:
             split_assembly_blocked = (
@@ -1665,7 +1735,13 @@ def _core_closure_topology_summary(
         and hybrid_split_artifact_seen
         and hybrid_split_blocked
     )
-    if split_assembly_blocked:
+    if global_star_degenerate_reduction_required:
+        status = "handoff_global_star_split_degenerate_reduction_required"
+    elif global_star_ready:
+        status = "handoff_global_star_split_basis_ready_mixed_mesh_pending"
+    elif global_star_blocked:
+        status = "handoff_global_star_split_basis_blocked"
+    elif split_assembly_blocked:
         status = "handoff_split_assembly_internal_nonconformal"
     elif handoff_repair_basis_ready:
         status = "handoff_repair_basis_ready_mixed_mesh_pending"
@@ -1729,6 +1805,56 @@ def _core_closure_topology_summary(
                     "interface triangles still lack ownership or compatible "
                     "tessellation. Do not run medium/fine SU2 until those final "
                     "handoff gaps are materialized and y+ is postprocessed."
+                ),
+            }
+        )
+    elif status == "handoff_global_star_split_degenerate_reduction_required":
+        result.update(
+            {
+                "blocker": "near_wall_global_star_split_degenerate_cells",
+                "global_star_split_basis": global_star_record,
+                "split_assembly_conformality": split_assembly_record,
+                "recommended_repair": "reduce_degenerate_star_cells_before_mixed_mesh_writer",
+                "engineering_read": (
+                    "The global center-star split removes the R21 internal split "
+                    "leaks and matches the active candidate-owned core-interface "
+                    "triangles, but sharp-edge zero-area star triangles remain. "
+                    "The next repair is local cell-type reduction or equivalent "
+                    "degenerate-cell handling before writing a valid mixed SU2 mesh."
+                ),
+            }
+        )
+    elif status == "handoff_global_star_split_basis_ready_mixed_mesh_pending":
+        result.update(
+            {
+                "blocker": "near_wall_merged_mesh_handoff_missing",
+                "global_star_split_basis": global_star_record,
+                "split_assembly_conformality": split_assembly_record,
+                "recommended_repair": (
+                    "write_global_star_split_mixed_su2_handoff_and_yplus_probe"
+                ),
+                "engineering_read": (
+                    "The global center-star split is topologically ready as a "
+                    "mixed-handoff basis, but it still needs marker/quality-gated "
+                    "SU2 mesh writing, near-wall y+, and solver ladder evidence "
+                    "before any CFD coefficient interpretation."
+                ),
+            }
+        )
+    elif status == "handoff_global_star_split_basis_blocked":
+        result.update(
+            {
+                "blocker": "near_wall_global_star_split_basis_blocked",
+                "global_star_split_basis": global_star_record,
+                "split_assembly_conformality": split_assembly_record,
+                "recommended_repair": (
+                    "repair_global_star_split_topology_before_mixed_mesh_writer"
+                ),
+                "engineering_read": (
+                    "The global center-star split artifact is newer than the R21 "
+                    "split-assembly probe but still reports topology or target "
+                    "matching blockers. Do not write or run a mixed SU2 mesh until "
+                    "the global split basis is ready."
                 ),
             }
         )

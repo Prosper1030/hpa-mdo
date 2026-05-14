@@ -149,10 +149,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   gate：把 R17 selected tet/prism patterns 套到 `26880` 個 candidate cells 後，會形成
   `161280` 個 local split elements，但目前有 `7960` 個 internal split leak faces 和
   `64` 個 non-manifold split faces。這表示 local core-face match 不能直接升級成 final mixed
-  mesh；active blocker 現在是 `near_wall_split_assembly_internal_nonconformal`，不是 R10
-  wall-edge dependency、R12 geometric self-intersection、舊 direct-stageback route，或仍未知的
-  left-tip residual；WO-006I preflight 的 data-authority-restored mesh repair target 是
-  `solve_global_conformal_near_wall_split_assignment_before_mixed_mesh_writer`。
+  mesh。WO-006R22 進一步測試全域一致 cell-center star split：同一批 `26880`
+  candidate cells 可產生 `322432` 個非退化 tet elements，target triangles
+  `5594/5594` match，internal split leaks `0`，non-manifold split faces `0`，
+  non-positive tets `0`；剩下 `128` 個 degenerate star triangles 需要 sharp-edge
+  cell-type reduction。active blocker 現在是
+  `near_wall_global_star_split_degenerate_cells`，不是 R21 的全域 split nonconformal、
+  R10 wall-edge dependency、R12 geometric self-intersection、舊 direct-stageback route，
+  或仍未知的 left-tip residual；WO-006I preflight 的 data-authority-restored mesh repair
+  target 是 `reduce_degenerate_star_cells_before_mixed_mesh_writer`。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
