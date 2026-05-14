@@ -11,8 +11,12 @@ marker/config audit pass，但 0.48M 到 2.51M 級 rungs 的 `CD≈0.61`，4.53M
 工程判讀：grid-convergence gate 現在會拒絕 `CD > 0.15` 的 HPA main-wing rung，
 即使 CL/CD/Cm 尾段看似穩定也不能選成 stable CFD pair。BL stability ladder 的預設
 farfield 也從 route-smoke 的 `2c/4c` 改成 `20c/40c`（lateral/vertical `8c`），
-目前正在用 larger-domain BL sanity case 檢查 high-CD 是否主要來自太近的 farfield。
-這仍不是完成；修正 domain 後還要重跑同幾何、同 physics 的 coarse/medium/fine ladder。
+但 larger-domain BL sanity 沒有修好 high-CD：`CD≈0.642`。`scripts/diagnose_wo006j_drag_source.py`
+可重跑 WO-006J force-breakdown / surface-pressure localization；目前診斷顯示 Euler/slip-wall
+probe 的 `CD≈0.298` 是 pressure-only，RANS/BL 的 `CD≈0.642` 由 pressure `≈0.492`
+加 friction `≈0.150` 組成。因此問題不是只靠多跑 iteration 或單純放大 farfield 就會好；
+必須先修 pressure/geometry/numerics artifact 與 BL friction setup，再重跑同幾何、同 physics
+的 coarse/medium/fine ladder。
 
 ## 2026-05-13 WO-006I CFD Setup Gate Reset
 
