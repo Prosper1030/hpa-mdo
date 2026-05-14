@@ -189,6 +189,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   plan：`145` 條 source rim edges 需要約 `809` 段（`te_wall=640`、
   `tip_wall=81`、`closure_wall=88`），預估最大 source-edge 切後 base ratio 約
   `982.0`。
+- WO-006 Phase 3 segmented source-rim handoff 已新增 pps42/l3 真翼 proof：
+  `segmented_partial_wing_transition_collar_handoff_pps42_l3/`。實作上只切需要
+  分段的長 source rim edges：`64` 條長邊需要 `728` 段（`te_wall=640`、
+  `closure_wall=88`；tip rim source edges 已低於 split threshold），新增 `664`
+  個 source vertices，輸出 `17,544` prisms + `2,427` pyramids。切完後
+  `max_single_pyramid_base_edge_ratio≈982.03`、`max_required_segments_per_quad=1`、
+  `force_wall_rim_marker_leak_count=0`、pyramid non-positive `0`、SU2 boundary ownership
+  pass。這仍是 caps/core pending handoff，不是 `ROUTE_SMOKE_PASS`；下一步才是
+  用同一 segmented surface 做 core merge 與 dual proxy。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

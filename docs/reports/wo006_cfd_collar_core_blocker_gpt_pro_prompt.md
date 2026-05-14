@@ -103,6 +103,15 @@ edge ratio is about `997.8`.  Collapsing the layer-expanded plan back to the
 source mesh gives `145` source rim edges and about `809` required source-edge
 segments (`te_wall=640`, `tip_wall=81`, `closure_wall=88`).
 
+Implementation update: the first real-wing segmented source-rim handoff now
+exists at pps42/layers=3.  It splits only the long source rim edges before BL
+extrusion: `64` source edges -> `728` segments, adding `664` source vertices.
+The resulting caps-pending handoff writes `17,544` prisms + `2,427` pyramids,
+with max single pyramid base edge ratio about `982.03`,
+`max_required_segments_per_quad=1`, force-wall rim leak `0`, pyramid
+non-positive count `0`, and SU2 boundary ownership pass.  The next open question
+is whether this segmented surface also fixes the merged core dual proxy.
+
 ## Question To Answer
 
 Please propose the next concrete topology recipe, not solver numerics.

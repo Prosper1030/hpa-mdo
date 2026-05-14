@@ -2011,6 +2011,126 @@ def write_phase3_partial_wing_transition_collar_handoff_su2(
     return report
 
 
+def write_phase3_segmented_partial_wing_transition_collar_handoff_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 1.0e-4,
+) -> dict[str, Any]:
+    """Split source rim edges before creating the partial-BL collar handoff."""
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    edge_marker_map = _cap_edge_marker_map(cap_triangles)
+    source_edge_segments, source_edge_report = _source_rim_edge_split_plan(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        edge_marker_map=edge_marker_map,
+        first_layer_height_m=first_layer_height_m,
+    )
+    segmented_vertices, segmented_wall_triangles, segmented_surface_report = (
+        _split_wall_triangles_on_source_edges(
+            surface.vertices,
+            wall_triangles,
+            edge_segment_counts=source_edge_segments,
+        )
+    )
+    segmented_cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in segmented_wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        segmented_vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in segmented_wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(segmented_cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            collar_volume,
+            comments=(
+                "% Canonical hybrid half-wing segmented partial-BL collar handoff.",
+                "% Source rim edges are split before BL extrusion.",
+                "% Original cap faces and tetra core are still pending.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    type_counts: dict[str, int] = {}
+    for element_type, _nodes in collar_volume["elements"]:
+        key = str(element_type)
+        type_counts[key] = type_counts.get(key, 0) + 1
+    direct_prism_quality = _direct_prism_quality_metrics(collar_volume)
+    return {
+        "route": (
+            "canonical_hybrid_halfwing_segmented_partial_wing_transition_collar_handoff"
+        ),
+        "status": "segmented_partial_wing_transition_collar_ready_caps_pending",
+        "mesh_path": str(output_path),
+        "node_count": len(collar_volume["nodes"]),
+        "volume_element_count": len(collar_volume["elements"]),
+        "volume_element_type_counts": dict(sorted(type_counts.items())),
+        "boundary_layer_cell_count": int(type_counts.get(str(SU2_PRISM), 0)),
+        "source_rim_edge_split_plan": source_edge_report,
+        "segmented_surface": segmented_surface_report,
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(direct_prism_quality),
+        "transition_collar": collar_report,
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "closure_faces_merged_into_wing_wall": False,
+            "prism_rim_quads_exposed_as_force_walls": (
+                collar_report["force_wall_rim_marker_leak_count"] > 0
+            ),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Segmented source-rim handoff only. It verifies that the long "
+                "TE/tip/closure rim edges can be split before prism extrusion so "
+                "the pyramid collar bases stay inside the local edge-ratio gate. "
+                "Merged tetra core, dual-quality, pressure sanity, and RANS are "
+                "still pending."
+            ),
+        },
+    }
+
+
 def run_phase3_partial_wing_transition_collar_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,
@@ -4381,6 +4501,209 @@ def _cap_edge_marker_map(
             ):
                 edge_markers[key] = marker
     return edge_markers
+
+
+def _source_rim_edge_split_plan(
+    base_vertices: Sequence[tuple[float, float, float]],
+    triangles: Sequence[tuple[tuple[int, int, int], str]],
+    *,
+    edge_marker_map: Mapping[tuple[int, int], str],
+    first_layer_height_m: float,
+) -> tuple[dict[tuple[int, int], int], dict[str, Any]]:
+    if first_layer_height_m <= 0.0:
+        raise ValueError("first_layer_height_m must be positive")
+    edge_segments: dict[tuple[int, int], int] = {}
+    records_by_edge: dict[tuple[int, int], dict[str, Any]] = {}
+    for triangle, _marker in triangles:
+        for edge in (
+            (triangle[0], triangle[1]),
+            (triangle[1], triangle[2]),
+            (triangle[2], triangle[0]),
+        ):
+            key = tuple(sorted((int(edge[0]), int(edge[1]))))
+            marker = edge_marker_map.get(key)
+            if marker not in DIAGNOSTIC_FORCE_MARKERS:
+                continue
+            if all(abs(base_vertices[node][1]) <= 1.0e-9 for node in key):
+                continue
+            length = _distance3(base_vertices[key[0]], base_vertices[key[1]])
+            single_base_ratio = length / first_layer_height_m
+            required_segments = max(
+                1,
+                math.ceil(
+                    single_base_ratio / MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO
+                ),
+            )
+            if required_segments <= 1:
+                continue
+            record = records_by_edge.get(key)
+            if record is not None and single_base_ratio <= float(
+                record["single_pyramid_base_edge_ratio"]
+            ):
+                continue
+            edge_segments[key] = required_segments
+            records_by_edge[key] = {
+                "marker": str(marker),
+                "source_edge": [int(key[0]), int(key[1])],
+                "required_segments": int(required_segments),
+                "single_pyramid_base_edge_ratio": float(single_base_ratio),
+                "planned_segment_base_edge_ratio": float(
+                    single_base_ratio / required_segments
+                ),
+                "edge_length_m": float(length),
+                "first_layer_height_m": float(first_layer_height_m),
+            }
+    records = list(records_by_edge.values())
+    required_by_marker = {marker: 0 for marker in DIAGNOSTIC_FORCE_MARKERS}
+    for record in records:
+        marker = str(record["marker"])
+        required_by_marker[marker] = required_by_marker.get(marker, 0) + int(
+            record["required_segments"]
+        )
+    report = {
+        "threshold_max_edge_ratio": MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO,
+        "source_edge_count": len(records),
+        "required_source_edge_segments_by_marker": required_by_marker,
+        "total_required_source_edge_segments": sum(
+            int(record["required_segments"]) for record in records
+        ),
+        "max_required_segments_per_source_edge": (
+            max(int(record["required_segments"]) for record in records)
+            if records
+            else 0
+        ),
+        "max_single_source_edge_base_ratio": (
+            max(float(record["single_pyramid_base_edge_ratio"]) for record in records)
+            if records
+            else 0.0
+        ),
+        "max_planned_source_edge_base_ratio": (
+            max(float(record["planned_segment_base_edge_ratio"]) for record in records)
+            if records
+            else 0.0
+        ),
+        "split_policy": "split_source_rim_edge_before_bl_extrusion",
+        "plan_samples": records[:8],
+    }
+    return edge_segments, report
+
+
+def _split_wall_triangles_on_source_edges(
+    base_vertices: Sequence[tuple[float, float, float]],
+    triangles: Sequence[tuple[tuple[int, int, int], str]],
+    *,
+    edge_segment_counts: Mapping[tuple[int, int], int],
+) -> tuple[
+    list[tuple[float, float, float]],
+    list[tuple[tuple[int, int, int], str]],
+    dict[str, Any],
+]:
+    vertices = [tuple(vertex) for vertex in base_vertices]
+    edge_node_cache: dict[tuple[int, int], list[int]] = {}
+
+    def edge_nodes(start: int, end: int) -> list[int]:
+        key = tuple(sorted((int(start), int(end))))
+        segments = int(edge_segment_counts.get(key, 1))
+        if segments <= 1:
+            return [int(start), int(end)]
+        cached = edge_node_cache.get(key)
+        if cached is None:
+            low, high = key
+            low_point = vertices[low]
+            high_point = vertices[high]
+            nodes = [low]
+            for index in range(1, segments):
+                fraction = index / segments
+                vertices.append(
+                    (
+                        low_point[0] + fraction * (high_point[0] - low_point[0]),
+                        low_point[1] + fraction * (high_point[1] - low_point[1]),
+                        low_point[2] + fraction * (high_point[2] - low_point[2]),
+                    )
+                )
+                nodes.append(len(vertices) - 1)
+            nodes.append(high)
+            cached = nodes
+            edge_node_cache[key] = cached
+        if int(start) == cached[0] and int(end) == cached[-1]:
+            return list(cached)
+        return list(reversed(cached))
+
+    split_triangles: list[tuple[tuple[int, int, int], str]] = []
+    max_boundary_vertex_count = 0
+    for triangle, marker in triangles:
+        a, b, c = (int(triangle[0]), int(triangle[1]), int(triangle[2]))
+        ab = edge_nodes(a, b)
+        bc = edge_nodes(b, c)
+        ca = edge_nodes(c, a)
+        boundary = [*ab, *bc[1:], *ca[1:-1]]
+        max_boundary_vertex_count = max(max_boundary_vertex_count, len(boundary))
+        for sub_triangle in _triangulate_convex_boundary_polygon(vertices, boundary):
+            split_triangles.append((sub_triangle, str(marker)))
+    return vertices, split_triangles, {
+        "input_vertex_count": len(base_vertices),
+        "output_vertex_count": len(vertices),
+        "added_source_vertices": len(vertices) - len(base_vertices),
+        "input_triangle_count": len(triangles),
+        "output_triangle_count": len(split_triangles),
+        "split_source_edge_count": len(edge_node_cache),
+        "max_boundary_vertex_count": max_boundary_vertex_count,
+    }
+
+
+def _triangulate_convex_boundary_polygon(
+    vertices: Sequence[tuple[float, float, float]],
+    boundary_nodes: Sequence[int],
+) -> list[tuple[int, int, int]]:
+    remaining = [int(node) for node in boundary_nodes]
+    if len(remaining) < 3:
+        return []
+    triangles: list[tuple[int, int, int]] = []
+    guard = 0
+    while len(remaining) > 3:
+        guard += 1
+        if guard > len(boundary_nodes) * len(boundary_nodes):
+            raise RuntimeError("could not triangulate split boundary polygon")
+        for index, current in enumerate(remaining):
+            candidate = (
+                remaining[index - 1],
+                current,
+                remaining[(index + 1) % len(remaining)],
+            )
+            if _triangle_area_norm(vertices, candidate) <= 1.0e-14:
+                continue
+            remaining_after_ear = [*remaining[:index], *remaining[index + 1 :]]
+            if (
+                len(remaining_after_ear) >= 3
+                and _polygon_area_norm(vertices, remaining_after_ear) <= 1.0e-14
+            ):
+                continue
+            triangles.append(candidate)
+            del remaining[index]
+            break
+        else:
+            raise RuntimeError("split boundary polygon is degenerate")
+    final_triangle = tuple(remaining)
+    if _triangle_area_norm(vertices, final_triangle) > 1.0e-14:
+        triangles.append(final_triangle)
+    return triangles
+
+
+def _triangle_area_norm(
+    vertices: Sequence[tuple[float, float, float]],
+    triangle: Sequence[int],
+) -> float:
+    return _polygon_area_norm(vertices, triangle)
+
+
+def _polygon_area_norm(
+    vertices: Sequence[tuple[float, float, float]],
+    nodes: Sequence[int],
+) -> float:
+    area_vector = _face_area_vector(vertices, nodes)
+    return math.sqrt(
+        area_vector[0] ** 2 + area_vector[1] ** 2 + area_vector[2] ** 2
+    )
 
 
 def _direct_prism_quality_metrics(volume: Mapping[str, Any]) -> dict[str, Any]:

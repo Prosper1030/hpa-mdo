@@ -697,6 +697,48 @@ def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_partial_wing_transition_collar_handoff_splits_source_edges(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_segmented_partial_wing_transition_collar_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_transition_collar_handoff.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=5.0e-4,
+    )
+
+    assert (
+        report["route"]
+        == "canonical_hybrid_halfwing_segmented_partial_wing_transition_collar_handoff"
+    )
+    assert report["status"] == "segmented_partial_wing_transition_collar_ready_caps_pending"
+    source_plan = report["source_rim_edge_split_plan"]
+    assert source_plan["source_edge_count"] > 0
+    assert source_plan["total_required_source_edge_segments"] > source_plan["source_edge_count"]
+    assert source_plan["max_planned_source_edge_base_ratio"] <= 1000.0
+    assert report["segmented_surface"]["added_source_vertices"] > 0
+
+    collar_requirement = report["transition_collar"]["segmented_collar_requirement"]
+    assert collar_requirement["max_single_pyramid_base_edge_ratio"] <= 1000.0
+    assert collar_requirement["max_required_segments_per_quad"] == 1
+    assert (
+        collar_requirement["source_edge_split_requirement"][
+            "total_required_source_edge_segments"
+        ]
+        == collar_requirement["source_edge_split_requirement"]["source_edge_count"]
+    )
+    assert report["transition_collar"]["force_wall_rim_marker_leak_count"] == 0
+    assert report["transition_collar"]["pyramid_signed_volume"]["non_positive_count"] == 0
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_partial_wing_transition_collar_core_probe_tet_fills_caps(
     tmp_path: Path,
 ) -> None:

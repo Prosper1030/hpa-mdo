@@ -189,6 +189,11 @@ segmented rim pieces（`te_wall=4,376`、`tip_wall=1,944`、`closure_wall=608`�
 per-quad split plan 已寫入 artifact，預估最大切後 base edge ratio 約 `997.8`。
 同一 plan 壓回 source mesh 後是 `145` 條 source rim edges、約 `809` 段
 （`te_wall=640`、`tip_wall=81`、`closure_wall=88`），更接近下一步實作量級。
+新的 pps42/l3 segmented source-rim handoff 已把這個 rule 實作到真翼表面：
+`64` 條長 source rim edges 先切成 `728` 段，新增 `664` 個 source vertices，
+輸出 `17,544` prisms + `2,427` pyramids；collar base 最大 edge ratio 降到
+約 `982.03`，每個 rim quad 不再需要二次分割，force-wall rim leak `0`，
+pyramid non-positive `0`。這仍是 caps/core pending，不是 route-smoke。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
