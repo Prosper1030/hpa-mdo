@@ -107,14 +107,17 @@ BL/core handoff ready，不能跑 medium/fine SU2 ladder。
 
 ## 2026-05-14 WO-006Z BL Physical Wall Surface Basis
 
-WO-006Z 新增 `build_boundary_layer_wall_surface(...)`，把 BL block 裡真正可作 physical
-wall 的 layer-0 wing surface 獨立抽出：既有 `wing_wall` spanwise faces 會保留；finite
-TE 會新增非零面積 TE-base wall；sharp TE 則只做 duplicate-node seam stitch，不產生零面積
+WO-006Z 新增 `build_boundary_layer_wall_surface(...)` 與
+`scripts/probe_wo006z_bl_physical_wall_surface.py`，把 BL block 裡真正可作 physical wall
+的 layer-0 wing surface 獨立抽出：既有 `wing_wall` spanwise faces 會保留；finite TE
+會新增非零面積 TE-base wall；sharp TE 則只做 duplicate-node seam stitch，不產生零面積
 wall face；terminal tip cap 只用 layer-0 wall nodes 三角化。
 
-Baseline A current VSP source smoke：`points_per_side=12`、BL `layer_count=8` 時，physical
-wall surface 是 watertight，`wing_wall=260`，其中 source spanwise wall faces `220`、
-tip-cap triangles `40`、sharp-TE seam pairs `11`、finite TE-base wall faces `0`。
+Baseline A current geometry artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006z_bl_physical_wall_surface_probe/`。
+實跑 `points_per_side=16`、`spanwise_subdivisions=2`、BL `layer_count=24` 時，physical
+wall surface 是 watertight，`wing_wall=1016`，其中 source spanwise wall faces `960`、
+tip-cap triangles `56`、sharp-TE seam pairs `33`、finite TE-base wall faces `0`。
 
 工程判讀：這是把「物理壁面 marker 從 BL/core/span-cap/wake 混雜面裡分離」的一步，
 不是 BL/core handoff ready。下一步仍要把 wake receiver / span-cap ownership 實作成
