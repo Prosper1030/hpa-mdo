@@ -85,16 +85,18 @@ def test_near_wall_candidate_internalizes_span_caps_and_stitches_sharp_te_wake()
     summary = module.summarize_near_wall_merged_volume_candidate(block, candidate)
     probe = module.build_probe_summary(merged_volume=summary)
 
-    assert summary["status"] == "near_wall_volume_candidate_ready_core_mesh_pending"
+    assert summary["status"] == "near_wall_volume_candidate_core_boundary_blocked"
     assert summary["owned_bl_cell_count"] == len(block.cells)
     assert summary["tip_receiver_cell_count"] > 0
     assert summary["wake_receiver_cell_count"] > 0
     assert summary["remaining_exposed_original_span_cap_face_count"] == 0
     assert summary["remaining_exposed_original_wake_cut_face_count"] == 0
+    assert summary["external_boundary_topology"]["bad_edge_count"] > 0
     assert summary["te_base_stitched_face_count"] > 0
     assert summary["degenerate_receiver_base_removed_face_count"] > 0
     assert "receiver_base" not in summary["boundary_face_role_counts"]
     assert "final_merged_mesh_missing" not in summary["blockers"]
+    assert "near_wall_external_boundary_not_watertight" in summary["blockers"]
     assert "core_farfield_mesh_not_generated" in summary["blockers"]
     assert probe["goal_status"] == "INCOMPLETE"
     assert probe["cfd_status"] == "mesh_ladder_incomplete"
@@ -110,12 +112,14 @@ def test_near_wall_candidate_probe_run_writes_artifacts(tmp_path: Path) -> None:
         spanwise_subdivisions=1,
     )
 
-    assert summary["verdict"] == "near_wall_volume_candidate_ready_not_su2_handoff"
-    assert summary["merged_volume"]["status"] == "near_wall_volume_candidate_ready_core_mesh_pending"
+    assert summary["verdict"] == "near_wall_volume_candidate_core_boundary_blocked"
+    assert summary["merged_volume"]["status"] == "near_wall_volume_candidate_core_boundary_blocked"
     assert summary["merged_volume"]["remaining_exposed_original_span_cap_face_count"] == 0
     assert summary["merged_volume"]["remaining_exposed_original_wake_cut_face_count"] == 0
+    assert summary["merged_volume"]["external_boundary_topology"]["bad_edge_count"] > 0
     assert "receiver_base" not in summary["merged_volume"]["boundary_face_role_counts"]
     assert "final_merged_mesh_missing" not in summary["merged_volume"]["blockers"]
+    assert "near_wall_external_boundary_not_watertight" in summary["merged_volume"]["blockers"]
     assert "core_farfield_mesh_not_generated" in summary["merged_volume"]["blockers"]
     assert (tmp_path / "wo006ad" / "summary.json").exists()
     assert (tmp_path / "wo006ad" / "near_wall_merged_volume_report.md").exists()

@@ -147,6 +147,7 @@ def summarize_near_wall_merged_volume_candidate(
     source_counts = _counts(row["source"] for row in face_rows)
     role_counts = _counts(row["role"] for row in face_rows)
     volume_quality = _volume_quality(block, candidate)
+    external_boundary_topology = _external_boundary_topology(face_rows)
     blockers: list[str] = []
     if receiver_geometry.get("status") != "tip_receiver_geometry_materialized_quality_pass":
         blockers.append("tip_receiver_geometry_not_pass")
@@ -156,6 +157,8 @@ def summarize_near_wall_merged_volume_candidate(
         blockers.append("original_bl_span_cap_still_exposed")
     if exposed_wake_cut:
         blockers.append("original_bl_wake_cut_still_exposed")
+    if external_boundary_topology["bad_edge_count"] != 0:
+        blockers.append("near_wall_external_boundary_not_watertight")
 
     ready_as_candidate = not blockers
     blockers.extend(
@@ -173,7 +176,7 @@ def summarize_near_wall_merged_volume_candidate(
         "status": (
             "near_wall_volume_candidate_ready_core_mesh_pending"
             if ready_as_candidate
-            else "near_wall_volume_candidate_blocked"
+            else "near_wall_volume_candidate_core_boundary_blocked"
         ),
         "node_count": len(candidate.vertices),
         "volume_cell_count": len(candidate.cells),
@@ -192,6 +195,7 @@ def summarize_near_wall_merged_volume_candidate(
         "physical_wall_face_count": (wall_surface.marker_counts()).get("wing_wall", 0),
         "receiver_geometry_status": receiver_geometry.get("status"),
         "volume_quality": volume_quality,
+        "external_boundary_topology": external_boundary_topology,
         "blockers": blockers,
         "surface_ownership": {
             "wing_wall": "owned BL layer-0 physical wall surface",
@@ -206,7 +210,7 @@ def summarize_near_wall_merged_volume_candidate(
             "the local ownership accounting blocker, but the core/farfield mesh "
             "and all SU2/y+ gates are still missing."
             if ready_as_candidate
-            else "The near-wall merged volume candidate still exposes original BL ownership faces."
+            else "The near-wall merged volume candidate still needs boundary repair before core meshing."
         ),
     }
 
@@ -243,7 +247,7 @@ def build_probe_summary(*, merged_volume: Mapping[str, Any]) -> dict[str, Any]:
         "verdict": (
             "near_wall_volume_candidate_ready_not_su2_handoff"
             if ready
-            else "near_wall_volume_candidate_blocked"
+            else "near_wall_volume_candidate_core_boundary_blocked"
         ),
         "merged_volume": dict(merged_volume),
         "coefficient_interpretable": False,
@@ -464,6 +468,35 @@ def _volume_quality(
         + non_positive_receiver,
         "min_receiver_volume_m3": min(receiver_volumes) if receiver_volumes else 0.0,
         "max_receiver_volume_m3": max(receiver_volumes) if receiver_volumes else 0.0,
+    }
+
+
+def _external_boundary_topology(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    edge_counts: dict[tuple[int, int], int] = {}
+    role_counts: dict[str, int] = {}
+    for row in rows:
+        nodes = [int(node) for node in row.get("nodes", [])]
+        for left, right in zip(nodes, [*nodes[1:], nodes[0]]):
+            edge = tuple(sorted((left, right)))
+            edge_counts[edge] = edge_counts.get(edge, 0) + 1
+    bad_edges = {
+        edge: count
+        for edge, count in edge_counts.items()
+        if count != 2
+    }
+    for row in rows:
+        nodes = [int(node) for node in row.get("nodes", [])]
+        role = str(row.get("role") or "unknown")
+        for left, right in zip(nodes, [*nodes[1:], nodes[0]]):
+            edge = tuple(sorted((left, right)))
+            if edge in bad_edges:
+                role_counts[role] = role_counts.get(role, 0) + 1
+    return {
+        "status": "watertight" if not bad_edges else "not_watertight",
+        "edge_count": len(edge_counts),
+        "bad_edge_count": len(bad_edges),
+        "bad_edge_incidence_counts": dict(sorted(_counts(bad_edges.values()).items())),
+        "bad_edge_role_touch_counts": dict(sorted(role_counts.items())),
     }
 
 
