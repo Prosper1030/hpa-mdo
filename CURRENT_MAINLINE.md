@@ -208,6 +208,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   base compatibility，但沒有解掉 tetra core grading；下一步要做 collar-adjacent
   local core sizing field、structured transition patch 或 multi-row transition，不可進
   pressure/RANS。
+- WO-006 Phase 3 collar boundary-point sizing probe 已測過並 rejected：
+  `segmented_partial_wing_transition_collar_core_hybrid_pps12_l4_pointsize005/`
+  在 `transition_collar_interface` boundary points 設 `0.05 m` mesh size，runtime
+  約 `110 s`，core tets `35,095`，但 dual proxy 反而惡化到
+  `max_cv_sub_volume_ratio≈1.1247e16`、`max_incident_edge_length_ratio≈1.072e5`。
+  工程判讀：單純在 collar/interface points 加小 size 不會建立漸進 transition，
+  只會讓局部 core topology 更病態；下一步應改成明確 multi-row / structured
+  transition patch，而不是 Gmsh point-size hack。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

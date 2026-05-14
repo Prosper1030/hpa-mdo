@@ -2143,6 +2143,8 @@ def write_phase3_segmented_partial_wing_transition_collar_core_hybrid_su2(
     collar_height_m: float = 1.0e-4,
     core_mesh_size: float = 0.35,
     farfield_mesh_size: float = 8.0,
+    core_boundary_point_mesh_size: float | None = None,
+    core_boundary_point_markers: Sequence[str] = ("transition_collar_interface",),
 ) -> dict[str, Any]:
     """Write segmented source-rim partial-BL collar plus tetra-core SU2 mesh."""
     surface = build_phase3_route_smoke_surface(
@@ -2206,6 +2208,8 @@ def write_phase3_segmented_partial_wing_transition_collar_core_hybrid_su2(
         output_dir=output_path.parent / f"{output_path.stem}_core",
         core_mesh_size=core_mesh_size,
         farfield_mesh_size=farfield_mesh_size,
+        boundary_point_mesh_size=core_boundary_point_mesh_size,
+        boundary_point_markers=core_boundary_point_markers,
     )
     merged_nodes = list(collar_volume["nodes"])
     core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
@@ -2569,10 +2573,13 @@ def _partial_wing_transition_collar_core_tets(
     output_dir: Path,
     core_mesh_size: float,
     farfield_mesh_size: float,
+    boundary_point_mesh_size: float | None = None,
+    boundary_point_markers: Sequence[str] = ("transition_collar_interface",),
 ) -> dict[str, Any]:
     import gmsh
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    inner_surface_first_tag = 7_000_001
     gmsh.initialize()
     try:
         gmsh.option.setNumber("General.Terminal", 0)
@@ -2580,7 +2587,7 @@ def _partial_wing_transition_collar_core_tets(
         inner_by_marker = _add_discrete_marked_mesh_surfaces(
             gmsh,
             inner_boundary,
-            first_tag=7_000_001,
+            first_tag=inner_surface_first_tag,
             triangulation_policy="fixed_diagonal",
         )
         inner_tags = [
@@ -2612,6 +2619,18 @@ def _partial_wing_transition_collar_core_tets(
         gmsh.model.setPhysicalName(2, farfield_group, "farfield")
         fluid_group = gmsh.model.addPhysicalGroup(3, [core_volume])
         gmsh.model.setPhysicalName(3, fluid_group, "fluid_core")
+        boundary_point_entities, boundary_point_report = _core_boundary_point_size_targets(
+            inner_boundary,
+            point_tag_offset=inner_surface_first_tag,
+            mesh_size=boundary_point_mesh_size,
+            markers=boundary_point_markers,
+        )
+        if boundary_point_entities and boundary_point_mesh_size is not None:
+            gmsh.model.mesh.setSize(
+                boundary_point_entities,
+                float(boundary_point_mesh_size),
+            )
+            gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 1)
         gmsh.option.setNumber("Mesh.MeshSizeMin", min(core_mesh_size, farfield_mesh_size))
         gmsh.option.setNumber("Mesh.MeshSizeMax", max(core_mesh_size, farfield_mesh_size))
         gmsh.option.setNumber("Mesh.Algorithm", 6)
@@ -2685,6 +2704,7 @@ def _partial_wing_transition_collar_core_tets(
                 "mesh_sizing": {
                     "core_mesh_size": float(core_mesh_size),
                     "farfield_mesh_size": float(farfield_mesh_size),
+                    "boundary_point_sizing": boundary_point_report,
                     "gmsh_algorithm3d": core_algorithm3d,
                     "inner_boundary_representation": "triangulated_discrete",
                 },
@@ -2760,6 +2780,35 @@ def _partial_wing_transition_collar_core_inner_boundary_surface(
         faces=faces,
         metadata={"surface_role": "partial_wing_transition_collar_core_inner_boundary"},
     )
+
+
+def _core_boundary_point_size_targets(
+    inner_boundary: SurfaceMesh,
+    *,
+    point_tag_offset: int,
+    mesh_size: float | None,
+    markers: Sequence[str],
+) -> tuple[list[tuple[int, int]], dict[str, Any]]:
+    marker_names = [str(marker) for marker in markers]
+    if mesh_size is None:
+        return [], {"status": "disabled", "markers": marker_names}
+    target_markers = set(marker_names)
+    point_indices = sorted(
+        {
+            int(node)
+            for face in inner_boundary.faces
+            if str(face.marker) in target_markers
+            for node in face.nodes
+        }
+    )
+    point_tags = [int(point_tag_offset) + index for index in point_indices]
+    return [(0, tag) for tag in point_tags], {
+        "status": "enabled" if point_tags else "missing_points",
+        "markers": marker_names,
+        "mesh_size": float(mesh_size),
+        "point_count": len(point_tags),
+        "point_tag_samples": point_tags[:8],
+    }
 
 
 def _partial_wing_transition_collar_volume(

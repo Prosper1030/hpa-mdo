@@ -199,6 +199,10 @@ runtime 約 `179 s`、required markers/ownership pass，但 dual proxy 仍 fail
 （max CV sub-volume ratio 約 `1.6899e11`，hotspot incident edge ratio 約
 `2.2339e4`）。所以目前卡點已經不是 prism rim base，而是 collar-adjacent
 tetra core grading；不可進 pressure/RANS。
+也測過較窄的 boundary-point sizing：pps12/l4 在 `transition_collar_interface`
+points 設 `0.05 m` mesh size，runtime 約 `110 s`，但 dual proxy 反而惡化到
+`1.1247e16`，hotspot edge ratio 約 `1.072e5`。所以不要把下一步寫成
+Gmsh point-size hack；要做明確 multi-row / structured transition patch。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

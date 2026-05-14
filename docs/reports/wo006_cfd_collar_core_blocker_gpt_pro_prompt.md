@@ -121,6 +121,13 @@ max hotspot incident edge ratio about `2.2339e4`.  The worst hotspot is near the
 about `0.82 m` core edges at the same vertex.  So the current question has
 moved from prism-rim segmentation to collar-adjacent tetra-core grading.
 
+Rejected probe: a narrower Gmsh boundary-point sizing attempt also failed.  At
+pps12/layers=4, setting `transition_collar_interface` boundary points to `0.05 m`
+mesh size completed in about `110 s` with `35,095` core tetra, but the dual proxy
+worsened to max CV sub-volume ratio about `1.1247e16` and max hotspot incident
+edge ratio about `1.072e5`.  This suggests point-size hints are not enough; the
+route needs an explicit growth topology, not another Gmsh sizing hint.
+
 ## Question To Answer
 
 Please propose the next concrete topology recipe, not solver numerics.

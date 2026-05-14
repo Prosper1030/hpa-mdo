@@ -775,6 +775,39 @@ def test_segmented_partial_wing_transition_collar_core_hybrid_writes_merged_mesh
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
+    module = _load_module()
+    surface = module.SurfaceMesh(
+        vertices=[
+            (0.0, 0.0, 0.0),
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (1.0, 1.0, 0.0),
+        ],
+        faces=[
+            module.Face(nodes=(0, 1, 2), marker="transition_collar_interface"),
+            module.Face(nodes=(1, 3, 2), marker="bl_outer_interface"),
+        ],
+        metadata={},
+    )
+
+    entities, report = module._core_boundary_point_size_targets(
+        surface,
+        point_tag_offset=100,
+        mesh_size=0.05,
+        markers=("transition_collar_interface",),
+    )
+
+    assert entities == [(0, 100), (0, 101), (0, 102)]
+    assert report == {
+        "status": "enabled",
+        "markers": ["transition_collar_interface"],
+        "mesh_size": 0.05,
+        "point_count": 3,
+        "point_tag_samples": [100, 101, 102],
+    }
+
+
 def test_partial_wing_transition_collar_core_probe_tet_fills_caps(
     tmp_path: Path,
 ) -> None:
