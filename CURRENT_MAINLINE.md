@@ -198,6 +198,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   `force_wall_rim_marker_leak_count=0`、pyramid non-positive `0`、SU2 boundary ownership
   pass。這仍是 caps/core pending handoff，不是 `ROUTE_SMOKE_PASS`；下一步才是
   用同一 segmented surface 做 core merge 與 dual proxy。
+- WO-006 Phase 3 segmented pps42/l3 core merge 已跑完但 dual gate 仍 fail：
+  `segmented_partial_wing_transition_collar_core_hybrid_pps42_l3/` 產生 `17,544`
+  prisms + `2,427` pyramids + `36,327` tetra，runtime 約 `179 s`，required
+  markers present 且 SU2 boundary ownership pass；但 dual proxy `status=fail`，
+  `max_cv_sub_volume_ratio≈1.6899e11`、`max_incident_edge_length_ratio≈2.2339e4`。
+  worst point 在 `te_wall`/`wing_upper` 交界附近，同時看到 `5e-5 m` BL/collar
+  edge 與 `~0.82 m` core edge。工程判讀：source-rim segmentation 解掉了 collar
+  base compatibility，但沒有解掉 tetra core grading；下一步要做 collar-adjacent
+  local core sizing field、structured transition patch 或 multi-row transition，不可進
+  pressure/RANS。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

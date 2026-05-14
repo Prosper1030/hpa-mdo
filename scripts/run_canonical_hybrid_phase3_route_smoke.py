@@ -2131,6 +2131,188 @@ def write_phase3_segmented_partial_wing_transition_collar_handoff_su2(
     }
 
 
+def write_phase3_segmented_partial_wing_transition_collar_core_hybrid_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 1.0e-4,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+) -> dict[str, Any]:
+    """Write segmented source-rim partial-BL collar plus tetra-core SU2 mesh."""
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    source_edge_segments, source_edge_report = _source_rim_edge_split_plan(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+        first_layer_height_m=first_layer_height_m,
+    )
+    segmented_vertices, segmented_wall_triangles, segmented_surface_report = (
+        _split_wall_triangles_on_source_edges(
+            surface.vertices,
+            wall_triangles,
+            edge_segment_counts=source_edge_segments,
+        )
+    )
+    segmented_cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in segmented_wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        segmented_vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in segmented_wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(segmented_cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    inner_boundary = _partial_wing_transition_collar_core_inner_boundary_surface(
+        collar_volume,
+        cap_triangles=segmented_cap_triangles,
+    )
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    core = _partial_wing_transition_collar_core_tets(
+        inner_boundary,
+        surface_bounds=_bounds(segmented_vertices),
+        output_dir=output_path.parent / f"{output_path.stem}_core",
+        core_mesh_size=core_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+    )
+    merged_nodes = list(collar_volume["nodes"])
+    core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
+    collar_element_sources = [
+        _phase3_volume_element_source(element_type)
+        for element_type, _nodes in collar_volume["elements"]
+    ]
+    elements = [
+        *collar_volume["elements"],
+        *[
+            (SU2_TETRAHEDRON, tuple(core_node_map[int(node)] for node in nodes))
+            for nodes in core["tetra_elements"]
+        ],
+    ]
+    element_sources = [
+        *collar_element_sources,
+        *(["tetra_core"] * len(core["tetra_elements"])),
+    ]
+    marker_faces = {
+        marker: list(faces)
+        for marker, faces in collar_volume["marker_faces"].items()
+        if marker not in {"bl_outer_interface", "transition_collar_interface"}
+    }
+    for marker, faces in core["marker_faces"].items():
+        marker_faces.setdefault(marker, []).extend(
+            [
+                (element_type, tuple(core_node_map[int(node)] for node in nodes))
+                for element_type, nodes in faces
+            ]
+        )
+    compacted_volume, node_compaction = _compact_volume_node_indices(
+        {
+            "nodes": merged_nodes,
+            "elements": elements,
+            "marker_faces": marker_faces,
+        }
+    )
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        compacted_volume["nodes"],
+        compacted_volume["elements"],
+        element_sources=element_sources,
+        marker_faces=compacted_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
+    output_path.write_text(
+        _su2_volume_text(
+            compacted_volume,
+            comments=(
+                "% Canonical hybrid half-wing segmented partial-BL collar core mesh.",
+                "% Internal BL/collar interfaces are merged and not written as markers.",
+                "% This is a topology/pressure-sanity candidate, not route-smoke truth.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    type_counts: dict[str, int] = {}
+    for element_type, _nodes in elements:
+        key = str(element_type)
+        type_counts[key] = type_counts.get(key, 0) + 1
+    required_markers_present = all(
+        marker in marker_summary["markers"] for marker in REQUIRED_MARKERS
+    )
+    direct_prism_quality = _direct_prism_quality_metrics(collar_volume)
+    return {
+        "route": (
+            "canonical_hybrid_halfwing_segmented_partial_wing_transition_collar_core_hybrid"
+        ),
+        "status": "segmented_partial_wing_transition_collar_core_hybrid_written",
+        "mesh_path": str(output_path),
+        "node_count": len(compacted_volume["nodes"]),
+        "volume_element_count": len(elements),
+        "volume_element_type_counts": dict(sorted(type_counts.items())),
+        "boundary_layer_cell_count": int(type_counts.get(str(SU2_PRISM), 0)),
+        "source_rim_edge_split_plan": source_edge_report,
+        "segmented_surface": segmented_surface_report,
+        "node_compaction": node_compaction,
+        "transition_collar": collar_report,
+        "core_report": core["report"],
+        "marker_summary": marker_summary["markers"],
+        "required_markers_present": required_markers_present,
+        "su2_boundary_ownership": boundary_ownership,
+        "dual_subvolume_proxy": dual_subvolume_proxy,
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(direct_prism_quality),
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "closure_faces_merged_into_wing_wall": False,
+            "interface_markers_written_to_final_mesh": any(
+                marker in marker_summary["markers"]
+                for marker in ("bl_outer_interface", "transition_collar_interface")
+            ),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Merged segmented source-rim hybrid mesh only. The dual proxy is "
+                "the pre-solver decision point; pressure/RANS remain blocked if "
+                "the collar/core interface still fails this gate."
+            ),
+        },
+    }
+
+
 def run_phase3_partial_wing_transition_collar_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,

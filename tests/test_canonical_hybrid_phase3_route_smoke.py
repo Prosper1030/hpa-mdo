@@ -739,6 +739,42 @@ def test_segmented_partial_wing_transition_collar_handoff_splits_source_edges(
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_partial_wing_transition_collar_core_hybrid_writes_merged_mesh(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_segmented_partial_wing_transition_collar_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_transition_collar_core_hybrid.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=5.0e-4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert (
+        report["route"]
+        == "canonical_hybrid_halfwing_segmented_partial_wing_transition_collar_core_hybrid"
+    )
+    assert report["status"] == "segmented_partial_wing_transition_collar_core_hybrid_written"
+    assert report["required_markers_present"] is True
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["volume_element_type_counts"][str(module.SU2_PRISM)] > 0
+    assert report["volume_element_type_counts"][str(module.SU2_PYRAMID)] > 0
+    assert report["volume_element_type_counts"][str(module.SU2_TETRAHEDRON)] > 0
+    assert "bl_outer_interface" not in report["marker_summary"]
+    assert "transition_collar_interface" not in report["marker_summary"]
+    collar_requirement = report["transition_collar"]["segmented_collar_requirement"]
+    assert collar_requirement["max_single_pyramid_base_edge_ratio"] <= 1000.0
+    assert collar_requirement["max_required_segments_per_quad"] == 1
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_partial_wing_transition_collar_core_probe_tet_fills_caps(
     tmp_path: Path,
 ) -> None:

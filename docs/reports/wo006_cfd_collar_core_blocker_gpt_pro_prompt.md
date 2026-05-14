@@ -112,6 +112,15 @@ with max single pyramid base edge ratio about `982.03`,
 non-positive count `0`, and SU2 boundary ownership pass.  The next open question
 is whether this segmented surface also fixes the merged core dual proxy.
 
+That question has now been tested at pps42/layers=3.  The segmented merged core
+writer produced `17,544` prisms + `2,427` pyramids + `36,327` tetra in about
+`179 s`; required markers and SU2 boundary ownership pass.  However, the
+pre-solver dual proxy still fails: max CV sub-volume ratio about `1.6899e11`,
+max hotspot incident edge ratio about `2.2339e4`.  The worst hotspot is near the
+`te_wall`/`wing_upper` interface and still sees `5e-5 m` BL/collar edges plus
+about `0.82 m` core edges at the same vertex.  So the current question has
+moved from prism-rim segmentation to collar-adjacent tetra-core grading.
+
 ## Question To Answer
 
 Please propose the next concrete topology recipe, not solver numerics.

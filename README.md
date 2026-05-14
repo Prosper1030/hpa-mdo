@@ -194,6 +194,11 @@ per-quad split plan 已寫入 artifact，預估最大切後 base edge ratio 約 
 輸出 `17,544` prisms + `2,427` pyramids；collar base 最大 edge ratio 降到
 約 `982.03`，每個 rim quad 不再需要二次分割，force-wall rim leak `0`，
 pyramid non-positive `0`。這仍是 caps/core pending，不是 route-smoke。
+同一 segmented surface 的 pps42/l3 core merge 也已跑完：`36,327` tetra、
+runtime 約 `179 s`、required markers/ownership pass，但 dual proxy 仍 fail
+（max CV sub-volume ratio 約 `1.6899e11`，hotspot incident edge ratio 約
+`2.2339e4`）。所以目前卡點已經不是 prism rim base，而是 collar-adjacent
+tetra core grading；不可進 pressure/RANS。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
