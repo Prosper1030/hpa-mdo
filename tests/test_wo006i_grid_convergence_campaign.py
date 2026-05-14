@@ -333,6 +333,60 @@ def test_setup_gate_rejects_direct_stageback_plc_failure_artifact() -> None:
     )
 
 
+def test_setup_gate_consumes_r10_core_closure_artifact_before_solver() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r10_near_wall_core_closure_probe.v1",
+                "verdict": "near_wall_core_interface_closure_blocked",
+                "core_closure": {
+                    "status": "core_interface_closure_blocked",
+                    "core_facing_topology": {
+                        "status": "not_watertight",
+                        "bad_edge_count": 64,
+                    },
+                    "core_wall_edge_gap_audit": {
+                        "status": "blocked_by_physical_wall_edge_dependency",
+                        "bad_edge_count": 64,
+                        "physical_wall_edge_dependency_count": 64,
+                        "unexplained_bad_edge_count": 0,
+                    },
+                    "full_shell_core_interface_policy": {
+                        "status": "forbidden",
+                        "physical_roles_present": {
+                            "wing_wall": 960,
+                            "physical_wall_edge_receiver": 60,
+                        },
+                    },
+                },
+            }
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert "near_wall_core_interface_closure_blocked" in result["blockers"]
+    assert "near_wall_core_wall_edge_gap_dependency" in result["blockers"]
+    assert "near_wall_full_shell_physical_wall_misownership" in result["blockers"]
+    assert result["core_closure_topology"]["status"] == "blocked"
+    assert result["core_closure_topology"]["bad_edge_count"] == 64
+    assert result["core_closure_topology"]["unexplained_bad_edge_count"] == 0
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

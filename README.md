@@ -451,7 +451,11 @@ Baseline A reopen evidence、RFQ/procurement truth 或 final aircraft sign-off�
 後續 WO-006 CFD 若要繼續跑，必須先過 `baseline_a_wall_resolved_bl_preflight_gate_v1`：
 no-slip wall BC、farfield marker、conformal BL/core handoff、near-wall/y+ evidence、同幾何
 coarse/medium/fine ladder 與 residual/force stability 都要在同一 setup 下成立。若只是要重放
-no-BL debug，必須明確使用 diagnostic flag，且結果仍不能完成 CFD goal。
+no-BL debug，必須明確使用 diagnostic flag，且結果仍不能完成 CFD goal。這個 preflight gate
+現在會讀 WO-006R10 near-wall core closure artifact；目前會在 solver 前額外擋下
+`near_wall_core_interface_closure_blocked`、`near_wall_core_wall_edge_gap_dependency`
+與 `near_wall_full_shell_physical_wall_misownership`，避免 medium/fine 入口忽略最新 wall-edge
+ownership blocker。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 

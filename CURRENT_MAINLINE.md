@@ -92,7 +92,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   Verdict 是 `GOAL_STATUS=INCOMPLETE`、`CFD_STATUS=mesh_ladder_incomplete`，且
   `baseline_a_wall_resolved_bl_preflight_gate_v1` 在 solver 前 blocked：目前 no-BL
   setup 缺 conformal BL/core handoff、postprocessed near-wall y+ 與 CFD-grade setup
-  gate。先前 `wo006i_grid_convergence_campaign/` 的 `0.49M`、`1.61M`、`3.05M`、
+  gate。這個 gate 現在也會讀 WO-006R10 near-wall core closure artifact；目前額外擋下
+  `near_wall_core_interface_closure_blocked`、`near_wall_core_wall_edge_gap_dependency`
+  與 `near_wall_full_shell_physical_wall_misownership`，因此 medium/fine SU2 入口會先看到
+  R10 的 wall-edge ownership blocker。先前 `wo006i_grid_convergence_campaign/` 的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
   它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、
   drag/power truth 或 Baseline A reopen evidence。後續若要跑 medium/fine，必須先修

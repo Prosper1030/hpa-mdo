@@ -123,6 +123,14 @@ Current release package:
   preserved, materialize a true core-facing
   closure without changing the external Baseline A wall shape, then generate a
   marker/quality-gated core/farfield mesh.
+- WO-006I setup preflight now consumes the WO-006R10 core-closure artifact before
+  any solver run. The current preflight summary is still
+  `GOAL_STATUS=INCOMPLETE` / `CFD_STATUS=mesh_ladder_incomplete`, and its setup
+  blockers include `near_wall_core_interface_closure_blocked`,
+  `near_wall_core_wall_edge_gap_dependency`, and
+  `near_wall_full_shell_physical_wall_misownership` in addition to missing BL/y+
+  handoff. Do not run medium/fine SU2 until those R10-derived blockers are
+  repaired.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

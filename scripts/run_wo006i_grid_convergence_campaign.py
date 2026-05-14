@@ -65,6 +65,9 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_face_coherent_stageback_mesh_probe" / "summary.json",
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
+CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r10_near_wall_core_closure_probe" / "summary.json",
+)
 CFD_SETUP_POLICY_ID = "baseline_a_wall_resolved_bl_preflight_gate_v1"
 PHYSICS_SETUP_ID = "baseline_a_current_go_no_bl_rans_sa_alpha5"
 PHYSICS_SETUP = {
@@ -294,6 +297,7 @@ def evaluate_cfd_setup_gate(
     physics_setup: Mapping[str, Any] = PHYSICS_SETUP,
     allow_no_bl_diagnostic: bool = False,
     direct_stageback_artifacts: Sequence[Mapping[str, Any]] | None = None,
+    core_closure_artifacts: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     warnings: list[str] = []
@@ -321,6 +325,16 @@ def evaluate_cfd_setup_gate(
     if stageback_topology["status"] == "blocked":
         blockers.append("direct_stageback_topology_plc_segment_facet")
 
+    core_closure_topology = _core_closure_topology_summary(core_closure_artifacts or ())
+    if core_closure_topology["status"] == "blocked":
+        blockers.append("near_wall_core_interface_closure_blocked")
+    if core_closure_topology.get("wall_edge_gap_status") == (
+        "blocked_by_physical_wall_edge_dependency"
+    ):
+        blockers.append("near_wall_core_wall_edge_gap_dependency")
+    if core_closure_topology.get("full_shell_policy_status") == "forbidden":
+        blockers.append("near_wall_full_shell_physical_wall_misownership")
+
     if blockers and allow_no_bl_diagnostic:
         warnings.append("no_bl_route_allowed_for_diagnostics_only")
 
@@ -333,6 +347,7 @@ def evaluate_cfd_setup_gate(
         "warnings": warnings,
         "physics_setup_id": setup_id,
         "stageback_topology": stageback_topology,
+        "core_closure_topology": core_closure_topology,
         "reference_requirements": SU2_REFERENCE_REQUIREMENTS,
         "engineering_read": (
             "The setup is CFD-grade enough to attempt a wall-resolved mesh ladder."
@@ -386,6 +401,7 @@ def run_campaign(
     setup_gate = evaluate_cfd_setup_gate(
         allow_no_bl_diagnostic=allow_no_bl_diagnostic,
         direct_stageback_artifacts=direct_stageback_artifacts,
+        core_closure_artifacts=load_core_closure_artifacts(),
     )
     if setup_gate["status"] == "blocked":
         summary = build_preflight_blocked_summary(
@@ -477,6 +493,7 @@ def summarize_existing_campaign(
     setup_gate = evaluate_cfd_setup_gate(
         allow_no_bl_diagnostic=True,
         direct_stageback_artifacts=load_direct_stageback_artifacts(),
+        core_closure_artifacts=load_core_closure_artifacts(),
     )
     gate = evaluate_grid_convergence(
         rung_summaries,
@@ -519,7 +536,7 @@ def build_preflight_blocked_summary(
         "blocked_claims": _blocked_claims(gate["cfd_status"]),
         "preflight_decision": {
             "status": "blocked_before_solver",
-            "reason": "current no-BL route cannot produce CFD completion evidence",
+            "reason": "current setup cannot produce CFD completion evidence before BL/core/yplus gates pass",
         },
     }
 
@@ -853,6 +870,7 @@ def render_report(summary: Mapping[str, Any]) -> str:
         f"- setup gate: `{(summary.get('setup_gate') or {}).get('status')}`",
         f"- policy: `{(summary.get('setup_gate') or {}).get('policy_id')}`",
         f"- stageback topology: `{((summary.get('setup_gate') or {}).get('stageback_topology') or {}).get('status')}`",
+        f"- core closure topology: `{((summary.get('setup_gate') or {}).get('core_closure_topology') or {}).get('status')}`",
         f"- engineering read: `{(summary.get('setup_gate') or {}).get('engineering_read')}`",
         "",
         "## Physics Setup",
@@ -1048,6 +1066,29 @@ def load_direct_stageback_artifacts(
     return artifacts
 
 
+def load_core_closure_artifacts(
+    paths: Sequence[Path] = CORE_CLOSURE_PROBE_PATHS,
+) -> list[dict[str, Any]]:
+    artifacts: list[dict[str, Any]] = []
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            artifact = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            artifacts.append(
+                {
+                    "path": str(path),
+                    "status": "unreadable",
+                    "error": str(exc),
+                }
+            )
+            continue
+        artifact["path"] = str(path)
+        artifacts.append(artifact)
+    return artifacts
+
+
 def _stageback_topology_summary(
     artifacts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
@@ -1079,6 +1120,78 @@ def _stageback_topology_summary(
                 "engineering_read": (
                     "Direct no-BL-hole stageback is producing a Gmsh PLC segment/facet "
                     "intersection, so the BL/core transition topology is not solver-ready."
+                ),
+            }
+        )
+    return result
+
+
+def _core_closure_topology_summary(
+    artifacts: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    records: list[dict[str, Any]] = []
+    blocked = False
+    wall_edge_gap_status = None
+    full_shell_policy_status = None
+    bad_edge_count = 0
+    unexplained_bad_edge_count = 0
+    physical_wall_edge_dependency_count = 0
+    for artifact in artifacts:
+        closure = artifact.get("core_closure") or {}
+        core_topology = closure.get("core_facing_topology") or {}
+        gap_audit = closure.get("core_wall_edge_gap_audit") or {}
+        shell_policy = closure.get("full_shell_core_interface_policy") or {}
+        closure_status = str(closure.get("status") or artifact.get("verdict") or "")
+        artifact_blocked = (
+            "blocked" in closure_status
+            or core_topology.get("status") == "not_watertight"
+            or shell_policy.get("status") == "forbidden"
+        )
+        blocked = blocked or artifact_blocked
+        if gap_audit.get("status") is not None:
+            wall_edge_gap_status = str(gap_audit.get("status"))
+        if shell_policy.get("status") is not None:
+            full_shell_policy_status = str(shell_policy.get("status"))
+        bad_edge_count += int(core_topology.get("bad_edge_count") or 0)
+        unexplained_bad_edge_count += int(gap_audit.get("unexplained_bad_edge_count") or 0)
+        physical_wall_edge_dependency_count += int(
+            gap_audit.get("physical_wall_edge_dependency_count") or 0
+        )
+        records.append(
+            {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": closure.get("status"),
+                "core_facing_status": core_topology.get("status"),
+                "bad_edge_count": core_topology.get("bad_edge_count"),
+                "wall_edge_gap_status": gap_audit.get("status"),
+                "unexplained_bad_edge_count": gap_audit.get("unexplained_bad_edge_count"),
+                "full_shell_policy_status": shell_policy.get("status"),
+                "physical_roles_present": shell_policy.get("physical_roles_present"),
+            }
+        )
+
+    status = "blocked" if blocked else ("not_evaluated" if not records else "pass")
+    result: dict[str, Any] = {
+        "status": status,
+        "artifacts": records,
+        "bad_edge_count": bad_edge_count,
+        "wall_edge_gap_status": wall_edge_gap_status,
+        "physical_wall_edge_dependency_count": physical_wall_edge_dependency_count,
+        "unexplained_bad_edge_count": unexplained_bad_edge_count,
+        "full_shell_policy_status": full_shell_policy_status,
+    }
+    if blocked:
+        result.update(
+            {
+                "blocker": "near_wall_core_interface_closure_blocked",
+                "recommended_repair": "materialize_true_core_facing_closure",
+                "engineering_read": (
+                    "The latest near-wall closure artifact shows the repaired full shell "
+                    "is watertight, but the core-facing subset is not. Medium/fine SU2 "
+                    "must wait until the wall-edge ownership gap is materialized without "
+                    "borrowing physical wall faces as core interface."
                 ),
             }
         )
