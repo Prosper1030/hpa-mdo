@@ -157,7 +157,11 @@ screening evidence 讀，不是現行 release / procurement truth。
   `near_wall_global_star_split_degenerate_cells`，不是 R21 的全域 split nonconformal、
   R10 wall-edge dependency、R12 geometric self-intersection、舊 direct-stageback route，
   或仍未知的 left-tip residual；WO-006I preflight 的 data-authority-restored mesh repair
-  target 是 `reduce_degenerate_star_cells_before_mixed_mesh_writer`。
+  target 是 `reduce_degenerate_star_cells_before_mixed_mesh_writer`。WO-006R23 已把這個
+  blocker 定位成 `32` 個 `wake_receiver` cells / `128` 個 degenerate triangles，marker
+  皆為空字串，bounds 約 `x=0.6569-1.2772 m`、`y=-17.166143..17.166143 m`、
+  `z=-0.0950..2.5975 m`；下一刀應是 wake-receiver local cell-type reduction /
+  degenerate-cell special casing，不是 SU2 iteration、BL physics 或全域 split assignment。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；

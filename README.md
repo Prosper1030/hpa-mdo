@@ -114,6 +114,21 @@ sharp-edge / zero-area cell reduction 問題，而不是 R21 的全域 internal 
 `reduce_degenerate_star_cells_before_mixed_mesh_writer`。在這個 local cell reduction 過之前，
 不應該跑 medium/fine SU2，也不能宣稱 Baseline A CL/CD/Cm。
 
+## 2026-05-14 WO-006R23 Degenerate Star Cell Localization Probe
+
+`scripts/probe_wo006r23_degenerate_star_cell_localization.py` 把 R22 的
+`128` 個 degenerate star triangles 轉成 cell/face/coordinate evidence。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r23_degenerate_star_cell_localization_probe/`。
+
+實跑結果：`128` 個 degenerate triangles 分布在 `32` 個 cells，全部是 `wake_receiver`
+role/source，marker 為空字串；bounds 約 `x=0.6569-1.2772 m`、
+`y=-17.166143..17.166143 m`、`z=-0.0950..2.5975 m`。sample records 顯示零面積
+triangle 來自 wake receiver face 內重複座標點，而不是 core target triangle marker 本身。
+
+工程判讀：下一個修復目標已縮小成 wake-receiver local cell-type reduction /
+degenerate-cell special casing。這仍不是 mixed SU2 mesh、不是 y+，也不是 CFD ladder；
+但它避免後續再把問題誤判成 SU2 iteration、BL physics 或全域 split assignment。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：
