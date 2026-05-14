@@ -96,6 +96,18 @@ original cap faces 組成 triangulated discrete inner boundary。Gmsh core fill 
 topology proof，不是 wall-resolved `ROUTE_SMOKE_PASS`；pps42/l24 full-resolution
 merge 與 merged SU2 writer 還沒通過。
 
+GPT Pro 後續審核把下一個 blocker 收斂成更硬的 topology contract：partial BL 的
+非 root rim quad 不能直接交給 tetra core；它必須先經過 prism-to-pyramid-to-tet
+transition collar。最小人工單元已新增於
+`write_phase3_minimal_transition_unit_su2()`，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/minimal_transition_unit/`。
+它寫出 `2` prisms、`4` pyramids、`18` tetra，`tet_to_prism_quad_contact=0`、
+`prism_quad_to_pyramid_base_contact=4`、`pyramid_triangle_to_tet_contact=16`、
+`boundary_faces_unmarked=0`，SU2 boundary ownership pass。工程邊界：這是人工
+topology unit，不是真翼 mesh；下一步應把這個 collar contract 套回真翼
+`points_per_side=42`、layers `3 -> 8 -> 16 -> 24` 的 build-up，而不是繼續把問題
+當成 Gmsh multi-loop cap surface repair。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route

@@ -408,3 +408,34 @@ def test_partial_wing_cap_core_probe_tet_fills_materialized_caps(
         "te_wall": 9,
     }
     assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_minimal_transition_unit_requires_pyramid_collar_between_prism_and_tet(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_minimal_transition_unit_su2(
+        tmp_path / "minimal_transition_unit.su2"
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_minimal_transition_unit"
+    assert report["status"] == "transition_topology_unit_pass"
+    assert report["volume_element_type_counts"] == {
+        str(module.SU2_PRISM): 2,
+        str(module.SU2_PYRAMID): 4,
+        str(module.SU2_TETRAHEDRON): 18,
+    }
+    assert report["topology"]["tet_to_prism_quad_contact"] == 0
+    assert report["topology"]["prism_quad_to_pyramid_base_contact"] == 4
+    assert report["topology"]["pyramid_triangle_to_tet_contact"] == 16
+    assert report["topology"]["tet_to_prism_triangle_contact"] == 2
+    assert report["topology"]["non_root_exposed_prism_quad_count"] == 0
+    assert report["topology"]["pyramid_boundary_face_count"] == 0
+    assert report["topology"]["boundary_faces_unmarked"] == 0
+    assert report["topology"]["duplicate_marker_faces"] == 0
+    assert report["element_quality_gate"]["status"] == "pass"
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["marker_summary"]["wing_upper"]["element_count"] == 1
+    assert report["marker_summary"]["wing_lower"]["element_count"] == 1
+    assert report["engineering_assessment"]["route_smoke_ready"] is False

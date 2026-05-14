@@ -99,6 +99,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   core fill 產生 `7,295` tetra、forbidden core element counts `{}`。這只證明 cap
   materialization topology 可被 tetra core 吃下；它不是 wall-resolved
   `ROUTE_SMOKE_PASS`，full pps42/l24 merge 與 merged SU2 writer 尚未完成。
+- WO-006 Phase 3 transition-collar contract 已新增最小人工單元：
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/minimal_transition_unit/`。
+  `write_phase3_minimal_transition_unit_su2()` 寫出 `2` prisms、`4` pyramids、
+  `18` tetra，且 topology gate 顯示 `tet_to_prism_quad_contact=0`、
+  `prism_quad_to_pyramid_base_contact=4`、`pyramid_triangle_to_tet_contact=16`、
+  `boundary_faces_unmarked=0`、SU2 boundary ownership pass。這把下一步從
+  「再補 Gmsh multi-loop cap surface」改成「把 prism rim 的 pyramid transition
+  collar 套回真翼」。它仍不是 `ROUTE_SMOKE_PASS`；真翼仍需 pps42、layers
+  `3 -> 8 -> 16 -> 24` build-up、merged SU2 writer、pre-solver dual-quality gate
+  與 pressure-only CD sanity。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在
