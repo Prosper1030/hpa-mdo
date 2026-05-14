@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r15_prism_split_handoff_compatibility_probe" / "summary.json",
     WO006_ROOT / "wo006r14_mixed_handoff_conformality_probe" / "summary.json",
     WO006_ROOT / "wo006r13_loop_cap_geometric_seam_repair_probe" / "summary.json",
     WO006_ROOT / "wo006r12_loop_cap_core_mesh_probe" / "summary.json",
@@ -350,6 +351,8 @@ def evaluate_cfd_setup_gate(
         blockers.append(
             str(core_closure_topology.get("blocker") or "near_wall_core_mesh_probe_blocked")
         )
+    if core_closure_topology["status"] == "handoff_prism_split_blocked":
+        blockers.append("near_wall_prism_split_handoff_not_compatible")
     if core_closure_topology["status"] == "handoff_conformality_blocked":
         blockers.append("near_wall_mixed_handoff_interface_not_conformal")
     if core_closure_topology["status"] == "blocked":
@@ -400,6 +403,7 @@ def _core_route_supersedes_direct_stageback(
         and core_closure_topology.get("status")
         in {
             "handoff_conformality_blocked",
+            "handoff_prism_split_blocked",
             "core_mesh_ready_handoff_pending",
             "pass",
         }
@@ -1193,9 +1197,48 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    prism_split_artifact_seen = False
+    prism_split_blocked = False
+    prism_split_record: dict[str, Any] | None = None
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        prism_split_compatibility = artifact.get("prism_split_compatibility") or {}
+        if prism_split_compatibility:
+            prism_split_artifact_seen = True
+            merged_handoff_status = str(
+                artifact.get("merged_handoff_status")
+                or prism_split_compatibility.get("status")
+                or artifact.get("verdict")
+                or ""
+            )
+            prism_split_blocked = merged_handoff_status != "pass"
+            prism_split_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": merged_handoff_status,
+                "candidate_cell_count": prism_split_compatibility.get(
+                    "candidate_cell_count"
+                ),
+                "candidate_core_facing_cell_count": prism_split_compatibility.get(
+                    "candidate_core_facing_cell_count"
+                ),
+                "matched_core_triangle_count": prism_split_compatibility.get(
+                    "matched_core_triangle_count"
+                ),
+                "core_triangle_count": prism_split_compatibility.get("core_triangle_count"),
+                "unmatched_core_triangles_by_marker": prism_split_compatibility.get(
+                    "unmatched_core_triangles_by_marker"
+                ),
+                "best_pattern_counts": prism_split_compatibility.get(
+                    "best_pattern_counts"
+                ),
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(prism_split_record)
+            continue
+
         conformality_audit = artifact.get("conformality_audit") or {}
         if conformality_audit:
             merged_handoff_status = str(
@@ -1204,12 +1247,16 @@ def _core_closure_topology_summary(
                 or artifact.get("verdict")
                 or ""
             )
-            handoff_conformality_blocked = merged_handoff_status != "pass"
             handoff_conformality_record = {
                 "path": artifact.get("path"),
                 "schema_version": artifact.get("schema_version"),
                 "verdict": artifact.get("verdict"),
                 "closure_status": merged_handoff_status,
+                "status": (
+                    "superseded_by_prism_split_probe"
+                    if prism_split_artifact_seen
+                    else "active"
+                ),
                 "polygon_matched_core_face_count": conformality_audit.get(
                     "polygon_matched_core_face_count"
                 ),
@@ -1228,6 +1275,8 @@ def _core_closure_topology_summary(
                 ),
                 "pending_blockers": artifact.get("blockers"),
             }
+            if not prism_split_artifact_seen:
+                handoff_conformality_blocked = merged_handoff_status != "pass"
             records.append(handoff_conformality_record)
             continue
 
@@ -1337,7 +1386,9 @@ def _core_closure_topology_summary(
             }
         )
 
-    if handoff_conformality_blocked:
+    if prism_split_blocked:
+        status = "handoff_prism_split_blocked"
+    elif handoff_conformality_blocked:
         status = "handoff_conformality_blocked"
     elif r12_core_mesh_ready:
         status = "core_mesh_ready_handoff_pending"
@@ -1362,7 +1413,24 @@ def _core_closure_topology_summary(
         "unexplained_bad_edge_count": unexplained_bad_edge_count,
         "full_shell_policy_status": full_shell_policy_status,
     }
-    if status == "handoff_conformality_blocked":
+    if status == "handoff_prism_split_blocked":
+        result.update(
+            {
+                "blocker": "near_wall_prism_split_handoff_not_compatible",
+                "prism_split_compatibility": prism_split_record,
+                "recommended_repair": (
+                    "make_near_wall_and_core_share_interface_tessellation_before_prismization"
+                ),
+                "engineering_read": (
+                    "The latest prism-split compatibility probe shows that simply "
+                    "splitting each near-wall hexa into two prisms cannot reproduce "
+                    "the active R13 core interface triangles. Medium/fine SU2 must "
+                    "wait for a shared interface tessellation or boundary-driven "
+                    "near-wall remesh, not just a local diagonal choice."
+                ),
+            }
+        )
+    elif status == "handoff_conformality_blocked":
         result.update(
             {
                 "blocker": "near_wall_mixed_handoff_interface_not_conformal",

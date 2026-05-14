@@ -20,6 +20,24 @@ mesh 約 `25,168` cells / `15,190` nodes，其中 BL quads `4,833`。SU2 在
 0.5 的工具鏈錯誤；Baseline A 目前的大 CD 更像幾何/BL prism/pressure setup 或 3D handoff
 問題。下一步仍要先修 Baseline A BL/core handoff quality，再回 coarse/medium/fine ladder。
 
+## 2026-05-14 WO-006R15 Prism-Split Handoff Compatibility Probe
+
+`scripts/probe_wo006r15_prism_split_handoff_compatibility.py` 把 R14 的 handoff
+triangle mismatch 往下拆一層：檢查「把每個 near-wall hexa cell 切成兩個 prism，並逐 cell
+選最佳對角線」是否足以讓 BL/core interface conformal。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r15_prism_split_handoff_compatibility_probe/`。
+
+實跑 Baseline A current-GO 幾何結果：near-wall/receiver candidate 有 `26,880` 個 cells，
+其中 `2,638` 個 touch core-facing boundary；最佳 per-cell prism split 只 match
+`3166 / 5658` 個 R13 core interface triangles。unmatched markers 仍包含
+`bl_outer_interface=2048`、`wake_edge_receiver=192`、`core_outer_edge_receiver=128`、
+`core_wake_outer_match=64`、`core_wall_loop_cap=60`。WO-006I preflight 現在會優先讀 R15，
+active blocker 是 `near_wall_prism_split_handoff_not_compatible`。
+
+工程判讀：這不是 solver iteration 問題，也不是只換 hexa/prism diagonal 就能修。下一步必須讓
+near-wall 與 core 共用同一個 interface tessellation，或用 boundary-driven near-wall remesh
+重做 handoff；在這之前不能跑 medium/fine SU2 ladder，也不能解讀 CL/CD/Cm。
+
 ## 2026-05-14 WO-006R9 Triangulated Core Interface Probe
 
 `scripts/probe_wo006r9_triangulated_core_interface.py` 把 R7 指到的 preserved-core
@@ -505,10 +523,12 @@ SICN/SIGE/volume 都是 `0`。但 mesh quality 仍有 `very_low_min_gamma`、`ve
 工程判讀：R13 把 core/farfield mesh probe 推過了，但仍不是 CFD。R14 handoff audit 進一步
 確認 R13 core surface 與 near-wall volume 多數 polygon 對得上（`2800/2860`），但 active
 triangulated core boundary 只有 `1808/5658` triangles conformal，且 `core_wall_loop_cap`
-有 `60` 張 polygon 沒有 near-wall owner。因此 WO-006I preflight 現在把 active blocker
-定位成 `near_wall_mixed_handoff_interface_not_conformal`；舊 direct-stageback PLC failure
-只保留為 superseded diagnostic。下一步是讓 near-wall 與 core 共用同一個 interface
-tessellation，再做 y+ probe 和 solver ladder。
+有 `60` 張 polygon 沒有 near-wall owner。R15 再證明逐 cell 兩-prism split 也只能 match
+`3166/5658` core triangles，`bl_outer_interface` 仍有 `2048` triangles unmatched。因此
+WO-006I preflight 現在把 active blocker 定位成
+`near_wall_prism_split_handoff_not_compatible`；舊 direct-stageback PLC failure 只保留為
+superseded diagnostic。下一步是讓 near-wall 與 core 共用同一個 interface tessellation，
+再做 y+ probe 和 solver ladder。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 
