@@ -23,6 +23,9 @@ evidence; it is a handoff/debug map for the next worker.
 - Passed release gates: `TOOLCHAIN_PASS`, `PRESSURE_SANITY_PASS`.
 - Next required release gate: `ROUTE_SMOKE_PASS` for canonical half-wing
   hybrid BL viscous route-smoke.
+- Phase 3 route-smoke gate exists, but `ROUTE_SMOKE_PASS` has not passed. The
+  current Gmsh topological BL extrusion attempt is rejected evidence, not an
+  active success path.
 - R-series forensic blockers that retired the old route:
   - `su2_dual_orthogonality_angle_extreme`
   - `su2_dual_cv_face_area_aspect_ratio_extreme`
@@ -42,6 +45,12 @@ evidence; it is a handoff/debug map for the next worker.
   rebuild through the canonical half-wing hybrid route and only advance named
   manifest gates.  The canonical pressure-only half-wing case now passes, so the
   next risk is the hybrid BL route-smoke, not another pressure/marker repair.
+  The first canonical Gmsh-extruded hybrid attempt preserved prism/tet cell
+  types, but `INC_RANS/SA` still diverged and SU2 reported max CV sub-volume
+  ratio around `1.81024e8`; one-iteration force breakdown localized the bad
+  drag to the primary wing wall markers rather than `tip_wall`, `te_wall`, or
+  `closure_wall`.  This points away from closure-force cleanup and toward an
+  owned near-wall topology / direct hybrid handoff.
 
 ## Problems And Repairs
 
@@ -61,6 +70,7 @@ evidence; it is a handoff/debug map for the next worker.
 | conservative numerics can run but do not make the mesh credible | R28 JST, `MUSCL_FLOW=NO`, `CFL=0.02` completed `180` iterations but ended at `CL=0.6908`, `CD=0.3916`, `Cm=-0.1424`; last-100 force and residual stability both failed | Lower-order numerics can avoid immediate divergence, but high drag and unstable forces persist on the same pathological dual mesh | Use conservative numerics only as diagnostic evidence; do not treat finite coefficients as route success | Canonical route-smoke must pass on the hybrid half-wing route; conservative numerics alone can never set `ROUTE_SMOKE_PASS` |
 | current root 2D sanity failed on closed TE BL mesh | First Phase 1 root DAE31 run diverged at iteration `18` with `CD=1.799858027e21`; Gmsh mesh had one negative-quality BL quad near the closed/cusped trailing edge | The DAE31 DAT is closed at the TE, unlike the finite-gap NACA/tip cases; Gmsh boundary-layer extrusion around the cusp collapsed a quad | `load_dat_airfoil_loop()` now regularizes duplicate closed TE points into a `0.002c` finite TE cap for the 2D sanity mesh and records loop diagnostics | Done for Phase 1 only. This is a toolchain-sanity mesh regularization, not a claim that the 3D wing TE/cap is solved |
 | half-wing pressure mesh initially diverged on over-clustered tip cap | Phase 2 first 3D Euler/slip run with `points_per_side=12`, `spanwise_subdivisions=1` diverged by iteration `10`; SU2 dual quality was much better than R28 but still had max CV sub-volume ratio `3.08571e6` and pressure coefficients blew up | Coarse pressure surface had high aspect-ratio wing/tip-cap panels from excessive chordwise cosine clustering at the small tip chord; worst Gmsh elements localized near the tip cap, not the old farfield pole | Canonical Phase 2 pressure mesh now uses `points_per_side=6`, `spanwise_subdivisions=4`, preserving marker split while avoiding over-clustered tip-cap chordwise points. SU2 dual gate is now parsed from solver logs and required by the release gate | Done for Phase 2 only. This is a pressure-only mesh recipe, not the viscous BL prism/hexa route |
+| first canonical Gmsh-extruded hybrid BL route-smoke fails | Default Phase 3 mesh has hybrid cell types (`15,600` prism BL cells and `2,857` core tets), but SU2 `INC_RANS/SA` diverges and reports max CV sub-volume ratio about `1.81024e8`; pps12/s6 diagnostics reduce some viscous drag with relaxed first height but pressure CD remains high | Gmsh topological BL extrusion over the faceted half-wing surface does not produce a solver-credible vertex-centered dual-control-volume mesh for the viscous route | Phase 3 gate now rejects `1e8`-scale dual sub-volume ratio and keeps closure/tip/TE forces separate; one-iteration force breakdown shows closure/tip/TE CD are not the dominant source | Replace this path with mesh-native owned BL topology / direct hybrid SU2 handoff; do not spend the next task on CFL, Green-Gauss, laminar, or closure-marker tuning |
 
 ## Phase 1 Toolchain Sanity Evidence
 
@@ -119,6 +129,43 @@ evidence; it is a handoff/debug map for the next worker.
   split that was missing before BL work. It does not clear viscous drag, BL
   prism/hexa quality, y+, transition, closure force contribution in viscous
   flow, or coarse/medium/fine ladder convergence.
+
+## Phase 3 Route-Smoke Gate Evidence
+
+- Script: `scripts/run_canonical_hybrid_phase3_route_smoke.py`
+- Tests: `tests/test_canonical_hybrid_phase3_route_smoke.py`
+- Manifest status: still pending; `ROUTE_SMOKE_PASS` is **not** in
+  `passed_gate_statuses`.
+- Current failed artifact:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/route_smoke/`
+- Default mesh evidence:
+  - volume element types: `{'4': 2857, '6': 15600}`
+  - BL cell count: `15600`
+  - mesh-quality gate: pass on positive volume; minSICN is treated as a warning
+    because stretched prism BL elements must be judged by solver-side dual
+    quality before CFD acceptance.
+  - marker split: `wing_upper`, `wing_lower`, `tip_wall`, `te_wall`,
+    `closure_wall`, `root_symmetry`, `farfield`
+- Solver evidence:
+  - setup: `INC_RANS`, `SA`, no-slip `MARKER_HEATFLUX`, `AOA=0`,
+    `INC_NONDIM=INITIAL_VALUES`
+  - run status: failed by divergence
+  - SU2 dual quality in failed default case: min orthogonality `22.1539 deg`,
+    max CV face-area aspect ratio `51630.3`, max CV sub-volume ratio
+    `1.81024e8`
+- Diagnostic force split:
+  - pps12/s6 one-iteration case: primary `wing_upper + wing_lower`
+    `CD≈0.4417`; `tip_wall≈5.6e-05`, `te_wall≈0.001204`,
+    `closure_wall≈0.000112`
+  - pps12/s6 relaxed first height one-iteration case: primary `CD≈0.3049`;
+    pressure `CD≈0.2596`, viscous `CD≈0.0453`
+- Engineering read: preserving prism/tet element types is necessary but not
+  sufficient. The closure/tip/TE markers are not currently the dominant drag
+  pollution source; the primary wall / BL topology and SU2 dual control volume
+  remain the blocker. Low-CFL, AOA=-4, laminar, and Green-Gauss diagnostics did
+  not convert this path into an acceptable route-smoke. The next implementation
+  should move to mesh-native owned BL topology and a direct hybrid SU2 handoff,
+  not another local patch on the Gmsh-extruded path.
 
 ## R27 Forensic Evidence
 

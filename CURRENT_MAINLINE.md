@@ -49,6 +49,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   `19.4086 deg`、max CV face-area aspect ratio `7487.37`、max CV sub-volume ratio
   `186725`。這只清掉 pressure/geometry/marker/reference sanity；不是 viscous BL
   route-smoke、不是 y+、不是 grid ladder，也不能被讀成 final drag。
+- WO-006 Phase 3 `ROUTE_SMOKE_PASS` gate 已實作，但目前未通過。第一個
+  canonical Gmsh topological BL extrusion path 有 hybrid topology（default case
+  `15,600` prism BL cells + `2,857` core tets），且 marker split 保持
+  `wing_upper` / `wing_lower` / `tip_wall` / `te_wall` / `closure_wall`；但
+  SU2 `INC_RANS/SA` 快速發散，solver dual quality 仍有 max CV sub-volume ratio
+  約 `1.81024e8`。Phase 3 gate 現在會把這種 `1e8` 等級 sub-volume ratio 擋下，
+  避免被誤讀成只差 solver tuning。pps12/s6 one-iteration force breakdown 顯示
+  `tip_wall`、`te_wall`、`closure_wall` 的 CD contribution 很小，主要不合理 drag
+  來自 `wing_upper + wing_lower` primary wall；AOA=-4、laminar、low-CFL、Green-Gauss
+  diagnostics 也沒有讓 route 變成可接受 viscous smoke。下一步不是 R31-style
+  local patch，而是 mesh-native owned BL topology / direct hybrid SU2 handoff。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

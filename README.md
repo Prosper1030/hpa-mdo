@@ -45,6 +45,18 @@ max CV sub-volume ratio `186725`，明顯不再是 R28/R30 的病態量級。工
 這只證明 pressure/geometry/marker/reference sanity；不是 viscous BL route-smoke、
 不是 y+、不是 grid ladder，也不能宣稱 final HPA drag。
 
+Phase 3 route-smoke gate 已新增於 `scripts/run_canonical_hybrid_phase3_route_smoke.py`
+與 `tests/test_canonical_hybrid_phase3_route_smoke.py`，但目前 **尚未** 通過
+`ROUTE_SMOKE_PASS`。第一個 Gmsh topological BL extrusion 嘗試確實保留了 hybrid cell
+types（例如 `15,600` prism BL cells + `2,857` core tets），marker split 也保留，
+但 SU2 `INC_RANS/SA` 仍快速發散；solver log 顯示 max CV sub-volume ratio 約
+`1.81024e8`，已被 Phase 3 gate 明確視為不可接受的 dual-volume blocker。pps12/s6
+one-iteration force breakdown 顯示 `tip_wall` / `te_wall` / `closure_wall` 的 CD
+contribution 很小，主要壞 drag 來自 `wing_upper + wing_lower` primary wall，而不是
+closure marker 被混進 force。工程判讀：不要再靠 CFL、gradient scheme、或 closure
+小修補救這條 Gmsh-extruded path；下一步要改成 mesh-native owned BL topology / direct
+hybrid SU2 handoff，再重新跑 `ROUTE_SMOKE_PASS`。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route
