@@ -257,16 +257,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   `scripts/probe_wo006ad_near_wall_merged_volume_candidate.py` 將 owned BL block、wake
   receiver、sharp-TE stitch accounting 與 materialized tip receiver 合成同一個 pre-core
   volume accounting object。Baseline A current geometry artifact 在
-  `wo006ad_near_wall_merged_volume_candidate_probe/`；實跑 status 是
-  `near_wall_volume_candidate_core_boundary_blocked`，有 `28875` nodes、`26880`
+  `wo006ad_near_wall_merged_volume_candidate_probe/`；最新實跑 status 是
+  `near_wall_volume_candidate_ready_core_mesh_pending`，有 `28875` nodes、`26880`
   near-wall volume cells（owned BL `24576`、wake receiver `768`、tip receiver `1536`），
   original exposed span-cap `0`、original exposed wake-cut `0`、stitched TE-base faces
   `64`、removed degenerate receiver-base faces `32`、non-positive receiver volumes `0`。
-  但 external boundary topology 仍不是 watertight：`70` 條 bad edges，全是 incidence
-  `1`，role touch counts 是 `wing_wall=64`、`wake_edge_receiver=4`、`span_cap_receiver=2`。
-  判讀：near-wall local ownership accounting 已前進，但 core-boundary surface 仍要修；
-  core/farfield mesh、mesh quality、SU2 marker/readability、near-wall/y+ 與 solver ladder
-  都還沒過，因此不能跑 medium/fine SU2 或解讀 CL/CD/Cm。
+  layer-0 sharp-TE wall/wake seam stitch 已套用 `66` 個 coincident node remaps，external
+  boundary topology 現在 `watertight`、`bad_edge_count=0`。判讀：near-wall local ownership
+  accounting 與 external surface closure 已可進入 core/farfield mesh probe；mesh quality、
+  SU2 marker/readability、near-wall/y+ 與 solver ladder 都還沒過，因此不能跑 medium/fine
+  SU2 或解讀 CL/CD/Cm。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

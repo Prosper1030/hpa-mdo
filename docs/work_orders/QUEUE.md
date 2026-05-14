@@ -100,6 +100,16 @@ Current release package:
   SICN/SIGE/volume). The remaining blocker is not the R7 bad-pyramid family;
   it is incomplete wake/span-cap BL/core coupling plus missing merged mixed SU2
   handoff.
+- WO-006AD near-wall merged-volume candidate has been repaired after the R9
+  read. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006ad_near_wall_merged_volume_candidate_probe/`.
+  The layer-0 sharp-TE wall/wake seam stitch now removes the AD external-surface
+  open-edge blocker (`bad_edge_count=0`, `remapped_node_count=66`) while keeping
+  original Baseline A external shape unchanged. This is still not SU2 handoff:
+  the next WO-006 repair, with the data-authority checker prerequisite
+  preserved, should generate and quality-gate a core/farfield mesh from this
+  watertight near-wall candidate, then only after marker/readability and y+
+  checks attempt a coarse/medium/fine solver ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

@@ -236,18 +236,19 @@ BL span-cap / wake-cut 是否仍裸露成 solver boundary」這件事變成可�
 Baseline A current geometry artifact 在
 `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006ad_near_wall_merged_volume_candidate_probe/`。
 實跑 `points_per_side=16`、`spanwise_subdivisions=2` 得到
-`near_wall_volume_candidate_core_boundary_blocked`：`28875` nodes、`26880` volume cells
+`near_wall_volume_candidate_ready_core_mesh_pending`：`28875` nodes、`26880` volume cells
 （owned BL `24576`、wake receiver `768`、tip receiver `1536`），original exposed
 span-cap `0`、original exposed wake-cut `0`、stitched TE-base faces `64`、removed
-degenerate receiver-base faces `32`、non-positive receiver volumes `0`。但是 external
-boundary topology 仍不是 watertight：`70` 條 bad edges，全是 incidence `1`，role touch
-counts 是 `wing_wall=64`、`wake_edge_receiver=4`、`span_cap_receiver=2`。
+degenerate receiver-base faces `32`、non-positive receiver volumes `0`。WO-006AD repair
+新增 layer-0 sharp-TE wall/wake seam stitch：`remapped_node_count=66`，external boundary
+topology 現在是 `watertight`、`bad_edge_count=0`。
 
-工程判讀：這解掉原始 BL `span_cap` / `wake_cut` 裸露問題，但發現下一個更準確的 blocker：
-near-wall external boundary 尚未 watertight。剩餘 blockers 是 near-wall external boundary
-not watertight、core/farfield mesh not generated、merged mesh quality not run、SU2
-marker/readability not run、near-wall/y+ not postprocessed、solver ladder not run；所以仍不能
-跑 medium/fine SU2 或解讀 CL/CD/Cm。
+工程判讀：這解掉原始 BL `span_cap` / `wake_cut` 裸露問題，也解掉 AD 觀察到的
+near-wall external boundary open-edge blocker。剩餘 blockers 是 core/farfield mesh not
+generated、merged mesh quality not run、SU2 marker/readability not run、near-wall/y+ not
+postprocessed、solver ladder not run；所以下一步應該是從這個 watertight near-wall
+candidate 產生 core/farfield mesh 與 mixed SU2 handoff，而不是直接跑 medium/fine SU2
+或解讀 CL/CD/Cm。
 
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 

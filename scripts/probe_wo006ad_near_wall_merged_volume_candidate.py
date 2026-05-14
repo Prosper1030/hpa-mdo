@@ -148,6 +148,7 @@ def summarize_near_wall_merged_volume_candidate(
     role_counts = _counts(row["role"] for row in face_rows)
     volume_quality = _volume_quality(block, candidate)
     external_boundary_topology = _external_boundary_topology(face_rows)
+    sharp_te_boundary_stitch = _sharp_te_boundary_stitch_summary(block)
     blockers: list[str] = []
     if receiver_geometry.get("status") != "tip_receiver_geometry_materialized_quality_pass":
         blockers.append("tip_receiver_geometry_not_pass")
@@ -196,6 +197,7 @@ def summarize_near_wall_merged_volume_candidate(
         "receiver_geometry_status": receiver_geometry.get("status"),
         "volume_quality": volume_quality,
         "external_boundary_topology": external_boundary_topology,
+        "sharp_te_boundary_stitch": sharp_te_boundary_stitch,
         "blockers": blockers,
         "surface_ownership": {
             "wing_wall": "owned BL layer-0 physical wall surface",
@@ -221,6 +223,7 @@ def merged_boundary_face_rows(
 ) -> list[dict[str, Any]]:
     records = _face_records(block, candidate)
     face_counts = _counts(record["key"] for record in records)
+    boundary_node_remap = _sharp_te_boundary_node_remap(block)
     rows = []
     for record in records:
         key = record["key"]
@@ -230,11 +233,14 @@ def merged_boundary_face_rows(
             continue
         if key in candidate.removed_receiver_base_face_keys:
             continue
+        nodes = _normalize_boundary_face_nodes(record["nodes"], boundary_node_remap)
+        if len(set(nodes)) < 3:
+            continue
         rows.append(
             {
                 "source": record["source"],
                 "role": record["role"],
-                "nodes": list(record["nodes"]),
+                "nodes": list(nodes),
             }
         )
     return rows
@@ -343,6 +349,7 @@ def render_report(summary: Mapping[str, Any]) -> str:
         f"- exposed original span-cap faces: `{merged.get('remaining_exposed_original_span_cap_face_count')}`",
         f"- exposed original wake-cut faces: `{merged.get('remaining_exposed_original_wake_cut_face_count')}`",
         f"- non-positive candidate volumes: `{(merged.get('volume_quality') or {}).get('non_positive_volume_count')}`",
+        f"- sharp-TE boundary stitch: `{(merged.get('sharp_te_boundary_stitch') or {}).get('status')}`",
         f"- blockers: `{merged.get('blockers')}`",
         f"- engineering read: {summary['engineering_read']}",
         "",
@@ -477,6 +484,8 @@ def _external_boundary_topology(rows: Sequence[Mapping[str, Any]]) -> dict[str, 
     for row in rows:
         nodes = [int(node) for node in row.get("nodes", [])]
         for left, right in zip(nodes, [*nodes[1:], nodes[0]]):
+            if left == right:
+                continue
             edge = tuple(sorted((left, right)))
             edge_counts[edge] = edge_counts.get(edge, 0) + 1
     bad_edges = {
@@ -488,6 +497,8 @@ def _external_boundary_topology(rows: Sequence[Mapping[str, Any]]) -> dict[str, 
         nodes = [int(node) for node in row.get("nodes", [])]
         role = str(row.get("role") or "unknown")
         for left, right in zip(nodes, [*nodes[1:], nodes[0]]):
+            if left == right:
+                continue
             edge = tuple(sorted((left, right)))
             if edge in bad_edges:
                 role_counts[role] = role_counts.get(role, 0) + 1
@@ -498,6 +509,70 @@ def _external_boundary_topology(rows: Sequence[Mapping[str, Any]]) -> dict[str, 
         "bad_edge_incidence_counts": dict(sorted(_counts(bad_edges.values()).items())),
         "bad_edge_role_touch_counts": dict(sorted(role_counts.items())),
     }
+
+
+def _sharp_te_boundary_node_remap(block: WingBoundaryLayerBlock) -> dict[int, int]:
+    """Map coincident layer-0 sharp-TE nodes to one solver-boundary topology node."""
+    section_vertex_count = int(block.metadata["section_vertex_count"])
+    section_count = int(block.metadata["station_count"])
+    layer_count = int(block.metadata["layer_count"])
+    wall_count = int(block.section_blocks[0].metadata["wall_node_count"])
+    wake_start = (layer_count + 1) * wall_count
+    upper_te = int(block.section_blocks[0].wall_nodes.upper_te)
+    lower_te = int(block.section_blocks[0].wall_nodes.lower_te)
+    remap: dict[int, int] = {}
+
+    for section in range(section_count):
+        section_offset = section * section_vertex_count
+        upper_te_node = section_offset + upper_te
+        lower_te_node = section_offset + lower_te
+        if _distance_xyz(block.vertices[upper_te_node], block.vertices[lower_te_node]) <= 1.0e-12:
+            remap[lower_te_node] = upper_te_node
+
+        wake_upper_node = section_offset + wake_start
+        wake_lower_node = section_offset + wake_start + 1
+        if _distance_xyz(block.vertices[wake_upper_node], block.vertices[wake_lower_node]) <= 1.0e-12:
+            remap[wake_lower_node] = wake_upper_node
+
+    return remap
+
+
+def _sharp_te_boundary_stitch_summary(block: WingBoundaryLayerBlock) -> dict[str, Any]:
+    remap = _sharp_te_boundary_node_remap(block)
+    return {
+        "status": "applied" if remap else "not_needed",
+        "remapped_node_count": len(remap),
+        "policy": (
+            "Coincident layer-0 sharp trailing-edge wall and wake nodes are stitched "
+            "for solver-boundary topology accounting; outer BL-layer nodes remain "
+            "distinct because they represent real BL thickness."
+        ),
+    }
+
+
+def _normalize_boundary_face_nodes(
+    nodes: Sequence[int],
+    node_remap: Mapping[int, int],
+) -> tuple[int, ...]:
+    normalized: list[int] = []
+    for node in nodes:
+        remapped = int(node_remap.get(int(node), int(node)))
+        if not normalized or normalized[-1] != remapped:
+            normalized.append(remapped)
+    if len(normalized) > 1 and normalized[0] == normalized[-1]:
+        normalized.pop()
+    return tuple(normalized)
+
+
+def _distance_xyz(
+    left: tuple[float, float, float],
+    right: tuple[float, float, float],
+) -> float:
+    return (
+        (left[0] - right[0]) ** 2
+        + (left[1] - right[1]) ** 2
+        + (left[2] - right[2]) ** 2
+    ) ** 0.5
 
 
 def _hex_faces(nodes: Sequence[int]) -> tuple[tuple[int, int, int, int], ...]:
