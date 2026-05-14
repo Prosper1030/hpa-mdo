@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r20_left_tip_star_tessellation_probe" / "summary.json",
     WO006_ROOT / "wo006r19_loop_cap_owner_pyramid_probe" / "summary.json",
     WO006_ROOT / "wo006r18_handoff_residual_localization_probe" / "summary.json",
     WO006_ROOT / "wo006r17_hybrid_tet_prism_split_probe" / "summary.json",
@@ -367,6 +368,8 @@ def evaluate_cfd_setup_gate(
         blockers.append("near_wall_core_mesh_probe_missing")
     if core_closure_topology["status"] == "core_mesh_ready_handoff_pending":
         blockers.append("near_wall_merged_mesh_handoff_missing")
+    if core_closure_topology["status"] == "handoff_repair_basis_ready_mixed_mesh_pending":
+        blockers.append("near_wall_merged_mesh_handoff_missing")
     if core_closure_topology["status"] == "blocked" and core_closure_topology.get(
         "wall_edge_gap_status"
     ) == ("blocked_by_physical_wall_edge_dependency"):
@@ -412,6 +415,7 @@ def _core_route_supersedes_direct_stageback(
             "handoff_conformality_blocked",
             "handoff_prism_split_blocked",
             "core_mesh_ready_handoff_pending",
+            "handoff_repair_basis_ready_mixed_mesh_pending",
             "pass",
         }
     )
@@ -918,6 +922,9 @@ def render_report(summary: Mapping[str, Any]) -> str:
     loop_cap_owner_pyramid = (
         core_closure_topology.get("loop_cap_owner_pyramid") or {}
     )
+    left_tip_star_tessellation = (
+        core_closure_topology.get("left_tip_star_tessellation") or {}
+    )
     lines = [
         "# WO-006I Baseline A Main-Wing CFD Grid-Convergence Campaign",
         "",
@@ -945,6 +952,8 @@ def render_report(summary: Mapping[str, Any]) -> str:
         f"- R18 residual triangles: `{residual_localization.get('residual_triangle_count')}`",
         f"- R18 loop-cap fans / incompatible cells: `{residual_localization.get('loop_cap_fan_count')}` / `{residual_localization.get('incompatible_cell_count')}`",
         f"- R19 loop-cap owner pyramids: `{loop_cap_owner_pyramid.get('matched_core_wall_loop_cap_triangle_count')}` / `{loop_cap_owner_pyramid.get('core_wall_loop_cap_triangle_count')}`",
+        f"- R20 left-tip star target triangles: `{left_tip_star_tessellation.get('matched_target_triangle_count')}` / `{left_tip_star_tessellation.get('target_triangle_count')}`",
+        f"- R20 non-positive star tets: `{left_tip_star_tessellation.get('non_positive_star_tet_count')}`",
         f"- engineering read: `{setup_gate.get('engineering_read')}`",
         "",
         "## Physics Setup",
@@ -1218,7 +1227,10 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    left_tip_star_record: dict[str, Any] | None = None
+    left_tip_star_ready = False
     loop_cap_owner_pyramid_record: dict[str, Any] | None = None
+    loop_cap_owner_ready = False
     handoff_residual_record: dict[str, Any] | None = None
     hybrid_split_artifact_seen = False
     hybrid_split_blocked = False
@@ -1229,8 +1241,47 @@ def _core_closure_topology_summary(
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        left_tip_star = artifact.get("left_tip_star_tessellation") or {}
+        if left_tip_star:
+            remaining_after_star = (
+                left_tip_star.get("remaining_r17_residuals_after_r19_r20") or {}
+            )
+            left_tip_star_ready = (
+                left_tip_star.get("status") == "left_tip_star_tessellation_match"
+                and int(left_tip_star.get("non_positive_star_tet_count") or 0) == 0
+                and not remaining_after_star
+            )
+            left_tip_star_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": left_tip_star.get("status"),
+                "target_cell_count": left_tip_star.get("target_cell_count"),
+                "target_triangle_count": left_tip_star.get("target_triangle_count"),
+                "matched_target_triangle_count": left_tip_star.get(
+                    "matched_target_triangle_count"
+                ),
+                "non_positive_star_tet_count": left_tip_star.get(
+                    "non_positive_star_tet_count"
+                ),
+                "remaining_r17_residuals_after_r19_r20": remaining_after_star,
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(left_tip_star_record)
+            continue
+
         loop_cap_owner_pyramid = artifact.get("loop_cap_owner_pyramid") or {}
         if loop_cap_owner_pyramid:
+            loop_cap_owner_ready = (
+                loop_cap_owner_pyramid.get("status") == "loop_cap_owner_pyramids_match"
+                and int(
+                    loop_cap_owner_pyramid.get(
+                        "non_positive_owner_pyramid_volume_count"
+                    )
+                    or 0
+                )
+                == 0
+            )
             loop_cap_owner_pyramid_record = {
                 "path": artifact.get("path"),
                 "schema_version": artifact.get("schema_version"),
@@ -1574,7 +1625,15 @@ def _core_closure_topology_summary(
             }
         )
 
-    if hybrid_split_blocked:
+    handoff_repair_basis_ready = (
+        left_tip_star_ready
+        and loop_cap_owner_ready
+        and hybrid_split_artifact_seen
+        and hybrid_split_blocked
+    )
+    if handoff_repair_basis_ready:
+        status = "handoff_repair_basis_ready_mixed_mesh_pending"
+    elif hybrid_split_blocked:
         status = "handoff_hybrid_split_blocked"
     elif prism_split_blocked:
         status = "handoff_prism_split_blocked"
@@ -1634,6 +1693,26 @@ def _core_closure_topology_summary(
                     "interface triangles still lack ownership or compatible "
                     "tessellation. Do not run medium/fine SU2 until those final "
                     "handoff gaps are materialized and y+ is postprocessed."
+                ),
+            }
+        )
+    elif status == "handoff_repair_basis_ready_mixed_mesh_pending":
+        result.update(
+            {
+                "blocker": "near_wall_merged_mesh_handoff_missing",
+                "hybrid_split_compatibility": hybrid_split_record,
+                "handoff_residual_localization": handoff_residual_record,
+                "loop_cap_owner_pyramid": loop_cap_owner_pyramid_record,
+                "left_tip_star_tessellation": left_tip_star_record,
+                "recommended_repair": (
+                    "write_marker_quality_gated_mixed_bl_core_su2_handoff_and_yplus_probe"
+                ),
+                "engineering_read": (
+                    "The loop-cap owner pyramids and left-tip star tessellation "
+                    "provide a positive-volume local repair basis for the last "
+                    "known R17 handoff residuals. This is still not a CFD-ready "
+                    "setup until a marker/quality-gated mixed BL+core SU2 mesh is "
+                    "written and near-wall y+ is postprocessed."
                 ),
             }
         )

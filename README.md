@@ -56,6 +56,25 @@ left-tip shared-tessellation mismatch，以及尚未寫出 merged mixed mesh、�
 尚未跑 SU2 ladder。WO-006I data-authority-restored preflight 現在的 mesh repair target 是
 `repair_left_tip_receiver_shared_tessellation_then_write_loop_cap_owner_pyramid_mixed_mesh`。
 
+## 2026-05-14 WO-006R20 Left-Tip Star Tessellation Probe
+
+`scripts/probe_wo006r20_left_tip_star_tessellation.py` 驗證 R19 之後最後兩個
+`tip_receiver/left_tip` cells 的 shared-tessellation repair basis：只針對 R17 hybrid
+audit 中 `unmatched_triangle_count > 0` 的 cells (`26110`、`26111`)，用 cell center
+star tessellation 直接 own 三個 core-facing faces 的 target triangles。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r20_left_tip_star_tessellation_probe/`。
+
+實跑結果：target cells `2`、target triangles `12/12` matched，其中
+`core_outer_edge_receiver=4`、`core_tip_receiver_outer=4`、`wake_edge_receiver=4`；
+star-tet volume 全為正，`min=2.71e-7 m^3`、`max=3.45e-7 m^3`，R19/R20 後的
+R17 residuals 為 `{}`。這代表最後已知 left-tip local handoff residual 有正體積修法依據。
+
+工程邊界：R20 仍不是 final mixed SU2 mesh，沒有 marker/quality-gated BL+core handoff，
+也沒有 near-wall y+ 或 SU2 ladder。WO-006I data-authority-restored preflight 現在會把
+core closure 推進到 `handoff_repair_basis_ready_mixed_mesh_pending`，active blocker 改成
+`near_wall_merged_mesh_handoff_missing`；下一步是寫出 marker/quality-gated mixed BL+core
+SU2 handoff 並做 y+ probe，而不是直接跑 medium/fine solver。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

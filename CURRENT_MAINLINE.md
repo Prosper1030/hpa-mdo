@@ -139,11 +139,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   (`26110`、`26111`) 各自 target `6` triangles、只 match `4`。WO-006R19 驗證
   loop-cap owner pyramid repair basis：`60` 個 `physical_wall_edge_receiver`
   quads 可形成 `60` 個 owner pyramids，`60/60` match `core_wall_loop_cap`
-  triangles，且 owner volume 全為正（約 `6.26e-7` 到 `6.52e-5 m^3`）。因此前置 blocker 目前是
-  `near_wall_hybrid_tet_prism_handoff_not_compatible`，不是 R10 wall-edge dependency、R12
-  geometric self-intersection，或舊 direct-stageback route；WO-006I preflight 的
-  data-authority-restored mesh repair target 是
-  `repair_left_tip_receiver_shared_tessellation_then_write_loop_cap_owner_pyramid_mixed_mesh`。
+  triangles，且 owner volume 全為正（約 `6.26e-7` 到 `6.52e-5 m^3`）。WO-006R20
+  接著只針對 R17 hybrid audit 中 `unmatched_triangle_count > 0` 的兩個
+  `tip_receiver/left_tip` cells 做 cell-center star tessellation：target triangles
+  `12/12` matched，`core_outer_edge_receiver=4`、`core_tip_receiver_outer=4`、
+  `wake_edge_receiver=4`，star-tet volume 全為正（約 `2.71e-7` 到 `3.45e-7 m^3`），
+  R19/R20 後的 R17 residuals 為 `{}`。因此前置狀態已推進到
+  `handoff_repair_basis_ready_mixed_mesh_pending`，active blocker 是
+  `near_wall_merged_mesh_handoff_missing`，不是 R10 wall-edge dependency、R12 geometric
+  self-intersection、舊 direct-stageback route，或仍未知的 left-tip residual；WO-006I
+  preflight 的 data-authority-restored mesh writer target 是
+  `write_marker_quality_gated_mixed_bl_core_su2_handoff_and_yplus_probe`。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
