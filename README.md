@@ -174,7 +174,9 @@ transition-collar pyramid。工程判讀：3-layer build-up 也不能直接進 p
 hotspot geometry diagnostic 進一步顯示 worst point 同時接到 `6.0e-5 m` 級 local
 edge 與約 `1.68 m` 的 core edge，incident core tet edge-ratio 可到 `~1.37e4`；
 下一步要做 collar/core local grading、structured transition patch 或成熟 layer-addition
-mesher cross-check，而不是只調 global core size 或降 BL layers。
+mesher cross-check，而不是只調 global core size 或降 BL layers。給 GPT Pro / meshing
+specialist 的可複製問題包在
+`docs/reports/wo006_cfd_collar_core_blocker_gpt_pro_prompt.md`。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

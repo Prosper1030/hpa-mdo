@@ -15,6 +15,8 @@ evidence; it is a handoff/debug map for the next worker.
 - Route-policy checker: `scripts/check_canonical_hybrid_cfd_release.py`.
 - External rescue reference:
   `docs/reports/wo006_cfd_external_rescue_reference.md`.
+- Current collar/core blocker question packet:
+  `docs/reports/wo006_cfd_collar_core_blocker_gpt_pro_prompt.md`.
 - Forensic-only routes: WO-006R25, WO-006R26, WO-006R27, WO-006R28,
   WO-006R29, WO-006R30.
 - Latest solver-facing forensic probe: WO-006R28.
