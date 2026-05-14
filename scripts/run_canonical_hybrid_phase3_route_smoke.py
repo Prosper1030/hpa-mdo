@@ -2428,6 +2428,146 @@ def write_phase3_segmented_partial_wing_transition_collar_core_hybrid_su2(
     }
 
 
+def plan_phase3_segmented_partial_wing_structured_transition_handoff(
+    section_table_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 1.0e-4,
+    transition_row_heights_m: Sequence[float] = (0.03, 0.09),
+    max_projected_volume_elements: int | None = None,
+) -> dict[str, Any]:
+    """Estimate structured transition handoff cost before generating it."""
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    source_edge_segments, source_edge_report = _source_rim_edge_split_plan(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+        first_layer_height_m=first_layer_height_m,
+    )
+    segmented_vertices, segmented_wall_triangles, segmented_surface_report = (
+        _split_wall_triangles_on_source_edges(
+            surface.vertices,
+            wall_triangles,
+            edge_segment_counts=source_edge_segments,
+        )
+    )
+    segmented_cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in segmented_wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        segmented_vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in segmented_wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(segmented_cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    row_heights = tuple(float(height) for height in transition_row_heights_m)
+    if not row_heights or any(height <= 0.0 for height in row_heights):
+        raise ValueError("transition_row_heights_m must contain positive heights")
+    row_count = len(row_heights)
+    input_interface_triangle_count = int(collar_report["interface_triangle_count"])
+    transition_prism_count = input_interface_triangle_count * row_count
+    sidewall_closure_pyramid_count = input_interface_triangle_count * row_count * 3
+    sidewall_closure_tetra_count = sidewall_closure_pyramid_count * 4
+    base_type_counts: dict[str, int] = {}
+    for element_type, _nodes in collar_volume["elements"]:
+        key = str(element_type)
+        base_type_counts[key] = base_type_counts.get(key, 0) + 1
+    projected_type_counts = dict(base_type_counts)
+    projected_type_counts[str(SU2_PRISM)] = (
+        projected_type_counts.get(str(SU2_PRISM), 0) + transition_prism_count
+    )
+    projected_type_counts[str(SU2_PYRAMID)] = (
+        projected_type_counts.get(str(SU2_PYRAMID), 0)
+        + sidewall_closure_pyramid_count
+    )
+    projected_type_counts[str(SU2_TETRAHEDRON)] = (
+        projected_type_counts.get(str(SU2_TETRAHEDRON), 0)
+        + sidewall_closure_tetra_count
+    )
+    projected_volume_element_count = sum(projected_type_counts.values())
+    blockers: list[str] = []
+    if (
+        max_projected_volume_elements is not None
+        and projected_volume_element_count > int(max_projected_volume_elements)
+    ):
+        blockers.append("projected_volume_element_count_exceeds_gate")
+    report = {
+        "route": (
+            "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_projection"
+        ),
+        "status": (
+            "segmented_partial_wing_structured_transition_projection_ready"
+            if not blockers
+            else "segmented_partial_wing_structured_transition_projection_blocked"
+        ),
+        "surface": {
+            "marker_counts": surface.marker_counts(),
+            "metadata": surface.metadata,
+        },
+        "source_rim_edge_split_plan": source_edge_report,
+        "segmented_surface": segmented_surface_report,
+        "transition_collar": collar_report,
+        "projected_counts": {
+            "base_volume_element_type_counts": dict(sorted(base_type_counts.items())),
+            "projected_volume_element_type_counts": dict(
+                sorted(projected_type_counts.items())
+            ),
+            "input_interface_triangle_count": input_interface_triangle_count,
+            "transition_row_count": row_count,
+            "transition_row_heights_m": list(row_heights),
+            "transition_prism_count": transition_prism_count,
+            "sidewall_closure_pyramid_count": sidewall_closure_pyramid_count,
+            "sidewall_closure_tetra_count": sidewall_closure_tetra_count,
+            "projected_volume_element_count": projected_volume_element_count,
+            "max_projected_volume_elements": max_projected_volume_elements,
+        },
+        "gate": {
+            "status": "pass" if not blockers else "blocked",
+            "blockers": sorted(set(blockers)),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Projection-only structured transition preflight. It estimates "
+                "the current per-interface-triangle sidewall closure cost before "
+                "allocating the full handoff mesh; it is not a topology pass, "
+                "pressure sanity, or RANS result."
+            ),
+        },
+    }
+    return report
+
+
 def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
     section_table_path: Path | str,
     out_path: Path | str,

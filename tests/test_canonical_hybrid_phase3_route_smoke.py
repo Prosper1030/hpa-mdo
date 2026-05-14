@@ -841,6 +841,42 @@ def test_segmented_partial_wing_structured_transition_handoff_closes_sidewalls(
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_structured_transition_projection_blocks_element_explosion() -> None:
+    module = _load_module()
+
+    report = module.plan_phase3_segmented_partial_wing_structured_transition_handoff(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        points_per_side=4,
+        spanwise_subdivisions=1,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=2,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.03, 0.09),
+        max_projected_volume_elements=150_000,
+    )
+
+    assert (
+        report["route"]
+        == "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_projection"
+    )
+    assert report["status"] == "segmented_partial_wing_structured_transition_projection_blocked"
+    projected = report["projected_counts"]
+    assert projected["input_interface_triangle_count"] > 0
+    assert projected["transition_prism_count"] == projected["input_interface_triangle_count"] * 2
+    assert (
+        projected["sidewall_closure_pyramid_count"]
+        == projected["input_interface_triangle_count"] * 6
+    )
+    assert (
+        projected["sidewall_closure_tetra_count"]
+        == projected["sidewall_closure_pyramid_count"] * 4
+    )
+    assert projected["projected_volume_element_count"] > 150_000
+    assert "projected_volume_element_count_exceeds_gate" in report["gate"]["blockers"]
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
     module = _load_module()
     surface = module.SurfaceMesh(

@@ -154,11 +154,22 @@ tets close exposed prism quads.  Ownership, topology, and dual proxy pass.  The
 final marker policy removes `transition_collar_interface` and exposes
 `transition_collar_outer_interface` for a future tetra core.
 
+However, the pps42/l3 production projection is now explicitly blocked.  A
+projection-only preflight, without generating the full closure mesh, found
+`9708` collar interface triangles.  The current per-interface-triangle closure
+rule would create `19,416` transition prisms, `58,248` sidewall closure
+pyramids, and `232,992` sidewall closure tetra; projected final volume elements
+are `330,627`, above the local Mac-safe gate of `250,000`.  This means the
+tiny handoff topology is valid, but the naive all-sidewall closure is not the
+right production scaling rule.
+
 ## Question To Answer
 
 Please review the real-wing projection strategy, not solver numerics.
 
 Which route should we implement next, and what are the exact construction rules?
+In particular, should the next topology use shared-node stitched sidewall
+sheets, collar-band coarsening, or transition only on true outer rim edges?
 
 Candidates:
 

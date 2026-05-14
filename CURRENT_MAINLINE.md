@@ -240,6 +240,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   可以投影到真翼資料結構，但還不能證明 pps42/l3 或 y+=1 mesh 可用；下一步要做
   element-count-controlled 的 pps42/l3 projection，而不是直接把 naive all-sidewall
   closure 放大。
+- pps42/l3 structured transition projection 已有 preflight artifact：
+  `segmented_partial_wing_structured_transition_projection_pps42_l3/`。它不生成完整
+  closure mesh，只用 segmented collar 的 `9708` 個 interface triangles 推算目前
+  naive sidewall-closure 規則的成本：`36,960` prisms、`60,675` pyramids、`232,992`
+  tets，總 volume elements `330,627`，超過 Mac-safe projection gate `250,000`，
+  status 為 `segmented_partial_wing_structured_transition_projection_blocked`。工程判讀：
+  不能直接把 tiny handoff 的 per-triangle closure 放大；下一步應改成 shared-node
+  stitched sidewall sheet、collar band coarsening，或只在真正外 rim 做 transition。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

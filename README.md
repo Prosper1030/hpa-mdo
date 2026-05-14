@@ -217,6 +217,10 @@ collar pipeline，但刻意放大 first layer 到 `1e-3 m`、只用 `points_per_
 `spanwise_subdivisions=1` / `layers=1`。它產生 `482` prisms、`1175` pyramids、
 `4512` tets，topology / ownership / dual proxy pass。這只證明資料結構與
 triangular-interface contract 可投影到真翼，不是 y+ 或 route-smoke 證據。
+pps42/l3 的 projection gate 也已跑過：`9708` 個 collar interface triangles 若照
+目前 naive per-triangle sidewall closure 放大，會投影到 `330,627` 個 volume
+elements，超過 `250,000` 的 Mac-safe gate；因此不能直接放大 tiny handoff。
+下一步要做 shared-node / stitched sidewall 或 collar band coarsening。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
