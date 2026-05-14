@@ -75,6 +75,21 @@ receiver 的 `32` 個 receiver-base faces 全部 degenerate，`max_receiver_base
 ladder；下一步要把這個 pairing candidate 實作成可審核的 stitched topology，再重跑
 BL/core merge gate。
 
+## 2026-05-14 WO-006X Stitched Wake Handoff Gate
+
+WO-006X 新增 `scripts/probe_wo006x_stitched_wake_handoff_gate.py`，把 WO-006V/WO-006W
+合成一個 wake ownership accounting gate：BL wake-cut faces 必須不是被 receiver match，
+就是被 explicit sharp-TE seam stitch account。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006x_stitched_wake_handoff_gate/`。
+
+實跑結果：`1600` 個 BL wake-cut faces 中，`1536` 個由 wake receiver match，`64` 個
+由 TE-base sharp seam stitch account；`remaining_unowned_bl_wake_cut_face_count=0`。
+core wake-cut 也 `32 / 32` match。
+
+工程判讀：wake ownership 這一段可以進入實作 stitched topology 的下一步；但這還不是
+完整 BL/core handoff，因為 span-cap ownership 仍是 `pending`，merged mesh quality 與 SU2
+readability 也未過 gate。因此仍不能跑 medium/fine SU2 ladder 或解讀 CL/CD/Cm。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔

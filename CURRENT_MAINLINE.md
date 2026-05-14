@@ -176,6 +176,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   coincident pairs，`unpaired=0`；`32` 個 receiver-base faces 全部 degenerate，
   `max_receiver_base_area_m2=0.0`。判讀：下一步可以嘗試 explicit seam stitching/removal，
   但不能把它當新的 physical wall 或 SU2 boundary，也尚未達到 BL/core handoff ready。
+- WO-006X 已把 wake ownership 做成 stitched accounting gate：
+  `scripts/probe_wo006x_stitched_wake_handoff_gate.py` 合併 WO-006V receiver matching 與
+  WO-006W sharp-TE seam pairing，artifact 在 `wo006x_stitched_wake_handoff_gate/`。實跑
+  `1600` 個 BL wake-cut faces 中，`1536` 個由 receiver match、`64` 個由 TE-base seam
+  stitch account，`remaining_unowned_bl_wake_cut_face_count=0`；core wake-cut 也
+  `32 / 32` match。判讀：wake ownership 可進入 stitched topology 實作，但 span-cap
+  ownership 仍 `pending`，merged mesh quality / SU2 readability 未過 gate，因此不能跑
+  medium/fine SU2 ladder。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
