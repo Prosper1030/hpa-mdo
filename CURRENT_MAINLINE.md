@@ -69,12 +69,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   約 `4,750` core tets，node tag integrity pass。Gmsh core 改用
   `Algorithm3D=1`，因為 `Algorithm3D=10` 在這個 discrete-interface/geo-farfield
   mix 會產生含 node `0` 的 invalid tetra。工程判讀：這只清掉 writer/topology
-  blocker；SU2 還沒過。該 probe 的 dual quality 仍是 min orthogonality
-  `1.60111 deg`、max CV face-area aspect ratio `122600`、max CV sub-volume ratio
-  `158295`；Euler/slip 以初始 `CD≈0.2555` 開場並在 iter 10 divergence，RANS 以
-  初始 `CD≈0.3741` 開場並在 iter 9 divergence。下一個 named blocker 應鎖定
-  surface-normal/prism distortion/root-symmetry-hole/pressure-only stability，而不是
-  numerics tuning 或 closure marker repair。
+  blocker；SU2 還沒過。後續已修正 prism ordering / marker face orientation，使
+  `wing_upper` / `wing_lower` / farfield area-vector 方向與 Phase 2 pressure mesh
+  一致；該 24-layer probe 的 dual quality 改為 min orthogonality `15.5098 deg`、
+  max CV face-area aspect ratio `40411`、max CV sub-volume ratio `158295`。但
+  Euler/slip 仍以初始 `CD≈0.2613` 開場並在 iter 10 divergence。下一個 named
+  blocker 應鎖定 root/TE prism distortion、高曲率 edge、root-symmetry hole 與
+  partial-BL/cap policy，而不是 numerics tuning 或 closure marker repair。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

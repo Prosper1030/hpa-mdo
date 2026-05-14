@@ -40,6 +40,7 @@ from hpa_meshing.mesh_native.su2_structured import (  # noqa: E402
     audit_su2_case_markers,
     parse_su2_marker_summary,
     _su2_volume_text,
+    _volume_element_faces,
 )
 from hpa_meshing.mesh_native.wing_surface import Face, Reference, SurfaceMesh, WingSpec  # noqa: E402
 from run_canonical_hybrid_phase2_pressure_sanity import (  # noqa: E402
@@ -843,6 +844,10 @@ def write_phase3_direct_surface_prism_handoff_su2(
         "boundary_layer_cell_count": len(volume["elements"]),
         "marker_summary": marker_summary["markers"],
         "su2_boundary_ownership": boundary_ownership,
+        "marker_area_vectors": _marker_area_vectors(
+            volume["nodes"],
+            volume["marker_faces"],
+        ),
         "core_tetra_interface": {
             "status": (
                 "ready_for_tet_core_boundary"
@@ -955,6 +960,7 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
         "required_markers_present": required_markers_present,
         "su2_boundary_ownership": boundary_ownership,
         "core_report": core["report"],
+        "marker_area_vectors": _marker_area_vectors(merged_nodes, marker_faces),
         "forbidden_route_checks": {
             "all_tet_global_star_bl_handoff": False,
             "boundary_layer_split_to_tetra": False,
@@ -1034,10 +1040,14 @@ def _direct_surface_prism_core_tets(
                 "Gmsh generated tetrahedra with node tags missing from getNodes(): "
                 f"{unknown_tetra_nodes[:8]}"
             )
-        marker_faces = {
+        raw_marker_faces = {
             "root_symmetry": _gmsh_surface_marker_faces(gmsh, symmetry_tags),
             "farfield": _gmsh_surface_marker_faces(gmsh, farfield_tags),
         }
+        marker_faces = _orient_core_marker_faces_from_tetrahedra(
+            tetra_elements,
+            raw_marker_faces,
+        )
         return {
             "nodes": nodes,
             "tetra_elements": tetra_elements,
@@ -1145,6 +1155,32 @@ def _gmsh_surface_marker_faces(
     return output
 
 
+def _orient_core_marker_faces_from_tetrahedra(
+    tetra_elements: Sequence[tuple[int, int, int, int]],
+    marker_faces: Mapping[str, Sequence[tuple[int, tuple[int, ...]]]],
+) -> dict[str, list[tuple[int, tuple[int, ...]]]]:
+    oriented_boundary_faces: dict[tuple[int, ...], tuple[int, ...]] = {}
+    face_counts: dict[tuple[int, ...], int] = {}
+    for tetra in tetra_elements:
+        for face in _volume_element_faces(SU2_TETRAHEDRON, tetra):
+            key = tuple(sorted(int(node) for node in face))
+            face_counts[key] = face_counts.get(key, 0) + 1
+            oriented_boundary_faces[key] = tuple(int(node) for node in face)
+
+    output: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
+    for marker, faces in marker_faces.items():
+        output[marker] = []
+        for element_type, nodes in faces:
+            key = tuple(sorted(int(node) for node in nodes))
+            oriented = (
+                oriented_boundary_faces[key]
+                if face_counts.get(key) == 1 and key in oriented_boundary_faces
+                else tuple(int(node) for node in nodes)
+            )
+            output[marker].append((int(element_type), oriented))
+    return output
+
+
 def _merged_core_node_map(
     core_nodes: Mapping[int, tuple[float, float, float]],
     merged_nodes: list[tuple[float, float, float]],
@@ -1228,32 +1264,32 @@ def _direct_surface_prism_volume(
         for triangle, marker in triangles:
             a, b, c = triangle
             prism = (
-                node(layer, a),
-                node(layer, b),
-                node(layer, c),
                 node(layer + 1, a),
                 node(layer + 1, b),
                 node(layer + 1, c),
+                node(layer, a),
+                node(layer, b),
+                node(layer, c),
             )
             elements.append((SU2_PRISM, prism))
-            add_face((prism[0], prism[2], prism[1]), SU2_TRIANGLE, marker)
+            add_face((prism[3], prism[4], prism[5]), SU2_TRIANGLE, marker)
             add_face(
-                (prism[3], prism[4], prism[5]),
+                (prism[0], prism[2], prism[1]),
                 SU2_TRIANGLE,
                 "bl_outer_interface" if layer == bl_layers - 1 else "_internal_bl_layer",
             )
             add_face(
-                (prism[0], prism[1], prism[4], prism[3]),
+                (prism[0], prism[3], prism[4], prism[1]),
                 9,
                 _direct_prism_side_marker(base_vertices, (a, b), marker),
             )
             add_face(
-                (prism[1], prism[2], prism[5], prism[4]),
+                (prism[1], prism[4], prism[5], prism[2]),
                 9,
                 _direct_prism_side_marker(base_vertices, (b, c), marker),
             )
             add_face(
-                (prism[2], prism[0], prism[3], prism[5]),
+                (prism[2], prism[5], prism[3], prism[0]),
                 9,
                 _direct_prism_side_marker(base_vertices, (c, a), marker),
             )
@@ -1273,6 +1309,64 @@ def _direct_surface_prism_volume(
         "elements": elements,
         "marker_faces": marker_faces,
     }
+
+
+def _marker_area_vectors(
+    vertices: Sequence[tuple[float, float, float]],
+    marker_faces: Mapping[str, Sequence[tuple[int, Sequence[int]]]],
+) -> dict[str, dict[str, Any]]:
+    output: dict[str, dict[str, Any]] = {}
+    for marker, faces in marker_faces.items():
+        vector = [0.0, 0.0, 0.0]
+        area = 0.0
+        for _element_type, nodes in faces:
+            face_vector = _face_area_vector(vertices, [int(node) for node in nodes])
+            vector[0] += face_vector[0]
+            vector[1] += face_vector[1]
+            vector[2] += face_vector[2]
+            area += math.sqrt(
+                face_vector[0] ** 2 + face_vector[1] ** 2 + face_vector[2] ** 2
+            )
+        output[marker] = {
+            "area": area,
+            "area_vector": tuple(vector),
+        }
+    return output
+
+
+def _face_area_vector(
+    vertices: Sequence[tuple[float, float, float]],
+    nodes: Sequence[int],
+) -> tuple[float, float, float]:
+    points = [vertices[node] for node in nodes]
+    origin = points[0]
+    vector = [0.0, 0.0, 0.0]
+    for index in range(1, len(points) - 1):
+        left = _vector_between(origin, points[index])
+        right = _vector_between(origin, points[index + 1])
+        normal = _cross(left, right)
+        vector[0] += 0.5 * normal[0]
+        vector[1] += 0.5 * normal[1]
+        vector[2] += 0.5 * normal[2]
+    return (vector[0], vector[1], vector[2])
+
+
+def _vector_between(
+    left: tuple[float, float, float],
+    right: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    return (right[0] - left[0], right[1] - left[1], right[2] - left[2])
+
+
+def _cross(
+    left: tuple[float, float, float],
+    right: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    return (
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    )
 
 
 def _direct_prism_side_marker(

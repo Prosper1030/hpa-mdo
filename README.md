@@ -64,12 +64,13 @@ mesh-native direct surface-prism BL + Gmsh tetra core 的 hybrid SU2 mesh，保�
 通過。這條路沒有 all-tet global-star BL split，也沒有把 `bl_outer_interface` 當外部
 marker 輸出；core mesher 改用 Gmsh `Algorithm3D=1`，因為 `Algorithm3D=10` 在這個
 discrete-interface/geo-farfield 組合會產生含 node `0` 的 invalid tetra。工程邊界：
-這仍不是 `ROUTE_SMOKE_PASS`。最新 24-layer direct hybrid probe 的 SU2 dual metrics
-仍只有 min orthogonality `1.60111 deg`、max CV face-area aspect ratio `122600`、
-max CV sub-volume ratio `158295`；Euler/slip 在 iter 10 divergence，初始
-`CD≈0.2555`，RANS 初始 `CD≈0.3741` 且 iter 9 divergence。下一步應先查
-surface normal orientation、prism distortion/high-curvature edge、root-symmetry hole 與
-pressure-only stability，不應把這個 topology-only success 當 viscous CFD 成功。
+這仍不是 `ROUTE_SMOKE_PASS`。direct writer 之後已修正 prism ordering / marker face
+orientation，使 `wing_upper` / `wing_lower` / farfield area-vector 方向與 Phase 2 pressure
+mesh 一致；24-layer direct hybrid probe 的 SU2 dual metrics 改為 min orthogonality
+`15.5098 deg`、max CV face-area aspect ratio `40411`、max CV sub-volume ratio
+`158295`。但 Euler/slip 仍在 iter 10 divergence，初始 `CD≈0.2613`。下一步應先查
+root/TE prism distortion、高曲率 edge、root-symmetry hole 與 partial-BL/cap policy，
+不應把這個 topology/orientation success 當 viscous CFD 成功。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

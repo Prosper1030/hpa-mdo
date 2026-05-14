@@ -264,6 +264,8 @@ def test_direct_surface_prism_handoff_has_triangular_core_interface(
     assert report["marker_summary"]["bl_outer_interface"]["element_type_counts"] == {
         str(module.SU2_TRIANGLE): 650,
     }
+    assert report["marker_area_vectors"]["wing_upper"]["area_vector"][2] > 0.0
+    assert report["marker_area_vectors"]["wing_lower"]["area_vector"][2] < 0.0
     assert report["su2_boundary_ownership"]["status"] == "pass"
     assert report["forbidden_route_checks"] == {
         "all_tet_global_star_bl_handoff": False,
@@ -295,6 +297,9 @@ def test_direct_surface_prism_core_hybrid_writer_merges_interface_without_marker
     assert report["core_report"]["node_tag_integrity"]["status"] == "pass"
     assert report["core_report"]["mesh_sizing"]["gmsh_algorithm3d"] == 1
     assert report["core_report"]["outer_interface_node_count"] > 0
+    assert report["marker_area_vectors"]["wing_upper"]["area_vector"][2] > 0.0
+    assert report["marker_area_vectors"]["wing_lower"]["area_vector"][2] < 0.0
+    assert abs(report["marker_area_vectors"]["farfield"]["area_vector"][2]) < 1.0e-6
     assert "bl_outer_interface" not in report["marker_summary"]
     assert report["su2_boundary_ownership"]["status"] == "pass"
     assert report["required_markers_present"] is True
