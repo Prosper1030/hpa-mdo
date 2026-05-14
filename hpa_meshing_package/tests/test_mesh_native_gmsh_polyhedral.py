@@ -10,7 +10,9 @@ from hpa_meshing.mesh_native.gmsh_polyhedral import (
     _coefficient_sanity_gate,
     evaluate_boundary_layer_core_merge_gate,
     _mesh_quality_gate,
+    _select_stageback_side_surfaces_by_boundary,
     _stageback_excluded_wall_surfaces,
+    _stageback_mesh_failure_diagnostic,
     _triangulate,
     build_wing_feature_refinement_boxes,
     infer_wing_feature_extents,
@@ -511,6 +513,7 @@ def test_write_faceted_volume_mesh_with_boundary_layer_can_stageback_te_faces(
     assert report["boundary_layer"]["side_surface_count"] > 0
     assert report["boundary_layer"]["stageback_policy"] == {
         "x_over_chord_min": 0.75,
+        "topology": "face_coherent",
     }
     assert Path(report["su2_path"]).exists()
 
@@ -519,18 +522,21 @@ def test_stageback_selector_can_use_max_x_and_local_y_band():
     records = [
         {
             "surface_tag": 10,
+            "face_index": 1,
             "centroid_x_over_chord": 0.96,
             "max_x_over_chord": 0.999,
             "abs_centroid_y_m": 12.8,
         },
         {
             "surface_tag": 11,
+            "face_index": 2,
             "centroid_x_over_chord": 0.96,
             "max_x_over_chord": 0.999,
             "abs_centroid_y_m": 7.0,
         },
         {
             "surface_tag": 12,
+            "face_index": 3,
             "centroid_x_over_chord": 0.70,
             "max_x_over_chord": 0.82,
             "abs_centroid_y_m": 12.8,
@@ -544,6 +550,80 @@ def test_stageback_selector_can_use_max_x_and_local_y_band():
         exclusion_abs_y_min=12.0,
         exclusion_abs_y_max=14.2,
     ) == [10]
+
+
+def test_stageback_selector_expands_to_whole_source_face_for_topology():
+    records = [
+        {
+            "surface_tag": 10,
+            "face_index": 1,
+            "centroid_x_over_chord": 0.96,
+            "max_x_over_chord": 0.999,
+            "abs_centroid_y_m": 12.8,
+        },
+        {
+            "surface_tag": 11,
+            "face_index": 1,
+            "centroid_x_over_chord": 0.70,
+            "max_x_over_chord": 0.82,
+            "abs_centroid_y_m": 12.8,
+        },
+        {
+            "surface_tag": 12,
+            "face_index": 2,
+            "centroid_x_over_chord": 0.96,
+            "max_x_over_chord": 0.999,
+            "abs_centroid_y_m": 7.0,
+        },
+    ]
+
+    assert _stageback_excluded_wall_surfaces(
+        records,
+        exclusion_x_over_chord_min=0.995,
+        exclusion_x_reference="max",
+        exclusion_abs_y_min=12.0,
+        exclusion_abs_y_max=14.2,
+    ) == [10, 11]
+
+
+def test_stageback_mesh_failure_diagnostic_classifies_overlap_surface_roles():
+    diagnostic = _stageback_mesh_failure_diagnostic(
+        "Invalid boundary mesh (overlapping facets) on surface 21864 surface 22846",
+        {
+            21864: "boundary_layer_side_surface",
+            22846: "stageback_excluded_wall_surface",
+        },
+    )
+
+    assert diagnostic == {
+        "raw_error": "Invalid boundary mesh (overlapping facets) on surface 21864 surface 22846",
+        "surface_tags": [21864, 22846],
+        "surface_roles": {
+            "21864": "boundary_layer_side_surface",
+            "22846": "stageback_excluded_wall_surface",
+        },
+        "diagnostic_family": "stageback_side_wall_overlaps_excluded_wall",
+    }
+
+
+def test_stageback_mesh_failure_diagnostic_classifies_plc_segment_facet():
+    diagnostic = _stageback_mesh_failure_diagnostic(
+        "PLC Error:  A segment and a facet intersect at point",
+        {},
+    )
+
+    assert diagnostic["diagnostic_family"] == "stageback_plc_segment_facet_intersection"
+
+
+def test_select_stageback_side_surfaces_keeps_only_excluded_boundary_neighbors():
+    assert _select_stageback_side_surfaces_by_boundary(
+        {
+            20: {1, 2, 3},
+            21: {4, 5, 6},
+            22: {7, 8, 9},
+        },
+        excluded_boundary_curves={2, 8},
+    ) == [20, 22]
 
 
 def test_add_mesh_surface_records_reports_local_chord_x_metrics_for_tapered_tip():
@@ -633,6 +713,7 @@ def test_write_faceted_boundary_layer_su2_case_accepts_te_stageback(
 
     assert report["runtime"]["boundary_layer"]["stageback_policy"] == {
         "x_over_chord_min": 0.75,
+        "topology": "face_coherent",
     }
     assert report["mesh_report"]["boundary_layer"]["excluded_wall_surface_count"] > 0
     assert Path(report["runtime_cfg_path"]).exists()

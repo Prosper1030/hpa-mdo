@@ -47,6 +47,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   這是 topology/runtime closure 問題，不是 memory hard limit，也不是 CFD evidence。
   下一步仍是 topology-preserving transition/interface closure；不得把它當 medium/fine
   SU2 ladder 起點。
+- WO-006M 進一步把 stageback selector 改成 face-coherent：同一個 source face 只要有一個
+  triangle hit，就整個 face 一起排除，避免半個 source face 形成 BL/core seam；同時
+  BL side surfaces 現在只保留接觸 excluded-wall boundary curves 的 surfaces，並在
+  Gmsh failure 中輸出 surface-role diagnostic。這修掉了 side-vs-side overlap family，
+  但 current-GO direct no-BL-hole stageback 仍失敗：`x/c>=0.998, |y|=12.0-14.2 m`
+  和較窄的 `|y|=12.3-13.0 m` 都落到 `stageback_plc_segment_facet_intersection`。
+  因此直接挖 no-BL hole 不是 runtime 修法；下一步必須是 receiver/sleeve/staged
+  transition topology。舊 span8 BL meshes 也不能被拿來補完成：用目前 gate 重判，
+  `wing005` 11.28M cells 雖然沒有 non-positive BL elements，但 `BL p01 minSICN=0.00219`
+  低於 `0.005` blocker threshold，仍不是 CFD-grade ladder rung。
 - WO-006 current-GO no-BL CFD completion evidence 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/`。
   Completion gate 是 `pass`：newly generated full-span current-GO mesh 有 `490,116`

@@ -1,5 +1,25 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006M Face-Coherent Stageback + Side-Filter Probe
+
+WO-006M 修正 WO-006L stageback selector 的一個 topology 問題：原本 triangle-level
+排除會把同一個 source face 切成半個有 BL、半個 no-BL，現在改成 face-coherent
+排除；同時 BL side surfaces 只保留接觸 excluded-wall boundary curves 的 surfaces，
+避免把 source-source seam 的 side walls 也塞進 core inner loop。Gmsh failure 現在會
+輸出 stageback surface-role diagnostic。
+
+bounded probe 顯示這個修正有縮小問題，但沒有讓 current-GO BL mesh 變成 CFD-grade。
+`x/c>=0.998, |y|=12.0-14.2 m` 從 side-vs-side overlap 變成
+`stageback_plc_segment_facet_intersection`；更窄的 `|y|=12.3-13.0 m` 也同樣是 PLC
+segment/facet。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006m_face_coherent_stageback_mesh_probe/`
+與 `wo006m_narrow_stageback_mesh_probe/`。
+
+工程判讀：直接挖 no-BL hole 不是可用修法；它需要真正的 receiver/sleeve/staged
+transition topology。舊 span8 BL meshes 雖然沒有 non-positive BL elements，但用目前 gate
+重判仍 fail：`wing005` 11.28M cells 的 `BL p01 minSICN=0.00219 < 0.005`，不能拿來當
+medium/fine CFD 完成。
+
 ## 2026-05-14 WO-006L Local TE Stageback Selector
 
 WO-006L 在 mesh-native Gmsh BL writer 補上 experimental local TE stageback selector：

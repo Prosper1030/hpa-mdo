@@ -4,6 +4,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import subprocess
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -671,9 +672,15 @@ def write_faceted_volume_mesh_with_boundary_layer(
                     bl_top_surface_tags.append(int(extbl[index - 1][1]))
         if not bl_volume_tags or not bl_top_surface_tags:
             raise RuntimeError("Gmsh boundary-layer extrusion did not create BL volumes")
+        gmsh.model.geo.synchronize()
         if bl_excluded_wall_surfaces:
-            bl_boundary_side_surface_tags = _unique_ints(
+            candidate_side_surfaces = _unique_ints(
                 tag for tag in extbl_surface_tags if tag not in set(bl_top_surface_tags)
+            )
+            bl_boundary_side_surface_tags = _stageback_side_surfaces_touching_excluded_wall(
+                gmsh,
+                candidate_side_surfaces,
+                bl_excluded_wall_surfaces,
             )
 
         outer_loop = gmsh.model.geo.addSurfaceLoop(farfield_surfaces)
@@ -699,7 +706,23 @@ def write_faceted_volume_mesh_with_boundary_layer(
         fluid_group = gmsh.model.addPhysicalGroup(3, [core_volume, *bl_volume_tags])
         gmsh.model.setPhysicalName(3, fluid_group, fluid_marker)
 
-        gmsh.model.mesh.generate(3)
+        surface_roles = _stageback_surface_roles(
+            wing_surfaces=wing_surfaces,
+            farfield_surfaces=farfield_surfaces,
+            bl_top_surfaces=bl_top_surface_tags,
+            bl_side_surfaces=bl_boundary_side_surface_tags,
+            bl_excluded_wall_surfaces=bl_excluded_wall_surfaces,
+        )
+        try:
+            gmsh.model.mesh.generate(3)
+        except Exception as exc:
+            if bl_excluded_wall_surfaces:
+                diagnostic = _stageback_mesh_failure_diagnostic(str(exc), surface_roles)
+                raise RuntimeError(
+                    "Gmsh stageback BL/core mesh generation failed; "
+                    f"diagnostic={json.dumps(diagnostic, sort_keys=True)}"
+                ) from exc
+            raise
 
         node_tags, _, _ = gmsh.model.mesh.getNodes()
         volume_element_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
@@ -1764,16 +1787,27 @@ def _stageback_excluded_wall_surfaces(
     abs_y_max = (
         None if exclusion_abs_y_max is None else float(exclusion_abs_y_max)
     )
-    return [
-        int(record["surface_tag"])
-        for record in surface_records
-        if _stageback_record_is_in_exclusion_band(
+    excluded_face_indices: set[Any] = set()
+    excluded_surface_tags: set[int] = set()
+    for record in surface_records:
+        if not _stageback_record_is_in_exclusion_band(
             record,
             metric_key=metric_key,
             threshold=threshold,
             abs_y_min=abs_y_min,
             abs_y_max=abs_y_max,
-        )
+        ):
+            continue
+        face_index = record.get("face_index")
+        if face_index is None:
+            excluded_surface_tags.add(int(record["surface_tag"]))
+        else:
+            excluded_face_indices.add(face_index)
+    return [
+        int(record["surface_tag"])
+        for record in surface_records
+        if int(record["surface_tag"]) in excluded_surface_tags
+        or record.get("face_index") in excluded_face_indices
     ]
 
 
@@ -1810,11 +1844,110 @@ def _stageback_policy_payload(
     }
     if x_reference != "centroid":
         payload["x_reference"] = x_reference
+    payload["topology"] = "face_coherent"
     if abs_y_min is not None:
         payload["abs_y_min_m"] = float(abs_y_min)
     if abs_y_max is not None:
         payload["abs_y_max_m"] = float(abs_y_max)
     return payload
+
+
+def _stageback_surface_roles(
+    *,
+    wing_surfaces: Sequence[int],
+    farfield_surfaces: Sequence[int],
+    bl_top_surfaces: Sequence[int],
+    bl_side_surfaces: Sequence[int],
+    bl_excluded_wall_surfaces: Sequence[int],
+) -> dict[int, str]:
+    roles: dict[int, str] = {}
+    for tag in wing_surfaces:
+        roles[int(tag)] = "wing_wall_surface"
+    for tag in farfield_surfaces:
+        roles[int(tag)] = "farfield_surface"
+    for tag in bl_top_surfaces:
+        roles[int(tag)] = "boundary_layer_top_surface"
+    for tag in bl_side_surfaces:
+        roles[int(tag)] = "boundary_layer_side_surface"
+    for tag in bl_excluded_wall_surfaces:
+        roles[int(tag)] = "stageback_excluded_wall_surface"
+    return roles
+
+
+def _stageback_side_surfaces_touching_excluded_wall(
+    gmsh,
+    candidate_side_surfaces: Sequence[int],
+    excluded_wall_surfaces: Sequence[int],
+) -> list[int]:
+    excluded_boundary_curves = _entity_boundary_curve_tags(gmsh, excluded_wall_surfaces)
+    side_surface_curves = {
+        int(tag): _entity_boundary_curve_tags(gmsh, [int(tag)])
+        for tag in candidate_side_surfaces
+    }
+    return _select_stageback_side_surfaces_by_boundary(
+        side_surface_curves,
+        excluded_boundary_curves=excluded_boundary_curves,
+    )
+
+
+def _select_stageback_side_surfaces_by_boundary(
+    side_surface_curves: Mapping[int, set[int]],
+    *,
+    excluded_boundary_curves: set[int],
+) -> list[int]:
+    return [
+        int(surface_tag)
+        for surface_tag, curve_tags in side_surface_curves.items()
+        if set(curve_tags).intersection(excluded_boundary_curves)
+    ]
+
+
+def _entity_boundary_curve_tags(gmsh, surface_tags: Sequence[int]) -> set[int]:
+    curves: set[int] = set()
+    for _, tag in gmsh.model.getBoundary(
+        [(2, int(surface_tag)) for surface_tag in surface_tags],
+        oriented=False,
+        recursive=False,
+    ):
+        curves.add(abs(int(tag)))
+    return curves
+
+
+def _stageback_mesh_failure_diagnostic(
+    raw_error: str,
+    surface_roles: Mapping[int, str],
+) -> dict[str, Any]:
+    tags = [int(match) for match in re.findall(r"surface\s+(\d+)", raw_error)]
+    role_by_tag = {str(tag): surface_roles.get(tag, "unknown_surface") for tag in tags}
+    return {
+        "raw_error": raw_error,
+        "surface_tags": tags,
+        "surface_roles": role_by_tag,
+        "diagnostic_family": _stageback_failure_family(raw_error, role_by_tag.values()),
+    }
+
+
+def _stageback_failure_family(raw_error: str, surface_roles: Iterable[str]) -> str:
+    if (
+        "PLC Error" in raw_error
+        and "segment" in raw_error.lower()
+        and "facet" in raw_error.lower()
+    ):
+        return "stageback_plc_segment_facet_intersection"
+    role_set = set(surface_roles)
+    if {
+        "boundary_layer_side_surface",
+        "stageback_excluded_wall_surface",
+    }.issubset(role_set):
+        return "stageback_side_wall_overlaps_excluded_wall"
+    if {
+        "boundary_layer_side_surface",
+        "boundary_layer_top_surface",
+    }.issubset(role_set):
+        return "stageback_side_wall_overlaps_bl_top"
+    if "unknown_surface" in role_set:
+        return "stageback_overlap_unknown_surface_role"
+    return "stageback_overlap_between_known_surfaces"
 
 
 def _add_marked_mesh_surfaces(
