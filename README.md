@@ -17,8 +17,10 @@ BL mesh quality gate 也已補強：boundary-layer `p01 minSICN < 0.005` 現在�
 不是 warning。舊 larger-domain BL sanity mesh 用新 gate 判讀會 fail：
 `p01_min_sicn=1.47e-4`、`min_sicn=8.91e-6`。低成本 BL 參數 probe 顯示把 BL 做薄、
 減層、或切到 `max_min_angle` surface triangulation 仍有 non-positive SICN/SIGE；
-因此下一步仍是修 TE/tip/transition 附近的近壁幾何/BL prism shape，而不是硬跑
-coarse/medium/fine。
+spanwise subdivision 從 1 提到 4 會改善最壞負 SICN，但仍 fail。hotspot 位於
+`y≈±12.36, ±12.87, ±13.39 m`、`x≈0.81-0.85 m`，也就是 `y=12.016 m`
+DAE31 到 `y=14.076 m` CST tip airfoil 的 transition band。下一步仍是修
+TE/tip/transition 附近的近壁幾何/BL prism shape，而不是硬跑 coarse/medium/fine。
 
 ## 2026-05-14 WO-006J CD-Order Sanity Gate
 

@@ -29,8 +29,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   `p01 minSICN < 0.005` 現在會 fail，而不只是 warning。舊 larger-domain BL sanity mesh
   用新 gate 判讀為 fail（`p01_min_sicn=1.47e-4`、`min_sicn=8.91e-6`）。低成本 BL
   參數 probe 顯示減層、變薄、或改 `max_min_angle` triangulation 仍有 non-positive
-  SICN/SIGE；下一步仍是修 TE/tip/transition 近壁幾何與 prism shape，不是硬跑更多
-  solver iterations。
+  SICN/SIGE；spanwise subdivision 從 1 提到 4 會改善最壞負 SICN，但仍 fail。worst
+  hotspot 在 `y≈±12.36, ±12.87, ±13.39 m`、`x≈0.81-0.85 m`，對應 `y=12.016 m`
+  DAE31 到 `y=14.076 m` CST tip airfoil transition band。下一步仍是修
+  TE/tip/transition 近壁幾何與 prism shape，不是硬跑更多 solver iterations。
 - WO-006 current-GO no-BL CFD completion evidence 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/`。
   Completion gate 是 `pass`：newly generated full-span current-GO mesh 有 `490,116`
