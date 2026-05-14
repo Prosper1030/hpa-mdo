@@ -87,6 +87,14 @@ directly with `max_hotspot_incident_edge_length_ratio=1000`; the pps42/layers=3
 report-level maximum is `39059.367143113835`, so it is blocked before any
 pressure or RANS run.
 
+Update after the latest probe: an artificial segmented-collar scale-transition
+unit now passes the pre-solver gates.  It splits the long prism rim into `16`
+short segments before pyramid collar handoff, writes `32` prisms + `16`
+pyramids + `96` tetra, keeps rim quad max edge ratio about `500`, has
+`tet_to_prism_quad_contact=0`, and passes the dual proxy.  The open question is
+how to apply this segmentation/ramp rule to the real-wing TE/tip/closure rim
+without changing force-wall markers or creating cap self-intersections.
+
 ## Question To Answer
 
 Please propose the next concrete topology recipe, not solver numerics.
@@ -100,8 +108,8 @@ Candidates:
 2. Structured transition patch around the collar rim that grows from
    `O(1e-4 m)` BL/collar edges to `O(0.05-0.2 m)` core edges before Gmsh sees the
    tetra core.
-3. Replace the single-apex pyramid collar with a multi-row prism/pyramid/tet
-   transition collar or split-pyramid fan with controlled edge growth.
+3. Replace the single-apex pyramid collar with a segmented or multi-row
+   prism/pyramid/tet transition collar with controlled edge growth.
 4. Abandon partial-BL collar for now and return to closed-wall wrapper with TE
    stageback smoothing.
 5. Use cfMesh/snappyHexMesh/OpenFOAM selective layer generation as a topology

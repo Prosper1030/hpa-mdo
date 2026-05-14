@@ -617,6 +617,28 @@ def test_minimal_transition_unit_requires_pyramid_collar_between_prism_and_tet(
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_collar_scale_transition_unit_limits_hotspot_edge_jump(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_segmented_collar_scale_transition_unit_su2(
+        tmp_path / "segmented_collar_scale_transition_unit.su2"
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_segmented_collar_scale_transition_unit"
+    assert report["status"] == "segmented_collar_scale_transition_unit_pass"
+    assert report["segmented_collar"]["segment_count"] == 16
+    assert report["segmented_collar"]["rim_quad_max_edge_ratio"] < 1000.0
+    assert report["topology"]["tet_to_prism_quad_contact"] == 0
+    assert report["topology"]["non_root_exposed_prism_quad_count"] == 0
+    assert report["element_quality_gate"]["status"] == "pass"
+    assert report["dual_subvolume_proxy"]["status"] == "pass"
+    assert report["dual_subvolume_proxy"]["max_incident_edge_length_ratio"] < 1000.0
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
     tmp_path: Path,
 ) -> None:

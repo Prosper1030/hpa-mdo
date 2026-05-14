@@ -1808,6 +1808,86 @@ def write_phase3_minimal_transition_unit_su2(out_path: Path | str) -> dict[str, 
     return report
 
 
+def write_phase3_segmented_collar_scale_transition_unit_su2(
+    out_path: Path | str,
+) -> dict[str, Any]:
+    """Write a segmented rim-collar unit that limits BL-to-core scale jumps."""
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    volume = _segmented_collar_scale_transition_unit_volume()
+    output_path.write_text(
+        _su2_volume_text(
+            volume,
+            comments=(
+                "% Canonical hybrid half-wing segmented collar scale-transition unit.",
+                "% Long prism rim quads are split before pyramid collar handoff.",
+                "% This is a topology/scale contract only, not an aerodynamic CFD mesh.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    topology = _transition_topology_report(volume)
+    quality = _transition_element_quality(volume)
+    quality_gate = _transition_element_quality_gate(quality)
+    element_sources = [
+        _phase3_volume_element_source(element_type)
+        for element_type, _nodes in volume["elements"]
+    ]
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        volume["nodes"],
+        volume["elements"],
+        element_sources=element_sources,
+        marker_faces=volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
+    gate = _minimal_transition_unit_gate(topology, quality_gate, boundary_ownership)
+    blockers = [*gate["blockers"], *dual_subvolume_proxy["blockers"]]
+    type_counts: dict[str, int] = {}
+    for element_type, _nodes in volume["elements"]:
+        key = str(element_type)
+        type_counts[key] = type_counts.get(key, 0) + 1
+    report = {
+        "route": "canonical_hybrid_halfwing_segmented_collar_scale_transition_unit",
+        "status": (
+            "segmented_collar_scale_transition_unit_pass"
+            if not blockers
+            else "segmented_collar_scale_transition_unit_fail"
+        ),
+        "mesh_path": str(output_path),
+        "report_path": str(output_path.with_suffix(".report.json")),
+        "node_count": len(volume["nodes"]),
+        "volume_element_count": len(volume["elements"]),
+        "volume_element_type_counts": dict(sorted(type_counts.items())),
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "topology": topology,
+        "element_quality": quality,
+        "element_quality_gate": quality_gate,
+        "dual_subvolume_proxy": dual_subvolume_proxy,
+        "segmented_collar": volume["segmented_collar"],
+        "gate": {
+            "status": "pass" if not blockers else "fail",
+            "blockers": sorted(set(blockers)),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Artificial segmented-collar scale-transition unit only. It proves "
+                "a local rim segmentation rule can satisfy the pre-solver scale-jump "
+                "gate; it does not prove real-wing cap/ramp geometry or pressure CD."
+            ),
+        },
+    }
+    Path(report["report_path"]).write_text(
+        json.dumps(report, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
 def write_phase3_partial_wing_transition_collar_handoff_su2(
     section_table_path: Path | str,
     out_path: Path | str,
@@ -2601,6 +2681,125 @@ def _minimal_transition_unit_volume() -> dict[str, Any]:
     return volume
 
 
+def _segmented_collar_scale_transition_unit_volume() -> dict[str, Any]:
+    segment_count = 16
+    segment_length = 0.03
+    strip_width = 0.03
+    layer_height = 6.0e-5
+    collar_offset = 0.015
+    core_extension = 0.03
+    nodes: list[tuple[float, float, float]] = []
+    elements: list[tuple[int, tuple[int, ...]]] = []
+    element_roles: list[dict[str, str]] = []
+    rim_quad_edge_ratios: list[float] = []
+
+    def add_node(coord: tuple[float, float, float]) -> int:
+        nodes.append(coord)
+        return len(nodes) - 1
+
+    node_cache: dict[tuple[int, int, int], int] = {}
+
+    def grid_node(ix: int, iy: int, iz: int) -> int:
+        key = (int(ix), int(iy), int(iz))
+        existing = node_cache.get(key)
+        if existing is not None:
+            return existing
+        node_cache[key] = add_node(
+            (
+                ix * segment_length,
+                iy * strip_width,
+                iz * layer_height,
+            )
+        )
+        return node_cache[key]
+
+    def add_element(element_type: int, element_nodes: Sequence[int], **role: str) -> int:
+        elements.append((int(element_type), tuple(int(node) for node in element_nodes)))
+        element_roles.append(dict(role))
+        return len(elements) - 1
+
+    def add_top_core_tet(shared_face: Sequence[int]) -> None:
+        point = _tet_extension_point(nodes, shared_face, magnitude=core_extension)
+        extension = add_node(point)
+        add_element(
+            SU2_TETRAHEDRON,
+            _oriented_tetra_for_shared_face(nodes, shared_face, extension),
+            role="segmented_outer_core_tetra",
+            boundary_marker="farfield",
+        )
+
+    def add_segmented_pyramid_collar(base_face: Sequence[int]) -> None:
+        base_points = [nodes[int(node)] for node in base_face]
+        centroid = _centroid_tuple(base_points)
+        apex = add_node((centroid[0], centroid[1] - collar_offset, centroid[2]))
+        pyramid = _oriented_pyramid_positive(nodes, base_face, apex)
+        add_element(SU2_PYRAMID, pyramid, role="segmented_transition_pyramid")
+        edge_lengths = _face_edge_lengths(nodes, base_face)
+        positive_edges = [length for length in edge_lengths if length > 0.0]
+        rim_quad_edge_ratios.append(max(positive_edges) / min(positive_edges))
+        for side_face in _volume_element_faces(SU2_PYRAMID, pyramid)[1:]:
+            extension = add_node(
+                _tet_extension_point(nodes, side_face, magnitude=core_extension)
+            )
+            add_element(
+                SU2_TETRAHEDRON,
+                _oriented_tetra_for_shared_face(nodes, side_face, extension),
+                role="segmented_transition_core_tetra",
+                boundary_marker="te_wall",
+            )
+
+    for index in range(segment_count):
+        b00 = grid_node(index, 0, 0)
+        b10 = grid_node(index + 1, 0, 0)
+        b01 = grid_node(index, 1, 0)
+        b11 = grid_node(index + 1, 1, 0)
+        t00 = grid_node(index, 0, 1)
+        t10 = grid_node(index + 1, 0, 1)
+        t01 = grid_node(index, 1, 1)
+        t11 = grid_node(index + 1, 1, 1)
+
+        first_prism = (t00, t10, t01, b00, b10, b01)
+        second_prism = (t10, t11, t01, b10, b11, b01)
+        add_element(SU2_PRISM, first_prism, role="segmented_boundary_layer_prism")
+        add_element(SU2_PRISM, second_prism, role="segmented_boundary_layer_prism")
+
+        first_faces = _volume_element_faces(SU2_PRISM, first_prism)
+        second_faces = _volume_element_faces(SU2_PRISM, second_prism)
+        add_top_core_tet(first_faces[0])
+        add_top_core_tet(second_faces[0])
+
+        rim_face = _find_face_with_nodes(first_faces, (b00, b10, t00, t10))
+        add_segmented_pyramid_collar(rim_face)
+
+    volume: dict[str, Any] = {
+        "nodes": nodes,
+        "elements": elements,
+        "element_roles": element_roles,
+        "segmented_collar": {
+            "segment_count": segment_count,
+            "segment_length_m": segment_length,
+            "layer_height_m": layer_height,
+            "rim_quad_max_edge_ratio": max(rim_quad_edge_ratios),
+            "rim_quad_edge_ratio_threshold": (
+                MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO
+            ),
+        },
+    }
+    volume["marker_faces"] = _segmented_transition_marker_faces(volume)
+    return volume
+
+
+def _find_face_with_nodes(
+    faces: Sequence[Sequence[int]],
+    expected_nodes: Sequence[int],
+) -> tuple[int, ...]:
+    expected = _face_key_nodes(expected_nodes)
+    for face in faces:
+        if _face_key_nodes(face) == expected:
+            return tuple(int(node) for node in face)
+    raise RuntimeError(f"could not find face with nodes {expected}")
+
+
 def _minimal_transition_marker_faces(
     volume: Mapping[str, Any],
 ) -> dict[str, list[tuple[int, tuple[int, ...]]]]:
@@ -2624,6 +2823,48 @@ def _minimal_transition_marker_faces(
         surface_type = SU2_QUAD if len(face_nodes) == 4 else SU2_TRIANGLE
         marker_faces.setdefault(marker, []).append((surface_type, face_nodes))
     return marker_faces
+
+
+def _segmented_transition_marker_faces(
+    volume: Mapping[str, Any],
+) -> dict[str, list[tuple[int, tuple[int, ...]]]]:
+    marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
+    vertices = [tuple(vertex) for vertex in volume["nodes"]]
+    face_owners = _volume_face_owner_map(volume["elements"])
+    roles = list(volume.get("element_roles") or [])
+    for _key, owners in face_owners.items():
+        if len(owners) != 1:
+            continue
+        owner = owners[0]
+        element_type = int(owner["element_type"])
+        face_nodes = tuple(int(node) for node in owner["face_nodes"])
+        marker: str | None = None
+        if element_type == SU2_PRISM:
+            if len(face_nodes) == 3 and _face_average_z(vertices, face_nodes) < 0.5e-5:
+                marker = "wing_upper"
+            elif len(face_nodes) == 4:
+                marker = "root_symmetry"
+            else:
+                marker = "farfield"
+        elif element_type == SU2_TETRAHEDRON:
+            marker = str(
+                _mapping(roles[int(owner["element_index"])]).get("boundary_marker")
+                or "farfield"
+            )
+        elif element_type == SU2_PYRAMID:
+            marker = "te_wall"
+        if marker is None:
+            continue
+        surface_type = SU2_QUAD if len(face_nodes) == 4 else SU2_TRIANGLE
+        marker_faces.setdefault(marker, []).append((surface_type, face_nodes))
+    return marker_faces
+
+
+def _face_average_z(
+    vertices: Sequence[tuple[float, float, float]],
+    face_nodes: Sequence[int],
+) -> float:
+    return sum(vertices[int(node)][2] for node in face_nodes) / len(face_nodes)
 
 
 def _volume_face_owner_map(

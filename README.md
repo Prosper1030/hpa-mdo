@@ -179,6 +179,11 @@ specialist 的可複製問題包在
 `docs/reports/wo006_cfd_collar_core_blocker_gpt_pro_prompt.md`。
 `dual_subvolume_proxy` 也已把 `max_hotspot_incident_edge_length_ratio=1000` 納入
 smoke threshold；pps42/l3 會同時被 dual ratio 與 hotspot edge-ratio blockers 擋下。
+新的 `segmented_collar_scale_transition_unit/` 人工拓樸單元已驗證下一個可行方向：
+把長 prism rim quad 切成 `16` 個短段後，每個 collar base 的 max edge ratio 約
+`500`，`tet_to_prism_quad_contact=0`、non-root exposed prism quad `0`、dual proxy pass。
+工程邊界：這只證明 segmentation/ramp contract，不是真翼 route-smoke；下一步才是把
+這個 rule 套到真翼 TE/tip/closure rim。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

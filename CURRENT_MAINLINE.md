@@ -172,6 +172,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   作為 smoke threshold；pps42/l3 會同時報
   `mixed_dual_subvolume_ratio_exceeds_route_gate` 與
   `mixed_dual_hotspot_incident_edge_ratio_exceeds_route_gate`。
+- 新增 segmented collar scale-transition 最小拓樸單元：
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/segmented_collar_scale_transition_unit/`。
+  這個人工 unit 用 `16` 個短 rim segments 取代單一長 prism rim quad，寫出
+  `32` prisms + `16` pyramids + `96` tetra；rim quad max edge ratio 約 `500`
+  （低於 `1000` smoke threshold）、`tet_to_prism_quad_contact=0`、
+  `non_root_exposed_prism_quad_count=0`、dual proxy pass。工程判讀：這證明「先分段
+  rim quad，再做 pyramid collar，再接 tetra core」是下一個可行 topology recipe 的
+  最小證據；它還不是真翼 route-smoke，下一步才是把這個 segmentation/ramp rule
+  套到真翼 TE/tip/closure rim。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
