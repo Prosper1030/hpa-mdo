@@ -1375,6 +1375,118 @@ def write_phase3_partial_wing_transition_collar_handoff_su2(
     return report
 
 
+def run_phase3_partial_wing_transition_collar_core_probe(
+    section_table_path: Path | str,
+    output_dir: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 5.0e-4,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+) -> dict[str, Any]:
+    """Probe tetra-core fill after real-wing partial-BL pyramid collars."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    inner_boundary = _partial_wing_transition_collar_core_inner_boundary_surface(
+        collar_volume,
+        cap_triangles=cap_triangles,
+    )
+    core_report = _partial_wing_cap_core_tets(
+        inner_boundary,
+        surface_bounds=_bounds(surface.vertices),
+        output_dir=output_path,
+        core_mesh_size=core_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+    )
+    report = {
+        "route": "canonical_hybrid_halfwing_partial_wing_transition_collar_core_probe",
+        "status": "partial_wing_transition_collar_core_probe_meshed",
+        "case_dir": str(output_path),
+        "surface": {
+            "marker_counts": surface.marker_counts(),
+            "metadata": surface.metadata,
+        },
+        "partial_prism": {
+            "node_count": len(prism_volume["nodes"]),
+            "volume_element_count": len(prism_volume["elements"]),
+            "direct_prism_quality": _direct_prism_quality_metrics(prism_volume),
+            "direct_prism_quality_gate": _direct_prism_quality_gate(
+                _direct_prism_quality_metrics(prism_volume)
+            ),
+        },
+        "transition_collar": collar_report,
+        "inner_boundary": {
+            "marker_counts": inner_boundary.marker_counts(),
+            "face_count": len(inner_boundary.faces),
+        },
+        "inner_boundary_topology": _surface_edge_topology(inner_boundary),
+        "core_report": core_report,
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Small collar-plus-cap core probe only. It proves the real-wing "
+                "partial-BL collar interface can tetra-fill at this resolution, "
+                "but it is not a merged SU2 hybrid mesh and not route-smoke."
+            ),
+        },
+    }
+    (output_path / "partial_wing_transition_collar_core_probe_report.json").write_text(
+        json.dumps(report, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
+def _partial_wing_transition_collar_core_inner_boundary_surface(
+    collar_volume: Mapping[str, Any],
+    *,
+    cap_triangles: Sequence[tuple[tuple[int, int, int], str]],
+) -> SurfaceMesh:
+    faces: list[Face] = []
+    for marker in ("bl_outer_interface", "transition_collar_interface"):
+        for element_type, nodes in collar_volume["marker_faces"].get(marker, []):
+            if int(element_type) == SU2_TRIANGLE:
+                faces.append(Face(nodes=tuple(int(node) for node in nodes), marker=marker))
+    for triangle, marker in cap_triangles:
+        faces.append(Face(nodes=tuple(int(node) for node in triangle), marker=marker))
+    return SurfaceMesh(
+        vertices=[tuple(vertex) for vertex in collar_volume["nodes"]],
+        faces=faces,
+        metadata={"surface_role": "partial_wing_transition_collar_core_inner_boundary"},
+    )
+
+
 def _partial_wing_transition_collar_volume(
     prism_volume: Mapping[str, Any],
     *,

@@ -118,6 +118,14 @@ quality gate pass。工程邊界：這仍是 caps/core pending handoff，不是 
 下一步是把 original tip/TE/closure cap physical faces 與 tetra core merge 進同一個
 hybrid SU2 mesh。
 
+小型 collar+cap core probe 已新增：
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_transition_collar_core_probe_pps12_l4/`。
+在 `points_per_side=12`、4 BL layers 下，新的 transition collar interface 加上
+original cap faces 交給 Gmsh core fill，產生 `9,088` tetra、forbidden core element
+counts `{}`。這證明 collar+cap shell 在小尺度可被純 tetra core 吃下；但它仍不是
+merged SU2 hybrid mesh，也還沒有 pps42/l24 scale-up、pre-solver dual-quality gate、
+pressure-only CD sanity 或 RANS route-smoke。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route

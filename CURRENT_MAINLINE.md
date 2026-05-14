@@ -119,6 +119,12 @@ screening evidence 讀，不是現行 release / procurement truth。
   gate pass。這仍是 caps/core pending handoff，不是 route-smoke；下一步是把
   original tip/TE/closure physical cap faces 與 tetra core merge 進同一個 hybrid
   SU2 mesh，再做 pressure-only sanity。
+- WO-006 Phase 3 小型 collar+cap core probe 已新增：
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_transition_collar_core_probe_pps12_l4/`。
+  在 `points_per_side=12`、4 BL layers 下，transition collar interface 加上 original
+  cap faces 可被 Gmsh core fill 成 `9,088` tetra，forbidden core element counts
+  `{}`。這是小尺度 tetra-core proof，不是 merged SU2 hybrid mesh；pps42/l24 scale-up、
+  pre-solver dual-quality gate、pressure-only CD sanity 與 RANS route-smoke 都尚未完成。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

@@ -478,3 +478,39 @@ def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
         assert diagnostic_marker not in report["marker_summary"]
     assert report["su2_boundary_ownership"]["status"] == "pass"
     assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_partial_wing_transition_collar_core_probe_tet_fills_caps(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_partial_wing_transition_collar_core_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "partial_wing_transition_collar_core_probe",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=5.0e-4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_partial_wing_transition_collar_core_probe"
+    assert report["status"] == "partial_wing_transition_collar_core_probe_meshed"
+    assert report["transition_collar"]["converted_prism_rim_quads_by_marker"] == {
+        "tip_wall": 84,
+        "te_wall": 224,
+        "closure_wall": 32,
+    }
+    assert report["inner_boundary_topology"]["bad_edge_count"] == 30
+    assert report["inner_boundary_topology"]["bad_edge_count_by_role"] == {
+        "bl_outer_interface": 21,
+        "te_wall": 1,
+        "transition_collar_interface": 8,
+    }
+    assert report["core_report"]["volume_element_type_counts"] == {module.GMSH_TETRA: 9088}
+    assert report["core_report"]["forbidden_element_type_counts"] == {}
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
