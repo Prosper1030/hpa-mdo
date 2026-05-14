@@ -85,6 +85,7 @@ def _good_setup_gate(module):
             "boundary_layer": "owned_conformal_bl_core_handoff",
             "near_wall_yplus_status": "pass",
             "conformal_bl_core_handoff_status": "pass",
+            "inc_nondim": "INITIAL_VALUES",
         }
     )
 
@@ -265,6 +266,43 @@ def test_setup_gate_rejects_dimensional_nondim_for_aero_coefficients() -> None:
 
     assert result["status"] == "blocked"
     assert "coefficient_normalization_not_initial_values" in result["blockers"]
+
+
+def test_setup_gate_rejects_direct_stageback_plc_failure_artifact() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        direct_stageback_artifacts=[
+            {
+                "schema_version": "wo006m_narrow_stageback_mesh_probe.v1",
+                "status": "failed",
+                "error": (
+                    "Gmsh stageback BL/core mesh generation failed; diagnostic="
+                    '{"diagnostic_family":"stageback_plc_segment_facet_intersection"}'
+                ),
+            }
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert "direct_stageback_topology_plc_segment_facet" in result["blockers"]
+    assert result["stageback_topology"]["status"] == "blocked"
+    assert result["stageback_topology"]["recommended_repair"] == (
+        "receiver_sleeve_staged_transition_required"
+    )
 
 
 def test_run_campaign_blocks_no_bl_route_before_solver_by_default(tmp_path: Path) -> None:

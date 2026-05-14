@@ -61,6 +61,10 @@ WO006_ROOT = (
     / "wo006_su2_baseline_validation"
 )
 DEFAULT_OUTPUT_DIR = WO006_ROOT / "wo006i_grid_convergence_campaign"
+DIRECT_STAGEBACK_PROBE_PATHS = (
+    WO006_ROOT / "wo006m_face_coherent_stageback_mesh_probe" / "summary.json",
+    WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
+)
 CFD_SETUP_POLICY_ID = "baseline_a_wall_resolved_bl_preflight_gate_v1"
 PHYSICS_SETUP_ID = "baseline_a_current_go_no_bl_rans_sa_alpha5"
 PHYSICS_SETUP = {
@@ -265,6 +269,7 @@ def evaluate_cfd_setup_gate(
     *,
     physics_setup: Mapping[str, Any] = PHYSICS_SETUP,
     allow_no_bl_diagnostic: bool = False,
+    direct_stageback_artifacts: Sequence[Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     warnings: list[str] = []
@@ -288,6 +293,10 @@ def evaluate_cfd_setup_gate(
     if str(physics_setup.get("inc_nondim") or "").strip().upper() != "INITIAL_VALUES":
         blockers.append("coefficient_normalization_not_initial_values")
 
+    stageback_topology = _stageback_topology_summary(direct_stageback_artifacts or ())
+    if stageback_topology["status"] == "blocked":
+        blockers.append("direct_stageback_topology_plc_segment_facet")
+
     if blockers and allow_no_bl_diagnostic:
         warnings.append("no_bl_route_allowed_for_diagnostics_only")
 
@@ -299,6 +308,7 @@ def evaluate_cfd_setup_gate(
         "blockers": _dedupe(blockers),
         "warnings": warnings,
         "physics_setup_id": setup_id,
+        "stageback_topology": stageback_topology,
         "reference_requirements": SU2_REFERENCE_REQUIREMENTS,
         "engineering_read": (
             "The setup is CFD-grade enough to attempt a wall-resolved mesh ladder."
@@ -348,7 +358,11 @@ def run_campaign(
     )
     write_json(output_dir / "authority_and_geometry.json", authority)
 
-    setup_gate = evaluate_cfd_setup_gate(allow_no_bl_diagnostic=allow_no_bl_diagnostic)
+    direct_stageback_artifacts = load_direct_stageback_artifacts()
+    setup_gate = evaluate_cfd_setup_gate(
+        allow_no_bl_diagnostic=allow_no_bl_diagnostic,
+        direct_stageback_artifacts=direct_stageback_artifacts,
+    )
     if setup_gate["status"] == "blocked":
         summary = build_preflight_blocked_summary(
             authority=authority,
@@ -436,7 +450,10 @@ def summarize_existing_campaign(
                     "geometry_source": CANDIDATE_ID,
                 }
             )
-    setup_gate = evaluate_cfd_setup_gate(allow_no_bl_diagnostic=True)
+    setup_gate = evaluate_cfd_setup_gate(
+        allow_no_bl_diagnostic=True,
+        direct_stageback_artifacts=load_direct_stageback_artifacts(),
+    )
     gate = evaluate_grid_convergence(
         rung_summaries,
         require_wall_resolved=True,
@@ -807,6 +824,7 @@ def render_report(summary: Mapping[str, Any]) -> str:
         "",
         f"- setup gate: `{(summary.get('setup_gate') or {}).get('status')}`",
         f"- policy: `{(summary.get('setup_gate') or {}).get('policy_id')}`",
+        f"- stageback topology: `{((summary.get('setup_gate') or {}).get('stageback_topology') or {}).get('status')}`",
         f"- engineering read: `{(summary.get('setup_gate') or {}).get('engineering_read')}`",
         "",
         "## Physics Setup",
@@ -972,6 +990,101 @@ def _blocked_claims(cfd_status: str) -> list[str]:
     if cfd_status != "grid_convergence_ready":
         claims.insert(0, "grid-converged engineering CFD")
     return claims
+
+
+def load_direct_stageback_artifacts(
+    paths: Sequence[Path] = DIRECT_STAGEBACK_PROBE_PATHS,
+) -> list[dict[str, Any]]:
+    artifacts: list[dict[str, Any]] = []
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            artifact = load_json(path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            artifacts.append(
+                {
+                    "path": str(path),
+                    "status": "unreadable",
+                    "error": str(exc),
+                }
+            )
+            continue
+        artifact["path"] = str(path)
+        artifacts.append(artifact)
+    return artifacts
+
+
+def _stageback_topology_summary(
+    artifacts: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    records: list[dict[str, Any]] = []
+    plc_failure_observed = False
+    for artifact in artifacts:
+        diagnostic_family = _stageback_artifact_diagnostic_family(artifact)
+        if diagnostic_family == "stageback_plc_segment_facet_intersection":
+            plc_failure_observed = True
+        records.append(
+            {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "status": artifact.get("status"),
+                "failure_code": artifact.get("failure_code"),
+                "diagnostic_family": diagnostic_family,
+            }
+        )
+    status = "blocked" if plc_failure_observed else ("not_evaluated" if not records else "pass")
+    result: dict[str, Any] = {
+        "status": status,
+        "artifacts": records,
+    }
+    if plc_failure_observed:
+        result.update(
+            {
+                "blocker": "direct_stageback_topology_plc_segment_facet",
+                "recommended_repair": "receiver_sleeve_staged_transition_required",
+                "engineering_read": (
+                    "Direct no-BL-hole stageback is producing a Gmsh PLC segment/facet "
+                    "intersection, so the BL/core transition topology is not solver-ready."
+                ),
+            }
+        )
+    return result
+
+
+def _stageback_artifact_diagnostic_family(artifact: Mapping[str, Any]) -> str | None:
+    diagnostic = artifact.get("diagnostic")
+    if isinstance(diagnostic, Mapping):
+        family = diagnostic.get("diagnostic_family")
+        if family:
+            return str(family)
+        raw_error = str(diagnostic.get("raw_error") or "")
+        if _raw_stageback_plc_segment_facet(raw_error):
+            return "stageback_plc_segment_facet_intersection"
+
+    error = str(artifact.get("error") or "")
+    marker = "diagnostic="
+    if marker in error:
+        diagnostic_text = error.split(marker, 1)[1].strip()
+        try:
+            parsed = json.loads(diagnostic_text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, Mapping):
+            family = parsed.get("diagnostic_family")
+            raw_error = str(parsed.get("raw_error") or "")
+            if _raw_stageback_plc_segment_facet(raw_error):
+                return "stageback_plc_segment_facet_intersection"
+            if family:
+                return str(family)
+    if _raw_stageback_plc_segment_facet(error):
+        return "stageback_plc_segment_facet_intersection"
+    return None
+
+
+def _raw_stageback_plc_segment_facet(raw_error: str) -> bool:
+    text = raw_error.lower()
+    return "plc error" in text and "segment" in text and "facet" in text
 
 
 def _rung_markdown_row(rung: Mapping[str, Any]) -> str:

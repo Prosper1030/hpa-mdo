@@ -1,5 +1,19 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006N Stageback Topology Setup Gate
+
+WO-006N 把 WO-006M direct stageback probe artifact 接進
+`scripts/run_wo006i_grid_convergence_campaign.py` 的 CFD setup gate。campaign 現在會讀
+`wo006m_face_coherent_stageback_mesh_probe/summary.json` 與
+`wo006m_narrow_stageback_mesh_probe/summary.json`；只要看到 Gmsh `PLC Error: A segment and a
+facet intersect` 類型的 direct no-BL-hole stageback 失敗，就會加入
+`direct_stageback_topology_plc_segment_facet` blocker。
+
+工程判讀：這個 gate 是為了防止後續 agent 把已知壞 topology 拿去硬跑 medium/fine。
+目前 direct stageback route 的正確定位是 BL/core topology diagnosis；修法不是多跑 SU2
+iteration，而是 receiver/sleeve/staged transition topology 先成立，再重新產生同一 Baseline A
+外形、同一 physics setup 的 CFD ladder。
+
 ## 2026-05-14 WO-006M Face-Coherent Stageback + Side-Filter Probe
 
 WO-006M 修正 WO-006L stageback selector 的一個 topology 問題：原本 triangle-level

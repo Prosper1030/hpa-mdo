@@ -57,6 +57,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   transition topology。舊 span8 BL meshes 也不能被拿來補完成：用目前 gate 重判，
   `wing005` 11.28M cells 雖然沒有 non-positive BL elements，但 `BL p01 minSICN=0.00219`
   低於 `0.005` blocker threshold，仍不是 CFD-grade ladder rung。
+- WO-006N 已把上述 direct stageback artifact 接進
+  `scripts/run_wo006i_grid_convergence_campaign.py` setup gate：campaign 會讀
+  `wo006m_face_coherent_stageback_mesh_probe/summary.json` 與
+  `wo006m_narrow_stageback_mesh_probe/summary.json`，若 raw Gmsh error 是
+  `PLC Error` / segment-facet intersection，即使舊 artifact 的 diagnostic family
+  名稱較粗，也會轉成 `direct_stageback_topology_plc_segment_facet` blocker。這是 solver
+  preflight blocker，不是可忽略 warning；下一步仍是 receiver/sleeve/staged transition
+  topology，而不是用 direct no-BL-hole route 硬跑 medium/fine。
 - WO-006 current-GO no-BL CFD completion evidence 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/`。
   Completion gate 是 `pass`：newly generated full-span current-GO mesh 有 `490,116`
