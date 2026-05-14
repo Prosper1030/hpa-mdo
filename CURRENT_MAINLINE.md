@@ -33,12 +33,22 @@ screening evidence 讀，不是現行 release / procurement truth。
   不能取代 manifest gate。
 - WO-006 Phase 1 `TOOLCHAIN_PASS` 已通過。Artifact 在
   `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/`；
-  `manifest.yaml` 已更新為 `passed_gate_statuses=[TOOLCHAIN_PASS]`，下一個 gate 是
-  `PRESSURE_SANITY_PASS`。三個 2D wall-resolved `INC_RANS/SA` sanity cases 全部 completed
+  三個 2D wall-resolved `INC_RANS/SA` sanity cases 全部 completed
   且 force window stable：NACA4412 `CD=0.0207559`、current root DAE31
   `CD=0.0211785`、current tip `CD=0.0204750`。root DAE31 的 closed/cusped TE 會讓
   Gmsh BL 產生負品質 quad；Phase 1 只在 2D sanity mesh 將 closed TE 正規化成
   `0.002c` finite TE cap。這是工具鏈 sanity，不是 3D CFD performance claim。
+- WO-006 Phase 2 `PRESSURE_SANITY_PASS` 已通過，`manifest.yaml` 現在是
+  `passed_gate_statuses=[TOOLCHAIN_PASS, PRESSURE_SANITY_PASS]`，下一個 gate 是
+  `ROUTE_SMOKE_PASS`。Artifact 在
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/`：
+  half-wing、root symmetry、Euler/slip pressure-only、`AOA=0`，primary force 只監測
+  `wing_upper + wing_lower`。正式 run 在 `383` iterations 收斂，最後
+  `CL=0.365344`、`CD=0.0177873`、`CMy=-0.0706675`，last-100 `CL/CD` relative span
+  約 `0.00445` / `0.00553`。SU2 dual quality gate 也過：min orthogonality
+  `19.4086 deg`、max CV face-area aspect ratio `7487.37`、max CV sub-volume ratio
+  `186725`。這只清掉 pressure/geometry/marker/reference sanity；不是 viscous BL
+  route-smoke、不是 y+、不是 grid ladder，也不能被讀成 final drag。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

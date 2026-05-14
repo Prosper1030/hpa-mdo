@@ -23,7 +23,8 @@ prism/hexa，core 才用 tetra，interface 必須 conformal；不得把 BL split
 global-star handoff，不得把 closure face 靜默併入 `wing_wall` force marker，也不得把
 保守 numerics 跑完當成功。manifest 裡只允許四個 release gate：
 `TOOLCHAIN_PASS`、`PRESSURE_SANITY_PASS`、`ROUTE_SMOKE_PASS`、`GRID_LADDER_PASS`。
-Phase 1 `TOOLCHAIN_PASS` 已通過；下一個 gate 是 Phase 2 `PRESSURE_SANITY_PASS`。
+Phase 1 `TOOLCHAIN_PASS` 與 Phase 2 `PRESSURE_SANITY_PASS` 已通過；下一個 gate 是
+Phase 3/4 的 hybrid BL route-smoke。
 Phase 1 artifact 在
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/`：
 2D wall-resolved `INC_RANS/SA` sanity cases 全部 completed 且 force window stable，
@@ -31,6 +32,18 @@ Phase 1 artifact 在
 `0.0204750`。root DAE31 首跑失敗是因為 closed/cusped trailing edge 造成 Gmsh BL
 負品質 quad；現在 2D sanity mesh 將 closed TE 正規化成 `0.002c` finite TE cap，這是
 toolchain sanity regularization，不是 3D performance claim。
+
+Phase 2 artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/`。
+它使用 half-wing、root symmetry、Euler/slip pressure-only setup、`AOA=0`，
+`MARKER_MONITORING=(wing_upper, wing_lower)`，並把 `tip_wall` / `te_wall` /
+`closure_wall` 保留為獨立 marker。正式 run 在 `383` iterations 達成 SU2
+`Cauchy[CD] < 1e-5`，最後 `CL=0.365344`、`CD=0.0177873`、`CMy=-0.0706675`，
+last-100 `CL/CD` relative spans 約 `0.00445` / `0.00553`。SU2 dual quality 為
+min orthogonality `19.4086 deg`、max CV face-area aspect ratio `7487.37`、
+max CV sub-volume ratio `186725`，明顯不再是 R28/R30 的病態量級。工程邊界：
+這只證明 pressure/geometry/marker/reference sanity；不是 viscous BL route-smoke、
+不是 y+、不是 grid ladder，也不能宣稱 final HPA drag。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

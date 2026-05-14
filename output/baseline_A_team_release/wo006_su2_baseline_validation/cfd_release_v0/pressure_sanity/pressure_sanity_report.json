@@ -1,0 +1,442 @@
+{
+  "schema_version": "canonical_hybrid_phase2_pressure_sanity.v0",
+  "route": "canonical_hybrid_halfwing_v0",
+  "phase_gate": "PRESSURE_SANITY_PASS",
+  "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity",
+  "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+  "source_row_count": 9,
+  "surface": {
+    "marker_counts": {
+      "wing_upper": 160,
+      "wing_lower": 128,
+      "te_wall": 28,
+      "closure_wall": 4,
+      "tip_wall": 10
+    },
+    "marker_area_m2": {
+      "closure_wall": 0.16660902684722634,
+      "te_wall": 1.4558971207637428,
+      "tip_wall": 0.024734544448880003,
+      "wing_lower": 15.347771242994337,
+      "wing_upper": 17.59147851654379
+    },
+    "metadata": {
+      "route": "canonical_hybrid_halfwing_v0",
+      "phase_gate": "PRESSURE_SANITY_PASS",
+      "side": "half",
+      "root_symmetry_plane": "y=0",
+      "pressure_mesh_recipe": "coarse pressure-only mesh; avoids over-clustered tip-cap chordwise points and is not the viscous BL mesh recipe",
+      "station_count": 33,
+      "base_station_count": 9,
+      "points_per_side": 6,
+      "points_per_station": 10,
+      "spanwise_subdivisions": 4,
+      "source_transition_spans": [
+        {
+          "left_y_m": 12.0163,
+          "right_y_m": 14.076237,
+          "left_airfoil_id": "dae31",
+          "right_airfoil_id": "cst_tip_nsga2_g05_child_0032_70ef8136"
+        }
+      ],
+      "closure_section_indices": [
+        16,
+        17,
+        18,
+        19
+      ],
+      "force_monitoring_markers": [
+        "wing_upper",
+        "wing_lower"
+      ]
+    }
+  },
+  "mesh": {
+    "status": "meshed",
+    "mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/mesh.msh",
+    "su2_mesh_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/mesh.su2",
+    "marker_summary": {
+      "ndime": 3,
+      "nelem": 2974,
+      "npoin": 944,
+      "nmark": 7,
+      "markers": {
+        "wing_upper": {
+          "element_count": 512,
+          "element_type_counts": {
+            "5": 512
+          }
+        },
+        "wing_lower": {
+          "element_count": 416,
+          "element_type_counts": {
+            "5": 416
+          }
+        },
+        "te_wall": {
+          "element_count": 88,
+          "element_type_counts": {
+            "5": 88
+          }
+        },
+        "closure_wall": {
+          "element_count": 8,
+          "element_type_counts": {
+            "5": 8
+          }
+        },
+        "tip_wall": {
+          "element_count": 10,
+          "element_type_counts": {
+            "5": 10
+          }
+        },
+        "farfield": {
+          "element_count": 442,
+          "element_type_counts": {
+            "5": 442
+          }
+        },
+        "root_symmetry": {
+          "element_count": 128,
+          "element_type_counts": {
+            "5": 128
+          }
+        }
+      }
+    },
+    "required_markers_present": true,
+    "volume_element_type_counts": {
+      "4": 2974
+    },
+    "volume_element_count": 2974,
+    "min_volume_quality": 0.0046424722235005305,
+    "non_positive_quality_count": 0,
+    "max_farfield_vertex_incident_volume_cells": 4,
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": []
+    },
+    "surface_marker_counts": {
+      "wing_upper": 160,
+      "wing_lower": 128,
+      "te_wall": 28,
+      "closure_wall": 4,
+      "tip_wall": 10
+    },
+    "marker_audit": {
+      "status": "pass",
+      "mesh_markers": [
+        "closure_wall",
+        "farfield",
+        "root_symmetry",
+        "te_wall",
+        "tip_wall",
+        "wing_lower",
+        "wing_upper"
+      ],
+      "boundary_condition_markers": {
+        "MARKER_EULER": [
+          "wing_upper",
+          "wing_lower",
+          "tip_wall",
+          "te_wall",
+          "closure_wall"
+        ],
+        "MARKER_SYM": [
+          "root_symmetry"
+        ],
+        "MARKER_FAR": [
+          "farfield"
+        ]
+      },
+      "missing_from_mesh": [],
+      "unassigned_mesh_markers": [],
+      "zero_element_markers": [],
+      "mesh_summary": {
+        "ndime": 3,
+        "nelem": 2974,
+        "npoin": 944,
+        "nmark": 7,
+        "markers": {
+          "wing_upper": {
+            "element_count": 512,
+            "element_type_counts": {
+              "5": 512
+            }
+          },
+          "wing_lower": {
+            "element_count": 416,
+            "element_type_counts": {
+              "5": 416
+            }
+          },
+          "te_wall": {
+            "element_count": 88,
+            "element_type_counts": {
+              "5": 88
+            }
+          },
+          "closure_wall": {
+            "element_count": 8,
+            "element_type_counts": {
+              "5": 8
+            }
+          },
+          "tip_wall": {
+            "element_count": 10,
+            "element_type_counts": {
+              "5": 10
+            }
+          },
+          "farfield": {
+            "element_count": 442,
+            "element_type_counts": {
+              "5": 442
+            }
+          },
+          "root_symmetry": {
+            "element_count": 128,
+            "element_type_counts": {
+              "5": 128
+            }
+          }
+        }
+      }
+    }
+  },
+  "runtime_cfg_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/su2_runtime.cfg",
+  "solver": {
+    "run_requested": true,
+    "run_status": "completed",
+    "returncode": 0,
+    "elapsed_s": 2.053512833081186,
+    "command": [
+      "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+      "-t",
+      "4",
+      "su2_runtime.cfg"
+    ],
+    "solver_log_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/solver.log",
+    "history_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/history.csv",
+    "history": {
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/history.csv",
+      "row_count": 384,
+      "final_iteration": 383,
+      "final_coefficients": {
+        "cl": 0.3653440743,
+        "cd": 0.01778726857,
+        "cmy": -0.07066749827
+      },
+      "tail_stability": {
+        "window_size": 100,
+        "cl_relative_span": 0.004450984597725797,
+        "cd_relative_span": 0.005528097053765789
+      }
+    },
+    "dual_control_volume_quality": {
+      "status": "available",
+      "min_orthogonality_deg": 19.4086,
+      "max_orthogonality_deg": 80.4176,
+      "min_cv_face_area_aspect_ratio": 1.26909,
+      "max_cv_face_area_aspect_ratio": 7487.37,
+      "min_cv_sub_volume_ratio": 1.01625,
+      "max_cv_sub_volume_ratio": 186725.0,
+      "gate_thresholds": {
+        "min_orthogonality_deg": 5.0,
+        "max_cv_face_area_aspect_ratio": 20000.0,
+        "max_cv_sub_volume_ratio": 1000000.0
+      },
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/solver.log"
+    }
+  },
+  "forces_breakdown": {
+    "status": "available",
+    "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/forces_breakdown.dat",
+    "surface_names": [
+      "wing_lower",
+      "wing_upper"
+    ],
+    "parsed": {
+      "cl": {
+        "total": 0.365344,
+        "pressure": 0.365344,
+        "friction": 0.0
+      },
+      "cd": {
+        "total": 0.017787,
+        "pressure": 0.017787,
+        "friction": 0.0
+      },
+      "csf": {
+        "total": -0.043069,
+        "pressure": -0.043069,
+        "friction": 0.0
+      },
+      "cl_over_cd": {
+        "total": 20.539639,
+        "pressure": 20.539639,
+        "friction": 0.0
+      },
+      "cmx": {
+        "total": 2.671341,
+        "pressure": 2.671341,
+        "friction": 0.0
+      },
+      "cmy": {
+        "total": -0.094825,
+        "pressure": -0.094825,
+        "friction": 0.0
+      },
+      "cmz": {
+        "total": -0.070667,
+        "pressure": -0.070667,
+        "friction": 0.0
+      },
+      "cfx": {
+        "total": 0.017787,
+        "pressure": 0.017787,
+        "friction": 0.0
+      },
+      "cfy": {
+        "total": -0.043069,
+        "pressure": -0.043069,
+        "friction": 0.0
+      },
+      "cfz": {
+        "total": 0.365344,
+        "pressure": 0.365344,
+        "friction": 0.0
+      },
+      "surface_coefficients": {
+        "wing_upper": {
+          "cl": {
+            "total": 0.322666,
+            "pressure": 0.322666,
+            "friction": 0.0
+          },
+          "cd": {
+            "total": 0.014326,
+            "pressure": 0.014326,
+            "friction": 0.0
+          },
+          "csf": {
+            "total": -0.03371,
+            "pressure": -0.03371,
+            "friction": 0.0
+          },
+          "cl_over_cd": {
+            "total": 22.523338,
+            "pressure": 22.523338,
+            "friction": 0.0
+          },
+          "cmx": {
+            "total": 2.050479,
+            "pressure": 2.050479,
+            "friction": 0.0
+          },
+          "cmy": {
+            "total": -0.063544,
+            "pressure": -0.063544,
+            "friction": 0.0
+          },
+          "cmz": {
+            "total": -0.019683,
+            "pressure": -0.019683,
+            "friction": 0.0
+          },
+          "cfx": {
+            "total": 0.014326,
+            "pressure": 0.014326,
+            "friction": 0.0
+          },
+          "cfy": {
+            "total": -0.03371,
+            "pressure": -0.03371,
+            "friction": 0.0
+          },
+          "cfz": {
+            "total": 0.322666,
+            "pressure": 0.322666,
+            "friction": 0.0
+          }
+        },
+        "wing_lower": {
+          "cl": {
+            "total": 0.042678,
+            "pressure": 0.042678,
+            "friction": 0.0
+          },
+          "cd": {
+            "total": 0.003461,
+            "pressure": 0.003461,
+            "friction": 0.0
+          },
+          "csf": {
+            "total": -0.009359,
+            "pressure": -0.009359,
+            "friction": 0.0
+          },
+          "cl_over_cd": {
+            "total": 12.329685,
+            "pressure": 12.329685,
+            "friction": 0.0
+          },
+          "cmx": {
+            "total": 0.620862,
+            "pressure": 0.620862,
+            "friction": 0.0
+          },
+          "cmy": {
+            "total": -0.031281,
+            "pressure": -0.031281,
+            "friction": 0.0
+          },
+          "cmz": {
+            "total": -0.050984,
+            "pressure": -0.050984,
+            "friction": 0.0
+          },
+          "cfx": {
+            "total": 0.003461,
+            "pressure": 0.003461,
+            "friction": 0.0
+          },
+          "cfy": {
+            "total": -0.009359,
+            "pressure": -0.009359,
+            "friction": 0.0
+          },
+          "cfz": {
+            "total": 0.042678,
+            "pressure": 0.042678,
+            "friction": 0.0
+          }
+        }
+      }
+    }
+  },
+  "engineering_assessment": {
+    "scope": "pressure_only_slip_wall_half_wing_sanity",
+    "trust_boundary": "This clears only pressure/geometry/marker/reference sanity. It is not a viscous BL route-smoke, y+ result, or grid-ladder result."
+  },
+  "elapsed_s": 2.9970257501117885,
+  "gate": {
+    "status": "pass",
+    "release_status": "PRESSURE_SANITY_PASS",
+    "blockers": [],
+    "warnings": [],
+    "final_coefficients": {
+      "cl": 0.3653440743,
+      "cd": 0.01778726857,
+      "cmy": -0.07066749827
+    },
+    "stable_window": {
+      "window_size": 100,
+      "cl_relative_span": 0.004450984597725797,
+      "cd_relative_span": 0.005528097053765789
+    }
+  },
+  "report_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/pressure_sanity_report.json",
+  "markdown_report_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/pressure_sanity_report.md"
+}

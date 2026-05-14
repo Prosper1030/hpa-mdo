@@ -10,7 +10,8 @@ forensic_routes:
 - WO-006R30
 passed_gate_statuses:
 - TOOLCHAIN_PASS
-next_required_gate_status: PRESSURE_SANITY_PASS
+- PRESSURE_SANITY_PASS
+next_required_gate_status: ROUTE_SMOKE_PASS
 phase_gate_order:
 - TOOLCHAIN_PASS
 - PRESSURE_SANITY_PASS
@@ -120,3 +121,9 @@ phase1_toolchain_sanity:
   - output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/naca4412_2d/basic_airfoil_bl_benchmark_report.json
   - output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/current_root_dae31/basic_airfoil_bl_benchmark_report.json
   - output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/current_tip_cst/basic_airfoil_bl_benchmark_report.json
+phase2_pressure_sanity:
+  status: PRESSURE_SANITY_PASS
+  report_path: /Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity/pressure_sanity_report.json
+  case_dir: /Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/pressure_sanity
+  mesh_recipe: coarse pressure-only mesh; avoids over-clustered tip-cap chordwise
+    points and is not the viscous BL mesh recipe
