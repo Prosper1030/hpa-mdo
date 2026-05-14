@@ -155,6 +155,14 @@ screening evidence 讀，不是現行 release / procurement truth。
 - pps42/l4 merged writer 手動 probe 也仍 fail：`20,736` prisms + `580` pyramids +
   `16,462` tetra，root sidewall aspect 約 `966` 已過 smoke gate，但 dual proxy
   仍有 `1.1725639068823458e10`。因此解析度升到 pps42/l4 仍不能進 pressure/RANS。
+- GPT Pro 建議的真翼 Build 1 `pps42/layers=3` 也已手動補跑：
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_transition_collar_core_hybrid_pps42_l3/`。
+  mesh 可寫出 `15,552` prisms + `435` pyramids + `15,705` tetra，root sidewall
+  aspect 約 `966`、direct prism quality gate pass，但 mixed dual proxy 仍 fail：
+  max CV sub-volume ratio 約 `3.3939807886633167e11`，worst source pair 為
+  `tetra_core|tetra_core` 且 incident elements 包含 transition-collar pyramid。工程判讀：
+  3-layer build-up 也不能直接進 pressure-only sanity；目前 blocker 不是 BL layer count，
+  而是 collar/core local dual-volume topology。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

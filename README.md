@@ -164,6 +164,13 @@ overlapping facets。因此下一步不能只調 thickness，必須重設 collar
 解析度也不是單一解：pps42/l4 merged writer 可產生 `20,736` prisms + `580` pyramids +
 `16,462` tetra，root sidewall aspect 約 `966` 已過 smoke gate，但 dual proxy 仍是
 `1.1725639068823458e10`。所以 pps42/l4 不應升級成 pressure/RANS route。
+GPT Pro 建議的 Build 1 真翼 `pps42/layers=3` 也已補跑：
+`partial_wing_transition_collar_core_hybrid_pps42_l3/` 可寫出 `15,552` prisms +
+`435` pyramids + `15,705` tetra，root sidewall aspect 約 `966` 且 direct prism
+quality gate pass，但 mixed dual proxy 仍 fail，max CV sub-volume ratio 約
+`3.3939807886633167e11`，worst source pair 是 `tetra_core|tetra_core` 並鄰接
+transition-collar pyramid。工程判讀：3-layer build-up 也不能直接進 pressure sanity；
+目前 blocker 是 collar/core local dual-volume topology，不是單純 BL layer count。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
