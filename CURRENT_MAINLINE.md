@@ -162,7 +162,11 @@ screening evidence 讀，不是現行 release / procurement truth。
   max CV sub-volume ratio 約 `3.3939807886633167e11`，worst source pair 為
   `tetra_core|tetra_core` 且 incident elements 包含 transition-collar pyramid。工程判讀：
   3-layer build-up 也不能直接進 pressure-only sanity；目前 blocker 不是 BL layer count，
-  而是 collar/core local dual-volume topology。
+  而是 collar/core local dual-volume topology。新增 hotspot geometry diagnostic 顯示
+  worst point 同時看到 `6.0e-5 m` 的 core/collar local edge 與約 `1.68 m` 的 core edge，
+  local incident core tet edge-ratio 可到 `~1.37e4`，因此下一步必須做 collar/core
+  local grading、structured transition patch 或成熟 layer-addition mesher cross-check，
+  不能只調 global core size 或直接降 BL layers。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

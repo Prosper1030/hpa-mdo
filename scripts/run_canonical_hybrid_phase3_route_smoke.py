@@ -2791,6 +2791,7 @@ def _mixed_dual_subvolume_proxy_report(
     non_positive_subvolume_count = 0
     unsupported_element_count = 0
     supported_types = {SU2_PRISM, SU2_PYRAMID, SU2_TETRAHEDRON}
+    element_geometries = _element_geometry_records(vertices, elements, element_sources)
 
     for element_index, ((element_type, element_nodes), source) in enumerate(
         zip(elements, element_sources)
@@ -2827,6 +2828,7 @@ def _mixed_dual_subvolume_proxy_report(
                     "element_index": int(element_index),
                     "element_type": int(element_type),
                     "source": str(source),
+                    "element_geometry": dict(element_geometries[int(element_index)]),
                     "element_nodes": [int(node) for node in nodes],
                     "face_nodes": [int(node) for node in face],
                     "edge_nodes": [int(point_index), int(next_point_index)],
@@ -2872,6 +2874,13 @@ def _mixed_dual_subvolume_proxy_report(
                 "incident_element_source_counts": dict(
                     sorted(incident_source_counts.get(point_index, {}).items())
                 ),
+                "incident_element_geometry_by_source": (
+                    _incident_element_geometry_by_source(
+                        int(point_index),
+                        elements,
+                        element_geometries,
+                    )
+                ),
                 "min_subvolume": dict(min_record),
                 "max_subvolume": dict(max_record),
             }
@@ -2902,6 +2911,128 @@ def _mixed_dual_subvolume_proxy_report(
         "worst_point": None if worst is None else dict(worst["point"]),
         "worst_source_pair": None if worst is None else str(worst["source_pair"]),
         "top_hotspots": [dict(record) for record in records[: max(0, int(top_count))]],
+    }
+
+
+def _element_geometry_records(
+    vertices: Sequence[tuple[float, float, float]],
+    elements: Sequence[tuple[int, Sequence[int]]],
+    element_sources: Sequence[str],
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for element_index, ((element_type, nodes), source) in enumerate(
+        zip(elements, element_sources)
+    ):
+        nodes_tuple = tuple(int(node) for node in nodes)
+        edge_lengths = _volume_element_edge_lengths(vertices, int(element_type), nodes_tuple)
+        positive_edge_lengths = [
+            float(length)
+            for length in edge_lengths
+            if math.isfinite(float(length)) and float(length) > 0.0
+        ]
+        min_edge = min(positive_edge_lengths) if positive_edge_lengths else None
+        max_edge = max(positive_edge_lengths) if positive_edge_lengths else None
+        records.append(
+            {
+                "element_index": int(element_index),
+                "element_type": int(element_type),
+                "source": str(source),
+                "abs_volume_m3": _volume_element_abs_volume(
+                    vertices,
+                    int(element_type),
+                    nodes_tuple,
+                ),
+                "min_edge_length_m": min_edge,
+                "max_edge_length_m": max_edge,
+                "max_edge_length_ratio": (
+                    None if min_edge in (None, 0.0) or max_edge is None else max_edge / min_edge
+                ),
+            }
+        )
+    return records
+
+
+def _volume_element_edge_lengths(
+    vertices: Sequence[tuple[float, float, float]],
+    element_type: int,
+    nodes: Sequence[int],
+) -> list[float]:
+    edge_keys: set[tuple[int, int]] = set()
+    for face in _volume_element_faces(int(element_type), tuple(int(node) for node in nodes)):
+        face_nodes = tuple(int(node) for node in face)
+        for index, node in enumerate(face_nodes):
+            edge_keys.add(tuple(sorted((int(node), int(face_nodes[(index + 1) % len(face_nodes)])))))
+    return [
+        _distance3(vertices[first], vertices[second])
+        for first, second in sorted(edge_keys)
+    ]
+
+
+def _volume_element_abs_volume(
+    vertices: Sequence[tuple[float, float, float]],
+    element_type: int,
+    nodes: Sequence[int],
+) -> float | None:
+    element_type = int(element_type)
+    if element_type == SU2_TETRAHEDRON:
+        n = tuple(int(node) for node in nodes)
+        return abs(_tet_signed_volume(vertices[n[0]], vertices[n[1]], vertices[n[2]], vertices[n[3]]))
+    if element_type == SU2_PRISM:
+        return abs(_su2_prism_signed_volume(vertices, nodes))
+    if element_type == SU2_PYRAMID:
+        return abs(_su2_pyramid_signed_volume(vertices, nodes))
+    return None
+
+
+def _incident_element_geometry_by_source(
+    point_index: int,
+    elements: Sequence[tuple[int, Sequence[int]]],
+    element_geometries: Sequence[Mapping[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    for element, geometry in zip(elements, element_geometries):
+        _element_type, nodes = element
+        if int(point_index) not in {int(node) for node in nodes}:
+            continue
+        source = str(geometry["source"])
+        grouped.setdefault(source, []).append(geometry)
+
+    return {
+        source: _summarize_element_geometries(records)
+        for source, records in sorted(grouped.items())
+    }
+
+
+def _summarize_element_geometries(
+    records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    volumes = [
+        float(record["abs_volume_m3"])
+        for record in records
+        if _float_or_none(record.get("abs_volume_m3")) is not None
+    ]
+    min_edges = [
+        float(record["min_edge_length_m"])
+        for record in records
+        if _float_or_none(record.get("min_edge_length_m")) is not None
+    ]
+    max_edges = [
+        float(record["max_edge_length_m"])
+        for record in records
+        if _float_or_none(record.get("max_edge_length_m")) is not None
+    ]
+    edge_ratios = [
+        float(record["max_edge_length_ratio"])
+        for record in records
+        if _float_or_none(record.get("max_edge_length_ratio")) is not None
+    ]
+    return {
+        "count": len(records),
+        "min_abs_volume_m3": min(volumes) if volumes else None,
+        "max_abs_volume_m3": max(volumes) if volumes else None,
+        "min_edge_length_m": min(min_edges) if min_edges else None,
+        "max_edge_length_m": max(max_edges) if max_edges else None,
+        "max_edge_length_ratio": max(edge_ratios) if edge_ratios else None,
     }
 
 

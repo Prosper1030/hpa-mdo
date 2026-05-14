@@ -760,6 +760,34 @@ def test_partial_wing_transition_collar_core_hybrid_writer_merges_without_interf
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_partial_wing_collar_core_dual_hotspot_reports_incident_geometry(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_partial_wing_transition_collar_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "partial_wing_transition_collar_core_hybrid.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        bl_layers=4,
+        collar_height_m=1.0e-4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    worst = report["dual_subvolume_proxy"]["top_hotspots"][0]
+    by_source = worst["incident_element_geometry_by_source"]
+
+    assert by_source["transition_collar_pyramid"]["count"] > 0
+    assert by_source["transition_collar_pyramid"]["max_edge_length_ratio"] > 1.0
+    assert by_source["tetra_core"]["count"] > 0
+    assert by_source["tetra_core"]["min_abs_volume_m3"] > 0.0
+    assert by_source["tetra_core"]["max_edge_length_m"] > 0.0
+    assert worst["min_subvolume"]["element_geometry"]["source"] in by_source
+    assert worst["max_subvolume"]["element_geometry"]["source"] in by_source
+
+
 def test_partial_wing_transition_collar_height_sweep_reduces_but_does_not_clear_dual_proxy(
     tmp_path: Path,
 ) -> None:
