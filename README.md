@@ -129,6 +129,22 @@ triangle 來自 wake receiver face 內重複座標點，而不是 core target tr
 degenerate-cell special casing。這仍不是 mixed SU2 mesh、不是 y+，也不是 CFD ladder；
 但它避免後續再把問題誤判成 SU2 iteration、BL physics 或全域 split assignment。
 
+## 2026-05-14 WO-006R24 Degenerate Cull Handoff Basis Probe
+
+`scripts/probe_wo006r24_degenerate_cull_handoff_basis.py` 讀取 R22/R23 artifacts，檢查
+degenerate star triangles 是否全都可視為空 marker wake-receiver zero-area faces。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r24_degenerate_cull_handoff_basis_probe/`。
+
+實跑結果：R24 verdict 是 `degenerate_cull_basis_ready_mixed_mesh_pending`；
+`128` 個 degenerate triangles 全部可作為 wake-receiver cull/reduction basis，沒有 owned
+marker 被吃掉。WO-006I preflight 已把 active topology state 推進到
+`handoff_degenerate_cull_basis_ready_mixed_mesh_pending`，blocker 改成
+`near_wall_merged_mesh_handoff_missing`，recommended repair 是
+`write_culled_global_star_mixed_su2_handoff_and_yplus_probe`。
+
+工程邊界：這代表 topology/cell-reduction basis 足以進入 writer probe，但還不是 mixed SU2
+mesh、不是 marker/quality gate pass、不是 y+，也不是 SU2 coarse/medium/fine ladder。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

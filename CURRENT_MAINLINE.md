@@ -162,6 +162,12 @@ screening evidence 讀，不是現行 release / procurement truth。
   皆為空字串，bounds 約 `x=0.6569-1.2772 m`、`y=-17.166143..17.166143 m`、
   `z=-0.0950..2.5975 m`；下一刀應是 wake-receiver local cell-type reduction /
   degenerate-cell special casing，不是 SU2 iteration、BL physics 或全域 split assignment。
+  WO-006R24 已驗證這些退化 triangles 全部可當空 marker wake-receiver zero-area
+  cull/reduction basis；WO-006I preflight 現在的 active topology state 是
+  `handoff_degenerate_cull_basis_ready_mixed_mesh_pending`，blocker 變成
+  `near_wall_merged_mesh_handoff_missing`，recommended repair 是
+  `write_culled_global_star_mixed_su2_handoff_and_yplus_probe`。這仍不是 mixed SU2 mesh、
+  marker/quality pass、y+ 或 solver ladder。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
