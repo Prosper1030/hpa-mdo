@@ -196,6 +196,13 @@ prism quality gate pass、約 `16,637` core tets、max dual sub-volume proxy 約
 `6.04e9`，仍 fail `1e7` gate；core mesh size 從 `0.35` 掃到 `0.12` 時 core tet count
 與 dual proxy 不變，表示目前 blocker 不是單純全域 core sizing，而是 termination/outer
 BL interface 附近的 local grading 或 transition topology。
+naive whole-interface transition-buffer 也已測過：
+`closed_wall_te_stageback_buffered_core_hybrid_pps42_l16_cap6_s6_b2/`。它加入
+`15,980` 個 non-wall buffer prisms，combined prism quality gate pass，但 Gmsh core fill
+在 SU2 handoff 前以 `Invalid boundary mesh (overlapping facets)` 停住。工程判讀：
+不能把整個 outer+termination shell 直接等距 extrude 當 buffer；下一步要改成局部
+termination ramp / structured transition patch，或改用成熟 layer-addition mesher 生成
+這個區域。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

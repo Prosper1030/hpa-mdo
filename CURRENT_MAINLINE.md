@@ -188,6 +188,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `6.04e9`，仍 fail `1e7` route gate。core mesh size 從 `0.35` 掃到 `0.12` 時
   tet count 與 dual proxy 不變，代表下一個 blocker 不是全域 core sizing，而是
   termination/outer BL interface 附近的 local grading 或 transition topology。
+- naive whole-interface transition-buffer probe 也已記錄：
+  `closed_wall_te_stageback_buffered_core_hybrid_pps42_l16_cap6_s6_b2/` 加入
+  `15,980` 個 non-wall buffer prisms，combined prism quality gate pass，但 Gmsh core
+  fill 在 SU2 handoff 前以 `Invalid boundary mesh (overlapping facets)` 停住。工程判讀：
+  不能把整個 outer+termination shell 直接等距 extrude 當 buffer；下一步要做局部
+  termination ramp / structured transition patch，或改用成熟 layer-addition mesher 生成
+  這個區域。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality

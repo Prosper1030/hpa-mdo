@@ -1486,6 +1486,177 @@ def write_phase3_closed_wall_te_stageback_core_hybrid_su2(
     }
 
 
+def write_phase3_closed_wall_te_stageback_buffered_core_hybrid_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    full_wall_layers: int = 8,
+    cap_layers: int = 3,
+    stageback_segments: int = 2,
+    transition_buffer_layers: int = 2,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+) -> dict[str, Any]:
+    """Write stageback BL with a non-wall prism buffer before tetra core."""
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    points_per_station = int(surface.metadata["points_per_station"])
+    triangle_layer_counts: list[int] = []
+    for triangle, marker in wall_triangles:
+        if marker in DIAGNOSTIC_FORCE_MARKERS:
+            triangle_layer_counts.append(int(cap_layers))
+        elif marker in PRIMARY_FORCE_MARKERS and _triangle_touches_te_stageback_band(
+            triangle,
+            points_per_station=points_per_station,
+            stageback_segments=int(stageback_segments),
+        ):
+            triangle_layer_counts.append(int(cap_layers))
+        else:
+            triangle_layer_counts.append(int(full_wall_layers))
+
+    bl_volume = _direct_surface_prism_volume(
+        surface.vertices,
+        wall_triangles,
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=int(full_wall_layers),
+        triangle_layer_counts=triangle_layer_counts,
+    )
+    buffered_volume = _stageback_transition_buffer_volume(
+        bl_volume,
+        buffer_layers=int(transition_buffer_layers),
+        first_buffer_height_m=first_layer_height_m * growth_ratio ** int(cap_layers),
+        growth_ratio=growth_ratio,
+    )
+    combined_prism_quality = _direct_prism_quality_metrics(buffered_volume)
+    try:
+        core = _direct_surface_prism_core_tets(
+            buffered_volume,
+            surface_bounds=_bounds(surface.vertices),
+            core_mesh_size=core_mesh_size,
+            farfield_mesh_size=farfield_mesh_size,
+        )
+    except Exception as exc:
+        return {
+            "route": "canonical_hybrid_halfwing_closed_wall_te_stageback_buffered_core_hybrid",
+            "status": "closed_wall_te_stageback_buffered_core_hybrid_blocked",
+            "mesh_path": str(out_path),
+            "boundary_layer_prism_count": len(bl_volume["elements"]),
+            "transition_buffer_prism_count": int(
+                buffered_volume["transition_buffer_prism_count"]
+            ),
+            "combined_prism_quality": combined_prism_quality,
+            "combined_prism_quality_gate": _direct_prism_quality_gate(
+                combined_prism_quality
+            ),
+            "core_report": {
+                "status": "blocked_before_core_tet_fill",
+                "error": str(exc),
+            },
+            "engineering_assessment": {
+                "route_smoke_ready": False,
+                "trust_boundary": (
+                    "Naive whole-interface transition-buffer extrusion is blocked "
+                    "before SU2 handoff; do not promote it to a route candidate."
+                ),
+            },
+        }
+    merged_nodes = list(buffered_volume["nodes"])
+    core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
+    elements = [
+        *buffered_volume["elements"],
+        *[
+            (SU2_TETRAHEDRON, tuple(core_node_map[int(node)] for node in nodes))
+            for nodes in core["tetra_elements"]
+        ],
+    ]
+    marker_faces = {
+        marker: list(faces)
+        for marker, faces in buffered_volume["marker_faces"].items()
+        if marker not in {"bl_outer_interface", "bl_termination_interface"}
+    }
+    for marker, faces in core["marker_faces"].items():
+        marker_faces.setdefault(marker, []).extend(
+            [
+                (element_type, tuple(core_node_map[int(node)] for node in nodes))
+                for element_type, nodes in faces
+            ]
+        )
+    compacted_volume, node_compaction = _compact_volume_node_indices(
+        {
+            "nodes": merged_nodes,
+            "elements": elements,
+            "marker_faces": marker_faces,
+        }
+    )
+    element_sources = [
+        *[
+            _phase3_volume_element_source(element_type)
+            for element_type, _nodes in bl_volume["elements"]
+        ],
+        *(["transition_buffer_prism"] * int(buffered_volume["transition_buffer_prism_count"])),
+        *(["tetra_core"] * len(core["tetra_elements"])),
+    ]
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        compacted_volume["nodes"],
+        compacted_volume["elements"],
+        element_sources=element_sources,
+        marker_faces=compacted_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
+
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            compacted_volume,
+            comments=(
+                "% Canonical hybrid half-wing TE-stageback buffered transition mesh.",
+                "% Non-wall transition buffer separates thin BL prisms from tetra core.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    return {
+        "route": "canonical_hybrid_halfwing_closed_wall_te_stageback_buffered_core_hybrid",
+        "status": "closed_wall_te_stageback_buffered_core_hybrid_written",
+        "mesh_path": str(output_path),
+        "node_count": len(compacted_volume["nodes"]),
+        "volume_element_count": len(elements),
+        "volume_element_type_counts": {
+            str(SU2_PRISM): len(buffered_volume["elements"]),
+            str(SU2_TETRAHEDRON): len(core["tetra_elements"]),
+        },
+        "boundary_layer_prism_count": len(bl_volume["elements"]),
+        "transition_buffer_prism_count": int(buffered_volume["transition_buffer_prism_count"]),
+        "node_compaction": node_compaction,
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "core_report": core["report"],
+        "dual_subvolume_proxy": dual_subvolume_proxy,
+        "combined_prism_quality": combined_prism_quality,
+        "combined_prism_quality_gate": _direct_prism_quality_gate(combined_prism_quality),
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Buffered stageback topology candidate only. Passing parser and "
+                "ownership checks is not pressure sanity or RANS route-smoke."
+            ),
+        },
+    }
+
+
 def run_phase3_partial_wing_cap_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,
@@ -3154,6 +3325,160 @@ def _compact_outer_interface_surface(bl_volume: Mapping[str, Any]) -> SurfaceMes
             "original_node_ids": original_nodes,
         },
     )
+
+
+def _stageback_transition_buffer_volume(
+    bl_volume: Mapping[str, Any],
+    *,
+    buffer_layers: int,
+    first_buffer_height_m: float,
+    growth_ratio: float,
+) -> dict[str, Any]:
+    if buffer_layers <= 0:
+        raise ValueError("buffer_layers must be positive")
+    interface = _compact_outer_interface_surface(bl_volume)
+    original_node_ids = [
+        int(node) for node in interface.metadata.get("original_node_ids", [])
+    ]
+    interface_triangles = [tuple(int(node) for node in face.nodes) for face in interface.faces]
+    raw_normals = _surface_vertex_normals(interface.vertices, interface_triangles)
+    normals = [(-normal[0], -normal[1], -normal[2]) for normal in raw_normals]
+    heights = _layer_cumulative_heights(
+        first_buffer_height_m,
+        growth_ratio,
+        buffer_layers,
+    )
+    nodes = [tuple(node) for node in bl_volume["nodes"]]
+    generated_nodes: dict[tuple[int, int], int] = {}
+
+    def node(layer: int, local_node: int) -> int:
+        local = int(local_node)
+        if layer == 0:
+            return original_node_ids[local]
+        key = (int(layer), local)
+        existing = generated_nodes.get(key)
+        if existing is not None:
+            return existing
+        base_point = interface.vertices[local]
+        normal = normals[local]
+        height = heights[int(layer) - 1]
+        generated_nodes[key] = len(nodes)
+        nodes.append(
+            (
+                base_point[0] + height * normal[0],
+                base_point[1] + height * normal[1],
+                base_point[2] + height * normal[2],
+            )
+        )
+        return generated_nodes[key]
+
+    elements: list[tuple[int, tuple[int, ...]]] = []
+    element_metadata: list[dict[str, Any]] = []
+    face_records: dict[tuple[int, ...], dict[str, Any]] = {}
+
+    def add_face(face_nodes: tuple[int, ...], element_type: int, marker: str) -> None:
+        key = tuple(sorted(face_nodes))
+        record = face_records.setdefault(
+            key,
+            {
+                "count": 0,
+                "nodes": face_nodes,
+                "element_type": int(element_type),
+                "marker": marker,
+            },
+        )
+        record["count"] = int(record["count"]) + 1
+
+    for layer in range(buffer_layers):
+        for triangle in interface_triangles:
+            a, b, c = triangle
+            prism = (
+                node(layer + 1, a),
+                node(layer + 1, b),
+                node(layer + 1, c),
+                node(layer, a),
+                node(layer, b),
+                node(layer, c),
+            )
+            if _su2_prism_signed_volume(nodes, prism) <= 0.0:
+                prism = (
+                    node(layer + 1, a),
+                    node(layer + 1, c),
+                    node(layer + 1, b),
+                    node(layer, a),
+                    node(layer, c),
+                    node(layer, b),
+                )
+            elements.append((SU2_PRISM, prism))
+            element_metadata.append(
+                {
+                    "marker": "transition_buffer",
+                    "layer": int(layer),
+                    "layer_count": int(buffer_layers),
+                    "base_triangle": [
+                        original_node_ids[int(a)],
+                        original_node_ids[int(b)],
+                        original_node_ids[int(c)],
+                    ],
+                }
+            )
+            add_face(
+                (prism[0], prism[2], prism[1]),
+                SU2_TRIANGLE,
+                "bl_outer_interface" if layer == buffer_layers - 1 else "_internal_bl_layer",
+            )
+            add_face(
+                (prism[0], prism[3], prism[4], prism[1]),
+                SU2_QUAD,
+                _direct_prism_side_marker(
+                    nodes,
+                    (prism[3], prism[4]),
+                    "bl_termination_interface",
+                ),
+            )
+            add_face(
+                (prism[1], prism[4], prism[5], prism[2]),
+                SU2_QUAD,
+                _direct_prism_side_marker(
+                    nodes,
+                    (prism[4], prism[5]),
+                    "bl_termination_interface",
+                ),
+            )
+            add_face(
+                (prism[2], prism[5], prism[3], prism[0]),
+                SU2_QUAD,
+                _direct_prism_side_marker(
+                    nodes,
+                    (prism[5], prism[3]),
+                    "bl_termination_interface",
+                ),
+            )
+
+    marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {
+        str(marker): [
+            (int(element_type), tuple(int(node) for node in face_nodes))
+            for element_type, face_nodes in faces
+        ]
+        for marker, faces in _mapping(bl_volume.get("marker_faces")).items()
+        if marker not in {"bl_outer_interface", "bl_termination_interface"}
+    }
+    for record in face_records.values():
+        if int(record["count"]) != 1:
+            continue
+        marker = str(record["marker"])
+        if marker == "_internal_bl_layer":
+            continue
+        marker_faces.setdefault(marker, []).append(
+            (int(record["element_type"]), tuple(int(node) for node in record["nodes"]))
+        )
+    return {
+        "nodes": nodes,
+        "elements": [*bl_volume["elements"], *elements],
+        "element_metadata": [*list(bl_volume.get("element_metadata") or []), *element_metadata],
+        "marker_faces": marker_faces,
+        "transition_buffer_prism_count": len(elements),
+    }
 
 
 def _gmsh_node_coordinates(gmsh: Any) -> dict[int, tuple[float, float, float]]:

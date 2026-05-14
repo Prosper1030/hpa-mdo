@@ -491,6 +491,33 @@ def test_closed_wall_te_stageback_core_hybrid_writer_hides_internal_interfaces(
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_closed_wall_te_stageback_buffered_core_hybrid_adds_non_wall_transition(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_closed_wall_te_stageback_buffered_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "closed_wall_te_stageback_buffered_core.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        full_wall_layers=8,
+        cap_layers=3,
+        stageback_segments=2,
+        transition_buffer_layers=2,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["status"] == "closed_wall_te_stageback_buffered_core_hybrid_blocked"
+    assert report["transition_buffer_prism_count"] > 0
+    assert report["core_report"]["status"] == "blocked_before_core_tet_fill"
+    assert "overlapping facets" in report["core_report"]["error"]
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
     tmp_path: Path,
 ) -> None:
