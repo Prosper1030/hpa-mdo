@@ -174,11 +174,14 @@ Current release package:
   triangles. WO-006R18 localizes that residual into two `core_wall_loop_cap`
   fans (`30` triangles each, near `y≈±17.201-17.202 m`) and two
   `tip_receiver/left_tip` cells (`26110`, `26111`) that each match `4/6`
-  target triangles. WO-006I preflight treats the old direct-stageback PLC failure, R14
+  target triangles. WO-006R19 proves the loop-cap owner-pyramid basis:
+  `60` physical-wall-edge receiver quads produce `60` owner pyramids, matching
+  `60/60` `core_wall_loop_cap` triangles with no non-positive owner volume.
+  WO-006I preflight treats the old direct-stageback PLC failure, R14
   generic mismatch, R15 single-axis prism split, and R16 prism-only split as
   superseded diagnostic evidence and advances to
-  `setup_near_wall_hybrid_tet_prism_handoff_not_compatible`; next repair should
-  `materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split`
+  `setup_near_wall_hybrid_tet_prism_handoff_not_compatible`; the data-authority-restored mesh repair target is
+  `repair_left_tip_receiver_shared_tessellation_then_write_loop_cap_owner_pyramid_mixed_mesh`
   before y+ probe or any solver ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in

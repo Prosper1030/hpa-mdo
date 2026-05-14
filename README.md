@@ -33,11 +33,28 @@ BL/core handoff residual 變成可修的幾何證據。artifact 在
 `z=2.597761-2.689000 m`；split-incompatible 部分集中在兩個 `tip_receiver/left_tip`
 cells：`26110`、`26111`，各自 target `6` triangles、match `4`、unmatched `2`。
 
-WO-006I preflight 現在會讀 R18，active blocker 仍是
-`near_wall_hybrid_tet_prism_handoff_not_compatible`，但 recommended repair 已收斂成
+WO-006I data-authority-restored preflight 現在會讀 R18，active blocker 仍是
+`near_wall_hybrid_tet_prism_handoff_not_compatible`，但 mesh repair target 已收斂成
 `materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split`。工程判讀：
 這還不是 CFD mesh，也沒有 y+ 或 CL/CD/Cm；它只是把下一個 repair target 從「修 handoff」
 縮到「先補兩個 loop-cap owner fan，再修左 tip receiver split」。
+
+## 2026-05-14 WO-006R19 Loop-Cap Owner Pyramid Probe
+
+`scripts/probe_wo006r19_loop_cap_owner_pyramid.py` 驗證 R18 的第一個 repair 假設：
+用既有 `physical_wall_edge_receiver` quads 當 pyramid base，左右 loop-cap fan center
+當 apex，形成 near-wall side 的 owner pyramids。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r19_loop_cap_owner_pyramid_probe/`。
+
+實跑結果：`60` 個 physical-wall-edge receiver faces 產生 `60` 個 owner pyramid cells，
+可以 `60/60` match `core_wall_loop_cap` triangles；owner volume 全為正，
+`min=6.26e-7 m^3`、`max=6.52e-5 m^3`。這表示 loop-cap unowned family 有可行的
+mixed-cell ownership repair basis，但不是 final mixed SU2 mesh。
+
+剩餘 blocker 只剩 R17/R18 那 `core_tip_receiver_outer=4` / `wake_edge_receiver=4`
+left-tip shared-tessellation mismatch，以及尚未寫出 merged mixed mesh、尚未 postprocess y+、
+尚未跑 SU2 ladder。WO-006I data-authority-restored preflight 現在的 mesh repair target 是
+`repair_left_tip_receiver_shared_tessellation_then_write_loop_cap_owner_pyramid_mixed_mesh`。
 
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
@@ -56,7 +73,8 @@ active blocker 是 `near_wall_hybrid_tet_prism_handoff_not_compatible`。
 
 工程判讀：hybrid tet/prism 是目前最接近 mixed BL/core handoff 的方向，但還不是 CFD mesh。
 R18 已把這個 residual 定位成兩個 loop-cap fan 和兩個 left-tip receiver cells；下一步要
-materialize 剩餘 loop-cap owner，並修最後 8 個 wake/tip owned triangles；完成後才
+R19 已證明 loop-cap owner pyramid basis 可 `60/60` match，下一步要修最後 8 個
+wake/tip owned triangles 並寫入 mixed mesh；完成後才
 能寫 merged mixed SU2 mesh、做 marker/y+ gate，再談 coarse/medium/fine SU2 ladder。
 
 ## 2026-05-14 WO-006R16 Axis-Agnostic Prism-Split Probe
@@ -584,9 +602,10 @@ triangulated core boundary 只有 `1808/5658` triangles conformal，且 `core_wa
 和 `core_tip_receiver_outer=4` split 不相容。因此 WO-006I preflight 現在把 active blocker
 定位成 `near_wall_hybrid_tet_prism_handoff_not_compatible`；舊 direct-stageback PLC failure
 只保留為 superseded diagnostic。R18 進一步把 residual 定位成兩個 tip-side loop-cap fans
-和兩個 `tip_receiver/left_tip` cells (`26110`, `26111`)；下一步是
-`materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split`，再做 y+ probe
-和 solver ladder。
+和兩個 `tip_receiver/left_tip` cells (`26110`, `26111`)；R19 證明 loop-cap owner
+pyramids 可 `60/60` match 且 owner volumes 全為正。下一步是
+`repair_left_tip_receiver_shared_tessellation_then_write_loop_cap_owner_pyramid_mixed_mesh`，
+再做 y+ probe 和 solver ladder。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 

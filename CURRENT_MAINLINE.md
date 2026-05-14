@@ -136,11 +136,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   `core_tip_receiver_outer=4` split 不相容。WO-006R18 現在把這些 residual 定位成
   兩個 `core_wall_loop_cap` fan，每個 `30` triangles / `31` nodes，位在
   `y≈±17.201-17.202 m` tip 外側，另有兩個 `tip_receiver/left_tip` cells
-  (`26110`、`26111`) 各自 target `6` triangles、只 match `4`。因此前置 blocker 目前是
+  (`26110`、`26111`) 各自 target `6` triangles、只 match `4`。WO-006R19 驗證
+  loop-cap owner pyramid repair basis：`60` 個 `physical_wall_edge_receiver`
+  quads 可形成 `60` 個 owner pyramids，`60/60` match `core_wall_loop_cap`
+  triangles，且 owner volume 全為正（約 `6.26e-7` 到 `6.52e-5 m^3`）。因此前置 blocker 目前是
   `near_wall_hybrid_tet_prism_handoff_not_compatible`，不是 R10 wall-edge dependency、R12
   geometric self-intersection，或舊 direct-stageback route；WO-006I preflight 的
-  recommended repair 是
-  `materialize_core_wall_loop_cap_owner_cells_then_repair_left_tip_receiver_split`。
+  data-authority-restored mesh repair target 是
+  `repair_left_tip_receiver_shared_tessellation_then_write_loop_cap_owner_pyramid_mixed_mesh`。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；

@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r19_loop_cap_owner_pyramid_probe" / "summary.json",
     WO006_ROOT / "wo006r18_handoff_residual_localization_probe" / "summary.json",
     WO006_ROOT / "wo006r17_hybrid_tet_prism_split_probe" / "summary.json",
     WO006_ROOT / "wo006r16_axis_agnostic_prism_split_probe" / "summary.json",
@@ -914,6 +915,9 @@ def render_report(summary: Mapping[str, Any]) -> str:
     residual_localization = (
         core_closure_topology.get("handoff_residual_localization") or {}
     )
+    loop_cap_owner_pyramid = (
+        core_closure_topology.get("loop_cap_owner_pyramid") or {}
+    )
     lines = [
         "# WO-006I Baseline A Main-Wing CFD Grid-Convergence Campaign",
         "",
@@ -940,6 +944,7 @@ def render_report(summary: Mapping[str, Any]) -> str:
         f"- recommended repair: `{core_closure_topology.get('recommended_repair')}`",
         f"- R18 residual triangles: `{residual_localization.get('residual_triangle_count')}`",
         f"- R18 loop-cap fans / incompatible cells: `{residual_localization.get('loop_cap_fan_count')}` / `{residual_localization.get('incompatible_cell_count')}`",
+        f"- R19 loop-cap owner pyramids: `{loop_cap_owner_pyramid.get('matched_core_wall_loop_cap_triangle_count')}` / `{loop_cap_owner_pyramid.get('core_wall_loop_cap_triangle_count')}`",
         f"- engineering read: `{setup_gate.get('engineering_read')}`",
         "",
         "## Physics Setup",
@@ -1213,6 +1218,7 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    loop_cap_owner_pyramid_record: dict[str, Any] | None = None
     handoff_residual_record: dict[str, Any] | None = None
     hybrid_split_artifact_seen = False
     hybrid_split_blocked = False
@@ -1223,6 +1229,42 @@ def _core_closure_topology_summary(
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        loop_cap_owner_pyramid = artifact.get("loop_cap_owner_pyramid") or {}
+        if loop_cap_owner_pyramid:
+            loop_cap_owner_pyramid_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": loop_cap_owner_pyramid.get("status"),
+                "owner_pyramid_cell_count": loop_cap_owner_pyramid.get(
+                    "owner_pyramid_cell_count"
+                ),
+                "physical_wall_edge_receiver_face_count": (
+                    loop_cap_owner_pyramid.get(
+                        "physical_wall_edge_receiver_face_count"
+                    )
+                ),
+                "matched_core_wall_loop_cap_triangle_count": (
+                    loop_cap_owner_pyramid.get(
+                        "matched_core_wall_loop_cap_triangle_count"
+                    )
+                ),
+                "core_wall_loop_cap_triangle_count": loop_cap_owner_pyramid.get(
+                    "core_wall_loop_cap_triangle_count"
+                ),
+                "non_positive_owner_pyramid_volume_count": (
+                    loop_cap_owner_pyramid.get(
+                        "non_positive_owner_pyramid_volume_count"
+                    )
+                ),
+                "remaining_hybrid_residuals_by_marker": (
+                    loop_cap_owner_pyramid.get("remaining_hybrid_residuals_by_marker")
+                ),
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(loop_cap_owner_pyramid_record)
+            continue
+
         handoff_residuals = artifact.get("residuals") or {}
         if handoff_residuals:
             loop_cap_fans = handoff_residuals.get("loop_cap_fans") or {}
@@ -1569,11 +1611,21 @@ def _core_closure_topology_summary(
             recommended_repair = str(
                 handoff_residual_record["recommended_next_repair"]
             )
+        if (
+            loop_cap_owner_pyramid_record
+            and loop_cap_owner_pyramid_record.get("closure_status")
+            == "loop_cap_owner_pyramids_match"
+        ):
+            recommended_repair = (
+                "repair_left_tip_receiver_shared_tessellation_then_write_"
+                "loop_cap_owner_pyramid_mixed_mesh"
+            )
         result.update(
             {
                 "blocker": "near_wall_hybrid_tet_prism_handoff_not_compatible",
                 "hybrid_split_compatibility": hybrid_split_record,
                 "handoff_residual_localization": handoff_residual_record,
+                "loop_cap_owner_pyramid": loop_cap_owner_pyramid_record,
                 "recommended_repair": recommended_repair,
                 "engineering_read": (
                     "The latest hybrid tet/prism split probe shows most of the "
