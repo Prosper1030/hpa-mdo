@@ -1,77 +1,75 @@
 schema_version: canonical_hybrid_halfwing_cfd_release.v0
-generated_on: "2026-05-14"
+generated_on: '2026-05-14'
 active_cfd_route: canonical_hybrid_halfwing_v0
 forensic_routes:
-  - WO-006R25
-  - WO-006R26
-  - WO-006R27
-  - WO-006R28
-  - WO-006R29
-  - WO-006R30
-passed_gate_statuses: []
-next_required_gate_status: TOOLCHAIN_PASS
+- WO-006R25
+- WO-006R26
+- WO-006R27
+- WO-006R28
+- WO-006R29
+- WO-006R30
+passed_gate_statuses:
+- TOOLCHAIN_PASS
+next_required_gate_status: PRESSURE_SANITY_PASS
 phase_gate_order:
-  - TOOLCHAIN_PASS
-  - PRESSURE_SANITY_PASS
-  - ROUTE_SMOKE_PASS
-  - GRID_LADDER_PASS
+- TOOLCHAIN_PASS
+- PRESSURE_SANITY_PASS
+- ROUTE_SMOKE_PASS
+- GRID_LADDER_PASS
 retirement_decision:
   retired_active_route_family: WO-006R27_R28_R29_R30_custom_mixed_handoff
   reason:
-    - R27 only proved repaired marker ownership on the custom mixed handoff.
-    - R28 exposed pathological SU2 dual-control-volume quality and high drag.
-    - R29 ruled out a simple adjacent primal tet volume-ratio explanation.
-    - R30 localized the worst SU2-style dual subvolume hotspot in core/farfield tets.
+  - R27 only proved repaired marker ownership on the custom mixed handoff.
+  - R28 exposed pathological SU2 dual-control-volume quality and high drag.
+  - R29 ruled out a simple adjacent primal tet volume-ratio explanation.
+  - R30 localized the worst SU2-style dual subvolume hotspot in core/farfield tets.
   decision: R-series artifacts are forensic evidence only, not active CFD delivery.
-
 mesh_topology_policy:
   geometry_basis:
-    - VSP section extraction
-    - mesh-native indexed half-wing surface
-    - root symmetry plane
-    - independent upper, lower, tip, trailing-edge, closure, farfield markers
+  - VSP section extraction
+  - mesh-native indexed half-wing surface
+  - root symmetry plane
+  - independent upper, lower, tip, trailing-edge, closure, farfield markers
   boundary_layer_cell_types:
-    - prism
-    - hexa
+  - prism
+  - hexa
   core_cell_types:
-    - tetra
+  - tetra
   preserve_hybrid_cell_types: true
   interface_conformal_required: true
   su2_dual_control_volume_quality_required: true
   banned_methods:
-    - all_tet_global_star_bl_handoff
-    - split_bl_cells_into_star_tets
-    - owner_pyramid_as_active_method
-    - closure_face_silent_merge_into_wing_wall
-    - single_case_face_id_marker_patch
-    - conservative_numerics_as_success
-
+  - all_tet_global_star_bl_handoff
+  - split_bl_cells_into_star_tets
+  - owner_pyramid_as_active_method
+  - closure_face_silent_merge_into_wing_wall
+  - single_case_face_id_marker_patch
+  - conservative_numerics_as_success
 marker_policy:
   required_surface_markers:
-    - wing_upper
-    - wing_lower
-    - tip_wall
-    - te_wall
-    - closure_wall
-    - root_symmetry
-    - farfield
+  - wing_upper
+  - wing_lower
+  - tip_wall
+  - te_wall
+  - closure_wall
+  - root_symmetry
+  - farfield
   force_monitoring_markers:
-    - wing_upper
-    - wing_lower
+  - wing_upper
+  - wing_lower
   closure_markers_reported_separately: true
   required_force_breakdown:
-    - CD_wing_upper
-    - CD_wing_lower
-    - CD_tip_wall
-    - CD_closure_wall
-    - CD_pressure
-    - CD_viscous
-
+  - CD_wing_upper
+  - CD_wing_lower
+  - CD_tip_wall
+  - CD_closure_wall
+  - CD_pressure
+  - CD_viscous
 solver_policy:
   phase_1_toolchain_cases:
-    - naca0012_or_naca4412_2d_wall_resolved_rans_sa
-    - current_root_airfoil_2d_wall_resolved_rans_sa
-    - current_mid_or_tip_airfoil_2d_wall_resolved_rans_sa
+  - naca0012_or_naca4412_2d_wall_resolved_rans_sa
+  - current_root_airfoil_2d_wall_resolved_rans_sa
+  - current_mid_or_tip_airfoil_2d_wall_resolved_rans_sa
   phase_2_pressure_sanity:
     geometry: canonical_half_wing
     wall_model: slip_or_inviscid
@@ -87,33 +85,38 @@ solver_policy:
     velocity_direction: positive_x
     ref_area_basis: half_physical_area
     monitoring_markers:
-      - wing_upper
-      - wing_lower
+    - wing_upper
+    - wing_lower
   route_smoke_cd_max: 0.15
   conservative_numerics_counts_as_success: false
-
 writer_policy:
   allowed_writers:
-    - gmsh_su2_export_preserving_physical_groups_and_cell_types
-    - msh_to_su2_preserving_cell_types_only
+  - gmsh_su2_export_preserving_physical_groups_and_cell_types
+  - msh_to_su2_preserving_cell_types_only
   forbidden_converter_behaviors:
-    - all_tet_global_star_bl_handoff
-    - split_bl_cells_into_star_tets
-    - owner_pyramid_as_active_method
-    - closure_face_silent_merge_into_wing_wall
-    - single_case_face_id_marker_patch
-    - conservative_numerics_as_success
-
+  - all_tet_global_star_bl_handoff
+  - split_bl_cells_into_star_tets
+  - owner_pyramid_as_active_method
+  - closure_face_silent_merge_into_wing_wall
+  - single_case_face_id_marker_patch
+  - conservative_numerics_as_success
 artifact_contract:
   release_directory: output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0
   required_artifacts:
-    - manifest.yaml
-    - geometry_report.json
-    - mesh_report.json
-    - su2_config.cfg
-    - solver_history.csv
-    - force_breakdown.csv
-    - yplus_report.csv
-    - route_smoke_report.md
-    - grid_ladder_report.md
+  - manifest.yaml
+  - geometry_report.json
+  - mesh_report.json
+  - su2_config.cfg
+  - solver_history.csv
+  - force_breakdown.csv
+  - yplus_report.csv
+  - route_smoke_report.md
+  - grid_ladder_report.md
   note: Required artifacts are materialized only when their named phase gate passes.
+phase1_toolchain_sanity:
+  status: TOOLCHAIN_PASS
+  report_path: output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/toolchain_sanity_report.json
+  case_report_paths:
+  - output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/naca4412_2d/basic_airfoil_bl_benchmark_report.json
+  - output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/current_root_dae31/basic_airfoil_bl_benchmark_report.json
+  - output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/current_tip_cst/basic_airfoil_bl_benchmark_report.json

@@ -28,6 +28,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   gate 失敗且 manifest 指向該 gate。新 route 必須保留 prism/hexa BL + tetra core
   hybrid mesh，closure/tip/TE forces 必須分開，初始 3D viscous smoke 使用 geometry
   incidence + `AOA=0`，且保守 numerics 跑完不算成功。
+  GPT Pro rescue 方向保存於
+  `docs/reports/wo006_cfd_external_rescue_reference.md`；它只能作 stuck 時的工程參考，
+  不能取代 manifest gate。
+- WO-006 Phase 1 `TOOLCHAIN_PASS` 已通過。Artifact 在
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/`；
+  `manifest.yaml` 已更新為 `passed_gate_statuses=[TOOLCHAIN_PASS]`，下一個 gate 是
+  `PRESSURE_SANITY_PASS`。三個 2D wall-resolved `INC_RANS/SA` sanity cases 全部 completed
+  且 force window stable：NACA4412 `CD=0.0207559`、current root DAE31
+  `CD=0.0211785`、current tip `CD=0.0204750`。root DAE31 的 closed/cusped TE 會讓
+  Gmsh BL 產生負品質 quad；Phase 1 只在 2D sanity mesh 將 closed TE 正規化成
+  `0.002c` finite TE cap。這是工具鏈 sanity，不是 3D CFD performance claim。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

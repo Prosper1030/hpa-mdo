@@ -69,6 +69,7 @@ class BasicAirfoilCase:
     farfield_mesh_size_chord: float
     airfoil_mesh_size_chord: float
     max_iterations: int
+    airfoil_dat_path: str | None = None
 
 
 def naca4_airfoil_loop(code: str, *, points_per_side: int = 97) -> list[tuple[float, float]]:
@@ -126,6 +127,71 @@ def naca4_airfoil_loop(code: str, *, points_per_side: int = 97) -> list[tuple[fl
     return upper + list(reversed(lower_te_to_le[:-1]))
 
 
+def load_dat_airfoil_loop(
+    path: Path | str,
+    *,
+    minimum_closed_te_gap_chord: float = 0.002,
+) -> list[tuple[float, float]]:
+    """Read a Selig-style DAT airfoil loop and regularize closed trailing edges."""
+
+    dat_path = Path(path)
+    points: list[tuple[float, float]] = []
+    for raw_line in dat_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.replace(",", " ").split()
+        if len(parts) < 2:
+            continue
+        try:
+            x_coord = float(parts[0])
+            y_coord = float(parts[1])
+        except ValueError:
+            continue
+        points.append((x_coord, y_coord))
+    if len(points) < 5:
+        raise ValueError(f"airfoil DAT has too few coordinate points: {dat_path}")
+    first = points[0]
+    last = points[-1]
+    if math.hypot(first[0] - last[0], first[1] - last[1]) <= 1.0e-8:
+        te_gap = max(0.0, float(minimum_closed_te_gap_chord))
+        if te_gap > 0.0:
+            te_x, te_y = first
+            points[0] = (te_x, te_y + 0.5 * te_gap)
+            points[-1] = (te_x, te_y - 0.5 * te_gap)
+        else:
+            points = points[:-1]
+    if len(points) < 4:
+        raise ValueError(f"airfoil DAT collapsed after duplicate TE cleanup: {dat_path}")
+    return points
+
+
+def airfoil_loop_diagnostics(points: Sequence[tuple[float, float]]) -> dict[str, Any]:
+    if len(points) < 4:
+        raise ValueError("airfoil loop needs at least four points for diagnostics")
+    segment_lengths = [
+        math.hypot(
+            points[(index + 1) % len(points)][0] - points[index][0],
+            points[(index + 1) % len(points)][1] - points[index][1],
+        )
+        for index in range(len(points))
+    ]
+    vertex_angles = [
+        _interior_angle_deg(points[index - 1], points[index], points[(index + 1) % len(points)])
+        for index in range(len(points))
+    ]
+    te_gap = math.hypot(
+        points[0][0] - points[-1][0],
+        points[0][1] - points[-1][1],
+    )
+    return {
+        "point_count": len(points),
+        "trailing_edge_gap_chord": te_gap,
+        "min_segment_length_chord": min(segment_lengths),
+        "min_vertex_angle_deg": min(vertex_angles),
+    }
+
+
 def build_basic_airfoil_case(
     *,
     airfoil: str = "NACA4412",
@@ -136,6 +202,7 @@ def build_basic_airfoil_case(
     dynamic_viscosity_pas: float = 1.7894e-5,
     points_per_side: int = 97,
     max_iterations: int = 600,
+    airfoil_dat_path: str | None = None,
 ) -> BasicAirfoilCase:
     re_value = reynolds_number(
         density_kgpm3=density_kgpm3,
@@ -186,6 +253,7 @@ def build_basic_airfoil_case(
         farfield_mesh_size_chord=1.0,
         airfoil_mesh_size_chord=0.02,
         max_iterations=int(max_iterations),
+        airfoil_dat_path=airfoil_dat_path,
     )
 
 
@@ -199,12 +267,17 @@ def write_basic_airfoil_bl_mesh(
     case_dir.mkdir(parents=True, exist_ok=True)
     mesh_path = case_dir / "basic_airfoil_bl.msh"
     su2_mesh_path = case_dir / "mesh.su2"
-    points = [
-        (case.chord_m * x_coord, case.chord_m * y_coord, 0.0)
-        for x_coord, y_coord in naca4_airfoil_loop(
+    unit_points = (
+        load_dat_airfoil_loop(case.airfoil_dat_path)
+        if case.airfoil_dat_path is not None
+        else naca4_airfoil_loop(
             case.airfoil,
             points_per_side=case.points_per_side,
         )
+    )
+    points = [
+        (case.chord_m * x_coord, case.chord_m * y_coord, 0.0)
+        for x_coord, y_coord in unit_points
     ]
     far = case.farfield_radius_chord * case.chord_m
     upstream = 0.5 * case.chord_m - far
@@ -332,6 +405,7 @@ def write_basic_airfoil_bl_mesh(
         "cell_count": sum(cell_type_counts.values()),
         "cell_type_counts": cell_type_counts,
         "boundary_layer_quad_count": int(cell_type_counts.get("3", 0)),
+        "airfoil_loop_diagnostics": airfoil_loop_diagnostics(unit_points),
         "physical_groups": physical_groups,
         "marker_summary": marker_summary,
         "boundary_layer": asdict(case.boundary_layer),
@@ -749,6 +823,18 @@ def _float_or_none(value: float | None) -> float | None:
     except (TypeError, ValueError):
         return None
     return converted if math.isfinite(converted) else None
+
+
+def _interior_angle_deg(
+    previous_point: tuple[float, float],
+    point: tuple[float, float],
+    next_point: tuple[float, float],
+) -> float:
+    in_vec = (previous_point[0] - point[0], previous_point[1] - point[1])
+    out_vec = (next_point[0] - point[0], next_point[1] - point[1])
+    cross = abs(in_vec[0] * out_vec[1] - in_vec[1] * out_vec[0])
+    dot = in_vec[0] * out_vec[0] + in_vec[1] * out_vec[1]
+    return math.degrees(math.atan2(cross, dot))
 
 
 def _resolve_solver(command: str) -> str:

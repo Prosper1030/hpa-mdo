@@ -1,0 +1,82 @@
+{
+  "schema_version": "canonical_hybrid_phase1_toolchain_sanity.v0",
+  "route": "canonical_hybrid_halfwing_v0",
+  "phase_gate": "TOOLCHAIN_PASS",
+  "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+  "output_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity",
+  "run_su2": true,
+  "case_specs": [
+    {
+      "case_id": "naca4412_2d",
+      "section_role": "naca4412_2d",
+      "airfoil": "NACA4412",
+      "airfoil_id": "NACA4412",
+      "chord_m": 1.130189765,
+      "alpha_deg": 4.0,
+      "airfoil_dat_path": null,
+      "source_section_index": null
+    },
+    {
+      "case_id": "current_root_dae31",
+      "section_role": "current_root",
+      "airfoil": "dae31",
+      "airfoil_id": "dae31",
+      "chord_m": 1.2567730960047345,
+      "alpha_deg": 4.0,
+      "airfoil_dat_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/dae31.dat",
+      "source_section_index": 0
+    },
+    {
+      "case_id": "current_tip_cst",
+      "section_role": "current_tip",
+      "airfoil": "cst_tip_nsga2_g05_child_0032_70ef8136",
+      "airfoil_id": "cst_tip_nsga2_g05_child_0032_70ef8136",
+      "chord_m": 0.6450040900024299,
+      "alpha_deg": 4.0,
+      "airfoil_dat_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/airfoils/cst_tip_nsga2_g05_child_0032_70ef8136.dat",
+      "source_section_index": 8
+    }
+  ],
+  "case_report_paths": [
+    "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/naca4412_2d/basic_airfoil_bl_benchmark_report.json",
+    "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/current_root_dae31/basic_airfoil_bl_benchmark_report.json",
+    "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/current_tip_cst/basic_airfoil_bl_benchmark_report.json"
+  ],
+  "gate": {
+    "status": "pass",
+    "release_status": "TOOLCHAIN_PASS",
+    "blockers": [],
+    "warnings": [],
+    "case_summaries": [
+      {
+        "case_id": "current_root_dae31",
+        "role": "current_root",
+        "solver_status": "completed",
+        "cd": 0.02117848483,
+        "cl_relative_span": 0.00022894868286411866,
+        "cd_relative_span": 0.001648723892356535,
+        "stable": true
+      },
+      {
+        "case_id": "current_tip_cst",
+        "role": "current_tip",
+        "solver_status": "completed",
+        "cd": 0.02047500345,
+        "cl_relative_span": 8.299670630285403e-06,
+        "cd_relative_span": 0.00048262074179186476,
+        "stable": true
+      },
+      {
+        "case_id": "naca4412_2d",
+        "role": "naca4412_2d",
+        "solver_status": "completed",
+        "cd": 0.02075585229,
+        "cl_relative_span": 4.559640708399006e-05,
+        "cd_relative_span": 0.00047659635336661416,
+        "stable": true
+      }
+    ]
+  },
+  "report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/toolchain_sanity_report.json",
+  "markdown_report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/toolchain_sanity_report.md"
+}

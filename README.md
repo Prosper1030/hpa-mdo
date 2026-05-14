@@ -6,6 +6,9 @@ WO-006 active CFD delivery route 已重設為 `canonical_hybrid_halfwing_v0`。�
 active route state 是
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/manifest.yaml`，
 並可用 `scripts/check_canonical_hybrid_cfd_release.py` 檢查。
+外部 GPT Pro rescue 方向已保存到
+`docs/reports/wo006_cfd_external_rescue_reference.md`；它是 stuck 時的工程參考，
+不是 manifest 的替代 authority。
 
 工程決策：WO-006R25/R26/R27/R28/R29/R30 全部退回 forensic evidence。R27 只證明
 marker ownership；R28 證明 SU2 dual-control-volume quality 病態且 `CD=0.3916`
@@ -20,8 +23,14 @@ prism/hexa，core 才用 tetra，interface 必須 conformal；不得把 BL split
 global-star handoff，不得把 closure face 靜默併入 `wing_wall` force marker，也不得把
 保守 numerics 跑完當成功。manifest 裡只允許四個 release gate：
 `TOOLCHAIN_PASS`、`PRESSURE_SANITY_PASS`、`ROUTE_SMOKE_PASS`、`GRID_LADDER_PASS`。
-目前還沒有任何 gate 被宣稱 pass；下一個 gate 是 Phase 1 `TOOLCHAIN_PASS`，必須先完成
-2D NACA / current root / current mid-or-tip airfoil wall-resolved RANS/SA sanity。
+Phase 1 `TOOLCHAIN_PASS` 已通過；下一個 gate 是 Phase 2 `PRESSURE_SANITY_PASS`。
+Phase 1 artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/toolchain_sanity/`：
+2D wall-resolved `INC_RANS/SA` sanity cases 全部 completed 且 force window stable，
+`CD` 分別為 NACA4412 `0.0207559`、current root DAE31 `0.0211785`、current tip
+`0.0204750`。root DAE31 首跑失敗是因為 closed/cusped trailing edge 造成 Gmsh BL
+負品質 quad；現在 2D sanity mesh 將 closed TE 正規化成 `0.002c` finite TE cap，這是
+toolchain sanity regularization，不是 3D performance claim。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
