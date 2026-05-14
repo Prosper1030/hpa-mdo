@@ -145,6 +145,27 @@ marker 被吃掉。WO-006I preflight 已把 active topology state 推進到
 工程邊界：這代表 topology/cell-reduction basis 足以進入 writer probe，但還不是 mixed SU2
 mesh、不是 marker/quality gate pass、不是 y+，也不是 SU2 coarse/medium/fine ladder。
 
+## 2026-05-14 WO-006R25 Culled Mixed SU2 Handoff Probe
+
+`scripts/probe_wo006r25_culled_mixed_su2_handoff.py` 依 R24 cull basis 寫出第一個
+Baseline A mixed SU2 handoff probe：global-star near-wall tets + loop-cap owner
+cells + R13 repaired core tet mesh，並做 final volume-boundary marker audit。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r25_culled_mixed_su2_handoff_probe/`。
+
+實跑結果：成功寫出 `culled_global_star_mixed_handoff.su2`，`56,873` nodes /
+`332,221` volume elements，全部 tetra，mixed volume quality `pass`，non-positive
+volume elements `0`。near-wall first-layer estimate 仍是 `5e-5 m` 對應 `y+≈1.04`
+量級。R25 也把 `68` 個已確認為 exterior 的 physical wall / physical-wall-edge
+closure faces 補入 `wing_wall`，marker counts 變成 `wing_wall=1924`、
+`farfield=2366`。
+
+但 final boundary marker audit 仍 `fail`：還有 `68` 個 exterior volume faces 無 SU2
+marker，剩餘 unmarked area 約 `0.0759 m^2`。它們集中在 loop-cap fan / wake-edge
+對接區，不是全域 volume quality 問題，也不是 solver iteration 問題。WO-006I preflight
+現在會把 active blocker 更新成 `near_wall_mixed_su2_boundary_marker_blocked`，
+recommended repair 是 `localize_and_close_remaining_mixed_su2_boundary_leaks_before_solver`。
+在這個 gate 過之前，不應該跑 Baseline A medium/fine SU2。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

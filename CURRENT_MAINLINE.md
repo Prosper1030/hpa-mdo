@@ -168,6 +168,19 @@ screening evidence 讀，不是現行 release / procurement truth。
   `near_wall_merged_mesh_handoff_missing`，recommended repair 是
   `write_culled_global_star_mixed_su2_handoff_and_yplus_probe`。這仍不是 mixed SU2 mesh、
   marker/quality pass、y+ 或 solver ladder。
+- WO-006R25 已把 R24 basis 寫成第一個 culled mixed SU2 handoff probe：
+  `culled_global_star_mixed_handoff.su2` 有 `56,873` nodes / `332,221` volume
+  elements，全部 tetra；mixed volume quality `pass`，non-positive volume `0`。
+  R25 同時把 `68` 個已由 final boundary audit 證明為 exterior 且可回對到
+  `wing_wall` / `physical_wall_edge_receiver` 的 closure faces 補入 `wing_wall`
+  marker，因此 marker counts 是 `wing_wall=1924`、`farfield=2366`。但 final
+  volume-boundary marker audit 仍 `fail`：還有 `68` 個 exterior faces 沒有 SU2
+  marker，unmarked area 約 `0.0759 m^2`，集中在 loop-cap fan / wake-edge 對接區。
+  WO-006I preflight 現在會把 active blocker 推進成
+  `near_wall_mixed_su2_boundary_marker_blocked`，recommended repair 是
+  `localize_and_close_remaining_mixed_su2_boundary_leaks_before_solver`。這代表 writer
+  路線已活、BL first-layer 估算仍是 `y+≈1.04` 量級，但仍不能跑 medium/fine solver
+  ladder，也不能解讀 Baseline A CL/CD/Cm。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；

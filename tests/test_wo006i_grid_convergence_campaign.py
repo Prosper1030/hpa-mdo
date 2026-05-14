@@ -1394,6 +1394,67 @@ def test_setup_gate_r24_degenerate_cull_basis_moves_to_mixed_mesh_writer() -> No
     assert cull["records_by_role"] == {"wake_receiver": 128}
 
 
+def test_setup_gate_r25_mixed_handoff_boundary_leak_blocks_solver() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r25_culled_mixed_su2_handoff_probe.v1",
+                "verdict": "mixed_su2_handoff_marker_or_quality_blocked",
+                "mixed_su2_handoff": {
+                    "status": "mixed_su2_handoff_written",
+                    "mesh_path": "/tmp/culled_global_star_mixed_handoff.su2",
+                    "node_count": 56873,
+                    "volume_element_count": 332221,
+                    "volume_element_type_counts": {"10": 332221},
+                    "marker_counts": {"wing_wall": 1924, "farfield": 2366},
+                    "wall_marker_recovery": {"recovered_face_count": 68},
+                },
+                "volume_boundary_marker_audit": {
+                    "status": "fail",
+                    "unmarked_boundary_face_count": 68,
+                    "unmarked_boundary_area_m2": 0.0759,
+                    "extra_marker_face_count": 0,
+                },
+                "mixed_mesh_quality": {
+                    "status": "pass",
+                    "non_positive_volume_count": 0,
+                },
+                "blockers": ["volume_boundary_faces_without_su2_marker"],
+            }
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert (
+        result["core_closure_topology"]["status"]
+        == "handoff_mixed_su2_marker_or_quality_blocked"
+    )
+    assert "near_wall_mixed_su2_boundary_marker_blocked" in result["blockers"]
+    assert "near_wall_merged_mesh_handoff_missing" not in result["blockers"]
+    handoff = result["core_closure_topology"]["mixed_su2_handoff"]
+    assert handoff["volume_element_count"] == 332221
+    assert handoff["unmarked_boundary_face_count"] == 68
+    assert (
+        result["core_closure_topology"]["recommended_repair"]
+        == "localize_and_close_remaining_mixed_su2_boundary_leaks_before_solver"
+    )
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"
