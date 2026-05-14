@@ -1252,6 +1252,261 @@ def write_phase3_minimal_transition_unit_su2(out_path: Path | str) -> dict[str, 
     return report
 
 
+def write_phase3_partial_wing_transition_collar_handoff_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 5.0e-4,
+) -> dict[str, Any]:
+    """Convert partial-BL rim quads into pyramid transition-collar faces.
+
+    This is a real-wing handoff probe, not the final merged core. It preserves
+    prism BL on `wing_upper`/`wing_lower`, turns TE/tip/closure prism side quads
+    into pyramid bases, and exposes only triangular transition faces for a future
+    tetra core. Original cap faces and the core fill remain explicit blockers.
+    """
+    prism_wall_markers = set(PRIMARY_FORCE_MARKERS)
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in prism_wall_markers
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            collar_volume,
+            comments=(
+                "% Canonical hybrid half-wing partial-BL transition-collar handoff.",
+                "% TE/tip/closure prism rim quads are internal pyramid bases.",
+                "% Original cap faces and tetra core are still pending.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    type_counts: dict[str, int] = {}
+    for element_type, _nodes in collar_volume["elements"]:
+        key = str(element_type)
+        type_counts[key] = type_counts.get(key, 0) + 1
+    outer_interface = marker_summary["markers"].get("bl_outer_interface", {})
+    collar_interface = marker_summary["markers"].get("transition_collar_interface", {})
+    interface_element_count = int(outer_interface.get("element_count") or 0) + int(
+        collar_interface.get("element_count") or 0
+    )
+    direct_prism_quality = _direct_prism_quality_metrics(collar_volume)
+    report = {
+        "route": "canonical_hybrid_halfwing_partial_wing_transition_collar_handoff",
+        "status": "partial_wing_transition_collar_ready_caps_pending",
+        "mesh_path": str(output_path),
+        "node_count": len(collar_volume["nodes"]),
+        "volume_element_count": len(collar_volume["elements"]),
+        "volume_element_type_counts": dict(sorted(type_counts.items())),
+        "boundary_layer_cell_count": int(type_counts.get(str(SU2_PRISM), 0)),
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(direct_prism_quality),
+        "transition_collar": collar_report,
+        "core_tetra_interface": {
+            "status": "triangular_transition_interface_ready_caps_pending",
+            "markers": ["bl_outer_interface", "transition_collar_interface"],
+            "element_count": interface_element_count,
+            "element_type_counts": {str(SU2_TRIANGLE): interface_element_count},
+        },
+        "cap_closure_topology": {
+            "status": "blocked_original_caps_and_core_missing",
+            "source_surface_face_counts": {
+                marker: surface.marker_counts().get(marker, 0)
+                for marker in DIAGNOSTIC_FORCE_MARKERS
+            },
+            "required_policy": (
+                "Original tip/TE/closure cap faces must be materialized as physical "
+                "core boundary markers; prism rim side quads must remain internal "
+                "transition-collar bases, not force walls."
+            ),
+        },
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "closure_faces_merged_into_wing_wall": False,
+            "prism_rim_quads_exposed_as_force_walls": (
+                collar_report["force_wall_rim_marker_leak_count"] > 0
+            ),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Real-wing partial-BL collar handoff only. It proves rim quads can "
+                "be converted to pyramid transition bases with triangular core "
+                "interface faces, but original cap faces, tetra core, SU2 dual "
+                "quality, pressure sanity, and RANS route-smoke are still pending."
+            ),
+        },
+    }
+    return report
+
+
+def _partial_wing_transition_collar_volume(
+    prism_volume: Mapping[str, Any],
+    *,
+    collar_height_m: float,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    if collar_height_m <= 0.0:
+        raise ValueError("collar_height_m must be positive")
+    nodes = [tuple(vertex) for vertex in prism_volume["nodes"]]
+    elements = list(prism_volume["elements"])
+    face_owners = _volume_face_owner_map(elements)
+    marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
+    converted_by_marker = {marker: 0 for marker in DIAGNOSTIC_FORCE_MARKERS}
+    pyramid_signed_volumes: list[float] = []
+
+    for marker, faces in _mapping(prism_volume.get("marker_faces")).items():
+        for element_type, face_nodes in faces:
+            nodes_tuple = tuple(int(node) for node in face_nodes)
+            if marker in DIAGNOSTIC_FORCE_MARKERS and int(element_type) == SU2_QUAD:
+                owner = _single_face_owner(face_owners, nodes_tuple, SU2_PRISM)
+                apex = _collar_apex_for_prism_face(
+                    nodes,
+                    nodes_tuple,
+                    elements[int(owner["element_index"])][1],
+                    collar_height_m=collar_height_m,
+                )
+                nodes.append(apex)
+                pyramid = _oriented_pyramid_positive(nodes, nodes_tuple, len(nodes) - 1)
+                elements.append((SU2_PYRAMID, pyramid))
+                pyramid_signed_volumes.append(_su2_pyramid_signed_volume(nodes, pyramid))
+                for side_face in _volume_element_faces(SU2_PYRAMID, pyramid)[1:]:
+                    marker_faces.setdefault("transition_collar_interface", []).append(
+                        (SU2_TRIANGLE, tuple(int(node) for node in side_face))
+                    )
+                converted_by_marker[str(marker)] = converted_by_marker.get(str(marker), 0) + 1
+                continue
+            marker_faces.setdefault(str(marker), []).append((int(element_type), nodes_tuple))
+
+    force_wall_rim_marker_leak_count = sum(
+        len(marker_faces.get(marker, [])) for marker in DIAGNOSTIC_FORCE_MARKERS
+    )
+    finite_pyramid_volumes = [
+        value for value in pyramid_signed_volumes if math.isfinite(value)
+    ]
+    report = {
+        "converted_prism_rim_quads_by_marker": converted_by_marker,
+        "converted_prism_rim_quad_count": sum(converted_by_marker.values()),
+        "interface_triangle_count": len(marker_faces.get("transition_collar_interface", [])),
+        "force_wall_rim_marker_leak_count": force_wall_rim_marker_leak_count,
+        "collar_height_m": float(collar_height_m),
+        "pyramid_signed_volume": {
+            "count": len(pyramid_signed_volumes),
+            "min": min(finite_pyramid_volumes) if finite_pyramid_volumes else None,
+            "max": max(finite_pyramid_volumes) if finite_pyramid_volumes else None,
+            "non_positive_count": sum(
+                1 for value in finite_pyramid_volumes if value <= 0.0
+            ),
+        },
+    }
+    return {
+        "nodes": nodes,
+        "elements": elements,
+        "marker_faces": marker_faces,
+    }, report
+
+
+def _single_face_owner(
+    face_owners: Mapping[tuple[int, ...], Sequence[Mapping[str, Any]]],
+    face_nodes: Sequence[int],
+    element_type: int,
+) -> Mapping[str, Any]:
+    owners = [
+        owner
+        for owner in face_owners.get(_face_key_nodes(face_nodes), [])
+        if int(owner["element_type"]) == int(element_type)
+    ]
+    if len(owners) != 1:
+        raise RuntimeError(
+            f"expected one owner of type {element_type} for face {tuple(face_nodes)}, got {len(owners)}"
+        )
+    return owners[0]
+
+
+def _collar_apex_for_prism_face(
+    vertices: Sequence[tuple[float, float, float]],
+    face_nodes: Sequence[int],
+    owner_nodes: Sequence[int],
+    *,
+    collar_height_m: float,
+) -> tuple[float, float, float]:
+    face_points = [vertices[int(node)] for node in face_nodes]
+    face_centroid = (
+        sum(point[0] for point in face_points) / len(face_points),
+        sum(point[1] for point in face_points) / len(face_points),
+        sum(point[2] for point in face_points) / len(face_points),
+    )
+    owner_points = [vertices[int(node)] for node in owner_nodes]
+    owner_centroid = (
+        sum(point[0] for point in owner_points) / len(owner_points),
+        sum(point[1] for point in owner_points) / len(owner_points),
+        sum(point[2] for point in owner_points) / len(owner_points),
+    )
+    area_vector = _face_area_vector(vertices, tuple(int(node) for node in face_nodes))
+    area_norm = math.sqrt(
+        area_vector[0] ** 2 + area_vector[1] ** 2 + area_vector[2] ** 2
+    )
+    if area_norm <= 1.0e-14:
+        direction = _vector_between(owner_centroid, face_centroid)
+        direction_norm = math.sqrt(_dot(direction, direction))
+        if direction_norm <= 1.0e-14:
+            direction = (0.0, 0.0, 1.0)
+            direction_norm = 1.0
+        normal = (
+            direction[0] / direction_norm,
+            direction[1] / direction_norm,
+            direction[2] / direction_norm,
+        )
+    else:
+        normal = (
+            area_vector[0] / area_norm,
+            area_vector[1] / area_norm,
+            area_vector[2] / area_norm,
+        )
+    outward_hint = _vector_between(owner_centroid, face_centroid)
+    if _dot(normal, outward_hint) < 0.0:
+        normal = (-normal[0], -normal[1], -normal[2])
+    return (
+        face_centroid[0] + collar_height_m * normal[0],
+        face_centroid[1] + collar_height_m * normal[1],
+        face_centroid[2] + collar_height_m * normal[2],
+    )
+
+
 def _minimal_transition_unit_volume() -> dict[str, Any]:
     nodes: list[tuple[float, float, float]] = []
     elements: list[tuple[int, tuple[int, ...]]] = []

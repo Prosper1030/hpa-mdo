@@ -439,3 +439,42 @@ def test_minimal_transition_unit_requires_pyramid_collar_between_prism_and_tet(
     assert report["marker_summary"]["wing_upper"]["element_count"] == 1
     assert report["marker_summary"]["wing_lower"]["element_count"] == 1
     assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_partial_wing_transition_collar_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "partial_wing_transition_collar_handoff.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=5.0e-4,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_partial_wing_transition_collar_handoff"
+    assert report["status"] == "partial_wing_transition_collar_ready_caps_pending"
+    assert report["volume_element_type_counts"][str(module.SU2_PRISM)] > 0
+    assert report["volume_element_type_counts"][str(module.SU2_PYRAMID)] > 0
+    converted = report["transition_collar"]["converted_prism_rim_quads_by_marker"]
+    assert converted["tip_wall"] > 0
+    assert converted["te_wall"] > 0
+    assert converted["closure_wall"] > 0
+    assert report["transition_collar"]["force_wall_rim_marker_leak_count"] == 0
+    assert report["transition_collar"]["pyramid_signed_volume"]["non_positive_count"] == 0
+    assert report["core_tetra_interface"]["status"] == "triangular_transition_interface_ready_caps_pending"
+    assert report["core_tetra_interface"]["element_type_counts"] == {
+        str(module.SU2_TRIANGLE): report["core_tetra_interface"]["element_count"],
+    }
+    assert report["marker_summary"]["transition_collar_interface"]["element_type_counts"] == {
+        str(module.SU2_TRIANGLE): report["transition_collar"]["interface_triangle_count"],
+    }
+    for diagnostic_marker in module.DIAGNOSTIC_FORCE_MARKERS:
+        assert diagnostic_marker not in report["marker_summary"]
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False

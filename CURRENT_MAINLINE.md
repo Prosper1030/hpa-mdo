@@ -109,6 +109,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   collar 套回真翼」。它仍不是 `ROUTE_SMOKE_PASS`；真翼仍需 pps42、layers
   `3 -> 8 -> 16 -> 24` build-up、merged SU2 writer、pre-solver dual-quality gate
   與 pressure-only CD sanity。
+- WO-006 Phase 3 真翼 partial-BL transition-collar handoff 已新增：
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_transition_collar_handoff_pps42_l24/`。
+  在 `points_per_side=42`、24 layers 下，它保留 `124,416` prisms，並把原本
+  `tip_wall=1944`、`te_wall=1344`、`closure_wall=192` 個 partial-BL rim quads
+  轉為 `3,480` 個 pyramid collar bases；`transition_collar_interface` 有
+  `13,920` triangular faces，`force_wall_rim_marker_leak_count=0`，pyramid signed
+  volume non-positive count `0`，SU2 boundary ownership pass，direct prism quality
+  gate pass。這仍是 caps/core pending handoff，不是 route-smoke；下一步是把
+  original tip/TE/closure physical cap faces 與 tetra core merge 進同一個 hybrid
+  SU2 mesh，再做 pressure-only sanity。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

@@ -108,6 +108,16 @@ topology unit，不是真翼 mesh；下一步應把這個 collar contract 套回
 `points_per_side=42`、layers `3 -> 8 -> 16 -> 24` 的 build-up，而不是繼續把問題
 當成 Gmsh multi-loop cap surface repair。
 
+真翼 partial-BL transition-collar handoff 也已建立在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_transition_collar_handoff_pps42_l24/`：
+`124,416` prisms + `3,480` pyramids，原本會被誤標成 diagnostic wall 的 rim quads
+已轉成 internal pyramid bases（`tip_wall=1944`、`te_wall=1344`、`closure_wall=192`），
+`transition_collar_interface` 產生 `13,920` triangular faces，`force_wall_rim_marker_leak_count=0`，
+pyramid signed volume non-positive count `0`，SU2 boundary ownership pass，direct prism
+quality gate pass。工程邊界：這仍是 caps/core pending handoff，不是 route-smoke；
+下一步是把 original tip/TE/closure cap physical faces 與 tetra core merge 進同一個
+hybrid SU2 mesh。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route
