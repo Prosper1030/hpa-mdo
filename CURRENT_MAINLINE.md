@@ -248,6 +248,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   status 為 `segmented_partial_wing_structured_transition_projection_blocked`。工程判讀：
   不能直接把 tiny handoff 的 per-triangle closure 放大；下一步應改成 shared-node
   stitched sidewall sheet、collar band coarsening，或只在真正外 rim 做 transition。
+- pps42/l3 stitched-sheet projection 也已跑過：
+  `segmented_partial_wing_structured_transition_projection_pps42_l3_stitched/`。
+  同樣 `9708` 個 interface triangles，但 interface edge topology 是 `15374` edges、
+  `1624` boundary edges、nonmanifold `0`；若相鄰 transition prisms 共用 row
+  nodes，只需 `3248` sidewall closure pyramids 與 `12992` closure tets，投影總量
+  降到 `55,627` volume elements，低於 `250,000` gate。工程判讀：下一個 active
+  implementation 應是 shared-node stitched transition sheet，而不是 per-triangle
+  isolated extrusion。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

@@ -2438,6 +2438,7 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
     bl_layers: int = 4,
     collar_height_m: float = 1.0e-4,
     transition_row_heights_m: Sequence[float] = (0.03, 0.09),
+    sidewall_closure_policy: str = "per_triangle",
     max_projected_volume_elements: int | None = None,
 ) -> dict[str, Any]:
     """Estimate structured transition handoff cost before generating it."""
@@ -2495,8 +2496,34 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
         raise ValueError("transition_row_heights_m must contain positive heights")
     row_count = len(row_heights)
     input_interface_triangle_count = int(collar_report["interface_triangle_count"])
+    interface_triangles = [
+        tuple(int(node) for node in face_nodes)
+        for element_type, face_nodes in collar_volume["marker_faces"].get(
+            "transition_collar_interface",
+            [],
+        )
+        if int(element_type) == SU2_TRIANGLE
+    ]
+    interface_edge_counts: dict[tuple[int, int], int] = {}
+    for triangle in interface_triangles:
+        for start, end in zip(triangle, [*triangle[1:], triangle[0]]):
+            key = tuple(sorted((int(start), int(end))))
+            interface_edge_counts[key] = interface_edge_counts.get(key, 0) + 1
+    interface_boundary_edge_count = sum(
+        1 for count in interface_edge_counts.values() if int(count) == 1
+    )
+    interface_nonmanifold_edge_count = sum(
+        1 for count in interface_edge_counts.values() if int(count) > 2
+    )
     transition_prism_count = input_interface_triangle_count * row_count
-    sidewall_closure_pyramid_count = input_interface_triangle_count * row_count * 3
+    if sidewall_closure_policy == "per_triangle":
+        sidewall_closure_pyramid_count = input_interface_triangle_count * row_count * 3
+    elif sidewall_closure_policy == "stitched_sheet":
+        sidewall_closure_pyramid_count = interface_boundary_edge_count * row_count
+    else:
+        raise ValueError(
+            "sidewall_closure_policy must be 'per_triangle' or 'stitched_sheet'"
+        )
     sidewall_closure_tetra_count = sidewall_closure_pyramid_count * 4
     base_type_counts: dict[str, int] = {}
     for element_type, _nodes in collar_volume["elements"]:
@@ -2521,6 +2548,8 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
         and projected_volume_element_count > int(max_projected_volume_elements)
     ):
         blockers.append("projected_volume_element_count_exceeds_gate")
+    if sidewall_closure_policy == "stitched_sheet" and interface_nonmanifold_edge_count:
+        blockers.append("stitched_interface_edges_nonmanifold")
     report = {
         "route": (
             "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_projection"
@@ -2543,8 +2572,12 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
                 sorted(projected_type_counts.items())
             ),
             "input_interface_triangle_count": input_interface_triangle_count,
+            "input_interface_edge_count": len(interface_edge_counts),
+            "interface_boundary_edge_count": interface_boundary_edge_count,
+            "interface_nonmanifold_edge_count": interface_nonmanifold_edge_count,
             "transition_row_count": row_count,
             "transition_row_heights_m": list(row_heights),
+            "sidewall_closure_policy": sidewall_closure_policy,
             "transition_prism_count": transition_prism_count,
             "sidewall_closure_pyramid_count": sidewall_closure_pyramid_count,
             "sidewall_closure_tetra_count": sidewall_closure_tetra_count,

@@ -220,7 +220,9 @@ triangular-interface contract 可投影到真翼，不是 y+ 或 route-smoke 證
 pps42/l3 的 projection gate 也已跑過：`9708` 個 collar interface triangles 若照
 目前 naive per-triangle sidewall closure 放大，會投影到 `330,627` 個 volume
 elements，超過 `250,000` 的 Mac-safe gate；因此不能直接放大 tiny handoff。
-下一步要做 shared-node / stitched sidewall 或 collar band coarsening。
+改用 stitched-sheet projection 後，因為 interface 只有 `1624` 個 boundary edges
+需要 closure，投影總量降到 `55,627` 個 volume elements，低於 gate。下一步要做
+shared-node stitched transition sheet。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

@@ -877,6 +877,40 @@ def test_segmented_structured_transition_projection_blocks_element_explosion() -
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_structured_transition_projection_stitched_sidewalls_scales() -> None:
+    module = _load_module()
+
+    report = module.plan_phase3_segmented_partial_wing_structured_transition_handoff(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        points_per_side=4,
+        spanwise_subdivisions=1,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=2,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.03, 0.09),
+        sidewall_closure_policy="stitched_sheet",
+        max_projected_volume_elements=150_000,
+    )
+
+    assert report["status"] == "segmented_partial_wing_structured_transition_projection_ready"
+    projected = report["projected_counts"]
+    assert projected["interface_boundary_edge_count"] > 0
+    assert projected["interface_nonmanifold_edge_count"] == 0
+    assert projected["sidewall_closure_policy"] == "stitched_sheet"
+    assert (
+        projected["sidewall_closure_pyramid_count"]
+        == projected["interface_boundary_edge_count"] * 2
+    )
+    assert (
+        projected["sidewall_closure_tetra_count"]
+        == projected["sidewall_closure_pyramid_count"] * 4
+    )
+    assert projected["projected_volume_element_count"] < 150_000
+    assert report["gate"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
     module = _load_module()
     surface = module.SurfaceMesh(

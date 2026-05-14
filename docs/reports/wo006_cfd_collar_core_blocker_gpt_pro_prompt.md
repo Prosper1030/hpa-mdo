@@ -163,13 +163,21 @@ are `330,627`, above the local Mac-safe gate of `250,000`.  This means the
 tiny handoff topology is valid, but the naive all-sidewall closure is not the
 right production scaling rule.
 
+The stitched-sheet projection is the current best local evidence.  With the
+same pps42/l3 collar, the interface has `15374` edges, `1624` boundary edges,
+and `0` nonmanifold edges.  If adjacent transition prisms share row nodes, only
+the boundary edges need closure: projected sidewall closure drops to `3248`
+pyramids and `12992` tetra, with projected total volume elements `55,627`, below
+the `250,000` gate.
+
 ## Question To Answer
 
 Please review the real-wing projection strategy, not solver numerics.
 
 Which route should we implement next, and what are the exact construction rules?
-In particular, should the next topology use shared-node stitched sidewall
-sheets, collar-band coarsening, or transition only on true outer rim edges?
+I am leaning toward shared-node stitched sidewall sheets because it is the only
+projection currently under the Mac-safe gate. Please challenge or refine that
+construction rule.
 
 Candidates:
 
