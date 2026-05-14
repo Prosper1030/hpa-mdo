@@ -14,9 +14,13 @@ farfield 也從 route-smoke 的 `2c/4c` 改成 `20c/40c`（lateral/vertical `8c`
 但 larger-domain BL sanity 沒有修好 high-CD：`CD≈0.642`。`scripts/diagnose_wo006j_drag_source.py`
 可重跑 WO-006J force-breakdown / surface-pressure localization；目前診斷顯示 Euler/slip-wall
 probe 的 `CD≈0.298` 是 pressure-only，RANS/BL 的 `CD≈0.642` 由 pressure `≈0.492`
-加 friction `≈0.150` 組成。因此問題不是只靠多跑 iteration 或單純放大 farfield 就會好；
-必須先修 pressure/geometry/numerics artifact 與 BL friction setup，再重跑同幾何、同 physics
-的 coarse/medium/fine ladder。
+加 friction `≈0.150` 組成。`scripts/probe_wo006j_numerics_sensitivity.py` 也已把
+同一 large-domain Euler mesh 拿來測 FDS/MUSCL：原 source config 的確有
+`FDS + MUSCL_FLOW=NO` 的低階疑點，但無限制 MUSCL 會在 12 iter 內發散；保守
+`FDS + MUSCL + VENKATAKRISHNAN`、`CFL=0.02` 跑滿 300 iter 仍是 `CD=0.447702`。
+因此問題不是只靠多跑 iteration、單純放大 farfield，或只打開 MUSCL 就會好；必須先修
+pressure/geometry/numerics artifact 與 BL friction setup，再重跑同幾何、同 physics 的
+coarse/medium/fine ladder。
 
 ## 2026-05-13 WO-006I CFD Setup Gate Reset
 

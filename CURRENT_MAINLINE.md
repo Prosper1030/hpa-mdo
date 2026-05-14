@@ -51,9 +51,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   預設 farfield 從 route-smoke `2c/4c` 改為 `20c/40c`，但 larger-domain sanity case
   仍是 `CD≈0.642`。新增 `scripts/diagnose_wo006j_drag_source.py` 可重跑 force-breakdown /
   surface-pressure localization；目前診斷顯示 Euler/slip-wall `CD≈0.298` 是 pressure-only，
-  RANS/BL `CD≈0.642` 分解成 pressure `≈0.492` + friction `≈0.150`。因此下一步不能
-  只跑更大網格或更多 iteration；要先修 pressure/geometry/numerics artifact 與 BL friction
-  setup，之後才重跑同幾何、同 physics 的 coarse/medium/fine ladder。
+  RANS/BL `CD≈0.642` 分解成 pressure `≈0.492` + friction `≈0.150`。新增
+  `scripts/probe_wo006j_numerics_sensitivity.py` 可重用同一 large-domain Euler mesh
+  做 FDS/MUSCL 敏感度診斷：原 source config 的 `FDS + MUSCL_FLOW=NO` 只能當
+  low-order diagnostic，無限制 MUSCL 在 12 iter 內發散；保守
+  `FDS + MUSCL + VENKATAKRISHNAN`、`CFL=0.02` 跑滿 300 iter 後仍是
+  `CL=0.715715`、`CD=0.447702`、`CMy=-0.198644`，CD gate fail。因此下一步不能
+  只跑更大網格、更多 iteration，或只把 MUSCL 打開；要先修 pressure/geometry/numerics
+  artifact 與 BL friction setup，之後才重跑同幾何、同 physics 的 coarse/medium/fine ladder。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
