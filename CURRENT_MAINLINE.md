@@ -267,6 +267,18 @@ screening evidence 讀，不是現行 release / procurement truth。
   accounting 與 external surface closure 已可進入 core/farfield mesh probe；mesh quality、
   SU2 marker/readability、near-wall/y+ 與 solver ladder 都還沒過，因此不能跑 medium/fine
   SU2 或解讀 CL/CD/Cm。
+- WO-006R10 新增 near-wall core closure probe：
+  `scripts/probe_wo006r10_near_wall_core_closure.py` 接在 WO-006AD sharp-TE seam repair
+  後，檢查 watertight near-wall candidate 是否可安全升級成 core/farfield inner
+  interface。Baseline A current geometry artifact 在
+  `wo006r10_near_wall_core_closure_probe/`；實跑 full near-wall boundary 是 `watertight`
+  且 `bad_edge_count=0`，但排除 physical-wall roles 後的 core-facing subset 仍
+  `not_watertight`，有 `64` 條 bad edges（`core_tip_receiver_outer=60`、
+  `wake_edge_receiver=4`）。full-shell policy 是 `forbidden`，因為 full shell 含
+  `wing_wall=960` 與 `physical_wall_edge_receiver=60`，不能借 physical wall 來補 core
+  interface。判讀：下一步必須 materialize 真正 core-facing closure，不能改 Baseline A
+  external wall shape，也不能把 physical wall 誤標成 core interface；在此之前仍不能跑
+  medium/fine SU2 或解讀 CL/CD/Cm。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

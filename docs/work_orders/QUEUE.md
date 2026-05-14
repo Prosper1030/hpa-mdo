@@ -110,6 +110,16 @@ Current release package:
   preserved, should generate and quality-gate a core/farfield mesh from this
   watertight near-wall candidate, then only after marker/readability and y+
   checks attempt a coarse/medium/fine solver ladder.
+- WO-006R10 near-wall core closure probe is complete as a topology/policy gate,
+  not CFD evidence. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r10_near_wall_core_closure_probe/`.
+  It confirms AD's full near-wall boundary is watertight, but the core-facing
+  subset remains open (`64` bad edges) unless physical-wall roles are borrowed;
+  that full-shell shortcut is forbidden because it would mis-own `wing_wall`
+  and `physical_wall_edge_receiver` as core interface. With the data-authority
+  checker prerequisite preserved, the next WO-006 repair should materialize a
+  true core-facing closure without changing the external Baseline A wall shape,
+  then generate a marker/quality-gated core/farfield mesh.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

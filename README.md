@@ -226,6 +226,30 @@ blocker 已解掉；但這仍不是 final BL/core handoff。剩餘 blockers 是 
 merged mesh quality not run、SU2 marker/readability not run、near-wall/y+ not postprocessed、
 solver ladder not run；因此仍不能跑 medium/fine SU2 或解讀 CL/CD/Cm。
 
+## 2026-05-14 WO-006R10 Near-Wall Core Closure Probe
+
+WO-006R10 新增 `scripts/probe_wo006r10_near_wall_core_closure.py`，接在 WO-006AD
+sharp-TE seam repair 後，檢查 watertight near-wall candidate 是否能安全升級成
+core/farfield mesh 的 inner interface。這仍是 topology/policy evidence，不是 Gmsh/SU2
+handoff，也不是 CFD 係數證據。
+
+Baseline A current geometry artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r10_near_wall_core_closure_probe/`。
+實跑 `points_per_side=16`、`spanwise_subdivisions=2` 得到
+`near_wall_core_interface_closure_blocked`：full near-wall boundary 是 `watertight`
+且 `bad_edge_count=0`，但排除 physical-wall roles 後的 core-facing subset 仍是
+`not_watertight`，有 `64` 條 bad edges（role touch：`core_tip_receiver_outer=60`、
+`wake_edge_receiver=4`）。同時 full-shell policy 是 `forbidden`，因為 full shell 含
+`wing_wall=960` 與 `physical_wall_edge_receiver=60`，不能借 physical wall 來補 core
+interface。
+
+工程判讀：WO-006AD 已修好 near-wall external surface closure，但 WO-006R10 證明下一步
+不是把 full shell 直接丟給 Gmsh，而是要 materialize 一個真正 core-facing 的 closure，
+不能改 Baseline A external wall shape，也不能把 physical wall 誤標成 core interface。剩餘
+blockers：core-facing surface not watertight、full shell contains physical wall roles、
+core interface not materialized、core/farfield mesh not generated、merged mesh quality not
+run、SU2 marker/readability not run、near-wall/y+ not postprocessed、solver ladder not run。
+
 ## 2026-05-14 WO-006AD Near-Wall Merged Volume Candidate Probe
 
 WO-006AD 新增 `scripts/probe_wo006ad_near_wall_merged_volume_candidate.py`，把 owned BL
