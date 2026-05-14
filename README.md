@@ -246,6 +246,28 @@ R28 的 dual-quality blocker 仍然存在；下一步要定位 SU2 dual/control-
 本身的幾何來源，或重建/解析 SU2 對 vertex dual volumes 的品質計算，不能只靠 primal
 tet volume ratio 繼續猜。
 
+## 2026-05-14 WO-006R30 SU2 Dual Subvolume Localization Probe
+
+`scripts/probe_wo006r30_su2_dual_subvolume_localization.py` 接在 R29 後面，改用
+SU2 source 裡 `CPhysicalGeometry::ComputeMeshQualityStatistics` 的同類邏輯：對每個
+vertex dual control volume 記錄 sub-element volume 的 max/min，而不是只看整顆 tet
+或 shared-face volume jump。測試在
+`tests/test_wo006r30_su2_dual_subvolume_localization_probe.py`。
+
+實跑 artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r30_su2_dual_subvolume_localization_probe/`。
+R30 重現 R28 的 SU2 `CV Sub-Volume Ratio` 量級：`max=207840927876.89658`
+（R28 solver log 是 `2.07841e11`）。最壞點是 point `56784`，座標
+`x=-2.684534382258478`、`y=21.21191727545568`、`z=1.867804964000869`，
+`point_markers=["farfield"]`，incident elements 為 `{"core_tet_mesh": 1704}`；
+第二壞點 point `56503` 也是 `farfield` / `core_tet_mesh`。後續幾個 hotspots 才混到
+tip 附近的 core/near-wall transition。
+
+工程判讀：R28 的主 dual-volume 爆點不是 BL wall marker 本身，而是 core/farfield
+tet construction 在 tip/farfield 周邊把極小 subvolume 和數 m3 級 subvolume 接到同一個
+vertex dual CV。下一步要修 core/farfield/tip transition mesh sizing 或 farfield-core
+tet construction；在 R30 blocker 消掉前，不能再用 R27 mesh 跑 medium/fine ladder。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

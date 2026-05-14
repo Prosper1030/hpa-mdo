@@ -234,6 +234,18 @@ screening evidence 讀，不是現行 release / procurement truth。
   `2.07841e11`。工程判讀是 R29 排除了「單純 primal adjacent tet volume jump」
   這條解釋路線；下一步要定位 SU2 dual/control-volume metric 本身，而不是把 R29
   當 mesh repair 或 CFD evidence。
+- WO-006R30 已把 R28 的 `CV Sub-Volume Ratio` 病灶 localization 到 SU2-style
+  vertex dual subvolume 層級：
+  `scripts/probe_wo006r30_su2_dual_subvolume_localization.py` 依照 SU2
+  `CPhysicalGeometry::ComputeMeshQualityStatistics` 的 max/min sub-element volume
+  思路掃 R25/R27 mixed mesh provenance。實跑 artifact 在
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r30_su2_dual_subvolume_localization_probe/`：
+  `max_cv_sub_volume_ratio=207840927876.89658`，對上 R28 solver log 的
+  `2.07841e11`；最壞 point `56784` 位於
+  `(-2.684534382258478, 21.21191727545568, 1.867804964000869)`，
+  marker 是 `farfield`，incident source counts 是 `{"core_tet_mesh": 1704}`。
+  因此目前最直接的修復對象是 tip/farfield 周邊的 core/farfield tet construction
+  或 sizing transition，而不是再重跑 solver 或把問題歸咎於 no-slip marker wiring。
 - WO-006I grid-convergence gate 也會拒絕短尾段 force stability：CL/CD/Cm stability
   summary 必須至少覆蓋 `100` 個 iterations，CL/CD relative spread 需在 `1%` 內、Cm
   absolute spread 需在 `0.005` 內；舊 summary 若只用 25-row tail 宣稱 pass，會被
