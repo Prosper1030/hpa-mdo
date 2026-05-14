@@ -72,7 +72,10 @@ evidence; it is a handoff/debug map for the next worker.
   thickness is now a real geometry constraint: `2.5e-4 m` still self-intersects,
   while `1.0e-4 m` tetra-fills cleanly.  Thin-collar pps42 scale probes then
   tetra-fill at l4/l8/l16, but l16 already costs about six minutes on this Mac,
-  so runtime is now part of the gate.
+  so runtime is now part of the gate.  The first merged SU2 hybrid writer can
+  now write a pps12/l4 prism+pyramid+tet mesh with clean markers and no unused
+  nodes, but SU2 pressure-only smoke exposes a new dual-volume pathology in the
+  collar/core interface.
 
 ## Problems And Repairs
 
@@ -100,6 +103,8 @@ evidence; it is a handoff/debug map for the next worker.
 | collar+cap shell can tetra-fill at small scale | pps12/l4 collar+cap probe combines `bl_outer_interface`, `transition_collar_interface`, and original cap faces; Gmsh fills the core with `9,088` tetra and no forbidden core element types | The explicit collar makes the prism rim compatible with a triangular tetra-core boundary at small scale | `run_phase3_partial_wing_transition_collar_core_probe()` writes `partial_wing_transition_collar_core_probe_report.json` and `core.msh` | Scale the collar+cap core merge to pps42/l24 and then write the merged SU2 hybrid mesh with internal interface markers removed |
 | collar height controls pps24 scale-up | pps24/l4 with `collar_height=2.5e-4 m` still fails Gmsh core fill with `PLC Error: A segment and a facet intersect at point`; `collar_height=1.0e-4 m` fills with `12,028` tetra and no forbidden core element types | The transition collar can solve element compatibility but still self-intersects if apex offset is too thick for local TE/tip/cap geometry | Regression test `test_partial_wing_transition_collar_core_probe_scales_to_pps24_with_thin_collar` locks the thin-collar pass | Use thin collar policy for the next pps42 and layer ladder; do not interpret thick-collar PLC failure as solver/numerics issue |
 | thin-collar pps42 core scale reaches 16 layers | pps42/l4 fills with `16,462` tetra in about `51 s`; pps42/l8 fills with `20,093` tetra in about `118 s`; pps42/l16 fills with `26,600` tetra in about `355 s`; all have forbidden core element counts `{}` | The collar+cap topology is not blocked by full chordwise resolution up to 16 layers, but Gmsh runtime grows quickly | Manual artifacts under `partial_wing_transition_collar_core_probe_pps42_l4_h1e-4/`, `_l8_h1e-4/`, and `_l16_h1e-4/` record the runs | Do not blindly run l24 as the next proof; write merged SU2 hybrid mesh and run marker/dual-quality/pressure sanity on l4 or l8 first |
+| first merged collar-core SU2 writer passes marker/readability gates | pps12/l4 merged writer outputs `5,376` prisms + `340` pyramids + `8,690` tetra; final markers are `wing_upper`, `wing_lower`, `tip_wall`, `te_wall`, `closure_wall`, `root_symmetry`, `farfield`; internal `bl_outer_interface` / `transition_collar_interface` are removed | The final SU2 writer must compact unused prism-layer nodes; otherwise SU2 aborts with `NPOIN` mismatch even though parser/ownership audits pass | `write_phase3_partial_wing_transition_collar_core_hybrid_su2()` now compacts unused nodes (`4` removed in pps12/l4), marker audit / ownership pass | Run pressure-only sanity before any RANS; do not treat writer success as route-smoke |
+| merged collar-core pressure smoke exposes new dual pathology | pps12/l4 pressure-only probe reads mesh but fails after `3` rows / iteration `2`; dual metrics are min orthogonality `0.0105006 deg`, max CV face-area aspect ratio `7.58862e9`, max CV sub-volume ratio `4.37135e11`; forces breakdown missing | The pyramid collar / local core interface likely creates sliver-like vertex-dual control volumes even though topology and marker ownership are now valid | Artifact `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/pressure_probe_report.json` records the failure | Fix collar/core-interface quality before RANS; likely need collar geometry/size/aspect gate or a different transition element policy |
 
 ## Phase 1 Toolchain Sanity Evidence
 

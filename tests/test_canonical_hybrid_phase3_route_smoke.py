@@ -538,3 +538,36 @@ def test_partial_wing_transition_collar_core_probe_scales_to_pps24_with_thin_col
     assert report["transition_collar"]["pyramid_signed_volume"]["non_positive_count"] == 0
     assert report["core_report"]["volume_element_type_counts"] == {module.GMSH_TETRA: 12028}
     assert report["core_report"]["forbidden_element_type_counts"] == {}
+
+
+def test_partial_wing_transition_collar_core_hybrid_writer_merges_without_interface_markers(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_partial_wing_transition_collar_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "partial_wing_transition_collar_core_hybrid.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=1.0e-4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_partial_wing_transition_collar_core_hybrid"
+    assert report["status"] == "partial_wing_transition_collar_core_hybrid_written"
+    assert report["volume_element_type_counts"][str(module.SU2_PRISM)] > 0
+    assert report["volume_element_type_counts"][str(module.SU2_PYRAMID)] > 0
+    assert report["volume_element_type_counts"][str(module.SU2_TETRAHEDRON)] == 8690
+    assert report["node_compaction"]["removed_unused_node_count"] == 4
+    assert "bl_outer_interface" not in report["marker_summary"]
+    assert "transition_collar_interface" not in report["marker_summary"]
+    for marker in module.REQUIRED_MARKERS:
+        assert marker in report["marker_summary"]
+    assert report["core_report"]["node_tag_integrity"]["status"] == "pass"
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False

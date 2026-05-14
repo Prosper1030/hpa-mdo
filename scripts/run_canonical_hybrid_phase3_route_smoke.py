@@ -1468,6 +1468,276 @@ def run_phase3_partial_wing_transition_collar_core_probe(
     return report
 
 
+def write_phase3_partial_wing_transition_collar_core_hybrid_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 1.0e-4,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+) -> dict[str, Any]:
+    """Write merged partial-BL prism/pyramid collar plus tetra-core SU2 mesh."""
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    inner_boundary = _partial_wing_transition_collar_core_inner_boundary_surface(
+        collar_volume,
+        cap_triangles=cap_triangles,
+    )
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    core = _partial_wing_transition_collar_core_tets(
+        inner_boundary,
+        surface_bounds=_bounds(surface.vertices),
+        output_dir=output_path.parent / f"{output_path.stem}_core",
+        core_mesh_size=core_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+    )
+    merged_nodes = list(collar_volume["nodes"])
+    core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
+    elements = [
+        *collar_volume["elements"],
+        *[
+            (SU2_TETRAHEDRON, tuple(core_node_map[int(node)] for node in nodes))
+            for nodes in core["tetra_elements"]
+        ],
+    ]
+    marker_faces = {
+        marker: list(faces)
+        for marker, faces in collar_volume["marker_faces"].items()
+        if marker not in {"bl_outer_interface", "transition_collar_interface"}
+    }
+    for marker, faces in core["marker_faces"].items():
+        marker_faces.setdefault(marker, []).extend(
+            [
+                (element_type, tuple(core_node_map[int(node)] for node in nodes))
+                for element_type, nodes in faces
+            ]
+        )
+    compacted_volume, node_compaction = _compact_volume_node_indices(
+        {
+            "nodes": merged_nodes,
+            "elements": elements,
+            "marker_faces": marker_faces,
+        }
+    )
+    output_path.write_text(
+        _su2_volume_text(
+            compacted_volume,
+            comments=(
+                "% Canonical hybrid half-wing partial-BL transition-collar core mesh.",
+                "% Internal BL/collar interfaces are merged and not written as markers.",
+                "% This is a topology/pressure-sanity candidate, not route-smoke truth.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    type_counts: dict[str, int] = {}
+    for element_type, _nodes in elements:
+        key = str(element_type)
+        type_counts[key] = type_counts.get(key, 0) + 1
+    required_markers_present = all(
+        marker in marker_summary["markers"] for marker in REQUIRED_MARKERS
+    )
+    direct_prism_quality = _direct_prism_quality_metrics(collar_volume)
+    return {
+        "route": "canonical_hybrid_halfwing_partial_wing_transition_collar_core_hybrid",
+        "status": "partial_wing_transition_collar_core_hybrid_written",
+        "mesh_path": str(output_path),
+        "node_count": len(compacted_volume["nodes"]),
+        "volume_element_count": len(elements),
+        "volume_element_type_counts": dict(sorted(type_counts.items())),
+        "boundary_layer_cell_count": int(type_counts.get(str(SU2_PRISM), 0)),
+        "node_compaction": node_compaction,
+        "transition_collar": collar_report,
+        "core_report": core["report"],
+        "marker_summary": marker_summary["markers"],
+        "required_markers_present": required_markers_present,
+        "su2_boundary_ownership": boundary_ownership,
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(direct_prism_quality),
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "closure_faces_merged_into_wing_wall": False,
+            "interface_markers_written_to_final_mesh": any(
+                marker in marker_summary["markers"]
+                for marker in ("bl_outer_interface", "transition_collar_interface")
+            ),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Merged small-scale hybrid mesh only. It still needs SU2 dual-quality "
+                "and pressure-only force sanity before any RANS route-smoke claim."
+            ),
+        },
+    }
+
+
+def _partial_wing_transition_collar_core_tets(
+    inner_boundary: SurfaceMesh,
+    *,
+    surface_bounds: Mapping[str, float],
+    output_dir: Path,
+    core_mesh_size: float,
+    farfield_mesh_size: float,
+) -> dict[str, Any]:
+    import gmsh
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("canonical_partial_wing_transition_collar_core")
+        inner_by_marker = _add_discrete_marked_mesh_surfaces(
+            gmsh,
+            inner_boundary,
+            first_tag=7_000_001,
+            triangulation_policy="fixed_diagonal",
+        )
+        inner_tags = [
+            tag for tags in inner_by_marker.values() for tag in tags
+        ]
+        gmsh.model.geo.synchronize()
+        _farfield_vertices, symmetry_tags, farfield_tags = _add_farfield_box_with_symmetry_hole(
+            gmsh,
+            bounds=surface_bounds,
+            bl_top_surface_tags=inner_tags,
+            farfield_mesh_size=farfield_mesh_size,
+        )
+        core_volume = gmsh.model.geo.addVolume(
+            [
+                gmsh.model.geo.addSurfaceLoop(
+                    [*inner_tags, *symmetry_tags, *farfield_tags]
+                )
+            ]
+        )
+        gmsh.model.geo.synchronize()
+        for marker in (*DIAGNOSTIC_FORCE_MARKERS, "bl_outer_interface", "transition_collar_interface"):
+            tags = inner_by_marker.get(marker, [])
+            if tags:
+                group = gmsh.model.addPhysicalGroup(2, tags)
+                gmsh.model.setPhysicalName(2, group, marker)
+        symmetry_group = gmsh.model.addPhysicalGroup(2, symmetry_tags)
+        gmsh.model.setPhysicalName(2, symmetry_group, "root_symmetry")
+        farfield_group = gmsh.model.addPhysicalGroup(2, farfield_tags)
+        gmsh.model.setPhysicalName(2, farfield_group, "farfield")
+        fluid_group = gmsh.model.addPhysicalGroup(3, [core_volume])
+        gmsh.model.setPhysicalName(3, fluid_group, "fluid_core")
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min(core_mesh_size, farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max(core_mesh_size, farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.Algorithm", 6)
+        core_algorithm3d = 1
+        gmsh.option.setNumber("Mesh.Algorithm3D", core_algorithm3d)
+        gmsh.option.setNumber("Mesh.Optimize", 1)
+        gmsh.model.mesh.generate(3)
+        gmsh.write(str(output_dir / "core.msh"))
+        all_nodes = _gmsh_node_coordinates(gmsh)
+        tetra_elements = _gmsh_tetra_elements(gmsh)
+        raw_marker_faces = {
+            marker: _gmsh_surface_marker_faces(gmsh, inner_by_marker.get(marker, []))
+            for marker in DIAGNOSTIC_FORCE_MARKERS
+            if inner_by_marker.get(marker)
+        }
+        raw_marker_faces["root_symmetry"] = _gmsh_surface_marker_faces(gmsh, symmetry_tags)
+        raw_marker_faces["farfield"] = _gmsh_surface_marker_faces(gmsh, farfield_tags)
+        marker_faces = _orient_core_marker_faces_from_tetrahedra(
+            tetra_elements,
+            raw_marker_faces,
+        )
+        nodes, unused_node_tags = _active_core_node_coordinates(
+            all_nodes,
+            tetra_elements,
+            marker_faces,
+        )
+        unknown_tetra_nodes = sorted(
+            {
+                int(node)
+                for tetra in tetra_elements
+                for node in tetra
+                if int(node) not in nodes
+            }
+        )
+        if unknown_tetra_nodes:
+            raise RuntimeError(
+                "Gmsh generated tetrahedra with node tags missing from getNodes(): "
+                f"{unknown_tetra_nodes[:8]}"
+            )
+        volume_types, volume_tags, _ = gmsh.model.mesh.getElements(3)
+        type_counts = {
+            str(element_type): len(tags)
+            for element_type, tags in zip(volume_types, volume_tags)
+        }
+        forbidden_counts = {
+            kind: count
+            for kind, count in type_counts.items()
+            if kind != GMSH_TETRA and int(count) > 0
+        }
+        return {
+            "nodes": nodes,
+            "tetra_elements": tetra_elements,
+            "marker_faces": marker_faces,
+            "report": {
+                "status": "meshed",
+                "node_tag_integrity": {
+                    "status": "pass",
+                    "missing_tetra_node_tags": [],
+                    "all_gmsh_node_count": len(all_nodes),
+                    "active_node_count": len(nodes),
+                    "unused_gmsh_node_count": len(unused_node_tags),
+                    "unused_gmsh_node_samples": unused_node_tags[:8],
+                },
+                "volume_element_type_counts": type_counts,
+                "forbidden_element_type_counts": forbidden_counts,
+                "core_tetra_count": len(tetra_elements),
+                "inner_surface_entity_count": len(inner_tags),
+                "root_symmetry_surface_count": len(symmetry_tags),
+                "farfield_surface_count": len(farfield_tags),
+                "mesh_path": str(output_dir / "core.msh"),
+                "mesh_sizing": {
+                    "core_mesh_size": float(core_mesh_size),
+                    "farfield_mesh_size": float(farfield_mesh_size),
+                    "gmsh_algorithm3d": core_algorithm3d,
+                    "inner_boundary_representation": "triangulated_discrete",
+                },
+            },
+        }
+    finally:
+        gmsh.finalize()
+
+
 def _partial_wing_transition_collar_core_inner_boundary_surface(
     collar_volume: Mapping[str, Any],
     *,
@@ -2153,8 +2423,21 @@ def _direct_surface_prism_core_tets(
         gmsh.option.setNumber("Mesh.Algorithm3D", core_algorithm3d)
         gmsh.option.setNumber("Mesh.Optimize", 1)
         gmsh.model.mesh.generate(3)
-        nodes = _gmsh_node_coordinates(gmsh)
+        all_nodes = _gmsh_node_coordinates(gmsh)
         tetra_elements = _gmsh_tetra_elements(gmsh)
+        raw_marker_faces = {
+            "root_symmetry": _gmsh_surface_marker_faces(gmsh, symmetry_tags),
+            "farfield": _gmsh_surface_marker_faces(gmsh, farfield_tags),
+        }
+        marker_faces = _orient_core_marker_faces_from_tetrahedra(
+            tetra_elements,
+            raw_marker_faces,
+        )
+        nodes, unused_node_tags = _active_core_node_coordinates(
+            all_nodes,
+            tetra_elements,
+            marker_faces,
+        )
         unknown_tetra_nodes = sorted(
             {
                 int(node)
@@ -2168,14 +2451,6 @@ def _direct_surface_prism_core_tets(
                 "Gmsh generated tetrahedra with node tags missing from getNodes(): "
                 f"{unknown_tetra_nodes[:8]}"
             )
-        raw_marker_faces = {
-            "root_symmetry": _gmsh_surface_marker_faces(gmsh, symmetry_tags),
-            "farfield": _gmsh_surface_marker_faces(gmsh, farfield_tags),
-        }
-        marker_faces = _orient_core_marker_faces_from_tetrahedra(
-            tetra_elements,
-            raw_marker_faces,
-        )
         return {
             "nodes": nodes,
             "tetra_elements": tetra_elements,
@@ -2185,6 +2460,10 @@ def _direct_surface_prism_core_tets(
                 "node_tag_integrity": {
                     "status": "pass",
                     "missing_tetra_node_tags": [],
+                    "all_gmsh_node_count": len(all_nodes),
+                    "active_node_count": len(nodes),
+                    "unused_gmsh_node_count": len(unused_node_tags),
+                    "unused_gmsh_node_samples": unused_node_tags[:8],
                 },
                 "core_tetra_count": len(tetra_elements),
                 "outer_interface_triangle_count": len(outer_surface.faces),
@@ -2238,6 +2517,86 @@ def _gmsh_node_coordinates(gmsh: Any) -> dict[int, tuple[float, float, float]]:
             float(coords[3 * index + 2]),
         )
         for index, tag in enumerate(node_tags)
+    }
+
+
+def _active_core_node_coordinates(
+    nodes: Mapping[int, tuple[float, float, float]],
+    tetra_elements: Sequence[tuple[int, int, int, int]],
+    marker_faces: Mapping[str, Sequence[tuple[int, Sequence[int]]]],
+) -> tuple[dict[int, tuple[float, float, float]], list[int]]:
+    used = {
+        int(node)
+        for tetra in tetra_elements
+        for node in tetra
+    }
+    used.update(
+        int(node)
+        for faces in marker_faces.values()
+        for _element_type, face_nodes in faces
+        for node in face_nodes
+    )
+    active = {
+        int(tag): coord
+        for tag, coord in nodes.items()
+        if int(tag) in used
+    }
+    unused = sorted(int(tag) for tag in nodes if int(tag) not in used)
+    return active, unused
+
+
+def _compact_volume_node_indices(volume: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    nodes = [tuple(vertex) for vertex in volume["nodes"]]
+    elements = [
+        (int(element_type), tuple(int(node) for node in element_nodes))
+        for element_type, element_nodes in volume["elements"]
+    ]
+    marker_faces = {
+        str(marker): [
+            (int(element_type), tuple(int(node) for node in face_nodes))
+            for element_type, face_nodes in faces
+        ]
+        for marker, faces in _mapping(volume.get("marker_faces")).items()
+    }
+    used = {
+        int(node)
+        for _element_type, element_nodes in elements
+        for node in element_nodes
+    }
+    used.update(
+        int(node)
+        for faces in marker_faces.values()
+        for _element_type, face_nodes in faces
+        for node in face_nodes
+    )
+    ordered_used = sorted(used)
+    node_map = {old: new for new, old in enumerate(ordered_used)}
+    compacted = {
+        "nodes": [nodes[old] for old in ordered_used],
+        "elements": [
+            (
+                element_type,
+                tuple(node_map[int(node)] for node in element_nodes),
+            )
+            for element_type, element_nodes in elements
+        ],
+        "marker_faces": {
+            marker: [
+                (
+                    element_type,
+                    tuple(node_map[int(node)] for node in face_nodes),
+                )
+                for element_type, face_nodes in faces
+            ]
+            for marker, faces in marker_faces.items()
+        },
+    }
+    unused = [index for index in range(len(nodes)) if index not in used]
+    return compacted, {
+        "original_node_count": len(nodes),
+        "compacted_node_count": len(compacted["nodes"]),
+        "removed_unused_node_count": len(unused),
+        "removed_unused_node_samples": unused[:8],
     }
 
 

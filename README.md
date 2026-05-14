@@ -135,6 +135,23 @@ thin collar 的 pps42 scale ladder 已手動推到 16 layers：l4 產生 `16,462
 l24 不應盲跑；下一步更應先寫 merged SU2 hybrid mesh，並在 l4/l8 上做 marker/dual-quality
 與 pressure-only sanity，再決定是否值得跑 l24。
 
+merged SU2 hybrid writer 已新增 pps12/l4 小尺度 proof：
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_transition_collar_core_hybrid_pps12_l4/`。
+它寫出 `5,376` prisms + `340` pyramids + `8,690` tetra，移除 internal
+`bl_outer_interface` / `transition_collar_interface` markers，保留
+`wing_upper` / `wing_lower` / `tip_wall` / `te_wall` / `closure_wall` /
+`root_symmetry` / `farfield`，SU2 marker audit / ownership pass。writer 也會做 final
+node compaction；目前移除 `4` 個 unused surface-layer nodes，修掉 SU2 的 `NPOIN`
+mismatch preprocessing error。
+
+但同一 pps12/l4 merged mesh 的 pressure-only smoke 仍 fail：
+`partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 已能讀 mesh，
+但只跑到 `3` rows / final iteration `2`，dual-control-volume metrics 爆掉：
+min orthogonality `0.0105006 deg`、max CV face-area aspect ratio `7.58862e9`、
+max CV sub-volume ratio `4.37135e11`，force breakdown missing，初始 CL/CD 也完全不可信。
+工程判讀：transition collar 解決了 prism→tet element compatibility，但目前 thin pyramid
+collar 仍是 SU2 vertex-dual 病態來源；下一步要修 collar geometry/quality，不能進 RANS。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route

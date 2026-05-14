@@ -136,6 +136,18 @@ screening evidence 讀，不是現行 release / procurement truth。
   collar+cap core topology 到 16 layers 仍可 tetra-fill，但 runtime 已成為 Mac-safe
   gate；l24 不應盲跑。下一步優先寫 merged SU2 hybrid mesh，先在 l4/l8 做 marker、
   dual-quality 與 pressure-only CD sanity。
+- WO-006 Phase 3 merged SU2 hybrid writer 已新增 pps12/l4 proof：
+  `partial_wing_transition_collar_core_hybrid_pps12_l4/` 寫出 `5,376` prisms +
+  `340` pyramids + `8,690` tetra，final mesh 不再輸出 internal
+  `bl_outer_interface` / `transition_collar_interface` markers，且保留 required
+  physical markers。writer 現在做 final node compaction，移除 `4` 個 unused nodes，
+  修掉 SU2 `NPOIN` mismatch preprocessing error；marker audit / ownership pass。
+- 但 merged pps12/l4 pressure-only probe 仍 fail：
+  `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
+  但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality
+  `0.0105006 deg`、max CV face-area aspect ratio `7.58862e9`、max CV sub-volume
+  ratio `4.37135e11`。這不是 marker 或 NPOIN 問題；下一個 blocker 是
+  pyramid collar / local core-interface dual-quality，不能跑 RANS。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在
