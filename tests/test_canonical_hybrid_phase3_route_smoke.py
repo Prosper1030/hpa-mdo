@@ -209,3 +209,98 @@ def test_route_smoke_manifest_update_records_report_path(tmp_path: Path) -> None
     assert manifest["next_required_gate_status"] == "GRID_LADDER_PASS"
     assert manifest["phase3_route_smoke"]["status"] == "ROUTE_SMOKE_PASS"
     assert manifest["phase3_route_smoke"]["report_path"] == summary["report_path"]
+
+
+def test_owned_bl_prism_handoff_writes_prisms_and_split_boundary_markers(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_owned_bl_prism_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "owned_bl_prism_handoff.su2",
+        points_per_side=6,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_owned_bl_prism_handoff"
+    assert report["volume_element_type_counts"] == {str(module.SU2_PRISM): 3072}
+    assert report["forbidden_route_checks"] == {
+        "all_tet_global_star_bl_handoff": False,
+        "boundary_layer_split_to_tetra": False,
+        "owner_pyramid_as_active_method": False,
+    }
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["marker_summary"]["wing_upper"]["element_count"] > 0
+    assert report["marker_summary"]["wing_lower"]["element_count"] > 0
+    assert report["marker_summary"]["te_wall"]["element_count"] > 0
+    assert report["marker_summary"]["closure_wall"]["element_count"] > 0
+    assert report["marker_summary"]["tip_wall"]["element_count"] > 0
+    assert report["marker_summary"]["root_symmetry"]["element_count"] > 0
+    assert report["marker_summary"]["bl_outer_interface"]["element_count"] > 0
+
+
+def test_direct_surface_prism_handoff_has_triangular_core_interface(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_direct_surface_prism_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "direct_surface_prism_handoff.su2",
+        points_per_side=6,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_direct_surface_prism_handoff"
+    assert report["volume_element_type_counts"] == {str(module.SU2_PRISM): 2600}
+    assert report["core_tetra_interface"]["status"] == "ready_for_tet_core_boundary"
+    assert report["marker_summary"]["bl_outer_interface"]["element_type_counts"] == {
+        str(module.SU2_TRIANGLE): 650,
+    }
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["forbidden_route_checks"] == {
+        "all_tet_global_star_bl_handoff": False,
+        "boundary_layer_split_to_tetra": False,
+        "owner_pyramid_as_active_method": False,
+    }
+
+
+def test_direct_surface_prism_core_hybrid_writer_merges_interface_without_marker(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_direct_surface_prism_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "direct_surface_prism_core_hybrid.su2",
+        points_per_side=6,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_direct_surface_prism_core_hybrid"
+    assert report["volume_element_type_counts"][str(module.SU2_PRISM)] == 2600
+    assert int(report["volume_element_type_counts"][str(module.SU2_TETRAHEDRON)]) > 0
+    assert report["core_report"]["node_tag_integrity"]["status"] == "pass"
+    assert report["core_report"]["mesh_sizing"]["gmsh_algorithm3d"] == 1
+    assert report["core_report"]["outer_interface_node_count"] > 0
+    assert "bl_outer_interface" not in report["marker_summary"]
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["required_markers_present"] is True
+    assert report["forbidden_route_checks"] == {
+        "all_tet_global_star_bl_handoff": False,
+        "boundary_layer_split_to_tetra": False,
+        "owner_pyramid_as_active_method": False,
+        "closure_faces_merged_into_wing_wall": False,
+    }

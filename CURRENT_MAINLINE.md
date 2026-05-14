@@ -60,6 +60,21 @@ screening evidence 讀，不是現行 release / procurement truth。
   來自 `wing_upper + wing_lower` primary wall；AOA=-4、laminar、low-CFL、Green-Gauss
   diagnostics 也沒有讓 route 變成可接受 viscous smoke。下一步不是 R31-style
   local patch，而是 mesh-native owned BL topology / direct hybrid SU2 handoff。
+- WO-006 Phase 3 direct surface-prism/core handoff 已有 topology 原型，但仍是 blocked
+  evidence，不是 route pass。新增的 writer 會以 mesh-native surface triangles 直接長出
+  prism BL，再把 `bl_outer_interface` 併入 Gmsh tetra core；輸出的 SU2 mesh 保留
+  `wing_upper` / `wing_lower` / `tip_wall` / `te_wall` / `closure_wall` /
+  `root_symmetry` / `farfield` marker ownership，且不輸出 internal
+  `bl_outer_interface` marker。default 24-layer probe 是 `15,600` prism BL cells +
+  約 `4,750` core tets，node tag integrity pass。Gmsh core 改用
+  `Algorithm3D=1`，因為 `Algorithm3D=10` 在這個 discrete-interface/geo-farfield
+  mix 會產生含 node `0` 的 invalid tetra。工程判讀：這只清掉 writer/topology
+  blocker；SU2 還沒過。該 probe 的 dual quality 仍是 min orthogonality
+  `1.60111 deg`、max CV face-area aspect ratio `122600`、max CV sub-volume ratio
+  `158295`；Euler/slip 以初始 `CD≈0.2555` 開場並在 iter 10 divergence，RANS 以
+  初始 `CD≈0.3741` 開場並在 iter 9 divergence。下一個 named blocker 應鎖定
+  surface-normal/prism distortion/root-symmetry-hole/pressure-only stability，而不是
+  numerics tuning 或 closure marker repair。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

@@ -57,6 +57,20 @@ closure marker 被混進 force。工程判讀：不要再靠 CFL、gradient sche
 小修補救這條 Gmsh-extruded path；下一步要改成 mesh-native owned BL topology / direct
 hybrid SU2 handoff，再重新跑 `ROUTE_SMOKE_PASS`。
 
+後續 direct handoff 原型已新增在同一個 Phase 3 script/test：它可以寫出
+mesh-native direct surface-prism BL + Gmsh tetra core 的 hybrid SU2 mesh，保留
+`15,600` prism BL cells、約 `4,750` core tets，且 `wing_upper` / `wing_lower` /
+`tip_wall` / `te_wall` / `closure_wall` / `root_symmetry` / `farfield` ownership audit
+通過。這條路沒有 all-tet global-star BL split，也沒有把 `bl_outer_interface` 當外部
+marker 輸出；core mesher 改用 Gmsh `Algorithm3D=1`，因為 `Algorithm3D=10` 在這個
+discrete-interface/geo-farfield 組合會產生含 node `0` 的 invalid tetra。工程邊界：
+這仍不是 `ROUTE_SMOKE_PASS`。最新 24-layer direct hybrid probe 的 SU2 dual metrics
+仍只有 min orthogonality `1.60111 deg`、max CV face-area aspect ratio `122600`、
+max CV sub-volume ratio `158295`；Euler/slip 在 iter 10 divergence，初始
+`CD≈0.2555`，RANS 初始 `CD≈0.3741` 且 iter 9 divergence。下一步應先查
+surface normal orientation、prism distortion/high-curvature edge、root-symmetry hole 與
+pressure-only stability，不應把這個 topology-only success 當 viscous CFD 成功。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route

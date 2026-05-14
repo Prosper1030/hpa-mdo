@@ -22,13 +22,26 @@ for path in (HPA_MESHING_SRC, SCRIPT_DIR):
         sys.path.insert(0, str(path))
 
 from hpa_meshing.mesh_native.gmsh_polyhedral import (  # noqa: E402
+    _add_discrete_marked_mesh_surfaces,
     _add_marked_mesh_surfaces,
     _line_between,
 )
+from hpa_meshing.mesh_native.blackcat import _subdivide_spanwise_stations  # noqa: E402
+from hpa_meshing.mesh_native.near_wall_block import (  # noqa: E402
+    BoundaryLayerBlockSpec,
+    BlockBoundaryFace,
+    WingBoundaryLayerBlock,
+    build_wing_boundary_layer_block,
+)
 from hpa_meshing.mesh_native.su2_structured import (  # noqa: E402
+    SU2_PRISM,
+    SU2_TETRAHEDRON,
+    audit_su2_boundary_face_ownership,
     audit_su2_case_markers,
     parse_su2_marker_summary,
+    _su2_volume_text,
 )
+from hpa_meshing.mesh_native.wing_surface import Face, Reference, SurfaceMesh, WingSpec  # noqa: E402
 from run_canonical_hybrid_phase2_pressure_sanity import (  # noqa: E402
     DEFAULT_AVL_PATH,
     DEFAULT_MANIFEST_PATH,
@@ -36,11 +49,15 @@ from run_canonical_hybrid_phase2_pressure_sanity import (  # noqa: E402
     DEFAULT_SOLVER_COMMAND,
     build_phase2_pressure_surface,
     parse_su2_dual_control_volume_quality,
+    _airfoil_source_transition_spans,
     _bounds,
+    _closure_sections_for_spans,
     _forces_breakdown_report,
+    _half_stations_from_rows,
     _half_farfield_vertices,
     _read_avl_moment_origin,
     _read_avl_reference,
+    _read_csv_dicts,
     _run_solver,
 )
 
@@ -80,6 +97,7 @@ GMSH_HEXAHEDRON = "5"
 GMSH_PRISM = "6"
 GMSH_PYRAMID = "7"
 GMSH_HYBRID_BL_TYPES = {GMSH_HEXAHEDRON, GMSH_PRISM}
+SU2_TRIANGLE = 5
 
 MIN_ROUTE_DUAL_ORTHOGONALITY_DEG = 1.0
 MAX_ROUTE_DUAL_FACE_AREA_ASPECT_RATIO = 1.0e7
@@ -592,6 +610,722 @@ def write_phase3_hybrid_mesh(
         }
     finally:
         gmsh.finalize()
+
+
+def build_phase3_owned_boundary_layer_block(
+    section_table_path: Path | str = DEFAULT_SECTION_TABLE_PATH,
+    *,
+    points_per_side: int = DEFAULT_POINTS_PER_SIDE,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = DEFAULT_BL_LAYERS,
+) -> tuple[WingBoundaryLayerBlock, set[int]]:
+    rows = _read_csv_dicts(Path(section_table_path))
+    base_stations = _half_stations_from_rows(rows, points_per_side=points_per_side)
+    stations = (
+        base_stations
+        if spanwise_subdivisions <= 1
+        else _subdivide_spanwise_stations(base_stations, spanwise_subdivisions)
+    )
+    closure_sections = _closure_sections_for_spans(
+        stations,
+        _airfoil_source_transition_spans(rows),
+    )
+    spec = WingSpec(
+        stations=stations,
+        side="half",
+        te_rule="sharp",
+        tip_rule="planar_cap",
+        root_rule="symmetry",
+        reference=Reference(sref_full=1.0, cref=1.0, bref_full=1.0),
+        twist_axis_x=0.25,
+    )
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=first_layer_height_m,
+            growth_ratio=growth_ratio,
+            layer_count=bl_layers,
+        ),
+    )
+    return block, closure_sections
+
+
+def write_phase3_owned_bl_prism_handoff_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = DEFAULT_POINTS_PER_SIDE,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = DEFAULT_BL_LAYERS,
+) -> dict[str, Any]:
+    """Write the mesh-native owned BL as prism cells with split diagnostic markers.
+
+    This is the first direct-handoff building block for the replacement backend:
+    it owns the BL topology and marker surfaces without using Gmsh
+    ``extrudeBoundaryLayer``. It is not a complete farfield/core CFD mesh until a
+    conformal tetra core is merged onto ``bl_outer_interface``.
+    """
+    block, closure_sections = build_phase3_owned_boundary_layer_block(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+    )
+    volume = _owned_bl_prism_volume(block, closure_sections)
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            volume,
+            comments=(
+                "% Canonical hybrid half-wing mesh-native owned BL prism handoff.",
+                "% This is not a complete CFD domain until a conformal tetra core is merged.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    return {
+        "route": "canonical_hybrid_halfwing_owned_bl_prism_handoff",
+        "status": "owned_bl_prism_handoff_ready_core_pending",
+        "mesh_path": str(output_path),
+        "node_count": len(volume["nodes"]),
+        "volume_element_count": len(volume["elements"]),
+        "volume_element_type_counts": {str(SU2_PRISM): len(volume["elements"])},
+        "boundary_layer_cell_count": len(volume["elements"]),
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "block_quality": block.quality,
+        "block_metadata": block.metadata,
+        "closure_section_indices": sorted(int(index) for index in closure_sections),
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "owner_pyramid_as_active_method": False,
+        },
+        "caveats": [
+            "near-wall BL prism handoff only; core tetra mesh is not merged yet",
+            "coefficients from this mesh are not interpretable because there is no farfield domain",
+        ],
+    }
+
+
+def _owned_bl_prism_volume(
+    block: WingBoundaryLayerBlock,
+    closure_sections: set[int],
+) -> dict[str, Any]:
+    elements: list[tuple[int, tuple[int, ...]]] = []
+    for cell in block.cells:
+        nodes = tuple(int(node) for node in cell.nodes)
+        elements.extend(
+            [
+                (SU2_PRISM, (nodes[4], nodes[5], nodes[6], nodes[0], nodes[1], nodes[2])),
+                (SU2_PRISM, (nodes[4], nodes[6], nodes[7], nodes[0], nodes[2], nodes[3])),
+            ]
+        )
+
+    marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
+    for face in block.boundary_faces:
+        marker = _owned_bl_boundary_marker(block, face, closure_sections)
+        face_nodes = tuple(int(node) for node in face.nodes)
+        if face.marker == "span_cap":
+            marker_faces.setdefault(marker, []).extend(
+                [
+                    (SU2_TRIANGLE, (face_nodes[0], face_nodes[1], face_nodes[2])),
+                    (SU2_TRIANGLE, (face_nodes[0], face_nodes[2], face_nodes[3])),
+                ]
+            )
+        else:
+            marker_faces.setdefault(marker, []).append((9, face_nodes))
+
+    return {
+        "nodes": list(block.vertices),
+        "elements": elements,
+        "marker_faces": marker_faces,
+    }
+
+
+def _owned_bl_boundary_marker(
+    block: WingBoundaryLayerBlock,
+    face: BlockBoundaryFace,
+    closure_sections: set[int],
+) -> str:
+    section_vertex_count = int(block.metadata["section_vertex_count"])
+    section_count = int(block.metadata["station_count"])
+    wall_count = int(block.section_blocks[0].metadata["wall_node_count"])
+    leading_edge_index = int(block.section_blocks[0].metadata["leading_edge_wall_index"])
+    sections = [int(node) // section_vertex_count for node in face.nodes]
+    local_nodes = [int(node) % section_vertex_count for node in face.nodes]
+
+    if face.marker == "wing_wall":
+        wall_indices = [local % wall_count for local in local_nodes if local < wall_count]
+        if not wall_indices:
+            return "closure_wall"
+        segment_index = min(wall_indices)
+        return "wing_upper" if segment_index < leading_edge_index else "wing_lower"
+    if face.marker == "bl_outer_interface":
+        return "bl_outer_interface"
+    if face.marker == "wake_cut":
+        if any(
+            section in closure_sections or section - 1 in closure_sections
+            for section in sections
+        ):
+            return "closure_wall"
+        return "te_wall"
+    if face.marker == "span_cap":
+        if max(sections) == 0:
+            return "root_symmetry"
+        if min(sections) == section_count - 1:
+            return "tip_wall"
+    return "closure_wall"
+
+
+def write_phase3_direct_surface_prism_handoff_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = DEFAULT_POINTS_PER_SIDE,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = DEFAULT_BL_LAYERS,
+) -> dict[str, Any]:
+    """Write direct surface-triangle prism BL cells for a tetra-core interface.
+
+    Unlike the owned airfoil-block handoff above, this representation starts
+    from triangular wall panels so the outer BL interface is triangular and can
+    be used directly as a preserved tetra-core boundary.
+    """
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    volume = _direct_surface_prism_volume(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in _triangulated_wall_triangles(surface)
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+    )
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            volume,
+            comments=(
+                "% Canonical hybrid half-wing direct surface-prism BL handoff.",
+                "% Triangular outer BL interface is intended for preserved tetra-core fill.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    outer_interface = marker_summary["markers"].get("bl_outer_interface", {})
+    return {
+        "route": "canonical_hybrid_halfwing_direct_surface_prism_handoff",
+        "status": "direct_surface_prism_handoff_ready_core_pending",
+        "mesh_path": str(output_path),
+        "node_count": len(volume["nodes"]),
+        "volume_element_count": len(volume["elements"]),
+        "volume_element_type_counts": {str(SU2_PRISM): len(volume["elements"])},
+        "boundary_layer_cell_count": len(volume["elements"]),
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "core_tetra_interface": {
+            "status": (
+                "ready_for_tet_core_boundary"
+                if outer_interface.get("element_type_counts") == {str(SU2_TRIANGLE): int(outer_interface.get("element_count", 0))}
+                else "blocked_by_non_triangular_outer_interface"
+            ),
+            "marker": "bl_outer_interface",
+            "element_count": outer_interface.get("element_count", 0),
+            "element_type_counts": outer_interface.get("element_type_counts", {}),
+        },
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "owner_pyramid_as_active_method": False,
+        },
+        "caveats": [
+            "near-wall direct prism handoff only; core tetra mesh is not merged yet",
+            "wall-normal offset is a first topology candidate and still needs mesh-quality and SU2 dual gates",
+        ],
+    }
+
+
+def write_phase3_direct_surface_prism_core_hybrid_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = DEFAULT_POINTS_PER_SIDE,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = DEFAULT_BL_LAYERS,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+) -> dict[str, Any]:
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    bl_volume = _direct_surface_prism_volume(
+        surface.vertices,
+        _triangulated_wall_triangles(surface),
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+    )
+    core = _direct_surface_prism_core_tets(
+        bl_volume,
+        surface_bounds=_bounds(surface.vertices),
+        core_mesh_size=core_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+    )
+    merged_nodes = list(bl_volume["nodes"])
+    core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
+    elements = [
+        *bl_volume["elements"],
+        *[
+            (SU2_TETRAHEDRON, tuple(core_node_map[int(node)] for node in nodes))
+            for nodes in core["tetra_elements"]
+        ],
+    ]
+    marker_faces = {
+        marker: list(faces)
+        for marker, faces in bl_volume["marker_faces"].items()
+        if marker != "bl_outer_interface"
+    }
+    for marker, faces in core["marker_faces"].items():
+        marker_faces.setdefault(marker, []).extend(
+            [
+                (element_type, tuple(core_node_map[int(node)] for node in nodes))
+                for element_type, nodes in faces
+            ]
+        )
+
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            {
+                "nodes": merged_nodes,
+                "elements": elements,
+                "marker_faces": marker_faces,
+            },
+            comments=(
+                "% Canonical hybrid half-wing direct surface-prism BL + tetra-core mesh.",
+                "% This is a route-smoke candidate, not grid-ladder truth.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    type_counts = {
+        str(SU2_PRISM): len(bl_volume["elements"]),
+        str(SU2_TETRAHEDRON): len(core["tetra_elements"]),
+    }
+    required_markers_present = all(
+        marker in marker_summary["markers"] for marker in REQUIRED_MARKERS
+    )
+    return {
+        "route": "canonical_hybrid_halfwing_direct_surface_prism_core_hybrid",
+        "status": "direct_surface_prism_core_hybrid_written",
+        "mesh_path": str(output_path),
+        "node_count": len(merged_nodes),
+        "volume_element_count": len(elements),
+        "volume_element_type_counts": type_counts,
+        "boundary_layer_cell_count": len(bl_volume["elements"]),
+        "core_cell_count": len(core["tetra_elements"]),
+        "marker_summary": marker_summary["markers"],
+        "required_markers_present": required_markers_present,
+        "su2_boundary_ownership": boundary_ownership,
+        "core_report": core["report"],
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "owner_pyramid_as_active_method": False,
+            "closure_faces_merged_into_wing_wall": False,
+        },
+        "caveats": [
+            "direct prism BL + core tetra topology only; SU2 route-smoke must still pass",
+            "wall-normal offset quality and SU2 dual metrics remain solver-side gates",
+        ],
+    }
+
+
+def _direct_surface_prism_core_tets(
+    bl_volume: Mapping[str, Any],
+    *,
+    surface_bounds: Mapping[str, float],
+    core_mesh_size: float,
+    farfield_mesh_size: float,
+) -> dict[str, Any]:
+    import gmsh
+
+    outer_surface = _compact_outer_interface_surface(bl_volume)
+
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("canonical_direct_surface_prism_core")
+        outer_by_marker = _add_discrete_marked_mesh_surfaces(
+            gmsh,
+            outer_surface,
+            first_tag=3_000_001,
+        )
+        outer_tags = outer_by_marker["bl_outer_interface"]
+        gmsh.model.geo.synchronize()
+        _farfield_vertices, symmetry_tags, farfield_tags = _add_farfield_box_with_symmetry_hole(
+            gmsh,
+            bounds=surface_bounds,
+            bl_top_surface_tags=outer_tags,
+            farfield_mesh_size=farfield_mesh_size,
+        )
+        core_volume = gmsh.model.geo.addVolume(
+            [
+                gmsh.model.geo.addSurfaceLoop(
+                    [*outer_tags, *symmetry_tags, *farfield_tags]
+                )
+            ]
+        )
+        gmsh.model.geo.synchronize()
+        outer_group = gmsh.model.addPhysicalGroup(2, outer_tags)
+        gmsh.model.setPhysicalName(2, outer_group, "bl_outer_interface")
+        symmetry_group = gmsh.model.addPhysicalGroup(2, symmetry_tags)
+        gmsh.model.setPhysicalName(2, symmetry_group, "root_symmetry")
+        farfield_group = gmsh.model.addPhysicalGroup(2, farfield_tags)
+        gmsh.model.setPhysicalName(2, farfield_group, "farfield")
+        fluid_group = gmsh.model.addPhysicalGroup(3, [core_volume])
+        gmsh.model.setPhysicalName(3, fluid_group, "fluid_core")
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min(core_mesh_size, farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max(core_mesh_size, farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.Algorithm", 6)
+        core_algorithm3d = 1
+        gmsh.option.setNumber("Mesh.Algorithm3D", core_algorithm3d)
+        gmsh.option.setNumber("Mesh.Optimize", 1)
+        gmsh.model.mesh.generate(3)
+        nodes = _gmsh_node_coordinates(gmsh)
+        tetra_elements = _gmsh_tetra_elements(gmsh)
+        unknown_tetra_nodes = sorted(
+            {
+                int(node)
+                for tetra in tetra_elements
+                for node in tetra
+                if int(node) not in nodes
+            }
+        )
+        if unknown_tetra_nodes:
+            raise RuntimeError(
+                "Gmsh generated tetrahedra with node tags missing from getNodes(): "
+                f"{unknown_tetra_nodes[:8]}"
+            )
+        marker_faces = {
+            "root_symmetry": _gmsh_surface_marker_faces(gmsh, symmetry_tags),
+            "farfield": _gmsh_surface_marker_faces(gmsh, farfield_tags),
+        }
+        return {
+            "nodes": nodes,
+            "tetra_elements": tetra_elements,
+            "marker_faces": marker_faces,
+            "report": {
+                "status": "meshed",
+                "node_tag_integrity": {
+                    "status": "pass",
+                    "missing_tetra_node_tags": [],
+                },
+                "core_tetra_count": len(tetra_elements),
+                "outer_interface_triangle_count": len(outer_surface.faces),
+                "outer_interface_node_count": len(outer_surface.vertices),
+                "root_symmetry_surface_count": len(symmetry_tags),
+                "farfield_surface_count": len(farfield_tags),
+                "mesh_sizing": {
+                    "core_mesh_size": float(core_mesh_size),
+                    "farfield_mesh_size": float(farfield_mesh_size),
+                    "gmsh_algorithm3d": core_algorithm3d,
+                },
+            },
+        }
+    finally:
+        gmsh.finalize()
+
+
+def _compact_outer_interface_surface(bl_volume: Mapping[str, Any]) -> SurfaceMesh:
+    """Return only the BL outer-interface vertices and triangular faces for Gmsh."""
+    interface_faces = [
+        tuple(int(node) for node in nodes)
+        for element_type, nodes in bl_volume["marker_faces"]["bl_outer_interface"]
+        if int(element_type) == SU2_TRIANGLE
+    ]
+    original_nodes = sorted({node for face in interface_faces for node in face})
+    compact_by_original = {node: index for index, node in enumerate(original_nodes)}
+    compact_vertices = [tuple(bl_volume["nodes"][node]) for node in original_nodes]
+    compact_faces = [
+        Face(
+            nodes=tuple(compact_by_original[node] for node in face),
+            marker="bl_outer_interface",
+        )
+        for face in interface_faces
+    ]
+    return SurfaceMesh(
+        vertices=compact_vertices,
+        faces=compact_faces,
+        metadata={
+            "surface_role": "direct_prism_outer_interface",
+            "original_node_ids": original_nodes,
+        },
+    )
+
+
+def _gmsh_node_coordinates(gmsh: Any) -> dict[int, tuple[float, float, float]]:
+    node_tags, coords, _ = gmsh.model.mesh.getNodes()
+    return {
+        int(tag): (
+            float(coords[3 * index]),
+            float(coords[3 * index + 1]),
+            float(coords[3 * index + 2]),
+        )
+        for index, tag in enumerate(node_tags)
+    }
+
+
+def _gmsh_tetra_elements(gmsh: Any) -> list[tuple[int, int, int, int]]:
+    output: list[tuple[int, int, int, int]] = []
+    element_types, element_tags, element_nodes = gmsh.model.mesh.getElements(3)
+    for element_type, tags, nodes in zip(element_types, element_tags, element_nodes):
+        if int(element_type) != 4:
+            continue
+        for offset in range(len(tags)):
+            start = 4 * offset
+            output.append(tuple(int(node) for node in nodes[start : start + 4]))
+    return output
+
+
+def _gmsh_surface_marker_faces(
+    gmsh: Any,
+    entity_tags: Sequence[int],
+) -> list[tuple[int, tuple[int, ...]]]:
+    output: list[tuple[int, tuple[int, ...]]] = []
+    for entity in entity_tags:
+        element_types, element_tags, element_nodes = gmsh.model.mesh.getElements(2, int(entity))
+        for element_type, tags, nodes in zip(element_types, element_tags, element_nodes):
+            if int(element_type) == 2:
+                nodes_per_element = 3
+                su2_type = SU2_TRIANGLE
+            elif int(element_type) == 3:
+                nodes_per_element = 4
+                su2_type = 9
+            else:
+                continue
+            for offset in range(len(tags)):
+                start = nodes_per_element * offset
+                output.append(
+                    (
+                        su2_type,
+                        tuple(
+                            int(node)
+                            for node in nodes[start : start + nodes_per_element]
+                        ),
+                    )
+                )
+    return output
+
+
+def _merged_core_node_map(
+    core_nodes: Mapping[int, tuple[float, float, float]],
+    merged_nodes: list[tuple[float, float, float]],
+) -> dict[int, int]:
+    coord_to_node = {_coord_key(node): index for index, node in enumerate(merged_nodes)}
+    output: dict[int, int] = {}
+    for tag, coord in core_nodes.items():
+        key = _coord_key(coord)
+        if key not in coord_to_node:
+            coord_to_node[key] = len(merged_nodes)
+            merged_nodes.append(coord)
+        output[int(tag)] = coord_to_node[key]
+    return output
+
+
+def _coord_key(coord: Sequence[float]) -> tuple[float, float, float]:
+    return (round(float(coord[0]), 12), round(float(coord[1]), 12), round(float(coord[2]), 12))
+
+
+def _triangulated_wall_triangles(surface) -> list[tuple[tuple[int, int, int], str]]:
+    triangles: list[tuple[tuple[int, int, int], str]] = []
+    for face in surface.faces:
+        if face.marker not in VISCOUS_WALL_MARKERS:
+            continue
+        nodes = tuple(int(node) for node in face.nodes)
+        if len(nodes) == 3:
+            triangles.append((nodes, face.marker))
+        elif len(nodes) == 4:
+            triangles.extend(
+                [
+                    ((nodes[0], nodes[1], nodes[2]), face.marker),
+                    ((nodes[0], nodes[2], nodes[3]), face.marker),
+                ]
+            )
+        else:
+            raise ValueError("Phase 3 wall faces must be triangles or quads")
+    return triangles
+
+
+def _direct_surface_prism_volume(
+    base_vertices: Sequence[tuple[float, float, float]],
+    triangles: Sequence[tuple[tuple[int, int, int], str]],
+    *,
+    first_layer_height_m: float,
+    growth_ratio: float,
+    bl_layers: int,
+) -> dict[str, Any]:
+    heights = [0.0, *_layer_cumulative_heights(first_layer_height_m, growth_ratio, bl_layers)]
+    normals = _surface_vertex_normals(base_vertices, [triangle for triangle, _ in triangles])
+    base_count = len(base_vertices)
+    nodes = [
+        (
+            vertex[0] + height * normal[0],
+            vertex[1] + height * normal[1],
+            vertex[2] + height * normal[2],
+        )
+        for height in heights
+        for vertex, normal in zip(base_vertices, normals)
+    ]
+
+    def node(layer: int, base_node: int) -> int:
+        return layer * base_count + int(base_node)
+
+    elements: list[tuple[int, tuple[int, ...]]] = []
+    face_records: dict[tuple[int, ...], dict[str, Any]] = {}
+
+    def add_face(face_nodes: tuple[int, ...], element_type: int, marker: str) -> None:
+        key = tuple(sorted(face_nodes))
+        record = face_records.setdefault(
+            key,
+            {
+                "count": 0,
+                "nodes": face_nodes,
+                "element_type": element_type,
+                "marker": marker,
+            },
+        )
+        record["count"] = int(record["count"]) + 1
+
+    for layer in range(bl_layers):
+        for triangle, marker in triangles:
+            a, b, c = triangle
+            prism = (
+                node(layer, a),
+                node(layer, b),
+                node(layer, c),
+                node(layer + 1, a),
+                node(layer + 1, b),
+                node(layer + 1, c),
+            )
+            elements.append((SU2_PRISM, prism))
+            add_face((prism[0], prism[2], prism[1]), SU2_TRIANGLE, marker)
+            add_face(
+                (prism[3], prism[4], prism[5]),
+                SU2_TRIANGLE,
+                "bl_outer_interface" if layer == bl_layers - 1 else "_internal_bl_layer",
+            )
+            add_face(
+                (prism[0], prism[1], prism[4], prism[3]),
+                9,
+                _direct_prism_side_marker(base_vertices, (a, b), marker),
+            )
+            add_face(
+                (prism[1], prism[2], prism[5], prism[4]),
+                9,
+                _direct_prism_side_marker(base_vertices, (b, c), marker),
+            )
+            add_face(
+                (prism[2], prism[0], prism[3], prism[5]),
+                9,
+                _direct_prism_side_marker(base_vertices, (c, a), marker),
+            )
+
+    marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
+    for record in face_records.values():
+        if int(record["count"]) != 1:
+            continue
+        marker = str(record["marker"])
+        if marker == "_internal_bl_layer":
+            continue
+        marker_faces.setdefault(marker, []).append(
+            (int(record["element_type"]), tuple(int(node) for node in record["nodes"]))
+        )
+    return {
+        "nodes": nodes,
+        "elements": elements,
+        "marker_faces": marker_faces,
+    }
+
+
+def _direct_prism_side_marker(
+    vertices: Sequence[tuple[float, float, float]],
+    edge: tuple[int, int],
+    source_marker: str,
+) -> str:
+    if all(abs(vertices[node][1]) <= 1.0e-9 for node in edge):
+        return "root_symmetry"
+    return source_marker
+
+
+def _surface_vertex_normals(
+    vertices: Sequence[tuple[float, float, float]],
+    triangles: Sequence[tuple[int, int, int]],
+) -> list[tuple[float, float, float]]:
+    accum = [[0.0, 0.0, 0.0] for _ in vertices]
+    for triangle in triangles:
+        normal = _triangle_unit_normal(
+            vertices[triangle[0]],
+            vertices[triangle[1]],
+            vertices[triangle[2]],
+        )
+        for node in triangle:
+            accum[int(node)][0] += normal[0]
+            accum[int(node)][1] += normal[1]
+            accum[int(node)][2] += normal[2]
+    normals: list[tuple[float, float, float]] = []
+    for vector in accum:
+        length = math.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
+        if length <= 1.0e-14:
+            normals.append((0.0, 0.0, 1.0))
+        else:
+            normals.append((vector[0] / length, vector[1] / length, vector[2] / length))
+    return normals
+
+
+def _triangle_unit_normal(
+    a: tuple[float, float, float],
+    b: tuple[float, float, float],
+    c: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    ab = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    ac = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    normal = (
+        ab[1] * ac[2] - ab[2] * ac[1],
+        ab[2] * ac[0] - ab[0] * ac[2],
+        ab[0] * ac[1] - ab[1] * ac[0],
+    )
+    length = math.sqrt(normal[0] ** 2 + normal[1] ** 2 + normal[2] ** 2)
+    if length <= 1.0e-14:
+        return (0.0, 0.0, 0.0)
+    return (normal[0] / length, normal[1] / length, normal[2] / length)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
