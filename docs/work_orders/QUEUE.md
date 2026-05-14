@@ -132,6 +132,20 @@ Current release package:
   post-cap topology `watertight`; the next repair should generate and quality
   gate the core/farfield mesh from that loop-cap surface. Do not run medium/fine
   SU2 until this R11-derived mesh-probe blocker is repaired.
+- WO-006R12 loop-cap core mesh probe is complete as blocker-localization
+  evidence, not CFD evidence. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r12_loop_cap_core_mesh_probe/`.
+  It uses the actual R11 `core_wall_loop_cap` surface as the core inner boundary,
+  but Gmsh HXT core fill still blocks after about `96.6 s`: duplicate point
+  filtering and self-intersecting facets expose a geometric PLC problem. The R12
+  audit reports `70` exact duplicate-coordinate groups and `8` non-manifold
+  bad edges after coordinate welding, concentrated at the tip/wake loop-cap seam
+  across `wake_edge_receiver`, `core_wall_loop_cap`, and `core_tip_receiver_outer`.
+  WO-006I setup preflight now reports this as
+  `setup_near_wall_core_mesh_geometry_blocked`, superseding the older R10
+  wall-edge-dependency blocker.
+  Next repair should remove this sharp-TE/tip/wake geometric self-intersection
+  before any merged BL/core handoff, y+, or SU2 ladder attempt.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

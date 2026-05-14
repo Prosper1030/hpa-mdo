@@ -96,14 +96,26 @@ screening evidence 讀，不是現行 release / procurement truth。
   `bad_edge_count=0`，cap face count `64`，non-positive cap area `0`。判讀：這修到
   core-facing surface topology 可進 core mesh probe，但還不是 merged BL/core SU2 handoff；
   core/farfield mesh、merged quality、SU2 marker/readability、y+、solver ladder 都未完成。
+- WO-006R12 新增 loop-cap core mesh probe：
+  `scripts/probe_wo006r12_loop_cap_core_mesh_probe.py` 直接把 R11 materialized
+  `core_wall_loop_cap` surface 作為 inner boundary 交給 Gmsh core tet writer。Baseline A
+  實跑 artifact 在 `wo006r12_loop_cap_core_mesh_probe/`，結果是
+  `loop_cap_core_mesh_probe_blocked`：HXT core fill 約 `96.6 s` 後失敗，Gmsh log 顯示
+  duplicate point filtering、missing facets recovery 與 exactly self-intersecting facets。
+  R12 幾何 audit 定位到 `70` 組 exact duplicate coordinates；座標 weld 後會有 `8` 條
+  non-manifold bad edges，sample 位在 `wake_edge_receiver` / `core_wall_loop_cap` /
+  `core_tip_receiver_outer` 的 tip/wake loop-cap seam。這代表 R11 的 index topology
+  watertight 還不是 PLC-valid core surface；下一步要修 sharp-TE/tip/wake seam 的幾何重合，
+  不能跑 SU2 ladder。
 - WO-006I CFD setup gate reset 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006i_setup_preflight_reset/`。
   Verdict 是 `GOAL_STATUS=INCOMPLETE`、`CFD_STATUS=mesh_ladder_incomplete`，且
   `baseline_a_wall_resolved_bl_preflight_gate_v1` 在 solver 前 blocked：目前 no-BL
   setup 缺 conformal BL/core handoff、postprocessed near-wall y+ 與 CFD-grade setup
-  gate。這個 gate 現在會優先讀 WO-006R11 loop-cap artifact；R11 已讓 core-facing
-  surface topology 變成 mesh-probe ready，因此 preflight blocker 已收斂成
-  `near_wall_core_mesh_probe_missing`，不是再重複 R10 的 wall-edge dependency。先前 `wo006i_grid_convergence_campaign/` 的 `0.49M`、`1.61M`、`3.05M`、
+  gate。這個 gate 現在會優先讀 WO-006R12 loop-cap core-mesh artifact；R12 已證明
+  core-facing surface 的最新 blocker 是 PLC/geometric self-intersection，因此 preflight
+  blocker 目前是 `near_wall_core_mesh_geometry_blocked`，不是再重複 R10 的 wall-edge
+  dependency。先前 `wo006i_grid_convergence_campaign/` 的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
   它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、
   drag/power truth 或 Baseline A reopen evidence。後續若要跑 medium/fine，必須先修

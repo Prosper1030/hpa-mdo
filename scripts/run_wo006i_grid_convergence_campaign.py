@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r12_loop_cap_core_mesh_probe" / "summary.json",
     WO006_ROOT / "wo006r11_core_facing_loop_closure_probe" / "summary.json",
     WO006_ROOT / "wo006r10_near_wall_core_closure_probe" / "summary.json",
 )
@@ -327,10 +328,16 @@ def evaluate_cfd_setup_gate(
         blockers.append("direct_stageback_topology_plc_segment_facet")
 
     core_closure_topology = _core_closure_topology_summary(core_closure_artifacts or ())
+    if core_closure_topology["status"] == "core_mesh_blocked":
+        blockers.append(
+            str(core_closure_topology.get("blocker") or "near_wall_core_mesh_probe_blocked")
+        )
     if core_closure_topology["status"] == "blocked":
         blockers.append("near_wall_core_interface_closure_blocked")
     if core_closure_topology["status"] == "surface_ready_core_mesh_pending":
         blockers.append("near_wall_core_mesh_probe_missing")
+    if core_closure_topology["status"] == "core_mesh_ready_handoff_pending":
+        blockers.append("near_wall_merged_mesh_handoff_missing")
     if core_closure_topology["status"] == "blocked" and core_closure_topology.get(
         "wall_edge_gap_status"
     ) == ("blocked_by_physical_wall_edge_dependency"):
@@ -1136,6 +1143,10 @@ def _core_closure_topology_summary(
     artifacts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     records: list[dict[str, Any]] = []
+    r12_core_mesh_ready = False
+    r12_core_mesh_blocked = False
+    r12_blocker = None
+    r12_volume_element_count = None
     r11_surface_ready = False
     r11_mesh_pending = False
     r10_blocked = False
@@ -1146,8 +1157,48 @@ def _core_closure_topology_summary(
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
     for artifact in artifacts:
+        loop_cap_core_mesh = artifact.get("loop_cap_core_mesh") or {}
         loop_closure = artifact.get("loop_closure") or {}
         closure = artifact.get("core_closure") or {}
+        if loop_cap_core_mesh:
+            mesh_status = str(loop_cap_core_mesh.get("status") or artifact.get("verdict") or "")
+            hard_blockers = list(loop_cap_core_mesh.get("hard_blockers") or [])
+            r12_volume_element_count = loop_cap_core_mesh.get("volume_element_count")
+            r12_core_mesh_ready = (
+                mesh_status == "core_mesh_probe_pass_merged_handoff_pending"
+                and not hard_blockers
+            )
+            r12_core_mesh_blocked = not r12_core_mesh_ready
+            if r12_core_mesh_blocked:
+                r12_blocker = (
+                    "near_wall_core_mesh_geometry_blocked"
+                    if "core_inner_surface_geometric_duplicate_nonmanifold"
+                    in hard_blockers
+                    else "near_wall_core_mesh_probe_blocked"
+                )
+            records.append(
+                {
+                    "path": artifact.get("path"),
+                    "schema_version": artifact.get("schema_version"),
+                    "verdict": artifact.get("verdict"),
+                    "closure_status": loop_cap_core_mesh.get("status"),
+                    "core_facing_status": loop_cap_core_mesh.get("loop_cap_status"),
+                    "post_cap_status": loop_cap_core_mesh.get("loop_cap_status"),
+                    "core_mesh_quality_status": loop_cap_core_mesh.get(
+                        "core_mesh_quality_status"
+                    ),
+                    "core_mesh_marker_status": loop_cap_core_mesh.get(
+                        "core_mesh_marker_status"
+                    ),
+                    "node_count": loop_cap_core_mesh.get("node_count"),
+                    "volume_element_count": r12_volume_element_count,
+                    "inner_marker_counts": loop_cap_core_mesh.get("inner_marker_counts"),
+                    "pending_blockers": loop_cap_core_mesh.get("pending_blockers"),
+                    "hard_blockers": hard_blockers,
+                }
+            )
+            continue
+
         if loop_closure:
             pre_cap = loop_closure.get("pre_cap_topology") or {}
             post_cap = loop_closure.get("post_cap_topology") or {}
@@ -1210,7 +1261,11 @@ def _core_closure_topology_summary(
             }
         )
 
-    if r11_mesh_pending:
+    if r12_core_mesh_ready:
+        status = "core_mesh_ready_handoff_pending"
+    elif r12_core_mesh_blocked:
+        status = "core_mesh_blocked"
+    elif r11_mesh_pending:
         status = "surface_ready_core_mesh_pending"
     elif r11_surface_ready:
         status = "pass"
@@ -1223,12 +1278,39 @@ def _core_closure_topology_summary(
         "artifacts": records,
         "bad_edge_count": bad_edge_count,
         "post_cap_status": post_cap_status,
+        "volume_element_count": r12_volume_element_count,
         "wall_edge_gap_status": wall_edge_gap_status,
         "physical_wall_edge_dependency_count": physical_wall_edge_dependency_count,
         "unexplained_bad_edge_count": unexplained_bad_edge_count,
         "full_shell_policy_status": full_shell_policy_status,
     }
-    if status == "surface_ready_core_mesh_pending":
+    if status == "core_mesh_ready_handoff_pending":
+        result.update(
+            {
+                "blocker": "near_wall_merged_mesh_handoff_missing",
+                "recommended_repair": "write_marker_quality_gated_mixed_bl_core_su2_handoff_and_yplus_probe",
+                "engineering_read": (
+                    "The latest loop-cap artifact closes the core-facing surface and "
+                    "a core/farfield mesh probe exists with preserved markers. The "
+                    "setup still needs a merged mixed BL+core SU2 handoff, y+, and "
+                    "solver ladder before CFD."
+                ),
+            }
+        )
+    elif status == "core_mesh_blocked":
+        result.update(
+            {
+                "blocker": r12_blocker or "near_wall_core_mesh_probe_blocked",
+                "recommended_repair": "repair_loop_cap_tip_wake_geometric_self_intersection",
+                "engineering_read": (
+                    "The latest loop-cap core mesh probe supersedes older R10 "
+                    "wall-edge blockers. It shows the core-facing surface is not "
+                    "PLC-valid for Gmsh because the tip/wake loop-cap seam still "
+                    "has geometric duplicate/non-manifold behavior."
+                ),
+            }
+        )
+    elif status == "surface_ready_core_mesh_pending":
         result.update(
             {
                 "blocker": "near_wall_core_mesh_probe_missing",

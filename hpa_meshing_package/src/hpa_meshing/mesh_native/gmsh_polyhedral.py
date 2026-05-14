@@ -492,6 +492,271 @@ def write_boundary_layer_block_core_tet_mesh(
         gmsh.finalize()
 
 
+def write_core_tet_mesh_from_inner_surface(
+    inner_boundary: SurfaceMesh,
+    farfield: SurfaceMesh,
+    out_path: Path | str,
+    *,
+    su2_path: Path | str | None = None,
+    mesh_size: float = 0.5,
+    farfield_mesh_size: float | None = None,
+    fluid_marker: str = "fluid_core",
+    production_target_volume_elements: int = 1_000_000,
+    preserve_boundary_mesh: bool = True,
+    preserved_boundary_representation: str = "triangulated",
+    gmsh_threads: int = DEFAULT_GMSH_THREADS,
+    mesh_algorithm3d: int = 10,
+    owned_bl_block: WingBoundaryLayerBlock | None = None,
+) -> dict[str, Any]:
+    """Tet-fill a core volume around an explicit closed inner boundary surface.
+
+    This is the generic form of the BL-block core probe: callers provide the
+    actual core-facing inner surface, including any materialized transition caps,
+    instead of rebuilding a legacy BL outer-interface surface from the block.
+    """
+    import gmsh
+
+    msh_path = Path(out_path)
+    msh_path.parent.mkdir(parents=True, exist_ok=True)
+    su2_output_path = Path(su2_path) if su2_path is not None else None
+    if su2_output_path is not None:
+        su2_output_path.parent.mkdir(parents=True, exist_ok=True)
+    if mesh_size <= 0.0:
+        raise ValueError("mesh_size must be positive")
+    resolved_farfield_mesh_size = mesh_size if farfield_mesh_size is None else farfield_mesh_size
+    if resolved_farfield_mesh_size <= 0.0:
+        raise ValueError("farfield_mesh_size must be positive")
+    resolved_mesh_algorithm3d = int(mesh_algorithm3d)
+    if resolved_mesh_algorithm3d <= 0:
+        raise ValueError("mesh_algorithm3d must be positive")
+    if preserved_boundary_representation not in {"native", "triangulated"}:
+        raise ValueError("preserved_boundary_representation must be 'native' or 'triangulated'")
+    if not preserve_boundary_mesh and preserved_boundary_representation != "native":
+        raise ValueError(
+            "preserved_boundary_representation requires preserve_boundary_mesh=True"
+        )
+
+    oriented_inner_boundary = orient_surface_mesh_outward(inner_boundary)
+    gmsh.initialize()
+    try:
+        gmsh.logger.start()
+        thread_settings = _configure_gmsh_threads(gmsh, gmsh_threads)
+        thread_settings["mesh_algorithm3d"] = resolved_mesh_algorithm3d
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("mesh_native_inner_surface_core_tet_probe")
+
+        if preserve_boundary_mesh:
+            inner_surfaces_by_marker = _add_discrete_marked_mesh_surfaces(
+                gmsh,
+                oriented_inner_boundary,
+                first_tag=2_000_001,
+                triangulation_policy=(
+                    "fixed_diagonal"
+                    if preserved_boundary_representation == "triangulated"
+                    else None
+                ),
+            )
+            inner_point_offset = 0
+        else:
+            inner_point_offset = len(oriented_inner_boundary.vertices)
+        point_tags = [
+            *(
+                []
+                if preserve_boundary_mesh
+                else [
+                    gmsh.model.geo.addPoint(x, y, z, mesh_size)
+                    for x, y, z in oriented_inner_boundary.vertices
+                ]
+            ),
+            *[
+                gmsh.model.geo.addPoint(x, y, z, resolved_farfield_mesh_size)
+                for x, y, z in farfield.vertices
+            ],
+        ]
+        line_cache: dict[tuple[int, int], tuple[int, int, int]] = {}
+        if not preserve_boundary_mesh:
+            inner_surfaces_by_marker = _add_marked_mesh_surfaces(
+                gmsh,
+                oriented_inner_boundary.faces,
+                vertices=oriented_inner_boundary.vertices,
+                triangulation_policy="fixed_diagonal",
+                point_tags=point_tags,
+                line_cache=line_cache,
+                node_offset=0,
+            )
+        farfield_surfaces_by_marker = _add_marked_mesh_surfaces(
+            gmsh,
+            farfield.faces,
+            vertices=farfield.vertices,
+            triangulation_policy="fixed_diagonal",
+            point_tags=point_tags,
+            line_cache=line_cache,
+            node_offset=inner_point_offset,
+        )
+        inner_surfaces = [
+            surface
+            for surfaces in inner_surfaces_by_marker.values()
+            for surface in surfaces
+        ]
+        farfield_surfaces = [
+            surface
+            for surfaces in farfield_surfaces_by_marker.values()
+            for surface in surfaces
+        ]
+        outer_loop = gmsh.model.geo.addSurfaceLoop(farfield_surfaces)
+        inner_loop_surfaces = (
+            [-surface for surface in inner_surfaces]
+            if preserve_boundary_mesh
+            else inner_surfaces
+        )
+        inner_loop = gmsh.model.geo.addSurfaceLoop(inner_loop_surfaces)
+        core_volume = gmsh.model.geo.addVolume([outer_loop, inner_loop])
+        gmsh.model.geo.synchronize()
+
+        physical_groups: dict[str, dict[str, int]] = {}
+        for marker, surfaces in {
+            **inner_surfaces_by_marker,
+            **farfield_surfaces_by_marker,
+        }.items():
+            group = gmsh.model.addPhysicalGroup(2, surfaces)
+            gmsh.model.setPhysicalName(2, group, marker)
+            physical_groups[marker] = {
+                "dimension": 2,
+                "physical_tag": int(group),
+                "entity_count": len(surfaces),
+            }
+        fluid_group = gmsh.model.addPhysicalGroup(3, [core_volume])
+        gmsh.model.setPhysicalName(3, fluid_group, fluid_marker)
+        physical_groups[fluid_marker] = {
+            "dimension": 3,
+            "physical_tag": int(fluid_group),
+            "entity_count": 1,
+        }
+
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min(mesh_size, resolved_farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max(mesh_size, resolved_farfield_mesh_size))
+        if preserve_boundary_mesh:
+            gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+            gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
+            gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+        gmsh.option.setNumber("Mesh.Algorithm", 6 if preserve_boundary_mesh else 5)
+        gmsh.option.setNumber("Mesh.Algorithm3D", resolved_mesh_algorithm3d)
+        gmsh.option.setNumber("Mesh.Optimize", 1)
+        gmsh.model.mesh.generate(3)
+
+        inner_input_element_counts = _input_surface_mesh_element_counts(
+            oriented_inner_boundary.faces
+        )
+        inner_generated_element_counts = _surface_mesh_element_counts_by_marker(
+            gmsh,
+            inner_surfaces_by_marker,
+        )
+        farfield_input_element_counts = _input_surface_mesh_element_counts(farfield.faces)
+        farfield_generated_element_counts = _surface_mesh_element_counts_by_marker(
+            gmsh,
+            farfield_surfaces_by_marker,
+        )
+        node_tags, _, _ = gmsh.model.mesh.getNodes()
+        volume_element_types, volume_element_tags, _ = gmsh.model.mesh.getElements(3)
+        volume_type_counts = {
+            str(element_type): len(tags)
+            for element_type, tags in zip(volume_element_types, volume_element_tags)
+        }
+        volume_element_count = sum(volume_type_counts.values())
+        quality_metrics = _collect_volume_quality_metrics(gmsh)
+        gmsh.write(str(msh_path))
+        su2_boundary_ownership = None
+        if su2_output_path is not None:
+            gmsh.write(str(su2_output_path))
+            su2_boundary_ownership = audit_su2_boundary_face_ownership(su2_output_path)
+
+        coupling_surface = (
+            _triangulated_surface_mesh(oriented_inner_boundary)
+            if preserved_boundary_representation == "triangulated"
+            else oriented_inner_boundary
+        )
+        bl_block_coupling = (
+            None
+            if owned_bl_block is None
+            else _bl_block_coupling_report(
+                owned_bl_block,
+                coupling_surface,
+                block_boundary_faces=(
+                    _triangulated_faces(owned_bl_block.boundary_faces)
+                    if preserved_boundary_representation == "triangulated"
+                    else None
+                ),
+            )
+        )
+
+        return {
+            "status": "meshed",
+            "route": "mesh_native_inner_surface_core_tet_probe",
+            "mesh_path": str(msh_path),
+            "su2_path": None if su2_output_path is None else str(su2_output_path),
+            "volume_count": 1,
+            "node_count": len(node_tags),
+            "volume_element_count": volume_element_count,
+            "volume_element_type_counts": volume_type_counts,
+            "inner_boundary": {
+                "marker_counts": oriented_inner_boundary.marker_counts(),
+                "surface_entity_count": len(inner_surfaces),
+                "input_mesh_element_counts": inner_input_element_counts,
+                "generated_mesh_element_counts": inner_generated_element_counts,
+            },
+            "farfield": {
+                "marker_counts": farfield.marker_counts(),
+                "surface_entity_count": len(farfield_surfaces),
+                "input_mesh_element_counts": farfield_input_element_counts,
+                "generated_mesh_element_counts": farfield_generated_element_counts,
+            },
+            "interface_conformality": _surface_conformality_report(
+                inner_input_element_counts,
+                inner_generated_element_counts,
+                expected_boundary_representation=(
+                    preserved_boundary_representation
+                    if preserve_boundary_mesh
+                    else "triangulated"
+                ),
+            ),
+            "bl_block_coupling": bl_block_coupling,
+            "mesh_sizing": {
+                "inner_mesh_size": float(mesh_size),
+                "farfield_mesh_size": float(resolved_farfield_mesh_size),
+                "preserve_boundary_mesh": bool(preserve_boundary_mesh),
+                "preserved_boundary_representation": (
+                    preserved_boundary_representation if preserve_boundary_mesh else None
+                ),
+            },
+            "compute": thread_settings,
+            "quality_metrics": quality_metrics,
+            "mesh_quality_gate": _mesh_quality_gate(quality_metrics),
+            "su2_boundary_ownership": su2_boundary_ownership,
+            "production_scale_gate": _production_scale_gate(
+                volume_element_count,
+                target_volume_elements=production_target_volume_elements,
+            ),
+            "physical_groups": physical_groups,
+            "caveats": [
+                "not a final conformal BL+core merge",
+                "caller-owned inner boundary surface is treated as an obstacle for core probe only",
+                "loop caps or transition receiver faces must still be merged with owned BL cells",
+            ],
+        }
+    except Exception as exc:
+        try:
+            gmsh_log_tail = gmsh.logger.get()[-30:]
+        except Exception:
+            gmsh_log_tail = []
+        if gmsh_log_tail:
+            raise RuntimeError(
+                f"{exc}; gmsh_log_tail={json.dumps(gmsh_log_tail[-10:])}"
+            ) from exc
+        raise
+    finally:
+        gmsh.finalize()
+
+
 def write_faceted_volume_mesh_with_boundary_layer(
     wing: SurfaceMesh,
     farfield: SurfaceMesh,

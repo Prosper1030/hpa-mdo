@@ -467,9 +467,26 @@ solver ladder not run。
 no-slip wall BC、farfield marker、conformal BL/core handoff、near-wall/y+ evidence、同幾何
 coarse/medium/fine ladder 與 residual/force stability 都要在同一 setup 下成立。若只是要重放
 no-BL debug，必須明確使用 diagnostic flag，且結果仍不能完成 CFD goal。這個 preflight gate
-現在優先讀 WO-006R11 loop-cap artifact；R11 已讓 core-facing surface topology 變成 mesh-probe
-ready，因此目前 setup blocker 收斂成 `near_wall_core_mesh_probe_missing`，避免 medium/fine
-入口忽略最新 near-wall/core closure 狀態。
+現在優先讀 WO-006R12 loop-cap core-mesh artifact；R12 已把最新 blocker 定位成
+`near_wall_core_mesh_geometry_blocked`，也就是 tip/wake loop-cap seam 的 geometric
+self-intersection，而不是 R10 wall-edge dependency 或單純 core mesh 尚未嘗試。
+
+## 2026-05-14 WO-006R12 Loop-Cap Core Mesh Probe
+
+WO-006R12 新增 `scripts/probe_wo006r12_loop_cap_core_mesh_probe.py`，把 R11 的
+`core_wall_loop_cap` surface 直接交給 generic inner-surface core tet writer，不再回退到舊的
+`build_boundary_layer_core_interface_surface(block)`。Baseline A artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r12_loop_cap_core_mesh_probe/`。
+
+實跑結果仍是 `loop_cap_core_mesh_probe_blocked`：Gmsh HXT core fill 約 `96.6 s` 後失敗，
+log 顯示 duplicate point filtering、missing facets recovery，並輸出 exactly self-intersecting
+facets。R12 的幾何 audit 進一步定位：R11 surface 有 `70` 組 exact duplicate coordinates；
+若按座標 weld，會產生 `8` 條 non-manifold bad edges，sample 集中在
+`wake_edge_receiver` / `core_wall_loop_cap` / `core_tip_receiver_outer` 的 tip/wake loop-cap seam。
+
+工程判讀：R11 的 index-space watertight 不等於 PLC/geometric validity。現在不能跑 SU2；
+下一步要修 sharp-TE/tip/wake loop-cap 幾何重合與 non-manifold seam，讓 core/farfield mesh
+quality/marker gate 真正 pass，再談 merged BL/core handoff、y+ 與 solver ladder。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 
