@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r17_hybrid_tet_prism_split_probe" / "summary.json",
     WO006_ROOT / "wo006r16_axis_agnostic_prism_split_probe" / "summary.json",
     WO006_ROOT / "wo006r15_prism_split_handoff_compatibility_probe" / "summary.json",
     WO006_ROOT / "wo006r14_mixed_handoff_conformality_probe" / "summary.json",
@@ -352,6 +353,8 @@ def evaluate_cfd_setup_gate(
         blockers.append(
             str(core_closure_topology.get("blocker") or "near_wall_core_mesh_probe_blocked")
         )
+    if core_closure_topology["status"] == "handoff_hybrid_split_blocked":
+        blockers.append("near_wall_hybrid_tet_prism_handoff_not_compatible")
     if core_closure_topology["status"] == "handoff_prism_split_blocked":
         blockers.append("near_wall_prism_split_handoff_not_compatible")
     if core_closure_topology["status"] == "handoff_conformality_blocked":
@@ -403,6 +406,7 @@ def _core_route_supersedes_direct_stageback(
         stageback_topology.get("status") == "blocked"
         and core_closure_topology.get("status")
         in {
+            "handoff_hybrid_split_blocked",
             "handoff_conformality_blocked",
             "handoff_prism_split_blocked",
             "core_mesh_ready_handoff_pending",
@@ -1198,14 +1202,86 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    hybrid_split_artifact_seen = False
+    hybrid_split_blocked = False
+    hybrid_split_record: dict[str, Any] | None = None
     prism_split_artifact_seen = False
     prism_split_blocked = False
     prism_split_record: dict[str, Any] | None = None
     handoff_conformality_blocked = False
     handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        hybrid_split_compatibility = artifact.get("hybrid_split_compatibility") or {}
+        if hybrid_split_compatibility:
+            hybrid_split_artifact_seen = True
+            merged_handoff_status = str(
+                artifact.get("merged_handoff_status")
+                or hybrid_split_compatibility.get("status")
+                or artifact.get("verdict")
+                or ""
+            )
+            hybrid_split_blocked = merged_handoff_status != "pass"
+            hybrid_split_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": merged_handoff_status,
+                "candidate_cell_count": hybrid_split_compatibility.get(
+                    "candidate_cell_count"
+                ),
+                "candidate_core_facing_cell_count": hybrid_split_compatibility.get(
+                    "candidate_core_facing_cell_count"
+                ),
+                "matched_core_triangle_count": hybrid_split_compatibility.get(
+                    "matched_core_triangle_count"
+                ),
+                "core_triangle_count": hybrid_split_compatibility.get("core_triangle_count"),
+                "candidate_owned_core_triangle_count": hybrid_split_compatibility.get(
+                    "candidate_owned_core_triangle_count"
+                ),
+                "unowned_core_triangles_by_marker": hybrid_split_compatibility.get(
+                    "unowned_core_triangles_by_marker"
+                ),
+                "incompatible_owned_core_triangles_by_marker": (
+                    hybrid_split_compatibility.get(
+                        "incompatible_owned_core_triangles_by_marker"
+                    )
+                ),
+                "best_pattern_counts": hybrid_split_compatibility.get(
+                    "best_pattern_counts"
+                ),
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(hybrid_split_record)
+            continue
+
         prism_split_compatibility = artifact.get("prism_split_compatibility") or {}
         if prism_split_compatibility:
+            if hybrid_split_artifact_seen:
+                records.append(
+                    {
+                        "path": artifact.get("path"),
+                        "schema_version": artifact.get("schema_version"),
+                        "verdict": artifact.get("verdict"),
+                        "closure_status": (
+                            artifact.get("merged_handoff_status")
+                            or prism_split_compatibility.get("status")
+                        ),
+                        "status": "superseded_by_hybrid_split_probe",
+                        "matched_core_triangle_count": prism_split_compatibility.get(
+                            "matched_core_triangle_count"
+                        ),
+                        "core_triangle_count": prism_split_compatibility.get(
+                            "core_triangle_count"
+                        ),
+                        "unmatched_core_triangles_by_marker": (
+                            prism_split_compatibility.get(
+                                "unmatched_core_triangles_by_marker"
+                            )
+                        ),
+                    }
+                )
+                continue
             if prism_split_artifact_seen:
                 records.append(
                     {
@@ -1279,7 +1355,9 @@ def _core_closure_topology_summary(
                 "verdict": artifact.get("verdict"),
                 "closure_status": merged_handoff_status,
                 "status": (
-                    "superseded_by_prism_split_probe"
+                    "superseded_by_hybrid_split_probe"
+                    if hybrid_split_artifact_seen
+                    else "superseded_by_prism_split_probe"
                     if prism_split_artifact_seen
                     else "active"
                 ),
@@ -1301,7 +1379,7 @@ def _core_closure_topology_summary(
                 ),
                 "pending_blockers": artifact.get("blockers"),
             }
-            if not prism_split_artifact_seen:
+            if not hybrid_split_artifact_seen and not prism_split_artifact_seen:
                 handoff_conformality_blocked = merged_handoff_status != "pass"
             records.append(handoff_conformality_record)
             continue
@@ -1412,7 +1490,9 @@ def _core_closure_topology_summary(
             }
         )
 
-    if prism_split_blocked:
+    if hybrid_split_blocked:
+        status = "handoff_hybrid_split_blocked"
+    elif prism_split_blocked:
         status = "handoff_prism_split_blocked"
     elif handoff_conformality_blocked:
         status = "handoff_conformality_blocked"
@@ -1439,7 +1519,25 @@ def _core_closure_topology_summary(
         "unexplained_bad_edge_count": unexplained_bad_edge_count,
         "full_shell_policy_status": full_shell_policy_status,
     }
-    if status == "handoff_prism_split_blocked":
+    if status == "handoff_hybrid_split_blocked":
+        result.update(
+            {
+                "blocker": "near_wall_hybrid_tet_prism_handoff_not_compatible",
+                "hybrid_split_compatibility": hybrid_split_record,
+                "recommended_repair": (
+                    "materialize_remaining_loop_cap_and_wake_tip_interface_ownership"
+                ),
+                "engineering_read": (
+                    "The latest hybrid tet/prism split probe shows most of the "
+                    "R13 core interface can now be reproduced by local mixed-cell "
+                    "decomposition, but remaining loop-cap and small wake/tip "
+                    "interface triangles still lack ownership or compatible "
+                    "tessellation. Do not run medium/fine SU2 until those final "
+                    "handoff gaps are materialized and y+ is postprocessed."
+                ),
+            }
+        )
+    elif status == "handoff_prism_split_blocked":
         result.update(
             {
                 "blocker": "near_wall_prism_split_handoff_not_compatible",

@@ -166,12 +166,17 @@ Current release package:
   that to all three split axes and reaches `5274/5658`, clearing
   `bl_outer_interface=2048` but still leaving `wake_edge_receiver=192`,
   `core_outer_edge_receiver=128`, `core_wall_loop_cap=60`, and
-  `core_wake_outer_match=4`. WO-006I preflight treats the old direct-stageback
-  PLC failure, R14 generic mismatch, and R15 single-axis prism split as
+  `core_wake_outer_match=4`. WO-006R17 then allows local body-diagonal tet
+  decompositions as well as prism splits and reaches `5590/5658`, clearing
+  `core_outer_edge_receiver=128` and most wake/tip triangles. Remaining blockers
+  are `core_wall_loop_cap=60` without candidate owner plus
+  `wake_edge_receiver=4` / `core_tip_receiver_outer=4` incompatible owned
+  triangles. WO-006I preflight treats the old direct-stageback PLC failure, R14
+  generic mismatch, R15 single-axis prism split, and R16 prism-only split as
   superseded diagnostic evidence and advances to
-  `setup_near_wall_prism_split_handoff_not_compatible`; next repair should make
-  the near-wall and core share the same interface tessellation before y+ probe
-  or any solver ladder.
+  `setup_near_wall_hybrid_tet_prism_handoff_not_compatible`; next repair should
+  materialize the remaining loop-cap/wake/tip ownership before y+ probe or any
+  solver ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

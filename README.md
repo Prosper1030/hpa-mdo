@@ -20,6 +20,25 @@ mesh 約 `25,168` cells / `15,190` nodes，其中 BL quads `4,833`。SU2 在
 0.5 的工具鏈錯誤；Baseline A 目前的大 CD 更像幾何/BL prism/pressure setup 或 3D handoff
 問題。下一步仍要先修 Baseline A BL/core handoff quality，再回 coarse/medium/fine ladder。
 
+## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
+
+`scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：
+每個 near-wall/receiver hexa 可選三軸 two-prism split，也可選四種 body-diagonal six-tet
+decomposition，逐 cell 選最能 match R13 core-interface triangles 的局部 representation。
+artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r17_hybrid_tet_prism_split_probe/`。
+
+實跑結果：R17 match `5590 / 5658` core triangles，比 R16 的 `5274/5658` 再提升；
+`bl_outer_interface=2048`、`core_outer_edge_receiver=128`、`core_wake_outer_match=64` 已可
+全部 match，`wake_edge_receiver` 也從 R16 unmatched `192` 降到 incompatible owned `4`。
+剩餘 blocker 是 `core_wall_loop_cap=60` 沒有 candidate owner，以及
+`core_tip_receiver_outer=4` / `wake_edge_receiver=4` 仍 split 不相容。WO-006I preflight 現在
+active blocker 是 `near_wall_hybrid_tet_prism_handoff_not_compatible`。
+
+工程判讀：hybrid tet/prism 是目前最接近 mixed BL/core handoff 的方向，但還不是 CFD mesh。
+下一步要 materialize 剩餘 loop-cap owner，並修最後 8 個 wake/tip owned triangles；完成後才
+能寫 merged mixed SU2 mesh、做 marker/y+ gate，再談 coarse/medium/fine SU2 ladder。
+
 ## 2026-05-14 WO-006R16 Axis-Agnostic Prism-Split Probe
 
 `scripts/probe_wo006r16_axis_agnostic_prism_split.py` 擴大 R15 假設：每個 near-wall hexa
@@ -30,7 +49,7 @@ mesh 約 `25,168` cells / `15,190` nodes，其中 BL quads `4,833`。SU2 在
 實跑結果：R16 把 R15 的 `3166/5658` 提高到 `5274/5658`，而且
 `bl_outer_interface=2048` 已可全數 match。剩餘 unmatched 是 `wake_edge_receiver=192`、
 `core_outer_edge_receiver=128`、`core_wall_loop_cap=60`、`core_wake_outer_match=4`。WO-006I
-preflight 會優先讀 R16，R15/R14 只當 superseded diagnostic。
+preflight 現在會優先讀 R17；R16/R15/R14 只當 superseded diagnostic。
 
 工程判讀：axis-agnostic prismization 是有用方向，但仍不能形成 conformal BL/core handoff。
 剩下的是 wake/outer-edge/loop-cap ownership/tessellation 問題；下一步仍必須 shared interface
@@ -540,12 +559,12 @@ SICN/SIGE/volume 都是 `0`。但 mesh quality 仍有 `very_low_min_gamma`、`ve
 確認 R13 core surface 與 near-wall volume 多數 polygon 對得上（`2800/2860`），但 active
 triangulated core boundary 只有 `1808/5658` triangles conformal，且 `core_wall_loop_cap`
 有 `60` 張 polygon 沒有 near-wall owner。R15 先證明單軸逐 cell 兩-prism split 只能 match
-`3166/5658` core triangles；R16 再把三軸 split 都納入後提升到 `5274/5658`，但
-`wake_edge_receiver=192`、`core_outer_edge_receiver=128`、`core_wall_loop_cap=60` 仍 unmatched。
-因此 WO-006I preflight 現在把 active blocker 定位成
-`near_wall_prism_split_handoff_not_compatible`；舊 direct-stageback PLC failure 只保留為
-superseded diagnostic。下一步是讓 near-wall 與 core 共用同一個 interface tessellation，
-再做 y+ probe 和 solver ladder。
+`3166/5658` core triangles；R16 三軸 split 提升到 `5274/5658`；R17 hybrid tet/prism 再提升到
+`5590/5658`，但 `core_wall_loop_cap=60` 仍沒有 candidate owner，另有 `wake_edge_receiver=4`
+和 `core_tip_receiver_outer=4` split 不相容。因此 WO-006I preflight 現在把 active blocker
+定位成 `near_wall_hybrid_tet_prism_handoff_not_compatible`；舊 direct-stageback PLC failure
+只保留為 superseded diagnostic。下一步是補剩餘 loop-cap/wake/tip ownership，再做 y+ probe
+和 solver ladder。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 
