@@ -398,6 +398,35 @@ def test_closed_wall_wrapper_pps42_l16_fixes_root_aspect_but_inverts_cap_prisms(
     }
 
 
+def test_closed_wall_wrapper_layer_window_probe_records_no_viable_pps42_window(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_closed_wall_wrapper_layer_window_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "closed_wall_layer_window",
+        points_per_side=42,
+        spanwise_subdivisions=4,
+        layer_counts=(6, 7, 16),
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        run_dual_proxy=False,
+    )
+
+    by_layer = {row["layers"]: row for row in report["rows"]}
+
+    assert report["status"] == "closed_wall_wrapper_no_simple_layer_window"
+    assert by_layer[6]["direct_prism_quality_gate"]["status"] == "pass"
+    assert by_layer[6]["dual_subvolume_proxy"]["status"] == "not_run"
+    assert by_layer[7]["direct_prism_quality_gate"]["status"] == "fail"
+    assert by_layer[7]["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] == 10
+    assert by_layer[16]["direct_prism_quality"]["prism_signed_volume_by_marker"]["wing_upper"]["non_positive_count"] == 124
+    assert by_layer[16]["direct_prism_quality"]["prism_signed_volume_by_marker"]["te_wall"]["non_positive_count"] == 121
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+    assert Path(report["report_path"]).exists()
+
+
 def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
     tmp_path: Path,
 ) -> None:

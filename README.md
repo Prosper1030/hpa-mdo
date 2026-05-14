@@ -172,6 +172,13 @@ closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual prox
 `wing_upper=124`、`te_wall=121`，主要是 layers `10-15` 的 aft/TE 區域。工程判讀：
 closed wrapper 說明「core 不要貼到薄 BL 內層」是對的，但 raw full-cap extrusion
 仍不可直接當 route-smoke mesh。
+`closed_wall_wrapper_layer_window_pps42_span4/` 進一步把這個判斷變成可重跑的
+layer-window probe：在 `points_per_side=42`、growth `1.2` 下，4/5/6 layers 的 prism
+signed volume gate pass，但這些薄層先前 dual proxy 仍是 `~1e10` 量級；7 layers 開始出現
+`10` 個 non-positive prisms，8/9/10/16 layers 分別惡化到 `22` / `39` / `65` / `245`。
+工程邊界：沒有簡單的 pps42 closed-wall layer count 同時滿足「足夠厚以隔離 core
+dual-volume」與「cap/TE prism 不翻轉」。下一步不能只縮 layers 或直接重跑 RANS；要處理
+TE/aft cap 的 BL termination / smoothed cap extrusion / transition-buffer topology。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

@@ -162,6 +162,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   `wing_upper=124`、`te_wall=121`，主要發生於 layers `10-15` 的 aft/TE 區域。
   這條路證明足夠 BL outer thickness 能改善 dual proxy，但 raw full-cap extrusion
   仍會在高解析/深層 BL 下自交，不能直接當 active mesh。
+- pps42 closed-wall layer-window probe 現在也有 artifact：
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/closed_wall_wrapper_layer_window_pps42_span4/`。
+  在 growth `1.2` 下，4/5/6 layers 的 prism signed volume gate pass，但這些薄層先前
+  dual proxy 仍是 `~1e10` 量級；7 layers 開始出現 `10` 個 non-positive prisms，
+  8/9/10/16 layers 分別惡化到 `22` / `39` / `65` / `245`。工程判讀：pps42 closed-wall
+  wrapper 沒有簡單 layer count 能同時滿足「足夠厚以改善 SU2 dual-volume」與
+  「TE/aft cap prism 不翻轉」。下一步應研究 TE/aft cap 的 BL termination、smoothed
+  cap extrusion 或 transition-buffer topology，而不是重跑 RANS 或只調 layers。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality

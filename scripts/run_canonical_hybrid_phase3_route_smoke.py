@@ -1133,6 +1133,113 @@ def write_phase3_partial_wing_prism_handoff_su2(
     }
 
 
+def run_phase3_closed_wall_wrapper_layer_window_probe(
+    section_table_path: Path | str,
+    output_dir: Path | str,
+    *,
+    points_per_side: int = 42,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    layer_counts: Sequence[int] = (4, 6, 7, 8, 16),
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+    run_dual_proxy: bool = False,
+) -> dict[str, Any]:
+    """Probe whether closed-wall BL has a simple positive-prism layer window."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    rows: list[dict[str, Any]] = []
+    for layers in layer_counts:
+        layer_count = int(layers)
+        volume = _direct_surface_prism_volume(
+            surface.vertices,
+            wall_triangles,
+            first_layer_height_m=first_layer_height_m,
+            growth_ratio=growth_ratio,
+            bl_layers=layer_count,
+        )
+        quality = _direct_prism_quality_metrics(volume)
+        quality_gate = _direct_prism_quality_gate(quality)
+        row: dict[str, Any] = {
+            "layers": layer_count,
+            "boundary_layer_cell_count": len(volume["elements"]),
+            "total_thickness_m": _layer_cumulative_heights(
+                first_layer_height_m,
+                growth_ratio,
+                layer_count,
+            )[-1],
+            "direct_prism_quality": quality,
+            "direct_prism_quality_gate": quality_gate,
+            "dual_subvolume_proxy": {
+                "status": "not_run",
+                "reason": "run_dual_proxy_false",
+            },
+        }
+        if (
+            run_dual_proxy
+            and quality_gate["status"] == "pass"
+            and int(quality["prism_signed_volume"]["non_positive_count"]) == 0
+        ):
+            core = _direct_surface_prism_core_tets(
+                volume,
+                surface_bounds=_bounds(surface.vertices),
+                core_mesh_size=core_mesh_size,
+                farfield_mesh_size=farfield_mesh_size,
+            )
+            row["core_cell_count"] = len(core["tetra_elements"])
+            row["dual_subvolume_proxy"] = _closed_wall_wrapper_dual_proxy(
+                volume,
+                core,
+            )
+        rows.append(row)
+
+    viable_rows = [
+        row
+        for row in rows
+        if _mapping(row.get("direct_prism_quality_gate")).get("status") == "pass"
+        and _mapping(row.get("dual_subvolume_proxy")).get("status") in {
+            "pass",
+            "not_run",
+        }
+    ]
+    report = {
+        "route": "canonical_hybrid_halfwing_closed_wall_wrapper_layer_window_probe",
+        "status": (
+            "closed_wall_wrapper_has_candidate_window"
+            if run_dual_proxy and any(
+                _mapping(row.get("dual_subvolume_proxy")).get("status") == "pass"
+                for row in viable_rows
+            )
+            else "closed_wall_wrapper_no_simple_layer_window"
+        ),
+        "case_dir": str(output_path),
+        "surface": {
+            "marker_counts": surface.marker_counts(),
+            "metadata": surface.metadata,
+        },
+        "rows": rows,
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Layer-window diagnostic only. A row with positive prisms is not a "
+                "route-smoke mesh unless it also clears the dual proxy and pressure "
+                "sanity; a row with inverted prisms is an immediate topology blocker."
+            ),
+        },
+    }
+    report_path = output_path / "closed_wall_wrapper_layer_window_report.json"
+    report["report_path"] = str(report_path)
+    report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    return report
+
+
 def run_phase3_partial_wing_cap_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,
@@ -1785,6 +1892,55 @@ def _partial_wing_transition_collar_core_tets(
         }
     finally:
         gmsh.finalize()
+
+
+def _closed_wall_wrapper_dual_proxy(
+    bl_volume: Mapping[str, Any],
+    core: Mapping[str, Any],
+) -> dict[str, Any]:
+    merged_nodes = list(bl_volume["nodes"])
+    core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
+    elements = [
+        *bl_volume["elements"],
+        *[
+            (SU2_TETRAHEDRON, tuple(core_node_map[int(node)] for node in nodes))
+            for nodes in core["tetra_elements"]
+        ],
+    ]
+    marker_faces = {
+        marker: list(faces)
+        for marker, faces in bl_volume["marker_faces"].items()
+        if marker != "bl_outer_interface"
+    }
+    for marker, faces in core["marker_faces"].items():
+        marker_faces.setdefault(marker, []).extend(
+            [
+                (element_type, tuple(core_node_map[int(node)] for node in nodes))
+                for element_type, nodes in faces
+            ]
+        )
+    compacted_volume, _node_compaction = _compact_volume_node_indices(
+        {
+            "nodes": merged_nodes,
+            "elements": elements,
+            "marker_faces": marker_faces,
+        }
+    )
+    element_sources = [
+        *[
+            _phase3_volume_element_source(element_type)
+            for element_type, _nodes in bl_volume["elements"]
+        ],
+        *(["tetra_core"] * len(core["tetra_elements"])),
+    ]
+    return _mixed_dual_subvolume_proxy_report(
+        compacted_volume["nodes"],
+        compacted_volume["elements"],
+        element_sources=element_sources,
+        marker_faces=compacted_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
 
 
 def _partial_wing_transition_collar_core_inner_boundary_surface(
