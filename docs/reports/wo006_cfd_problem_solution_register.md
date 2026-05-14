@@ -70,7 +70,9 @@ evidence; it is a handoff/debug map for the next worker.
   triangular transition interface plus original cap faces can tetra-fill without
   forbidden core element types at pps12/l4 scale.  pps24/l4 scale-up shows collar
   thickness is now a real geometry constraint: `2.5e-4 m` still self-intersects,
-  while `1.0e-4 m` tetra-fills cleanly.
+  while `1.0e-4 m` tetra-fills cleanly.  Thin-collar pps42 scale probes then
+  tetra-fill at l4/l8/l16, but l16 already costs about six minutes on this Mac,
+  so runtime is now part of the gate.
 
 ## Problems And Repairs
 
@@ -97,6 +99,7 @@ evidence; it is a handoff/debug map for the next worker.
 | partial-BL rim needs pyramid transition collar | GPT Pro follow-up pointed out that tetra cannot conformally attach to exposed prism side quads; without an explicit collar Codex will keep repairing Gmsh cap loops instead of defining mesh topology | Partial BL only on `wing_upper` / `wing_lower` leaves non-root prism rim quads at TE/tip/closure; those must be internal transition faces, not wall force markers and not direct tetra contacts | `write_phase3_minimal_transition_unit_su2()` proves the artificial contract; `write_phase3_partial_wing_transition_collar_handoff_su2()` applies it to real wing pps42/l24 with `124,416` prisms + `3,480` pyramids, converting `tip_wall=1944`, `te_wall=1344`, `closure_wall=192` rim quads into internal pyramid bases, `transition_collar_interface=13,920` triangles, `force_wall_rim_marker_leak_count=0`, positive pyramid volumes, and SU2 ownership pass | Materialize original tip/TE/closure physical cap faces and merge tetra core into the same hybrid SU2 mesh; then require pressure-only CD sanity before any RANS route-smoke |
 | collar+cap shell can tetra-fill at small scale | pps12/l4 collar+cap probe combines `bl_outer_interface`, `transition_collar_interface`, and original cap faces; Gmsh fills the core with `9,088` tetra and no forbidden core element types | The explicit collar makes the prism rim compatible with a triangular tetra-core boundary at small scale | `run_phase3_partial_wing_transition_collar_core_probe()` writes `partial_wing_transition_collar_core_probe_report.json` and `core.msh` | Scale the collar+cap core merge to pps42/l24 and then write the merged SU2 hybrid mesh with internal interface markers removed |
 | collar height controls pps24 scale-up | pps24/l4 with `collar_height=2.5e-4 m` still fails Gmsh core fill with `PLC Error: A segment and a facet intersect at point`; `collar_height=1.0e-4 m` fills with `12,028` tetra and no forbidden core element types | The transition collar can solve element compatibility but still self-intersects if apex offset is too thick for local TE/tip/cap geometry | Regression test `test_partial_wing_transition_collar_core_probe_scales_to_pps24_with_thin_collar` locks the thin-collar pass | Use thin collar policy for the next pps42 and layer ladder; do not interpret thick-collar PLC failure as solver/numerics issue |
+| thin-collar pps42 core scale reaches 16 layers | pps42/l4 fills with `16,462` tetra in about `51 s`; pps42/l8 fills with `20,093` tetra in about `118 s`; pps42/l16 fills with `26,600` tetra in about `355 s`; all have forbidden core element counts `{}` | The collar+cap topology is not blocked by full chordwise resolution up to 16 layers, but Gmsh runtime grows quickly | Manual artifacts under `partial_wing_transition_collar_core_probe_pps42_l4_h1e-4/`, `_l8_h1e-4/`, and `_l16_h1e-4/` record the runs | Do not blindly run l24 as the next proof; write merged SU2 hybrid mesh and run marker/dual-quality/pressure sanity on l4 or l8 first |
 
 ## Phase 1 Toolchain Sanity Evidence
 

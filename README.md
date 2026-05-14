@@ -129,6 +129,11 @@ pressure-only CD sanity 或 RANS route-smoke。
 `PLC Error: A segment and a facet intersect at point`，但 `1.0e-4 m` thin collar
 可生成 `12,028` tetra 且 forbidden core element counts `{}`。下一步 scale-up 應先用
 thin collar policy，再往 layers `8 -> 16 -> 24` 推，不要直接用厚 collar 衝 pps42/l24。
+thin collar 的 pps42 scale ladder 已手動推到 16 layers：l4 產生 `16,462` tetra
+（約 `51 s`）、l8 產生 `20,093` tetra（約 `118 s`）、l16 產生 `26,600` tetra
+（約 `355 s`），forbidden core element counts 都是 `{}`。工程邊界：l16 已偏重，
+l24 不應盲跑；下一步更應先寫 merged SU2 hybrid mesh，並在 l4/l8 上做 marker/dual-quality
+與 pressure-only sanity，再決定是否值得跑 l24。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

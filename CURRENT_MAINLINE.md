@@ -130,6 +130,12 @@ screening evidence 讀，不是現行 release / procurement truth。
   at point`，但 `1.0e-4 m` thin collar 可生成 `12,028` tetra，forbidden core element
   counts `{}`。下一步 scale-up 應採 thin collar policy，再測 layers `8 -> 16 -> 24`；
   不要直接用厚 collar 衝 pps42/l24。
+- WO-006 Phase 3 thin-collar pps42 scale ladder 已手動跑到 16 layers：l4 產生
+  `16,462` tetra（約 `51 s`）、l8 產生 `20,093` tetra（約 `118 s`）、l16 產生
+  `26,600` tetra（約 `355 s`），forbidden core element counts 都是 `{}`。這證明
+  collar+cap core topology 到 16 layers 仍可 tetra-fill，但 runtime 已成為 Mac-safe
+  gate；l24 不應盲跑。下一步優先寫 merged SU2 hybrid mesh，先在 l4/l8 做 marker、
+  dual-quality 與 pressure-only CD sanity。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在
