@@ -233,6 +233,13 @@ topology / element-quality / SU2 boundary ownership / dual proxy 全部 pass。�
 `ROUTE_SMOKE_PASS`：它只證明 partial-BL prism rim 已可用 stitched transition
 轉成 triangular core-interface topology；下一步仍要做 caps/core merge 和
 pressure-only sanity，不能直接跑 viscous RANS。
+新的 core-shell preflight 已把下一個 blocker 鎖住：
+`segmented_partial_wing_structured_transition_core_shell_probe_pps42_l3_stitched_r010_030/`
+確認 handoff gate 仍 pass，但 `bl_outer_interface + transition_collar_outer_interface
++ segmented caps` 組成的 core-facing inner boundary 不是可直接 tetra-fill 的
+2-manifold shell：`59,086` faces、`88,602` edges、`557` bad edges，其中 `195`
+是 nonmanifold edges。工程判讀：現在不能再讓 Gmsh 直接 core-fill；下一步要修
+TE/tip/closure cap-receiver / outer transition shell topology。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

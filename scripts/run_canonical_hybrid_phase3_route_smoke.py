@@ -2806,6 +2806,238 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
     return report
 
 
+def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
+    section_table_path: Path | str,
+    output_dir: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 1.0e-4,
+    transition_row_heights_m: Sequence[float] = (0.01, 0.03),
+    sidewall_closure_policy: str = "stitched_sheet",
+    max_projected_volume_elements: int | None = None,
+) -> dict[str, Any]:
+    """Preflight the stitched transition core-facing shell before Gmsh core fill."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    projection_report = None
+    if max_projected_volume_elements is not None:
+        projection_report = plan_phase3_segmented_partial_wing_structured_transition_handoff(
+            section_table_path,
+            points_per_side=points_per_side,
+            spanwise_subdivisions=spanwise_subdivisions,
+            first_layer_height_m=first_layer_height_m,
+            growth_ratio=growth_ratio,
+            bl_layers=bl_layers,
+            collar_height_m=collar_height_m,
+            transition_row_heights_m=transition_row_heights_m,
+            sidewall_closure_policy=sidewall_closure_policy,
+            max_projected_volume_elements=max_projected_volume_elements,
+        )
+        if _mapping(projection_report.get("gate")).get("status") != "pass":
+            report = {
+                "route": (
+                    "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_core_shell_probe"
+                ),
+                "status": "segmented_partial_wing_structured_transition_projection_blocked",
+                "case_dir": str(output_path),
+                "projection": projection_report,
+                "gate": projection_report["gate"],
+                "core_report": {"status": "blocked_before_gmsh_core_fill"},
+                "engineering_assessment": {
+                    "route_smoke_ready": False,
+                    "trust_boundary": (
+                        "Core-shell probe stopped at the structured-transition "
+                        "projection gate before allocating the handoff mesh."
+                    ),
+                },
+            }
+            (output_path / "structured_transition_core_shell_probe_report.json").write_text(
+                json.dumps(report, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            return report
+
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    source_edge_segments, source_edge_report = _source_rim_edge_split_plan(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+        first_layer_height_m=first_layer_height_m,
+    )
+    segmented_vertices, segmented_wall_triangles, segmented_surface_report = (
+        _split_wall_triangles_on_source_edges(
+            surface.vertices,
+            wall_triangles,
+            edge_segment_counts=source_edge_segments,
+        )
+    )
+    segmented_cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in segmented_wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        segmented_vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in segmented_wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(segmented_cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    transition_volume, structured_transition = _partial_wing_structured_transition_volume(
+        collar_volume,
+        transition_row_heights_m=transition_row_heights_m,
+        sidewall_closure_policy=sidewall_closure_policy,
+    )
+    handoff_topology = _transition_topology_report(transition_volume)
+    handoff_quality = _transition_element_quality(transition_volume)
+    handoff_quality_gate = _transition_element_quality_gate(handoff_quality)
+    handoff_element_sources = [
+        str(_mapping(role).get("source") or _phase3_volume_element_source(element_type))
+        for (element_type, _nodes), role in zip(
+            transition_volume["elements"],
+            transition_volume["element_roles"],
+        )
+    ]
+    handoff_dual = _mixed_dual_subvolume_proxy_report(
+        transition_volume["nodes"],
+        transition_volume["elements"],
+        element_sources=handoff_element_sources,
+        marker_faces=transition_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=10,
+    )
+    handoff_blockers: list[str] = []
+    for key in (
+        "boundary_faces_unmarked",
+        "orphan_marker_faces",
+        "duplicate_marker_faces",
+        "nonmanifold_face_count",
+        "tet_to_prism_quad_contact",
+        "non_root_exposed_prism_quad_count",
+        "pyramid_boundary_face_count",
+    ):
+        if int(handoff_topology.get(key) or 0) != 0:
+            handoff_blockers.append(f"structured_handoff_{key}")
+    if handoff_quality_gate.get("status") != "pass":
+        handoff_blockers.extend(
+            str(blocker) for blocker in handoff_quality_gate.get("blockers") or []
+        )
+    handoff_blockers.extend(str(blocker) for blocker in handoff_dual.get("blockers") or [])
+    handoff_gate = {
+        "status": "pass" if not handoff_blockers else "blocked",
+        "blockers": sorted(set(handoff_blockers)),
+    }
+
+    inner_faces: list[Face] = []
+    for marker in ("bl_outer_interface", "transition_collar_outer_interface"):
+        for element_type, nodes in transition_volume["marker_faces"].get(marker, []):
+            if int(element_type) == SU2_TRIANGLE:
+                inner_faces.append(Face(nodes=tuple(int(node) for node in nodes), marker=marker))
+    for triangle, marker in segmented_cap_triangles:
+        inner_faces.append(Face(nodes=tuple(int(node) for node in triangle), marker=marker))
+    inner_boundary = SurfaceMesh(
+        vertices=[tuple(vertex) for vertex in transition_volume["nodes"]],
+        faces=inner_faces,
+        metadata={
+            "surface_role": (
+                "segmented_partial_wing_structured_transition_core_inner_boundary"
+            ),
+        },
+    )
+    inner_topology = _surface_edge_topology(inner_boundary)
+    blockers: list[str] = []
+    if handoff_gate["status"] != "pass":
+        blockers.append("structured_transition_handoff_gate_not_pass")
+    if int(inner_topology.get("nonmanifold_edge_count") or 0) > 0:
+        blockers.append("core_inner_boundary_nonmanifold_edges")
+    status = (
+        "segmented_partial_wing_structured_transition_core_shell_ready"
+        if not blockers
+        else "segmented_partial_wing_structured_transition_core_shell_blocked"
+    )
+    report = {
+        "route": (
+            "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_core_shell_probe"
+        ),
+        "status": status,
+        "case_dir": str(output_path),
+        "surface": {
+            "marker_counts": surface.marker_counts(),
+            "metadata": surface.metadata,
+        },
+        "source_rim_edge_split_plan": source_edge_report,
+        "segmented_surface": segmented_surface_report,
+        "projection": projection_report,
+        "transition_collar": collar_report,
+        "structured_transition": structured_transition,
+        "handoff_topology": handoff_topology,
+        "handoff_element_quality_gate": handoff_quality_gate,
+        "handoff_dual_subvolume_proxy": handoff_dual,
+        "handoff_gate": handoff_gate,
+        "inner_boundary": {
+            "marker_counts": inner_boundary.marker_counts(),
+            "face_count": len(inner_boundary.faces),
+        },
+        "inner_boundary_topology": inner_topology,
+        "gate": {
+            "status": "pass" if not blockers else "blocked",
+            "blockers": sorted(set(blockers)),
+        },
+        "core_report": {
+            "status": (
+                "not_run_core_shell_ready"
+                if not blockers
+                else "blocked_before_gmsh_core_fill"
+            ),
+            "reason": (
+                "core_shell_preflight_passed"
+                if not blockers
+                else "core_shell_preflight_blocked"
+            ),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Core-shell preflight only. It intentionally blocks Gmsh tetra "
+                "core fill when the stitched transition outer shell is not a "
+                "2-manifold core boundary; pressure/RANS remain forbidden."
+            ),
+        },
+    }
+    (output_path / "structured_transition_core_shell_probe_report.json").write_text(
+        json.dumps(report, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
 def run_phase3_partial_wing_transition_collar_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,
@@ -5247,9 +5479,13 @@ def _surface_edge_topology(surface: SurfaceMesh) -> dict[str, Any]:
         count_histogram[key] = count_histogram.get(key, 0) + 1
         for role in sorted(set(edge_roles.get(edge, []))):
             role_counts[role] = role_counts.get(role, 0) + 1
+    boundary_edge_count = sum(1 for count in edge_counts.values() if int(count) == 1)
+    nonmanifold_edge_count = sum(1 for count in edge_counts.values() if int(count) > 2)
     return {
         "edge_count": len(edge_counts),
         "bad_edge_count": len(bad_edges),
+        "boundary_edge_count": boundary_edge_count,
+        "nonmanifold_edge_count": nonmanifold_edge_count,
         "bad_edge_count_histogram": count_histogram,
         "bad_edge_count_by_role": role_counts,
     }

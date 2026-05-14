@@ -269,6 +269,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   pps42/l3 真翼 pass，但仍是 caps/core pending，不是 `ROUTE_SMOKE_PASS`；下一步才是把
   `transition_collar_outer_interface` 併入 tetra core shell，然後先跑 pressure-only
   sanity，不能直接進 RANS。
+- pps42/l3 stitched-transition core-shell preflight 已新增並 blocked：
+  `segmented_partial_wing_structured_transition_core_shell_probe_pps42_l3_stitched_r010_030/`。
+  它確認 handoff gate 仍 pass，但把 `bl_outer_interface` +
+  `transition_collar_outer_interface` + segmented cap triangles 組成 core-facing
+  inner boundary 後，得到 `59,086` faces、`88,602` edges、`557` bad edges，其中
+  `362` 是 boundary edges、`195` 是 nonmanifold edges；bad-edge role 主要是
+  `transition_collar_outer_interface=475`，另有 `bl_outer_interface=81` 與
+  `te_wall=1`。工程判讀：下一個 blocker 是 core inner-boundary shell / cap-receiver
+  topology，不是 SU2 numerics；Gmsh core fill 現在必須在這個 preflight 前被擋下，
+  直到 outer transition sheet 和 TE/tip/closure caps 形成可交給 tetra core 的
+  2-manifold shell。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

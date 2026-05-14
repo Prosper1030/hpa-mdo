@@ -979,6 +979,38 @@ def test_segmented_partial_wing_stitched_transition_handoff_pps42_l3_passes_dual
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_partial_wing_stitched_core_shell_blocks_nonmanifold_inner_boundary(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_structured_transition_core_shell_probe",
+        points_per_side=4,
+        spanwise_subdivisions=1,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=2,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.01, 0.03),
+        sidewall_closure_policy="stitched_sheet",
+        max_projected_volume_elements=150_000,
+    )
+
+    assert (
+        report["route"]
+        == "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_core_shell_probe"
+    )
+    assert report["status"] == "segmented_partial_wing_structured_transition_core_shell_blocked"
+    assert report["handoff_gate"]["status"] == "pass"
+    assert report["inner_boundary_topology"]["bad_edge_count"] > 0
+    assert report["inner_boundary_topology"]["nonmanifold_edge_count"] > 0
+    assert "core_inner_boundary_nonmanifold_edges" in report["gate"]["blockers"]
+    assert report["core_report"]["status"] == "blocked_before_gmsh_core_fill"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
     module = _load_module()
     surface = module.SurfaceMesh(

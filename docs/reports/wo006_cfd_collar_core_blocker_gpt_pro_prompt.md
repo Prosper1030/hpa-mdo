@@ -180,13 +180,23 @@ writes `36,960` prisms, `5,987` pyramids, and `14,240` tetra (`57,187` volume
 elements).  Topology, element-quality, SU2 boundary ownership, and dual proxy
 all pass.  It is still caps/core pending, not pressure sanity or RANS.
 
+Newest local update: the next core-shell preflight is blocked before Gmsh.  The
+handoff gate still passes, but the core-facing inner boundary assembled from
+`bl_outer_interface`, `transition_collar_outer_interface`, and segmented cap
+triangles has `59,086` faces and `88,602` edges with `557` bad edges.  Of those,
+`362` are boundary edges and `195` are nonmanifold edges.  Bad-edge roles are
+mostly `transition_collar_outer_interface=475`, plus `bl_outer_interface=81`
+and `te_wall=1`.  Gmsh core fill is now intentionally blocked before it can
+timeout or generate a bad tetra core.
+
 ## Question To Answer
 
 Please review the next real-wing core-merge strategy, not solver numerics.
 
 The shared-node stitched sidewall sheet is now the accepted partial-BL rim
-handoff.  Which route should be implemented next to merge
-`transition_collar_outer_interface` into a tetra core without recreating the
+handoff, but its current core-facing shell is not 2-manifold.  Which route
+should be implemented next to make the `transition_collar_outer_interface` plus
+TE/tip/closure cap receiver into a clean tetra-core PLC without recreating the
 dual-volume pathology, and what exact construction rules should block bad
 attempts?
 
