@@ -95,6 +95,7 @@ REQUIRED_MARKERS = (
     "root_symmetry",
     "farfield",
 )
+TERMINAL_TIP_CLOSURE_POLICIES = ("isolated", "shared_apex", "receiver_shell")
 
 GMSH_TETRA = "4"
 GMSH_HEXAHEDRON = "5"
@@ -2679,9 +2680,10 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
         raise ValueError(
             "sidewall_closure_policy must be 'per_triangle' or 'stitched_sheet'"
         )
-    if terminal_tip_closure_policy not in {"isolated", "shared_apex"}:
+    if terminal_tip_closure_policy not in TERMINAL_TIP_CLOSURE_POLICIES:
         raise ValueError(
-            "terminal_tip_closure_policy must be 'isolated' or 'shared_apex'"
+            "terminal_tip_closure_policy must be one of "
+            f"{', '.join(TERMINAL_TIP_CLOSURE_POLICIES)}"
         )
     sidewall_closure_tetra_count = sidewall_closure_pyramid_count * 4
     base_type_counts: dict[str, int] = {}
@@ -3128,11 +3130,35 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
         "blockers": sorted(set(handoff_blockers)),
     }
 
+    marker_face_owner_map = _volume_face_owner_map(transition_volume["elements"])
+    max_node_y = max((float(node[1]) for node in transition_volume["nodes"]), default=0.0)
+    terminal_tip_cut_y = max_node_y - float(terminal_tip_band_m)
+    receiver_policy_applied = (
+        terminal_tip_closure_policy == "receiver_shell" and terminal_tip_band_m > 0.0
+    )
+    removed_terminal_tetra_faces = 0
+    removed_terminal_face_centroids: list[tuple[float, float, float]] = []
     inner_faces: list[Face] = []
     for marker in ("bl_outer_interface", "transition_collar_outer_interface"):
         for element_type, nodes in transition_volume["marker_faces"].get(marker, []):
-            if int(element_type) == SU2_TRIANGLE:
-                inner_faces.append(Face(nodes=tuple(int(node) for node in nodes), marker=marker))
+            if int(element_type) != SU2_TRIANGLE:
+                continue
+            face_nodes = tuple(int(node) for node in nodes)
+            centroid = _centroid_tuple([transition_volume["nodes"][node] for node in face_nodes])
+            owner_types = {
+                int(owner["element_type"])
+                for owner in marker_face_owner_map.get(_face_key_nodes(face_nodes), [])
+            }
+            if (
+                receiver_policy_applied
+                and marker == "transition_collar_outer_interface"
+                and SU2_TETRAHEDRON in owner_types
+                and centroid[1] >= terminal_tip_cut_y
+            ):
+                removed_terminal_tetra_faces += 1
+                removed_terminal_face_centroids.append(centroid)
+                continue
+            inner_faces.append(Face(nodes=face_nodes, marker=marker))
     for triangle, marker in segmented_cap_triangles:
         inner_faces.append(Face(nodes=tuple(int(node) for node in triangle), marker=marker))
     inner_boundary = SurfaceMesh(
@@ -3150,6 +3176,8 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
         blockers.append("structured_transition_handoff_gate_not_pass")
     if int(inner_topology.get("nonmanifold_edge_count") or 0) > 0:
         blockers.append("core_inner_boundary_nonmanifold_edges")
+    if receiver_policy_applied and int(inner_topology.get("boundary_edge_count") or 0) > 0:
+        blockers.append("terminal_tip_receiver_shell_boundary_edges_pending")
     status = (
         "segmented_partial_wing_structured_transition_core_shell_ready"
         if not blockers
@@ -3174,6 +3202,24 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
         "handoff_element_quality_gate": handoff_quality_gate,
         "handoff_dual_subvolume_proxy": handoff_dual,
         "handoff_gate": handoff_gate,
+        "terminal_tip_receiver_shell": {
+            "status": (
+                "receiver_shell_preflight_applied"
+                if receiver_policy_applied
+                else "not_requested"
+            ),
+            "band_m": float(terminal_tip_band_m),
+            "cut_y_m": float(terminal_tip_cut_y),
+            "removed_tetra_boundary_face_count": removed_terminal_tetra_faces,
+            "removed_tetra_boundary_face_centroid_bounds": (
+                _bounds(removed_terminal_face_centroids)
+                if removed_terminal_face_centroids
+                else {}
+            ),
+            "boundary_edges_pending_after_cut": int(
+                inner_topology.get("boundary_edge_count") or 0
+            ),
+        },
         "inner_boundary": {
             "marker_counts": inner_boundary.marker_counts(),
             "face_count": len(inner_boundary.faces),
@@ -3200,7 +3246,9 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
             "trust_boundary": (
                 "Core-shell preflight only. It intentionally blocks Gmsh tetra "
                 "core fill when the stitched transition outer shell is not a "
-                "2-manifold core boundary; pressure/RANS remain forbidden."
+                "2-manifold core boundary. The receiver-shell policy may remove "
+                "terminal nonmanifold edges, but remaining boundary edges still "
+                "need explicit closure before pressure/RANS are allowed."
             ),
         },
     }
@@ -3906,9 +3954,10 @@ def _partial_wing_structured_transition_volume(
         raise ValueError(
             "sidewall_closure_policy must be 'per_triangle' or 'stitched_sheet'"
         )
-    if terminal_tip_closure_policy not in {"isolated", "shared_apex"}:
+    if terminal_tip_closure_policy not in TERMINAL_TIP_CLOSURE_POLICIES:
         raise ValueError(
-            "terminal_tip_closure_policy must be 'isolated' or 'shared_apex'"
+            "terminal_tip_closure_policy must be one of "
+            f"{', '.join(TERMINAL_TIP_CLOSURE_POLICIES)}"
         )
     if terminal_tip_band_m < 0.0:
         raise ValueError("terminal_tip_band_m must be non-negative")
@@ -4169,9 +4218,10 @@ def _close_non_root_exposed_prism_quads_with_pyramid_tets(
     terminal_tip_closure_policy: str = "isolated",
     terminal_tip_band_m: float = 0.0,
 ) -> dict[str, int]:
-    if terminal_tip_closure_policy not in {"isolated", "shared_apex"}:
+    if terminal_tip_closure_policy not in TERMINAL_TIP_CLOSURE_POLICIES:
         raise ValueError(
-            "terminal_tip_closure_policy must be 'isolated' or 'shared_apex'"
+            "terminal_tip_closure_policy must be one of "
+            f"{', '.join(TERMINAL_TIP_CLOSURE_POLICIES)}"
         )
     nodes = volume["nodes"]
     elements = volume["elements"]
