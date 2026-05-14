@@ -142,6 +142,23 @@ Baseline A current geometry artifact 在
 boundaries 真正接到 physical wall、wake receiver、core outer interface，並通過 merged mesh
 quality / SU2 marker readability；仍不能跑 medium/fine CFD ladder。
 
+## 2026-05-14 WO-006AB BL/Core Topology Accounting Gate
+
+WO-006AB 新增 `scripts/probe_wo006ab_bl_core_topology_accounting_gate.py`，把 WO-006Z
+physical wall、WO-006X stitched wake、WO-006AA tip receiver、以及 native
+`bl_outer_interface` match 合成一個 topology accounting gate。
+
+Baseline A current geometry artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006ab_bl_core_topology_accounting_gate/`。
+實跑結果：physical wall `watertight`；wake accounting pass；tip receiver accounting pass；
+outer interface `1024 / 1024` match；整體 verdict 是
+`topology_accounting_ready_not_handoff`。
+
+工程判讀：這是第一次把 BL/core ownership accounting 串成完整 pre-mesh contract，但它仍不是
+handoff。明確 blockers 是 receiver geometry 尚未 materialize、沒有 final merged mesh、沒有
+merged mesh quality gate、沒有 SU2 marker/readability gate、沒有 near-wall/y+ postprocess、也沒有
+solver ladder。因此下一步才是把 virtual receiver 實作成真幾何/mesh，不能直接跑 medium/fine CFD。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔

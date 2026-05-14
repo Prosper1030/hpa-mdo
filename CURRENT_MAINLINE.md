@@ -213,6 +213,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   已有可實作 receiver topology，但不是 final BL/core handoff；必須把 receiver side
   boundaries 真正接到 physical wall、wake receiver、core outer interface，並通過
   merged mesh quality / SU2 marker readability，才可以跑 medium/fine CFD ladder。
+- WO-006AB 新增 BL/core topology accounting gate：
+  `scripts/probe_wo006ab_bl_core_topology_accounting_gate.py` 將 WO-006Z physical
+  wall、WO-006X stitched wake、WO-006AA tip receiver 與 native `bl_outer_interface`
+  match 合成同一 gate。Baseline A current geometry artifact 在
+  `wo006ab_bl_core_topology_accounting_gate/`；實跑 physical wall `watertight`、wake
+  accounting pass、tip receiver accounting pass、outer interface `1024 / 1024` match，
+  verdict 是 `topology_accounting_ready_not_handoff`。判讀：這是完整 pre-mesh ownership
+  accounting contract，不是 handoff；blockers 仍是 receiver geometry 未 materialize、
+  final merged mesh missing、merged mesh quality / SU2 marker readability / near-wall y+ /
+  solver ladder 未跑。下一步是把 virtual receiver 實作成真幾何/mesh，不是直接跑 CFD。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
