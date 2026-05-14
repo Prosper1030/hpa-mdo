@@ -1164,6 +1164,42 @@ def test_segmented_partial_wing_receiver_cycle_caps_close_terminal_boundary(
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_partial_wing_receiver_cycle_caps_build_closed_discrete_plc_shell(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_receiver_cycle_cap_discrete_plc_shell_pps42",
+        points_per_side=42,
+        spanwise_subdivisions=module.DEFAULT_SPANWISE_SUBDIVISIONS,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=3,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.01, 0.03),
+        sidewall_closure_policy="stitched_sheet",
+        terminal_tip_closure_policy="receiver_shell",
+        terminal_tip_band_m=0.05,
+        terminal_receiver_boundary_closure_policy="cycle_caps",
+        max_projected_volume_elements=250_000,
+    )
+
+    plc_shell = report["discrete_plc_core_shell"]
+    assert plc_shell["status"] == "discrete_plc_core_shell_ready"
+    assert plc_shell["root_boundary_loop_node_count"] == 88
+    assert plc_shell["root_symmetry_boundary_reuses_inner_nodes"] is True
+    assert plc_shell["farfield_face_count"] == 10
+    assert plc_shell["root_symmetry_face_count"] > 0
+    assert plc_shell["topology"]["bad_edge_count"] == 0
+    assert plc_shell["topology"]["boundary_edge_count"] == 0
+    assert plc_shell["topology"]["nonmanifold_edge_count"] == 0
+    assert plc_shell["marker_counts"]["root_symmetry"] == plc_shell["root_symmetry_face_count"]
+    assert plc_shell["marker_counts"]["farfield"] == plc_shell["farfield_face_count"]
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
     module = _load_module()
     surface = module.SurfaceMesh(

@@ -3205,6 +3205,15 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
     )
     if receiver_policy_applied and terminal_boundary_edges > 0:
         blockers.append("terminal_tip_receiver_shell_boundary_edges_pending")
+    discrete_plc_core_shell = {
+        "status": "not_run_core_shell_preflight_blocked",
+        "reason": "core_shell_preflight_blocked",
+    }
+    if not blockers:
+        discrete_plc_core_shell = _discrete_plc_core_shell_report(
+            inner_boundary,
+            surface_bounds=_bounds(surface.vertices),
+        )
     status = (
         "segmented_partial_wing_structured_transition_core_shell_ready"
         if not blockers
@@ -3258,6 +3267,7 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
             "face_count": len(inner_boundary.faces),
         },
         "inner_boundary_topology": inner_topology,
+        "discrete_plc_core_shell": discrete_plc_core_shell,
         "gate": {
             "status": "pass" if not blockers else "blocked",
             "blockers": sorted(set(blockers)),
@@ -3280,8 +3290,9 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
                 "Core-shell preflight only. It intentionally blocks Gmsh tetra "
                 "core fill when the stitched transition outer shell is not a "
                 "2-manifold core boundary. The receiver-shell policy may remove "
-                "terminal nonmanifold edges, but remaining boundary edges still "
-                "need explicit closure before pressure/RANS are allowed."
+                "terminal nonmanifold edges, and the discrete PLC shell check can "
+                "prove root/farfield closure, but this is not yet a tetra core, "
+                "pressure sanity run, or RANS route-smoke result."
             ),
         },
     }
@@ -6063,6 +6074,366 @@ def _add_terminal_receiver_cycle_caps(
         **cycle_report,
         "capped_boundary_edge_count": capped_boundary_edges,
     }
+
+
+def _discrete_plc_core_shell_report(
+    inner_boundary: SurfaceMesh,
+    *,
+    surface_bounds: Mapping[str, float],
+) -> dict[str, Any]:
+    loop_nodes, loop_report = _ordered_single_boundary_loop_nodes(inner_boundary)
+    if loop_report["status"] != "pass":
+        return {
+            "status": "discrete_plc_core_shell_blocked",
+            "blockers": list(loop_report["blockers"]),
+            "root_boundary_loop": loop_report,
+        }
+
+    shell, closure_report = _build_discrete_plc_core_shell(
+        inner_boundary,
+        boundary_loop_nodes=loop_nodes,
+        surface_bounds=surface_bounds,
+    )
+    topology = _surface_edge_topology(shell)
+    blockers: list[str] = []
+    if int(topology.get("boundary_edge_count") or 0) != 0:
+        blockers.append("discrete_plc_shell_boundary_edges")
+    if int(topology.get("nonmanifold_edge_count") or 0) != 0:
+        blockers.append("discrete_plc_shell_nonmanifold_edges")
+    if int(topology.get("bad_edge_count") or 0) != 0:
+        blockers.append("discrete_plc_shell_bad_edges")
+    marker_counts = shell.marker_counts()
+    for marker in ("root_symmetry", "farfield"):
+        if int(marker_counts.get(marker) or 0) == 0:
+            blockers.append(f"discrete_plc_shell_{marker}_missing")
+    return {
+        "status": (
+            "discrete_plc_core_shell_ready"
+            if not blockers
+            else "discrete_plc_core_shell_blocked"
+        ),
+        "blockers": sorted(set(blockers)),
+        "root_boundary_loop_node_count": len(loop_nodes),
+        "root_symmetry_boundary_reuses_inner_nodes": bool(
+            closure_report["root_symmetry_boundary_reuses_inner_nodes"]
+        ),
+        "root_symmetry_face_count": int(closure_report["root_symmetry_face_count"]),
+        "farfield_face_count": int(closure_report["farfield_face_count"]),
+        "farfield_vertex_count": int(closure_report["farfield_vertex_count"]),
+        "added_root_symmetry_interior_node_count": int(
+            closure_report["added_root_symmetry_interior_node_count"]
+        ),
+        "node_count": len(shell.vertices),
+        "face_count": len(shell.faces),
+        "marker_counts": marker_counts,
+        "topology": topology,
+        "root_boundary_loop": loop_report,
+        "trust_boundary": (
+            "Topology shell only. This proves a conformal all-discrete PLC shell "
+            "can close the receiver/cycle-cap inner boundary with root_symmetry "
+            "and farfield markers; it is not a Gmsh tetra volume mesh."
+        ),
+    }
+
+
+def _ordered_single_boundary_loop_nodes(
+    surface: SurfaceMesh,
+) -> tuple[list[int], dict[str, Any]]:
+    edge_counts: dict[tuple[int, int], int] = {}
+    for face in surface.faces:
+        nodes = tuple(int(node) for node in face.nodes)
+        for start, end in zip(nodes, [*nodes[1:], nodes[0]]):
+            key = tuple(sorted((int(start), int(end))))
+            edge_counts[key] = edge_counts.get(key, 0) + 1
+    boundary_edges = [
+        edge for edge, count in edge_counts.items() if int(count) == 1
+    ]
+    if not boundary_edges:
+        return [], {
+            "status": "blocked",
+            "blockers": ["single_boundary_loop_missing"],
+            "boundary_edge_count": 0,
+            "component_count": 0,
+            "degree_histogram": {},
+        }
+
+    graph: dict[int, set[int]] = {}
+    for start, end in boundary_edges:
+        graph.setdefault(int(start), set()).add(int(end))
+        graph.setdefault(int(end), set()).add(int(start))
+    degree_histogram: dict[str, int] = {}
+    for neighbors in graph.values():
+        key = str(len(neighbors))
+        degree_histogram[key] = degree_histogram.get(key, 0) + 1
+
+    components: list[set[int]] = []
+    seen: set[int] = set()
+    for node in sorted(graph):
+        if node in seen:
+            continue
+        stack = [node]
+        seen.add(node)
+        component: set[int] = set()
+        while stack:
+            current = stack.pop()
+            component.add(current)
+            for neighbor in sorted(graph[current]):
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    stack.append(neighbor)
+        components.append(component)
+
+    blockers: list[str] = []
+    if len(components) != 1:
+        blockers.append("single_boundary_loop_component_count_not_one")
+    if any(len(neighbors) != 2 for neighbors in graph.values()):
+        blockers.append("single_boundary_loop_degree_not_two")
+    if blockers:
+        return [], {
+            "status": "blocked",
+            "blockers": blockers,
+            "boundary_edge_count": len(boundary_edges),
+            "component_count": len(components),
+            "degree_histogram": dict(sorted(degree_histogram.items())),
+        }
+
+    start_node = min(
+        graph,
+        key=lambda node: (
+            float(surface.vertices[int(node)][0]),
+            float(surface.vertices[int(node)][2]),
+            int(node),
+        ),
+    )
+    loop = [int(start_node)]
+    previous: int | None = None
+    current = int(start_node)
+    while True:
+        candidates = [
+            int(node) for node in graph[current] if int(node) != previous
+        ]
+        if not candidates:
+            blockers.append("single_boundary_loop_open_walk")
+            break
+        next_node = min(
+            candidates,
+            key=lambda node: (
+                float(surface.vertices[int(node)][0]),
+                float(surface.vertices[int(node)][2]),
+                int(node),
+            ),
+        )
+        if next_node == start_node:
+            break
+        loop.append(next_node)
+        previous, current = current, next_node
+        if len(loop) > len(boundary_edges):
+            blockers.append("single_boundary_loop_walk_exceeded_edge_count")
+            break
+
+    covered_edges = {
+        tuple(sorted((start, end)))
+        for start, end in zip(loop, [*loop[1:], loop[0]])
+    }
+    if len(covered_edges) != len(boundary_edges):
+        blockers.append("single_boundary_loop_edge_coverage_mismatch")
+    if blockers:
+        return [], {
+            "status": "blocked",
+            "blockers": blockers,
+            "boundary_edge_count": len(boundary_edges),
+            "component_count": len(components),
+            "degree_histogram": dict(sorted(degree_histogram.items())),
+            "ordered_loop_node_count": len(loop),
+            "covered_boundary_edge_count": len(covered_edges),
+        }
+    return loop, {
+        "status": "pass",
+        "blockers": [],
+        "boundary_edge_count": len(boundary_edges),
+        "component_count": len(components),
+        "degree_histogram": dict(sorted(degree_histogram.items())),
+        "ordered_loop_node_count": len(loop),
+        "covered_boundary_edge_count": len(covered_edges),
+        "bounds": _bounds([surface.vertices[int(node)] for node in loop]),
+    }
+
+
+def _build_discrete_plc_core_shell(
+    inner_boundary: SurfaceMesh,
+    *,
+    boundary_loop_nodes: Sequence[int],
+    surface_bounds: Mapping[str, float],
+) -> tuple[SurfaceMesh, dict[str, Any]]:
+    farfield_vertices = _half_farfield_vertices(surface_bounds)
+    root_mesh_nodes, root_mesh_triangles = _root_symmetry_annulus_mesh(
+        inner_boundary,
+        boundary_loop_nodes=boundary_loop_nodes,
+        farfield_vertices=farfield_vertices,
+    )
+    vertices = [tuple(vertex) for vertex in inner_boundary.vertices]
+    farfield_node_indices: list[int] = []
+    for vertex in farfield_vertices:
+        farfield_node_indices.append(len(vertices))
+        vertices.append(tuple(vertex))
+
+    inner_root_by_xz = {
+        _xz_key(inner_boundary.vertices[int(node)]): int(node)
+        for node in boundary_loop_nodes
+    }
+    farfield_root_by_xz = {
+        _xz_key(farfield_vertices[index]): farfield_node_indices[index]
+        for index in (0, 1, 4, 5)
+    }
+    root_node_map: dict[int, int] = {}
+    added_root_nodes = 0
+    for node_tag, point in root_mesh_nodes.items():
+        key = _xz_key(point)
+        if key in inner_root_by_xz:
+            root_node_map[int(node_tag)] = inner_root_by_xz[key]
+        elif key in farfield_root_by_xz:
+            root_node_map[int(node_tag)] = farfield_root_by_xz[key]
+        else:
+            root_node_map[int(node_tag)] = len(vertices)
+            vertices.append(tuple(point))
+            added_root_nodes += 1
+
+    faces = list(inner_boundary.faces)
+    for triangle in root_mesh_triangles:
+        faces.append(
+            Face(
+                nodes=tuple(int(root_node_map[int(node)]) for node in triangle),
+                marker="root_symmetry",
+            )
+        )
+
+    farfield_face_count = 0
+    for quad in (
+        (1, 2, 6, 5),
+        (2, 3, 7, 6),
+        (0, 4, 7, 3),
+        (0, 3, 2, 1),
+        (4, 5, 6, 7),
+    ):
+        a, b, c, d = [farfield_node_indices[index] for index in quad]
+        faces.append(Face(nodes=(a, b, c), marker="farfield"))
+        faces.append(Face(nodes=(a, c, d), marker="farfield"))
+        farfield_face_count += 2
+
+    shell = SurfaceMesh(
+        vertices=vertices,
+        faces=faces,
+        metadata={
+            "surface_role": "segmented_partial_wing_discrete_plc_core_shell",
+        },
+    )
+    loop_node_set = {int(node) for node in boundary_loop_nodes}
+    root_boundary_reuses_inner_nodes = loop_node_set.issubset(
+        {
+            int(root_node_map[int(node)])
+            for node, point in root_mesh_nodes.items()
+            if _xz_key(point) in inner_root_by_xz
+        }
+    )
+    return shell, {
+        "root_symmetry_face_count": len(root_mesh_triangles),
+        "farfield_face_count": farfield_face_count,
+        "farfield_vertex_count": len(farfield_vertices),
+        "added_root_symmetry_interior_node_count": added_root_nodes,
+        "root_symmetry_boundary_reuses_inner_nodes": root_boundary_reuses_inner_nodes,
+    }
+
+
+def _root_symmetry_annulus_mesh(
+    inner_boundary: SurfaceMesh,
+    *,
+    boundary_loop_nodes: Sequence[int],
+    farfield_vertices: Sequence[tuple[float, float, float]],
+) -> tuple[dict[int, tuple[float, float, float]], list[tuple[int, int, int]]]:
+    import gmsh
+
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("canonical_root_symmetry_discrete_plc_annulus")
+        mesh_size = 1.0e6
+        outer_points = [
+            gmsh.model.geo.addPoint(
+                farfield_vertices[index][0],
+                0.0,
+                farfield_vertices[index][2],
+                mesh_size,
+            )
+            for index in (0, 1, 5, 4)
+        ]
+        outer_lines = [
+            gmsh.model.geo.addLine(outer_points[index], outer_points[(index + 1) % 4])
+            for index in range(4)
+        ]
+        hole_points = [
+            gmsh.model.geo.addPoint(
+                inner_boundary.vertices[int(node)][0],
+                0.0,
+                inner_boundary.vertices[int(node)][2],
+                mesh_size,
+            )
+            for node in boundary_loop_nodes
+        ]
+        hole_lines = [
+            gmsh.model.geo.addLine(
+                hole_points[index],
+                hole_points[(index + 1) % len(hole_points)],
+            )
+            for index in range(len(hole_points))
+        ]
+        surface = gmsh.model.geo.addPlaneSurface(
+            [
+                gmsh.model.geo.addCurveLoop(outer_lines),
+                gmsh.model.geo.addCurveLoop(hole_lines),
+            ]
+        )
+        gmsh.model.geo.synchronize()
+        for line in (*outer_lines, *hole_lines):
+            gmsh.model.mesh.setTransfiniteCurve(line, 2)
+        gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size)
+        gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+        gmsh.model.mesh.generate(2)
+        node_tags, coords, _ = gmsh.model.mesh.getNodes(
+            2,
+            surface,
+            includeBoundary=True,
+        )
+        nodes = {
+            int(tag): (
+                float(coords[3 * index]),
+                0.0,
+                float(coords[3 * index + 2]),
+            )
+            for index, tag in enumerate(node_tags)
+        }
+        element_types, _element_tags, element_nodes = gmsh.model.mesh.getElements(
+            2,
+            surface,
+        )
+        triangles: list[tuple[int, int, int]] = []
+        for element_type, nodes_for_type in zip(element_types, element_nodes):
+            if int(element_type) != 2:
+                continue
+            for index in range(0, len(nodes_for_type), 3):
+                triangles.append(
+                    (
+                        int(nodes_for_type[index]),
+                        int(nodes_for_type[index + 1]),
+                        int(nodes_for_type[index + 2]),
+                    )
+                )
+        return nodes, triangles
+    finally:
+        gmsh.finalize()
+
+
+def _xz_key(point: Sequence[float]) -> tuple[float, float]:
+    return (round(float(point[0]), 8), round(float(point[2]), 8))
 
 
 def _terminal_boundary_edges(

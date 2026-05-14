@@ -317,8 +317,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   將 `536` 條 terminal receiver boundary edges 分解為 `50` 個 simple cycles 並 capped，
   `terminal_boundary_edges_pending_after_cut=0`、`nonmanifold_edge_count=0`，core-shell
   gate 變成 `pass` / `not_run_core_shell_ready`。工程判讀：這是 core-shell topology
-  preflight ready，不是 SU2 volume mesh，也不是 pressure sanity；下一步才是 Gmsh/core
-  fill 與 pressure-only sanity。
+  preflight ready，不是 SU2 volume mesh，也不是 pressure sanity。
+- 同一個 pps42/l3 cycle-cap artifact 現在也會建立 all-discrete PLC core shell：
+  root boundary 是 `88` 個 node 的單一 loop，root_symmetry 面重用 inner root boundary
+  nodes，farfield 以獨立 marker 補成封閉 shell；shell topology 是
+  `bad_edge_count=0`、`boundary_edge_count=0`、`nonmanifold_edge_count=0`。工程判讀：
+  partial-BL / receiver / root/farfield closure 的 topology contract 已明確化，但它仍不是
+  tetra core，也不是 ROUTE_SMOKE_PASS；下一步要解的是可靠 core-fill handoff，而不是再讓
+  Gmsh 自動猜 multi-loop root hole。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

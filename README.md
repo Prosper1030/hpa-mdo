@@ -271,6 +271,14 @@ cycle-local receiver caps 關掉 terminal boundary：`536` 條 terminal edges �
 `50` 個 simple cycles 並全部 capped，terminal pending edges 變 `0`，core-shell gate
 變成 `pass`，但仍只代表 core-shell preflight ready；cycle caps 還不是最終 SU2 volume
 mesh，也不是 pressure sanity。
+同一個 artifact 現在也會建立 all-discrete PLC core shell：root boundary 是 `88` 個 node 的
+單一 loop，root_symmetry 面重用 inner root boundary nodes，farfield 以獨立 marker 補成
+封閉 shell，topology `bad_edge_count=0`、`boundary_edge_count=0`、
+`nonmanifold_edge_count=0`。工程判讀：partial-BL / receiver / root/farfield closure 的
+拓樸定義已比「讓 Gmsh 猜 multi-loop」更健康；但這仍不是 tetra core。實測 Gmsh 對這類
+大型 discrete shell 在 3D reconstruct surface mesh 階段仍會崩潰/卡住，所以下一步是選擇
+更可靠的 core-fill handoff（例如明確 PLC -> TetGen/HXT/cfMesh/OpenFOAM cross-check），不能
+把 discrete shell pass 當 ROUTE_SMOKE_PASS。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
