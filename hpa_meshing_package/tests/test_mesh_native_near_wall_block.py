@@ -8,11 +8,12 @@ from hpa_meshing.mesh_native.near_wall_block import (
     build_airfoil_boundary_layer_block,
     build_boundary_layer_block_boundary_surface,
     build_boundary_layer_core_interface_surface,
+    build_boundary_layer_wall_surface,
     build_wing_boundary_layer_block,
     split_airfoil_wall_loop,
 )
 from hpa_meshing.mesh_native.wing_surface import validate_surface_mesh
-from hpa_meshing.mesh_native.wing_surface import Station
+from hpa_meshing.mesh_native.wing_surface import Reference, Station, WingSpec
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +29,21 @@ def _finite_te_station() -> Station:
             (0.0, 0.05),
             (0.0, -0.05),
             (1.0, -0.05),
+        ],
+        chord=1.0,
+        twist_deg=0.0,
+    )
+
+
+def _sharp_te_station(*, y: float = 0.0) -> Station:
+    return Station(
+        y=y,
+        airfoil_xz=[
+            (1.0, 0.0),
+            (0.5, 0.05),
+            (0.0, 0.0),
+            (0.5, -0.05),
+            (1.0, 0.0),
         ],
         chord=1.0,
         twist_deg=0.0,
@@ -158,6 +174,103 @@ def test_bl_block_boundary_surface_is_closed_with_owned_markers():
         ),
         required_markers=("wing_wall", "bl_outer_interface", "wake_cut", "span_cap"),
     )
+
+
+def test_bl_wall_surface_adds_physical_tip_caps_from_wall_layer_nodes():
+    spec = WingSpec(
+        stations=[
+            _finite_te_station(),
+            Station(
+                y=1.0,
+                airfoil_xz=[
+                    (1.0, 0.05),
+                    (0.0, 0.05),
+                    (0.0, -0.05),
+                    (1.0, -0.05),
+                ],
+                chord=1.0,
+                twist_deg=0.0,
+            ),
+        ],
+        side="full",
+        te_rule="finite_thickness",
+        tip_rule="planar_cap",
+        root_rule="full",
+        reference=Reference(sref_full=1.0, cref=1.0, bref_full=1.0),
+    )
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=1.0e-3,
+            growth_ratio=1.2,
+            layer_count=2,
+        ),
+    )
+
+    wall = build_boundary_layer_wall_surface(block, include_tip_caps=True)
+
+    assert wall.marker_counts() == {"wing_wall": 8}
+    assert wall.metadata["te_base_face_count"] == 1
+    assert wall.metadata["tip_cap_face_count"] == 4
+    assert wall.metadata["source_wing_wall_face_count"] == 3
+    assert wall.metadata["surface_role"] == "boundary_layer_physical_wall"
+    validate_surface_mesh(wall, required_markers=("wing_wall",))
+
+
+def test_bl_wall_surface_stitches_sharp_te_tip_caps_without_degenerate_wall():
+    spec = WingSpec(
+        stations=[
+            _sharp_te_station(y=0.0),
+            _sharp_te_station(y=1.0),
+        ],
+        side="full",
+        te_rule="sharp",
+        tip_rule="planar_cap",
+        root_rule="full",
+        reference=Reference(sref_full=1.0, cref=1.0, bref_full=1.0),
+    )
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=1.0e-3,
+            growth_ratio=1.2,
+            layer_count=2,
+        ),
+    )
+
+    wall = build_boundary_layer_wall_surface(block, include_tip_caps=True)
+
+    assert wall.marker_counts() == {"wing_wall": 8}
+    assert wall.metadata["sharp_te_seam_pair_count"] == 2
+    assert wall.metadata["te_base_face_count"] == 0
+    assert wall.metadata["tip_cap_face_count"] == 4
+    validate_surface_mesh(wall, required_markers=("wing_wall",))
+
+
+def test_vsp_main_wing_bl_wall_surface_is_watertight_with_sharp_te_stitch():
+    pytest.importorskip("openvsp")
+    spec = load_blackcat_main_wing_spec_from_vsp(
+        VSP_PATH,
+        reference_avl_path=AVL_PATH,
+        points_per_side=12,
+    )
+    block = build_wing_boundary_layer_block(
+        spec,
+        BoundaryLayerBlockSpec(
+            first_layer_height_m=5.0e-5,
+            growth_ratio=1.18,
+            layer_count=8,
+        ),
+    )
+
+    wall = build_boundary_layer_wall_surface(block, include_tip_caps=True)
+
+    assert wall.marker_counts() == {"wing_wall": 260}
+    assert wall.metadata["source_wing_wall_face_count"] == 220
+    assert wall.metadata["tip_cap_face_count"] == 40
+    assert wall.metadata["sharp_te_seam_pair_count"] == 11
+    assert wall.metadata["te_base_face_count"] == 0
+    validate_surface_mesh(wall, required_markers=("wing_wall",))
 
 
 def test_bl_block_core_interface_surface_is_closed_without_wing_wall():

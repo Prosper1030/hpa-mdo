@@ -256,6 +256,85 @@ def build_boundary_layer_block_boundary_surface(block: WingBoundaryLayerBlock) -
     )
 
 
+def build_boundary_layer_wall_surface(
+    block: WingBoundaryLayerBlock,
+    *,
+    include_tip_caps: bool = True,
+) -> SurfaceMesh:
+    """Build the physical wall surface represented by the owned BL block.
+
+    ``block.boundary_faces`` intentionally keeps terminal station faces under
+    ``span_cap`` because most of those faces are BL/core ownership surfaces, not
+    physical walls. The actual wing tip wall is only the layer-0 airfoil polygon
+    at each terminal station, so it has to be materialized separately before a
+    final SU2 wall marker can be trusted.
+    """
+    wall_count = int(block.section_blocks[0].metadata["wall_node_count"])
+    section_vertex_count = int(block.metadata["section_vertex_count"])
+    section_count = int(block.metadata["station_count"])
+    upper_te = block.section_blocks[0].wall_nodes.upper_te
+    lower_te = block.section_blocks[0].wall_nodes.lower_te
+    sharp_te_seam_pair_count = 0
+    node_remap: dict[int, int] = {}
+
+    def section_node(section: int, local_node: int) -> int:
+        return section * section_vertex_count + local_node
+
+    for section in range(section_count):
+        upper_node = section_node(section, upper_te)
+        lower_node = section_node(section, lower_te)
+        if _distance_xyz(block.vertices[upper_node], block.vertices[lower_node]) <= 1.0e-12:
+            node_remap[lower_node] = upper_node
+            sharp_te_seam_pair_count += 1
+
+    def wall_node(node: int) -> int:
+        return node_remap.get(node, node)
+
+    faces = [
+        Face(nodes=tuple(wall_node(node) for node in face.nodes), marker="wing_wall")
+        for face in block.boundary_faces
+        if face.marker == "wing_wall"
+    ]
+    source_wing_wall_face_count = len(faces)
+    tip_cap_face_count = 0
+    te_base_face_count = 0
+
+    if include_tip_caps:
+        for section in range(section_count - 1):
+            face_nodes = (
+                wall_node(section_node(section, upper_te)),
+                wall_node(section_node(section, lower_te)),
+                wall_node(section_node(section + 1, lower_te)),
+                wall_node(section_node(section + 1, upper_te)),
+            )
+            if len(set(face_nodes)) == 4 and _face_area_xyz(block.vertices, face_nodes) > 1.0e-14:
+                faces.append(Face(nodes=face_nodes, marker="wing_wall"))
+                te_base_face_count += 1
+
+        for section in (0, section_count - 1):
+            contour = _deduplicate_closed_contour(
+                [wall_node(section_node(section, index)) for index in range(wall_count)]
+            )
+            triangles = _triangulate_polygon_xz(block.vertices, contour)
+            for triangle in triangles:
+                face_nodes = tuple(reversed(triangle)) if section == 0 else triangle
+                faces.append(Face(nodes=face_nodes, marker="wing_wall"))
+                tip_cap_face_count += 1
+
+    return SurfaceMesh(
+        vertices=list(block.vertices),
+        faces=faces,
+        metadata={
+            "surface_role": "boundary_layer_physical_wall",
+            "source_wing_wall_face_count": source_wing_wall_face_count,
+            "te_base_face_count": te_base_face_count,
+            "tip_cap_face_count": tip_cap_face_count,
+            "sharp_te_seam_pair_count": sharp_te_seam_pair_count,
+            "include_tip_caps": int(include_tip_caps),
+        },
+    )
+
+
 def build_boundary_layer_core_interface_surface(block: WingBoundaryLayerBlock) -> SurfaceMesh:
     """Build the closed outer envelope used as the core tet mesh inner boundary."""
     wall_count = int(block.section_blocks[0].metadata["wall_node_count"])
@@ -649,6 +728,17 @@ def _canonical_face(face: Sequence[int]) -> tuple[int, int, int, int]:
     return tuple(sorted(face))
 
 
+def _deduplicate_closed_contour(contour: Sequence[int]) -> list[int]:
+    deduplicated: list[int] = []
+    for node in contour:
+        if deduplicated and node == deduplicated[-1]:
+            continue
+        deduplicated.append(node)
+    if len(deduplicated) > 1 and deduplicated[0] == deduplicated[-1]:
+        deduplicated.pop()
+    return deduplicated
+
+
 def _triangulate_polygon_xz(vertices: Sequence[Vertex], contour: Sequence[int]) -> list[tuple[int, int, int]]:
     if len(contour) < 3:
         raise ValueError("Polygon contour must contain at least three nodes")
@@ -734,6 +824,34 @@ def _cross_xz(a: Vertex, b: Vertex, c: Vertex) -> float:
 
 def _triangle_area_xz(a: Vertex, b: Vertex, c: Vertex) -> float:
     return 0.5 * abs(_cross_xz(a, b, c))
+
+
+def _face_area_xyz(vertices: Sequence[Vertex], nodes: Sequence[int]) -> float:
+    points = [vertices[node] for node in nodes]
+    origin = points[0]
+    area = 0.0
+    for index in range(1, len(points) - 1):
+        area += _triangle_area_xyz(origin, points[index], points[index + 1])
+    return area
+
+
+def _triangle_area_xyz(a: Vertex, b: Vertex, c: Vertex) -> float:
+    ab = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    ac = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    cross = (
+        ab[1] * ac[2] - ab[2] * ac[1],
+        ab[2] * ac[0] - ab[0] * ac[2],
+        ab[0] * ac[1] - ab[1] * ac[0],
+    )
+    return 0.5 * math.sqrt(cross[0] ** 2 + cross[1] ** 2 + cross[2] ** 2)
+
+
+def _distance_xyz(left: Vertex, right: Vertex) -> float:
+    return math.sqrt(
+        (left[0] - right[0]) ** 2
+        + (left[1] - right[1]) ** 2
+        + (left[2] - right[2]) ** 2
+    )
 
 
 def _transform_local_xz_to_station_xyz(

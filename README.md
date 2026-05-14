@@ -105,6 +105,22 @@ span-cap faces touch `wing_wall`，`64` 個 touch `bl_outer_interface`，`96` �
 下一步需要明確 tip/span-cap ownership policy 或 receiver topology；在這之前仍不能宣稱
 BL/core handoff ready，不能跑 medium/fine SU2 ladder。
 
+## 2026-05-14 WO-006Z BL Physical Wall Surface Basis
+
+WO-006Z 新增 `build_boundary_layer_wall_surface(...)`，把 BL block 裡真正可作 physical
+wall 的 layer-0 wing surface 獨立抽出：既有 `wing_wall` spanwise faces 會保留；finite
+TE 會新增非零面積 TE-base wall；sharp TE 則只做 duplicate-node seam stitch，不產生零面積
+wall face；terminal tip cap 只用 layer-0 wall nodes 三角化。
+
+Baseline A current VSP source smoke：`points_per_side=12`、BL `layer_count=8` 時，physical
+wall surface 是 watertight，`wing_wall=260`，其中 source spanwise wall faces `220`、
+tip-cap triangles `40`、sharp-TE seam pairs `11`、finite TE-base wall faces `0`。
+
+工程判讀：這是把「物理壁面 marker 從 BL/core/span-cap/wake 混雜面裡分離」的一步，
+不是 BL/core handoff ready。下一步仍要把 wake receiver / span-cap ownership 實作成
+conformal merge，並重跑 mesh quality、marker match、near-wall/y+ gate 後，才可以啟動
+medium/fine SU2 ladder。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔

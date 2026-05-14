@@ -192,6 +192,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   `64` 個 touch `bl_outer_interface`、`96` 個 touch `wake_cut`。判讀：span-cap 需要明確
   tip/span-cap ownership policy 或 receiver topology，不能直接丟成 SU2 boundary 或 CFD
   completion。
+- WO-006Z 新增 BL physical wall surface basis：
+  `build_boundary_layer_wall_surface(...)` 現在只從 layer-0 wall nodes 建 physical
+  wall；finite TE 會新增非零面積 TE-base wall，sharp TE 只做 duplicate-node seam
+  stitch，terminal tip cap 只由 wall-layer nodes 三角化。Baseline A current VSP source
+  smoke（`points_per_side=12`、BL `layer_count=8`）得到 watertight `wing_wall=260`：
+  source spanwise wall faces `220`、tip-cap triangles `40`、sharp-TE seam pairs `11`、
+  finite TE-base wall faces `0`。判讀：這修的是 wall marker 物理 ownership basis，
+  不是 BL/core handoff ready；wake receiver / span-cap conformal merge、mesh quality、
+  marker match 與 near-wall/y+ gate 仍要過，才可以跑 medium/fine SU2 ladder。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
