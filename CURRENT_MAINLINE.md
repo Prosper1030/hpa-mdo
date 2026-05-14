@@ -212,6 +212,18 @@ screening evidence 讀，不是現行 release / procurement truth。
   它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、
   drag/power truth 或 Baseline A reopen evidence。後續若要跑 medium/fine，必須先修
   BL/BC/near-wall setup；重放 no-BL 只能用 diagnostic flag，不能完成 CFD goal。
+- WO-006R28 已把 R27 repaired mesh 接到 wall-resolved SU2 route-smoke：
+  `scripts/probe_wo006r28_r27_su2_route_smoke.py` 產生 `INC_RANS/SA`、
+  `INC_NONDIM=INITIAL_VALUES`、`MARKER_HEATFLUX=(wing_wall,0.0)`、
+  `MARKER_FAR=(farfield)` 的 config，並 gate config marker match、SU2 history
+  stability、CD-order sanity，以及 solver log 的 dual-control-volume quality。FDS/MUSCL
+  case 可讀 R27 mesh/markers，但 iteration `5` divergence；SU2 log 給出
+  min orthogonality `0.00108069 deg`、max CV face-area aspect ratio `5.15199e8`、
+  max CV sub-volume ratio `2.07841e11`。保守 JST、`MUSCL_FLOW=NO`、`CFL=0.02`
+  case 可跑滿 `180` rows，但 `CD=0.3916`，last-100 force/residual stability fail。
+  因此 active blocker 已從 marker ownership 推進到 BL/core transition sizing /
+  mixed-mesh dual-volume quality；在這個 mesh-quality blocker 修好前，不能推
+  medium/fine ladder，也不能把有限 CL/CD/Cm 當 low-confidence CFD。
 - WO-006I grid-convergence gate 也會拒絕短尾段 force stability：CL/CD/Cm stability
   summary 必須至少覆蓋 `100` 個 iterations，CL/CD relative spread 需在 `1%` 內、Cm
   absolute spread 需在 `0.005` 內；舊 summary 若只用 25-row tail 宣稱 pass，會被

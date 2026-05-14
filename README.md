@@ -205,6 +205,26 @@ nonmanifold volume faces `0`；mixed volume quality 也 `pass`，non-positive vo
 不是 coarse/medium/fine ladder，也不是 CL/CD/Cm 或 drag truth。當前問題與解法 register
 整理在 `docs/reports/wo006_cfd_problem_solution_register.md`。
 
+## 2026-05-14 WO-006R28 R27 SU2 Route-Smoke Probe
+
+`scripts/probe_wo006r28_r27_su2_route_smoke.py` 把 R27 repaired mixed mesh 接到
+wall-resolved SU2 config：`INC_RANS`、`SA`、`INC_NONDIM=INITIAL_VALUES`、
+`MARKER_HEATFLUX=(wing_wall,0.0)`、`MARKER_FAR=(farfield)`，並把 config marker audit、
+SU2 history stability、CD-order sanity 和 SU2 solver-side mesh-quality parser 寫成 gate。
+測試在 `tests/test_wo006r28_r27_su2_route_smoke_probe.py`。
+
+實跑結果分兩個診斷 case。FDS/MUSCL/CFL=1 case 可讀到 R27 mesh/markers，但 SU2 在
+iteration `5` divergence；solver log 顯示 dual-control-volume quality 已病態：
+min orthogonality `0.00108069 deg`、max CV face-area aspect ratio `5.15199e8`、
+max CV sub-volume ratio `2.07841e11`。保守 JST、`MUSCL_FLOW=NO`、`CFL=0.02` case
+可以跑滿 `180` rows，但最後 `CL=0.6908`、`CD=0.3916`、`Cm=-0.1424`，last-100
+force/residual stability 都 fail，且 CD 仍遠高於 HPA main-wing 合理 `0.0XX` 量級。
+
+工程判讀：R27 marker repair 讓 SU2 讀得到 mesh，不代表 CFD setup 可用。R28 證明現在的
+active blocker 是 BL/core transition sizing / mixed-mesh dual-volume quality；不能用這個
+mesh 推 medium/fine ladder，也不能把有限 CL/CD/Cm 當低信心 CFD。下一步要把 SU2 dual
+quality 極值 localization 回 near-wall/global-star、loop-cap owner pyramid 或 core tetra source。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：
