@@ -669,6 +669,24 @@ def test_structured_transition_patch_unit_stages_core_growth_away_from_bl_vertic
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_terminal_tip_receiver_shell_unit_is_two_manifold_not_point_fan() -> None:
+    module = _load_module()
+
+    report = module.build_phase3_terminal_tip_receiver_shell_unit_report(
+        streamwise_segments=4,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_terminal_tip_receiver_shell_unit"
+    assert report["status"] == "terminal_tip_receiver_shell_unit_pass"
+    assert report["terminal_tip_receiver"]["streamwise_segments"] == 4
+    assert report["terminal_tip_receiver"]["point_fan_used"] is False
+    assert report["terminal_tip_receiver"]["receiver_side_face_count"] > 0
+    assert report["core_shell_topology"]["bad_edge_count"] == 0
+    assert report["core_shell_topology"]["nonmanifold_edge_count"] == 0
+    assert report["gate"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
     tmp_path: Path,
 ) -> None:

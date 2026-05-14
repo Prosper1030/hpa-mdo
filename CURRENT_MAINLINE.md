@@ -296,6 +296,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `mixed_dual_hotspot_incident_edge_ratio_exceeds_route_gate`，max dual sub-volume
   proxy 到 `>1e16` 量級。工程判讀：terminal tip 不能用單點 fan 捏合；下一步必須是
   分段、保形的 tip receiver / terminal transition sheet。
+- terminal tip receiver shell Build 0 已新增：
+  `terminal_tip_receiver_shell_unit/terminal_tip_receiver_shell_unit_report.json`
+  用 `4` 個 streamwise segments 建 finite-thickness receiver shell，marker counts 是
+  `transition_collar_outer_interface=8`、`terminal_tip_receiver_outer_interface=8`、
+  `terminal_tip_receiver_side=20`；core-shell topology 是 `bad_edge_count=0`、
+  `nonmanifold_edge_count=0`。工程判讀：這是正向 topology contract，不是真翼 mesh；
+  下一步要把 segmented receiver shell 套回 pps42/l3 terminal tip outer sheet。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

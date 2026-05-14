@@ -252,6 +252,13 @@ topology，再回到 TE/closure accounting。
 而且 dual proxy 直接惡化到 `>1e16` 量級，表示「把 tip fan 捏到一個 apex」不是可接受的
 receiver；下一步必須是分段、保形的 tip receiver / terminal transition sheet，不是單點
 fan。
+正向的 Build 0 contract 也已加上：
+`terminal_tip_receiver_shell_unit/terminal_tip_receiver_shell_unit_report.json` 用
+`4` 個 streamwise segments 建一個 finite-thickness receiver shell，marker counts 是
+`transition_collar_outer_interface=8`、`terminal_tip_receiver_outer_interface=8`、
+`terminal_tip_receiver_side=20`，core-shell topology `bad_edge_count=0`、
+`nonmanifold_edge_count=0`。這仍不是真翼 mesh；它只是規定下一個真翼修法必須像這樣用
+分段 receiver shell，而不能回到 point fan。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

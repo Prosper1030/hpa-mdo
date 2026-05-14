@@ -1999,6 +1999,159 @@ def write_phase3_structured_transition_patch_unit_su2(
     return report
 
 
+def build_phase3_terminal_tip_receiver_shell_unit_report(
+    *,
+    streamwise_segments: int = 4,
+    segment_length_m: float = 0.03,
+    receiver_thickness_m: float = 0.03,
+    receiver_height_m: float = 0.02,
+) -> dict[str, Any]:
+    """Build a finite-thickness terminal-tip receiver shell topology unit.
+
+    This is deliberately only a core-shell topology contract.  It proves the
+    terminal tip closure must be a segmented receiver sheet with finite
+    thickness rather than a single point fan/apex.
+    """
+    if streamwise_segments < 1:
+        raise ValueError("streamwise_segments must be positive")
+    if segment_length_m <= 0.0:
+        raise ValueError("segment_length_m must be positive")
+    if receiver_thickness_m <= 0.0:
+        raise ValueError("receiver_thickness_m must be positive")
+    if receiver_height_m <= 0.0:
+        raise ValueError("receiver_height_m must be positive")
+
+    vertices: list[tuple[float, float, float]] = []
+    node_cache: dict[tuple[int, int, int], int] = {}
+
+    def node(ix: int, iy: int, iz: int) -> int:
+        key = (int(ix), int(iy), int(iz))
+        existing = node_cache.get(key)
+        if existing is not None:
+            return existing
+        node_cache[key] = len(vertices)
+        vertices.append(
+            (
+                ix * segment_length_m,
+                iy * receiver_thickness_m,
+                iz * receiver_height_m,
+            )
+        )
+        return node_cache[key]
+
+    faces: list[Face] = []
+    receiver_side_face_count = 0
+
+    def add_quad(marker: str, quad_nodes: Sequence[int]) -> None:
+        nonlocal receiver_side_face_count
+        a, b, c, d = tuple(int(value) for value in quad_nodes)
+        faces.append(Face(nodes=(a, b, c), marker=marker))
+        faces.append(Face(nodes=(a, c, d), marker=marker))
+        if marker == "terminal_tip_receiver_side":
+            receiver_side_face_count += 2
+
+    for segment in range(streamwise_segments):
+        add_quad(
+            "transition_collar_outer_interface",
+            (
+                node(segment, 0, 0),
+                node(segment + 1, 0, 0),
+                node(segment + 1, 0, 1),
+                node(segment, 0, 1),
+            ),
+        )
+        add_quad(
+            "terminal_tip_receiver_outer_interface",
+            (
+                node(segment, 1, 0),
+                node(segment, 1, 1),
+                node(segment + 1, 1, 1),
+                node(segment + 1, 1, 0),
+            ),
+        )
+        add_quad(
+            "terminal_tip_receiver_side",
+            (
+                node(segment, 0, 0),
+                node(segment, 1, 0),
+                node(segment + 1, 1, 0),
+                node(segment + 1, 0, 0),
+            ),
+        )
+        add_quad(
+            "terminal_tip_receiver_side",
+            (
+                node(segment, 0, 1),
+                node(segment + 1, 0, 1),
+                node(segment + 1, 1, 1),
+                node(segment, 1, 1),
+            ),
+        )
+
+    add_quad(
+        "terminal_tip_receiver_side",
+        (
+            node(0, 0, 0),
+            node(0, 0, 1),
+            node(0, 1, 1),
+            node(0, 1, 0),
+        ),
+    )
+    add_quad(
+        "terminal_tip_receiver_side",
+        (
+            node(streamwise_segments, 0, 0),
+            node(streamwise_segments, 1, 0),
+            node(streamwise_segments, 1, 1),
+            node(streamwise_segments, 0, 1),
+        ),
+    )
+
+    surface = SurfaceMesh(
+        vertices=vertices,
+        faces=faces,
+        metadata={
+            "surface_role": "terminal_tip_receiver_shell_unit",
+            "point_fan_used": False,
+        },
+    )
+    topology = _surface_edge_topology(surface)
+    blockers: list[str] = []
+    if int(topology["bad_edge_count"]) != 0:
+        blockers.append("terminal_tip_receiver_shell_edges_not_two_manifold")
+    report = {
+        "route": "canonical_hybrid_halfwing_terminal_tip_receiver_shell_unit",
+        "status": (
+            "terminal_tip_receiver_shell_unit_pass"
+            if not blockers
+            else "terminal_tip_receiver_shell_unit_blocked"
+        ),
+        "terminal_tip_receiver": {
+            "streamwise_segments": int(streamwise_segments),
+            "segment_length_m": float(segment_length_m),
+            "receiver_thickness_m": float(receiver_thickness_m),
+            "receiver_height_m": float(receiver_height_m),
+            "point_fan_used": False,
+            "receiver_side_face_count": receiver_side_face_count,
+            "marker_counts": surface.marker_counts(),
+        },
+        "core_shell_topology": topology,
+        "gate": {
+            "status": "pass" if not blockers else "blocked",
+            "blockers": blockers,
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Artificial terminal-tip receiver shell unit only. It proves the "
+                "core shell must use a segmented finite-thickness receiver, not "
+                "a single shared-apex point fan; it is not a real-wing mesh."
+            ),
+        },
+    }
+    return report
+
+
 def write_phase3_partial_wing_transition_collar_handoff_su2(
     section_table_path: Path | str,
     out_path: Path | str,
