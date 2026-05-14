@@ -379,3 +379,32 @@ def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
     assert report["marker_summary"]["closure_wall"]["element_type_counts"] == {
         str(module.SU2_QUAD): 192,
     }
+
+
+def test_partial_wing_cap_core_probe_tet_fills_materialized_caps(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_partial_wing_cap_core_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "partial_wing_cap_core_probe",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_partial_wing_cap_core_probe"
+    assert report["status"] == "partial_wing_cap_core_probe_meshed"
+    assert report["core_report"]["volume_element_type_counts"] == {module.GMSH_TETRA: 7295}
+    assert report["core_report"]["forbidden_element_type_counts"] == {}
+    assert report["inner_boundary_topology"]["bad_edge_count"] == 30
+    assert report["inner_boundary_topology"]["bad_edge_count_by_role"] == {
+        "bl_outer_interface": 21,
+        "te_wall": 9,
+    }
+    assert report["engineering_assessment"]["route_smoke_ready"] is False

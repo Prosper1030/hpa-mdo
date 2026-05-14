@@ -58,7 +58,9 @@ evidence; it is a handoff/debug map for the next worker.
   `wing_upper` / `wing_lower` can pass the direct prism quality gate; the
   partial-BL sidewall quads are now assigned back to `tip_wall`, `te_wall`,
   and `closure_wall`.  The remaining named blocker is explicit conformal
-  original cap-face materialization before tetra-core merge.
+  original cap-face materialization before tetra-core merge.  A small
+  cap-materialized core probe confirms that this topology can produce a
+  pure-tetra core when the inner boundary is triangulated.
 
 ## Problems And Repairs
 
@@ -81,6 +83,7 @@ evidence; it is a handoff/debug map for the next worker.
 | first canonical Gmsh-extruded hybrid BL route-smoke fails | Default Phase 3 mesh has hybrid cell types (`15,600` prism BL cells and `2,857` core tets), but SU2 `INC_RANS/SA` diverges and reports max CV sub-volume ratio about `1.81024e8`; pps12/s6 diagnostics reduce some viscous drag with relaxed first height but pressure CD remains high | Gmsh topological BL extrusion over the faceted half-wing surface does not produce a solver-credible vertex-centered dual-control-volume mesh for the viscous route | Phase 3 gate now rejects `1e8`-scale dual sub-volume ratio and keeps closure/tip/TE forces separate; one-iteration force breakdown shows closure/tip/TE CD are not the dominant source | Replace this path with mesh-native owned BL topology / direct hybrid SU2 handoff; do not spend the next task on CFL, Green-Gauss, laminar, or closure-marker tuning |
 | direct surface-prism handoff has root sidewall distortion | Direct writer can preserve prism BL + tetra core and oriented markers, but SU2 reports distorted prism/quad elements and Euler/slip diverges at iter 10 with initial `CD≈0.2613` | wall-resolved first height `5e-5 m` is being carried onto long root-symmetry sidewall quads; the default 24-layer probe has root-side quad aspect ratio about `7794.66` and `90` root-side quads above `1000` | `direct_prism_quality_gate` now reports prism signed volume and root-symmetry quad aspect ratio before solver launch | Fix root/TE/cap policy or partial-BL root handling before rerunning route-smoke; do not use CFL/limiter changes as pass evidence |
 | partial wing-only prism BL needs explicit caps | `wing_upper` / `wing_lower` only prism extrusion at `points_per_side=42`, 24 layers, growth `1.2` gives `124,416` prism cells with non-positive signed volume `0` and root-sidewall max aspect `966.04`; sidewall quads are assigned to `tip_wall=1944`, `te_wall=1344`, and `closure_wall=192` | The primary wing BL and sidewall marker ownership can be made locally clean, but original cap faces still need to be materialized between wall and BL outer interface before the tetra core sees a watertight inner boundary | `write_phase3_partial_wing_prism_handoff_su2()` writes a caps-pending artifact and blocks `core_tetra_interface` with `blocked_until_caps_materialized` / `blocked_cap_faces_missing` | Materialize conformal caps for `tip_wall=82`, `te_wall=28`, and `closure_wall=4` source faces, then retry tetra-core merge |
+| cap-materialized core probe needs scale-up | pps12/l4 probe builds an inner boundary from BL outer interface, cap sidewall quads, and original cap faces; Gmsh fills it with `7,295` tetra and no forbidden core element types | Triangulating the discrete inner boundary avoids Gmsh pyramid insertion on cap-sidewall quads | `run_phase3_partial_wing_cap_core_probe()` writes `partial_wing_cap_core_probe_report.json` and `core.msh` for small topology proof | Scale to pps42/l24, then merge prism BL + core tets into SU2 with internal interface faces removed |
 
 ## Phase 1 Toolchain Sanity Evidence
 

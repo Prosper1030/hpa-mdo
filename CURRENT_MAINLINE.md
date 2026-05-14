@@ -92,6 +92,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `te_wall=28`、`closure_wall=4` source faces 必須先與 BL outer interface 封成
   乾淨 inner boundary，才可做 tetra-core merge；artifact status 仍是
   `blocked_cap_faces_missing`。
+- WO-006 Phase 3 cap-materialized core probe 已新增小型 proof：
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_cap_core_probe_pps12_l4/`。
+  在 `points_per_side=12`、4 BL layers 下，BL outer interface、cap sidewall
+  quads、original cap faces 以 triangulated discrete inner boundary 交給 Gmsh，
+  core fill 產生 `7,295` tetra、forbidden core element counts `{}`。這只證明 cap
+  materialization topology 可被 tetra core 吃下；它不是 wall-resolved
+  `ROUTE_SMOKE_PASS`，full pps42/l24 merge 與 merged SU2 writer 尚未完成。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

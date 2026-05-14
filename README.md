@@ -88,6 +88,14 @@ volume 全正，root-symmetry sidewall max aspect ratio `966.04`，`direct_prism
 形成 conformal cap，才能交給 tetra core；artifact status 仍是
 `blocked_cap_faces_missing`。
 
+小型 cap-materialized core probe 已建立：
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_cap_core_probe_pps12_l4/`
+使用 `points_per_side=12`、4 BL layers，將 BL outer interface、cap sidewall quads、
+original cap faces 組成 triangulated discrete inner boundary。Gmsh core fill 產生
+`7,295` tetra、`0` forbidden pyramid/prism/hex core cells。工程邊界：這只是小型
+topology proof，不是 wall-resolved `ROUTE_SMOKE_PASS`；pps42/l24 full-resolution
+merge 與 merged SU2 writer 還沒通過。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route

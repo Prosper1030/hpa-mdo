@@ -1100,6 +1100,220 @@ def write_phase3_partial_wing_prism_handoff_su2(
     }
 
 
+def run_phase3_partial_wing_cap_core_probe(
+    section_table_path: Path | str,
+    output_dir: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    core_mesh_size: float = 0.35,
+    farfield_mesh_size: float = 8.0,
+) -> dict[str, Any]:
+    """Probe the partial-BL cap-materialized inner boundary with a tetra core."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_markers = set(DIAGNOSTIC_FORCE_MARKERS)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in cap_markers
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+    )
+    inner_boundary = _partial_wing_cap_core_inner_boundary_surface(
+        prism_volume,
+        cap_triangles=cap_triangles,
+    )
+    core_report = _partial_wing_cap_core_tets(
+        inner_boundary,
+        surface_bounds=_bounds(surface.vertices),
+        output_dir=output_path,
+        core_mesh_size=core_mesh_size,
+        farfield_mesh_size=farfield_mesh_size,
+    )
+    report = {
+        "route": "canonical_hybrid_halfwing_partial_wing_cap_core_probe",
+        "status": "partial_wing_cap_core_probe_meshed",
+        "case_dir": str(output_path),
+        "surface": {
+            "marker_counts": surface.marker_counts(),
+            "metadata": surface.metadata,
+        },
+        "partial_prism": {
+            "node_count": len(prism_volume["nodes"]),
+            "volume_element_count": len(prism_volume["elements"]),
+            "direct_prism_quality": _direct_prism_quality_metrics(prism_volume),
+            "direct_prism_quality_gate": _direct_prism_quality_gate(
+                _direct_prism_quality_metrics(prism_volume)
+            ),
+        },
+        "inner_boundary": {
+            "marker_counts": inner_boundary.marker_counts(),
+            "face_count": len(inner_boundary.faces),
+        },
+        "inner_boundary_topology": _surface_edge_topology(inner_boundary),
+        "core_report": core_report,
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Small cap-materialized core probe only. It proves the partial-BL "
+                "cap topology can tetra-fill without pyramids at this resolution, "
+                "but it is not the wall-resolved route-smoke mesh."
+            ),
+        },
+    }
+    (output_path / "partial_wing_cap_core_probe_report.json").write_text(
+        json.dumps(report, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
+def _partial_wing_cap_core_inner_boundary_surface(
+    prism_volume: Mapping[str, Any],
+    *,
+    cap_triangles: Sequence[tuple[tuple[int, int, int], str]],
+) -> SurfaceMesh:
+    faces: list[Face] = []
+    for element_type, nodes in prism_volume["marker_faces"]["bl_outer_interface"]:
+        if int(element_type) == SU2_TRIANGLE:
+            faces.append(Face(nodes=tuple(int(node) for node in nodes), marker="bl_outer_interface"))
+    for marker in DIAGNOSTIC_FORCE_MARKERS:
+        for element_type, nodes in prism_volume["marker_faces"].get(marker, []):
+            if int(element_type) in {SU2_TRIANGLE, SU2_QUAD}:
+                faces.append(Face(nodes=tuple(int(node) for node in nodes), marker=marker))
+    for triangle, marker in cap_triangles:
+        faces.append(Face(nodes=tuple(int(node) for node in triangle), marker=marker))
+    return SurfaceMesh(
+        vertices=[tuple(vertex) for vertex in prism_volume["nodes"]],
+        faces=faces,
+        metadata={"surface_role": "partial_wing_cap_core_inner_boundary"},
+    )
+
+
+def _surface_edge_topology(surface: SurfaceMesh) -> dict[str, Any]:
+    edge_counts: dict[tuple[int, int], int] = {}
+    edge_roles: dict[tuple[int, int], list[str]] = {}
+    for face in surface.faces:
+        nodes = tuple(int(node) for node in face.nodes)
+        for start, end in zip(nodes, [*nodes[1:], nodes[0]]):
+            key = tuple(sorted((start, end)))
+            edge_counts[key] = edge_counts.get(key, 0) + 1
+            edge_roles.setdefault(key, []).append(face.marker)
+    bad_edges = {
+        edge: count for edge, count in edge_counts.items() if int(count) != 2
+    }
+    count_histogram: dict[str, int] = {}
+    role_counts: dict[str, int] = {}
+    for edge, count in bad_edges.items():
+        key = str(count)
+        count_histogram[key] = count_histogram.get(key, 0) + 1
+        for role in sorted(set(edge_roles.get(edge, []))):
+            role_counts[role] = role_counts.get(role, 0) + 1
+    return {
+        "edge_count": len(edge_counts),
+        "bad_edge_count": len(bad_edges),
+        "bad_edge_count_histogram": count_histogram,
+        "bad_edge_count_by_role": role_counts,
+    }
+
+
+def _partial_wing_cap_core_tets(
+    inner_boundary: SurfaceMesh,
+    *,
+    surface_bounds: Mapping[str, float],
+    output_dir: Path,
+    core_mesh_size: float,
+    farfield_mesh_size: float,
+) -> dict[str, Any]:
+    import gmsh
+
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("canonical_partial_wing_cap_core_probe")
+        inner_by_marker = _add_discrete_marked_mesh_surfaces(
+            gmsh,
+            inner_boundary,
+            first_tag=6_000_001,
+            triangulation_policy="fixed_diagonal",
+        )
+        inner_tags = [
+            tag for tags in inner_by_marker.values() for tag in tags
+        ]
+        gmsh.model.geo.synchronize()
+        _farfield_vertices, symmetry_tags, farfield_tags = _add_farfield_box_with_symmetry_hole(
+            gmsh,
+            bounds=surface_bounds,
+            bl_top_surface_tags=inner_tags,
+            farfield_mesh_size=farfield_mesh_size,
+        )
+        core_volume = gmsh.model.geo.addVolume(
+            [
+                gmsh.model.geo.addSurfaceLoop(
+                    [*inner_tags, *symmetry_tags, *farfield_tags]
+                )
+            ]
+        )
+        gmsh.model.geo.synchronize()
+        gmsh.model.addPhysicalGroup(3, [core_volume])
+        gmsh.option.setNumber("Mesh.MeshSizeMin", min(core_mesh_size, farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.MeshSizeMax", max(core_mesh_size, farfield_mesh_size))
+        gmsh.option.setNumber("Mesh.Algorithm", 6)
+        gmsh.option.setNumber("Mesh.Algorithm3D", 1)
+        gmsh.option.setNumber("Mesh.Optimize", 1)
+        gmsh.model.mesh.generate(3)
+        gmsh.write(str(output_dir / "core.msh"))
+        node_tags, _, _ = gmsh.model.mesh.getNodes()
+        volume_types, volume_tags, _ = gmsh.model.mesh.getElements(3)
+        type_counts = {
+            str(element_type): len(tags)
+            for element_type, tags in zip(volume_types, volume_tags)
+        }
+        forbidden_counts = {
+            kind: count
+            for kind, count in type_counts.items()
+            if kind != GMSH_TETRA and int(count) > 0
+        }
+        return {
+            "status": "meshed",
+            "node_count": len(node_tags),
+            "volume_element_type_counts": type_counts,
+            "forbidden_element_type_counts": forbidden_counts,
+            "inner_surface_entity_count": len(inner_tags),
+            "root_symmetry_surface_count": len(symmetry_tags),
+            "farfield_surface_count": len(farfield_tags),
+            "mesh_path": str(output_dir / "core.msh"),
+            "mesh_sizing": {
+                "core_mesh_size": float(core_mesh_size),
+                "farfield_mesh_size": float(farfield_mesh_size),
+                "gmsh_algorithm3d": 1,
+                "inner_boundary_representation": "triangulated_discrete",
+            },
+        }
+    finally:
+        gmsh.finalize()
+
+
 def _direct_surface_prism_core_tets(
     bl_volume: Mapping[str, Any],
     *,
