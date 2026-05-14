@@ -90,7 +90,8 @@ PHYSICS_SETUP = {
 }
 COEFFICIENT_RELATIVE_TOL = 0.02
 CM_ABSOLUTE_TOL = 0.005
-FORCE_WINDOW_RELATIVE_TOL = 0.03
+FORCE_STABILITY_WINDOW_ROWS = 100
+FORCE_WINDOW_RELATIVE_TOL = 0.01
 RESIDUAL_WINDOW_ABS_SLOPE_TOL = 0.05
 MINIMUM_LADDER_ITERATIONS = 100
 HPA_MAIN_WING_CD_PLAUSIBILITY_MAX = 0.15
@@ -104,7 +105,8 @@ SU2_REFERENCE_REQUIREMENTS = {
         "farfield marker is explicit and matches the mesh marker tag",
         "incompressible coefficient normalization uses INC_NONDIM=INITIAL_VALUES or an equivalent rho/V reference, not DIMENSIONAL=1 Pa",
         "near-wall spacing or wall-function choice is justified; wall-resolved target is y+ < 1",
-        "convergence uses residual and coefficient history windows, not a short smoke budget",
+        "convergence uses residual and coefficient history windows, not a short smoke budget; "
+        "local force stability requires a 100-iteration CL/CD window within 1 percent",
     ],
 }
 
@@ -730,7 +732,11 @@ def summarize_run_report(
     }
 
 
-def summarize_history_stability(path: Path, *, window_rows: int = 25) -> dict[str, Any]:
+def summarize_history_stability(
+    path: Path,
+    *,
+    window_rows: int = FORCE_STABILITY_WINDOW_ROWS,
+) -> dict[str, Any]:
     rows = _read_history_rows(path)
     if not rows:
         return {

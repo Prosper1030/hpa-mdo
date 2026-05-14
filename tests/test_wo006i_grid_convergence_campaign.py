@@ -305,6 +305,27 @@ def test_setup_gate_rejects_direct_stageback_plc_failure_artifact() -> None:
     )
 
 
+def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
+    module = _load_module()
+    history_path = tmp_path / "history.csv"
+    rows = ["Inner_Iter,CL,CD,CMy,RMS[P]\n"]
+    for index in range(120):
+        cl = 1.0
+        cd = 0.035
+        if index == 20:
+            cl = 1.02
+            cd = 0.0357
+        rows.append(f"{index},{cl},{cd},-0.030,-2.0\n")
+    history_path.write_text("".join(rows), encoding="utf-8")
+
+    result = module.summarize_history_stability(history_path)
+
+    assert result["force_stability"]["window_rows"] == 100
+    assert result["force_stability"]["status"] == "fail"
+    assert result["force_stability"]["max_relative_spread"] > 0.01
+    assert "cl_window_spread_high" in result["force_stability"]["reasons"]
+
+
 def test_run_campaign_blocks_no_bl_route_before_solver_by_default(tmp_path: Path) -> None:
     module = _load_module()
 

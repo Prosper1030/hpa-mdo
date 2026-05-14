@@ -106,6 +106,11 @@ screening evidence 讀，不是現行 release / procurement truth。
   `CL=0.715715`、`CD=0.447702`、`CMy=-0.198644`，CD gate fail。因此下一步不能
   只跑更大網格、更多 iteration，或只把 MUSCL 打開；要先修 pressure/geometry/numerics
   artifact 與 BL friction setup，之後才重跑同幾何、同 physics 的 coarse/medium/fine ladder。
+- WO-006O 已把 local force-stability 判讀從短尾段 `25` rows 改成 `100` iteration
+  window，CL/CD relative spread 門檻收緊到 `1%`，Cm 仍用 `0.005` absolute spread。
+  這表示 CFD 不必機械式跑滿 1000 iteration 才能判穩，但最後 100 iteration 必須證明
+  force history 沒有明顯漂移；同時這只代表數值穩定，不能覆蓋 `CD≈0.5-0.6` 的物理
+  量級錯誤或 BL/near-wall/setup blocker。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

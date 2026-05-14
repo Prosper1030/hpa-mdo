@@ -1,5 +1,16 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006O Force-Stability Window Tightening
+
+WO-006O 把 WO-006I history stability 判讀從短尾段 `25` rows 改成 `100` iteration
+force window，CL/CD relative spread 門檻收緊到 `1%`，Cm 仍用 `0.005` absolute spread。
+這比較接近 steady CFD 的工程判讀：不需要盲目跑到固定 1000 iteration，但至少要證明最後
+100 iteration 的 force history 沒有明顯漂移。
+
+工程判讀：這只是「數值穩定」條件，不是物理正確保證。若 `CD` 穩在 `0.5-0.6`，
+WO-006J 的 CD-order sanity gate 仍會擋掉，因為 Baseline A main-wing drag 量級應該是
+`0.0XX`；穩定地錯不能升格成 CFD completion。
+
 ## 2026-05-14 WO-006N Stageback Topology Setup Gate
 
 WO-006N 把 WO-006M direct stageback probe artifact 接進
