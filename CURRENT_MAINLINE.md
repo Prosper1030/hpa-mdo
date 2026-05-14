@@ -119,6 +119,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   啟動 medium/fine CFD ladder。span subdivision 對先前 span2/span4 的最壞 SICN 有改善
   趨勢，但 span8/span16 local Gmsh runtime 不成立，下一步仍是 topology/near-wall shape
   修復。
+- WO-006Q 已把 transition-band near-wall root cause 量化成純 geometry probe：
+  `scripts/probe_wo006q_transition_normal_jump.py` 對 current Baseline A station airfoils
+  計算相鄰 station wall normal / aft shape jump。artifact 在
+  `wo006q_transition_normal_jump_probe/`。DAE31 ↔ CST tip transition interval
+  `|y|=12.0163` 到 `14.076237 m` 在 aft `x/c>=0.75` 有 `45.57 deg` max normal jump
+  與 `0.0543` normalized aft shape delta，超過 `20 deg` / `0.03` blocker threshold。
+  這和 WO-006K BL hotspot 位置一致；下一步應做 receiver/sleeve 或 local
+  airfoil-transition smoothing 的 near-wall topology repair，再重新嘗試 BL quality gate。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

@@ -1,5 +1,20 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006Q Transition Normal-Jump Probe
+
+WO-006Q 新增 `scripts/probe_wo006q_transition_normal_jump.py`，用 current Baseline A
+geometry source 直接量化相鄰 station 的 airfoil wall normal / aft shape jump，不跑 Gmsh
+也不跑 SU2。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006q_transition_normal_jump_probe/`。
+
+實跑結果：DAE31 ↔ CST tip airfoil transition interval（`|y|=12.0163` 到
+`14.076237 m`）在 aft `x/c >= 0.75` 有 `45.57 deg` max normal jump，aft normalized
+shape delta `0.0543`，超過 WO-006Q blocker threshold（`20 deg` / `0.03`）。
+
+工程判讀：這和 WO-006K hotspot 的 `y≈12.36-13.39 m`、aft/TE 位置對上。下一步應該做
+receiver/sleeve 或 local airfoil-transition smoothing 的 near-wall topology repair；在這個
+normal jump 沒被處理前，硬跑 BL medium/fine 只會把錯誤條件放大。
+
 ## 2026-05-14 WO-006P BL Span-Refinement Runtime Probe
 
 WO-006P 新增 `scripts/probe_wo006p_bl_span_refinement_runtime.py`，把「靠提高
