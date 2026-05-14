@@ -143,6 +143,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   airfoil-transition band。這把目前 blocker 從「可能是 span/iteration 不夠」收斂成
   TE/wake/transition receiver topology 或 owned-BL/core envelope 問題；`subdiv8`
   和 `subdiv16` 不能當 medium/fine CFD ladder 起點。
+- WO-006T 已把全展向 TE stageback 修法做成 bounded runtime probe：
+  `scripts/probe_wo006t_te_stageback_runtime.py` 對 `x/c>=0.99, x_reference=max`
+  跑 HXT 與 non-HXT alg1，artifact 在 `wo006t_te_stageback_runtime_probe/`。HXT 約
+  `15.1 s` 失敗於 `stageback_hxt_requires_triangle_boundary_surfaces`
+  （HXT only supports triangles），alg1 約 `15.1 s` 失敗於
+  `stageback_boundary_recovery_failed`；兩者 peak sampled RSS 約 `110 MB`，不是
+  hardware/RAM limit。判讀：直接 global TE stageback 不能當 CFD mesh 修法；下一步
+  必須是 owned TE/wake receiver 或 BL/core envelope repair，先讓 TE/wake/transition
+  拓樸 watertight 且 quality gate pass。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

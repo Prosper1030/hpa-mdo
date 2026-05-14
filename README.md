@@ -15,6 +15,22 @@ near-wall prism quality 拉到 CFD gate 所需的 `p01 minSICN >= 0.005`。
 下一個真正修復目標是 TE/wake/transition receiver topology 或 owned-BL/core envelope，而不是
 增加 SU2 iteration、放寬 CD gate，或把 `CD≈0.5-0.6` 當成「已收斂」。
 
+## 2026-05-14 WO-006T Global TE Stageback Runtime Probe
+
+WO-006T 新增 `scripts/probe_wo006t_te_stageback_runtime.py`，把「全展向 trailing-edge
+stageback 是否能修 WO-006R/S 的 aft/TE BL hotspot」變成 bounded runtime probe。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006t_te_stageback_runtime_probe/`。
+
+實跑 `x/c >= 0.99`、`x_reference=max` 的兩個 cases：HXT (`mesh_algorithm3d=10`) 約
+`15.1 s` 失敗，failure family 是 `stageback_hxt_requires_triangle_boundary_surfaces`
+（raw Gmsh error: HXT only supports triangles）；non-HXT alg1 約 `15.1 s` 失敗，failure
+family 是 `stageback_boundary_recovery_failed`。兩者 peak sampled RSS 都約 `110 MB`，
+所以不是硬體/RAM limit，也沒有 BL quality gate candidate。
+
+工程判讀：全展向 TE stageback 不是可直接升級的 CFD 修法。下一步應該實作 owned
+TE/wake receiver 或 BL/core envelope，使 TE/wake/transition 拓樸先 watertight 且 quality
+gate pass，再談 SU2 route smoke。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔
