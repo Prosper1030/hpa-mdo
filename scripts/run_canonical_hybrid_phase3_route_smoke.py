@@ -2472,12 +2472,28 @@ def _partial_wing_transition_collar_volume(
     face_owners = _volume_face_owner_map(elements)
     marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
     converted_by_marker = {marker: 0 for marker in DIAGNOSTIC_FORCE_MARKERS}
+    required_segments_by_marker = {marker: 0 for marker in DIAGNOSTIC_FORCE_MARKERS}
+    required_segment_counts: list[int] = []
+    single_base_edge_ratios: list[float] = []
     pyramid_signed_volumes: list[float] = []
 
     for marker, faces in _mapping(prism_volume.get("marker_faces")).items():
         for element_type, face_nodes in faces:
             nodes_tuple = tuple(int(node) for node in face_nodes)
             if marker in DIAGNOSTIC_FORCE_MARKERS and int(element_type) == SU2_QUAD:
+                edge_lengths = [
+                    length for length in _face_edge_lengths(nodes, nodes_tuple) if length > 0.0
+                ]
+                edge_ratio = max(edge_lengths) / min(edge_lengths)
+                required_segments = max(
+                    1,
+                    math.ceil(edge_ratio / MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO),
+                )
+                single_base_edge_ratios.append(edge_ratio)
+                required_segment_counts.append(required_segments)
+                required_segments_by_marker[str(marker)] = (
+                    required_segments_by_marker.get(str(marker), 0) + required_segments
+                )
                 owner = _single_face_owner(face_owners, nodes_tuple, SU2_PRISM)
                 apex = _collar_apex_for_prism_face(
                     nodes,
@@ -2506,6 +2522,17 @@ def _partial_wing_transition_collar_volume(
     report = {
         "converted_prism_rim_quads_by_marker": converted_by_marker,
         "converted_prism_rim_quad_count": sum(converted_by_marker.values()),
+        "segmented_collar_requirement": {
+            "threshold_max_edge_ratio": MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO,
+            "required_rim_segments_by_marker": required_segments_by_marker,
+            "total_required_rim_segments": sum(required_segment_counts),
+            "max_required_segments_per_quad": (
+                max(required_segment_counts) if required_segment_counts else 0
+            ),
+            "max_single_pyramid_base_edge_ratio": (
+                max(single_base_edge_ratios) if single_base_edge_ratios else 0.0
+            ),
+        },
         "interface_triangle_count": len(marker_faces.get("transition_collar_interface", [])),
         "force_wall_rim_marker_leak_count": force_wall_rim_marker_leak_count,
         "collar_height_m": float(collar_height_m),

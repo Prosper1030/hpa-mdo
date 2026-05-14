@@ -663,6 +663,11 @@ def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
     assert converted["tip_wall"] > 0
     assert converted["te_wall"] > 0
     assert converted["closure_wall"] > 0
+    segmentation = report["transition_collar"]["segmented_collar_requirement"]
+    assert segmentation["threshold_max_edge_ratio"] == 1000.0
+    assert segmentation["max_required_segments_per_quad"] > 1
+    assert segmentation["total_required_rim_segments"] > sum(converted.values())
+    assert segmentation["max_single_pyramid_base_edge_ratio"] > 1000.0
     assert report["transition_collar"]["force_wall_rim_marker_leak_count"] == 0
     assert report["transition_collar"]["pyramid_signed_volume"]["non_positive_count"] == 0
     assert report["core_tetra_interface"]["status"] == "triangular_transition_interface_ready_caps_pending"

@@ -93,7 +93,11 @@ short segments before pyramid collar handoff, writes `32` prisms + `16`
 pyramids + `96` tetra, keeps rim quad max edge ratio about `500`, has
 `tet_to_prism_quad_contact=0`, and passes the dual proxy.  The open question is
 how to apply this segmentation/ramp rule to the real-wing TE/tip/closure rim
-without changing force-wall markers or creating cap self-intersections.
+without changing force-wall markers or creating cap self-intersections.  For the
+current pps42/l24 real-wing handoff, the single-pyramid rim quads have max base
+edge ratio about `1.64e4`; the current estimate to keep every segmented base
+below `1000` is `6,928` rim pieces total (`te_wall=4,376`, `tip_wall=1,944`,
+`closure_wall=608`).
 
 ## Question To Answer
 

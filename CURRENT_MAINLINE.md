@@ -180,7 +180,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   `non_root_exposed_prism_quad_count=0`、dual proxy pass。工程判讀：這證明「先分段
   rim quad，再做 pyramid collar，再接 tetra core」是下一個可行 topology recipe 的
   最小證據；它還不是真翼 route-smoke，下一步才是把這個 segmentation/ramp rule
-  套到真翼 TE/tip/closure rim。
+  套到真翼 TE/tip/closure rim。pps42/l24 真翼 handoff 已量化施工量級：原本
+  `3,480` 個單一 pyramid rim quads 在 `1000` edge-ratio threshold 下需要約
+  `6,928` 個 segmented rim pieces，其中 `te_wall=4,376`、`tip_wall=1,944`、
+  `closure_wall=608`，最大單一 base edge ratio 約 `1.64e4`。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
