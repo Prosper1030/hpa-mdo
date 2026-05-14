@@ -157,9 +157,10 @@ Current release package:
   `29,993` nodes / `9,677` tetra cells, SU2 boundary ownership `pass`, and no
   non-positive SICN/SIGE/volume. Quality still carries very-low-shape warnings,
   and this is not a merged mixed BL+core SU2 handoff. WO-006I preflight now
-  advances to `setup_near_wall_merged_mesh_handoff_missing`; next repair should
-  write/quality-gate the mixed BL+core handoff and y+ probe before any solver
-  ladder.
+  treats the old direct-stageback PLC failure as superseded diagnostic evidence
+  once the R13 core route is present, and advances to
+  `setup_near_wall_merged_mesh_handoff_missing`; next repair should write/
+  quality-gate the mixed BL+core handoff and y+ probe before any solver ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

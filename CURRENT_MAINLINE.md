@@ -125,9 +125,11 @@ screening evidence 讀，不是現行 release / procurement truth。
   `baseline_a_wall_resolved_bl_preflight_gate_v1` 在 solver 前 blocked：目前 no-BL
   setup 缺 conformal BL/core handoff、postprocessed near-wall y+ 與 CFD-grade setup
   gate。這個 gate 現在會優先讀 WO-006R13 repaired loop-cap core-mesh artifact；R13 已把
-  core mesh probe 推到 quality/marker pass，但尚未有 merged mixed BL+core SU2 handoff，
-  因此前置 blocker 目前是 `near_wall_merged_mesh_handoff_missing`，不是 R10 wall-edge
-  dependency 或 R12 geometric self-intersection。先前 `wo006i_grid_convergence_campaign/`
+  core mesh probe 推到 quality/marker pass，舊 direct-stageback PLC failure 也只保留為
+  superseded diagnostic，不再當 active blocker。但尚未有 merged mixed BL+core SU2
+  handoff，因此前置 blocker 目前是 `near_wall_merged_mesh_handoff_missing`，不是 R10
+  wall-edge dependency、R12 geometric self-intersection，或舊 direct-stageback route。
+  先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
   它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、

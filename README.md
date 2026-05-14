@@ -503,9 +503,10 @@ SICN/SIGE/volume 都是 `0`。但 mesh quality 仍有 `very_low_min_gamma`、`ve
 `low_p01_gamma` warnings。
 
 工程判讀：R13 把 core/farfield mesh probe 推過了，但仍不是 CFD。WO-006I preflight 現在會把
-最新 blocker 推到 `near_wall_merged_mesh_handoff_missing`，同時仍有 boundary-layer setup、
-conformal BL/core handoff、postprocessed y+、direct stageback topology 等 blockers。下一步是
-寫出 marker/quality-gated mixed BL+core SU2 handoff 和 y+ probe，不是跑 medium/fine solver。
+舊 direct-stageback PLC failure 保留為 superseded diagnostic，而不再當 active blocker；目前
+active blocker 是 `near_wall_merged_mesh_handoff_missing`，同時仍缺 CFD-grade boundary-layer
+setup、conformal BL/core handoff 與 postprocessed y+。下一步是寫出 marker/quality-gated
+mixed BL+core SU2 handoff 和 y+ probe，不是跑 medium/fine solver。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 

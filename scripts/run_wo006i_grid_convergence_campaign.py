@@ -324,11 +324,27 @@ def evaluate_cfd_setup_gate(
     if str(physics_setup.get("inc_nondim") or "").strip().upper() != "INITIAL_VALUES":
         blockers.append("coefficient_normalization_not_initial_values")
 
+    core_closure_topology = _core_closure_topology_summary(core_closure_artifacts or ())
     stageback_topology = _stageback_topology_summary(direct_stageback_artifacts or ())
-    if stageback_topology["status"] == "blocked":
+    if _core_route_supersedes_direct_stageback(
+        core_closure_topology=core_closure_topology,
+        stageback_topology=stageback_topology,
+    ):
+        stageback_topology = {
+            **stageback_topology,
+            "status": "superseded_by_core_mesh_route",
+            "superseded_blocker": "direct_stageback_topology_plc_segment_facet",
+            "active_blocker": False,
+            "engineering_read": (
+                "The direct stageback PLC failure remains historical diagnostic "
+                "evidence, but the active route has moved to the loop-cap core "
+                "mesh path; do not keep the stale direct-stageback blocker once "
+                "a newer core-mesh route artifact exists."
+            ),
+        }
+    elif stageback_topology["status"] == "blocked":
         blockers.append("direct_stageback_topology_plc_segment_facet")
 
-    core_closure_topology = _core_closure_topology_summary(core_closure_artifacts or ())
     if core_closure_topology["status"] == "core_mesh_blocked":
         blockers.append(
             str(core_closure_topology.get("blocker") or "near_wall_core_mesh_probe_blocked")
@@ -369,6 +385,18 @@ def evaluate_cfd_setup_gate(
             else "Do not run or report this setup as CFD completion; repair BL/BC/near-wall handoff first."
         ),
     }
+
+
+def _core_route_supersedes_direct_stageback(
+    *,
+    core_closure_topology: Mapping[str, Any],
+    stageback_topology: Mapping[str, Any],
+) -> bool:
+    return (
+        stageback_topology.get("status") == "blocked"
+        and core_closure_topology.get("status")
+        in {"core_mesh_ready_handoff_pending", "pass"}
+    )
 
 
 def run_campaign(

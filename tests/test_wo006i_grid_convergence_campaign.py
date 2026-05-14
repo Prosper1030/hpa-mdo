@@ -333,6 +333,56 @@ def test_setup_gate_rejects_direct_stageback_plc_failure_artifact() -> None:
     )
 
 
+def test_setup_gate_r13_core_route_supersedes_direct_stageback_failure() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        direct_stageback_artifacts=[
+            {
+                "schema_version": "wo006m_narrow_stageback_mesh_probe.v1",
+                "status": "failed",
+                "error": (
+                    "Gmsh stageback BL/core mesh generation failed; diagnostic="
+                    '{"diagnostic_family":"stageback_plc_segment_facet_intersection"}'
+                ),
+            }
+        ],
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r13_loop_cap_geometric_seam_repair_probe.v1",
+                "verdict": "loop_cap_geometric_seam_repair_core_mesh_pass_not_handoff",
+                "loop_cap_core_mesh": {
+                    "status": "core_mesh_probe_pass_merged_handoff_pending",
+                    "hard_blockers": [],
+                    "volume_element_count": 9677,
+                    "blockers": ["merged_mixed_bl_core_su2_mesh_missing"],
+                },
+            }
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert "direct_stageback_topology_plc_segment_facet" not in result["blockers"]
+    assert "near_wall_merged_mesh_handoff_missing" in result["blockers"]
+    assert result["stageback_topology"]["status"] == "superseded_by_core_mesh_route"
+    assert result["stageback_topology"]["superseded_blocker"] == (
+        "direct_stageback_topology_plc_segment_facet"
+    )
+
+
 def test_setup_gate_consumes_r10_core_closure_artifact_before_solver() -> None:
     module = _load_module()
     otherwise_ready_setup = {
