@@ -144,6 +144,16 @@ remaining question is how conservatively to project this sidewall-closure /
 triangular-interface contract onto the real-wing pps42/l3 segmented collar
 without creating new TE/tip/cap force-surface pollution.
 
+Newest local real-wing projection evidence: a bounded tiny handoff now passes.
+It uses the real-wing segmented-collar data model, but deliberately with
+`points_per_side=4`, `spanwise_subdivisions=1`, `first_layer_height=1e-3 m`,
+and `layers=1`, so it is not a y+ mesh.  It writes `482` prisms, `1175`
+pyramids, and `4512` tetra; `188` collar interface triangles feed two
+transition rows; `1128` sidewall closure pyramids and `4512` sidewall closure
+tets close exposed prism quads.  Ownership, topology, and dual proxy pass.  The
+final marker policy removes `transition_collar_interface` and exposes
+`transition_collar_outer_interface` for a future tetra core.
+
 ## Question To Answer
 
 Please review the real-wing projection strategy, not solver numerics.

@@ -211,6 +211,12 @@ sidewall pyramid/tet triangular interface。dual proxy pass，沒有
 tet-to-prism-quad contact、exposed prism quads 或 exposed pyramid faces。這還不是真翼
 route-smoke；下一步要把同一套 sidewall closure / triangular-interface 規則套回真翼
 pps42/l3，再重新跑 dual gate。
+目前已先做 bounded 真翼 handoff smoke：
+`segmented_partial_wing_structured_transition_handoff_tiny/` 用真翼幾何與 segmented
+collar pipeline，但刻意放大 first layer 到 `1e-3 m`、只用 `points_per_side=4` /
+`spanwise_subdivisions=1` / `layers=1`。它產生 `482` prisms、`1175` pyramids、
+`4512` tets，topology / ownership / dual proxy pass。這只證明資料結構與
+triangular-interface contract 可投影到真翼，不是 y+ 或 route-smoke 證據。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

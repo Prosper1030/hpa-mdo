@@ -805,6 +805,42 @@ def test_segmented_partial_wing_transition_collar_core_hybrid_writes_merged_mesh
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_partial_wing_structured_transition_handoff_closes_sidewalls(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_structured_transition_handoff.su2",
+        points_per_side=4,
+        spanwise_subdivisions=1,
+        first_layer_height_m=1.0e-3,
+        growth_ratio=1.2,
+        bl_layers=1,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.03, 0.09),
+    )
+
+    assert (
+        report["route"]
+        == "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_handoff"
+    )
+    assert report["status"] == "segmented_partial_wing_structured_transition_ready_caps_pending"
+    assert report["structured_transition"]["input_interface_triangle_count"] > 0
+    assert report["structured_transition"]["sidewall_closure_pyramid_count"] > 0
+    assert report["topology"]["tet_to_prism_quad_contact"] == 0
+    assert report["topology"]["non_root_exposed_prism_quad_count"] == 0
+    assert report["topology"]["pyramid_boundary_face_count"] == 0
+    assert report["dual_subvolume_proxy"]["status"] == "pass"
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert "transition_collar_interface" not in report["marker_summary"]
+    assert "transition_collar_outer_interface" in report["marker_summary"]
+    for diagnostic_marker in module.DIAGNOSTIC_FORCE_MARKERS:
+        assert diagnostic_marker not in report["marker_summary"]
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
     module = _load_module()
     surface = module.SurfaceMesh(

@@ -10,7 +10,7 @@ import math
 from pathlib import Path
 import sys
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, MutableMapping, Sequence
 
 import yaml
 
@@ -2428,6 +2428,170 @@ def write_phase3_segmented_partial_wing_transition_collar_core_hybrid_su2(
     }
 
 
+def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 12,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = 4,
+    collar_height_m: float = 1.0e-4,
+    transition_row_heights_m: Sequence[float] = (0.03, 0.09),
+) -> dict[str, Any]:
+    """Write segmented real-wing collar plus explicit structured transition rows."""
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    wall_triangles = _triangulated_wall_triangles(surface)
+    cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    source_edge_segments, source_edge_report = _source_rim_edge_split_plan(
+        surface.vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        edge_marker_map=_cap_edge_marker_map(cap_triangles),
+        first_layer_height_m=first_layer_height_m,
+    )
+    segmented_vertices, segmented_wall_triangles, segmented_surface_report = (
+        _split_wall_triangles_on_source_edges(
+            surface.vertices,
+            wall_triangles,
+            edge_segment_counts=source_edge_segments,
+        )
+    )
+    segmented_cap_triangles = [
+        (triangle, marker)
+        for triangle, marker in segmented_wall_triangles
+        if marker in DIAGNOSTIC_FORCE_MARKERS
+    ]
+    prism_volume = _direct_surface_prism_volume(
+        segmented_vertices,
+        [
+            (triangle, marker)
+            for triangle, marker in segmented_wall_triangles
+            if marker in PRIMARY_FORCE_MARKERS
+        ],
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+        edge_marker_map=_cap_edge_marker_map(segmented_cap_triangles),
+    )
+    collar_volume, collar_report = _partial_wing_transition_collar_volume(
+        prism_volume,
+        collar_height_m=collar_height_m,
+    )
+    transition_volume, structured_transition = _partial_wing_structured_transition_volume(
+        collar_volume,
+        transition_row_heights_m=transition_row_heights_m,
+    )
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            transition_volume,
+            comments=(
+                "% Canonical hybrid half-wing segmented partial-BL structured transition handoff.",
+                "% Transition collar triangles feed prism rows and sidewall pyramid/tet closure.",
+                "% Caps and tetra core are intentionally pending.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    topology = _transition_topology_report(transition_volume)
+    quality = _transition_element_quality(transition_volume)
+    quality_gate = _transition_element_quality_gate(quality)
+    element_sources = [
+        str(_mapping(role).get("source") or _phase3_volume_element_source(element_type))
+        for (element_type, _nodes), role in zip(
+            transition_volume["elements"],
+            transition_volume["element_roles"],
+        )
+    ]
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        transition_volume["nodes"],
+        transition_volume["elements"],
+        element_sources=element_sources,
+        marker_faces=transition_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
+    blockers: list[str] = []
+    for key in (
+        "boundary_faces_unmarked",
+        "orphan_marker_faces",
+        "duplicate_marker_faces",
+        "nonmanifold_face_count",
+        "tet_to_prism_quad_contact",
+        "non_root_exposed_prism_quad_count",
+        "pyramid_boundary_face_count",
+    ):
+        if int(topology.get(key) or 0) != 0:
+            blockers.append(f"structured_real_wing_{key}")
+    if quality_gate.get("status") != "pass":
+        blockers.extend(str(blocker) for blocker in quality_gate.get("blockers") or [])
+    if boundary_ownership.get("status") != "pass":
+        blockers.append("structured_real_wing_su2_boundary_ownership_not_pass")
+    blockers.extend(str(blocker) for blocker in dual_subvolume_proxy.get("blockers") or [])
+    type_counts: dict[str, int] = {}
+    for element_type, _nodes in transition_volume["elements"]:
+        key = str(element_type)
+        type_counts[key] = type_counts.get(key, 0) + 1
+    report = {
+        "route": (
+            "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_handoff"
+        ),
+        "status": (
+            "segmented_partial_wing_structured_transition_ready_caps_pending"
+            if not blockers
+            else "segmented_partial_wing_structured_transition_blocked"
+        ),
+        "mesh_path": str(output_path),
+        "node_count": len(transition_volume["nodes"]),
+        "volume_element_count": len(transition_volume["elements"]),
+        "volume_element_type_counts": dict(sorted(type_counts.items())),
+        "source_rim_edge_split_plan": source_edge_report,
+        "segmented_surface": segmented_surface_report,
+        "transition_collar": collar_report,
+        "structured_transition": structured_transition,
+        "topology": topology,
+        "element_quality": quality,
+        "element_quality_gate": quality_gate,
+        "dual_subvolume_proxy": dual_subvolume_proxy,
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "gate": {
+            "status": "pass" if not blockers else "blocked",
+            "blockers": sorted(set(blockers)),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Segmented real-wing structured transition handoff only. Caps and "
+                "tetra core are intentionally pending; this proves the collar rim "
+                "can be converted to triangular core-interface topology before "
+                "another core merge attempt."
+            ),
+        },
+    }
+    Path(output_path.with_suffix(".report.json")).write_text(
+        json.dumps(report, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
 def run_phase3_partial_wing_transition_collar_core_probe(
     section_table_path: Path | str,
     output_dir: Path | str,
@@ -3106,6 +3270,300 @@ def _partial_wing_transition_collar_volume(
         "elements": elements,
         "marker_faces": marker_faces,
     }, report
+
+
+def _partial_wing_structured_transition_volume(
+    collar_volume: Mapping[str, Any],
+    *,
+    transition_row_heights_m: Sequence[float],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    row_heights = tuple(float(height) for height in transition_row_heights_m)
+    if not row_heights or any(height <= 0.0 for height in row_heights):
+        raise ValueError("transition_row_heights_m must contain positive heights")
+    nodes = [tuple(vertex) for vertex in collar_volume["nodes"]]
+    elements = list(collar_volume["elements"])
+    element_roles = [
+        {
+            "role": _phase3_volume_element_source(int(element_type)),
+            "source": _phase3_volume_element_source(int(element_type)),
+        }
+        for element_type, _nodes in elements
+    ]
+    marker_faces = {
+        str(marker): [
+            (int(element_type), tuple(int(node) for node in face_nodes))
+            for element_type, face_nodes in faces
+        ]
+        for marker, faces in _mapping(collar_volume.get("marker_faces")).items()
+        if str(marker) != "transition_collar_interface"
+    }
+    interface_faces = [
+        tuple(int(node) for node in face_nodes)
+        for element_type, face_nodes in collar_volume["marker_faces"].get(
+            "transition_collar_interface",
+            [],
+        )
+        if int(element_type) == SU2_TRIANGLE
+    ]
+    face_owners = _volume_face_owner_map(elements)
+
+    def add_node(coord: tuple[float, float, float]) -> int:
+        nodes.append(coord)
+        return len(nodes) - 1
+
+    transition_prism_count = 0
+    for face_nodes in interface_faces:
+        owner = _single_face_owner(face_owners, face_nodes, SU2_PYRAMID)
+        owner_nodes = tuple(int(node) for node in elements[int(owner["element_index"])][1])
+        face_centroid = _centroid_tuple([nodes[node] for node in face_nodes])
+        owner_centroid = _centroid_tuple([nodes[node] for node in owner_nodes])
+        direction = _outward_unit_direction_for_face(
+            nodes,
+            face_nodes,
+            outward_hint=_vector_between(owner_centroid, face_centroid),
+        )
+        inner = tuple(int(node) for node in face_nodes)
+        cumulative_height = 0.0
+        for row_index, row_height in enumerate(row_heights):
+            cumulative_height += row_height
+            outer = tuple(
+                add_node(_offset_point(nodes[int(node)], direction, cumulative_height))
+                for node in face_nodes
+            )
+            prism = _oriented_prism_positive(nodes, inner, outer)
+            elements.append((SU2_PRISM, prism))
+            element_roles.append(
+                {
+                    "role": "real_wing_structured_transition_prism",
+                    "source": "structured_transition_prism",
+                    "row_index": str(row_index),
+                }
+            )
+            transition_prism_count += 1
+            inner = outer
+        marker_faces.setdefault("transition_collar_outer_interface", []).append(
+            (SU2_TRIANGLE, inner)
+        )
+
+    volume: dict[str, Any] = {
+        "nodes": nodes,
+        "elements": elements,
+        "element_roles": element_roles,
+        "marker_faces": marker_faces,
+    }
+    sidewall_closure = _close_non_root_exposed_prism_quads_with_pyramid_tets(
+        volume,
+        boundary_marker="transition_collar_outer_interface",
+    )
+    _add_role_boundary_marker_faces(volume)
+    report = {
+        "input_interface_triangle_count": len(interface_faces),
+        "row_count": len(row_heights),
+        "row_heights_m": list(row_heights),
+        "first_row_height_m": row_heights[0],
+        "max_row_growth_ratio": (
+            max(row_heights[index + 1] / row_heights[index] for index in range(len(row_heights) - 1))
+            if len(row_heights) > 1
+            else 1.0
+        ),
+        "transition_prism_count": transition_prism_count,
+        **sidewall_closure,
+    }
+    return volume, report
+
+
+def _outward_unit_direction_for_face(
+    vertices: Sequence[tuple[float, float, float]],
+    face_nodes: Sequence[int],
+    *,
+    outward_hint: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    best_normal = (0.0, 0.0, 0.0)
+    best_norm = 0.0
+    for a, b, c in itertools.combinations(face_nodes, 3):
+        normal = _cross(
+            _vector_between(vertices[int(a)], vertices[int(b)]),
+            _vector_between(vertices[int(a)], vertices[int(c)]),
+        )
+        norm = _distance3(normal, (0.0, 0.0, 0.0))
+        if norm > best_norm:
+            best_normal = normal
+            best_norm = norm
+    if best_norm <= 1.0e-14:
+        hint_norm = _distance3(outward_hint, (0.0, 0.0, 0.0))
+        if hint_norm <= 1.0e-14:
+            return (0.0, 1.0, 0.0)
+        return (
+            outward_hint[0] / hint_norm,
+            outward_hint[1] / hint_norm,
+            outward_hint[2] / hint_norm,
+        )
+    unit_normal = (
+        best_normal[0] / best_norm,
+        best_normal[1] / best_norm,
+        best_normal[2] / best_norm,
+    )
+    if _dot(unit_normal, outward_hint) < 0.0:
+        return (-unit_normal[0], -unit_normal[1], -unit_normal[2])
+    return unit_normal
+
+
+def _ordered_quad_face_nodes(
+    vertices: Sequence[tuple[float, float, float]],
+    face_nodes: Sequence[int],
+    unit_normal: tuple[float, float, float],
+) -> tuple[int, ...]:
+    if len(face_nodes) != 4:
+        return tuple(int(node) for node in face_nodes)
+    face = tuple(int(node) for node in face_nodes)
+    centroid = _centroid_tuple([vertices[node] for node in face])
+    reference = max(
+        (_vector_between(centroid, vertices[node]) for node in face),
+        key=lambda vector: _distance3(vector, (0.0, 0.0, 0.0)),
+    )
+    reference_norm = _distance3(reference, (0.0, 0.0, 0.0))
+    if reference_norm <= 1.0e-14:
+        return face
+    u_axis = (
+        reference[0] / reference_norm,
+        reference[1] / reference_norm,
+        reference[2] / reference_norm,
+    )
+    v_axis = _cross(unit_normal, u_axis)
+    v_norm = _distance3(v_axis, (0.0, 0.0, 0.0))
+    if v_norm <= 1.0e-14:
+        return face
+    v_axis = (v_axis[0] / v_norm, v_axis[1] / v_norm, v_axis[2] / v_norm)
+
+    def angle_for(node: int) -> float:
+        vector = _vector_between(centroid, vertices[int(node)])
+        return math.atan2(_dot(vector, v_axis), _dot(vector, u_axis))
+
+    ordered = tuple(sorted(face, key=angle_for))
+    area_vector = _face_area_vector(vertices, ordered)
+    if _dot(area_vector, unit_normal) < 0.0:
+        return tuple(reversed(ordered))
+    return ordered
+
+
+def _close_non_root_exposed_prism_quads_with_pyramid_tets(
+    volume: MutableMapping[str, Any],
+    *,
+    boundary_marker: str,
+) -> dict[str, int]:
+    nodes = volume["nodes"]
+    elements = volume["elements"]
+    element_roles = volume["element_roles"]
+    marker_by_key = {
+        _face_key_nodes(face_nodes): str(marker)
+        for marker, faces in _mapping(volume.get("marker_faces")).items()
+        for _element_type, face_nodes in faces
+    }
+    face_owners = _volume_face_owner_map(elements)
+    exposed_prism_quads: list[dict[str, Any]] = []
+    for owners in face_owners.values():
+        if len(owners) != 1:
+            continue
+        owner = owners[0]
+        if int(owner["element_type"]) != SU2_PRISM:
+            continue
+        face_nodes = tuple(int(node) for node in owner["face_nodes"])
+        if len(face_nodes) != 4:
+            continue
+        face_key = _face_key_nodes(face_nodes)
+        if marker_by_key.get(face_key) == "root_symmetry":
+            continue
+        if _face_average_y(nodes, face_nodes) <= 1.0e-9:
+            continue
+        exposed_prism_quads.append(owner)
+
+    closure_pyramids = 0
+    closure_tets = 0
+    for face_index, owner in enumerate(exposed_prism_quads):
+        raw_face_nodes = tuple(int(node) for node in owner["face_nodes"])
+        owner_nodes = tuple(int(node) for node in elements[int(owner["element_index"])][1])
+        owner_centroid = _centroid_tuple([nodes[node] for node in owner_nodes])
+        face_centroid = _centroid_tuple([nodes[node] for node in raw_face_nodes])
+        direction = _outward_unit_direction_for_face(
+            nodes,
+            raw_face_nodes,
+            outward_hint=_vector_between(owner_centroid, face_centroid),
+        )
+        face_nodes = _ordered_quad_face_nodes(nodes, raw_face_nodes, direction)
+        edge_lengths = [
+            length for length in _face_edge_lengths(nodes, face_nodes) if length > 0.0
+        ]
+        offset = max(min(edge_lengths) if edge_lengths else 1.0e-4, 1.0e-4)
+        apex = len(nodes)
+        nodes.append(_offset_point(face_centroid, direction, offset))
+        pyramid = _oriented_pyramid_positive(nodes, face_nodes, apex)
+        elements.append((SU2_PYRAMID, pyramid))
+        element_roles.append(
+            {
+                "role": "sidewall_closure_pyramid",
+                "source": "transition_sidewall_pyramid",
+            }
+        )
+        closure_pyramids += 1
+        for side_index, side_face in enumerate(_volume_element_faces(SU2_PYRAMID, pyramid)[1:]):
+            extension = len(nodes)
+            nodes.append(
+                _tet_extension_point(
+                    nodes,
+                    side_face,
+                    magnitude=offset * (1.0 + 0.05 * (face_index + side_index)),
+                )
+            )
+            elements.append(
+                (
+                    SU2_TETRAHEDRON,
+                    _oriented_tetra_for_shared_face(nodes, side_face, extension),
+                )
+            )
+            element_roles.append(
+                {
+                    "role": "sidewall_closure_tetra",
+                    "source": "tetra_core",
+                    "boundary_marker": str(boundary_marker),
+                }
+            )
+            closure_tets += 1
+    return {
+        "sidewall_closure_pyramid_count": closure_pyramids,
+        "sidewall_closure_tetra_count": closure_tets,
+    }
+
+
+def _add_role_boundary_marker_faces(volume: MutableMapping[str, Any]) -> None:
+    marker_faces = {
+        str(marker): [
+            (int(element_type), tuple(int(node) for node in face_nodes))
+            for element_type, face_nodes in faces
+        ]
+        for marker, faces in _mapping(volume.get("marker_faces")).items()
+    }
+    marker_keys = {
+        _face_key_nodes(face_nodes)
+        for faces in marker_faces.values()
+        for _element_type, face_nodes in faces
+    }
+    roles = list(volume.get("element_roles") or [])
+    for _key, owners in _volume_face_owner_map(volume["elements"]).items():
+        if len(owners) != 1:
+            continue
+        owner = owners[0]
+        face_nodes = tuple(int(node) for node in owner["face_nodes"])
+        face_key = _face_key_nodes(face_nodes)
+        if face_key in marker_keys:
+            continue
+        role = _mapping(roles[int(owner["element_index"])])
+        marker = role.get("boundary_marker")
+        if marker is None:
+            continue
+        surface_type = SU2_QUAD if len(face_nodes) == 4 else SU2_TRIANGLE
+        marker_faces.setdefault(str(marker), []).append((surface_type, face_nodes))
+        marker_keys.add(face_key)
+    volume["marker_faces"] = marker_faces
 
 
 def _single_face_owner(
@@ -3893,12 +4351,15 @@ def _transition_topology_report(volume: Mapping[str, Any]) -> dict[str, Any]:
         if node_count == 3 and owner_types == sorted([SU2_PRISM, SU2_TETRAHEDRON]):
             tet_to_prism_triangle += 1
 
-    tet_to_prism_quad_contact = 0
-    for tet_key in tet_face_keys:
-        tet_nodes = set(tet_key)
-        for prism_quad_key in prism_quad_keys:
-            if len(prism_quad_key) == 4 and tet_nodes.issubset(set(prism_quad_key)):
-                tet_to_prism_quad_contact += 1
+    prism_quad_triangle_subsets = {
+        tuple(sorted(subset))
+        for prism_quad_key in prism_quad_keys
+        if len(prism_quad_key) == 4
+        for subset in itertools.combinations(prism_quad_key, 3)
+    }
+    tet_to_prism_quad_contact = sum(
+        1 for tet_key in tet_face_keys if tet_key in prism_quad_triangle_subsets
+    )
 
     non_root_exposed_prism_quad_count = 0
     pyramid_boundary_face_count = 0

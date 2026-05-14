@@ -229,6 +229,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   prism → pyramid → transition-prism rows → sidewall pyramid/tet closure 的明確
   topology contract 關掉；下一步是把同一套 sidewall closure / triangular-interface
   規則套回真翼 pps42/l3，再重新跑 dual gate，仍不可直接進 pressure/RANS。
+- WO-006 Phase 3 也新增了一個 bounded 真翼 structured handoff：
+  `segmented_partial_wing_structured_transition_handoff_tiny/`。它用真翼幾何與
+  segmented collar pipeline，但刻意採 `points_per_side=4`、`spanwise_subdivisions=1`、
+  `first_layer_height=1e-3 m`、`layers=1` 作 topology smoke，而不是 y+ mesh。
+  結果：`482` prisms、`1175` pyramids、`4512` tets，`188` 個 collar interface
+  triangles 接到兩層 transition rows，`1128` sidewall closure pyramids 與 `4512`
+  sidewall closure tets；ownership / topology / dual proxy pass，且沒有
+  `transition_collar_interface` final marker。工程判讀：sidewall closure contract
+  可以投影到真翼資料結構，但還不能證明 pps42/l3 或 y+=1 mesh 可用；下一步要做
+  element-count-controlled 的 pps42/l3 projection，而不是直接把 naive all-sidewall
+  closure 放大。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
