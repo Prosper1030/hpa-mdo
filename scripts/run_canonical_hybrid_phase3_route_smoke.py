@@ -1524,12 +1524,20 @@ def write_phase3_partial_wing_transition_collar_core_hybrid_su2(
     )
     merged_nodes = list(collar_volume["nodes"])
     core_node_map = _merged_core_node_map(core["nodes"], merged_nodes)
+    collar_element_sources = [
+        _phase3_volume_element_source(element_type)
+        for element_type, _nodes in collar_volume["elements"]
+    ]
     elements = [
         *collar_volume["elements"],
         *[
             (SU2_TETRAHEDRON, tuple(core_node_map[int(node)] for node in nodes))
             for nodes in core["tetra_elements"]
         ],
+    ]
+    element_sources = [
+        *collar_element_sources,
+        *(["tetra_core"] * len(core["tetra_elements"])),
     ]
     marker_faces = {
         marker: list(faces)
@@ -1549,6 +1557,14 @@ def write_phase3_partial_wing_transition_collar_core_hybrid_su2(
             "elements": elements,
             "marker_faces": marker_faces,
         }
+    )
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        compacted_volume["nodes"],
+        compacted_volume["elements"],
+        element_sources=element_sources,
+        marker_faces=compacted_volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
     )
     output_path.write_text(
         _su2_volume_text(
@@ -1585,6 +1601,7 @@ def write_phase3_partial_wing_transition_collar_core_hybrid_su2(
         "marker_summary": marker_summary["markers"],
         "required_markers_present": required_markers_present,
         "su2_boundary_ownership": boundary_ownership,
+        "dual_subvolume_proxy": dual_subvolume_proxy,
         "direct_prism_quality": direct_prism_quality,
         "direct_prism_quality_gate": _direct_prism_quality_gate(direct_prism_quality),
         "forbidden_route_checks": {
@@ -1599,8 +1616,9 @@ def write_phase3_partial_wing_transition_collar_core_hybrid_su2(
         "engineering_assessment": {
             "route_smoke_ready": False,
             "trust_boundary": (
-                "Merged small-scale hybrid mesh only. It still needs SU2 dual-quality "
-                "and pressure-only force sanity before any RANS route-smoke claim."
+                "Merged small-scale hybrid mesh only. The mixed-element dual-subvolume "
+                "proxy is a pre-solver blocker if it reproduces SU2-scale CV pathology; "
+                "do not run RANS until the collar/core interface passes this gate."
             ),
         },
     }
@@ -2141,6 +2159,195 @@ def _transition_element_quality_gate(quality: Mapping[str, Any]) -> dict[str, An
         "status": "pass" if not blockers else "fail",
         "blockers": sorted(blockers),
     }
+
+
+def _mixed_dual_subvolume_proxy_report(
+    vertices: Sequence[tuple[float, float, float]],
+    elements: Sequence[tuple[int, Sequence[int]]],
+    *,
+    element_sources: Sequence[str],
+    marker_faces: Mapping[str, Sequence[tuple[int, Sequence[int]]]],
+    min_ratio: float,
+    top_count: int,
+) -> dict[str, Any]:
+    """Mirror SU2's vertex CV sub-volume ratio closely enough for blockers.
+
+    SU2 computes the reported CV Sub-Volume Ratio from the min/max sub-volumes
+    attached to a vertex dual control volume.  This proxy samples every
+    element face into vertex-edge-face-centroid-cell-centroid tetrahedra for
+    prisms, pyramids, and tetrahedra, which is enough to localize the current
+    collar/core-interface pathology before running the solver.
+    """
+
+    if len(element_sources) != len(elements):
+        raise ValueError("element_sources must match elements length")
+    min_records: list[dict[str, Any] | None] = [None] * len(vertices)
+    max_records: list[dict[str, Any] | None] = [None] * len(vertices)
+    positive_subvolume_count = 0
+    non_positive_subvolume_count = 0
+    unsupported_element_count = 0
+    supported_types = {SU2_PRISM, SU2_PYRAMID, SU2_TETRAHEDRON}
+
+    for element_index, ((element_type, element_nodes), source) in enumerate(
+        zip(elements, element_sources)
+    ):
+        element_type = int(element_type)
+        if element_type not in supported_types:
+            unsupported_element_count += 1
+            continue
+        nodes = tuple(int(node) for node in element_nodes)
+        element_centroid = _centroid_tuple([vertices[node] for node in nodes])
+        for face_nodes in _volume_element_faces(element_type, nodes):
+            face = tuple(int(node) for node in face_nodes)
+            face_centroid = _centroid_tuple([vertices[node] for node in face])
+            for edge_offset, point_index in enumerate(face):
+                next_point_index = face[(edge_offset + 1) % len(face)]
+                edge_midpoint = _centroid_tuple(
+                    [vertices[int(point_index)], vertices[int(next_point_index)]]
+                )
+                subvolume = abs(
+                    _tet_signed_volume(
+                        vertices[int(point_index)],
+                        edge_midpoint,
+                        face_centroid,
+                        element_centroid,
+                    )
+                )
+                if subvolume <= 0.0 or not math.isfinite(subvolume):
+                    non_positive_subvolume_count += 1
+                    continue
+                positive_subvolume_count += 1
+                record = {
+                    "subvolume_m3": float(subvolume),
+                    "point_index": int(point_index),
+                    "element_index": int(element_index),
+                    "element_type": int(element_type),
+                    "source": str(source),
+                    "element_nodes": [int(node) for node in nodes],
+                    "face_nodes": [int(node) for node in face],
+                    "edge_nodes": [int(point_index), int(next_point_index)],
+                }
+                current_min = min_records[int(point_index)]
+                if (
+                    current_min is None
+                    or subvolume < float(current_min["subvolume_m3"])
+                ):
+                    min_records[int(point_index)] = record
+                current_max = max_records[int(point_index)]
+                if (
+                    current_max is None
+                    or subvolume > float(current_max["subvolume_m3"])
+                ):
+                    max_records[int(point_index)] = record
+
+    point_markers = _point_markers_from_marker_faces(marker_faces)
+    incident_source_counts = _incident_source_counts_by_point(elements, element_sources)
+    records: list[dict[str, Any]] = []
+    for point_index, (min_record, max_record) in enumerate(
+        zip(min_records, max_records)
+    ):
+        if min_record is None or max_record is None:
+            continue
+        min_volume = float(min_record["subvolume_m3"])
+        if min_volume <= 0.0:
+            continue
+        max_volume = float(max_record["subvolume_m3"])
+        ratio = max_volume / min_volume
+        if ratio < min_ratio:
+            continue
+        source_pair = "|".join(
+            sorted((str(min_record["source"]), str(max_record["source"])))
+        )
+        records.append(
+            {
+                "point_index": int(point_index),
+                "point": _point_payload(vertices[point_index]),
+                "cv_sub_volume_ratio": float(ratio),
+                "source_pair": source_pair,
+                "point_markers": sorted(point_markers.get(point_index, set())),
+                "incident_element_source_counts": dict(
+                    sorted(incident_source_counts.get(point_index, {}).items())
+                ),
+                "min_subvolume": dict(min_record),
+                "max_subvolume": dict(max_record),
+            }
+        )
+
+    records.sort(
+        key=lambda record: float(record["cv_sub_volume_ratio"]),
+        reverse=True,
+    )
+    worst = records[0] if records else None
+    max_ratio = 0.0 if worst is None else float(worst["cv_sub_volume_ratio"])
+    blockers = []
+    if max_ratio > MAX_ROUTE_DUAL_SUB_VOLUME_RATIO:
+        blockers.append("mixed_dual_subvolume_ratio_exceeds_route_gate")
+    return {
+        "status": "pass" if not blockers else "fail",
+        "blockers": blockers,
+        "thresholds": {
+            "max_cv_sub_volume_ratio": MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+            "record_min_ratio": float(min_ratio),
+        },
+        "positive_subvolume_count": int(positive_subvolume_count),
+        "non_positive_subvolume_count": int(non_positive_subvolume_count),
+        "unsupported_element_count": int(unsupported_element_count),
+        "record_count": len(records),
+        "max_cv_sub_volume_ratio": max_ratio,
+        "worst_point_index": None if worst is None else int(worst["point_index"]),
+        "worst_point": None if worst is None else dict(worst["point"]),
+        "worst_source_pair": None if worst is None else str(worst["source_pair"]),
+        "top_hotspots": [dict(record) for record in records[: max(0, int(top_count))]],
+    }
+
+
+def _phase3_volume_element_source(element_type: int) -> str:
+    if int(element_type) == SU2_PRISM:
+        return "boundary_layer_prism"
+    if int(element_type) == SU2_PYRAMID:
+        return "transition_collar_pyramid"
+    if int(element_type) == SU2_TETRAHEDRON:
+        return "tetra_core"
+    return f"element_type_{int(element_type)}"
+
+
+def _point_markers_from_marker_faces(
+    marker_faces: Mapping[str, Sequence[tuple[int, Sequence[int]]]],
+) -> dict[int, set[str]]:
+    point_markers: dict[int, set[str]] = {}
+    for marker, faces in marker_faces.items():
+        for _element_type, nodes in faces:
+            for node in nodes:
+                point_markers.setdefault(int(node), set()).add(str(marker))
+    return point_markers
+
+
+def _incident_source_counts_by_point(
+    elements: Sequence[tuple[int, Sequence[int]]],
+    element_sources: Sequence[str],
+) -> dict[int, dict[str, int]]:
+    counts: dict[int, dict[str, int]] = {}
+    for (_element_type, nodes), source in zip(elements, element_sources):
+        source_name = str(source)
+        for node in nodes:
+            bucket = counts.setdefault(int(node), {})
+            bucket[source_name] = bucket.get(source_name, 0) + 1
+    return counts
+
+
+def _centroid_tuple(
+    points: Sequence[Sequence[float]],
+) -> tuple[float, float, float]:
+    count = float(len(points))
+    return (
+        sum(float(point[0]) for point in points) / count,
+        sum(float(point[1]) for point in points) / count,
+        sum(float(point[2]) for point in points) / count,
+    )
+
+
+def _point_payload(point: Sequence[float]) -> dict[str, float]:
+    return {"x": float(point[0]), "y": float(point[1]), "z": float(point[2])}
 
 
 def _minimal_transition_unit_gate(

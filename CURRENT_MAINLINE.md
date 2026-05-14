@@ -142,12 +142,18 @@ screening evidence 讀，不是現行 release / procurement truth。
   `bl_outer_interface` / `transition_collar_interface` markers，且保留 required
   physical markers。writer 現在做 final node compaction，移除 `4` 個 unused nodes，
   修掉 SU2 `NPOIN` mismatch preprocessing error；marker audit / ownership pass。
+- 同一 writer 現在也內建 mixed-element SU2-style subvolume proxy，會在 solver 前重現
+  pps12/l4 的 blocker：max CV sub-volume ratio proxy `4.371350805765444e11`，
+  worst point `3234` 的 source pair 是 `tetra_core|tetra_core`，但 incident elements
+  包含 `3` 個 boundary-layer prisms、`2` 個 transition-collar pyramids 與 `21` 個
+  core tets。這代表目前不是 marker/NPOIN 問題，而是 collar/core interface 附近
+  core tet 的 vertex-dual subvolume 病態。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality
   `0.0105006 deg`、max CV face-area aspect ratio `7.58862e9`、max CV sub-volume
   ratio `4.37135e11`。這不是 marker 或 NPOIN 問題；下一個 blocker 是
-  pyramid collar / local core-interface dual-quality，不能跑 RANS。
+  collar/core-interface dual-quality，不能跑 RANS。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

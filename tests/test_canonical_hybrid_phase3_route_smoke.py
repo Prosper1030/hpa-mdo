@@ -570,4 +570,15 @@ def test_partial_wing_transition_collar_core_hybrid_writer_merges_without_interf
         assert marker in report["marker_summary"]
     assert report["core_report"]["node_tag_integrity"]["status"] == "pass"
     assert report["su2_boundary_ownership"]["status"] == "pass"
+    dual_proxy = report["dual_subvolume_proxy"]
+    assert dual_proxy["status"] == "fail"
+    assert (
+        "mixed_dual_subvolume_ratio_exceeds_route_gate"
+        in dual_proxy["blockers"]
+    )
+    assert dual_proxy["max_cv_sub_volume_ratio"] > 4.0e11
+    assert dual_proxy["worst_source_pair"] == "tetra_core|tetra_core"
+    worst = dual_proxy["top_hotspots"][0]
+    assert worst["incident_element_source_counts"]["tetra_core"] > 0
+    assert worst["incident_element_source_counts"]["transition_collar_pyramid"] > 0
     assert report["engineering_assessment"]["route_smoke_ready"] is False

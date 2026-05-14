@@ -143,14 +143,20 @@ merged SU2 hybrid writer 已新增 pps12/l4 小尺度 proof：
 `root_symmetry` / `farfield`，SU2 marker audit / ownership pass。writer 也會做 final
 node compaction；目前移除 `4` 個 unused surface-layer nodes，修掉 SU2 的 `NPOIN`
 mismatch preprocessing error。
+writer 內建的 mixed-element SU2-style subvolume proxy 也會在 solver 前 fail：
+pps12/l4 的 max CV sub-volume ratio proxy 為 `4.371350805765444e11`，worst point
+`3234` 的 source pair 是 `tetra_core|tetra_core`，但 incident elements 包含
+`3` 個 boundary-layer prisms、`2` 個 transition-collar pyramids 與 `21` 個 core tets。
+這把 blocker 從 marker/NPOIN 收斂到 local collar/core-interface dual-volume quality。
 
 但同一 pps12/l4 merged mesh 的 pressure-only smoke 仍 fail：
 `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 已能讀 mesh，
 但只跑到 `3` rows / final iteration `2`，dual-control-volume metrics 爆掉：
 min orthogonality `0.0105006 deg`、max CV face-area aspect ratio `7.58862e9`、
 max CV sub-volume ratio `4.37135e11`，force breakdown missing，初始 CL/CD 也完全不可信。
-工程判讀：transition collar 解決了 prism→tet element compatibility，但目前 thin pyramid
-collar 仍是 SU2 vertex-dual 病態來源；下一步要修 collar geometry/quality，不能進 RANS。
+工程判讀：transition collar 解決了 prism→tet element compatibility，但目前 thin collar
+附近的 core tetra dual subvolume 仍是 SU2 vertex-dual 病態來源；下一步要修 collar/core
+interface geometry/quality，不能進 RANS。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

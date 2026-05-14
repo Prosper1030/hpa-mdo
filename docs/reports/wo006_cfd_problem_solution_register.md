@@ -302,6 +302,33 @@ evidence; it is a handoff/debug map for the next worker.
   tetra construction near the tip/farfield boundary; the R27 mesh remains
   unusable for medium/fine ladder until this dual-volume hotspot is repaired.
 
+## Canonical Hybrid Collar/Core Evidence
+
+- Script entry point:
+  `write_phase3_partial_wing_transition_collar_core_hybrid_su2()` in
+  `scripts/run_canonical_hybrid_phase3_route_smoke.py`
+- Artifact:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_transition_collar_core_hybrid_pps12_l4/`
+- Mesh: `5,376` prisms + `340` pyramids + `8,690` tetra; required physical
+  markers are retained and internal `bl_outer_interface` /
+  `transition_collar_interface` markers are removed from the final SU2 mesh.
+- Pre-solver mixed-element SU2-style subvolume proxy:
+  - status: `fail`
+  - max CV sub-volume ratio proxy: `437135080576.5444`
+  - worst point index: `3234`
+  - worst source pair: `tetra_core|tetra_core`
+  - worst incident element source counts:
+    `{"boundary_layer_prism": 3, "transition_collar_pyramid": 2, "tetra_core": 21}`
+- Matching pressure-only SU2 probe:
+  `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`
+  reads the mesh but fails after `3` history rows; solver log reports max CV
+  sub-volume ratio `4.37135e11`.
+- Engineering read: the explicit transition collar fixed the prism-to-tet
+  topology contract, but the pps12/l4 collar/core interface still generates a
+  SU2-scale vertex dual-volume pathology before RANS.  The next repair target is
+  collar/core local geometry quality and core tet sizing around the collar, not
+  marker promotion, NPOIN repair, or conservative numerics.
+
 ## Known Unknowns
 
 - Whether repairing BL/core transition sizing is sufficient, or whether the
