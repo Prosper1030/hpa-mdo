@@ -582,3 +582,44 @@ def test_partial_wing_transition_collar_core_hybrid_writer_merges_without_interf
     assert worst["incident_element_source_counts"]["tetra_core"] > 0
     assert worst["incident_element_source_counts"]["transition_collar_pyramid"] > 0
     assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_partial_wing_transition_collar_height_sweep_reduces_but_does_not_clear_dual_proxy(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    thin = module.write_phase3_partial_wing_transition_collar_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "thin_collar" / "mesh.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=1.0e-4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+    taller = module.write_phase3_partial_wing_transition_collar_core_hybrid_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "taller_collar" / "mesh.su2",
+        points_per_side=12,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=2.0e-3,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    thin_ratio = thin["dual_subvolume_proxy"]["max_cv_sub_volume_ratio"]
+    taller_ratio = taller["dual_subvolume_proxy"]["max_cv_sub_volume_ratio"]
+
+    assert thin_ratio > 4.0e11
+    assert 1.0e9 < taller_ratio < 1.0e10
+    assert taller_ratio < thin_ratio / 40.0
+    assert taller["dual_subvolume_proxy"]["status"] == "fail"
+    assert taller["transition_collar"]["pyramid_signed_volume"]["non_positive_count"] == 0
+    assert taller["engineering_assessment"]["route_smoke_ready"] is False

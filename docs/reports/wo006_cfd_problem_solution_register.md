@@ -328,6 +328,17 @@ evidence; it is a handoff/debug map for the next worker.
   SU2-scale vertex dual-volume pathology before RANS.  The next repair target is
   collar/core local geometry quality and core tet sizing around the collar, not
   marker promotion, NPOIN repair, or conservative numerics.
+- Collar-height sweep evidence:
+  - `collar_height=1.0e-4 m`: max proxy `4.371350805765444e11`
+  - `collar_height=2.0e-4 m`: max proxy `1.852132110316815e11`
+  - `collar_height=5.0e-4 m`: max proxy `1.1946561573864338e10`
+  - `collar_height=2.0e-3 m`: max proxy `8.865653316600346e9`
+  - `collar_height>=2.5e-3 m`: Gmsh reports overlapping facets in this pps12/l4
+    setup.
+- Interpretation: increasing collar height improves the proxy but does not clear
+  the `1e7` route gate before geometry intersection appears.  A thickness-only
+  fix is therefore not enough; the next repair must improve collar side-triangle
+  aspect/spacing or change transition topology.
 
 ## Known Unknowns
 

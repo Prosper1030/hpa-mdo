@@ -148,6 +148,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   包含 `3` 個 boundary-layer prisms、`2` 個 transition-collar pyramids 與 `21` 個
   core tets。這代表目前不是 marker/NPOIN 問題，而是 collar/core interface 附近
   core tet 的 vertex-dual subvolume 病態。
+- 小型 collar-height sweep 顯示 `collar_height=2.0e-3 m` 可把 pps12/l4 proxy 降到
+  約 `8.87e9`，但仍遠高於 `1e7` route gate；`2.5e-3 m` 開始觸發 overlapping
+  facets。工程判讀：加厚 collar 能改善但不能解決，下一步要處理 collar side-triangle
+  quality / transition topology，而不是只調 Gmsh point sizing。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality

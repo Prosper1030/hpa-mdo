@@ -157,6 +157,10 @@ max CV sub-volume ratio `4.37135e11`，force breakdown missing，初始 CL/CD �
 工程判讀：transition collar 解決了 prism→tet element compatibility，但目前 thin collar
 附近的 core tetra dual subvolume 仍是 SU2 vertex-dual 病態來源；下一步要修 collar/core
 interface geometry/quality，不能進 RANS。
+小型 collar-height sweep 顯示這不是單純 Gmsh point sizing 問題：`collar_height=2.0e-3 m`
+能把 proxy 降到約 `8.87e9`，比 `1.0e-4 m` 好很多但仍 fail；`2.5e-3 m` 開始出現
+overlapping facets。因此下一步不能只調 thickness，必須重設 collar side-triangle quality
+或改 transition topology。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
