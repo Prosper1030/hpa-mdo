@@ -1,5 +1,20 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006P BL Span-Refinement Runtime Probe
+
+WO-006P 新增 `scripts/probe_wo006p_bl_span_refinement_runtime.py`，把「靠提高
+spanwise subdivision 修 DAE31 -> CST tip transition BL hotspot」這個假設改成有 timeout
+與 RSS trace 的 bounded probe。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006p_bl_span_refinement_runtime_probe/`。
+
+實跑 `pps16_span8_thin12_g118` 與 `pps16_span16_thin12_g118`，每個 case timeout `240 s`。
+兩者都 timeout，peak sampled RSS 只有約 `205 MB` / `227 MB`，所以這不是 RAM hard
+limit，也沒有 BL quality gate pass candidate。
+
+工程判讀：spanwise refinement 到 span8/span16 不是便宜修法，不能拿來當 medium/fine
+CFD ladder 起點。下一步仍是 transition-band topology / near-wall shape 修復，而不是硬跑
+SU2 iteration 或把 runtime timeout 說成 16 GB memory limit。
+
 ## 2026-05-14 WO-006O Force-Stability Window Tightening
 
 WO-006O 把 WO-006I history stability 判讀從短尾段 `25` rows 改成 `100` iteration

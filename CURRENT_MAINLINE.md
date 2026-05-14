@@ -111,6 +111,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   這表示 CFD 不必機械式跑滿 1000 iteration 才能判穩，但最後 100 iteration 必須證明
   force history 沒有明顯漂移；同時這只代表數值穩定，不能覆蓋 `CD≈0.5-0.6` 的物理
   量級錯誤或 BL/near-wall/setup blocker。
+- WO-006P 已把 spanwise refinement repair 假設改成 bounded runtime probe：
+  `scripts/probe_wo006p_bl_span_refinement_runtime.py` 對 `pps16_span8_thin12_g118` 與
+  `pps16_span16_thin12_g118` 各跑 `240 s` timeout，artifact 在
+  `wo006p_bl_span_refinement_runtime_probe/`。兩者都 timeout，peak sampled RSS 約
+  `205 MB` / `227 MB`，沒有 BL gate pass candidate；這不是 RAM hard limit，也不能拿來
+  啟動 medium/fine CFD ladder。span subdivision 對先前 span2/span4 的最壞 SICN 有改善
+  趨勢，但 span8/span16 local Gmsh runtime 不成立，下一步仍是 topology/near-wall shape
+  修復。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
