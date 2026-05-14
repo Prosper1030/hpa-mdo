@@ -25,6 +25,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `CL=0.897777`、`CD=0.022121`、`CMz=0.102940`。這通過 `0.0XX` drag-order sanity，
   但 SU2 Cauchy[CD] 未收斂，最後 100 iter `CD` span 約 `3.28%`；所以它是
   simple-route sanity evidence，不是 Baseline A CFD evidence 或 mesh ladder completion。
+- WO-006R9 已把 R7 bad-pyramid core blocker 改成 checkable Baseline A evidence：
+  preserved core boundary 以 triangulated representation 實跑 HXT tet-fill，core mesh
+  `28,410` nodes / `6,005` cells，全部 tetra，`pyramid=0`，non-positive SICN/SIGE/volume
+  皆 `0`，mesh quality gate `pass`。這只修掉 core quad-to-pyramid quality family；
+  BL/core coupling 仍 `partial`，`wake_cut=64` 與 `span_cap=62` core faces unmatched，
+  BL block 端還有 `6272` 個非 wall boundary faces 未 match，且沒有 merged mixed SU2 mesh。
+  因此仍不能跑 medium/fine CFD ladder 或解讀 CL/CD/Cm。
 - WO-006K 已修正 mesh-native SU2 incompressible RANS coefficient normalization：
   runtime config 現在使用 `INC_NONDIM=INITIAL_VALUES`，WO-006 grid setup gate 也會拒絕
   非 `INITIAL_VALUES` 的 CFD ladder。這是必要修正，但不是 high-CD 的唯一原因：

@@ -1,0 +1,161 @@
+{
+  "schema_version": "wo006r9_triangulated_core_interface.v1",
+  "status": "blocked",
+  "goal_status": "INCOMPLETE",
+  "cfd_status": "mesh_ladder_incomplete",
+  "coefficient_interpretable": false,
+  "core_quality_repair_status": "pass",
+  "blockers": [
+    "bl_core_coupling_incomplete",
+    "owned_bl_core_coupling_incomplete",
+    "merged_mixed_su2_mesh_missing"
+  ],
+  "evidence_flags": [
+    "core_quality_repaired_by_triangulated_interface"
+  ],
+  "core_probe": {
+    "mesh_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/core_probe_artifacts/triangulated_interface_probe/core_triangulated_interface_probe.msh",
+    "su2_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/core_probe_artifacts/triangulated_interface_probe/core_triangulated_interface_probe.su2",
+    "node_count": 28410,
+    "volume_element_count": 6005,
+    "volume_element_type_counts": {
+      "4": 6005
+    },
+    "mesh_quality_gate": {
+      "status": "pass",
+      "blockers": [],
+      "warnings": [
+        "low_p01_gamma"
+      ],
+      "warning_thresholds": {
+        "min_gamma": 0.0001,
+        "min_sicn": 0.0001,
+        "p01_gamma": 0.02
+      }
+    },
+    "quality_metrics": {
+      "tetra_element_count": 6005,
+      "pyramid_element_count": 0,
+      "non_positive_min_sicn_count": 0,
+      "non_positive_min_sige_count": 0,
+      "non_positive_volume_count": 0,
+      "min_sicn": 0.0014057087918708721,
+      "min_sige": 0.0006385838857684397,
+      "min_volume": 1.2599988045588053e-06
+    },
+    "interface_conformality": {
+      "status": "preserved",
+      "can_merge_with_owned_bl_block": true,
+      "expected_boundary_representation": "triangulated",
+      "missing_markers": [],
+      "extra_markers": [],
+      "remeshed_markers": [],
+      "markers": {
+        "bl_outer_interface": {
+          "input_expected_element_count": 2048,
+          "input_expected_element_type_counts": {
+            "2": 2048
+          },
+          "generated_element_count": 2048,
+          "generated_element_type_counts": {
+            "2": 2048
+          },
+          "preserved": true
+        },
+        "span_cap": {
+          "input_expected_element_count": 62,
+          "input_expected_element_type_counts": {
+            "2": 62
+          },
+          "generated_element_count": 62,
+          "generated_element_type_counts": {
+            "2": 62
+          },
+          "preserved": true
+        },
+        "wake_cut": {
+          "input_expected_element_count": 64,
+          "input_expected_element_type_counts": {
+            "2": 64
+          },
+          "generated_element_count": 64,
+          "generated_element_type_counts": {
+            "2": 64
+          },
+          "preserved": true
+        }
+      },
+      "interpretation": "Core boundary mesh matches the input interface element counts."
+    },
+    "bl_block_coupling": {
+      "status": "partial",
+      "can_merge_core_with_bl_block": false,
+      "matched_face_count": 2048,
+      "matched_face_counts_by_marker_pair": {
+        "bl_outer_interface->bl_outer_interface": 2048
+      },
+      "unmatched_core_interface_face_count": 126,
+      "unmatched_core_interface_face_counts_by_marker": {
+        "span_cap": 62,
+        "wake_cut": 64
+      },
+      "unmatched_bl_boundary_face_count": 6272,
+      "unmatched_bl_boundary_face_counts_by_marker": {
+        "span_cap": 3072,
+        "wake_cut": 3200
+      },
+      "interpretation": "Core interface is mesh-preserved but does not yet match every non-wall BL block boundary face; do not write a merged viscous mesh."
+    },
+    "mesh_sizing": {
+      "inner_mesh_size": 1.0,
+      "farfield_mesh_size": 8.0,
+      "preserve_boundary_mesh": true,
+      "preserved_boundary_representation": "triangulated"
+    }
+  },
+  "merge_gate": {
+    "schema_version": "boundary_layer_core_merge_gate.v1",
+    "status": "blocked",
+    "can_write_bl_mesh_handoff": false,
+    "blockers": [
+      "owned_bl_core_coupling_incomplete",
+      "merged_mixed_su2_mesh_missing"
+    ],
+    "merged_mesh_path": null,
+    "evidence": {
+      "core_status": "meshed",
+      "core_su2_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/core_probe_artifacts/triangulated_interface_probe/core_triangulated_interface_probe.su2",
+      "mesh_quality_status": "pass",
+      "mesh_quality_blockers": [],
+      "interface_conformality_status": "preserved",
+      "interface_can_merge": true,
+      "interface_remeshed_markers": [],
+      "bl_core_coupling_status": "partial",
+      "bl_core_can_merge": false,
+      "unmatched_core_interface_face_count": 126,
+      "unmatched_core_interface_face_counts_by_marker": {
+        "span_cap": 62,
+        "wake_cut": 64
+      },
+      "unmatched_bl_boundary_face_count": 6272,
+      "unmatched_bl_boundary_face_counts_by_marker": {
+        "span_cap": 3072,
+        "wake_cut": 3200
+      }
+    },
+    "policy": "Only write bl_mesh_handoff.v1.json after a conformal mixed BL+core SU2 mesh exists and the BL/core ownership gate passes."
+  },
+  "engineering_read": "Triangulated preserved core boundary removes the R7 bad-pyramid family, but Baseline A still lacks a merged BL+core SU2 handoff.",
+  "trust_boundary": "This probe is mesh-interface evidence only. It runs no SU2 solver and does not provide CL/CD/Cm or grid-convergence evidence.",
+  "elapsed_s": 51.02388745895587,
+  "output_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe",
+  "report_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/triangulated_core_interface_summary.json",
+  "baseline_a_authority": {
+    "source": "current GO Baseline A geometry via load_campaign_geometry",
+    "points_per_side": 16,
+    "spanwise_subdivisions": 2,
+    "bl_first_height_m": 5e-05,
+    "bl_growth_ratio": 1.24,
+    "bl_layers": 24
+  }
+}

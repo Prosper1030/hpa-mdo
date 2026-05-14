@@ -20,6 +20,24 @@ basic route sanity pass / force convergence incomplete。
 0.5 的工具鏈錯誤；Baseline A 目前的大 CD 更像幾何/BL prism/pressure setup 或 3D handoff
 問題。下一步仍要先修 Baseline A BL/core handoff quality，再回 coarse/medium/fine ladder。
 
+## 2026-05-14 WO-006R9 Triangulated Core Interface Probe
+
+`scripts/probe_wo006r9_triangulated_core_interface.py` 把 R7 指到的 preserved-core
+quad-to-pyramid 轉接問題改成 Baseline A 實跑證據：同一個 current GO owned BL block，
+core inner boundary 仍 preserve 節點與 markers，但以 triangulated representation 交給 Gmsh
+HXT tet-fill。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/`。
+
+實跑結果：core mesh `28,410` nodes / `6,005` volume elements，全部是 tetra（type `4`），
+`pyramid=0`，non-positive SICN/SIGE/volume 都是 `0`，mesh quality gate 是 `pass`。因此 R7 的
+bad preserved-quad pyramid family 已被 triangulated interface route 清掉。
+
+工程判讀：這仍不是 BL/core CFD handoff。`bl_outer_interface` 有 `2048` faces match，但
+`wake_cut=64`、`span_cap=62` core faces unmatched，BL block 端還有 `6272` 個非 wall boundary
+faces 未 match，而且沒有 merged mixed SU2 mesh。因此 `GOAL_STATUS=INCOMPLETE`、
+`CFD_STATUS=mesh_ladder_incomplete`；下一步要把 wake/span-cap receiver 或 envelope 變成真正
+merged topology，不能直接跑 medium/fine SU2。
+
 ## 2026-05-14 WO-006 Force-Stability Window Gate Hardening
 
 `scripts/run_wo006i_grid_convergence_campaign.py` 現在不只看 force stability summary

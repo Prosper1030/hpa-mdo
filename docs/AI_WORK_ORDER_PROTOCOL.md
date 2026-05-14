@@ -75,6 +75,13 @@ Current authority:
   partly in the DAE31-to-CST-tip transition. Treat R7 as the current repair
   pointer: fix the quad-to-tet transition/interface orientation before any
   medium/fine SU2 ladder.
+- WO-006R9 triangulated core-interface probe is complete:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/`.
+  It preserves the Baseline A core boundary as triangles and clears the R7
+  bad-pyramid quality family (`6,005` all-tetra core cells, `pyramid=0`, no
+  non-positive SICN/SIGE/volume). This supersedes R7 only for the core-quality
+  subproblem. It still has incomplete wake/span-cap BL/core coupling and no
+  merged mixed SU2 handoff, so no medium/fine CFD ladder may start from it yet.
 - WO-006F SU2 engineering-result recovery campaign is complete as a campaign
   package:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

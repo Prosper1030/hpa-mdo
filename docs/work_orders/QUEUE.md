@@ -92,6 +92,14 @@ Current release package:
   `CD=0.022121`, `CMz=0.102940`. Drag order is plausible (`0.0XX`), but
   Cauchy[CD] is not converged and last-100-iteration CD span is about `3.28%`,
   so this is route sanity evidence only.
+- WO-006R9 triangulated core-interface probe is complete as mesh-interface
+  evidence, not CFD evidence. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/`.
+  It preserves the Baseline A BL/core boundary as triangles and HXT produces a
+  clean all-tetra core (`6,005` cells, `pyramid=0`, no non-positive
+  SICN/SIGE/volume). The remaining blocker is not the R7 bad-pyramid family;
+  it is incomplete wake/span-cap BL/core coupling plus missing merged mixed SU2
+  handoff.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.
@@ -550,26 +558,25 @@ Required verdict: `disturbance_lane_queued` unless explicitly promoted later.
 
 ## Next Recommended Work Order
 
-With the data-authority checker prerequisite preserved, WO-006R6 is complete
+With the data-authority checker prerequisite preserved, WO-006R9 is complete
 enough to refine the next implementation target, but not enough to claim viscous
 CFD. The completed artifact bundle is
-`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/`.
-Verdict: `wo006r6_core_quality_limitation_proven`. It preserved current-GO
-authority data and the core interface envelope, but the preserved-core quality
-gate still fails on non-positive SICN/SIGE/volume, and the wake/span-cap topology
-still has unmatched BL/core faces. No conformal BL+core SU2 handoff,
-`bl_mesh_handoff.v1.json`, postprocessed y+, or interpretable coefficient exists.
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/`.
+Verdict: core quality is repaired for the R7 bad-pyramid family, but the route is
+still blocked at wake/span-cap BL/core coupling and missing merged mixed SU2
+handoff. No conformal BL+core SU2 handoff, `bl_mesh_handoff.v1.json`,
+postprocessed y+, or interpretable coefficient exists.
 
 The next recommended WO-006 task keeps the data-authority checker prerequisite
 preserved and remains inside bounded aero calibration:
-run `scripts/check_baseline_a_data_authority.py --check-only`, then repair the
-R7-localized preserved-core quad-to-pyramid transition/interface-orientation
-failure without remeshing the BL interface. Do not spend medium/fine runtime on
-the no-BL CD~0.5 path. After quality passes, resolve the wake/span-cap conformal
-topology contract before writing any mixed-element SU2 handoff.
+run `scripts/check_baseline_a_data_authority.py --check-only`, then materialize
+the wake/span-cap receiver or envelope topology so the owned BL block and
+triangulated core have zero unmatched internal faces. Do not spend medium/fine
+runtime on the no-BL CD~0.5 path. Only after the topology, marker, and quality
+gates pass should a mixed-element SU2 handoff be written.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute the next WO-006 repair after WO-006R7 with the data-authority checker prerequisite preserved: fix the R7-localized preserved-core quad-to-pyramid transition/interface-orientation quality failure first, then resolve wake/span-cap BL/core topology before any mixed-element SU2 handoff.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute the next WO-006 repair after WO-006R9 with the data-authority checker prerequisite preserved: materialize the wake/span-cap receiver or BL/core envelope topology so the Baseline A owned BL block and triangulated core have zero unmatched internal faces, then write a mixed-element SU2 handoff only after topology, marker, and quality gates pass.
 
 Read first:
 - README.md
@@ -582,22 +589,27 @@ Read first:
 - output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/core_interface_topology_audit.json
 - output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/mesh_quality_gate.json
 - output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r6_core_interface_repair/interface_conformality_audit.csv
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/triangulated_core_interface_summary.json
+- output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/triangulated_core_interface_report.md
 - output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r3_surface_topology_repair/
 - hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/
 - hpa_meshing_package/docs/reports/mesh_native_hxt_thread_profile/
 - hpa_meshing_package/docs/reports/hpa_main_wing_cfd_method_review/
 
 Task:
-Start from WO-006R6's blocker proof:
-- preserved-core route keeps the interface envelope but fails core quality
-  (`non_positive_min_sicn`, `non_positive_min_sige`, `non_positive_volume`);
+Start from WO-006R9's blocker proof:
+- triangulated preserved-core route keeps the interface envelope and clears core
+  non-positive quality (`pyramid=0`, all-tetra core, no non-positive
+  SICN/SIGE/volume);
 - BL/core coupling remains partial at `wake_cut` / `span_cap`;
-- the all-non-wall BL boundary shortcut remains not watertight (`124 bad edges`);
+- the all-non-wall BL boundary shortcut remains not watertight in earlier R6
+  evidence (`124 bad edges`);
 - no final merged mixed-element SU2 handoff exists.
 
 Allowed:
-- repair preserved-core volume quality without changing external shape or
-  remeshing the BL/core interface;
+- preserve the repaired triangulated core-quality route without changing
+  external shape;
 - preserve `bl_outer_interface`, `wake_cut`, and `span_cap` ownership with zero
   unmatched interface faces;
 - write a mixed-element SU2 mesh only after marker / quality / interface gates
