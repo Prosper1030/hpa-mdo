@@ -90,6 +90,21 @@ core wake-cut 也 `32 / 32` match。
 完整 BL/core handoff，因為 span-cap ownership 仍是 `pending`，merged mesh quality 與 SU2
 readability 也未過 gate。因此仍不能跑 medium/fine SU2 ladder 或解讀 CL/CD/Cm。
 
+## 2026-05-14 WO-006Y Span-Cap Ownership Probe
+
+WO-006Y 新增 `scripts/probe_wo006y_span_cap_ownership.py`，專門檢查 wake accounting
+通過後剩下的 span-cap ownership。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006y_span_cap_ownership_probe/`。
+
+實跑結果：owned BL block 有 `1536` 個 BL span-cap faces，core interface 只有 `62` 個
+triangulated span-cap faces，native matched BL span-cap faces 是 `0`。其中 `60` 個 BL
+span-cap faces touch `wing_wall`，`64` 個 touch `bl_outer_interface`，`96` 個 touch
+`wake_cut`。
+
+工程判讀：wake ownership 已可 accounting，但 span-cap 不能直接丟給 SU2 當未定義 boundary。
+下一步需要明確 tip/span-cap ownership policy 或 receiver topology；在這之前仍不能宣稱
+BL/core handoff ready，不能跑 medium/fine SU2 ladder。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔

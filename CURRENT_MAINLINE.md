@@ -184,6 +184,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   `32 / 32` match。判讀：wake ownership 可進入 stitched topology 實作，但 span-cap
   ownership 仍 `pending`，merged mesh quality / SU2 readability 未過 gate，因此不能跑
   medium/fine SU2 ladder。
+- WO-006Y 已把 span-cap ownership blocker 量化：
+  `scripts/probe_wo006y_span_cap_ownership.py` 檢查 owned BL span-cap faces 與 core
+  interface span-cap faces 的 native match，artifact 在 `wo006y_span_cap_ownership_probe/`。
+  實跑 owned BL block 有 `1536` 個 BL span-cap faces，core interface 只有 `62` 個
+  triangulated span-cap faces，native matched 是 `0`；其中 `60` 個 touch `wing_wall`、
+  `64` 個 touch `bl_outer_interface`、`96` 個 touch `wake_cut`。判讀：span-cap 需要明確
+  tip/span-cap ownership policy 或 receiver topology，不能直接丟成 SU2 boundary 或 CFD
+  completion。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
