@@ -580,9 +580,9 @@ def test_run_blackcat_main_wing_boundary_layer_stability_ladder_uses_bl_runner(
             wing_mesh_size
         ]
         coefficients = {
-            0.50: {"cl": 0.38, "cd": 0.80, "cmy": -0.39},
-            0.35: {"cl": 0.42, "cd": 0.73, "cmy": -0.42},
-            0.25: {"cl": 0.428, "cd": 0.74, "cmy": -0.421},
+            0.50: {"cl": 0.38, "cd": 0.080, "cmy": -0.39},
+            0.35: {"cl": 0.42, "cd": 0.073, "cmy": -0.42},
+            0.25: {"cl": 0.428, "cd": 0.074, "cmy": -0.421},
         }[wing_mesh_size]
         return {
             "case_dir": str(args[2]),
@@ -630,6 +630,12 @@ def test_run_blackcat_main_wing_boundary_layer_stability_ladder_uses_bl_runner(
     )
     assert report["status"] == "stable_mesh_selected"
     assert report["boundary_layer"]["layers"] == 24
+    assert report["size_field_policy"]["farfield_factors"] == {
+        "upstream": 20.0,
+        "downstream": 40.0,
+        "lateral": 8.0,
+        "vertical": 8.0,
+    }
     assert report["runtime"]["max_iterations"] == 2000
     assert report["runtime"]["threads"] == 4
     assert report["runtime"]["gmsh_threads"] == 4

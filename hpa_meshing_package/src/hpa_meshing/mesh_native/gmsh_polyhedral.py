@@ -22,6 +22,7 @@ from .wing_surface import Face, SurfaceMesh, orient_surface_mesh_outward
 
 
 DEFAULT_GMSH_THREADS = 4
+DEFAULT_MAX_PLAUSIBLE_MAIN_WING_CD = 0.15
 
 
 def _configure_gmsh_threads(gmsh: Any, gmsh_threads: int) -> dict[str, int]:
@@ -1558,10 +1559,13 @@ def _coefficient_sanity_gate(history: Mapping[str, Any] | None) -> dict[str, Any
         reasons.append("non_finite_cd")
     if cd_value is not None and cd_value < 0.0:
         reasons.append("negative_cd")
+    if cd_value is not None and cd_value > DEFAULT_MAX_PLAUSIBLE_MAIN_WING_CD:
+        reasons.append("implausibly_high_cd_for_hpa_main_wing")
     return {
         "status": "pass" if not reasons else "fail",
         "reasons": reasons,
         "observed_cd": cd_value,
+        "max_plausible_cd": DEFAULT_MAX_PLAUSIBLE_MAIN_WING_CD,
     }
 
 

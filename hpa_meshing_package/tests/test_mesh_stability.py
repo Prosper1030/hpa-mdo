@@ -246,6 +246,59 @@ def test_select_cheapest_stable_mesh_can_reject_negative_drag():
     ]
 
 
+def test_select_cheapest_stable_mesh_can_reject_implausibly_high_drag():
+    cases = [
+        {
+            "case_name": "coarse_high_drag",
+            "volume_element_count": 100_000,
+            "run_status": "completed",
+            "returncode": 0,
+            "mesh_quality_gate": {"status": "pass"},
+            "marker_audit": {"status": "pass"},
+            "iterative_gate_status": "pass",
+            "history": {"final_coefficients": {"cl": 0.72, "cd": 0.610, "cmy": -0.085}},
+        },
+        {
+            "case_name": "medium",
+            "volume_element_count": 220_000,
+            "run_status": "completed",
+            "returncode": 0,
+            "mesh_quality_gate": {"status": "pass"},
+            "marker_audit": {"status": "pass"},
+            "iterative_gate_status": "pass",
+            "history": {"final_coefficients": {"cl": 0.620, "cd": 0.045, "cmy": -0.130}},
+        },
+        {
+            "case_name": "fine",
+            "volume_element_count": 480_000,
+            "run_status": "completed",
+            "returncode": 0,
+            "mesh_quality_gate": {"status": "pass"},
+            "marker_audit": {"status": "pass"},
+            "iterative_gate_status": "pass",
+            "history": {"final_coefficients": {"cl": 0.626, "cd": 0.046, "cmy": -0.132}},
+        },
+    ]
+
+    result = select_cheapest_stable_mesh(
+        cases,
+        coefficient_tolerances={"cl": 0.01, "cd": 0.002, "cm": 0.005},
+        require_successful_case_gates=True,
+        require_iterative_gate_pass=True,
+        require_coefficient_sanity=True,
+    )
+
+    assert result["status"] == "stable_pair_found"
+    assert result["selected_case"]["case_name"] == "medium"
+    assert result["ineligible_cases"] == [
+        {
+            "case_name": "coarse_high_drag",
+            "volume_element_count": 100_000,
+            "reasons": ["implausibly_high_cd_for_hpa_main_wing"],
+        }
+    ]
+
+
 def test_select_cheapest_stable_mesh_can_require_cfd_evidence_gate_pass():
     cases = [
         {

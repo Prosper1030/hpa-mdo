@@ -1,5 +1,19 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006J CD-Order Sanity Gate
+
+WO-006J 後續 BL/no-slip ladder 雖然已經不是 no-BL route，且 `wing_wall` / `farfield`
+marker/config audit pass，但 0.48M 到 2.51M 級 rungs 的 `CD≈0.61`，4.53M partial rung
+到 772 iterations 仍在 `CD≈0.593`。這個 force history 可以當 high-drag diagnosis，
+不能當 CFD completion：Baseline A main-wing drag 應是 `0.0XX` 量級，穩在 `0.5-0.6`
+代表 setup/domain/geometry/solver 還有錯。
+
+工程判讀：grid-convergence gate 現在會拒絕 `CD > 0.15` 的 HPA main-wing rung，
+即使 CL/CD/Cm 尾段看似穩定也不能選成 stable CFD pair。BL stability ladder 的預設
+farfield 也從 route-smoke 的 `2c/4c` 改成 `20c/40c`（lateral/vertical `8c`），
+目前正在用 larger-domain BL sanity case 檢查 high-CD 是否主要來自太近的 farfield。
+這仍不是完成；修正 domain 後還要重跑同幾何、同 physics 的 coarse/medium/fine ladder。
+
 ## 2026-05-13 WO-006I CFD Setup Gate Reset
 
 WO-006I 已改成先擋 setup，而不是繼續把 no-BL route 往大網格跑。新的 preflight artifact 在

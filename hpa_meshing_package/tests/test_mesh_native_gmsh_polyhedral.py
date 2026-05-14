@@ -660,6 +660,22 @@ def test_coefficient_sanity_gate_rejects_negative_drag():
     assert gate["reasons"] == ["negative_cd"]
 
 
+def test_coefficient_sanity_gate_rejects_implausibly_high_drag():
+    gate = _coefficient_sanity_gate(
+        {
+            "final_coefficients": {
+                "cl": 0.696,
+                "cd": 0.61,
+                "cmy": -0.085,
+            }
+        }
+    )
+
+    assert gate["status"] == "fail"
+    assert gate["reasons"] == ["implausibly_high_cd_for_hpa_main_wing"]
+    assert gate["max_plausible_cd"] == pytest.approx(0.15)
+
+
 def test_run_faceted_volume_refinement_ladder_increases_mesh_density(tmp_path: Path):
     pytest.importorskip("gmsh")
     wing, farfield = _wing_and_close_farfield()

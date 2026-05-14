@@ -2,7 +2,7 @@
 
 ## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-13。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+**更新日期：2026-05-14。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
 SU2 aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
@@ -43,6 +43,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   DAE31 -> CST tip airfoil transition aft/TE 附近。BL 厚度 sweep 不會消掉這 10 個壞 shape，
   pps32/span2 反而回到已知 `Unknown curve -1550`。因此這是 BL setup repair progress，
   不是 CFD coefficient evidence；下一步是 transition surface / TE local BL prism shape 修復。
+- WO-006J BL/no-slip ladder 不能只看 force-history stability：目前 0.48M 到 2.51M
+  rungs 的 `CD≈0.61`，4.53M partial rung 到 772 iterations 仍在 `CD≈0.593`，
+  比 HPA main-wing expected `0.0XX` drag order 高一個數量級以上。這些結果一律當
+  high-drag setup/domain diagnosis，不是 low-confidence CFD。新的 gate 會拒絕
+  `CD > 0.15` 的 HPA main-wing rung，即使尾段 CL/CD/Cm 看似穩定；BL stability ladder
+  預設 farfield 從 route-smoke `2c/4c` 改為 `20c/40c`，修正 domain 後仍需重跑同幾何、
+  同 physics 的 coarse/medium/fine ladder。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

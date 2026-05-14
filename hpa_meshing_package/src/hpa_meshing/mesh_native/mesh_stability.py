@@ -9,6 +9,7 @@ DEFAULT_COEFFICIENT_TOLERANCES = {
     "cd": 0.005,
     "cmy": 0.02,
 }
+DEFAULT_MAX_PLAUSIBLE_MAIN_WING_CD = 0.15
 
 
 COEFFICIENT_ALIASES = {
@@ -216,6 +217,8 @@ def _coefficient_sanity_failure_reasons(case: Mapping[str, Any]) -> list[str]:
         return ["non_finite_cd"]
     if cd_value < 0.0:
         return ["negative_cd"]
+    if cd_value > DEFAULT_MAX_PLAUSIBLE_MAIN_WING_CD:
+        return ["implausibly_high_cd_for_hpa_main_wing"]
     return []
 
 

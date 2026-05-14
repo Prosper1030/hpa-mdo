@@ -88,6 +88,7 @@ CM_ABSOLUTE_TOL = 0.005
 FORCE_WINDOW_RELATIVE_TOL = 0.03
 RESIDUAL_WINDOW_ABS_SLOPE_TOL = 0.05
 MINIMUM_LADDER_ITERATIONS = 100
+HPA_MAIN_WING_CD_PLAUSIBILITY_MAX = 0.15
 SU2_REFERENCE_REQUIREMENTS = {
     "source": "SU2 incompressible turbulent NACA0012 tutorial and Markers/BC docs",
     "url": "https://su2code.github.io/tutorials/Inc_Turbulent_NACA0012/",
@@ -128,6 +129,7 @@ def evaluate_grid_convergence(
 ) -> dict[str, Any]:
     blockers: list[str] = []
     successful = []
+    plausibility_failures: list[dict[str, Any]] = []
 
     if setup_gate is not None and setup_gate.get("status") != "pass":
         blockers.extend(f"setup_{item}" for item in setup_gate.get("blockers", []))
@@ -153,6 +155,21 @@ def evaluate_grid_convergence(
         for coeff_name in ("cl", "cd", "cm"):
             if not _is_finite(coefficients.get(coeff_name)):
                 blockers.append(f"{rung_id}_missing_finite_{coeff_name}")
+        cd_value = _optional_float(coefficients.get("cd"))
+        if (
+            cd_value is not None
+            and math.isfinite(cd_value)
+            and cd_value > HPA_MAIN_WING_CD_PLAUSIBILITY_MAX
+        ):
+            blockers.append(f"{rung_id}_cd_implausibly_high_for_hpa_main_wing")
+            plausibility_failures.append(
+                {
+                    "rung_id": rung_id,
+                    "cd": cd_value,
+                    "limit": HPA_MAIN_WING_CD_PLAUSIBILITY_MAX,
+                    "reason": "stable_force_history_at_order-of-magnitude_high_drag_is_not_cfd_completion",
+                }
+            )
         force_stability = su2.get("force_stability") or {}
         if force_stability.get("status") != "pass" or _force_stability_value_fails(force_stability):
             blockers.append(f"{rung_id}_force_stability_fail")
@@ -228,6 +245,16 @@ def evaluate_grid_convergence(
         "require_wall_resolved": bool(require_wall_resolved),
         "minimum_iterations": MINIMUM_LADDER_ITERATIONS,
         "setup_gate_status": None if setup_gate is None else setup_gate.get("status"),
+        "engineering_plausibility_gate": {
+            "status": "pass" if not plausibility_failures else "fail",
+            "cd_max_for_hpa_main_wing": HPA_MAIN_WING_CD_PLAUSIBILITY_MAX,
+            "failures": plausibility_failures,
+            "engineering_basis": (
+                "Baseline A main-wing CD should be O(0.0XX) in this low-speed setup; "
+                "CD above the conservative plausibility limit indicates setup/domain/"
+                "geometry/solver trouble even when the force history is numerically stable."
+            ),
+        },
         "engineering_trust_boundary": _trust_boundary(cfd_status),
     }
 

@@ -95,9 +95,9 @@ def test_grid_trend_promotes_three_stable_wall_resolved_rungs_to_grid_ready() ->
     setup_gate = _good_setup_gate(module)
     result = module.evaluate_grid_convergence(
         [
-            _rung("coarse", cells=1_100_000, cl=1.20, cd=0.50, cm=-0.03),
-            _rung("medium", cells=3_000_000, cl=1.18, cd=0.49, cm=-0.031),
-            _rung("fine", cells=9_000_000, cl=1.17, cd=0.488, cm=-0.0315),
+            _rung("coarse", cells=1_100_000, cl=1.20, cd=0.0350, cm=-0.03),
+            _rung("medium", cells=3_000_000, cl=1.18, cd=0.0348, cm=-0.031),
+            _rung("fine", cells=9_000_000, cl=1.17, cd=0.0347, cm=-0.0315),
         ],
         require_wall_resolved=True,
         setup_gate=setup_gate,
@@ -118,16 +118,16 @@ def test_grid_trend_rejects_single_smoke_or_missing_cm_as_incomplete() -> None:
     setup_gate = _good_setup_gate(module)
 
     single = module.evaluate_grid_convergence(
-        [_rung("route_smoke", cells=490_000, cl=1.1, cd=0.47, cm=-0.03)],
+        [_rung("route_smoke", cells=490_000, cl=1.1, cd=0.036, cm=-0.03)],
         require_wall_resolved=True,
         setup_gate=setup_gate,
     )
-    missing_cm_rung = _rung("fine", cells=3_000_000, cl=1.2, cd=0.5, cm=-0.03)
+    missing_cm_rung = _rung("fine", cells=3_000_000, cl=1.2, cd=0.036, cm=-0.03)
     missing_cm_rung["su2"]["coefficients"]["cm"] = None
     missing = module.evaluate_grid_convergence(
         [
-            _rung("coarse", cells=1_000_000, cl=1.2, cd=0.5, cm=-0.03),
-            _rung("medium", cells=2_000_000, cl=1.19, cd=0.49, cm=-0.031),
+            _rung("coarse", cells=1_000_000, cl=1.2, cd=0.036, cm=-0.03),
+            _rung("medium", cells=2_000_000, cl=1.19, cd=0.035, cm=-0.031),
             missing_cm_rung,
         ],
         require_wall_resolved=True,
@@ -145,20 +145,20 @@ def test_grid_trend_rejects_single_smoke_or_missing_cm_as_incomplete() -> None:
 def test_grid_trend_rejects_marker_mismatch_or_unstable_forces() -> None:
     module = _load_module()
     setup_gate = _good_setup_gate(module)
-    bad_marker = _rung("medium", cells=3_000_000, cl=1.18, cd=0.49, cm=-0.031)
+    bad_marker = _rung("medium", cells=3_000_000, cl=1.18, cd=0.035, cm=-0.031)
     bad_marker["mesh"]["marker_status"] = "fail"
     unstable = _rung(
         "fine",
         cells=9_000_000,
         cl=1.35,
-        cd=0.62,
+        cd=0.038,
         cm=-0.06,
         force_spread=0.08,
     )
 
     result = module.evaluate_grid_convergence(
         [
-            _rung("coarse", cells=1_100_000, cl=1.2, cd=0.5, cm=-0.03),
+            _rung("coarse", cells=1_100_000, cl=1.2, cd=0.036, cm=-0.03),
             bad_marker,
             unstable,
         ],
@@ -172,6 +172,29 @@ def test_grid_trend_rejects_marker_mismatch_or_unstable_forces() -> None:
     assert "fine_force_stability_fail" in result["blockers"]
 
 
+def test_grid_trend_rejects_order_of_magnitude_high_cd_even_when_stable() -> None:
+    module = _load_module()
+    setup_gate = _good_setup_gate(module)
+
+    result = module.evaluate_grid_convergence(
+        [
+            _rung("coarse", cells=1_100_000, cl=0.72, cd=0.610, cm=-0.085),
+            _rung("medium", cells=3_000_000, cl=0.721, cd=0.615, cm=-0.084),
+            _rung("fine", cells=9_000_000, cl=0.720, cd=0.614, cm=-0.0845),
+        ],
+        require_wall_resolved=True,
+        setup_gate=setup_gate,
+    )
+
+    assert result["goal_status"] == "INCOMPLETE"
+    assert result["cfd_status"] == "mesh_ladder_incomplete"
+    assert result["engineering_plausibility_gate"]["status"] == "fail"
+    assert result["engineering_plausibility_gate"]["cd_max_for_hpa_main_wing"] == 0.15
+    assert "coarse_cd_implausibly_high_for_hpa_main_wing" in result["blockers"]
+    assert "medium_cd_implausibly_high_for_hpa_main_wing" in result["blockers"]
+    assert "fine_cd_implausibly_high_for_hpa_main_wing" in result["blockers"]
+
+
 def test_no_bl_setup_is_blocked_even_if_coefficients_are_stable() -> None:
     module = _load_module()
     setup_gate = module.evaluate_cfd_setup_gate()
@@ -182,7 +205,7 @@ def test_no_bl_setup_is_blocked_even_if_coefficients_are_stable() -> None:
                 "coarse",
                 cells=1_100_000,
                 cl=1.20,
-                cd=0.50,
+                cd=0.036,
                 cm=-0.03,
                 wall_status="not_wall_resolved_no_bl_route",
                 boundary_layer_status="not_used_no_bl_route",
@@ -193,7 +216,7 @@ def test_no_bl_setup_is_blocked_even_if_coefficients_are_stable() -> None:
                 "medium",
                 cells=3_000_000,
                 cl=1.18,
-                cd=0.49,
+                cd=0.035,
                 cm=-0.031,
                 wall_status="not_wall_resolved_no_bl_route",
                 boundary_layer_status="not_used_no_bl_route",
@@ -204,7 +227,7 @@ def test_no_bl_setup_is_blocked_even_if_coefficients_are_stable() -> None:
                 "fine",
                 cells=9_000_000,
                 cl=1.17,
-                cd=0.488,
+                cd=0.0348,
                 cm=-0.0315,
                 wall_status="not_wall_resolved_no_bl_route",
                 boundary_layer_status="not_used_no_bl_route",

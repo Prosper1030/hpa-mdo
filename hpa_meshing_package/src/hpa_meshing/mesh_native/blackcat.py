@@ -839,6 +839,10 @@ def run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
     target_volume_elements: int = 1_000_000,
     max_volume_elements: int = 3_500_000,
     farfield_mesh_size: float | None = 8.0,
+    farfield_upstream_factor: float = 20.0,
+    farfield_downstream_factor: float = 40.0,
+    farfield_lateral_factor: float = 8.0,
+    farfield_vertical_factor: float = 8.0,
     wing_refinement_radius: float | None = 6.0,
     boundary_layer_first_height: float = 5.0e-5,
     boundary_layer_growth_ratio: float = 1.24,
@@ -895,10 +899,10 @@ def run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
         vsp_path=vsp_path,
         points_per_side=points_per_side,
         spanwise_subdivisions=spanwise_subdivisions,
-        farfield_upstream_factor=2.0,
-        farfield_downstream_factor=4.0,
-        farfield_lateral_factor=2.0,
-        farfield_vertical_factor=2.0,
+        farfield_upstream_factor=farfield_upstream_factor,
+        farfield_downstream_factor=farfield_downstream_factor,
+        farfield_lateral_factor=farfield_lateral_factor,
+        farfield_vertical_factor=farfield_vertical_factor,
     )
     runner = run_faceted_boundary_layer_su2_smoke if case_runner is None else case_runner
 
@@ -1005,6 +1009,12 @@ def run_blackcat_main_wing_boundary_layer_su2_stability_ladder(
             "points_per_side": points_per_side,
             "feature_refinement_size": feature_refinement_size,
             "farfield_mesh_size": farfield_mesh_size,
+            "farfield_factors": {
+                "upstream": farfield_upstream_factor,
+                "downstream": farfield_downstream_factor,
+                "lateral": farfield_lateral_factor,
+                "vertical": farfield_vertical_factor,
+            },
             "wing_refinement_radius": wing_refinement_radius,
         },
         "boundary_layer": {
