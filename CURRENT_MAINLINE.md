@@ -20,11 +20,13 @@ screening evidence 讀，不是現行 release / procurement truth。
 - WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
-  Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。`solver_2000` 跑滿 2000 iter，
-  mesh `31,322` cells / `18,281` nodes / BL quads `4,833`，最後
-  `CL=0.897777`、`CD=0.022121`、`CMz=0.102940`。這通過 `0.0XX` drag-order sanity，
-  但 SU2 Cauchy[CD] 未收斂，最後 100 iter `CD` span 約 `3.28%`；所以它是
-  simple-route sanity evidence，不是 Baseline A CFD evidence 或 mesh ladder completion。
+  Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在
+  `4597` iterations 達成 SU2 `Cauchy[CD] < 1e-6`，mesh `25,168` cells /
+  `15,190` nodes / BL quads `4,833`，最後 `CL=0.887615`、`CD=0.021682`、
+  `CMz=0.100707`。最後 100 iter `CL/CD/CMz` relative span 約 `0.0046%` /
+  `0.0456%` / `0.0038%`，所以它通過簡單 route 的 `0.0XX` drag-order 與
+  force-stability sanity；但它仍是 2D diagnostic，不是 Baseline A CFD evidence
+  或 mesh ladder completion。
 - WO-006R9 已把 R7 bad-pyramid core blocker 改成 checkable Baseline A evidence：
   preserved core boundary 以 triangulated representation 實跑 HXT tet-fill，core mesh
   `28,410` nodes / `6,005` cells，全部 tetra，`pyramid=0`，non-positive SICN/SIGE/volume

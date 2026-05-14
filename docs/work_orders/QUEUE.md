@@ -87,11 +87,12 @@ Current release package:
 - WO-006R8 basic airfoil BL sanity benchmark is complete as a simple-route
   diagnostic, not Baseline A evidence. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r8_basic_airfoil_bl_benchmark/`.
-  The `solver_2000` run uses 2D `NACA4412`, HPA Reynolds scale, Gmsh BL quads,
-  and SU2 `INC_RANS/SA` no-slip wall; it finishes with `CL=0.897777`,
-  `CD=0.022121`, `CMz=0.102940`. Drag order is plausible (`0.0XX`), but
-  Cauchy[CD] is not converged and last-100-iteration CD span is about `3.28%`,
-  so this is route sanity evidence only.
+  The latest `solver_5000` run uses 2D `NACA4412`, HPA Reynolds scale, Gmsh BL
+  quads, and SU2 `INC_RANS/SA` no-slip wall; it satisfies SU2 `Cauchy[CD] < 1e-6`
+  at iteration `4597` with `CL=0.887615`, `CD=0.021682`, `CMz=0.100707`.
+  Last-100-iteration `CL/CD/CMz` spans are about `0.0046%` / `0.0456%` /
+  `0.0038%`, so this is useful route sanity evidence only, not Baseline A CFD
+  evidence.
 - WO-006R9 triangulated core-interface probe is complete as mesh-interface
   evidence, not CFD evidence. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r9_triangulated_core_interface_probe/`.
