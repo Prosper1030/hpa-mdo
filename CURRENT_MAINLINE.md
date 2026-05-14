@@ -276,10 +276,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   inner boundary 後，得到 `59,086` faces、`88,602` edges、`557` bad edges，其中
   `362` 是 boundary edges、`195` 是 nonmanifold edges；bad-edge role 主要是
   `transition_collar_outer_interface=475`，另有 `bl_outer_interface=81` 與
-  `te_wall=1`。工程判讀：下一個 blocker 是 core inner-boundary shell / cap-receiver
-  topology，不是 SU2 numerics；Gmsh core fill 現在必須在這個 preflight 前被擋下，
-  直到 outer transition sheet 和 TE/tip/closure caps 形成可交給 tetra core 的
-  2-manifold shell。
+  `te_wall=1`。這個 probe 現在還會輸出 bad-edge kind / marker-combo histogram、
+  midpoint bounds 與 samples；pps42/l3 的 bad edges 以單一 marker combo 為主，表示
+  不是一個可交給 Gmsh multi-loop 自動補的局部 cap 小洞，而是 outer transition
+  sheet / cap-receiver ownership 還沒被定義成 2-manifold core shell。工程判讀：
+  下一個 blocker 是 core inner-boundary shell / cap-receiver topology，不是 SU2
+  numerics；Gmsh core fill 現在必須在這個 preflight 前被擋下，直到 outer transition
+  sheet 和 TE/tip/closure caps 形成可交給 tetra core 的 2-manifold shell。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

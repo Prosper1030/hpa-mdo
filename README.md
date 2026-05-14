@@ -238,8 +238,12 @@ pressure-only sanity，不能直接跑 viscous RANS。
 確認 handoff gate 仍 pass，但 `bl_outer_interface + transition_collar_outer_interface
 + segmented caps` 組成的 core-facing inner boundary 不是可直接 tetra-fill 的
 2-manifold shell：`59,086` faces、`88,602` edges、`557` bad edges，其中 `195`
-是 nonmanifold edges。工程判讀：現在不能再讓 Gmsh 直接 core-fill；下一步要修
-TE/tip/closure cap-receiver / outer transition shell topology。
+是 nonmanifold edges。bad-edge diagnostics 現在也輸出 boundary/nonmanifold 分類、
+marker-combo histogram、座標 bounds 與 samples；pps42/l3 的 bad edges 仍是單一
+marker ownership 為主（`transition_collar_outer_interface=475`、`bl_outer_interface=81`、
+`te_wall=1`），不是 Gmsh multi-loop 可以自動猜好的局部小洞。工程判讀：現在不能再讓
+Gmsh 直接 core-fill；下一步要修 TE/tip/closure cap-receiver / outer transition
+shell topology。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

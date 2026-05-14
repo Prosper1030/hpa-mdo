@@ -5460,7 +5460,11 @@ def _partial_wing_cap_core_inner_boundary_surface(
     )
 
 
-def _surface_edge_topology(surface: SurfaceMesh) -> dict[str, Any]:
+def _surface_edge_topology(
+    surface: SurfaceMesh,
+    *,
+    bad_edge_sample_limit: int = 20,
+) -> dict[str, Any]:
     edge_counts: dict[tuple[int, int], int] = {}
     edge_roles: dict[tuple[int, int], list[str]] = {}
     for face in surface.faces:
@@ -5474,13 +5478,60 @@ def _surface_edge_topology(surface: SurfaceMesh) -> dict[str, Any]:
     }
     count_histogram: dict[str, int] = {}
     role_counts: dict[str, int] = {}
+    kind_counts: dict[str, int] = {}
+    marker_combo_counts: dict[str, int] = {}
+    samples: list[dict[str, Any]] = []
+    sampled_edges: set[tuple[int, int]] = set()
+    midpoints: list[tuple[float, float, float]] = []
     for edge, count in bad_edges.items():
         key = str(count)
         count_histogram[key] = count_histogram.get(key, 0) + 1
-        for role in sorted(set(edge_roles.get(edge, []))):
+        roles = sorted(set(edge_roles.get(edge, [])))
+        combo = "+".join(roles) if roles else "unknown"
+        marker_combo_counts[combo] = marker_combo_counts.get(combo, 0) + 1
+        kind = "boundary" if int(count) == 1 else "nonmanifold"
+        kind_counts[kind] = kind_counts.get(kind, 0) + 1
+        for role in roles:
             role_counts[role] = role_counts.get(role, 0) + 1
+        if len(samples) < bad_edge_sample_limit:
+            start, end = edge
+            start_point = tuple(float(value) for value in surface.vertices[int(start)])
+            end_point = tuple(float(value) for value in surface.vertices[int(end)])
+            midpoint = (
+                0.5 * (start_point[0] + end_point[0]),
+                0.5 * (start_point[1] + end_point[1]),
+                0.5 * (start_point[2] + end_point[2]),
+            )
+            midpoints.append(midpoint)
+            samples.append(
+                {
+                    "nodes": [int(start), int(end)],
+                    "count": int(count),
+                    "kind": kind,
+                    "markers": roles,
+                    "marker_combo": combo,
+                    "midpoint": [float(value) for value in midpoint],
+                    "length_m": float(_distance3(start_point, end_point)),
+                }
+            )
+            sampled_edges.add(edge)
     boundary_edge_count = sum(1 for count in edge_counts.values() if int(count) == 1)
     nonmanifold_edge_count = sum(1 for count in edge_counts.values() if int(count) > 2)
+    for edge in sorted(bad_edges):
+        if len(midpoints) >= len(bad_edges):
+            break
+        if edge in sampled_edges:
+            continue
+        start, end = edge
+        start_point = tuple(float(value) for value in surface.vertices[int(start)])
+        end_point = tuple(float(value) for value in surface.vertices[int(end)])
+        midpoints.append(
+            (
+                0.5 * (start_point[0] + end_point[0]),
+                0.5 * (start_point[1] + end_point[1]),
+                0.5 * (start_point[2] + end_point[2]),
+            )
+        )
     return {
         "edge_count": len(edge_counts),
         "bad_edge_count": len(bad_edges),
@@ -5488,6 +5539,10 @@ def _surface_edge_topology(surface: SurfaceMesh) -> dict[str, Any]:
         "nonmanifold_edge_count": nonmanifold_edge_count,
         "bad_edge_count_histogram": count_histogram,
         "bad_edge_count_by_role": role_counts,
+        "bad_edge_kind_counts": kind_counts,
+        "bad_edge_marker_combo_counts": marker_combo_counts,
+        "bad_edge_midpoint_bounds": _bounds(midpoints) if midpoints else {},
+        "bad_edge_samples": samples,
     }
 
 

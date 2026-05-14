@@ -1006,6 +1006,21 @@ def test_segmented_partial_wing_stitched_core_shell_blocks_nonmanifold_inner_bou
     assert report["handoff_gate"]["status"] == "pass"
     assert report["inner_boundary_topology"]["bad_edge_count"] > 0
     assert report["inner_boundary_topology"]["nonmanifold_edge_count"] > 0
+    assert report["inner_boundary_topology"]["bad_edge_kind_counts"]["nonmanifold"] > 0
+    assert (
+        report["inner_boundary_topology"]["bad_edge_marker_combo_counts"][
+            "transition_collar_outer_interface"
+        ]
+        > 0
+    )
+    bad_edge_sample = report["inner_boundary_topology"]["bad_edge_samples"][0]
+    assert bad_edge_sample["count"] != 2
+    assert bad_edge_sample["markers"]
+    assert len(bad_edge_sample["midpoint"]) == 3
+    assert bad_edge_sample["length_m"] > 0.0
+    assert report["inner_boundary_topology"]["bad_edge_midpoint_bounds"]["x_min"] <= (
+        report["inner_boundary_topology"]["bad_edge_midpoint_bounds"]["x_max"]
+    )
     assert "core_inner_boundary_nonmanifold_edges" in report["gate"]["blockers"]
     assert report["core_report"]["status"] == "blocked_before_gmsh_core_fill"
     assert report["engineering_assessment"]["route_smoke_ready"] is False
