@@ -46,6 +46,21 @@ all non-wall BL faces 丟給 core mesh 會把仍接 physical wing wall 的 wake/
 暴露成 open boundary。下一步應該先設計 owned TE/wake receiver/envelope，把 wall-touching
 edge closure 定義清楚，再嘗試 core tetra / mixed SU2 handoff。
 
+## 2026-05-14 WO-006V Wake Receiver Topology Probe
+
+WO-006V 新增 `scripts/probe_wo006v_wake_receiver_topology.py`，把 TE/wake receiver
+從口號變成可數的 topology candidate：建立 receiver cells 填住 upper/lower wake connector
+gap，檢查它能 match 多少 BL wake-cut faces 與 core outer wake faces。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006v_wake_receiver_topology_probe/`。
+
+實跑結果：receiver 建出 `768` 個 cells，可 internalize `1536 / 1600` 個 BL wake-cut
+faces，也 match `32 / 32` 個 core wake-cut faces；但仍剩 `64` 個 BL wake-cut faces，
+且這 `64` 個全部 touch `wing_wall`。receiver 自己也留下 `32` 個 TE-base faces。
+
+工程判讀：wake receiver 是正確修路方向，因為它把大部分 layer-wise wake-cut side faces
+變成可 internalize 的 matching interface；但 TE-base ownership 還沒定義清楚，所以仍不能
+宣稱 BL/core handoff ready，更不能跑 medium/fine SU2 ladder 或解讀 CL/CD/Cm。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔

@@ -161,6 +161,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   判讀：R5 的 next repair 不是盲掃 Gmsh algorithm，也不是把 all non-wall faces 直接
   丟給 core mesh；必須先建 owned TE/wake receiver/envelope，把 wall-touching
   wake/span-cap edge closure 定義清楚，再重跑 core tetra / mixed SU2 handoff gate。
+- WO-006V 已把 TE/wake receiver route 變成可數 topology candidate：
+  `scripts/probe_wo006v_wake_receiver_topology.py` 建立 receiver cells 連接 upper/lower
+  wake connector gap，artifact 在 `wo006v_wake_receiver_topology_probe/`。實跑建出
+  `768` 個 receiver cells，可 match `1536 / 1600` 個 BL wake-cut faces，並 match
+  `32 / 32` 個 core wake-cut faces；但剩下 `64` 個 BL wake-cut faces 全部 touch
+  `wing_wall`，receiver 也留下 `32` 個 TE-base faces。判讀：wake receiver 是正確修路方向，
+  但 TE-base ownership 仍未定義；在它解掉前不能宣稱 BL/core handoff ready，不能跑
+  medium/fine SU2 ladder 當 CFD evidence。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
