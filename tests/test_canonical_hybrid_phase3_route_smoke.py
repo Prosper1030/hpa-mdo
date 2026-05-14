@@ -779,6 +779,11 @@ def test_partial_wing_collar_core_dual_hotspot_reports_incident_geometry(
     worst = report["dual_subvolume_proxy"]["top_hotspots"][0]
     by_source = worst["incident_element_geometry_by_source"]
 
+    assert report["dual_subvolume_proxy"]["max_incident_edge_length_ratio"] > 1000.0
+    assert (
+        "mixed_dual_hotspot_incident_edge_ratio_exceeds_route_gate"
+        in report["dual_subvolume_proxy"]["blockers"]
+    )
     assert by_source["transition_collar_pyramid"]["count"] > 0
     assert by_source["transition_collar_pyramid"]["max_edge_length_ratio"] > 1.0
     assert by_source["tetra_core"]["count"] > 0

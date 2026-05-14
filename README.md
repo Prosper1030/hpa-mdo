@@ -177,6 +177,8 @@ edge 與約 `1.68 m` 的 core edge，incident core tet edge-ratio 可到 `~1.37e
 mesher cross-check，而不是只調 global core size 或降 BL layers。給 GPT Pro / meshing
 specialist 的可複製問題包在
 `docs/reports/wo006_cfd_collar_core_blocker_gpt_pro_prompt.md`。
+`dual_subvolume_proxy` 也已把 `max_hotspot_incident_edge_length_ratio=1000` 納入
+smoke threshold；pps42/l3 會同時被 dual ratio 與 hotspot edge-ratio blockers 擋下。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

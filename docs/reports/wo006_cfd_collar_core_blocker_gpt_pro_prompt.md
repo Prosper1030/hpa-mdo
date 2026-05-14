@@ -82,7 +82,10 @@ transition_collar_pyramid:
 Engineering read: the current collar/core topology makes a single vertex see
 BL/collar-scale edges around `6e-5 m` and meter-scale core edges.  That scale
 jump reproduces the SU2 vertex-dual control-volume pathology even when marker
-ownership and primal signed volumes pass.
+ownership and primal signed volumes pass.  The pre-solver proxy now gates this
+directly with `max_hotspot_incident_edge_length_ratio=1000`; the pps42/layers=3
+report-level maximum is `39059.367143113835`, so it is blocked before any
+pressure or RANS run.
 
 ## Question To Answer
 

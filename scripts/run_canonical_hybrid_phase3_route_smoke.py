@@ -106,6 +106,7 @@ SU2_TRIANGLE = 5
 MIN_ROUTE_DUAL_ORTHOGONALITY_DEG = 1.0
 MAX_ROUTE_DUAL_FACE_AREA_ASPECT_RATIO = 1.0e7
 MAX_ROUTE_DUAL_SUB_VOLUME_RATIO = 1.0e7
+MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO = 1000.0
 MAX_DIRECT_ROOT_SYMMETRY_QUAD_ASPECT_RATIO = 1000.0
 
 
@@ -2892,26 +2893,44 @@ def _mixed_dual_subvolume_proxy_report(
     )
     worst = records[0] if records else None
     max_ratio = 0.0 if worst is None else float(worst["cv_sub_volume_ratio"])
+    max_incident_edge_ratio = _max_incident_edge_length_ratio(records)
     blockers = []
     if max_ratio > MAX_ROUTE_DUAL_SUB_VOLUME_RATIO:
         blockers.append("mixed_dual_subvolume_ratio_exceeds_route_gate")
+    if max_incident_edge_ratio > MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO:
+        blockers.append("mixed_dual_hotspot_incident_edge_ratio_exceeds_route_gate")
     return {
         "status": "pass" if not blockers else "fail",
         "blockers": blockers,
         "thresholds": {
             "max_cv_sub_volume_ratio": MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
             "record_min_ratio": float(min_ratio),
+            "max_hotspot_incident_edge_length_ratio": (
+                MAX_ROUTE_DUAL_HOTSPOT_INCIDENT_EDGE_RATIO
+            ),
         },
         "positive_subvolume_count": int(positive_subvolume_count),
         "non_positive_subvolume_count": int(non_positive_subvolume_count),
         "unsupported_element_count": int(unsupported_element_count),
         "record_count": len(records),
         "max_cv_sub_volume_ratio": max_ratio,
+        "max_incident_edge_length_ratio": max_incident_edge_ratio,
         "worst_point_index": None if worst is None else int(worst["point_index"]),
         "worst_point": None if worst is None else dict(worst["point"]),
         "worst_source_pair": None if worst is None else str(worst["source_pair"]),
         "top_hotspots": [dict(record) for record in records[: max(0, int(top_count))]],
     }
+
+
+def _max_incident_edge_length_ratio(records: Sequence[Mapping[str, Any]]) -> float:
+    ratios: list[float] = []
+    for record in records:
+        geometry_by_source = _mapping(record.get("incident_element_geometry_by_source"))
+        for source_metrics in geometry_by_source.values():
+            ratio = _float_or_none(_mapping(source_metrics).get("max_edge_length_ratio"))
+            if ratio is not None:
+                ratios.append(ratio)
+    return max(ratios) if ratios else 0.0
 
 
 def _element_geometry_records(
