@@ -128,6 +128,15 @@ worsened to max CV sub-volume ratio about `1.1247e16` and max hotspot incident
 edge ratio about `1.072e5`.  This suggests point-size hints are not enough; the
 route needs an explicit growth topology, not another Gmsh sizing hint.
 
+New topology evidence: a minimal structured transition patch unit now passes.
+It uses `4` segmented collar bases, `4` pyramid collars, `40` transition prisms,
+and `24` tetra.  The collar side triangles feed two transition-prism rows
+(`0.03 m -> 0.09 m`, growth ratio `3.0`) before any tetra core, so larger core
+edges are not incident to the original BL/collar vertices.  The unit has no
+tet-to-prism-quad contact, no exposed pyramid faces, element-quality pass, SU2
+boundary ownership pass, and dual proxy pass.  This is still artificial, but it
+is the strongest current evidence for the next real-wing topology recipe.
+
 ## Question To Answer
 
 Please propose the next concrete topology recipe, not solver numerics.

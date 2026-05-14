@@ -1888,6 +1888,98 @@ def write_phase3_segmented_collar_scale_transition_unit_su2(
     return report
 
 
+def write_phase3_structured_transition_patch_unit_su2(
+    out_path: Path | str,
+) -> dict[str, Any]:
+    """Write an artificial multi-row transition patch before tetra core."""
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    volume = _structured_transition_patch_unit_volume()
+    output_path.write_text(
+        _su2_volume_text(
+            volume,
+            comments=(
+                "% Canonical hybrid half-wing structured transition patch unit.",
+                "% Pyramid collar side triangles feed transition prism rows before tetra core.",
+                "% This is a topology/scale contract only, not an aerodynamic CFD mesh.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    topology = _transition_topology_report(volume)
+    quality = _transition_element_quality(volume)
+    quality_gate = _transition_element_quality_gate(quality)
+    element_sources = [
+        str(_mapping(role).get("source") or _phase3_volume_element_source(element_type))
+        for (element_type, _nodes), role in zip(
+            volume["elements"],
+            volume["element_roles"],
+        )
+    ]
+    dual_subvolume_proxy = _mixed_dual_subvolume_proxy_report(
+        volume["nodes"],
+        volume["elements"],
+        element_sources=element_sources,
+        marker_faces=volume["marker_faces"],
+        min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
+        top_count=20,
+    )
+    blockers: list[str] = []
+    if int(topology.get("tet_to_prism_quad_contact") or 0) != 0:
+        blockers.append("structured_transition_tet_contacts_prism_quad")
+    if int(topology.get("pyramid_boundary_face_count") or 0) != 0:
+        blockers.append("structured_transition_pyramid_boundary_faces_exposed")
+    if quality_gate.get("status") != "pass":
+        blockers.extend(str(blocker) for blocker in quality_gate.get("blockers") or [])
+    if boundary_ownership.get("status") != "pass":
+        blockers.append("structured_transition_su2_boundary_ownership_not_pass")
+    blockers.extend(str(blocker) for blocker in dual_subvolume_proxy.get("blockers") or [])
+    type_counts: dict[str, int] = {}
+    for element_type, _nodes in volume["elements"]:
+        key = str(element_type)
+        type_counts[key] = type_counts.get(key, 0) + 1
+    report = {
+        "route": "canonical_hybrid_halfwing_structured_transition_patch_unit",
+        "status": (
+            "structured_transition_patch_unit_pass"
+            if not blockers
+            else "structured_transition_patch_unit_fail"
+        ),
+        "mesh_path": str(output_path),
+        "report_path": str(output_path.with_suffix(".report.json")),
+        "node_count": len(volume["nodes"]),
+        "volume_element_count": len(volume["elements"]),
+        "volume_element_type_counts": dict(sorted(type_counts.items())),
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "topology": topology,
+        "element_quality": quality,
+        "element_quality_gate": quality_gate,
+        "dual_subvolume_proxy": dual_subvolume_proxy,
+        "structured_transition": volume["structured_transition"],
+        "gate": {
+            "status": "pass" if not blockers else "fail",
+            "blockers": sorted(set(blockers)),
+        },
+        "engineering_assessment": {
+            "route_smoke_ready": False,
+            "trust_boundary": (
+                "Artificial structured-transition unit only. It proves that "
+                "collar-side triangles can be handed to prism transition rows "
+                "before tetra core so large core edges do not touch BL/collar "
+                "vertices directly. It does not prove real-wing cap/ramp geometry."
+            ),
+        },
+    }
+    Path(report["report_path"]).write_text(
+        json.dumps(report, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return report
+
+
 def write_phase3_partial_wing_transition_collar_handoff_su2(
     section_table_path: Path | str,
     out_path: Path | str,
@@ -3274,6 +3366,199 @@ def _segmented_collar_scale_transition_unit_volume() -> dict[str, Any]:
     return volume
 
 
+def _structured_transition_patch_unit_volume() -> dict[str, Any]:
+    segment_count = 4
+    segment_length = 0.03
+    strip_width = 0.03
+    layer_height = 6.0e-5
+    collar_offset = 0.015
+    transition_row_heights = (0.03, 0.09)
+    core_extension = 0.12
+    nodes: list[tuple[float, float, float]] = []
+    elements: list[tuple[int, tuple[int, ...]]] = []
+    element_roles: list[dict[str, str]] = []
+    rim_quad_edge_ratios: list[float] = []
+
+    def add_node(coord: tuple[float, float, float]) -> int:
+        nodes.append(coord)
+        return len(nodes) - 1
+
+    node_cache: dict[tuple[int, int, int], int] = {}
+
+    def grid_node(ix: int, iy: int, iz: int) -> int:
+        key = (int(ix), int(iy), int(iz))
+        existing = node_cache.get(key)
+        if existing is not None:
+            return existing
+        node_cache[key] = add_node(
+            (
+                ix * segment_length,
+                iy * strip_width,
+                iz * layer_height,
+            )
+        )
+        return node_cache[key]
+
+    def add_element(element_type: int, element_nodes: Sequence[int], **role: str) -> int:
+        elements.append((int(element_type), tuple(int(node) for node in element_nodes)))
+        element_roles.append(dict(role))
+        return len(elements) - 1
+
+    def side_face_outward_direction(
+        pyramid_nodes: Sequence[int],
+        side_face: Sequence[int],
+    ) -> tuple[float, float, float]:
+        pyramid_centroid = _centroid_tuple([nodes[int(node)] for node in pyramid_nodes])
+        face_centroid = _centroid_tuple([nodes[int(node)] for node in side_face])
+        direction = _vector_between(pyramid_centroid, face_centroid)
+        length = _distance3(direction, (0.0, 0.0, 0.0))
+        if length <= 1.0e-14:
+            normal = _triangle_unit_normal(
+                nodes[int(side_face[0])],
+                nodes[int(side_face[1])],
+                nodes[int(side_face[2])],
+            )
+            length = _distance3(normal, (0.0, 0.0, 0.0))
+            if length <= 1.0e-14:
+                return (0.0, -1.0, 0.0)
+            return (normal[0] / length, normal[1] / length, normal[2] / length)
+        return (direction[0] / length, direction[1] / length, direction[2] / length)
+
+    def offset_triangle(
+        triangle: Sequence[int],
+        direction: tuple[float, float, float],
+        distance: float,
+    ) -> tuple[int, int, int]:
+        return tuple(
+            add_node(
+                (
+                    nodes[int(node)][0] + distance * direction[0],
+                    nodes[int(node)][1] + distance * direction[1],
+                    nodes[int(node)][2] + distance * direction[2],
+                )
+            )
+            for node in triangle
+        )
+
+    def add_structured_rows(
+        *,
+        pyramid_nodes: Sequence[int],
+        side_face: Sequence[int],
+        side_index: int,
+    ) -> None:
+        direction = side_face_outward_direction(pyramid_nodes, side_face)
+        inner = tuple(int(node) for node in side_face)
+        cumulative = 0.0
+        for row_index, height in enumerate(transition_row_heights):
+            cumulative += float(height)
+            outer = offset_triangle(side_face, direction, cumulative)
+            prism = _oriented_prism_positive(nodes, inner, outer)
+            add_element(
+                SU2_PRISM,
+                prism,
+                role="structured_transition_prism",
+                source="structured_transition_prism",
+                boundary_marker="transition_patch_boundary",
+            )
+            inner = outer
+        extension = add_node(
+            _offset_point(
+                _centroid_tuple([nodes[int(node)] for node in inner]),
+                direction,
+                core_extension + 0.01 * side_index,
+            )
+        )
+        add_element(
+            SU2_TETRAHEDRON,
+            _oriented_tetra_for_shared_face(nodes, inner, extension),
+            role="structured_outer_core_tetra",
+            source="tetra_core",
+            boundary_marker="farfield",
+        )
+
+    for index in range(segment_count):
+        b00 = grid_node(index, 0, 0)
+        b10 = grid_node(index + 1, 0, 0)
+        b01 = grid_node(index, 1, 0)
+        b11 = grid_node(index + 1, 1, 0)
+        t00 = grid_node(index, 0, 1)
+        t10 = grid_node(index + 1, 0, 1)
+        t01 = grid_node(index, 1, 1)
+        t11 = grid_node(index + 1, 1, 1)
+
+        first_prism = (t00, t10, t01, b00, b10, b01)
+        second_prism = (t10, t11, t01, b10, b11, b01)
+        add_element(
+            SU2_PRISM,
+            first_prism,
+            role="structured_boundary_layer_prism",
+            source="boundary_layer_prism",
+        )
+        add_element(
+            SU2_PRISM,
+            second_prism,
+            role="structured_boundary_layer_prism",
+            source="boundary_layer_prism",
+        )
+
+        first_faces = _volume_element_faces(SU2_PRISM, first_prism)
+        second_faces = _volume_element_faces(SU2_PRISM, second_prism)
+        for face_index, top_face in enumerate((first_faces[0], second_faces[0])):
+            extension = add_node(
+                _tet_extension_point(nodes, top_face, magnitude=segment_length)
+            )
+            add_element(
+                SU2_TETRAHEDRON,
+                _oriented_tetra_for_shared_face(nodes, top_face, extension),
+                role="structured_bl_outer_core_tetra",
+                source="tetra_core",
+                boundary_marker="farfield",
+                face_index=str(face_index),
+            )
+
+        rim_face = _find_face_with_nodes(first_faces, (b00, b10, t00, t10))
+        rim_edges = [length for length in _face_edge_lengths(nodes, rim_face) if length > 0.0]
+        rim_quad_edge_ratios.append(max(rim_edges) / min(rim_edges))
+        base_points = [nodes[int(node)] for node in rim_face]
+        centroid = _centroid_tuple(base_points)
+        apex = add_node((centroid[0], centroid[1] - collar_offset, centroid[2]))
+        pyramid = _oriented_pyramid_positive(nodes, rim_face, apex)
+        add_element(
+            SU2_PYRAMID,
+            pyramid,
+            role="structured_transition_pyramid",
+            source="transition_collar_pyramid",
+        )
+        for side_index, side_face in enumerate(
+            _volume_element_faces(SU2_PYRAMID, pyramid)[1:]
+        ):
+            add_structured_rows(
+                pyramid_nodes=pyramid,
+                side_face=side_face,
+                side_index=side_index,
+            )
+
+    volume: dict[str, Any] = {
+        "nodes": nodes,
+        "elements": elements,
+        "element_roles": element_roles,
+        "structured_transition": {
+            "segment_count": segment_count,
+            "row_count": len(transition_row_heights),
+            "row_heights_m": list(transition_row_heights),
+            "first_row_height_m": transition_row_heights[0],
+            "max_row_growth_ratio": max(
+                transition_row_heights[index + 1] / transition_row_heights[index]
+                for index in range(len(transition_row_heights) - 1)
+            ),
+            "core_extension_m": core_extension,
+            "rim_quad_max_edge_ratio": max(rim_quad_edge_ratios),
+        },
+    }
+    volume["marker_faces"] = _structured_transition_marker_faces(volume)
+    return volume
+
+
 def _find_face_with_nodes(
     faces: Sequence[Sequence[int]],
     expected_nodes: Sequence[int],
@@ -3345,11 +3630,54 @@ def _segmented_transition_marker_faces(
     return marker_faces
 
 
+def _structured_transition_marker_faces(
+    volume: Mapping[str, Any],
+) -> dict[str, list[tuple[int, tuple[int, ...]]]]:
+    marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
+    vertices = [tuple(vertex) for vertex in volume["nodes"]]
+    face_owners = _volume_face_owner_map(volume["elements"])
+    roles = list(volume.get("element_roles") or [])
+    for _key, owners in face_owners.items():
+        if len(owners) != 1:
+            continue
+        owner = owners[0]
+        element_type = int(owner["element_type"])
+        face_nodes = tuple(int(node) for node in owner["face_nodes"])
+        role = _mapping(roles[int(owner["element_index"])])
+        marker: str | None = None
+        if element_type == SU2_PRISM:
+            if role.get("role") == "structured_boundary_layer_prism":
+                if len(face_nodes) == 3 and _face_average_z(vertices, face_nodes) < 0.5e-5:
+                    marker = "wing_upper"
+                elif len(face_nodes) == 4 and _face_average_y(vertices, face_nodes) <= 1.0e-9:
+                    marker = "root_symmetry"
+                else:
+                    marker = "farfield"
+            else:
+                marker = str(role.get("boundary_marker") or "transition_patch_boundary")
+        elif element_type == SU2_TETRAHEDRON:
+            marker = str(role.get("boundary_marker") or "farfield")
+        elif element_type == SU2_PYRAMID:
+            marker = str(role.get("boundary_marker") or "te_wall")
+        if marker is None:
+            continue
+        surface_type = SU2_QUAD if len(face_nodes) == 4 else SU2_TRIANGLE
+        marker_faces.setdefault(marker, []).append((surface_type, face_nodes))
+    return marker_faces
+
+
 def _face_average_z(
     vertices: Sequence[tuple[float, float, float]],
     face_nodes: Sequence[int],
 ) -> float:
     return sum(vertices[int(node)][2] for node in face_nodes) / len(face_nodes)
+
+
+def _face_average_y(
+    vertices: Sequence[tuple[float, float, float]],
+    face_nodes: Sequence[int],
+) -> float:
+    return sum(abs(vertices[int(node)][1]) for node in face_nodes) / len(face_nodes)
 
 
 def _volume_face_owner_map(
@@ -3896,6 +4224,21 @@ def _oriented_pyramid_positive(
     raise RuntimeError("could not orient pyramid with positive signed volume")
 
 
+def _oriented_prism_positive(
+    vertices: Sequence[tuple[float, float, float]],
+    inner_face: Sequence[int],
+    outer_face: Sequence[int],
+) -> tuple[int, int, int, int, int, int]:
+    inner = tuple(int(node) for node in inner_face)
+    outer = tuple(int(node) for node in outer_face)
+    for outer_permutation in itertools.permutations(outer):
+        for inner_permutation in (inner, (inner[1], inner[0], inner[2])):
+            candidate = (*outer_permutation, *inner_permutation)
+            if _su2_prism_signed_volume(vertices, candidate) > 0.0:
+                return candidate
+    raise RuntimeError("could not orient prism with positive signed volume")
+
+
 def _tet_extension_point(
     vertices: Sequence[tuple[float, float, float]],
     face_nodes: Sequence[int],
@@ -3915,6 +4258,18 @@ def _tet_extension_point(
         centroid[0] + magnitude * normal[0],
         centroid[1] + magnitude * normal[1],
         centroid[2] + magnitude * normal[2],
+    )
+
+
+def _offset_point(
+    point: tuple[float, float, float],
+    direction: tuple[float, float, float],
+    distance: float,
+) -> tuple[float, float, float]:
+    return (
+        point[0] + distance * direction[0],
+        point[1] + distance * direction[1],
+        point[2] + distance * direction[2],
     )
 
 

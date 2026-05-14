@@ -639,6 +639,29 @@ def test_segmented_collar_scale_transition_unit_limits_hotspot_edge_jump(
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_structured_transition_patch_unit_stages_core_growth_away_from_bl_vertices(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_structured_transition_patch_unit_su2(
+        tmp_path / "structured_transition_patch_unit.su2"
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_structured_transition_patch_unit"
+    assert report["status"] == "structured_transition_patch_unit_pass"
+    assert report["structured_transition"]["row_count"] == 2
+    assert report["structured_transition"]["first_row_height_m"] <= 0.03
+    assert report["structured_transition"]["max_row_growth_ratio"] <= 4.0
+    assert report["topology"]["tet_to_prism_quad_contact"] == 0
+    assert report["topology"]["pyramid_boundary_face_count"] == 0
+    assert report["element_quality_gate"]["status"] == "pass"
+    assert report["dual_subvolume_proxy"]["status"] == "pass"
+    assert report["dual_subvolume_proxy"]["max_incident_edge_length_ratio"] < 1000.0
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_partial_wing_transition_collar_handoff_converts_rim_quads_to_triangles(
     tmp_path: Path,
 ) -> None:
