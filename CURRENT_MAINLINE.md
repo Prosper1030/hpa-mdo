@@ -169,6 +169,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `wing_wall`，receiver 也留下 `32` 個 TE-base faces。判讀：wake receiver 是正確修路方向，
   但 TE-base ownership 仍未定義；在它解掉前不能宣稱 BL/core handoff ready，不能跑
   medium/fine SU2 ladder 當 CFD evidence。
+- WO-006W 已把 TE-base ownership 從 blocker 變成 stitchability evidence：
+  `scripts/probe_wo006w_te_base_pairing.py` 檢查 WO-006V 剩下的 TE-base wake-cut faces
+  是否為 sharp trailing-edge 幾何重合 wake seam pair，artifact 在
+  `wo006w_te_base_pairing_probe/`。實跑結果 `64` 個 TE-base faces 形成 `32` 組
+  coincident pairs，`unpaired=0`；`32` 個 receiver-base faces 全部 degenerate，
+  `max_receiver_base_area_m2=0.0`。判讀：下一步可以嘗試 explicit seam stitching/removal，
+  但不能把它當新的 physical wall 或 SU2 boundary，也尚未達到 BL/core handoff ready。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

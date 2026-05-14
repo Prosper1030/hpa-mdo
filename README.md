@@ -61,6 +61,20 @@ faces，也 match `32 / 32` 個 core wake-cut faces；但仍剩 `64` 個 BL wake
 變成可 internalize 的 matching interface；但 TE-base ownership 還沒定義清楚，所以仍不能
 宣稱 BL/core handoff ready，更不能跑 medium/fine SU2 ladder 或解讀 CL/CD/Cm。
 
+## 2026-05-14 WO-006W TE-Base Wake Pairing Probe
+
+WO-006W 新增 `scripts/probe_wo006w_te_base_pairing.py`，專門檢查 WO-006V 剩下的
+TE-base wake-cut faces 是不是 sharp trailing-edge 的幾何重合 wake seam pair。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006w_te_base_pairing_probe/`。
+
+實跑結果：`64` 個 TE-base faces 形成 `32` 組 coincident pairs，`unpaired=0`；wake
+receiver 的 `32` 個 receiver-base faces 全部 degenerate，`max_receiver_base_area_m2=0.0`。
+
+工程判讀：這代表 TE-base blocker 可以走 explicit seam stitching / removal，而不是把它當
+新的 physical wall 或 medium/fine SU2 boundary。它仍不是 BL/core handoff，也不是 CFD
+ladder；下一步要把這個 pairing candidate 實作成可審核的 stitched topology，再重跑
+BL/core merge gate。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔
