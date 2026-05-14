@@ -525,6 +525,14 @@ BL boundary unmatched faces，full non-wall boundary 仍是 124 bad edges。下�
 writer 小修；要先修 preserved-core quality，且後續仍要重做 wake/span-cap 的真實 conformal
 BL/core topology contract。
 
+WO-006R7 core-quality hotspot diagnosis 已新增，artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r7_core_quality_hotspot_diagnosis/`。
+R7 把 R6 的 core quality fail 定位成 `91` 個 non-positive `Pyramid 5` transition
+elements，全部貼在 preserved `bl_outer_interface` quads；`87` 個在 aft/TE，`21` 個落在
+`dae31 -> cst_tip_nsga2_g05_child_0032_70ef8136` transition。這表示下一步應修
+quad-to-tet pyramid transition / orientation / warped-face interface，不是增加 SU2
+iteration 或重跑 no-BL medium。
+
 WO-006F SU2 engineering-result recovery campaign 已新增，artifact 在
 `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`。
 Verdict 是 `wo006f_campaign_incomplete`：SU2 有跑出 sign-correct 但不可採信的 no-BL
@@ -546,6 +554,7 @@ evidence；下一步應從 R6 preserved-core quality 與 multizone/merged coeffi
 - WO-006 必須使用 `98.5 kg` 與 current pipeline span authority，除非明確標成 sensitivity study。
 - WO-006 第一輪 verdict 是 `su2_baseline_needs_fix`；WO-006R1 已打通 current GO mesh-native coarse smoke route；WO-006R2 已把 current high-mesh / BL blocker 定位到 surface topology；WO-006R3 已產出 serious high-mesh no-BL handoff；WO-006H reopened campaign 已達 accepted `su2_local_hard_limit_proven_with_executable_hpc_case`；current-GO no-BL completion case 已產出 finite SU2 force history，但只能作 route-level force evidence，仍不是 BL/y+ drag calibration 或 performance truth。
 - WO-006R6 verdict 是 `wo006r6_core_quality_limitation_proven`；current GO 已有 owned-BL topology basis 和 preserved-interface core evidence，但 core quality 與 wake/span-cap conformal topology 仍未達成，沒有 conformal mixed BL+core SU2 handoff，沒有 `bl_mesh_handoff.v1.json`，沒有 postprocessed y+，也沒有可解讀係數。
+- WO-006R7 verdict 是 hotspot diagnosis blocked：R6 core bad cells 目前定位為 `91` 個貼在 preserved `bl_outer_interface` 的 non-positive pyramid transition elements；優先修 quad-to-tet pyramid transition/interface orientation，不要把這解讀成 solver iteration 問題。
 - WO-006F verdict 是 `wo006f_campaign_incomplete`；目前沒有 physically credible SU2 CL/CD 可用於 Baseline A aero calibration。`attempt_10` 證明 SU2 multizone 是開放修復 route，但還不是 coefficient evidence。
 - WO-007 QPROP/XROTOR、RFQ procurement 與任何 Baseline A release claim 仍不得把 screening evidence 升格成 current truth。
 - P1/C04 仍是 coupon/local FEM readiness；screening pass 不是 final aircraft sign-off。

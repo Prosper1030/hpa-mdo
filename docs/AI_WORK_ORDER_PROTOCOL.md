@@ -68,6 +68,13 @@ Current authority:
   as a stronger blocker proof: next work must repair preserved-core quality
   without remeshing the interface, then resolve the wake/span-cap topology
   contract before any mixed-element SU2 handoff or coefficient claim.
+- WO-006R7 core-quality hotspot diagnosis is complete:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r7_core_quality_hotspot_diagnosis/`.
+  It localizes the R6 quality failure to 91 non-positive pyramid transition
+  elements attached to preserved `bl_outer_interface` quads, mostly aft/TE and
+  partly in the DAE31-to-CST-tip transition. Treat R7 as the current repair
+  pointer: fix the quad-to-tet transition/interface orientation before any
+  medium/fine SU2 ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a campaign
   package:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

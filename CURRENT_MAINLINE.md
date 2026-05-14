@@ -315,6 +315,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   tuning，而是 preserved-core quality repair 加上 wake/span-cap 真正 conformal topology
   contract；R6 仍沒有 postprocessed y+、沒有可解讀 SU2 coefficient、沒有 Baseline A reopen
   evidence。
+- WO-006R7 core-quality hotspot diagnosis 已產出
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r7_core_quality_hotspot_diagnosis/`。
+  R7 把 R6 的 core quality fail 定位成 `91` 個 non-positive `Pyramid 5` transition
+  elements，全部貼在 preserved `bl_outer_interface` quads；`87` 個在 aft/TE，`21` 個落在
+  `dae31 -> cst_tip_nsga2_g05_child_0032_70ef8136` transition。下一步應先修
+  quad-to-tet pyramid transition / orientation / warped-face interface，再談 merged 或
+  multizone CFD ladder；這不是 SU2 iteration 數或 no-BL solver tuning 問題。
 - WO-006F SU2 engineering-result recovery campaign 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`，
   verdict 是 `wo006f_campaign_incomplete`。它嘗試 no-BL NS/RANS/Euler、OpenVSP/Gmsh、

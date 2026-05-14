@@ -77,6 +77,13 @@ Current release package:
   Preserved-core interface envelope exists, but core quality fails on
   non-positive elements and wake/span-cap coupling is not zero-unmatched. No
   coefficient is interpretable.
+- WO-006R7 core-quality hotspot diagnosis is complete as a blocker-localization
+  artifact. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r7_core_quality_hotspot_diagnosis/`.
+  The R6 core quality failure is currently localized to 91 non-positive pyramid
+  transition elements attached to the preserved `bl_outer_interface` quads; this
+  points at the quad-to-tet transition/interface orientation, not solver
+  iteration count.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.
@@ -548,12 +555,13 @@ still has unmatched BL/core faces. No conformal BL+core SU2 handoff,
 The next recommended WO-006 task keeps the data-authority checker prerequisite
 preserved and remains inside bounded aero calibration:
 run `scripts/check_baseline_a_data_authority.py --check-only`, then repair the
-preserved-core quality blocker without remeshing the interface. After quality
-passes, resolve the wake/span-cap conformal topology contract before writing any
-mixed-element SU2 handoff.
+R7-localized preserved-core quad-to-pyramid transition/interface-orientation
+failure without remeshing the BL interface. Do not spend medium/fine runtime on
+the no-BL CD~0.5 path. After quality passes, resolve the wake/span-cap conformal
+topology contract before writing any mixed-element SU2 handoff.
 
 ```text
-/goal In /Volumes/Samsung SSD/hpa-mdo, execute the next WO-006 repair after WO-006R6 with the data-authority checker prerequisite preserved: fix preserved-core quality first, then resolve wake/span-cap BL/core topology before any mixed-element SU2 handoff.
+/goal In /Volumes/Samsung SSD/hpa-mdo, execute the next WO-006 repair after WO-006R7 with the data-authority checker prerequisite preserved: fix the R7-localized preserved-core quad-to-pyramid transition/interface-orientation quality failure first, then resolve wake/span-cap BL/core topology before any mixed-element SU2 handoff.
 
 Read first:
 - README.md
