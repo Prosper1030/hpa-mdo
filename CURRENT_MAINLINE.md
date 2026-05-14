@@ -136,6 +136,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   判讀：local sleeve 消掉最壞 inversion，是必要進展，但單靠線性插站不足；下一步要做
   near-wall receiver surface / local airfoil-transition smoothing，目標是把 p01 SICN 提升
   兩個數量級以上後才可重啟 SU2 route smoke。
+- WO-006S 用既有 hotspot tool 重判 WO-006R `local_transition_subdiv8_thin12_g118`
+  mesh，artifact 在 `wo006r_subdiv8_hotspot_diagnosis/`。結果 status 仍是
+  `blocked`：worst BL `minSICN=8.91e-06`、worst `minSIGE=0.00710`，top 80
+  hotspots 全部在 aft/TE（`x/c≈0.99`），其中 6 個仍在 DAE31 ↔ CST tip
+  airfoil-transition band。這把目前 blocker 從「可能是 span/iteration 不夠」收斂成
+  TE/wake/transition receiver topology 或 owned-BL/core envelope 問題；`subdiv8`
+  和 `subdiv16` 不能當 medium/fine CFD ladder 起點。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

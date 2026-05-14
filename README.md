@@ -1,5 +1,20 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006S Sleeve-Mesh Hotspot Re-diagnosis
+
+WO-006S 用既有 `scripts/diagnose_wo006k_bl_hotspots.py` 重判 WO-006R 的
+`local_transition_subdiv8_thin12_g118` mesh。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_subdiv8_hotspot_diagnosis/`。
+
+結果：status 仍是 `blocked`，worst BL `minSICN=8.91e-06`，worst `minSIGE=0.00710`；
+top 80 hotspots 全部在 aft/TE（`x/c≈0.99`），其中 6 個仍在 DAE31 ↔ CST tip
+airfoil-transition band。這代表 local sleeve 只把 non-positive cells 清掉，沒有把 TE/wake
+near-wall prism quality 拉到 CFD gate 所需的 `p01 minSICN >= 0.005`。
+
+工程判讀：目前不能把 `subdiv8` 或 `subdiv16` 拿去跑 medium/fine SU2 當 CFD ladder。
+下一個真正修復目標是 TE/wake/transition receiver topology 或 owned-BL/core envelope，而不是
+增加 SU2 iteration、放寬 CD gate，或把 `CD≈0.5-0.6` 當成「已收斂」。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔
