@@ -206,8 +206,9 @@ Gmsh point-size hack；要做明確 multi-row / structured transition patch。
 新的 `structured_transition_patch_unit/` 人工單元已證明這個方向：`4` 個
 segmented collar bases + `4` 個 pyramids + `40` 個 transition prisms + `24`
 個 tets，兩層 transition rows 為 `0.03 m -> 0.09 m`（growth ratio `3.0`），
-dual proxy pass，且沒有 tet-to-prism-quad contact 或 exposed pyramid face。這還不是真翼
-route-smoke，但它是下一步套回真翼前的 topology contract。
+dual proxy pass，且沒有 tet-to-prism-quad contact 或 exposed pyramid face；但它仍有
+`102` 個 transition-prism sidewall quads pending。這還不是真翼 route-smoke；
+下一步要把這些 sidewall quads sew 起來或轉成 tetra core 可吃的 triangular interface。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

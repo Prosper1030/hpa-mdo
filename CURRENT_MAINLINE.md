@@ -222,9 +222,12 @@ screening evidence 讀，不是現行 release / procurement truth。
   side triangles 先接到兩層 transition prism rows（`0.03 m -> 0.09 m`，growth
   ratio `3.0`）再接 tetra core。結果：rim quad max edge ratio 約 `500`、
   `tet_to_prism_quad_contact=0`、pyramid boundary face `0`、nonmanifold `0`、
-  boundary ownership pass、element-quality pass、dual proxy pass。工程判讀：這是
-  下一個可行 topology contract；它還不是真翼 mesh，但比 Gmsh sizing hint 更接近
-  真正解法。
+  boundary ownership pass、element-quality pass、dual proxy pass；但仍有 `102`
+  個 transition-prism sidewall quads pending，status 是
+  `structured_transition_patch_unit_scale_pass_sidewalls_pending`。工程判讀：它只證明
+  multi-row growth 可以解 vertex scale jump，還沒有證明 sidewall/core-interface
+  watertight topology；下一步要把 sidewall quads sew 起來或轉成可被 tetra core
+  吃下的 triangular interface。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

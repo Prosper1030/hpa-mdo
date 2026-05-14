@@ -1926,27 +1926,40 @@ def write_phase3_structured_transition_patch_unit_su2(
         min_ratio=MAX_ROUTE_DUAL_SUB_VOLUME_RATIO,
         top_count=20,
     )
-    blockers: list[str] = []
+    scale_blockers: list[str] = []
     if int(topology.get("tet_to_prism_quad_contact") or 0) != 0:
-        blockers.append("structured_transition_tet_contacts_prism_quad")
+        scale_blockers.append("structured_transition_tet_contacts_prism_quad")
     if int(topology.get("pyramid_boundary_face_count") or 0) != 0:
-        blockers.append("structured_transition_pyramid_boundary_faces_exposed")
+        scale_blockers.append("structured_transition_pyramid_boundary_faces_exposed")
     if quality_gate.get("status") != "pass":
-        blockers.extend(str(blocker) for blocker in quality_gate.get("blockers") or [])
+        scale_blockers.extend(
+            str(blocker) for blocker in quality_gate.get("blockers") or []
+        )
     if boundary_ownership.get("status") != "pass":
-        blockers.append("structured_transition_su2_boundary_ownership_not_pass")
-    blockers.extend(str(blocker) for blocker in dual_subvolume_proxy.get("blockers") or [])
+        scale_blockers.append("structured_transition_su2_boundary_ownership_not_pass")
+    scale_blockers.extend(
+        str(blocker) for blocker in dual_subvolume_proxy.get("blockers") or []
+    )
+    sidewall_quad_count = int(topology.get("non_root_exposed_prism_quad_count") or 0)
+    sidewall_blockers = (
+        ["structured_transition_sidewall_quads_pending"]
+        if sidewall_quad_count > 0
+        else []
+    )
+    blockers = [*scale_blockers, *sidewall_blockers]
+    if not blockers:
+        status = "structured_transition_patch_unit_pass"
+    elif not scale_blockers and sidewall_blockers:
+        status = "structured_transition_patch_unit_scale_pass_sidewalls_pending"
+    else:
+        status = "structured_transition_patch_unit_fail"
     type_counts: dict[str, int] = {}
     for element_type, _nodes in volume["elements"]:
         key = str(element_type)
         type_counts[key] = type_counts.get(key, 0) + 1
     report = {
         "route": "canonical_hybrid_halfwing_structured_transition_patch_unit",
-        "status": (
-            "structured_transition_patch_unit_pass"
-            if not blockers
-            else "structured_transition_patch_unit_fail"
-        ),
+        "status": status,
         "mesh_path": str(output_path),
         "report_path": str(output_path.with_suffix(".report.json")),
         "node_count": len(volume["nodes"]),
@@ -1958,9 +1971,15 @@ def write_phase3_structured_transition_patch_unit_su2(
         "element_quality": quality,
         "element_quality_gate": quality_gate,
         "dual_subvolume_proxy": dual_subvolume_proxy,
-        "structured_transition": volume["structured_transition"],
+        "structured_transition": {
+            **volume["structured_transition"],
+            "sidewall_quad_status": (
+                "pending" if sidewall_quad_count > 0 else "pass"
+            ),
+            "core_interface_sidewall_quad_count": sidewall_quad_count,
+        },
         "gate": {
-            "status": "pass" if not blockers else "fail",
+            "status": "pass" if not blockers else "blocked",
             "blockers": sorted(set(blockers)),
         },
         "engineering_assessment": {
