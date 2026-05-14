@@ -224,6 +224,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   因此 active blocker 已從 marker ownership 推進到 BL/core transition sizing /
   mixed-mesh dual-volume quality；在這個 mesh-quality blocker 修好前，不能推
   medium/fine ladder，也不能把有限 CL/CD/Cm 當 low-confidence CFD。
+- WO-006R29 是 R28 後的 mesh-source diagnostic：
+  `scripts/probe_wo006r29_dual_quality_source_localization.py` 重建 R25/R27 mixed
+  mesh provenance，掃描 internal shared-face adjacent tet volume jump。實跑 artifact
+  在 `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r29_dual_quality_source_localization_probe/`：
+  `1,432` 個 internal faces 有 volume ratio `>=1000`，最大 ratio `29263.77`，
+  最差 source pair 是 `culled_global_star_near_wall|culled_global_star_near_wall`。
+  這低於 `1e6` blocker threshold，無法解釋 R28 SU2 log 的 max CV sub-volume ratio
+  `2.07841e11`。工程判讀是 R29 排除了「單純 primal adjacent tet volume jump」
+  這條解釋路線；下一步要定位 SU2 dual/control-volume metric 本身，而不是把 R29
+  當 mesh repair 或 CFD evidence。
 - WO-006I grid-convergence gate 也會拒絕短尾段 force stability：CL/CD/Cm stability
   summary 必須至少覆蓋 `100` 個 iterations，CL/CD relative spread 需在 `1%` 內、Cm
   absolute spread 需在 `0.005` 內；舊 summary 若只用 25-row tail 宣稱 pass，會被

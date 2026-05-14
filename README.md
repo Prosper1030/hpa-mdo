@@ -225,6 +225,27 @@ active blocker 是 BL/core transition sizing / mixed-mesh dual-volume quality；
 mesh 推 medium/fine ladder，也不能把有限 CL/CD/Cm 當低信心 CFD。下一步要把 SU2 dual
 quality 極值 localization 回 near-wall/global-star、loop-cap owner pyramid 或 core tetra source。
 
+## 2026-05-14 WO-006R29 Dual Quality Source Localization Probe
+
+`scripts/probe_wo006r29_dual_quality_source_localization.py` 是接在 R28 後面的
+mesh-source diagnostic，不跑 SU2、也不產生 CFD 係數。它重建 R25/R27 mixed mesh
+provenance，掃描所有 internal shared faces 的相鄰 tet volume jump，想確認 R28 的
+SU2 dual-control-volume pathology 是否能被單純的 primal source-pair size jump 解釋。
+測試在 `tests/test_wo006r29_dual_quality_source_localization_probe.py`。
+
+實跑 artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r29_dual_quality_source_localization_probe/`。
+結果是 negative but useful：nodes / volume elements 仍是 `56,873` / `332,221`；
+記錄到 `1,432` 個 volume ratio `>=1000` 的 internal faces，但最大 ratio 只有
+`29263.77`，低於這個 probe 設的 `1e6` blocker threshold。最差 source pair 是
+`culled_global_star_near_wall|culled_global_star_near_wall`；`core_tet_mesh|culled_global_star_near_wall`
+最高約 `14309.05`。這無法解釋 R28 SU2 log 裡的 max CV sub-volume ratio `2.07841e11`。
+
+工程判讀：R29 排除了「單純 shared-face adjacent tet volume jump >1e6」這條解釋路線。
+R28 的 dual-quality blocker 仍然存在；下一步要定位 SU2 dual/control-volume metric
+本身的幾何來源，或重建/解析 SU2 對 vertex dual volumes 的品質計算，不能只靠 primal
+tet volume ratio 繼續猜。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：

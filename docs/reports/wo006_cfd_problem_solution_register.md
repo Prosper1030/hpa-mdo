@@ -10,6 +10,7 @@ evidence; it is a handoff/debug map for the next worker.
   `load_campaign_geometry`, with full span `34.332286 m` / half span
   `17.166143 m`; mass authority remains `98.5 kg`.
 - Latest solver-facing probe: WO-006R28.
+- Latest mesh-source diagnostic: WO-006R29.
 - Current CFD status: `mesh_ladder_incomplete`.
 - Current active blockers after R28 route smoke:
   - `su2_dual_orthogonality_angle_extreme`
@@ -21,7 +22,9 @@ evidence; it is a handoff/debug map for the next worker.
   mesh is not CFD usable yet.  SU2 can read the mesh/markers, but solver-side
   dual-control-volume quality is pathological; medium/fine ladder runs are
   blocked until the BL/core transition sizing and dual-volume quality are
-  repaired.
+  repaired.  R29 did not find a primal adjacent-tet volume jump large enough to
+  explain the SU2 dual-volume metric, so the next diagnostic must localize the
+  SU2 dual/control-volume quality calculation itself.
 
 ## Problems And Repairs
 
@@ -36,6 +39,7 @@ evidence; it is a handoff/debug map for the next worker.
 | R26 repair plan not applied yet | WO-006I preflight saw `near_wall_mixed_su2_boundary_marker_repair_not_applied` | R26 only created a repair plan; R25 writer still emitted the old marker set | R27 applies only R26 records with `recommended_marker=wing_wall` and rewrites the mixed SU2 handoff | Done: R27 marker audit pass |
 | old blocked artifacts overriding newer pass artifacts | WO-006I saw R27 pass artifact but still reported R26/R25 blocker | artifact aggregation overwrote a newer pass with older blocked records | make mixed handoff readiness cumulative and preserve the first/ready handoff record | Done in WO-006I gate tests |
 | solver-side dual-volume quality is pathological | R28 FDS/MUSCL route-smoke diverged at iteration `5`; SU2 log reports min orthogonality angle `0.00108069 deg`, max CV face-area aspect ratio `5.15199e8`, and max CV sub-volume ratio `2.07841e11` | R27 only checked positive primal tetra volume / marker ownership; it did not control the BL/core transition cell-size jump or SU2 dual-control-volume quality | R28 now parses SU2 mesh-quality lines from `solver.log` and blocks ladder promotion when dual metrics are extreme | Localize and repair the BL/core transition sizing / mixed-mesh quality before any medium/fine ladder |
+| primal source-pair volume jump is not enough to explain R28 | R29 rebuilt the R25/R27 source-provenance mixed mesh and found `1,432` internal faces with adjacent tet volume ratio `>=1000`, but the maximum ratio was only `29263.77`; worst source pair was `culled_global_star_near_wall|culled_global_star_near_wall` | The SU2 max CV sub-volume ratio `2.07841e11` is not reproduced by this simple shared-face primal volume-jump proxy | R29 records the negative result in `summary.json`, `internal_face_volume_jump_records.csv`, and `dual_quality_source_localization_report.md` | Localize SU2 dual/control-volume metric geometry directly; do not keep treating primal volume ratio alone as the repair target |
 | conservative numerics can run but do not make the mesh credible | R28 JST, `MUSCL_FLOW=NO`, `CFL=0.02` completed `180` iterations but ended at `CL=0.6908`, `CD=0.3916`, `Cm=-0.1424`; last-100 force and residual stability both failed | Lower-order numerics can avoid immediate divergence, but high drag and unstable forces persist on the same pathological dual mesh | Use conservative numerics only as diagnostic evidence; do not treat finite coefficients as route success | Fix mesh quality first; then rerun wall-resolved route-smoke and require `CD <= 0.15` plus 100-iteration force stability |
 
 ## R27 Current Evidence
@@ -87,10 +91,35 @@ evidence; it is a handoff/debug map for the next worker.
   - engineering read: conservative numerics can keep the route alive, but the
     same solver-side mesh-quality blocker and implausible CD remain.
 
+## R29 Current Evidence
+
+- Script: `scripts/probe_wo006r29_dual_quality_source_localization.py`
+- Tests: `tests/test_wo006r29_dual_quality_source_localization_probe.py`
+- Artifact:
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r29_dual_quality_source_localization_probe/`
+- Diagnostic scope: source-aware internal shared-face adjacent tet volume
+  ratios on the R25/R27 mixed mesh; no SU2 solve, no y+ postprocessing, no CFD
+  coefficient evidence.
+- Nodes / volume elements: `56,873` / `332,221`
+- Source counts:
+  - `culled_global_star_near_wall=322,432`
+  - `core_tet_mesh=9,669`
+  - `loop_cap_owner_pyramid_tet_split=120`
+- Internal faces recorded with volume ratio `>=1000`: `1,432`
+- Maximum internal-face volume ratio: `29263.77`
+- Worst source pair: `culled_global_star_near_wall|culled_global_star_near_wall`
+- Highest `core_tet_mesh|culled_global_star_near_wall` ratio: `14309.05`
+- Engineering read: this is a useful negative result.  It does not clear the
+  R28 SU2 dual-quality blocker; it only says the blocker is not explained by a
+  simple primal shared-face adjacent tet volume ratio above `1e6`.
+
 ## Known Unknowns
 
 - Exact geometric location/source of the SU2 dual-control-volume quality
-  extrema.
+  extrema; R29 did not find it with a primal adjacent-tet volume-jump proxy.
+- Whether SU2's vertex-centered dual-volume construction is being degraded by
+  sliver geometry, face orientation/area imbalance, boundary closure, or another
+  quantity not captured by adjacent primal tet volume ratio.
 - Whether repairing BL/core transition sizing is sufficient, or whether the
   loop-cap / wake closure topology must also be reshaped.
 - Whether the R27 marker repair scales cleanly to larger coarse/medium/fine
@@ -100,9 +129,9 @@ evidence; it is a handoff/debug map for the next worker.
 
 ## Next Repair / Run Order
 
-1. Localize the R28 SU2 dual-control-volume quality extrema back to R27 mixed
-   mesh sources: near-wall global-star cells, loop-cap owner pyramids, or core
-   tetra cells.
+1. Localize the R28 SU2 dual-control-volume quality extrema using a metric that
+   matches SU2's dual/control-volume quality calculation, not only primal
+   adjacent tet volume ratio.
 2. Repair the BL/core transition sizing / mixed-mesh quality so SU2 dual metrics
    are no longer pathological.
 3. Rerun R28 route-smoke with the wall-resolved config and require marker audit
