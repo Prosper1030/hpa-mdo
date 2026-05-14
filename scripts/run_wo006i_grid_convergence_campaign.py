@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r16_axis_agnostic_prism_split_probe" / "summary.json",
     WO006_ROOT / "wo006r15_prism_split_handoff_compatibility_probe" / "summary.json",
     WO006_ROOT / "wo006r14_mixed_handoff_conformality_probe" / "summary.json",
     WO006_ROOT / "wo006r13_loop_cap_geometric_seam_repair_probe" / "summary.json",
@@ -1205,6 +1206,31 @@ def _core_closure_topology_summary(
     for artifact in artifacts:
         prism_split_compatibility = artifact.get("prism_split_compatibility") or {}
         if prism_split_compatibility:
+            if prism_split_artifact_seen:
+                records.append(
+                    {
+                        "path": artifact.get("path"),
+                        "schema_version": artifact.get("schema_version"),
+                        "verdict": artifact.get("verdict"),
+                        "closure_status": (
+                            artifact.get("merged_handoff_status")
+                            or prism_split_compatibility.get("status")
+                        ),
+                        "status": "superseded_by_newer_prism_split_probe",
+                        "matched_core_triangle_count": prism_split_compatibility.get(
+                            "matched_core_triangle_count"
+                        ),
+                        "core_triangle_count": prism_split_compatibility.get(
+                            "core_triangle_count"
+                        ),
+                        "unmatched_core_triangles_by_marker": (
+                            prism_split_compatibility.get(
+                                "unmatched_core_triangles_by_marker"
+                            )
+                        ),
+                    }
+                )
+                continue
             prism_split_artifact_seen = True
             merged_handoff_status = str(
                 artifact.get("merged_handoff_status")

@@ -161,10 +161,14 @@ Current release package:
   polygons match, but only `1808/5658` active core triangles are conformal, and
   `60` `core_wall_loop_cap` polygons have no near-wall owner. WO-006R15 now
   checks the cheap repair hypothesis of splitting each near-wall hexa into two
-  prisms and choosing the best diagonal per cell; it still only matches
-  `3166/5658` core triangles, leaving `bl_outer_interface=2048` unmatched.
-  WO-006I preflight treats the old direct-stageback PLC failure and R14 generic
-  mismatch as superseded diagnostic evidence and advances to
+  prisms and choosing the best diagonal per cell; it only matches `3166/5658`
+  core triangles, leaving `bl_outer_interface=2048` unmatched. WO-006R16 expands
+  that to all three split axes and reaches `5274/5658`, clearing
+  `bl_outer_interface=2048` but still leaving `wake_edge_receiver=192`,
+  `core_outer_edge_receiver=128`, `core_wall_loop_cap=60`, and
+  `core_wake_outer_match=4`. WO-006I preflight treats the old direct-stageback
+  PLC failure, R14 generic mismatch, and R15 single-axis prism split as
+  superseded diagnostic evidence and advances to
   `setup_near_wall_prism_split_handoff_not_compatible`; next repair should make
   the near-wall and core share the same interface tessellation before y+ probe
   or any solver ladder.

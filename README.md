@@ -20,6 +20,22 @@ mesh 約 `25,168` cells / `15,190` nodes，其中 BL quads `4,833`。SU2 在
 0.5 的工具鏈錯誤；Baseline A 目前的大 CD 更像幾何/BL prism/pressure setup 或 3D handoff
 問題。下一步仍要先修 Baseline A BL/core handoff quality，再回 coarse/medium/fine ladder。
 
+## 2026-05-14 WO-006R16 Axis-Agnostic Prism-Split Probe
+
+`scripts/probe_wo006r16_axis_agnostic_prism_split.py` 擴大 R15 假設：每個 near-wall hexa
+不只試單一 split 軸，而是三個 opposite-face split 軸與兩個對角線都試，逐 cell 選能 match
+最多 core-interface triangles 的兩-prism representation。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r16_axis_agnostic_prism_split_probe/`。
+
+實跑結果：R16 把 R15 的 `3166/5658` 提高到 `5274/5658`，而且
+`bl_outer_interface=2048` 已可全數 match。剩餘 unmatched 是 `wake_edge_receiver=192`、
+`core_outer_edge_receiver=128`、`core_wall_loop_cap=60`、`core_wake_outer_match=4`。WO-006I
+preflight 會優先讀 R16，R15/R14 只當 superseded diagnostic。
+
+工程判讀：axis-agnostic prismization 是有用方向，但仍不能形成 conformal BL/core handoff。
+剩下的是 wake/outer-edge/loop-cap ownership/tessellation 問題；下一步仍必須 shared interface
+tessellation 或 boundary-driven near-wall remesh，之後才有 y+ probe 和 SU2 ladder 意義。
+
 ## 2026-05-14 WO-006R15 Prism-Split Handoff Compatibility Probe
 
 `scripts/probe_wo006r15_prism_split_handoff_compatibility.py` 把 R14 的 handoff
@@ -31,8 +47,8 @@ triangle mismatch 往下拆一層：檢查「把每個 near-wall hexa cell 切�
 其中 `2,638` 個 touch core-facing boundary；最佳 per-cell prism split 只 match
 `3166 / 5658` 個 R13 core interface triangles。unmatched markers 仍包含
 `bl_outer_interface=2048`、`wake_edge_receiver=192`、`core_outer_edge_receiver=128`、
-`core_wake_outer_match=64`、`core_wall_loop_cap=60`。WO-006I preflight 現在會優先讀 R15，
-active blocker 是 `near_wall_prism_split_handoff_not_compatible`。
+`core_wake_outer_match=64`、`core_wall_loop_cap=60`。R16 已把這條擴展成三軸 split search，
+因此 R15 現在是 superseded diagnostic，不是最新 active gate。
 
 工程判讀：這不是 solver iteration 問題，也不是只換 hexa/prism diagonal 就能修。下一步必須讓
 near-wall 與 core 共用同一個 interface tessellation，或用 boundary-driven near-wall remesh
@@ -523,9 +539,10 @@ SICN/SIGE/volume 都是 `0`。但 mesh quality 仍有 `very_low_min_gamma`、`ve
 工程判讀：R13 把 core/farfield mesh probe 推過了，但仍不是 CFD。R14 handoff audit 進一步
 確認 R13 core surface 與 near-wall volume 多數 polygon 對得上（`2800/2860`），但 active
 triangulated core boundary 只有 `1808/5658` triangles conformal，且 `core_wall_loop_cap`
-有 `60` 張 polygon 沒有 near-wall owner。R15 再證明逐 cell 兩-prism split 也只能 match
-`3166/5658` core triangles，`bl_outer_interface` 仍有 `2048` triangles unmatched。因此
-WO-006I preflight 現在把 active blocker 定位成
+有 `60` 張 polygon 沒有 near-wall owner。R15 先證明單軸逐 cell 兩-prism split 只能 match
+`3166/5658` core triangles；R16 再把三軸 split 都納入後提升到 `5274/5658`，但
+`wake_edge_receiver=192`、`core_outer_edge_receiver=128`、`core_wall_loop_cap=60` 仍 unmatched。
+因此 WO-006I preflight 現在把 active blocker 定位成
 `near_wall_prism_split_handoff_not_compatible`；舊 direct-stageback PLC failure 只保留為
 superseded diagnostic。下一步是讓 near-wall 與 core 共用同一個 interface tessellation，
 再做 y+ probe 和 solver ladder。

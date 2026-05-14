@@ -782,6 +782,71 @@ def test_setup_gate_r15_prism_split_blocker_supersedes_r14_conformality() -> Non
     )
 
 
+def test_setup_gate_r16_axis_agnostic_prism_split_supersedes_r15() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r16_axis_agnostic_prism_split_probe.v1",
+                "verdict": "axis_agnostic_prism_split_handoff_blocked",
+                "merged_handoff_status": "blocked_by_incompatible_axis_agnostic_prism_split",
+                "prism_split_compatibility": {
+                    "status": "blocked_by_incompatible_axis_agnostic_prism_split",
+                    "matched_core_triangle_count": 5274,
+                    "core_triangle_count": 5658,
+                    "unmatched_core_triangles_by_marker": {
+                        "wake_edge_receiver": 192,
+                    },
+                    "best_pattern_counts": {"x_1": 992, "z_0": 793},
+                },
+            },
+            {
+                "schema_version": "wo006r15_prism_split_handoff_compatibility_probe.v1",
+                "verdict": "prism_split_handoff_compatibility_blocked",
+                "merged_handoff_status": "blocked_by_incompatible_prism_split",
+                "prism_split_compatibility": {
+                    "status": "blocked_by_incompatible_prism_split",
+                    "matched_core_triangle_count": 3166,
+                    "core_triangle_count": 5658,
+                    "unmatched_core_triangles_by_marker": {
+                        "bl_outer_interface": 2048,
+                    },
+                    "best_pattern_counts": {"pattern_0": 1847, "pattern_1": 791},
+                },
+            },
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert "near_wall_prism_split_handoff_not_compatible" in result["blockers"]
+    assert result["core_closure_topology"]["status"] == "handoff_prism_split_blocked"
+    prism = result["core_closure_topology"]["prism_split_compatibility"]
+    assert prism["schema_version"] == "wo006r16_axis_agnostic_prism_split_probe.v1"
+    assert prism["matched_core_triangle_count"] == 5274
+    assert prism["core_triangle_count"] == 5658
+    superseded_records = [
+        record
+        for record in result["core_closure_topology"]["artifacts"]
+        if record.get("schema_version")
+        == "wo006r15_prism_split_handoff_compatibility_probe.v1"
+    ]
+    assert superseded_records[0]["status"] == "superseded_by_newer_prism_split_probe"
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

@@ -124,14 +124,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   Verdict 是 `GOAL_STATUS=INCOMPLETE`、`CFD_STATUS=mesh_ladder_incomplete`，且
   `baseline_a_wall_resolved_bl_preflight_gate_v1` 在 solver 前 blocked：目前 no-BL
   setup 缺 conformal BL/core handoff、postprocessed near-wall y+ 與 CFD-grade setup
-  gate。這個 gate 現在會優先讀 WO-006R15 prism-split compatibility artifact：R13 已把
+  gate。這個 gate 現在會優先讀 WO-006R16 axis-agnostic prism-split artifact：R13 已把
   core mesh probe 推到 quality/marker pass，舊 direct-stageback PLC failure 也只保留為
   superseded diagnostic，不再當 active blocker。R14 顯示 R13 core surface 與
   near-wall volume 雖有 `2800/2860` polygons 對上，active triangulated interface 只有
-  `1808/5658` triangles conformal；R15 進一步證明逐 cell 兩-prism split 也只能 match
-  `3166/5658` core triangles，且 `bl_outer_interface=2048` 全部仍 unmatched。因此前置
-  blocker 目前是 `near_wall_prism_split_handoff_not_compatible`，不是 R10 wall-edge
-  dependency、R12 geometric self-intersection，或舊 direct-stageback route。
+  `1808/5658` triangles conformal；R15 單軸 prism split 只能 match `3166/5658`，
+  R16 三軸 split search 可提升到 `5274/5658` 並清掉 `bl_outer_interface=2048`，但
+  `wake_edge_receiver=192`、`core_outer_edge_receiver=128`、`core_wall_loop_cap=60` 仍
+  unmatched。因此前置 blocker 目前是 `near_wall_prism_split_handoff_not_compatible`，
+  不是 R10 wall-edge dependency、R12 geometric self-intersection，或舊 direct-stageback
+  route。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
