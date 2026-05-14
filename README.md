@@ -1,5 +1,22 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
+
+WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔
+CST transition interval 插入線性 intermediate stations（外形仍是同一個 ruled surface，
+`external_shape_changed=false`），檢查 local receiver/sleeve 方向能不能讓 Gmsh BL quality
+過 gate。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r_local_transition_sleeve_bl_quality_probe/`。
+
+實跑 `transition_subdivisions=4/8/16`：
+`subdiv4` 仍有 `6` 個 non-positive BL SICN；`subdiv8` 和 `subdiv16` 已把
+non-positive BL SICN 清成 `0`，但 `BL p01 minSICN` 仍只有約 `7.02e-05` / `6.74e-05`，
+沒有接近目前 CFD gate 的 `0.005`。三個 cases 都不是 BL quality gate pass candidate。
+
+工程判讀：local transition sleeve 是正確方向的一部分，因為它消掉了 non-positive cells；
+但單靠線性插站不夠。下一步需要真正的 near-wall receiver surface / local airfoil-transition
+smoothing 或等效 topology repair，讓 p01 SICN 提升兩個數量級以上，再談 SU2 route smoke。
+
 ## 2026-05-14 WO-006Q Transition Normal-Jump Probe
 
 WO-006Q 新增 `scripts/probe_wo006q_transition_normal_jump.py`，用 current Baseline A

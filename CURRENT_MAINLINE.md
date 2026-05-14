@@ -127,6 +127,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   與 `0.0543` normalized aft shape delta，超過 `20 deg` / `0.03` blocker threshold。
   這和 WO-006K BL hotspot 位置一致；下一步應做 receiver/sleeve 或 local
   airfoil-transition smoothing 的 near-wall topology repair，再重新嘗試 BL quality gate。
+- WO-006R 已測 local transition sleeve BL quality：`scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`
+  只在 DAE31 ↔ CST transition interval 插入線性 intermediate stations，不改 authority
+  wall surface（`external_shape_changed=false`）。artifact 在
+  `wo006r_local_transition_sleeve_bl_quality_probe/`。`transition_subdivisions=4` 仍有
+  `6` 個 non-positive BL SICN；`8` 與 `16` 已把 non-positive BL SICN 清成 `0`，
+  但 `BL p01 minSICN` 仍只有約 `7.02e-05` / `6.74e-05`，未接近 `0.005` CFD gate。
+  判讀：local sleeve 消掉最壞 inversion，是必要進展，但單靠線性插站不足；下一步要做
+  near-wall receiver surface / local airfoil-transition smoothing，目標是把 p01 SICN 提升
+  兩個數量級以上後才可重啟 SU2 route smoke。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default
