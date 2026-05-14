@@ -168,8 +168,10 @@ overlapping facets。因此下一步不能只調 thickness，必須重設 collar
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
 仍約 `3589`；pps42/l16 root aspect 可降到約 `966`，但 cap/TE/tip 附近出現
-`245` 個 non-positive prisms。工程判讀：closed wrapper 說明「core 不要貼到薄 BL
-內層」是對的，但 raw full-cap extrusion 仍不可直接當 route-smoke mesh。
+`245` 個 non-positive prisms。新增的 marker/layer localization 顯示這些翻轉集中在
+`wing_upper=124`、`te_wall=121`，主要是 layers `10-15` 的 aft/TE 區域。工程判讀：
+closed wrapper 說明「core 不要貼到薄 BL 內層」是對的，但 raw full-cap extrusion
+仍不可直接當 route-smoke mesh。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

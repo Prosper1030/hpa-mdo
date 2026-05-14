@@ -389,6 +389,13 @@ def test_closed_wall_wrapper_pps42_l16_fixes_root_aspect_but_inverts_cap_prisms(
 
     assert quality["root_symmetry_quad_aspect"]["max"] < 1000.0
     assert quality["prism_signed_volume"]["non_positive_count"] > 0
+    assert quality["prism_signed_volume_by_marker"]["wing_upper"]["non_positive_count"] == 124
+    assert quality["prism_signed_volume_by_marker"]["te_wall"]["non_positive_count"] == 121
+    assert quality["non_positive_prism_by_layer"]["10"] == 30
+    assert quality["non_positive_prism_hotspots"][0]["marker"] in {
+        "wing_upper",
+        "te_wall",
+    }
 
 
 def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(

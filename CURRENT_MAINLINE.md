@@ -158,8 +158,10 @@ screening evidence 讀，不是現行 release / procurement truth。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
-  non-positive prisms。這條路證明足夠 BL outer thickness 能改善 dual proxy，但
-  raw full-cap extrusion 仍會在高解析/深層 BL 下自交，不能直接當 active mesh。
+  non-positive prisms。新增 marker/layer localization 顯示翻轉集中在
+  `wing_upper=124`、`te_wall=121`，主要發生於 layers `10-15` 的 aft/TE 區域。
+  這條路證明足夠 BL outer thickness 能改善 dual proxy，但 raw full-cap extrusion
+  仍會在高解析/深層 BL 下自交，不能直接當 active mesh。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality

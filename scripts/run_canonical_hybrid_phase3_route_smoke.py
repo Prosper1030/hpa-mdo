@@ -2971,6 +2971,7 @@ def _direct_surface_prism_volume(
         return layer * base_count + int(base_node)
 
     elements: list[tuple[int, tuple[int, ...]]] = []
+    element_metadata: list[dict[str, Any]] = []
     face_records: dict[tuple[int, ...], dict[str, Any]] = {}
 
     def add_face(face_nodes: tuple[int, ...], element_type: int, marker: str) -> None:
@@ -2998,6 +2999,13 @@ def _direct_surface_prism_volume(
                 node(layer, c),
             )
             elements.append((SU2_PRISM, prism))
+            element_metadata.append(
+                {
+                    "marker": str(marker),
+                    "layer": int(layer),
+                    "base_triangle": [int(a), int(b), int(c)],
+                }
+            )
             add_face((prism[3], prism[4], prism[5]), SU2_TRIANGLE, marker)
             add_face(
                 (prism[0], prism[2], prism[1]),
@@ -3048,6 +3056,7 @@ def _direct_surface_prism_volume(
     return {
         "nodes": nodes,
         "elements": elements,
+        "element_metadata": element_metadata,
         "marker_faces": marker_faces,
     }
 
@@ -3078,11 +3087,49 @@ def _cap_edge_marker_map(
 
 def _direct_prism_quality_metrics(volume: Mapping[str, Any]) -> dict[str, Any]:
     vertices = [tuple(vertex) for vertex in volume["nodes"]]
-    prism_signed_volumes = [
-        _su2_prism_signed_volume(vertices, nodes)
-        for element_type, nodes in volume["elements"]
-        if int(element_type) == SU2_PRISM
-    ]
+    prism_signed_volumes: list[float] = []
+    prism_by_marker: dict[str, list[float]] = {}
+    non_positive_by_layer: dict[str, int] = {}
+    non_positive_hotspots: list[dict[str, Any]] = []
+    element_metadata = list(volume.get("element_metadata") or [])
+    prism_index = 0
+    for element_index, (element_type, nodes) in enumerate(volume["elements"]):
+        if int(element_type) != SU2_PRISM:
+            continue
+        signed_volume = _su2_prism_signed_volume(vertices, nodes)
+        prism_signed_volumes.append(signed_volume)
+        metadata = (
+            _mapping(element_metadata[prism_index])
+            if prism_index < len(element_metadata)
+            else {}
+        )
+        marker = str(metadata.get("marker") or "unknown")
+        layer = int(metadata.get("layer") or 0)
+        prism_by_marker.setdefault(marker, []).append(signed_volume)
+        if signed_volume <= 0.0 or not math.isfinite(signed_volume):
+            layer_key = str(layer)
+            non_positive_by_layer[layer_key] = (
+                non_positive_by_layer.get(layer_key, 0) + 1
+            )
+            prism_nodes = tuple(int(node) for node in nodes)
+            points = [vertices[node] for node in prism_nodes]
+            centroid = _centroid_tuple(points)
+            non_positive_hotspots.append(
+                {
+                    "element_index": int(element_index),
+                    "prism_index": int(prism_index),
+                    "marker": marker,
+                    "layer": int(layer),
+                    "signed_volume": float(signed_volume),
+                    "centroid": _point_payload(centroid),
+                    "base_triangle": [
+                        int(node)
+                        for node in (metadata.get("base_triangle") or [])
+                    ],
+                    "nodes": [int(node) for node in prism_nodes],
+                }
+            )
+        prism_index += 1
     quad_aspect_by_marker: dict[str, dict[str, Any]] = {}
     worst_root_quad: dict[str, Any] | None = None
     for marker, faces in _mapping(volume.get("marker_faces")).items():
@@ -3136,9 +3183,30 @@ def _direct_prism_quality_metrics(volume: Mapping[str, Any]) -> dict[str, Any]:
                 1 for value in finite_prism_volumes if value <= 0.0
             ),
         },
+        "prism_signed_volume_by_marker": {
+            marker: _signed_volume_bucket(values)
+            for marker, values in sorted(prism_by_marker.items())
+        },
+        "non_positive_prism_by_layer": dict(
+            sorted(non_positive_by_layer.items(), key=lambda item: int(item[0]))
+        ),
+        "non_positive_prism_hotspots": sorted(
+            non_positive_hotspots,
+            key=lambda record: float(record["signed_volume"]),
+        )[:20],
         "marker_quad_aspect": quad_aspect_by_marker,
         "root_symmetry_quad_aspect": root_aspect,
         "worst_root_symmetry_quad": worst_root_quad,
+    }
+
+
+def _signed_volume_bucket(values: Sequence[float]) -> dict[str, Any]:
+    finite_values = [value for value in values if math.isfinite(value)]
+    return {
+        "count": len(values),
+        "min": min(finite_values) if finite_values else None,
+        "max": max(finite_values) if finite_values else None,
+        "non_positive_count": sum(1 for value in finite_values if value <= 0.0),
     }
 
 
