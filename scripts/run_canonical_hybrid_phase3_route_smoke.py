@@ -34,6 +34,7 @@ from hpa_meshing.mesh_native.near_wall_block import (  # noqa: E402
     build_wing_boundary_layer_block,
 )
 from hpa_meshing.mesh_native.su2_structured import (  # noqa: E402
+    SU2_QUAD,
     SU2_PRISM,
     SU2_TETRAHEDRON,
     audit_su2_boundary_face_ownership,
@@ -1011,17 +1012,26 @@ def write_phase3_partial_wing_prism_handoff_su2(
         points_per_side=points_per_side,
         spanwise_subdivisions=spanwise_subdivisions,
     )
+    wall_triangles = _triangulated_wall_triangles(surface)
     prism_triangles = [
         (triangle, marker)
-        for triangle, marker in _triangulated_wall_triangles(surface)
+        for triangle, marker in wall_triangles
         if marker in prism_wall_markers
     ]
+    cap_edge_marker_map = _cap_edge_marker_map(
+        [
+            (triangle, marker)
+            for triangle, marker in wall_triangles
+            if marker in required_cap_markers
+        ]
+    )
     volume = _direct_surface_prism_volume(
         surface.vertices,
         prism_triangles,
         first_layer_height_m=first_layer_height_m,
         growth_ratio=growth_ratio,
         bl_layers=bl_layers,
+        edge_marker_map=cap_edge_marker_map,
     )
     output_path = Path(out_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1069,7 +1079,7 @@ def write_phase3_partial_wing_prism_handoff_su2(
             "element_type_counts": outer_interface.get("element_type_counts", {}),
         },
         "cap_closure_topology": {
-            "status": "blocked_caps_missing",
+            "status": "blocked_cap_faces_missing",
             "required_cap_markers": required_cap_markers,
             "source_surface_face_counts": cap_counts,
             "required_policy": (
@@ -1343,6 +1353,7 @@ def _direct_surface_prism_volume(
     first_layer_height_m: float,
     growth_ratio: float,
     bl_layers: int,
+    edge_marker_map: Mapping[tuple[int, int], str] | None = None,
 ) -> dict[str, Any]:
     heights = [0.0, *_layer_cumulative_heights(first_layer_height_m, growth_ratio, bl_layers)]
     normals = _surface_vertex_normals(base_vertices, [triangle for triangle, _ in triangles])
@@ -1396,18 +1407,33 @@ def _direct_surface_prism_volume(
             )
             add_face(
                 (prism[0], prism[3], prism[4], prism[1]),
-                9,
-                _direct_prism_side_marker(base_vertices, (a, b), marker),
+                SU2_QUAD,
+                _direct_prism_side_marker(
+                    base_vertices,
+                    (a, b),
+                    marker,
+                    edge_marker_map=edge_marker_map,
+                ),
             )
             add_face(
                 (prism[1], prism[4], prism[5], prism[2]),
-                9,
-                _direct_prism_side_marker(base_vertices, (b, c), marker),
+                SU2_QUAD,
+                _direct_prism_side_marker(
+                    base_vertices,
+                    (b, c),
+                    marker,
+                    edge_marker_map=edge_marker_map,
+                ),
             )
             add_face(
                 (prism[2], prism[5], prism[3], prism[0]),
-                9,
-                _direct_prism_side_marker(base_vertices, (c, a), marker),
+                SU2_QUAD,
+                _direct_prism_side_marker(
+                    base_vertices,
+                    (c, a),
+                    marker,
+                    edge_marker_map=edge_marker_map,
+                ),
             )
 
     marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
@@ -1425,6 +1451,30 @@ def _direct_surface_prism_volume(
         "elements": elements,
         "marker_faces": marker_faces,
     }
+
+
+def _cap_edge_marker_map(
+    cap_triangles: Sequence[tuple[tuple[int, int, int], str]],
+) -> dict[tuple[int, int], str]:
+    precedence = {
+        "tip_wall": 0,
+        "te_wall": 1,
+        "closure_wall": 2,
+    }
+    edge_markers: dict[tuple[int, int], str] = {}
+    for triangle, marker in cap_triangles:
+        for edge in (
+            (triangle[0], triangle[1]),
+            (triangle[1], triangle[2]),
+            (triangle[2], triangle[0]),
+        ):
+            key = tuple(sorted((int(edge[0]), int(edge[1]))))
+            existing = edge_markers.get(key)
+            if existing is None or precedence.get(marker, 99) < precedence.get(
+                existing, 99
+            ):
+                edge_markers[key] = marker
+    return edge_markers
 
 
 def _direct_prism_quality_metrics(volume: Mapping[str, Any]) -> dict[str, Any]:
@@ -1621,9 +1671,14 @@ def _direct_prism_side_marker(
     vertices: Sequence[tuple[float, float, float]],
     edge: tuple[int, int],
     source_marker: str,
+    *,
+    edge_marker_map: Mapping[tuple[int, int], str] | None = None,
 ) -> str:
     if all(abs(vertices[node][1]) <= 1.0e-9 for node in edge):
         return "root_symmetry"
+    key = tuple(sorted((int(edge[0]), int(edge[1]))))
+    if edge_marker_map and key in edge_marker_map:
+        return edge_marker_map[key]
     return source_marker
 
 

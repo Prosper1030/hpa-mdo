@@ -363,13 +363,19 @@ def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
     assert report["direct_prism_quality_gate"]["status"] == "pass"
     assert report["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] == 0
     assert report["direct_prism_quality"]["root_symmetry_quad_aspect"]["max"] < 1000.0
-    assert report["cap_closure_topology"]["status"] == "blocked_caps_missing"
     assert report["cap_closure_topology"]["required_cap_markers"] == [
         "tip_wall",
         "te_wall",
         "closure_wall",
     ]
+    assert report["cap_closure_topology"]["status"] == "blocked_cap_faces_missing"
     assert report["core_tetra_interface"]["status"] == "blocked_until_caps_materialized"
-    assert "tip_wall" not in report["marker_summary"]
-    assert "te_wall" not in report["marker_summary"]
-    assert "closure_wall" not in report["marker_summary"]
+    assert report["marker_summary"]["tip_wall"]["element_type_counts"] == {
+        str(module.SU2_QUAD): 1944,
+    }
+    assert report["marker_summary"]["te_wall"]["element_type_counts"] == {
+        str(module.SU2_QUAD): 1344,
+    }
+    assert report["marker_summary"]["closure_wall"]["element_type_counts"] == {
+        str(module.SU2_QUAD): 192,
+    }

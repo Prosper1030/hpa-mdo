@@ -81,9 +81,12 @@ partial-BL/cap policy，不應把這個 topology/orientation success 當 viscous
 volume 全正，root-symmetry sidewall max aspect ratio `966.04`，`direct_prism_quality_gate`
 可通過。Artifact 在
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_prism_caps_pending_pps42_l24/`。
-工程邊界：這仍不是完整 CFD mesh，因為 required caps 還沒 materialize：
+這個 handoff 也已把 partial-BL sidewall quads 分回 diagnostic markers：
+`tip_wall=1944` quads、`te_wall=1344` quads、`closure_wall=192` quads。工程邊界：
+這仍不是完整 CFD mesh，因為 original cap faces 還沒 materialize：
 `tip_wall=82`、`te_wall=28`、`closure_wall=4` source faces 必須先與 BL outer interface
-形成 conformal cap，才能交給 tetra core。
+形成 conformal cap，才能交給 tetra core；artifact status 仍是
+`blocked_cap_faces_missing`。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

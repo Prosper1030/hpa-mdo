@@ -86,9 +86,12 @@ screening evidence 讀，不是現行 release / procurement truth。
   growth `1.2` 產生 `124,416` 個 prism，signed volume 全正，root-symmetry
   sidewall max aspect ratio `966.04`，`direct_prism_quality_gate` pass。Artifact 在
   `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_prism_caps_pending_pps42_l24/`。
-  這不是完整 CFD mesh；它證明下一個 blocker 是 conformal cap materialization：
-  `tip_wall=82`、`te_wall=28`、`closure_wall=4` source faces 必須先與 BL outer
-  interface 封成乾淨 inner boundary，才可做 tetra-core merge。
+  partial-BL sidewall quads 也已分回 diagnostic markers：`tip_wall=1944` quads、
+  `te_wall=1344` quads、`closure_wall=192` quads。這不是完整 CFD mesh；它證明
+  下一個 blocker 是 original cap-face materialization：`tip_wall=82`、
+  `te_wall=28`、`closure_wall=4` source faces 必須先與 BL outer interface 封成
+  乾淨 inner boundary，才可做 tetra-core merge；artifact status 仍是
+  `blocked_cap_faces_missing`。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在
