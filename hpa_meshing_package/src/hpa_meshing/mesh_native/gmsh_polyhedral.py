@@ -258,6 +258,7 @@ def write_boundary_layer_block_core_tet_mesh(
     fluid_marker: str = "fluid_core",
     production_target_volume_elements: int = 1_000_000,
     preserve_boundary_mesh: bool = False,
+    preserved_boundary_representation: str = "native",
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 1,
 ) -> dict[str, Any]:
@@ -283,6 +284,12 @@ def write_boundary_layer_block_core_tet_mesh(
     resolved_mesh_algorithm3d = int(mesh_algorithm3d)
     if resolved_mesh_algorithm3d <= 0:
         raise ValueError("mesh_algorithm3d must be positive")
+    if preserved_boundary_representation not in {"native", "triangulated"}:
+        raise ValueError("preserved_boundary_representation must be 'native' or 'triangulated'")
+    if not preserve_boundary_mesh and preserved_boundary_representation != "native":
+        raise ValueError(
+            "preserved_boundary_representation requires preserve_boundary_mesh=True"
+        )
 
     inner_boundary = orient_surface_mesh_outward(
         build_boundary_layer_core_interface_surface(block)
@@ -299,6 +306,11 @@ def write_boundary_layer_block_core_tet_mesh(
                 gmsh,
                 inner_boundary,
                 first_tag=1_000_001,
+                triangulation_policy=(
+                    "fixed_diagonal"
+                    if preserved_boundary_representation == "triangulated"
+                    else None
+                ),
             )
             inner_point_offset = 0
         else:
@@ -437,14 +449,29 @@ def write_boundary_layer_block_core_tet_mesh(
                 inner_input_element_counts,
                 inner_generated_element_counts,
                 expected_boundary_representation=(
-                    "native" if preserve_boundary_mesh else "triangulated"
+                    preserved_boundary_representation
+                    if preserve_boundary_mesh
+                    else "triangulated"
                 ),
             ),
-            "bl_block_coupling": _bl_block_coupling_report(block, inner_boundary),
+            "bl_block_coupling": _bl_block_coupling_report(
+                block,
+                _triangulated_surface_mesh(inner_boundary)
+                if preserved_boundary_representation == "triangulated"
+                else inner_boundary,
+                block_boundary_faces=(
+                    _triangulated_faces(block.boundary_faces)
+                    if preserved_boundary_representation == "triangulated"
+                    else None
+                ),
+            ),
             "mesh_sizing": {
                 "inner_mesh_size": float(mesh_size),
                 "farfield_mesh_size": float(resolved_farfield_mesh_size),
                 "preserve_boundary_mesh": bool(preserve_boundary_mesh),
+                "preserved_boundary_representation": (
+                    preserved_boundary_representation if preserve_boundary_mesh else None
+                ),
             },
             "compute": thread_settings,
             "quality_metrics": quality_metrics,
@@ -1986,10 +2013,18 @@ def _add_discrete_marked_mesh_surfaces(
     mesh: SurfaceMesh,
     *,
     first_tag: int,
+    triangulation_policy: str | None = None,
 ) -> dict[str, list[int]]:
+    surface_records = _discrete_surface_records(
+        mesh.faces,
+        vertices=mesh.vertices,
+        triangulation_policy=triangulation_policy,
+    )
     point_tag_offset = int(first_tag)
     curve_tag_cursor = point_tag_offset + len(mesh.vertices) + 1
-    surface_tag_cursor = curve_tag_cursor + _unique_edge_count(mesh.faces) + 1
+    surface_tag_cursor = curve_tag_cursor + _unique_node_loop_edge_count(
+        [record["nodes"] for record in surface_records]
+    ) + 1
     node_tags = [point_tag_offset + index for index in range(len(mesh.vertices))]
     point_tags = list(node_tags)
 
@@ -2001,9 +2036,9 @@ def _add_discrete_marked_mesh_surfaces(
 
     curve_cache: dict[tuple[int, int], tuple[int, int, int]] = {}
     surfaces_by_marker: dict[str, list[int]] = {}
-    for face in mesh.faces:
+    for record in surface_records:
         signed_curves: list[int] = []
-        face_nodes = tuple(face.nodes)
+        face_nodes = tuple(int(node) for node in record["nodes"])
         for start, end in zip(face_nodes, [*face_nodes[1:], face_nodes[0]]):
             key = tuple(sorted((start, end)))
             if key not in curve_cache:
@@ -2029,14 +2064,14 @@ def _add_discrete_marked_mesh_surfaces(
         surface_tag = surface_tag_cursor
         surface_tag_cursor += 1
         gmsh.model.addDiscreteEntity(2, surface_tag, signed_curves)
-        if len(face_nodes) == 3:
+        if int(record["element_type"]) == 2:
             gmsh.model.mesh.addElementsByType(
                 surface_tag,
                 2,
                 [],
                 [node_tags[node] for node in face_nodes],
             )
-        elif len(face_nodes) == 4:
+        elif int(record["element_type"]) == 3:
             gmsh.model.mesh.addElementsByType(
                 surface_tag,
                 3,
@@ -2045,16 +2080,50 @@ def _add_discrete_marked_mesh_surfaces(
             )
         else:
             raise ValueError("Only triangle and quad faces can be discrete surfaces")
-        surfaces_by_marker.setdefault(face.marker, []).append(surface_tag)
+        surfaces_by_marker.setdefault(str(record["marker"]), []).append(surface_tag)
 
     gmsh.model.mesh.reclassifyNodes()
     return surfaces_by_marker
+
+
+def _discrete_surface_records(
+    faces: Sequence[Face],
+    *,
+    vertices: Sequence[tuple[float, float, float]],
+    triangulation_policy: str | None = None,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for face in faces:
+        if triangulation_policy is None:
+            if len(face.nodes) == 3:
+                records.append({"marker": face.marker, "nodes": face.nodes, "element_type": 2})
+            elif len(face.nodes) == 4:
+                records.append({"marker": face.marker, "nodes": face.nodes, "element_type": 3})
+            else:
+                raise ValueError("Only triangle and quad faces can be discrete surfaces")
+            continue
+        for triangle in _triangulate(
+            face,
+            vertices=vertices,
+            triangulation_policy=triangulation_policy,
+        ):
+            records.append({"marker": face.marker, "nodes": triangle, "element_type": 2})
+    return records
 
 
 def _unique_edge_count(faces: Sequence[Face]) -> int:
     edges: set[tuple[int, int]] = set()
     for face in faces:
         nodes = tuple(face.nodes)
+        for start, end in zip(nodes, [*nodes[1:], nodes[0]]):
+            edges.add(tuple(sorted((start, end))))
+    return len(edges)
+
+
+def _unique_node_loop_edge_count(faces: Sequence[Sequence[int]]) -> int:
+    edges: set[tuple[int, int]] = set()
+    for face in faces:
+        nodes = tuple(int(node) for node in face)
         for start, end in zip(nodes, [*nodes[1:], nodes[0]]):
             edges.add(tuple(sorted((start, end))))
     return len(edges)
@@ -2158,9 +2227,12 @@ def _surface_conformality_report(
 def _bl_block_coupling_report(
     block: WingBoundaryLayerBlock,
     core_interface: SurfaceMesh,
+    *,
+    block_boundary_faces: Sequence[Face] | None = None,
 ) -> dict[str, Any]:
     block_boundary: dict[tuple[int, ...], str] = {
-        tuple(sorted(face.nodes)): face.marker for face in block.boundary_faces
+        tuple(sorted(face.nodes)): face.marker
+        for face in (block.boundary_faces if block_boundary_faces is None else block_boundary_faces)
     }
     core_interface_faces = {tuple(sorted(face.nodes)): face.marker for face in core_interface.faces}
 
@@ -2177,7 +2249,7 @@ def _bl_block_coupling_report(
             )
 
     unmatched_block_by_marker: dict[str, int] = {}
-    for face in block.boundary_faces:
+    for face in block.boundary_faces if block_boundary_faces is None else block_boundary_faces:
         if face.marker == "wing_wall":
             continue
         key = tuple(sorted(face.nodes))
@@ -2209,6 +2281,39 @@ def _bl_block_coupling_report(
             "non-wall BL block boundary face; do not write a merged viscous mesh."
         ),
     }
+
+
+def _triangulated_surface_mesh(
+    mesh: SurfaceMesh,
+    *,
+    triangulation_policy: str = "fixed_diagonal",
+) -> SurfaceMesh:
+    return SurfaceMesh(
+        vertices=list(mesh.vertices),
+        faces=_triangulated_faces(
+            mesh.faces,
+            vertices=mesh.vertices,
+            triangulation_policy=triangulation_policy,
+        ),
+        metadata={**mesh.metadata, "surface_representation": "triangulated"},
+    )
+
+
+def _triangulated_faces(
+    faces: Sequence[Face],
+    *,
+    vertices: Sequence[tuple[float, float, float]] | None = None,
+    triangulation_policy: str = "fixed_diagonal",
+) -> list[Face]:
+    output: list[Face] = []
+    for face in faces:
+        for triangle in _triangulate(
+            face,
+            vertices=vertices,
+            triangulation_policy=triangulation_policy,
+        ):
+            output.append(Face(nodes=triangle, marker=face.marker))
+    return output
 
 
 def _triangulate(
