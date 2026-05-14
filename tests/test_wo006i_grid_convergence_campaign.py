@@ -642,6 +642,72 @@ def test_setup_gate_newest_core_mesh_artifact_wins_over_older_r12_blocker() -> N
     assert result["core_closure_topology"]["volume_element_count"] == 9677
 
 
+def test_setup_gate_r14_handoff_conformality_supersedes_generic_handoff_missing() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        direct_stageback_artifacts=[
+            {
+                "schema_version": "wo006m_narrow_stageback_mesh_probe.v1",
+                "status": "failed",
+                "error": (
+                    "Gmsh stageback BL/core mesh generation failed; diagnostic="
+                    '{"diagnostic_family":"stageback_plc_segment_facet_intersection"}'
+                ),
+            }
+        ],
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r14_mixed_handoff_conformality_probe.v1",
+                "verdict": "mixed_handoff_conformality_blocked",
+                "merged_handoff_status": "blocked_by_interface_triangulation_mismatch",
+                "conformality_audit": {
+                    "status": "blocked_by_interface_triangulation_mismatch",
+                    "polygon_matched_core_face_count": 2800,
+                    "triangle_matched_core_face_count": 1808,
+                    "core_triangle_count": 5658,
+                    "unmatched_core_triangles_by_marker": {
+                        "bl_outer_interface": 2048,
+                    },
+                },
+                "blockers": ["mixed_handoff_interface_not_conformal"],
+            },
+            {
+                "schema_version": "wo006r13_loop_cap_geometric_seam_repair_probe.v1",
+                "verdict": "loop_cap_geometric_seam_repair_core_mesh_pass_not_handoff",
+                "loop_cap_core_mesh": {
+                    "status": "core_mesh_probe_pass_merged_handoff_pending",
+                    "hard_blockers": [],
+                    "volume_element_count": 9677,
+                    "blockers": ["merged_mixed_bl_core_su2_mesh_missing"],
+                },
+            },
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert "near_wall_mixed_handoff_interface_not_conformal" in result["blockers"]
+    assert "near_wall_merged_mesh_handoff_missing" not in result["blockers"]
+    assert "direct_stageback_topology_plc_segment_facet" not in result["blockers"]
+    assert result["core_closure_topology"]["status"] == "handoff_conformality_blocked"
+    assert result["core_closure_topology"]["blocker"] == (
+        "near_wall_mixed_handoff_interface_not_conformal"
+    )
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

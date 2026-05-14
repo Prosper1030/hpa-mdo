@@ -124,11 +124,14 @@ screening evidence 讀，不是現行 release / procurement truth。
   Verdict 是 `GOAL_STATUS=INCOMPLETE`、`CFD_STATUS=mesh_ladder_incomplete`，且
   `baseline_a_wall_resolved_bl_preflight_gate_v1` 在 solver 前 blocked：目前 no-BL
   setup 缺 conformal BL/core handoff、postprocessed near-wall y+ 與 CFD-grade setup
-  gate。這個 gate 現在會優先讀 WO-006R13 repaired loop-cap core-mesh artifact；R13 已把
+  gate。這個 gate 現在會優先讀 WO-006R14 mixed-handoff conformality artifact：R13 已把
   core mesh probe 推到 quality/marker pass，舊 direct-stageback PLC failure 也只保留為
-  superseded diagnostic，不再當 active blocker。但尚未有 merged mixed BL+core SU2
-  handoff，因此前置 blocker 目前是 `near_wall_merged_mesh_handoff_missing`，不是 R10
-  wall-edge dependency、R12 geometric self-intersection，或舊 direct-stageback route。
+  superseded diagnostic，不再當 active blocker。但 R14 顯示 R13 core surface 與
+  near-wall volume 雖有 `2800/2860` polygons 對上，active triangulated interface 只有
+  `1808/5658` triangles conformal，另有 `60` 張 `core_wall_loop_cap` polygons 無
+  near-wall owner；因此前置 blocker 目前是
+  `near_wall_mixed_handoff_interface_not_conformal`，不是 R10 wall-edge dependency、R12
+  geometric self-intersection，或舊 direct-stageback route。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；

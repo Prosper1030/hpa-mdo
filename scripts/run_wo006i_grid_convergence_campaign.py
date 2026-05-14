@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r14_mixed_handoff_conformality_probe" / "summary.json",
     WO006_ROOT / "wo006r13_loop_cap_geometric_seam_repair_probe" / "summary.json",
     WO006_ROOT / "wo006r12_loop_cap_core_mesh_probe" / "summary.json",
     WO006_ROOT / "wo006r11_core_facing_loop_closure_probe" / "summary.json",
@@ -349,6 +350,8 @@ def evaluate_cfd_setup_gate(
         blockers.append(
             str(core_closure_topology.get("blocker") or "near_wall_core_mesh_probe_blocked")
         )
+    if core_closure_topology["status"] == "handoff_conformality_blocked":
+        blockers.append("near_wall_mixed_handoff_interface_not_conformal")
     if core_closure_topology["status"] == "blocked":
         blockers.append("near_wall_core_interface_closure_blocked")
     if core_closure_topology["status"] == "surface_ready_core_mesh_pending":
@@ -395,7 +398,11 @@ def _core_route_supersedes_direct_stageback(
     return (
         stageback_topology.get("status") == "blocked"
         and core_closure_topology.get("status")
-        in {"core_mesh_ready_handoff_pending", "pass"}
+        in {
+            "handoff_conformality_blocked",
+            "core_mesh_ready_handoff_pending",
+            "pass",
+        }
     )
 
 
@@ -1186,7 +1193,44 @@ def _core_closure_topology_summary(
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
     post_cap_status = None
+    handoff_conformality_blocked = False
+    handoff_conformality_record: dict[str, Any] | None = None
     for artifact in artifacts:
+        conformality_audit = artifact.get("conformality_audit") or {}
+        if conformality_audit:
+            merged_handoff_status = str(
+                artifact.get("merged_handoff_status")
+                or conformality_audit.get("status")
+                or artifact.get("verdict")
+                or ""
+            )
+            handoff_conformality_blocked = merged_handoff_status != "pass"
+            handoff_conformality_record = {
+                "path": artifact.get("path"),
+                "schema_version": artifact.get("schema_version"),
+                "verdict": artifact.get("verdict"),
+                "closure_status": merged_handoff_status,
+                "polygon_matched_core_face_count": conformality_audit.get(
+                    "polygon_matched_core_face_count"
+                ),
+                "triangle_matched_core_face_count": conformality_audit.get(
+                    "triangle_matched_core_face_count"
+                ),
+                "core_triangle_count": conformality_audit.get("core_triangle_count"),
+                "polygon_matched_but_triangle_unmatched_count": conformality_audit.get(
+                    "polygon_matched_but_triangle_unmatched_count"
+                ),
+                "missing_polygon_core_faces_by_marker": conformality_audit.get(
+                    "missing_polygon_core_faces_by_marker"
+                ),
+                "unmatched_core_triangles_by_marker": conformality_audit.get(
+                    "unmatched_core_triangles_by_marker"
+                ),
+                "pending_blockers": artifact.get("blockers"),
+            }
+            records.append(handoff_conformality_record)
+            continue
+
         loop_cap_core_mesh = artifact.get("loop_cap_core_mesh") or {}
         loop_closure = artifact.get("loop_closure") or {}
         closure = artifact.get("core_closure") or {}
@@ -1293,7 +1337,9 @@ def _core_closure_topology_summary(
             }
         )
 
-    if r12_core_mesh_ready:
+    if handoff_conformality_blocked:
+        status = "handoff_conformality_blocked"
+    elif r12_core_mesh_ready:
         status = "core_mesh_ready_handoff_pending"
     elif r12_core_mesh_blocked:
         status = "core_mesh_blocked"
@@ -1316,7 +1362,24 @@ def _core_closure_topology_summary(
         "unexplained_bad_edge_count": unexplained_bad_edge_count,
         "full_shell_policy_status": full_shell_policy_status,
     }
-    if status == "core_mesh_ready_handoff_pending":
+    if status == "handoff_conformality_blocked":
+        result.update(
+            {
+                "blocker": "near_wall_mixed_handoff_interface_not_conformal",
+                "handoff_conformality": handoff_conformality_record,
+                "recommended_repair": (
+                    "make_near_wall_and_core_share_the_same_interface_tessellation"
+                ),
+                "engineering_read": (
+                    "The latest mixed-handoff audit shows the R13 core interface "
+                    "is geometrically close to the near-wall boundary, but the "
+                    "active triangulated core boundary is not conformal with the "
+                    "near-wall volume interface. Do not write or run a mixed SU2 "
+                    "mesh until the shared interface tessellation is repaired."
+                ),
+            }
+        )
+    elif status == "core_mesh_ready_handoff_pending":
         result.update(
             {
                 "blocker": "near_wall_merged_mesh_handoff_missing",

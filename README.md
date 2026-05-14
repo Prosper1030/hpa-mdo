@@ -502,11 +502,13 @@ post-repair duplicate groups `0`、welded bad edges `0`。Gmsh HXT core fill 成
 SICN/SIGE/volume 都是 `0`。但 mesh quality 仍有 `very_low_min_gamma`、`very_low_min_sicn`、
 `low_p01_gamma` warnings。
 
-工程判讀：R13 把 core/farfield mesh probe 推過了，但仍不是 CFD。WO-006I preflight 現在會把
-舊 direct-stageback PLC failure 保留為 superseded diagnostic，而不再當 active blocker；目前
-active blocker 是 `near_wall_merged_mesh_handoff_missing`，同時仍缺 CFD-grade boundary-layer
-setup、conformal BL/core handoff 與 postprocessed y+。下一步是寫出 marker/quality-gated
-mixed BL+core SU2 handoff 和 y+ probe，不是跑 medium/fine solver。
+工程判讀：R13 把 core/farfield mesh probe 推過了，但仍不是 CFD。R14 handoff audit 進一步
+確認 R13 core surface 與 near-wall volume 多數 polygon 對得上（`2800/2860`），但 active
+triangulated core boundary 只有 `1808/5658` triangles conformal，且 `core_wall_loop_cap`
+有 `60` 張 polygon 沒有 near-wall owner。因此 WO-006I preflight 現在把 active blocker
+定位成 `near_wall_mixed_handoff_interface_not_conformal`；舊 direct-stageback PLC failure
+只保留為 superseded diagnostic。下一步是讓 near-wall 與 core 共用同一個 interface
+tessellation，再做 y+ probe 和 solver ladder。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 

@@ -156,11 +156,14 @@ Current release package:
   and zero welded bad edges. Gmsh HXT then produces a marker-owned core mesh:
   `29,993` nodes / `9,677` tetra cells, SU2 boundary ownership `pass`, and no
   non-positive SICN/SIGE/volume. Quality still carries very-low-shape warnings,
-  and this is not a merged mixed BL+core SU2 handoff. WO-006I preflight now
+  and this is not a merged mixed BL+core SU2 handoff. WO-006R14 now audits the
+  R13 core surface against the near-wall volume handoff: `2800/2860` core
+  polygons match, but only `1808/5658` active core triangles are conformal, and
+  `60` `core_wall_loop_cap` polygons have no near-wall owner. WO-006I preflight
   treats the old direct-stageback PLC failure as superseded diagnostic evidence
-  once the R13 core route is present, and advances to
-  `setup_near_wall_merged_mesh_handoff_missing`; next repair should write/
-  quality-gate the mixed BL+core handoff and y+ probe before any solver ladder.
+  and advances to `setup_near_wall_mixed_handoff_interface_not_conformal`; next
+  repair should make the near-wall and core share the same interface
+  tessellation before y+ probe or any solver ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.
