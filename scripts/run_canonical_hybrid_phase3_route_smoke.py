@@ -1293,6 +1293,10 @@ def run_phase3_closed_wall_te_stageback_layer_probe(
             triangle_layer_counts=triangle_layer_counts,
         )
         quality = _direct_prism_quality_metrics(volume)
+        marker_face_counts = {
+            str(marker): len(faces)
+            for marker, faces in sorted(_mapping(volume["marker_faces"]).items())
+        }
         rows.append(
             {
                 "stageback_segments": stageback_count,
@@ -1301,6 +1305,15 @@ def run_phase3_closed_wall_te_stageback_layer_probe(
                 "stageback_primary_triangle_count": stageback_primary_triangle_count,
                 "cap_triangle_count": cap_triangle_count,
                 "boundary_layer_cell_count": len(volume["elements"]),
+                "marker_face_counts": marker_face_counts,
+                "termination_interface_quad_count": sum(
+                    1
+                    for element_type, _nodes in volume["marker_faces"].get(
+                        "bl_termination_interface",
+                        [],
+                    )
+                    if int(element_type) == SU2_QUAD
+                ),
                 "direct_prism_quality": quality,
                 "direct_prism_quality_gate": _direct_prism_quality_gate(quality),
             }
@@ -3215,6 +3228,11 @@ def _direct_surface_prism_volume(
         *_layer_cumulative_heights(first_layer_height_m, growth_ratio, max_layer_count),
     ]
     normals = _surface_vertex_normals(base_vertices, [triangle for triangle, _ in triangles])
+    base_edge_counts: dict[tuple[int, int], int] = {}
+    for triangle, _marker in triangles:
+        for edge in ((triangle[0], triangle[1]), (triangle[1], triangle[2]), (triangle[2], triangle[0])):
+            key = tuple(sorted((int(edge[0]), int(edge[1]))))
+            base_edge_counts[key] = base_edge_counts.get(key, 0) + 1
     base_count = len(base_vertices)
     nodes = [
         (
@@ -3233,7 +3251,13 @@ def _direct_surface_prism_volume(
     element_metadata: list[dict[str, Any]] = []
     face_records: dict[tuple[int, ...], dict[str, Any]] = {}
 
-    def add_face(face_nodes: tuple[int, ...], element_type: int, marker: str) -> None:
+    def add_face(
+        face_nodes: tuple[int, ...],
+        element_type: int,
+        marker: str,
+        *,
+        base_edge: tuple[int, int] | None = None,
+    ) -> None:
         key = tuple(sorted(face_nodes))
         record = face_records.setdefault(
             key,
@@ -3242,6 +3266,7 @@ def _direct_surface_prism_volume(
                 "nodes": face_nodes,
                 "element_type": element_type,
                 "marker": marker,
+                "base_edge": base_edge,
             },
         )
         record["count"] = int(record["count"]) + 1
@@ -3284,6 +3309,7 @@ def _direct_surface_prism_volume(
                     marker,
                     edge_marker_map=edge_marker_map,
                 ),
+                base_edge=(a, b),
             )
             add_face(
                 (prism[1], prism[4], prism[5], prism[2]),
@@ -3294,6 +3320,7 @@ def _direct_surface_prism_volume(
                     marker,
                     edge_marker_map=edge_marker_map,
                 ),
+                base_edge=(b, c),
             )
             add_face(
                 (prism[2], prism[5], prism[3], prism[0]),
@@ -3304,6 +3331,7 @@ def _direct_surface_prism_volume(
                     marker,
                     edge_marker_map=edge_marker_map,
                 ),
+                base_edge=(c, a),
             )
 
     marker_faces: dict[str, list[tuple[int, tuple[int, ...]]]] = {}
@@ -3313,6 +3341,11 @@ def _direct_surface_prism_volume(
         marker = str(record["marker"])
         if marker == "_internal_bl_layer":
             continue
+        base_edge = record.get("base_edge")
+        if base_edge is not None:
+            edge_key = tuple(sorted((int(base_edge[0]), int(base_edge[1]))))
+            if base_edge_counts.get(edge_key, 0) > 1:
+                marker = "bl_termination_interface"
         marker_faces.setdefault(marker, []).append(
             (int(record["element_type"]), tuple(int(node) for node in record["nodes"]))
         )

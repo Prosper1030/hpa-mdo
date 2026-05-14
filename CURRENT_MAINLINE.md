@@ -177,9 +177,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   時仍有 `124` 個 `wing_upper` non-positive prisms，而
   `stageback_segments=2/4/6/8/10` 全部讓 prism signed-volume gate pass、
   non-positive count `0`。工程判讀：這證明 GPT Pro 提醒的 TE/aft BL termination
-  是值得往下做的方向；但它還不是 route-smoke，因為 variable-layer stageback
-  需要 explicit termination/collar sidewall、SU2-style dual proxy 與 pressure-only
-  CD sanity。
+  是值得往下做的方向；exposed internal step sidewalls 現在標成
+  `bl_termination_interface`，不再漏到 `wing_upper` / `te_wall` force wall。但它還不是
+  route-smoke，因為 variable-layer stageback 仍需要 tetra-core merge、SU2-style
+  dual proxy 與 pressure-only CD sanity。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality

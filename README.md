@@ -185,9 +185,10 @@ wing wall `16` layers，但把 diagnostic cap/TE/tip/closure 與 TE 附近 prima
 限制在 `6` layers；`stageback_segments=0` 時仍有 `124` 個 `wing_upper`
 non-positive prisms，而 `stageback_segments=2/4/6/8/10` 全部讓 prism signed-volume
 gate pass、non-positive count `0`。工程判讀：TE/aft stageback 是目前最有希望的
-closed-wrapper修正方向；但這只是 signed-volume diagnostic，還需要 explicit
-termination/collar sidewall、SU2-style dual proxy 與 pressure-only CD sanity 才能變成
-route-smoke candidate。
+closed-wrapper 修正方向；exposed internal step sidewalls 現在會標成
+`bl_termination_interface`，不會被混進 `wing_upper` / `te_wall` force wall。
+但這仍只是 signed-volume diagnostic，還需要把 termination interface 接到 tetra core、
+跑 SU2-style dual proxy 與 pressure-only CD sanity，才可能變成 route-smoke candidate。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

@@ -455,6 +455,7 @@ def test_closed_wall_te_stageback_probe_reduces_aft_prism_inversion(
     assert by_stageback[6]["direct_prism_quality_gate"]["status"] == "pass"
     assert by_stageback[6]["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] == 0
     assert by_stageback[6]["stageback_primary_triangle_count"] > 0
+    assert by_stageback[6]["termination_interface_quad_count"] > 0
     assert report["engineering_assessment"]["route_smoke_ready"] is False
     assert Path(report["report_path"]).exists()
 
