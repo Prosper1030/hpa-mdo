@@ -1,5 +1,24 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006L Local TE Stageback Selector
+
+WO-006L 在 mesh-native Gmsh BL writer 補上 experimental local TE stageback selector：
+wall surface records 現在會用 spanwise local chord 記錄 `centroid/min/max x/c` 與
+`abs y`，並可用 `boundary_layer_exclusion_x_reference="max"` 加上 `abs_y` band
+只鎖定 DAE31 -> CST tip transition 的 aft/TE hotspot。這沒有改 Baseline A 外形。
+
+selector-only probe 顯示 pps16/span4 current-GO 幾何共有 `3900` 個 wall surface
+records，其中 `540` 個落在 `|y|=12.0-14.2 m` transition band；用
+`max x/c >= 0.995` 只會排除該 band 的 `52` 個 aft/TE faces（`0.998` 則是 `36`
+個）。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006l_te_stageback_selector_probe/`。
+
+工程判讀：這只是把 BL 修復工具從 global-x 誤判推進到 local-chord hotspot targeting。
+直接套進 current-GO Gmsh 3D localized stageback probe 跑超過 6 分鐘仍沒有 artifact
+輸出，觀察到 CPU 約 `100%`、RSS 約 `865 MB`，所以不是 memory hard limit，也不是 CFD
+evidence。現在仍不能跑或宣稱 medium/fine SU2 ladder；下一步是 topology-preserving
+transition/interface closure，而不是硬跑 solver iteration。
+
 ## 2026-05-14 WO-006K SU2 Nondim + BL Quality Gate Repair
 
 WO-006K 修正 mesh-native SU2 incompressible RANS config：`INC_NONDIM` 改用

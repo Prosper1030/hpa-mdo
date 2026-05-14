@@ -478,6 +478,10 @@ def write_faceted_volume_mesh_with_boundary_layer(
     boundary_layer_first_height: float = 5.0e-5,
     boundary_layer_growth_ratio: float = 1.24,
     boundary_layer_layers: int = 24,
+    boundary_layer_exclusion_x_over_chord_min: float | None = None,
+    boundary_layer_exclusion_x_reference: str = "centroid",
+    boundary_layer_exclusion_abs_y_min: float | None = None,
+    boundary_layer_exclusion_abs_y_max: float | None = None,
     wall_marker: str = "wing_wall",
     farfield_marker: str = "farfield",
     fluid_marker: str = "fluid",
@@ -516,6 +520,29 @@ def write_faceted_volume_mesh_with_boundary_layer(
         raise ValueError("boundary_layer_growth_ratio must be greater than 1")
     if boundary_layer_layers <= 0:
         raise ValueError("boundary_layer_layers must be positive")
+    if boundary_layer_exclusion_x_over_chord_min is not None and not (
+        0.0 <= float(boundary_layer_exclusion_x_over_chord_min) <= 1.0
+    ):
+        raise ValueError("boundary_layer_exclusion_x_over_chord_min must be between 0 and 1")
+    if boundary_layer_exclusion_x_reference not in {"centroid", "max"}:
+        raise ValueError("boundary_layer_exclusion_x_reference must be 'centroid' or 'max'")
+    if (
+        boundary_layer_exclusion_abs_y_min is not None
+        and float(boundary_layer_exclusion_abs_y_min) < 0.0
+    ):
+        raise ValueError("boundary_layer_exclusion_abs_y_min must be non-negative")
+    if (
+        boundary_layer_exclusion_abs_y_max is not None
+        and float(boundary_layer_exclusion_abs_y_max) < 0.0
+    ):
+        raise ValueError("boundary_layer_exclusion_abs_y_max must be non-negative")
+    if (
+        boundary_layer_exclusion_abs_y_min is not None
+        and boundary_layer_exclusion_abs_y_max is not None
+        and float(boundary_layer_exclusion_abs_y_min)
+        > float(boundary_layer_exclusion_abs_y_max)
+    ):
+        raise ValueError("boundary_layer_exclusion_abs_y_min must not exceed abs_y_max")
     resolved_wing_refinement_radius = (
         max(resolved_farfield_mesh_size, 3.0 * resolved_wing_mesh_size)
         if wing_refinement_radius is None
@@ -556,7 +583,7 @@ def write_faceted_volume_mesh_with_boundary_layer(
         ]
         wing_point_tags = point_tags[: len(wing.vertices)]
         line_cache: dict[tuple[int, int], tuple[int, int, int]] = {}
-        wing_surfaces = _add_mesh_surfaces(
+        wing_surface_records = _add_mesh_surface_records(
             gmsh,
             wing.faces,
             vertices=wing.vertices,
@@ -565,6 +592,20 @@ def write_faceted_volume_mesh_with_boundary_layer(
             line_cache=line_cache,
             node_offset=0,
         )
+        wing_surfaces = [record["surface_tag"] for record in wing_surface_records]
+        bl_excluded_wall_surfaces = _stageback_excluded_wall_surfaces(
+            wing_surface_records,
+            exclusion_x_over_chord_min=boundary_layer_exclusion_x_over_chord_min,
+            exclusion_x_reference=boundary_layer_exclusion_x_reference,
+            exclusion_abs_y_min=boundary_layer_exclusion_abs_y_min,
+            exclusion_abs_y_max=boundary_layer_exclusion_abs_y_max,
+        )
+        bl_excluded_surface_set = set(bl_excluded_wall_surfaces)
+        bl_source_surfaces = [
+            surface_tag for surface_tag in wing_surfaces if surface_tag not in bl_excluded_surface_set
+        ]
+        if not bl_source_surfaces:
+            raise RuntimeError("Boundary-layer stageback excluded every wall surface")
         farfield_surfaces = _add_mesh_surfaces(
             gmsh,
             farfield.faces,
@@ -604,14 +645,14 @@ def write_faceted_volume_mesh_with_boundary_layer(
         gmsh.option.setNumber("Mesh.Optimize", 1)
 
         gmsh.model.mesh.generate(2)
-        source_surface_element_count = _entity_element_count(gmsh, 2, wing_surfaces)
+        source_surface_element_count = _entity_element_count(gmsh, 2, bl_source_surfaces)
         cumulative_heights = _layer_cumulative_heights(
             boundary_layer_first_height,
             boundary_layer_growth_ratio,
             boundary_layer_layers,
         )
         extbl = gmsh.model.geo.extrudeBoundaryLayer(
-            [(2, tag) for tag in wing_surfaces],
+            [(2, tag) for tag in bl_source_surfaces],
             [1] * boundary_layer_layers,
             cumulative_heights,
             True,
@@ -619,16 +660,35 @@ def write_faceted_volume_mesh_with_boundary_layer(
         )
         bl_volume_tags: list[int] = []
         bl_top_surface_tags: list[int] = []
+        bl_boundary_side_surface_tags: list[int] = []
+        extbl_surface_tags: list[int] = []
         for index in range(1, len(extbl)):
+            if int(extbl[index][0]) == 2:
+                extbl_surface_tags.append(int(extbl[index][1]))
             if int(extbl[index][0]) == 3:
                 bl_volume_tags.append(int(extbl[index][1]))
                 if int(extbl[index - 1][0]) == 2:
                     bl_top_surface_tags.append(int(extbl[index - 1][1]))
         if not bl_volume_tags or not bl_top_surface_tags:
             raise RuntimeError("Gmsh boundary-layer extrusion did not create BL volumes")
+        if bl_excluded_wall_surfaces:
+            bl_boundary_side_surface_tags = _unique_ints(
+                tag for tag in extbl_surface_tags if tag not in set(bl_top_surface_tags)
+            )
 
         outer_loop = gmsh.model.geo.addSurfaceLoop(farfield_surfaces)
-        inner_loop = gmsh.model.geo.addSurfaceLoop(bl_top_surface_tags)
+        inner_loop_surfaces = (
+            _unique_ints(
+                [
+                    *bl_top_surface_tags,
+                    *bl_boundary_side_surface_tags,
+                    *bl_excluded_wall_surfaces,
+                ]
+            )
+            if bl_excluded_wall_surfaces
+            else bl_top_surface_tags
+        )
+        inner_loop = gmsh.model.geo.addSurfaceLoop(inner_loop_surfaces)
         core_volume = gmsh.model.geo.addVolume([outer_loop, inner_loop])
         gmsh.model.geo.synchronize()
 
@@ -681,7 +741,9 @@ def write_faceted_volume_mesh_with_boundary_layer(
             },
             "compute": thread_settings,
             "boundary_layer": {
-                "source_surface_count": len(wing_surfaces),
+                "source_surface_count": len(bl_source_surfaces),
+                "excluded_wall_surface_count": len(bl_excluded_wall_surfaces),
+                "side_surface_count": len(bl_boundary_side_surface_tags),
                 "source_surface_element_count": int(source_surface_element_count),
                 "volume_tags": bl_volume_tags,
                 "top_surface_count": len(bl_top_surface_tags),
@@ -691,6 +753,12 @@ def write_faceted_volume_mesh_with_boundary_layer(
                 "total_thickness_m": float(cumulative_heights[-1]),
                 "volume_element_type_counts": bl_type_counts,
                 "quality_metrics": boundary_layer_quality,
+                "stageback_policy": _stageback_policy_payload(
+                    x_over_chord_min=boundary_layer_exclusion_x_over_chord_min,
+                    x_reference=boundary_layer_exclusion_x_reference,
+                    abs_y_min=boundary_layer_exclusion_abs_y_min,
+                    abs_y_max=boundary_layer_exclusion_abs_y_max,
+                ),
             },
             "core_volume": {
                 "volume_tag": int(core_volume),
@@ -1065,6 +1133,10 @@ def write_faceted_boundary_layer_su2_case(
     boundary_layer_first_height: float = 5.0e-5,
     boundary_layer_growth_ratio: float = 1.24,
     boundary_layer_layers: int = 24,
+    boundary_layer_exclusion_x_over_chord_min: float | None = None,
+    boundary_layer_exclusion_x_reference: str = "centroid",
+    boundary_layer_exclusion_abs_y_min: float | None = None,
+    boundary_layer_exclusion_abs_y_max: float | None = None,
     gmsh_threads: int = DEFAULT_GMSH_THREADS,
     mesh_algorithm3d: int = 10,
     surface_triangulation_policy: str = "shorter_diagonal",
@@ -1096,6 +1168,10 @@ def write_faceted_boundary_layer_su2_case(
         boundary_layer_first_height=boundary_layer_first_height,
         boundary_layer_growth_ratio=boundary_layer_growth_ratio,
         boundary_layer_layers=boundary_layer_layers,
+        boundary_layer_exclusion_x_over_chord_min=boundary_layer_exclusion_x_over_chord_min,
+        boundary_layer_exclusion_x_reference=boundary_layer_exclusion_x_reference,
+        boundary_layer_exclusion_abs_y_min=boundary_layer_exclusion_abs_y_min,
+        boundary_layer_exclusion_abs_y_max=boundary_layer_exclusion_abs_y_max,
         gmsh_threads=gmsh_threads,
         mesh_algorithm3d=mesh_algorithm3d,
         surface_triangulation_policy=surface_triangulation_policy,
@@ -1168,6 +1244,12 @@ def write_faceted_boundary_layer_su2_case(
                 "first_height_m": float(boundary_layer_first_height),
                 "growth_ratio": float(boundary_layer_growth_ratio),
                 "layers": int(boundary_layer_layers),
+                "stageback_policy": _stageback_policy_payload(
+                    x_over_chord_min=boundary_layer_exclusion_x_over_chord_min,
+                    x_reference=boundary_layer_exclusion_x_reference,
+                    abs_y_min=boundary_layer_exclusion_abs_y_min,
+                    abs_y_max=boundary_layer_exclusion_abs_y_max,
+                ),
             },
         },
         "engineering_assessment": {
@@ -1598,6 +1680,143 @@ def _add_mesh_surfaces(
     return surfaces
 
 
+def _add_mesh_surface_records(
+    gmsh,
+    faces: list[Face],
+    *,
+    vertices: Sequence[tuple[float, float, float]],
+    triangulation_policy: str,
+    point_tags: list[int],
+    line_cache: dict[tuple[int, int], tuple[int, int, int]],
+    node_offset: int,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    spanwise_x_bounds = _spanwise_x_bounds_reference(vertices)
+    for face_index, face in enumerate(faces):
+        for triangle in _triangulate(
+            face,
+            vertices=vertices,
+            triangulation_policy=triangulation_policy,
+        ):
+            triangle_vertices = [vertices[node] for node in triangle]
+            centroid_x = sum(vertex[0] for vertex in triangle_vertices) / len(
+                triangle_vertices
+            )
+            centroid_y = sum(vertex[1] for vertex in triangle_vertices) / len(
+                triangle_vertices
+            )
+            local_bounds = _interpolated_x_bounds_at_abs_y(
+                spanwise_x_bounds,
+                abs(centroid_y),
+            )
+            chord_extent = max(local_bounds["x_max"] - local_bounds["x_min"], 1.0e-12)
+            centroid_x_over_chord = (centroid_x - local_bounds["x_min"]) / chord_extent
+            min_x_over_chord = (
+                min(vertex[0] for vertex in triangle_vertices) - local_bounds["x_min"]
+            ) / chord_extent
+            max_x_over_chord = (
+                max(vertex[0] for vertex in triangle_vertices) - local_bounds["x_min"]
+            ) / chord_extent
+            shifted = tuple(node + node_offset for node in triangle)
+            curve_loop = gmsh.model.geo.addCurveLoop(
+                [
+                    _line_between(gmsh, point_tags, line_cache, shifted[0], shifted[1]),
+                    _line_between(gmsh, point_tags, line_cache, shifted[1], shifted[2]),
+                    _line_between(gmsh, point_tags, line_cache, shifted[2], shifted[0]),
+                ]
+            )
+            records.append(
+                {
+                    "surface_tag": gmsh.model.geo.addPlaneSurface([curve_loop]),
+                    "face_index": face_index,
+                    "marker": face.marker,
+                    "x_over_chord": float(centroid_x_over_chord),
+                    "centroid_x_over_chord": float(centroid_x_over_chord),
+                    "min_x_over_chord": float(min_x_over_chord),
+                    "max_x_over_chord": float(max_x_over_chord),
+                    "abs_centroid_y_m": float(abs(centroid_y)),
+                }
+            )
+    return records
+
+
+def _stageback_excluded_wall_surfaces(
+    surface_records: Sequence[Mapping[str, Any]],
+    *,
+    exclusion_x_over_chord_min: float | None,
+    exclusion_x_reference: str = "centroid",
+    exclusion_abs_y_min: float | None = None,
+    exclusion_abs_y_max: float | None = None,
+) -> list[int]:
+    if exclusion_x_over_chord_min is None:
+        return []
+    if exclusion_x_reference not in {"centroid", "max"}:
+        raise ValueError("exclusion_x_reference must be 'centroid' or 'max'")
+    threshold = float(exclusion_x_over_chord_min)
+    metric_key = (
+        "max_x_over_chord"
+        if exclusion_x_reference == "max"
+        else "centroid_x_over_chord"
+    )
+    abs_y_min = (
+        None if exclusion_abs_y_min is None else float(exclusion_abs_y_min)
+    )
+    abs_y_max = (
+        None if exclusion_abs_y_max is None else float(exclusion_abs_y_max)
+    )
+    return [
+        int(record["surface_tag"])
+        for record in surface_records
+        if _stageback_record_is_in_exclusion_band(
+            record,
+            metric_key=metric_key,
+            threshold=threshold,
+            abs_y_min=abs_y_min,
+            abs_y_max=abs_y_max,
+        )
+    ]
+
+
+def _stageback_record_is_in_exclusion_band(
+    record: Mapping[str, Any],
+    *,
+    metric_key: str,
+    threshold: float,
+    abs_y_min: float | None,
+    abs_y_max: float | None,
+) -> bool:
+    value = float(record.get(metric_key, record.get("x_over_chord", 0.0)))
+    if value < threshold:
+        return False
+    abs_y = float(record.get("abs_centroid_y_m", 0.0))
+    if abs_y_min is not None and abs_y < abs_y_min:
+        return False
+    if abs_y_max is not None and abs_y > abs_y_max:
+        return False
+    return True
+
+
+def _stageback_policy_payload(
+    *,
+    x_over_chord_min: float | None,
+    x_reference: str,
+    abs_y_min: float | None,
+    abs_y_max: float | None,
+) -> dict[str, float | str] | None:
+    if x_over_chord_min is None:
+        return None
+    payload: dict[str, float | str] = {
+        "x_over_chord_min": float(x_over_chord_min),
+    }
+    if x_reference != "centroid":
+        payload["x_reference"] = x_reference
+    if abs_y_min is not None:
+        payload["abs_y_min_m"] = float(abs_y_min)
+    if abs_y_max is not None:
+        payload["abs_y_max_m"] = float(abs_y_max)
+    return payload
+
+
 def _add_marked_mesh_surfaces(
     gmsh,
     faces: list[Face],
@@ -2011,6 +2230,77 @@ def _line_between(
         )
     line_tag, stored_start, stored_end = line_cache[key]
     return line_tag if (start, end) == (stored_start, stored_end) else -line_tag
+
+
+def _spanwise_x_bounds_reference(
+    vertices: Sequence[tuple[float, float, float]],
+) -> list[dict[str, float]]:
+    if not vertices:
+        raise ValueError("Cannot compute spanwise x bounds for empty vertices")
+    span = max(abs(vertex[1]) for vertex in vertices) - min(abs(vertex[1]) for vertex in vertices)
+    tolerance = max(1.0e-9, span * 1.0e-10)
+    rows: list[dict[str, float]] = []
+    for x, y, _ in sorted(vertices, key=lambda vertex: abs(vertex[1])):
+        abs_y = abs(y)
+        if rows and abs(abs_y - rows[-1]["abs_y_m"]) <= tolerance:
+            rows[-1]["x_min"] = min(rows[-1]["x_min"], x)
+            rows[-1]["x_max"] = max(rows[-1]["x_max"], x)
+            continue
+        rows.append({"abs_y_m": abs_y, "x_min": x, "x_max": x})
+    return rows
+
+
+def _interpolated_x_bounds_at_abs_y(
+    spanwise_x_bounds: Sequence[Mapping[str, float]],
+    abs_y: float,
+) -> dict[str, float]:
+    if not spanwise_x_bounds:
+        raise ValueError("spanwise_x_bounds must not be empty")
+    y = float(abs_y)
+    rows = sorted(spanwise_x_bounds, key=lambda row: float(row["abs_y_m"]))
+    if y <= float(rows[0]["abs_y_m"]):
+        return {"x_min": float(rows[0]["x_min"]), "x_max": float(rows[0]["x_max"])}
+    if y >= float(rows[-1]["abs_y_m"]):
+        return {"x_min": float(rows[-1]["x_min"]), "x_max": float(rows[-1]["x_max"])}
+    for left, right in zip(rows[:-1], rows[1:]):
+        left_y = float(left["abs_y_m"])
+        right_y = float(right["abs_y_m"])
+        if left_y <= y <= right_y:
+            fraction = 0.0 if right_y == left_y else (y - left_y) / (right_y - left_y)
+            return {
+                "x_min": _lerp_float(float(left["x_min"]), float(right["x_min"]), fraction),
+                "x_max": _lerp_float(float(left["x_max"]), float(right["x_max"]), fraction),
+            }
+    return {"x_min": float(rows[-1]["x_min"]), "x_max": float(rows[-1]["x_max"])}
+
+
+def _lerp_float(left: float, right: float, fraction: float) -> float:
+    return left + fraction * (right - left)
+
+
+def _surface_bounds(vertices: Sequence[tuple[float, float, float]]) -> dict[str, float]:
+    if not vertices:
+        raise ValueError("Cannot compute bounds for empty vertices")
+    return {
+        "x_min": min(vertex[0] for vertex in vertices),
+        "x_max": max(vertex[0] for vertex in vertices),
+        "y_min": min(vertex[1] for vertex in vertices),
+        "y_max": max(vertex[1] for vertex in vertices),
+        "z_min": min(vertex[2] for vertex in vertices),
+        "z_max": max(vertex[2] for vertex in vertices),
+    }
+
+
+def _unique_ints(values: Iterable[int]) -> list[int]:
+    seen: set[int] = set()
+    unique: list[int] = []
+    for value in values:
+        item = int(value)
+        if item in seen:
+            continue
+        seen.add(item)
+        unique.append(item)
+    return unique
 
 
 def _layer_cumulative_heights(

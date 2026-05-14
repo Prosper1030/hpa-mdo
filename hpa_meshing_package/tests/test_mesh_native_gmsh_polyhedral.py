@@ -4,11 +4,13 @@ import shutil
 import pytest
 
 from hpa_meshing.mesh_native.gmsh_polyhedral import (
+    _add_mesh_surface_records,
     _cfd_evidence_gate,
     _boundary_layer_mesh_quality_gate,
     _coefficient_sanity_gate,
     evaluate_boundary_layer_core_merge_gate,
     _mesh_quality_gate,
+    _stageback_excluded_wall_surfaces,
     _triangulate,
     build_wing_feature_refinement_boxes,
     infer_wing_feature_extents,
@@ -435,6 +437,142 @@ def test_write_faceted_volume_mesh_with_boundary_layer_writes_mixed_su2_mesh(
     assert su2_summary["markers"]["farfield"]["element_count"] > 0
 
 
+def test_write_faceted_volume_mesh_with_boundary_layer_can_stageback_te_faces(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    wing = build_wing_surface(
+        WingSpec(
+            stations=[
+                Station(
+                    y=0.0,
+                    airfoil_xz=[
+                        (1.0, 0.03),
+                        (0.5, 0.05),
+                        (0.0, 0.0),
+                        (0.5, -0.05),
+                        (1.0, -0.03),
+                    ],
+                    chord=1.0,
+                    twist_deg=0.0,
+                ),
+                Station(
+                    y=1.0,
+                    airfoil_xz=[
+                        (1.0, 0.03),
+                        (0.5, 0.05),
+                        (0.0, 0.0),
+                        (0.5, -0.05),
+                        (1.0, -0.03),
+                    ],
+                    chord=1.0,
+                    twist_deg=0.0,
+                ),
+            ],
+            side="full",
+            te_rule="finite_thickness",
+            tip_rule="planar_cap",
+            root_rule="full",
+            reference=Reference(sref_full=1.0, cref=1.0, bref_full=1.0),
+        )
+    )
+    farfield = build_farfield_box_surface(
+        wing,
+        upstream_factor=2.0,
+        downstream_factor=3.0,
+        lateral_factor=2.0,
+        vertical_factor=2.0,
+    )
+    msh_path = tmp_path / "faceted_wing_bl_stageback.msh"
+    su2_path = tmp_path / "faceted_wing_bl_stageback.su2"
+
+    report = write_faceted_volume_mesh_with_boundary_layer(
+        wing,
+        farfield,
+        msh_path,
+        su2_path=su2_path,
+        mesh_size=2.0,
+        boundary_layer_first_height=0.01,
+        boundary_layer_growth_ratio=1.2,
+        boundary_layer_layers=2,
+        boundary_layer_exclusion_x_over_chord_min=0.75,
+        mesh_algorithm3d=1,
+        surface_triangulation_policy="shorter_diagonal",
+    )
+
+    assert report["status"] == "meshed"
+    assert report["boundary_layer"]["quality_metrics"]["non_positive_min_sicn_count"] == 0
+    assert report["boundary_layer"]["quality_metrics"]["non_positive_min_sige_count"] == 0
+    assert report["boundary_layer"]["quality_metrics"]["non_positive_volume_count"] == 0
+    assert report["mesh_quality_gate"]["status"] == "fail"
+    assert "boundary_layer_severe_low_p01_min_sicn" in report["mesh_quality_gate"]["blockers"]
+    assert report["boundary_layer"]["source_surface_count"] > 0
+    assert report["boundary_layer"]["excluded_wall_surface_count"] > 0
+    assert report["boundary_layer"]["side_surface_count"] > 0
+    assert report["boundary_layer"]["stageback_policy"] == {
+        "x_over_chord_min": 0.75,
+    }
+    assert Path(report["su2_path"]).exists()
+
+
+def test_stageback_selector_can_use_max_x_and_local_y_band():
+    records = [
+        {
+            "surface_tag": 10,
+            "centroid_x_over_chord": 0.96,
+            "max_x_over_chord": 0.999,
+            "abs_centroid_y_m": 12.8,
+        },
+        {
+            "surface_tag": 11,
+            "centroid_x_over_chord": 0.96,
+            "max_x_over_chord": 0.999,
+            "abs_centroid_y_m": 7.0,
+        },
+        {
+            "surface_tag": 12,
+            "centroid_x_over_chord": 0.70,
+            "max_x_over_chord": 0.82,
+            "abs_centroid_y_m": 12.8,
+        },
+    ]
+
+    assert _stageback_excluded_wall_surfaces(
+        records,
+        exclusion_x_over_chord_min=0.995,
+        exclusion_x_reference="max",
+        exclusion_abs_y_min=12.0,
+        exclusion_abs_y_max=14.2,
+    ) == [10]
+
+
+def test_add_mesh_surface_records_reports_local_chord_x_metrics_for_tapered_tip():
+    gmsh = pytest.importorskip("gmsh")
+    wing = build_wing_surface(_simple_wing_spec())
+    gmsh.initialize()
+    try:
+        gmsh.option.setNumber("General.Terminal", 0)
+        gmsh.model.add("local_chord_stageback_record_test")
+        point_tags = [
+            gmsh.model.geo.addPoint(x, y, z, 1.0)
+            for x, y, z in wing.vertices
+        ]
+        records = _add_mesh_surface_records(
+            gmsh,
+            wing.faces,
+            vertices=wing.vertices,
+            triangulation_policy="shorter_diagonal",
+            point_tags=point_tags,
+            line_cache={},
+            node_offset=0,
+        )
+    finally:
+        gmsh.finalize()
+
+    assert max(record["centroid_x_over_chord"] for record in records) > 0.9
+    assert max(record["max_x_over_chord"] for record in records) >= 1.0
+
+
 def test_write_faceted_boundary_layer_su2_case_prepares_no_slip_runtime(
     tmp_path: Path,
 ):
@@ -470,6 +608,34 @@ def test_write_faceted_boundary_layer_su2_case_prepares_no_slip_runtime(
     assert "MARKER_HEATFLUX= ( wing_wall, 0.0 )" in Path(
         report["runtime_cfg_path"]
     ).read_text(encoding="utf-8")
+
+
+def test_write_faceted_boundary_layer_su2_case_accepts_te_stageback(
+    tmp_path: Path,
+):
+    pytest.importorskip("gmsh")
+    wing, farfield = _wing_and_close_farfield()
+
+    report = write_faceted_boundary_layer_su2_case(
+        wing,
+        farfield,
+        tmp_path / "faceted_bl_stageback_case",
+        ref_area=2.0,
+        ref_length=1.0,
+        mesh_size=2.0,
+        max_iterations=5,
+        mesh_algorithm3d=1,
+        boundary_layer_first_height=0.01,
+        boundary_layer_growth_ratio=1.2,
+        boundary_layer_layers=2,
+        boundary_layer_exclusion_x_over_chord_min=0.75,
+    )
+
+    assert report["runtime"]["boundary_layer"]["stageback_policy"] == {
+        "x_over_chord_min": 0.75,
+    }
+    assert report["mesh_report"]["boundary_layer"]["excluded_wall_surface_count"] > 0
+    assert Path(report["runtime_cfg_path"]).exists()
 
 
 def test_write_faceted_volume_mesh_supports_wing_local_sizing(tmp_path: Path):

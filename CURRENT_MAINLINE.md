@@ -36,6 +36,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   `scripts/diagnose_wo006k_bl_hotspots.py` 現在可把 Gmsh BL element quality hotspots
   映射回 Baseline A section table；目前
   `wo006k_bl_hotspot_diagnosis/` artifact status 是 `blocked`。
+- WO-006L 把 mesh-native Gmsh BL writer 的 experimental stageback selector 從
+  global-x 誤判修成 local-chord targeting：wall surface records 現在有
+  `centroid/min/max x/c` 與 `abs y`，並可用 `x_reference=max` 加 `abs_y` band
+  鎖定 DAE31 -> CST tip transition aft/TE hotspot。pps16/span4 selector-only probe
+  顯示 `3900` 個 wall surface records、`540` 個在 `|y|=12.0-14.2 m` transition
+  band；`max x/c >= 0.995` 且只限該 band 會排除 `52` 個 faces（`0.998` 為 `36`）。
+  artifact 在 `wo006l_te_stageback_selector_probe/`。但直接 Gmsh 3D localized
+  stageback probe 超過 6 分鐘仍零 artifact，觀察 CPU 約 `100%`、RSS 約 `865 MB`；
+  這是 topology/runtime closure 問題，不是 memory hard limit，也不是 CFD evidence。
+  下一步仍是 topology-preserving transition/interface closure；不得把它當 medium/fine
+  SU2 ladder 起點。
 - WO-006 current-GO no-BL CFD completion evidence 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/`。
   Completion gate 是 `pass`：newly generated full-span current-GO mesh 有 `490,116`
