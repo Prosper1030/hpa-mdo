@@ -448,14 +448,28 @@ conformal BL/core handoff、沒有 postprocessed y+，force window 也不穩；�
 `CL/CD/Cm` history，也不得宣稱 low-confidence CFD、grid convergence、drag/power truth、
 Baseline A reopen evidence、RFQ/procurement truth 或 final aircraft sign-off。
 
+## 2026-05-14 WO-006R11 Core-Facing Loop Closure Probe
+
+WO-006R11 新增 `scripts/probe_wo006r11_core_facing_loop_closure.py`，接在 R10
+wall-edge gap audit 後，把 core-facing open edges materialize 成 `core_wall_loop_cap`
+候選 surface。Baseline A artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r11_core_facing_loop_closure_probe/`。
+實跑 R10 的 `64` 條 open edges 形成左右兩個 `32`-node loops；R11 補 `64` 個 cap
+triangles 後，post-cap topology 是 `watertight`、`bad_edge_count=0`，且 cap face
+non-positive area 是 `0`。
+
+工程判讀：這把 R10 的 wall-edge topology blocker 推進到「可做 core/farfield mesh probe」，
+但還不是 BL/core/SU2 handoff。剩餘 blockers 是 core/farfield mesh not generated、merged
+mesh quality not run、SU2 marker/readability not run、near-wall/y+ not postprocessed、
+solver ladder not run。
+
 後續 WO-006 CFD 若要繼續跑，必須先過 `baseline_a_wall_resolved_bl_preflight_gate_v1`：
 no-slip wall BC、farfield marker、conformal BL/core handoff、near-wall/y+ evidence、同幾何
 coarse/medium/fine ladder 與 residual/force stability 都要在同一 setup 下成立。若只是要重放
 no-BL debug，必須明確使用 diagnostic flag，且結果仍不能完成 CFD goal。這個 preflight gate
-現在會讀 WO-006R10 near-wall core closure artifact；目前會在 solver 前額外擋下
-`near_wall_core_interface_closure_blocked`、`near_wall_core_wall_edge_gap_dependency`
-與 `near_wall_full_shell_physical_wall_misownership`，避免 medium/fine 入口忽略最新 wall-edge
-ownership blocker。
+現在優先讀 WO-006R11 loop-cap artifact；R11 已讓 core-facing surface topology 變成 mesh-probe
+ready，因此目前 setup blocker 收斂成 `near_wall_core_mesh_probe_missing`，避免 medium/fine
+入口忽略最新 near-wall/core closure 狀態。
 
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 

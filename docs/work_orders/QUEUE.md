@@ -126,11 +126,12 @@ Current release package:
 - WO-006I setup preflight now consumes the WO-006R10 core-closure artifact before
   any solver run. The current preflight summary is still
   `GOAL_STATUS=INCOMPLETE` / `CFD_STATUS=mesh_ladder_incomplete`, and its setup
-  blockers include `near_wall_core_interface_closure_blocked`,
-  `near_wall_core_wall_edge_gap_dependency`, and
-  `near_wall_full_shell_physical_wall_misownership` in addition to missing BL/y+
-  handoff. Do not run medium/fine SU2 until those R10-derived blockers are
-  repaired.
+  blockers include `near_wall_core_mesh_probe_missing` in addition to missing
+  BL/y+ handoff. WO-006R11 now supersedes the R10 wall-edge dependency blocker
+  by materializing two `32`-node core-facing loops into `64` cap faces with
+  post-cap topology `watertight`; the next repair should generate and quality
+  gate the core/farfield mesh from that loop-cap surface. Do not run medium/fine
+  SU2 until this R11-derived mesh-probe blocker is repaired.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

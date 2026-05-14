@@ -87,15 +87,23 @@ screening evidence 讀，不是現行 release / procurement truth。
   `CD=0.4752310368`、residuals finite、no NaN/Inf）。這是 route-level force
   evidence，不是 BL/y+ viscous drag calibration、grid-converged aero model、Baseline A
   reopen evidence 或 performance truth；`CD` 明顯偏高，必須保留 no-BL trust boundary。
+- WO-006R11 新增 core-facing loop closure probe：
+  `scripts/probe_wo006r11_core_facing_loop_closure.py` 接在 R10 wall-edge gap audit 後，
+  把 `64` 條 core-facing open edges 拆成左右兩個 `32`-node loops，materialize 成
+  `core_wall_loop_cap` surface。Baseline A artifact 在
+  `wo006r11_core_facing_loop_closure_probe/`；實跑 pre-cap topology 是
+  `not_watertight` / `64` bad edges，post-cap topology 是 `watertight` /
+  `bad_edge_count=0`，cap face count `64`，non-positive cap area `0`。判讀：這修到
+  core-facing surface topology 可進 core mesh probe，但還不是 merged BL/core SU2 handoff；
+  core/farfield mesh、merged quality、SU2 marker/readability、y+、solver ladder 都未完成。
 - WO-006I CFD setup gate reset 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006i_setup_preflight_reset/`。
   Verdict 是 `GOAL_STATUS=INCOMPLETE`、`CFD_STATUS=mesh_ladder_incomplete`，且
   `baseline_a_wall_resolved_bl_preflight_gate_v1` 在 solver 前 blocked：目前 no-BL
   setup 缺 conformal BL/core handoff、postprocessed near-wall y+ 與 CFD-grade setup
-  gate。這個 gate 現在也會讀 WO-006R10 near-wall core closure artifact；目前額外擋下
-  `near_wall_core_interface_closure_blocked`、`near_wall_core_wall_edge_gap_dependency`
-  與 `near_wall_full_shell_physical_wall_misownership`，因此 medium/fine SU2 入口會先看到
-  R10 的 wall-edge ownership blocker。先前 `wo006i_grid_convergence_campaign/` 的 `0.49M`、`1.61M`、`3.05M`、
+  gate。這個 gate 現在會優先讀 WO-006R11 loop-cap artifact；R11 已讓 core-facing
+  surface topology 變成 mesh-probe ready，因此 preflight blocker 已收斂成
+  `near_wall_core_mesh_probe_missing`，不是再重複 R10 的 wall-edge dependency。先前 `wo006i_grid_convergence_campaign/` 的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；
   它們 force stability fail，且沒有 BL/y+，所以不能當 low-confidence CFD、grid convergence、
   drag/power truth 或 Baseline A reopen evidence。後續若要跑 medium/fine，必須先修

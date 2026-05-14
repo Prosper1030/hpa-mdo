@@ -387,6 +387,55 @@ def test_setup_gate_consumes_r10_core_closure_artifact_before_solver() -> None:
     assert result["core_closure_topology"]["unexplained_bad_edge_count"] == 0
 
 
+def test_setup_gate_consumes_r11_loop_cap_artifact_as_mesh_pending() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r11_core_facing_loop_closure_probe.v1",
+                "verdict": "core_facing_loop_cap_surface_ready_not_handoff",
+                "loop_closure": {
+                    "status": "core_facing_loop_cap_surface_ready_core_mesh_pending",
+                    "can_generate_core_mesh_probe": True,
+                    "pre_cap_topology": {
+                        "status": "not_watertight",
+                        "bad_edge_count": 64,
+                    },
+                    "post_cap_topology": {
+                        "status": "watertight",
+                        "bad_edge_count": 0,
+                    },
+                    "blockers": [
+                        "core_farfield_mesh_not_generated",
+                        "merged_mesh_quality_not_run",
+                    ],
+                },
+            }
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert "near_wall_core_interface_closure_blocked" not in result["blockers"]
+    assert "near_wall_core_wall_edge_gap_dependency" not in result["blockers"]
+    assert "near_wall_core_mesh_probe_missing" in result["blockers"]
+    assert result["core_closure_topology"]["status"] == "surface_ready_core_mesh_pending"
+    assert result["core_closure_topology"]["post_cap_status"] == "watertight"
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

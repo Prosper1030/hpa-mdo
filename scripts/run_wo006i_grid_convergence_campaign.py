@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r11_core_facing_loop_closure_probe" / "summary.json",
     WO006_ROOT / "wo006r10_near_wall_core_closure_probe" / "summary.json",
 )
 CFD_SETUP_POLICY_ID = "baseline_a_wall_resolved_bl_preflight_gate_v1"
@@ -328,11 +329,16 @@ def evaluate_cfd_setup_gate(
     core_closure_topology = _core_closure_topology_summary(core_closure_artifacts or ())
     if core_closure_topology["status"] == "blocked":
         blockers.append("near_wall_core_interface_closure_blocked")
-    if core_closure_topology.get("wall_edge_gap_status") == (
-        "blocked_by_physical_wall_edge_dependency"
-    ):
+    if core_closure_topology["status"] == "surface_ready_core_mesh_pending":
+        blockers.append("near_wall_core_mesh_probe_missing")
+    if core_closure_topology["status"] == "blocked" and core_closure_topology.get(
+        "wall_edge_gap_status"
+    ) == ("blocked_by_physical_wall_edge_dependency"):
         blockers.append("near_wall_core_wall_edge_gap_dependency")
-    if core_closure_topology.get("full_shell_policy_status") == "forbidden":
+    if (
+        core_closure_topology["status"] == "blocked"
+        and core_closure_topology.get("full_shell_policy_status") == "forbidden"
+    ):
         blockers.append("near_wall_full_shell_physical_wall_misownership")
 
     if blockers and allow_no_bl_diagnostic:
@@ -1130,14 +1136,46 @@ def _core_closure_topology_summary(
     artifacts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     records: list[dict[str, Any]] = []
-    blocked = False
+    r11_surface_ready = False
+    r11_mesh_pending = False
+    r10_blocked = False
     wall_edge_gap_status = None
     full_shell_policy_status = None
     bad_edge_count = 0
     unexplained_bad_edge_count = 0
     physical_wall_edge_dependency_count = 0
+    post_cap_status = None
     for artifact in artifacts:
+        loop_closure = artifact.get("loop_closure") or {}
         closure = artifact.get("core_closure") or {}
+        if loop_closure:
+            pre_cap = loop_closure.get("pre_cap_topology") or {}
+            post_cap = loop_closure.get("post_cap_topology") or {}
+            loop_status = str(loop_closure.get("status") or artifact.get("verdict") or "")
+            post_cap_status = str(post_cap.get("status") or "")
+            r11_surface_ready = (
+                loop_status == "core_facing_loop_cap_surface_ready_core_mesh_pending"
+                and post_cap_status == "watertight"
+            )
+            r11_mesh_pending = r11_surface_ready and bool(loop_closure.get("blockers"))
+            bad_edge_count += int(pre_cap.get("bad_edge_count") or 0)
+            records.append(
+                {
+                    "path": artifact.get("path"),
+                    "schema_version": artifact.get("schema_version"),
+                    "verdict": artifact.get("verdict"),
+                    "closure_status": loop_closure.get("status"),
+                    "core_facing_status": pre_cap.get("status"),
+                    "bad_edge_count": pre_cap.get("bad_edge_count"),
+                    "post_cap_status": post_cap.get("status"),
+                    "post_cap_bad_edge_count": post_cap.get("bad_edge_count"),
+                    "loop_count": loop_closure.get("loop_count"),
+                    "cap_face_count": loop_closure.get("cap_face_count"),
+                    "pending_blockers": loop_closure.get("blockers"),
+                }
+            )
+            continue
+
         core_topology = closure.get("core_facing_topology") or {}
         gap_audit = closure.get("core_wall_edge_gap_audit") or {}
         shell_policy = closure.get("full_shell_core_interface_policy") or {}
@@ -1147,7 +1185,7 @@ def _core_closure_topology_summary(
             or core_topology.get("status") == "not_watertight"
             or shell_policy.get("status") == "forbidden"
         )
-        blocked = blocked or artifact_blocked
+        r10_blocked = r10_blocked or artifact_blocked
         if gap_audit.get("status") is not None:
             wall_edge_gap_status = str(gap_audit.get("status"))
         if shell_policy.get("status") is not None:
@@ -1172,17 +1210,37 @@ def _core_closure_topology_summary(
             }
         )
 
-    status = "blocked" if blocked else ("not_evaluated" if not records else "pass")
+    if r11_mesh_pending:
+        status = "surface_ready_core_mesh_pending"
+    elif r11_surface_ready:
+        status = "pass"
+    elif r10_blocked:
+        status = "blocked"
+    else:
+        status = "not_evaluated" if not records else "pass"
     result: dict[str, Any] = {
         "status": status,
         "artifacts": records,
         "bad_edge_count": bad_edge_count,
+        "post_cap_status": post_cap_status,
         "wall_edge_gap_status": wall_edge_gap_status,
         "physical_wall_edge_dependency_count": physical_wall_edge_dependency_count,
         "unexplained_bad_edge_count": unexplained_bad_edge_count,
         "full_shell_policy_status": full_shell_policy_status,
     }
-    if blocked:
+    if status == "surface_ready_core_mesh_pending":
+        result.update(
+            {
+                "blocker": "near_wall_core_mesh_probe_missing",
+                "recommended_repair": "generate_marker_quality_gated_core_farfield_mesh_from_loop_cap_surface",
+                "engineering_read": (
+                    "The latest loop-cap artifact closes the core-facing surface "
+                    "topology. The setup still needs a marker/quality-gated core "
+                    "mesh, merged SU2 readability, y+, and solver ladder before CFD."
+                ),
+            }
+        )
+    elif status == "blocked":
         result.update(
             {
                 "blocker": "near_wall_core_interface_closure_blocked",
