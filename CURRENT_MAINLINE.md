@@ -203,6 +203,16 @@ screening evidence 讀，不是現行 release / procurement truth。
   finite TE-base wall faces `0`。判讀：這修的是 wall marker 物理 ownership basis，
   不是 BL/core handoff ready；wake receiver / span-cap conformal merge、mesh quality、
   marker match 與 near-wall/y+ gate 仍要過，才可以跑 medium/fine SU2 ladder。
+- WO-006AA 新增 tip receiver topology probe：
+  `scripts/probe_wo006aa_tip_receiver_topology.py` 將 WO-006Y 的 span-cap blocker
+  推進成 virtual receiver accounting candidate。Baseline A current geometry artifact 在
+  `wo006aa_tip_receiver_topology_probe/`；實跑 `points_per_side=16`、
+  `spanwise_subdivisions=2` 可 account `1536 / 1536` 個 BL span-cap faces，remaining
+  `0`。side boundary role counts 是 `physical_wall_edge_receiver=60`、
+  `wake_edge_receiver=100`、`core_outer_edge_receiver=64`。判讀：span-cap ownership
+  已有可實作 receiver topology，但不是 final BL/core handoff；必須把 receiver side
+  boundaries 真正接到 physical wall、wake receiver、core outer interface，並通過
+  merged mesh quality / SU2 marker readability，才可以跑 medium/fine CFD ladder。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

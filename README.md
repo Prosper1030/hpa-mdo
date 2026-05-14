@@ -124,6 +124,24 @@ tip-cap triangles `56`、sharp-TE seam pairs `33`、finite TE-base wall faces `0
 conformal merge，並重跑 mesh quality、marker match、near-wall/y+ gate 後，才可以啟動
 medium/fine SU2 ladder。
 
+## 2026-05-14 WO-006AA Tip Receiver Topology Probe
+
+WO-006AA 新增 `scripts/probe_wo006aa_tip_receiver_topology.py`，把 WO-006Y 的
+span-cap blocker 往可實作 topology 推一步：建立 virtual tip receiver accounting layer，
+檢查它是否能 match 每一個 BL span-cap face，並把剩餘 side boundaries 分成
+physical-wall edge、wake edge、core outer edge。
+
+Baseline A current geometry artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006aa_tip_receiver_topology_probe/`。
+實跑 `points_per_side=16`、`spanwise_subdivisions=2` 時，tip receiver candidate 可 account
+`1536 / 1536` 個 BL span-cap faces，remaining `0`；side boundary role counts 是
+`physical_wall_edge_receiver=60`、`wake_edge_receiver=100`、`core_outer_edge_receiver=64`。
+
+工程判讀：span-cap ownership 已從「完全 unmatched」變成「有 virtual receiver topology
+可以 account」，但這還不是 final BL/core handoff。下一步必須把這些 receiver side
+boundaries 真正接到 physical wall、wake receiver、core outer interface，並通過 merged mesh
+quality / SU2 marker readability；仍不能跑 medium/fine CFD ladder。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔
