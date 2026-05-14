@@ -1013,11 +1013,28 @@ def test_segmented_partial_wing_stitched_core_shell_blocks_nonmanifold_inner_bou
         ]
         > 0
     )
+    assert (
+        report["inner_boundary_topology"]["bad_edge_marker_combo_counts_by_kind"][
+            "nonmanifold"
+        ]["transition_collar_outer_interface"]
+        > 0
+    )
     bad_edge_sample = report["inner_boundary_topology"]["bad_edge_samples"][0]
     assert bad_edge_sample["count"] != 2
     assert bad_edge_sample["markers"]
     assert len(bad_edge_sample["midpoint"]) == 3
     assert bad_edge_sample["length_m"] > 0.0
+    nonmanifold_sample = report["inner_boundary_topology"]["bad_edge_samples_by_kind"][
+        "nonmanifold"
+    ][0]
+    assert nonmanifold_sample["kind"] == "nonmanifold"
+    assert nonmanifold_sample["markers"] == ["transition_collar_outer_interface"]
+    assert (
+        report["inner_boundary_topology"]["bad_edge_midpoint_bounds_by_kind"][
+            "nonmanifold"
+        ]["y_min"]
+        > 10.0
+    )
     assert report["inner_boundary_topology"]["bad_edge_midpoint_bounds"]["x_min"] <= (
         report["inner_boundary_topology"]["bad_edge_midpoint_bounds"]["x_max"]
     )

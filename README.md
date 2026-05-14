@@ -241,9 +241,11 @@ pressure-only sanity，不能直接跑 viscous RANS。
 是 nonmanifold edges。bad-edge diagnostics 現在也輸出 boundary/nonmanifold 分類、
 marker-combo histogram、座標 bounds 與 samples；pps42/l3 的 bad edges 仍是單一
 marker ownership 為主（`transition_collar_outer_interface=475`、`bl_outer_interface=81`、
-`te_wall=1`），不是 Gmsh multi-loop 可以自動猜好的局部小洞。工程判讀：現在不能再讓
-Gmsh 直接 core-fill；下一步要修 TE/tip/closure cap-receiver / outer transition
-shell topology。
+`te_wall=1`），而且真正會擋住的 `195` 條 nonmanifold edges 全部在
+`transition_collar_outer_interface`，midpoint `y=17.170–17.206 m`，也就是 terminal
+tip 端附近。這不是 Gmsh multi-loop 可以自動猜好的局部小洞。工程判讀：現在不能再讓
+Gmsh 直接 core-fill；下一步要修 tip-side cap-receiver / outer transition shell
+topology，再回到 TE/closure accounting。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
