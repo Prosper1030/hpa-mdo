@@ -73,9 +73,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `wing_upper` / `wing_lower` / farfield area-vector 方向與 Phase 2 pressure mesh
   一致；該 24-layer probe 的 dual quality 改為 min orthogonality `15.5098 deg`、
   max CV face-area aspect ratio `40411`、max CV sub-volume ratio `158295`。但
-  Euler/slip 仍以初始 `CD≈0.2613` 開場並在 iter 10 divergence。下一個 named
-  blocker 應鎖定 root/TE prism distortion、高曲率 edge、root-symmetry hole 與
-  partial-BL/cap policy，而不是 numerics tuning 或 closure marker repair。
+  Euler/slip 仍以初始 `CD≈0.2613` 開場並在 iter 10 divergence。direct writer
+  現在會先輸出 `direct_prism_quality_gate`；default wall-resolved first height
+  `5e-5 m` 讓 root-symmetry sidewall quad aspect ratio 達到約 `7794.66`，24-layer
+  probe 有 `90` 個 root-side quads 超過 `1000`，所以這條 direct topology 在
+  solver 前仍 blocked。下一個 named blocker 應鎖定 root/TE prism distortion、
+  高曲率 edge、root-symmetry hole 與 partial-BL/cap policy，而不是 numerics tuning
+  或 closure marker repair。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

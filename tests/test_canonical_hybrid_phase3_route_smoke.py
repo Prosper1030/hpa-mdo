@@ -274,6 +274,32 @@ def test_direct_surface_prism_handoff_has_triangular_core_interface(
     }
 
 
+def test_direct_surface_prism_handoff_blocks_root_symmetry_sidewall_distortion(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_direct_surface_prism_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "direct_surface_prism_handoff.su2",
+        points_per_side=6,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+    )
+
+    quality = report["direct_prism_quality"]
+    gate = report["direct_prism_quality_gate"]
+
+    assert gate["status"] == "fail"
+    assert "root_symmetry_sidewall_quad_aspect_ratio_exceeds_1000" in gate["blockers"]
+    assert quality["root_symmetry_quad_aspect"]["max"] > 7000.0
+    assert quality["root_symmetry_quad_aspect"]["count_over_1000"] > 0
+    assert quality["worst_root_symmetry_quad"]["marker"] == "root_symmetry"
+    assert min(quality["worst_root_symmetry_quad"]["edge_lengths_m"]) <= 5.1e-5
+
+
 def test_direct_surface_prism_core_hybrid_writer_merges_interface_without_marker(
     tmp_path: Path,
 ) -> None:
@@ -300,6 +326,11 @@ def test_direct_surface_prism_core_hybrid_writer_merges_interface_without_marker
     assert report["marker_area_vectors"]["wing_upper"]["area_vector"][2] > 0.0
     assert report["marker_area_vectors"]["wing_lower"]["area_vector"][2] < 0.0
     assert abs(report["marker_area_vectors"]["farfield"]["area_vector"][2]) < 1.0e-6
+    assert report["direct_prism_quality_gate"]["status"] == "fail"
+    assert (
+        "root_symmetry_sidewall_quad_aspect_ratio_exceeds_1000"
+        in report["direct_prism_quality_gate"]["blockers"]
+    )
     assert "bl_outer_interface" not in report["marker_summary"]
     assert report["su2_boundary_ownership"]["status"] == "pass"
     assert report["required_markers_present"] is True

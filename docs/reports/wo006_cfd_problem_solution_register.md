@@ -50,7 +50,10 @@ evidence; it is a handoff/debug map for the next worker.
   ratio around `1.81024e8`; one-iteration force breakdown localized the bad
   drag to the primary wing wall markers rather than `tip_wall`, `te_wall`, or
   `closure_wall`.  This points away from closure-force cleanup and toward an
-  owned near-wall topology / direct hybrid handoff.
+  owned near-wall topology / direct hybrid handoff.  The direct surface-prism
+  writer now carries its own pre-solver quality gate; the default wall-resolved
+  first height creates root-symmetry sidewall quads with aspect ratio around
+  `7794.66`, so the direct topology is blocked before another SU2 numerics run.
 
 ## Problems And Repairs
 
@@ -71,6 +74,7 @@ evidence; it is a handoff/debug map for the next worker.
 | current root 2D sanity failed on closed TE BL mesh | First Phase 1 root DAE31 run diverged at iteration `18` with `CD=1.799858027e21`; Gmsh mesh had one negative-quality BL quad near the closed/cusped trailing edge | The DAE31 DAT is closed at the TE, unlike the finite-gap NACA/tip cases; Gmsh boundary-layer extrusion around the cusp collapsed a quad | `load_dat_airfoil_loop()` now regularizes duplicate closed TE points into a `0.002c` finite TE cap for the 2D sanity mesh and records loop diagnostics | Done for Phase 1 only. This is a toolchain-sanity mesh regularization, not a claim that the 3D wing TE/cap is solved |
 | half-wing pressure mesh initially diverged on over-clustered tip cap | Phase 2 first 3D Euler/slip run with `points_per_side=12`, `spanwise_subdivisions=1` diverged by iteration `10`; SU2 dual quality was much better than R28 but still had max CV sub-volume ratio `3.08571e6` and pressure coefficients blew up | Coarse pressure surface had high aspect-ratio wing/tip-cap panels from excessive chordwise cosine clustering at the small tip chord; worst Gmsh elements localized near the tip cap, not the old farfield pole | Canonical Phase 2 pressure mesh now uses `points_per_side=6`, `spanwise_subdivisions=4`, preserving marker split while avoiding over-clustered tip-cap chordwise points. SU2 dual gate is now parsed from solver logs and required by the release gate | Done for Phase 2 only. This is a pressure-only mesh recipe, not the viscous BL prism/hexa route |
 | first canonical Gmsh-extruded hybrid BL route-smoke fails | Default Phase 3 mesh has hybrid cell types (`15,600` prism BL cells and `2,857` core tets), but SU2 `INC_RANS/SA` diverges and reports max CV sub-volume ratio about `1.81024e8`; pps12/s6 diagnostics reduce some viscous drag with relaxed first height but pressure CD remains high | Gmsh topological BL extrusion over the faceted half-wing surface does not produce a solver-credible vertex-centered dual-control-volume mesh for the viscous route | Phase 3 gate now rejects `1e8`-scale dual sub-volume ratio and keeps closure/tip/TE forces separate; one-iteration force breakdown shows closure/tip/TE CD are not the dominant source | Replace this path with mesh-native owned BL topology / direct hybrid SU2 handoff; do not spend the next task on CFL, Green-Gauss, laminar, or closure-marker tuning |
+| direct surface-prism handoff has root sidewall distortion | Direct writer can preserve prism BL + tetra core and oriented markers, but SU2 reports distorted prism/quad elements and Euler/slip diverges at iter 10 with initial `CD≈0.2613` | wall-resolved first height `5e-5 m` is being carried onto long root-symmetry sidewall quads; the default 24-layer probe has root-side quad aspect ratio about `7794.66` and `90` root-side quads above `1000` | `direct_prism_quality_gate` now reports prism signed volume and root-symmetry quad aspect ratio before solver launch | Fix root/TE/cap policy or partial-BL root handling before rerunning route-smoke; do not use CFL/limiter changes as pass evidence |
 
 ## Phase 1 Toolchain Sanity Evidence
 

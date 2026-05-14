@@ -103,6 +103,7 @@ SU2_TRIANGLE = 5
 MIN_ROUTE_DUAL_ORTHOGONALITY_DEG = 1.0
 MAX_ROUTE_DUAL_FACE_AREA_ASPECT_RATIO = 1.0e7
 MAX_ROUTE_DUAL_SUB_VOLUME_RATIO = 1.0e7
+MAX_DIRECT_ROOT_SYMMETRY_QUAD_ASPECT_RATIO = 1000.0
 
 
 def build_phase3_route_smoke_surface(
@@ -834,6 +835,7 @@ def write_phase3_direct_surface_prism_handoff_su2(
     marker_summary = parse_su2_marker_summary(output_path)
     boundary_ownership = audit_su2_boundary_face_ownership(output_path)
     outer_interface = marker_summary["markers"].get("bl_outer_interface", {})
+    direct_prism_quality = _direct_prism_quality_metrics(volume)
     return {
         "route": "canonical_hybrid_halfwing_direct_surface_prism_handoff",
         "status": "direct_surface_prism_handoff_ready_core_pending",
@@ -847,6 +849,10 @@ def write_phase3_direct_surface_prism_handoff_su2(
         "marker_area_vectors": _marker_area_vectors(
             volume["nodes"],
             volume["marker_faces"],
+        ),
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(
+            direct_prism_quality
         ),
         "core_tetra_interface": {
             "status": (
@@ -947,6 +953,7 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
     required_markers_present = all(
         marker in marker_summary["markers"] for marker in REQUIRED_MARKERS
     )
+    direct_prism_quality = _direct_prism_quality_metrics(bl_volume)
     return {
         "route": "canonical_hybrid_halfwing_direct_surface_prism_core_hybrid",
         "status": "direct_surface_prism_core_hybrid_written",
@@ -961,6 +968,10 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
         "su2_boundary_ownership": boundary_ownership,
         "core_report": core["report"],
         "marker_area_vectors": _marker_area_vectors(merged_nodes, marker_faces),
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(
+            direct_prism_quality
+        ),
         "forbidden_route_checks": {
             "all_tet_global_star_bl_handoff": False,
             "boundary_layer_split_to_tetra": False,
@@ -1311,6 +1322,131 @@ def _direct_surface_prism_volume(
     }
 
 
+def _direct_prism_quality_metrics(volume: Mapping[str, Any]) -> dict[str, Any]:
+    vertices = [tuple(vertex) for vertex in volume["nodes"]]
+    prism_signed_volumes = [
+        _su2_prism_signed_volume(vertices, nodes)
+        for element_type, nodes in volume["elements"]
+        if int(element_type) == SU2_PRISM
+    ]
+    quad_aspect_by_marker: dict[str, dict[str, Any]] = {}
+    worst_root_quad: dict[str, Any] | None = None
+    for marker, faces in _mapping(volume.get("marker_faces")).items():
+        aspects: list[float] = []
+        marker_worst: dict[str, Any] | None = None
+        for element_type, face_nodes in faces:
+            nodes = tuple(int(node) for node in face_nodes)
+            if int(element_type) != 9 or len(nodes) != 4:
+                continue
+            edge_lengths = _face_edge_lengths(vertices, nodes)
+            min_edge = min(edge_lengths) if edge_lengths else 0.0
+            max_edge = max(edge_lengths) if edge_lengths else 0.0
+            aspect = max_edge / min_edge if min_edge > 0.0 else math.inf
+            aspects.append(aspect)
+            record = {
+                "marker": str(marker),
+                "nodes": list(nodes),
+                "aspect_ratio": float(aspect),
+                "edge_lengths_m": [float(value) for value in edge_lengths],
+            }
+            if marker_worst is None or aspect > float(marker_worst["aspect_ratio"]):
+                marker_worst = record
+        if aspects:
+            quad_aspect_by_marker[str(marker)] = {
+                "count": len(aspects),
+                "max": max(aspects),
+                "min": min(aspects),
+                "count_over_1000": sum(
+                    1
+                    for aspect in aspects
+                    if aspect > MAX_DIRECT_ROOT_SYMMETRY_QUAD_ASPECT_RATIO
+                ),
+                "worst_quad": marker_worst,
+            }
+        if str(marker) == "root_symmetry":
+            worst_root_quad = marker_worst
+
+    root_aspect = quad_aspect_by_marker.get(
+        "root_symmetry",
+        {"count": 0, "max": None, "min": None, "count_over_1000": 0},
+    )
+    finite_prism_volumes = [
+        value for value in prism_signed_volumes if math.isfinite(value)
+    ]
+    return {
+        "prism_signed_volume": {
+            "count": len(prism_signed_volumes),
+            "min": min(finite_prism_volumes) if finite_prism_volumes else None,
+            "max": max(finite_prism_volumes) if finite_prism_volumes else None,
+            "non_positive_count": sum(
+                1 for value in finite_prism_volumes if value <= 0.0
+            ),
+        },
+        "marker_quad_aspect": quad_aspect_by_marker,
+        "root_symmetry_quad_aspect": root_aspect,
+        "worst_root_symmetry_quad": worst_root_quad,
+    }
+
+
+def _direct_prism_quality_gate(metrics: Mapping[str, Any]) -> dict[str, Any]:
+    blockers: list[str] = []
+    prism_volume = _mapping(metrics.get("prism_signed_volume"))
+    root_aspect = _mapping(metrics.get("root_symmetry_quad_aspect"))
+    root_aspect_max = _float_or_none(root_aspect.get("max"))
+
+    if int(prism_volume.get("count") or 0) <= 0:
+        blockers.append("direct_prism_cells_missing")
+    if int(prism_volume.get("non_positive_count") or 0) > 0:
+        blockers.append("direct_prism_non_positive_signed_volume")
+    if int(root_aspect.get("count") or 0) <= 0:
+        blockers.append("root_symmetry_sidewall_quads_missing")
+    if (
+        root_aspect_max is None
+        or root_aspect_max > MAX_DIRECT_ROOT_SYMMETRY_QUAD_ASPECT_RATIO
+    ):
+        blockers.append("root_symmetry_sidewall_quad_aspect_ratio_exceeds_1000")
+    return {
+        "status": "pass" if not blockers else "fail",
+        "blockers": sorted(set(blockers)),
+        "thresholds": {
+            "max_root_symmetry_quad_aspect_ratio": (
+                MAX_DIRECT_ROOT_SYMMETRY_QUAD_ASPECT_RATIO
+            ),
+        },
+    }
+
+
+def _su2_prism_signed_volume(
+    vertices: Sequence[tuple[float, float, float]],
+    nodes: Sequence[int],
+) -> float:
+    n = tuple(int(node) for node in nodes)
+    return (
+        _tet_signed_volume(vertices[n[3]], vertices[n[4]], vertices[n[5]], vertices[n[0]])
+        + _tet_signed_volume(vertices[n[4]], vertices[n[1]], vertices[n[5]], vertices[n[0]])
+        + _tet_signed_volume(vertices[n[5]], vertices[n[1]], vertices[n[2]], vertices[n[0]])
+    )
+
+
+def _tet_signed_volume(
+    a: tuple[float, float, float],
+    b: tuple[float, float, float],
+    c: tuple[float, float, float],
+    d: tuple[float, float, float],
+) -> float:
+    return _dot(_vector_between(a, b), _cross(_vector_between(a, c), _vector_between(a, d))) / 6.0
+
+
+def _face_edge_lengths(
+    vertices: Sequence[tuple[float, float, float]],
+    nodes: Sequence[int],
+) -> list[float]:
+    return [
+        _distance3(vertices[int(nodes[index])], vertices[int(nodes[(index + 1) % len(nodes)])])
+        for index in range(len(nodes))
+    ]
+
+
 def _marker_area_vectors(
     vertices: Sequence[tuple[float, float, float]],
     marker_faces: Mapping[str, Sequence[tuple[int, Sequence[int]]]],
@@ -1367,6 +1503,13 @@ def _cross(
         left[2] * right[0] - left[0] * right[2],
         left[0] * right[1] - left[1] * right[0],
     )
+
+
+def _dot(
+    left: tuple[float, float, float],
+    right: tuple[float, float, float],
+) -> float:
+    return left[0] * right[0] + left[1] * right[1] + left[2] * right[2]
 
 
 def _direct_prism_side_marker(

@@ -68,9 +68,12 @@ discrete-interface/geo-farfield 組合會產生含 node `0` 的 invalid tetra。
 orientation，使 `wing_upper` / `wing_lower` / farfield area-vector 方向與 Phase 2 pressure
 mesh 一致；24-layer direct hybrid probe 的 SU2 dual metrics 改為 min orthogonality
 `15.5098 deg`、max CV face-area aspect ratio `40411`、max CV sub-volume ratio
-`158295`。但 Euler/slip 仍在 iter 10 divergence，初始 `CD≈0.2613`。下一步應先查
-root/TE prism distortion、高曲率 edge、root-symmetry hole 與 partial-BL/cap policy，
-不應把這個 topology/orientation success 當 viscous CFD 成功。
+`158295`。但 Euler/slip 仍在 iter 10 divergence，初始 `CD≈0.2613`。direct writer
+現在也會輸出 `direct_prism_quality_gate`；default wall-resolved first height
+`5e-5 m` 讓 root-symmetry sidewall quad aspect ratio 達到約 `7794.66`，24-layer probe
+有 `90` 個 root-side quads 超過 `1000`，所以這條 direct topology 會在 solver 前被
+block。下一步應先查 root/TE prism distortion、高曲率 edge、root-symmetry hole 與
+partial-BL/cap policy，不應把這個 topology/orientation success 當 viscous CFD 成功。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
