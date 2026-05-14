@@ -340,3 +340,36 @@ def test_direct_surface_prism_core_hybrid_writer_merges_interface_without_marker
         "owner_pyramid_as_active_method": False,
         "closure_faces_merged_into_wing_wall": False,
     }
+
+
+def test_partial_wing_prism_handoff_passes_prism_quality_but_requires_caps(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_partial_wing_prism_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "partial_wing_prism_handoff.su2",
+        points_per_side=42,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=24,
+    )
+
+    assert report["route"] == "canonical_hybrid_halfwing_partial_wing_prism_handoff"
+    assert report["status"] == "partial_wing_prism_ready_caps_pending"
+    assert report["volume_element_type_counts"] == {str(module.SU2_PRISM): 124416}
+    assert report["direct_prism_quality_gate"]["status"] == "pass"
+    assert report["direct_prism_quality"]["prism_signed_volume"]["non_positive_count"] == 0
+    assert report["direct_prism_quality"]["root_symmetry_quad_aspect"]["max"] < 1000.0
+    assert report["cap_closure_topology"]["status"] == "blocked_caps_missing"
+    assert report["cap_closure_topology"]["required_cap_markers"] == [
+        "tip_wall",
+        "te_wall",
+        "closure_wall",
+    ]
+    assert report["core_tetra_interface"]["status"] == "blocked_until_caps_materialized"
+    assert "tip_wall" not in report["marker_summary"]
+    assert "te_wall" not in report["marker_summary"]
+    assert "closure_wall" not in report["marker_summary"]

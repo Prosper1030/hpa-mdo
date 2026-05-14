@@ -985,6 +985,111 @@ def write_phase3_direct_surface_prism_core_hybrid_su2(
     }
 
 
+def write_phase3_partial_wing_prism_handoff_su2(
+    section_table_path: Path | str,
+    out_path: Path | str,
+    *,
+    points_per_side: int = 42,
+    spanwise_subdivisions: int = DEFAULT_SPANWISE_SUBDIVISIONS,
+    first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
+    growth_ratio: float = DEFAULT_GROWTH_RATIO,
+    bl_layers: int = DEFAULT_BL_LAYERS,
+) -> dict[str, Any]:
+    """Write a wing-surface-only prism BL handoff and stop before cap closure.
+
+    This deliberately extrudes only the primary force surfaces. The resulting
+    prism block is useful evidence for the next topology step, but it is not a
+    complete CFD domain because tip/TE/closure caps still need explicit
+    materialization before tetra-core merge.
+    """
+    prism_wall_markers = set(PRIMARY_FORCE_MARKERS)
+    required_cap_markers = [
+        marker for marker in DIAGNOSTIC_FORCE_MARKERS if marker not in prism_wall_markers
+    ]
+    surface = build_phase3_route_smoke_surface(
+        section_table_path,
+        points_per_side=points_per_side,
+        spanwise_subdivisions=spanwise_subdivisions,
+    )
+    prism_triangles = [
+        (triangle, marker)
+        for triangle, marker in _triangulated_wall_triangles(surface)
+        if marker in prism_wall_markers
+    ]
+    volume = _direct_surface_prism_volume(
+        surface.vertices,
+        prism_triangles,
+        first_layer_height_m=first_layer_height_m,
+        growth_ratio=growth_ratio,
+        bl_layers=bl_layers,
+    )
+    output_path = Path(out_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        _su2_volume_text(
+            volume,
+            comments=(
+                "% Canonical hybrid half-wing partial wing-surface prism handoff.",
+                "% Tip/TE/closure caps are intentionally not materialized here.",
+            ),
+        ),
+        encoding="utf-8",
+    )
+    marker_summary = parse_su2_marker_summary(output_path)
+    boundary_ownership = audit_su2_boundary_face_ownership(output_path)
+    direct_prism_quality = _direct_prism_quality_metrics(volume)
+    outer_interface = marker_summary["markers"].get("bl_outer_interface", {})
+    cap_counts = {
+        marker: surface.marker_counts().get(marker, 0)
+        for marker in required_cap_markers
+    }
+    return {
+        "route": "canonical_hybrid_halfwing_partial_wing_prism_handoff",
+        "status": "partial_wing_prism_ready_caps_pending",
+        "mesh_path": str(output_path),
+        "node_count": len(volume["nodes"]),
+        "volume_element_count": len(volume["elements"]),
+        "volume_element_type_counts": {str(SU2_PRISM): len(volume["elements"])},
+        "boundary_layer_cell_count": len(volume["elements"]),
+        "prism_wall_markers": list(PRIMARY_FORCE_MARKERS),
+        "marker_summary": marker_summary["markers"],
+        "su2_boundary_ownership": boundary_ownership,
+        "marker_area_vectors": _marker_area_vectors(
+            volume["nodes"],
+            volume["marker_faces"],
+        ),
+        "direct_prism_quality": direct_prism_quality,
+        "direct_prism_quality_gate": _direct_prism_quality_gate(
+            direct_prism_quality
+        ),
+        "core_tetra_interface": {
+            "status": "blocked_until_caps_materialized",
+            "marker": "bl_outer_interface",
+            "element_count": outer_interface.get("element_count", 0),
+            "element_type_counts": outer_interface.get("element_type_counts", {}),
+        },
+        "cap_closure_topology": {
+            "status": "blocked_caps_missing",
+            "required_cap_markers": required_cap_markers,
+            "source_surface_face_counts": cap_counts,
+            "required_policy": (
+                "Materialize conformal root/tip/TE/closure caps between the "
+                "wall surface and BL outer interface before tetra-core merge."
+            ),
+        },
+        "forbidden_route_checks": {
+            "all_tet_global_star_bl_handoff": False,
+            "boundary_layer_split_to_tetra": False,
+            "owner_pyramid_as_active_method": False,
+            "closure_faces_merged_into_wing_wall": False,
+        },
+        "caveats": [
+            "partial wing-upper/lower prism BL only; not a complete volume mesh",
+            "tip/TE/closure caps remain separate required topology before route-smoke",
+        ],
+    }
+
+
 def _direct_surface_prism_core_tets(
     bl_volume: Mapping[str, Any],
     *,

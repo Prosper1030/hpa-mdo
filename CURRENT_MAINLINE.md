@@ -80,6 +80,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   solver 前仍 blocked。下一個 named blocker 應鎖定 root/TE prism distortion、
   高曲率 edge、root-symmetry hole 與 partial-BL/cap policy，而不是 numerics tuning
   或 closure marker repair。
+- WO-006 Phase 3 partial-BL probe 已把 direct topology blocker 再切細：只對
+  `wing_upper` / `wing_lower` 長 prism，並把 `tip_wall` / `te_wall` /
+  `closure_wall` 留給 explicit caps 時，`points_per_side=42`、24 layers、
+  growth `1.2` 產生 `124,416` 個 prism，signed volume 全正，root-symmetry
+  sidewall max aspect ratio `966.04`，`direct_prism_quality_gate` pass。Artifact 在
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_prism_caps_pending_pps42_l24/`。
+  這不是完整 CFD mesh；它證明下一個 blocker 是 conformal cap materialization：
+  `tip_wall=82`、`te_wall=28`、`closure_wall=4` source faces 必須先與 BL outer
+  interface 封成乾淨 inner boundary，才可做 tetra-core merge。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

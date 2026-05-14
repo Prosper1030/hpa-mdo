@@ -75,6 +75,16 @@ mesh 一致；24-layer direct hybrid probe 的 SU2 dual metrics 改為 min ortho
 block。下一步應先查 root/TE prism distortion、高曲率 edge、root-symmetry hole 與
 partial-BL/cap policy，不應把這個 topology/orientation success 當 viscous CFD 成功。
 
+最新 partial-BL probe 進一步把問題切開：只對 `wing_upper` / `wing_lower` 長 prism，
+並把 `tip_wall` / `te_wall` / `closure_wall` 留給 explicit caps 時，
+`points_per_side=42`、24 layers、growth `1.2` 會得到 `124,416` 個 prism，signed
+volume 全正，root-symmetry sidewall max aspect ratio `966.04`，`direct_prism_quality_gate`
+可通過。Artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/partial_wing_prism_caps_pending_pps42_l24/`。
+工程邊界：這仍不是完整 CFD mesh，因為 required caps 還沒 materialize：
+`tip_wall=82`、`te_wall=28`、`closure_wall=4` source faces 必須先與 BL outer interface
+形成 conformal cap，才能交給 tetra core。
+
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 
 `scripts/run_wo006r8_basic_airfoil_bl_benchmark.py` 新增一個刻意簡化的 CFD route
