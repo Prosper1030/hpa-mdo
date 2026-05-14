@@ -170,6 +170,8 @@ def test_wing_boundary_layer_block_case_assigns_all_smoke_markers(tmp_path: Path
     assert report["engineering_assessment"]["aero_coefficients_interpretable"] is False
     cfg_text = Path(report["runtime_cfg_path"]).read_text(encoding="utf-8")
     assert "SOLVER= INC_EULER" in cfg_text
+    assert "INC_NONDIM= INITIAL_VALUES" in cfg_text
+    assert "INC_NONDIM= DIMENSIONAL" not in cfg_text
     assert "MARKER_FAR= ( bl_outer_interface, wake_cut, span_cap )" in cfg_text
 
 

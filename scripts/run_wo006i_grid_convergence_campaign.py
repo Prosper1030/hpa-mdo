@@ -78,6 +78,7 @@ PHYSICS_SETUP = {
     "velocity_mps": VELOCITY_MPS,
     "density_kgpm3": RHO_KGPM3,
     "dynamic_viscosity_pa_s": MU_PA_S,
+    "inc_nondim": "INITIAL_VALUES",
     "conv_num_method_flow": "JST",
     "cfl_number": 0.15,
     "linear_solver_error": "1e-5",
@@ -97,6 +98,7 @@ SU2_REFERENCE_REQUIREMENTS = {
         "INC_RANS / SA or otherwise justified viscous setup",
         "solid wall uses a no-slip wall BC such as MARKER_HEATFLUX with heatflux 0.0",
         "farfield marker is explicit and matches the mesh marker tag",
+        "incompressible coefficient normalization uses INC_NONDIM=INITIAL_VALUES or an equivalent rho/V reference, not DIMENSIONAL=1 Pa",
         "near-wall spacing or wall-function choice is justified; wall-resolved target is y+ < 1",
         "convergence uses residual and coefficient history windows, not a short smoke budget",
     ],
@@ -283,6 +285,8 @@ def evaluate_cfd_setup_gate(
         blockers.append("solid_wall_bc_not_viscous_no_slip")
     if physics_setup.get("farfield_bc") != "MARKER_FAR":
         blockers.append("farfield_bc_not_explicit_marker_far")
+    if str(physics_setup.get("inc_nondim") or "").strip().upper() != "INITIAL_VALUES":
+        blockers.append("coefficient_normalization_not_initial_values")
 
     if blockers and allow_no_bl_diagnostic:
         warnings.append("no_bl_route_allowed_for_diagnostics_only")

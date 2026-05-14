@@ -18,6 +18,19 @@ screening evidence 讀，不是現行 release / procurement truth。
 - WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
 - WO-006 只能作 bounded aero calibration；必須使用 `98.5 kg` 與 current pipeline span authority，除非明確做 sensitivity。
 - WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
+- WO-006K 已修正 mesh-native SU2 incompressible RANS coefficient normalization：
+  runtime config 現在使用 `INC_NONDIM=INITIAL_VALUES`，WO-006 grid setup gate 也會拒絕
+  非 `INITIAL_VALUES` 的 CFD ladder。這是必要修正，但不是 high-CD 的唯一原因：
+  修正後 no-BL route smoke 仍是 alpha 5 deg `CD≈0.439`、alpha 0 deg `CD≈0.291`；
+  同一 large-domain BL mesh 的 RANS/SA force-breakdown probe 仍是 `CD≈0.571`，其中
+  pressure 約 `0.401`、friction 約 `0.170`。因此 `CD≈0.5-0.6` 不能被視為收斂 CFD；
+  必須先修 pressure/near-wall/BL prism shape，再談 medium/fine ladder。
+- WO-006K 也把 BL quality gate 補成 CFD ladder blocker：boundary-layer
+  `p01 minSICN < 0.005` 現在會 fail，而不只是 warning。舊 larger-domain BL sanity mesh
+  用新 gate 判讀為 fail（`p01_min_sicn=1.47e-4`、`min_sicn=8.91e-6`）。低成本 BL
+  參數 probe 顯示減層、變薄、或改 `max_min_angle` triangulation 仍有 non-positive
+  SICN/SIGE；下一步仍是修 TE/tip/transition 近壁幾何與 prism shape，不是硬跑更多
+  solver iterations。
 - WO-006 current-GO no-BL CFD completion evidence 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/`。
   Completion gate 是 `pass`：newly generated full-span current-GO mesh 有 `490,116`

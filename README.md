@@ -1,5 +1,25 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-14 WO-006K SU2 Nondim + BL Quality Gate Repair
+
+WO-006K 修正 mesh-native SU2 incompressible RANS config：`INC_NONDIM` 改用
+`INITIAL_VALUES`，避免把係數正規化落在 `DIMENSIONAL=1 Pa` 這類不適合 aerodynamic
+coefficient 比較的 setup。`scripts/run_wo006i_grid_convergence_campaign.py` 的 setup gate
+也會拒絕非 `INITIAL_VALUES` 的 WO-006 CFD ladder。
+
+工程判讀：這個 bug 是真問題，但不是 WO-006J `CD≈0.5-0.6` 的唯一來源。用修正後 config
+重跑 no-BL route smoke 仍得到 `CD≈0.439`（alpha 5 deg）與 `CD≈0.291`（alpha 0 deg）；
+用同一 large-domain BL mesh 重跑 RANS/SA force-breakdown probe 也仍是 `CD≈0.571`，
+其中 pressure 約 `0.401`、friction 約 `0.170`。這個 friction 量級對 HPA 主翼不合理，
+不能靠更多 iteration 或 medium/fine ladder 自動變成可信結果。
+
+BL mesh quality gate 也已補強：boundary-layer `p01 minSICN < 0.005` 現在是 blocker，
+不是 warning。舊 larger-domain BL sanity mesh 用新 gate 判讀會 fail：
+`p01_min_sicn=1.47e-4`、`min_sicn=8.91e-6`。低成本 BL 參數 probe 顯示把 BL 做薄、
+減層、或切到 `max_min_angle` surface triangulation 仍有 non-positive SICN/SIGE；
+因此下一步仍是修 TE/tip/transition 附近的近壁幾何/BL prism shape，而不是硬跑
+coarse/medium/fine。
+
 ## 2026-05-14 WO-006J CD-Order Sanity Gate
 
 WO-006J 後續 BL/no-slip ladder 雖然已經不是 no-BL route，且 `wing_wall` / `farfield`

@@ -615,7 +615,33 @@ def test_boundary_layer_mesh_quality_gate_blocks_bad_prisms():
     assert gate["status"] == "fail"
     assert "boundary_layer_non_positive_min_sicn" in gate["blockers"]
     assert "boundary_layer_non_positive_min_sige" in gate["blockers"]
+    assert "boundary_layer_severe_low_p01_min_sicn" in gate["blockers"]
     assert "boundary_layer_low_p01_min_sicn" in gate["warnings"]
+
+
+def test_boundary_layer_mesh_quality_gate_blocks_severely_low_positive_prisms():
+    gate = _boundary_layer_mesh_quality_gate(
+        core_quality_metrics={
+            "tetra_element_count": 10,
+            "non_positive_min_sicn_count": 0,
+            "non_positive_min_sige_count": 0,
+            "non_positive_volume_count": 0,
+            "min_gamma": 0.2,
+            "min_sicn": 0.2,
+            "gamma_percentiles": {"p01": 0.2},
+        },
+        boundary_layer_quality_metrics={
+            "element_count": 100,
+            "non_positive_min_sicn_count": 0,
+            "non_positive_min_sige_count": 0,
+            "non_positive_volume_count": 0,
+            "min_sicn_percentiles": {"p01": 0.001},
+        },
+    )
+
+    assert gate["status"] == "fail"
+    assert gate["blockers"] == ["boundary_layer_severe_low_p01_min_sicn"]
+    assert gate["warnings"] == ["boundary_layer_low_p01_min_sicn"]
 
 
 def test_cfd_evidence_gate_rejects_short_iteration_budget():

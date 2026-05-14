@@ -111,3 +111,5 @@ def test_smoke_cfg_text_can_emit_incompressible_rans_wall_function_setup():
     assert "FREESTREAM_TURB2LAMVISCRATIO= 3" in cfg
     assert "CONV_NUM_METHOD_TURB= SCALAR_UPWIND" in cfg
     assert "MUSCL_FLOW= YES" in cfg
+    assert "INC_NONDIM= INITIAL_VALUES" in cfg
+    assert "INC_NONDIM= DIMENSIONAL" not in cfg

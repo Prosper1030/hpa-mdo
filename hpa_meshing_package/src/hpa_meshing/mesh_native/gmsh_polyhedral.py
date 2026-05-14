@@ -2499,6 +2499,8 @@ def _boundary_layer_mesh_quality_gate(
     p01_sicn = sicn_percentiles.get("p01") if isinstance(sicn_percentiles, dict) else None
     if p01_sicn is not None and float(p01_sicn) < 0.02:
         warnings.append("boundary_layer_low_p01_min_sicn")
+    if p01_sicn is not None and float(p01_sicn) < 0.005:
+        blockers.append("boundary_layer_severe_low_p01_min_sicn")
     return {
         "status": "pass" if not blockers else "fail",
         "blockers": blockers,
@@ -2506,6 +2508,9 @@ def _boundary_layer_mesh_quality_gate(
         "warning_thresholds": {
             **core_gate["warning_thresholds"],
             "boundary_layer_p01_min_sicn": 0.02,
+        },
+        "blocker_thresholds": {
+            "boundary_layer_p01_min_sicn": 0.005,
         },
     }
 

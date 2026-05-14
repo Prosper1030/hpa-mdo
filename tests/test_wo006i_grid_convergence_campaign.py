@@ -246,6 +246,27 @@ def test_no_bl_setup_is_blocked_even_if_coefficients_are_stable() -> None:
     assert result["finite_completed_rung_count"] == 3
 
 
+def test_setup_gate_rejects_dimensional_nondim_for_aero_coefficients() -> None:
+    module = _load_module()
+    bad_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "DIMENSIONAL",
+    }
+
+    result = module.evaluate_cfd_setup_gate(physics_setup=bad_setup)
+
+    assert result["status"] == "blocked"
+    assert "coefficient_normalization_not_initial_values" in result["blockers"]
+
+
 def test_run_campaign_blocks_no_bl_route_before_solver_by_default(tmp_path: Path) -> None:
     module = _load_module()
 
