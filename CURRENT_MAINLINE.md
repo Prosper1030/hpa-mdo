@@ -152,6 +152,9 @@ screening evidence 讀，不是現行 release / procurement truth。
   約 `8.87e9`，但仍遠高於 `1e7` route gate；`2.5e-3 m` 開始觸發 overlapping
   facets。工程判讀：加厚 collar 能改善但不能解決，下一步要處理 collar side-triangle
   quality / transition topology，而不是只調 Gmsh point sizing。
+- pps42/l4 merged writer 手動 probe 也仍 fail：`20,736` prisms + `580` pyramids +
+  `16,462` tetra，root sidewall aspect 約 `966` 已過 smoke gate，但 dual proxy
+  仍有 `1.1725639068823458e10`。因此解析度升到 pps42/l4 仍不能進 pressure/RANS。
 - 但 merged pps12/l4 pressure-only probe 仍 fail：
   `partial_wing_transition_collar_core_hybrid_pps12_l4_pressure_probe/`。SU2 能讀 mesh，
   但只到 `3` rows / iteration `2`，dual quality 病態：min orthogonality

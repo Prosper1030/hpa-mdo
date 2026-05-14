@@ -161,6 +161,9 @@ interface geometry/quality，不能進 RANS。
 能把 proxy 降到約 `8.87e9`，比 `1.0e-4 m` 好很多但仍 fail；`2.5e-3 m` 開始出現
 overlapping facets。因此下一步不能只調 thickness，必須重設 collar side-triangle quality
 或改 transition topology。
+解析度也不是單一解：pps42/l4 merged writer 可產生 `20,736` prisms + `580` pyramids +
+`16,462` tetra，root sidewall aspect 約 `966` 已過 smoke gate，但 dual proxy 仍是
+`1.1725639068823458e10`。所以 pps42/l4 不應升級成 pressure/RANS route。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

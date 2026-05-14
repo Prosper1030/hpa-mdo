@@ -339,6 +339,14 @@ evidence; it is a handoff/debug map for the next worker.
   the `1e7` route gate before geometry intersection appears.  A thickness-only
   fix is therefore not enough; the next repair must improve collar side-triangle
   aspect/spacing or change transition topology.
+- Resolution probe evidence:
+  - pps24/l4: `11,520` prisms + `436` pyramids + `12,028` tetra; root sidewall
+    aspect `1721.1552977065119`; max proxy `1.3324437641332785e10`
+  - pps42/l4: `20,736` prisms + `580` pyramids + `16,462` tetra; root sidewall
+    aspect `966.0355808294544`; max proxy `1.1725639068823458e10`
+- Interpretation: pps42/l4 fixes the root sidewall aspect smoke gate but not the
+  collar/core dual-volume blocker.  Do not promote pps42/l4 to pressure or RANS
+  without a transition-topology repair.
 
 ## Known Unknowns
 
