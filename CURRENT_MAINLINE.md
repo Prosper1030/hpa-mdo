@@ -195,6 +195,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   blocker 視為已由 core/mixed route supersede。下一步是把 R26 repair 寫回 mixed SU2
   writer 並重跑 marker/quality audit；在 audit pass 前仍不能跑 medium/fine solver ladder
   或解讀 Baseline A CL/CD/Cm。
+- WO-006R27 已套用 R26 bounded marker repair，寫出
+  `wo006r27_apply_boundary_marker_repair_probe/culled_global_star_mixed_handoff_r27_repaired.su2`。
+  mesh 仍是 `56,873` nodes / `332,221` tetra volume elements；marker counts 是
+  `wing_wall=1992`、`farfield=2366`。final boundary marker audit 已 `pass`：
+  exterior boundary faces `4358/4358` marked，`unmarked=0`、`extra=0`、duplicate
+  marker faces `0`、nonmanifold volume faces `0`；mixed volume quality `pass`，
+  non-positive volume `0`。WO-006I preflight 現在不再報 R25/R26 marker blocker，也會把
+  direct-stageback PLC failure 視為已由 core/mixed route supersede。active blockers 回到
+  solver setup 層：目前預設 setup 仍是 no-BL diagnostic、缺 solver-postprocessed y+，
+  且沒有 coarse/medium/fine rungs。問題/解法 register 在
+  `docs/reports/wo006_cfd_problem_solution_register.md`。
   先前 `wo006i_grid_convergence_campaign/`
   的 `0.49M`、`1.61M`、`3.05M`、
   `3.63M` finite no-BL RANS/SA histories 已被 quarantine 成 diagnostic evidence；

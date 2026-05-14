@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r27_apply_boundary_marker_repair_probe" / "summary.json",
     WO006_ROOT / "wo006r26_remaining_boundary_leak_localization_probe" / "summary.json",
     WO006_ROOT / "wo006r25_culled_mixed_su2_handoff_probe" / "summary.json",
     WO006_ROOT / "wo006r24_degenerate_cull_handoff_basis_probe" / "summary.json",
@@ -1304,12 +1305,13 @@ def _core_closure_topology_summary(
             target_marker = str(marker_repair_plan.get("target_marker") or "")
             leak_count = int(artifact.get("leak_count") or 0)
             plan_face_count = int(marker_repair_plan.get("face_count") or 0)
-            mixed_marker_repair_ready = (
+            marker_repair_ready = (
                 plan_status == "repair_plan_ready"
                 and target_marker == "wing_wall"
                 and leak_count > 0
                 and plan_face_count == leak_count
             )
+            mixed_marker_repair_ready = mixed_marker_repair_ready or marker_repair_ready
             mixed_marker_repair_record = {
                 "path": artifact.get("path"),
                 "schema_version": artifact.get("schema_version"),
@@ -1338,13 +1340,15 @@ def _core_closure_topology_summary(
             handoff_status = str(mixed_handoff.get("status") or artifact.get("verdict") or "")
             boundary_status = str(boundary_audit.get("status") or "")
             quality_status = str(quality.get("status") or "")
-            mixed_handoff_ready = (
+            artifact_mixed_handoff_ready = (
                 handoff_status == "mixed_su2_handoff_written"
                 and boundary_status == "pass"
                 and quality_status == "pass"
             )
-            mixed_handoff_blocked = not mixed_handoff_ready
-            mixed_handoff_record = {
+            artifact_mixed_handoff_blocked = not artifact_mixed_handoff_ready
+            mixed_handoff_ready = mixed_handoff_ready or artifact_mixed_handoff_ready
+            mixed_handoff_blocked = mixed_handoff_blocked or artifact_mixed_handoff_blocked
+            artifact_mixed_handoff_record = {
                 "path": artifact.get("path"),
                 "schema_version": artifact.get("schema_version"),
                 "verdict": artifact.get("verdict"),
@@ -1367,7 +1371,9 @@ def _core_closure_topology_summary(
                 "wall_marker_recovery": mixed_handoff.get("wall_marker_recovery"),
                 "pending_blockers": artifact.get("blockers"),
             }
-            records.append(mixed_handoff_record)
+            if artifact_mixed_handoff_ready or mixed_handoff_record is None:
+                mixed_handoff_record = artifact_mixed_handoff_record
+            records.append(artifact_mixed_handoff_record)
             continue
 
         degenerate_cull = artifact.get("degenerate_cull_basis") or {}

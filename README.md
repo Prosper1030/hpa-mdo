@@ -187,6 +187,24 @@ repair plan 狀態是 `repair_plan_ready`，只允許把這些已定位的 solid
 「可套用的 bounded marker repair plan」。但 repair 尚未寫回 mixed SU2 writer，marker
 audit 也尚未 pass，所以仍不能跑 medium/fine CFD ladder，也不能解讀 Baseline A CL/CD/Cm。
 
+## 2026-05-14 WO-006R27 Apply Boundary Marker Repair Probe
+
+`scripts/probe_wo006r27_apply_boundary_marker_repair.py` 已把 R26 repair plan 套回
+mixed SU2 handoff：只接受 `recommended_marker=wing_wall` 的 R26 leak records，重寫
+`culled_global_star_mixed_handoff_r27_repaired.su2`，並重新跑 final volume-boundary
+marker audit。artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r27_apply_boundary_marker_repair_probe/`。
+
+實跑結果：mesh 仍是 `56,873` nodes / `332,221` tetra volume elements；marker counts
+是 `wing_wall=1992`、`farfield=2366`。final boundary marker audit `pass`：
+`4358/4358` exterior faces marked，`unmarked=0`、`extra=0`、duplicate marker faces `0`、
+nonmanifold volume faces `0`；mixed volume quality 也 `pass`，non-positive volume `0`。
+
+工程判讀：這是第一個 Baseline A current-GO mixed SU2 handoff marker/quality gate pass，
+可進 bounded SU2 route-smoke wiring；但它還不是 solver result、不是 postprocessed y+、
+不是 coarse/medium/fine ladder，也不是 CL/CD/Cm 或 drag truth。當前問題與解法 register
+整理在 `docs/reports/wo006_cfd_problem_solution_register.md`。
+
 ## 2026-05-14 WO-006R17 Hybrid Tet/Prism Split Probe
 
 `scripts/probe_wo006r17_hybrid_tet_prism_split.py` 把 R16 往混合 cell handoff 方向再推一步：
