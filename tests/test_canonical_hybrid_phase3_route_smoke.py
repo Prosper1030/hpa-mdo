@@ -888,7 +888,7 @@ def test_segmented_structured_transition_projection_stitched_sidewalls_scales() 
         growth_ratio=1.2,
         bl_layers=2,
         collar_height_m=5.0e-4,
-        transition_row_heights_m=(0.03, 0.09),
+        transition_row_heights_m=(0.01, 0.03),
         sidewall_closure_policy="stitched_sheet",
         max_projected_volume_elements=150_000,
     )
@@ -908,6 +908,74 @@ def test_segmented_structured_transition_projection_stitched_sidewalls_scales() 
     )
     assert projected["projected_volume_element_count"] < 150_000
     assert report["gate"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_segmented_partial_wing_stitched_transition_handoff_pairs_sidewalls(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_stitched_transition_handoff.su2",
+        points_per_side=4,
+        spanwise_subdivisions=1,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=2,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.01, 0.03),
+        sidewall_closure_policy="stitched_sheet",
+        max_projected_volume_elements=150_000,
+    )
+
+    assert report["status"] == "segmented_partial_wing_structured_transition_ready_caps_pending"
+    assert report["structured_transition"]["sidewall_closure_policy"] == "stitched_sheet"
+    assert report["structured_transition"]["sidewall_closure_pyramid_count"] < (
+        report["structured_transition"]["input_interface_triangle_count"] * 2 * 3
+    )
+    assert report["volume_element_count"] < 150_000
+    assert report["topology"]["tet_to_prism_quad_contact"] == 0
+    assert report["topology"]["non_root_exposed_prism_quad_count"] == 0
+    assert report["topology"]["pyramid_boundary_face_count"] == 0
+    assert report["dual_subvolume_proxy"]["status"] == "pass"
+    assert report["su2_boundary_ownership"]["status"] == "pass"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_segmented_partial_wing_stitched_transition_handoff_pps42_l3_passes_dual_gate(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_stitched_transition_handoff_pps42_l3.su2",
+        points_per_side=42,
+        spanwise_subdivisions=module.DEFAULT_SPANWISE_SUBDIVISIONS,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=3,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.01, 0.03),
+        sidewall_closure_policy="stitched_sheet",
+        max_projected_volume_elements=250_000,
+    )
+
+    assert report["status"] == "segmented_partial_wing_structured_transition_ready_caps_pending"
+    assert report["volume_element_count"] < 250_000
+    assert report["structured_transition"]["input_interface_triangle_count"] == 9708
+    assert report["structured_transition"]["sidewall_closure_policy"] == "stitched_sheet"
+    assert report["structured_transition"]["sidewall_closure_pyramid_count"] < (
+        report["structured_transition"]["input_interface_triangle_count"] * 2 * 3
+    )
+    assert report["topology"]["tet_to_prism_quad_contact"] == 0
+    assert report["topology"]["non_root_exposed_prism_quad_count"] == 0
+    assert report["topology"]["pyramid_boundary_face_count"] == 0
+    assert report["element_quality_gate"]["status"] == "pass"
+    assert report["dual_subvolume_proxy"]["status"] == "pass"
+    assert report["su2_boundary_ownership"]["status"] == "pass"
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 

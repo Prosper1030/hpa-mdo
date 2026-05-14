@@ -170,14 +170,25 @@ the boundary edges need closure: projected sidewall closure drops to `3248`
 pyramids and `12992` tetra, with projected total volume elements `55,627`, below
 the `250,000` gate.
 
+Post-review local update: the shared-node stitched transition sheet has now
+been implemented.  A direct pps42/l3 run with the original `0.03 m -> 0.09 m`
+transition rows generated valid topology but failed the dual proxy with max CV
+sub-volume ratio about `3.36e8`, so that row scale is not accepted.  With bounded
+rows `0.01 m -> 0.03 m`, the artifact
+`segmented_partial_wing_structured_transition_handoff_pps42_l3_stitched_r010_030/`
+writes `36,960` prisms, `5,987` pyramids, and `14,240` tetra (`57,187` volume
+elements).  Topology, element-quality, SU2 boundary ownership, and dual proxy
+all pass.  It is still caps/core pending, not pressure sanity or RANS.
+
 ## Question To Answer
 
-Please review the real-wing projection strategy, not solver numerics.
+Please review the next real-wing core-merge strategy, not solver numerics.
 
-Which route should we implement next, and what are the exact construction rules?
-I am leaning toward shared-node stitched sidewall sheets because it is the only
-projection currently under the Mac-safe gate. Please challenge or refine that
-construction rule.
+The shared-node stitched sidewall sheet is now the accepted partial-BL rim
+handoff.  Which route should be implemented next to merge
+`transition_collar_outer_interface` into a tetra core without recreating the
+dual-volume pathology, and what exact construction rules should block bad
+attempts?
 
 Candidates:
 

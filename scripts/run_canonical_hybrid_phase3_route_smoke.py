@@ -2437,7 +2437,7 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
     growth_ratio: float = DEFAULT_GROWTH_RATIO,
     bl_layers: int = 4,
     collar_height_m: float = 1.0e-4,
-    transition_row_heights_m: Sequence[float] = (0.03, 0.09),
+    transition_row_heights_m: Sequence[float] = (0.01, 0.03),
     sidewall_closure_policy: str = "per_triangle",
     max_projected_volume_elements: int | None = None,
 ) -> dict[str, Any]:
@@ -2611,9 +2611,42 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
     growth_ratio: float = DEFAULT_GROWTH_RATIO,
     bl_layers: int = 4,
     collar_height_m: float = 1.0e-4,
-    transition_row_heights_m: Sequence[float] = (0.03, 0.09),
+    transition_row_heights_m: Sequence[float] = (0.01, 0.03),
+    sidewall_closure_policy: str = "per_triangle",
+    max_projected_volume_elements: int | None = None,
 ) -> dict[str, Any]:
     """Write segmented real-wing collar plus explicit structured transition rows."""
+    projection_report = None
+    if max_projected_volume_elements is not None:
+        projection_report = plan_phase3_segmented_partial_wing_structured_transition_handoff(
+            section_table_path,
+            points_per_side=points_per_side,
+            spanwise_subdivisions=spanwise_subdivisions,
+            first_layer_height_m=first_layer_height_m,
+            growth_ratio=growth_ratio,
+            bl_layers=bl_layers,
+            collar_height_m=collar_height_m,
+            transition_row_heights_m=transition_row_heights_m,
+            sidewall_closure_policy=sidewall_closure_policy,
+            max_projected_volume_elements=max_projected_volume_elements,
+        )
+        if _mapping(projection_report.get("gate")).get("status") != "pass":
+            return {
+                "route": (
+                    "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_handoff"
+                ),
+                "status": "segmented_partial_wing_structured_transition_projection_blocked",
+                "mesh_path": str(out_path),
+                "projection": projection_report,
+                "gate": projection_report["gate"],
+                "engineering_assessment": {
+                    "route_smoke_ready": False,
+                    "trust_boundary": (
+                        "Structured transition handoff was stopped by the "
+                        "projection gate before allocating the full mesh."
+                    ),
+                },
+            }
     surface = build_phase3_route_smoke_surface(
         section_table_path,
         points_per_side=points_per_side,
@@ -2666,6 +2699,7 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
     transition_volume, structured_transition = _partial_wing_structured_transition_volume(
         collar_volume,
         transition_row_heights_m=transition_row_heights_m,
+        sidewall_closure_policy=sidewall_closure_policy,
     )
     output_path = Path(out_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2721,6 +2755,12 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
     for element_type, _nodes in transition_volume["elements"]:
         key = str(element_type)
         type_counts[key] = type_counts.get(key, 0) + 1
+    volume_element_count = len(transition_volume["elements"])
+    if (
+        max_projected_volume_elements is not None
+        and volume_element_count > int(max_projected_volume_elements)
+    ):
+        blockers.append("structured_real_wing_volume_element_count_exceeds_gate")
     report = {
         "route": (
             "canonical_hybrid_halfwing_segmented_partial_wing_structured_transition_handoff"
@@ -2732,10 +2772,11 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
         ),
         "mesh_path": str(output_path),
         "node_count": len(transition_volume["nodes"]),
-        "volume_element_count": len(transition_volume["elements"]),
+        "volume_element_count": volume_element_count,
         "volume_element_type_counts": dict(sorted(type_counts.items())),
         "source_rim_edge_split_plan": source_edge_report,
         "segmented_surface": segmented_surface_report,
+        "projection": projection_report,
         "transition_collar": collar_report,
         "structured_transition": structured_transition,
         "topology": topology,
@@ -3449,10 +3490,15 @@ def _partial_wing_structured_transition_volume(
     collar_volume: Mapping[str, Any],
     *,
     transition_row_heights_m: Sequence[float],
+    sidewall_closure_policy: str = "per_triangle",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     row_heights = tuple(float(height) for height in transition_row_heights_m)
     if not row_heights or any(height <= 0.0 for height in row_heights):
         raise ValueError("transition_row_heights_m must contain positive heights")
+    if sidewall_closure_policy not in {"per_triangle", "stitched_sheet"}:
+        raise ValueError(
+            "sidewall_closure_policy must be 'per_triangle' or 'stitched_sheet'"
+        )
     nodes = [tuple(vertex) for vertex in collar_volume["nodes"]]
     elements = list(collar_volume["elements"])
     element_roles = [
@@ -3479,44 +3525,119 @@ def _partial_wing_structured_transition_volume(
         if int(element_type) == SU2_TRIANGLE
     ]
     face_owners = _volume_face_owner_map(elements)
+    interface_edge_counts: dict[tuple[int, int], int] = {}
+    for triangle in interface_faces:
+        for start, end in zip(triangle, [*triangle[1:], triangle[0]]):
+            key = tuple(sorted((int(start), int(end))))
+            interface_edge_counts[key] = interface_edge_counts.get(key, 0) + 1
+    interface_boundary_edge_count = sum(
+        1 for count in interface_edge_counts.values() if int(count) == 1
+    )
+    interface_nonmanifold_edge_count = sum(
+        1 for count in interface_edge_counts.values() if int(count) > 2
+    )
 
     def add_node(coord: tuple[float, float, float]) -> int:
         nodes.append(coord)
         return len(nodes) - 1
 
     transition_prism_count = 0
-    for face_nodes in interface_faces:
-        owner = _single_face_owner(face_owners, face_nodes, SU2_PYRAMID)
-        owner_nodes = tuple(int(node) for node in elements[int(owner["element_index"])][1])
-        face_centroid = _centroid_tuple([nodes[node] for node in face_nodes])
-        owner_centroid = _centroid_tuple([nodes[node] for node in owner_nodes])
-        direction = _outward_unit_direction_for_face(
-            nodes,
-            face_nodes,
-            outward_hint=_vector_between(owner_centroid, face_centroid),
-        )
-        inner = tuple(int(node) for node in face_nodes)
+    stitched_row_node_count = 0
+    if sidewall_closure_policy == "per_triangle":
+        for face_nodes in interface_faces:
+            owner = _single_face_owner(face_owners, face_nodes, SU2_PYRAMID)
+            owner_nodes = tuple(int(node) for node in elements[int(owner["element_index"])][1])
+            face_centroid = _centroid_tuple([nodes[node] for node in face_nodes])
+            owner_centroid = _centroid_tuple([nodes[node] for node in owner_nodes])
+            direction = _outward_unit_direction_for_face(
+                nodes,
+                face_nodes,
+                outward_hint=_vector_between(owner_centroid, face_centroid),
+            )
+            inner = tuple(int(node) for node in face_nodes)
+            cumulative_height = 0.0
+            for row_index, row_height in enumerate(row_heights):
+                cumulative_height += row_height
+                outer = tuple(
+                    add_node(_offset_point(nodes[int(node)], direction, cumulative_height))
+                    for node in face_nodes
+                )
+                prism = _oriented_prism_positive(nodes, inner, outer)
+                elements.append((SU2_PRISM, prism))
+                element_roles.append(
+                    {
+                        "role": "real_wing_structured_transition_prism",
+                        "source": "structured_transition_prism",
+                        "row_index": str(row_index),
+                    }
+                )
+                transition_prism_count += 1
+                inner = outer
+            marker_faces.setdefault("transition_collar_outer_interface", []).append(
+                (SU2_TRIANGLE, inner)
+            )
+    else:
+        node_direction_sums: dict[int, list[float]] = {}
+        for face_nodes in interface_faces:
+            owner = _single_face_owner(face_owners, face_nodes, SU2_PYRAMID)
+            owner_nodes = tuple(int(node) for node in elements[int(owner["element_index"])][1])
+            face_centroid = _centroid_tuple([nodes[node] for node in face_nodes])
+            owner_centroid = _centroid_tuple([nodes[node] for node in owner_nodes])
+            direction = _outward_unit_direction_for_face(
+                nodes,
+                face_nodes,
+                outward_hint=_vector_between(owner_centroid, face_centroid),
+            )
+            for node in face_nodes:
+                bucket = node_direction_sums.setdefault(int(node), [0.0, 0.0, 0.0])
+                bucket[0] += direction[0]
+                bucket[1] += direction[1]
+                bucket[2] += direction[2]
+
+        node_directions: dict[int, tuple[float, float, float]] = {}
+        for node, vector in node_direction_sums.items():
+            norm = _distance3((vector[0], vector[1], vector[2]), (0.0, 0.0, 0.0))
+            if norm <= 1.0e-14:
+                node_directions[int(node)] = (0.0, 1.0, 0.0)
+            else:
+                node_directions[int(node)] = (
+                    vector[0] / norm,
+                    vector[1] / norm,
+                    vector[2] / norm,
+                )
+
+        row_nodes: dict[tuple[int, int], int] = {}
         cumulative_height = 0.0
         for row_index, row_height in enumerate(row_heights):
             cumulative_height += row_height
-            outer = tuple(
-                add_node(_offset_point(nodes[int(node)], direction, cumulative_height))
-                for node in face_nodes
+            for node in sorted(node_directions):
+                row_nodes[(int(node), row_index)] = add_node(
+                    _offset_point(
+                        nodes[int(node)],
+                        node_directions[int(node)],
+                        cumulative_height,
+                    )
+                )
+                stitched_row_node_count += 1
+
+        for face_nodes in interface_faces:
+            inner = tuple(int(node) for node in face_nodes)
+            for row_index, _row_height in enumerate(row_heights):
+                outer = tuple(row_nodes[(int(node), row_index)] for node in face_nodes)
+                prism = _oriented_prism_positive(nodes, inner, outer)
+                elements.append((SU2_PRISM, prism))
+                element_roles.append(
+                    {
+                        "role": "real_wing_structured_transition_prism",
+                        "source": "structured_transition_prism",
+                        "row_index": str(row_index),
+                    }
+                )
+                transition_prism_count += 1
+                inner = outer
+            marker_faces.setdefault("transition_collar_outer_interface", []).append(
+                (SU2_TRIANGLE, inner)
             )
-            prism = _oriented_prism_positive(nodes, inner, outer)
-            elements.append((SU2_PRISM, prism))
-            element_roles.append(
-                {
-                    "role": "real_wing_structured_transition_prism",
-                    "source": "structured_transition_prism",
-                    "row_index": str(row_index),
-                }
-            )
-            transition_prism_count += 1
-            inner = outer
-        marker_faces.setdefault("transition_collar_outer_interface", []).append(
-            (SU2_TRIANGLE, inner)
-        )
 
     volume: dict[str, Any] = {
         "nodes": nodes,
@@ -3531,6 +3652,10 @@ def _partial_wing_structured_transition_volume(
     _add_role_boundary_marker_faces(volume)
     report = {
         "input_interface_triangle_count": len(interface_faces),
+        "input_interface_edge_count": len(interface_edge_counts),
+        "interface_boundary_edge_count": interface_boundary_edge_count,
+        "interface_nonmanifold_edge_count": interface_nonmanifold_edge_count,
+        "sidewall_closure_policy": sidewall_closure_policy,
         "row_count": len(row_heights),
         "row_heights_m": list(row_heights),
         "first_row_height_m": row_heights[0],
@@ -3540,6 +3665,7 @@ def _partial_wing_structured_transition_volume(
             else 1.0
         ),
         "transition_prism_count": transition_prism_count,
+        "stitched_row_node_count": stitched_row_node_count,
         **sidewall_closure,
     }
     return volume, report
@@ -3647,6 +3773,10 @@ def _close_non_root_exposed_prism_quads_with_pyramid_tets(
         if marker_by_key.get(face_key) == "root_symmetry":
             continue
         if _face_average_y(nodes, face_nodes) <= 1.0e-9:
+            volume.setdefault("marker_faces", {}).setdefault("root_symmetry", []).append(
+                (SU2_QUAD, face_nodes)
+            )
+            marker_by_key[face_key] = "root_symmetry"
             continue
         exposed_prism_quads.append(owner)
 
@@ -3684,7 +3814,7 @@ def _close_non_root_exposed_prism_quads_with_pyramid_tets(
                 _tet_extension_point(
                     nodes,
                     side_face,
-                    magnitude=offset * (1.0 + 0.05 * (face_index + side_index)),
+                    magnitude=offset * (1.0 + 0.05 * side_index),
                 )
             )
             elements.append(

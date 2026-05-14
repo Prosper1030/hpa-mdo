@@ -256,6 +256,19 @@ screening evidence 讀，不是現行 release / procurement truth。
   降到 `55,627` volume elements，低於 `250,000` gate。工程判讀：下一個 active
   implementation 應是 shared-node stitched transition sheet，而不是 per-triangle
   isolated extrusion。
+- pps42/l3 shared-node stitched transition handoff 已實作並通過 pre-core gates：
+  `segmented_partial_wing_structured_transition_handoff_pps42_l3_stitched_r010_030/`。
+  正式 row heights 改為 `0.01 m -> 0.03 m`；原先 `0.03 m -> 0.09 m` 在 pps42/l3
+  會讓 structured-transition prism hotspot 的 dual sub-volume ratio 約 `3.36e8`，
+  不能當 active 設定。新的 handoff 產生 `36,960` prisms、`5,987` pyramids、
+  `14,240` tetra，總 `57,187` volume elements；topology gate 顯示
+  `boundary_faces_unmarked=0`、`nonmanifold_face_count=0`、
+  `tet_to_prism_quad_contact=0`、`non_root_exposed_prism_quad_count=0`、
+  `pyramid_boundary_face_count=0`，element-quality / SU2 boundary ownership /
+  dual proxy 都 pass。工程判讀：這是 partial-BL rim transition handoff 的第一個
+  pps42/l3 真翼 pass，但仍是 caps/core pending，不是 `ROUTE_SMOKE_PASS`；下一步才是把
+  `transition_collar_outer_interface` 併入 tetra core shell，然後先跑 pressure-only
+  sanity，不能直接進 RANS。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

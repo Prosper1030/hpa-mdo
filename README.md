@@ -223,6 +223,16 @@ elements，超過 `250,000` 的 Mac-safe gate；因此不能直接放大 tiny ha
 改用 stitched-sheet projection 後，因為 interface 只有 `1624` 個 boundary edges
 需要 closure，投影總量降到 `55,627` 個 volume elements，低於 gate。下一步要做
 shared-node stitched transition sheet。
+shared-node stitched transition sheet 現在已有 pps42/l3 真翼 handoff artifact：
+`segmented_partial_wing_structured_transition_handoff_pps42_l3_stitched_r010_030/`。
+實作後發現原先 `0.03 m -> 0.09 m` transition rows 在 pps42/l3 仍會造成
+structured-transition prism dual hotspot（max CV sub-volume ratio 約 `3.36e8`），
+所以 active 設定改成 `0.01 m -> 0.03 m`。新的 artifact 產生 `36,960`
+prisms、`5,987` pyramids、`14,240` tetra，總 `57,187` volume elements；
+topology / element-quality / SU2 boundary ownership / dual proxy 全部 pass。這仍不是
+`ROUTE_SMOKE_PASS`：它只證明 partial-BL prism rim 已可用 stitched transition
+轉成 triangular core-interface topology；下一步仍要做 caps/core merge 和
+pressure-only sanity，不能直接跑 viscous RANS。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
