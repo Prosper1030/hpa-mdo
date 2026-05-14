@@ -312,6 +312,13 @@ screening evidence 讀，不是現行 release / procurement truth。
   `536` 條是 terminal receiver boundary，總共 `5` 個 boundary components，最大 component
   有 `204` 條 edges 且含 degree-4/6 分岔。工程判讀：方向正確，但還不是 core fill-ready；
   下一步要補 explicit receiver boundary closure。
+- pps42/l3 cycle-cap receiver closure preflight 已新增：
+  `segmented_partial_wing_receiver_cycle_cap_core_shell_probe_pps42_l3/structured_transition_core_shell_probe_report.json`
+  將 `536` 條 terminal receiver boundary edges 分解為 `50` 個 simple cycles 並 capped，
+  `terminal_boundary_edges_pending_after_cut=0`、`nonmanifold_edge_count=0`，core-shell
+  gate 變成 `pass` / `not_run_core_shell_ready`。工程判讀：這是 core-shell topology
+  preflight ready，不是 SU2 volume mesh，也不是 pressure sanity；下一步才是 Gmsh/core
+  fill 與 pressure-only sanity。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

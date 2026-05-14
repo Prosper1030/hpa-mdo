@@ -266,6 +266,11 @@ fan。
 component 有 `204` 條 edges，且含 degree-4/6 分岔。這一步只證明「terminal
 nonmanifold 的方向對了」；還不能呼叫 Gmsh core fill，更不能跑 pressure/RANS。
 下一步必須補 explicit receiver boundary closure。
+`segmented_partial_wing_receiver_cycle_cap_core_shell_probe_pps42_l3/` 接著用
+cycle-local receiver caps 關掉 terminal boundary：`536` 條 terminal edges 被分解成
+`50` 個 simple cycles 並全部 capped，terminal pending edges 變 `0`，core-shell gate
+變成 `pass`，但仍只代表 core-shell preflight ready；cycle caps 還不是最終 SU2 volume
+mesh，也不是 pressure sanity。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

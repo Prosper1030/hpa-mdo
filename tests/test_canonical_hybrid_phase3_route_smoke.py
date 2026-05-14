@@ -1129,6 +1129,41 @@ def test_segmented_partial_wing_receiver_shell_removes_pps42_terminal_nonmanifol
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_partial_wing_receiver_cycle_caps_close_terminal_boundary(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_receiver_cycle_cap_core_shell_probe_pps42",
+        points_per_side=42,
+        spanwise_subdivisions=module.DEFAULT_SPANWISE_SUBDIVISIONS,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=3,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.01, 0.03),
+        sidewall_closure_policy="stitched_sheet",
+        terminal_tip_closure_policy="receiver_shell",
+        terminal_tip_band_m=0.05,
+        terminal_receiver_boundary_closure_policy="cycle_caps",
+        max_projected_volume_elements=250_000,
+    )
+
+    receiver = report["terminal_tip_receiver_shell"]
+    closure = receiver["cycle_cap_closure"]
+    assert closure["status"] == "cycle_caps_applied"
+    assert closure["cycle_count"] > 0
+    assert closure["capped_boundary_edge_count"] == 536
+    assert receiver["terminal_boundary_edges_pending_after_cut"] == 0
+    assert report["inner_boundary_topology"]["nonmanifold_edge_count"] == 0
+    assert report["inner_boundary_topology"]["boundary_edge_count"] == 88
+    assert "terminal_tip_receiver_shell_boundary_edges_pending" not in report["gate"]["blockers"]
+    assert report["core_report"]["status"] == "not_run_core_shell_ready"
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
     module = _load_module()
     surface = module.SurfaceMesh(

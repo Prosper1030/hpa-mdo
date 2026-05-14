@@ -96,6 +96,7 @@ REQUIRED_MARKERS = (
     "farfield",
 )
 TERMINAL_TIP_CLOSURE_POLICIES = ("isolated", "shared_apex", "receiver_shell")
+TERMINAL_RECEIVER_BOUNDARY_CLOSURE_POLICIES = ("none", "cycle_caps")
 
 GMSH_TETRA = "4"
 GMSH_HEXAHEDRON = "5"
@@ -2989,9 +2990,18 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
     sidewall_closure_policy: str = "stitched_sheet",
     terminal_tip_closure_policy: str = "isolated",
     terminal_tip_band_m: float = 0.0,
+    terminal_receiver_boundary_closure_policy: str = "none",
     max_projected_volume_elements: int | None = None,
 ) -> dict[str, Any]:
     """Preflight the stitched transition core-facing shell before Gmsh core fill."""
+    if (
+        terminal_receiver_boundary_closure_policy
+        not in TERMINAL_RECEIVER_BOUNDARY_CLOSURE_POLICIES
+    ):
+        raise ValueError(
+            "terminal_receiver_boundary_closure_policy must be one of "
+            f"{', '.join(TERMINAL_RECEIVER_BOUNDARY_CLOSURE_POLICIES)}"
+        )
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     projection_report = None
@@ -3170,8 +3180,17 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
             ),
         },
     )
-    inner_topology = _surface_edge_topology(inner_boundary)
     terminal_boundary_y_threshold = terminal_tip_cut_y - float(terminal_tip_band_m)
+    cycle_cap_closure = {
+        "status": "not_requested",
+        "policy": str(terminal_receiver_boundary_closure_policy),
+    }
+    if receiver_policy_applied and terminal_receiver_boundary_closure_policy == "cycle_caps":
+        inner_boundary, cycle_cap_closure = _add_terminal_receiver_cycle_caps(
+            inner_boundary,
+            terminal_y_threshold=terminal_boundary_y_threshold,
+        )
+    inner_topology = _surface_edge_topology(inner_boundary)
     boundary_components = _surface_boundary_component_report(
         inner_boundary,
         terminal_y_threshold=terminal_boundary_y_threshold,
@@ -3231,6 +3250,8 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
             "terminal_boundary_edges_pending_after_cut": terminal_boundary_edges,
             "boundary_component_count": int(boundary_components["component_count"]),
             "boundary_components": boundary_components["components"],
+            "boundary_closure_policy": str(terminal_receiver_boundary_closure_policy),
+            "cycle_cap_closure": cycle_cap_closure,
         },
         "inner_boundary": {
             "marker_counts": inner_boundary.marker_counts(),
@@ -5978,6 +5999,178 @@ def _surface_boundary_component_report(
         "terminal_boundary_edge_count": terminal_boundary_edge_count,
         "components": components[: int(component_limit)],
     }
+
+
+def _add_terminal_receiver_cycle_caps(
+    surface: SurfaceMesh,
+    *,
+    terminal_y_threshold: float,
+) -> tuple[SurfaceMesh, dict[str, Any]]:
+    terminal_edges = _terminal_boundary_edges(surface, terminal_y_threshold)
+    if not terminal_edges:
+        return surface, {
+            "status": "no_terminal_boundary_edges",
+            "policy": "cycle_caps",
+            "cycle_count": 0,
+            "capped_boundary_edge_count": 0,
+            "blockers": [],
+        }
+
+    cycles, cycle_report = _decompose_even_boundary_edges_to_simple_cycles(
+        terminal_edges
+    )
+    blockers = list(cycle_report["blockers"])
+    if blockers:
+        return surface, {
+            "status": "cycle_caps_blocked",
+            "policy": "cycle_caps",
+            **cycle_report,
+        }
+
+    vertices = [tuple(vertex) for vertex in surface.vertices]
+    faces = list(surface.faces)
+    capped_boundary_edges = 0
+    for cycle_index, cycle in enumerate(cycles):
+        if len(cycle) < 3:
+            continue
+        centroid = _centroid_tuple([vertices[int(node)] for node in cycle])
+        centroid_node = len(vertices)
+        # A tiny offset separates independent cycle caps without making a shared apex.
+        vertices.append(
+            (
+                centroid[0],
+                centroid[1] + 1.0e-4 * (1 + cycle_index % 7),
+                centroid[2],
+            )
+        )
+        for start, end in zip(cycle, [*cycle[1:], cycle[0]]):
+            faces.append(
+                Face(
+                    nodes=(int(start), int(end), centroid_node),
+                    marker="terminal_tip_receiver_boundary_closure",
+                )
+            )
+            capped_boundary_edges += 1
+
+    closed_surface = SurfaceMesh(
+        vertices=vertices,
+        faces=faces,
+        metadata=dict(surface.metadata),
+    )
+    return closed_surface, {
+        "status": "cycle_caps_applied",
+        "policy": "cycle_caps",
+        **cycle_report,
+        "capped_boundary_edge_count": capped_boundary_edges,
+    }
+
+
+def _terminal_boundary_edges(
+    surface: SurfaceMesh,
+    terminal_y_threshold: float,
+) -> list[tuple[int, int]]:
+    edge_counts: dict[tuple[int, int], int] = {}
+    for face in surface.faces:
+        nodes = tuple(int(node) for node in face.nodes)
+        for start, end in zip(nodes, [*nodes[1:], nodes[0]]):
+            key = tuple(sorted((int(start), int(end))))
+            edge_counts[key] = edge_counts.get(key, 0) + 1
+
+    terminal_edges: list[tuple[int, int]] = []
+    for edge, count in edge_counts.items():
+        if int(count) != 1:
+            continue
+        start, end = edge
+        start_point = tuple(float(value) for value in surface.vertices[int(start)])
+        end_point = tuple(float(value) for value in surface.vertices[int(end)])
+        midpoint_y = 0.5 * (start_point[1] + end_point[1])
+        if midpoint_y >= float(terminal_y_threshold):
+            terminal_edges.append((int(start), int(end)))
+    return sorted(terminal_edges)
+
+
+def _decompose_even_boundary_edges_to_simple_cycles(
+    boundary_edges: Sequence[tuple[int, int]],
+) -> tuple[list[list[int]], dict[str, Any]]:
+    graph: dict[int, set[int]] = {}
+    for start, end in boundary_edges:
+        graph.setdefault(int(start), set()).add(int(end))
+        graph.setdefault(int(end), set()).add(int(start))
+
+    odd_degree_nodes = sorted(node for node, neighbors in graph.items() if len(neighbors) % 2)
+    if odd_degree_nodes:
+        return [], {
+            "cycle_count": 0,
+            "cycle_lengths": [],
+            "odd_degree_node_count": len(odd_degree_nodes),
+            "input_boundary_edge_count": len(boundary_edges),
+            "blockers": ["terminal_receiver_boundary_graph_has_odd_degree_nodes"],
+        }
+
+    remaining = {node: set(neighbors) for node, neighbors in graph.items()}
+    cycles: list[list[int]] = []
+    for start_node in sorted(list(remaining)):
+        if start_node not in remaining or not remaining[start_node]:
+            continue
+        walk = _eulerian_closed_walk_from_even_graph(remaining, start_node)
+        cycles.extend(_split_closed_walk_into_simple_cycles(walk))
+
+    cycle_lengths = [len(cycle) for cycle in cycles]
+    covered_edge_count = sum(cycle_lengths)
+    blockers: list[str] = []
+    if covered_edge_count != len(boundary_edges):
+        blockers.append("terminal_receiver_cycle_decomposition_edge_count_mismatch")
+    return cycles, {
+        "cycle_count": len(cycles),
+        "cycle_lengths": sorted(cycle_lengths, reverse=True),
+        "largest_cycle_edges": max(cycle_lengths) if cycle_lengths else 0,
+        "odd_degree_node_count": 0,
+        "input_boundary_edge_count": len(boundary_edges),
+        "covered_boundary_edge_count": covered_edge_count,
+        "blockers": blockers,
+    }
+
+
+def _eulerian_closed_walk_from_even_graph(
+    adjacency: MutableMapping[int, set[int]],
+    start_node: int,
+) -> list[int]:
+    stack = [int(start_node)]
+    circuit: list[int] = []
+    while stack:
+        current = stack[-1]
+        neighbors = adjacency.get(current, set())
+        if neighbors:
+            neighbor = min(neighbors)
+            adjacency[current].remove(neighbor)
+            adjacency[neighbor].remove(current)
+            stack.append(neighbor)
+        else:
+            circuit.append(stack.pop())
+    circuit.reverse()
+    return circuit
+
+
+def _split_closed_walk_into_simple_cycles(walk: Sequence[int]) -> list[list[int]]:
+    remaining = [int(node) for node in walk]
+    cycles: list[list[int]] = []
+    while len(remaining) > 1:
+        positions: dict[int, int] = {}
+        found_cycle = False
+        for index, node in enumerate(remaining):
+            if node not in positions:
+                positions[node] = index
+                continue
+            start_index = positions[node]
+            cycle = remaining[start_index:index]
+            if len(cycle) >= 3:
+                cycles.append(cycle)
+            remaining = [*remaining[: start_index + 1], *remaining[index + 1 :]]
+            found_cycle = True
+            break
+        if not found_cycle:
+            break
+    return cycles
 
 
 def _partial_wing_cap_core_tets(
