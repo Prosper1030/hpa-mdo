@@ -33,6 +33,9 @@ screening evidence 讀，不是現行 release / procurement truth。
   hotspot 在 `y≈±12.36, ±12.87, ±13.39 m`、`x≈0.81-0.85 m`，對應 `y=12.016 m`
   DAE31 到 `y=14.076 m` CST tip airfoil transition band。下一步仍是修
   TE/tip/transition 近壁幾何與 prism shape，不是硬跑更多 solver iterations。
+  `scripts/diagnose_wo006k_bl_hotspots.py` 現在可把 Gmsh BL element quality hotspots
+  映射回 Baseline A section table；目前
+  `wo006k_bl_hotspot_diagnosis/` artifact status 是 `blocked`。
 - WO-006 current-GO no-BL CFD completion evidence 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006_current_go_cfd_completion/`。
   Completion gate 是 `pass`：newly generated full-span current-GO mesh 有 `490,116`

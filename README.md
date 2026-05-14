@@ -21,6 +21,10 @@ spanwise subdivision 從 1 提到 4 會改善最壞負 SICN，但仍 fail。hots
 `y≈±12.36, ±12.87, ±13.39 m`、`x≈0.81-0.85 m`，也就是 `y=12.016 m`
 DAE31 到 `y=14.076 m` CST tip airfoil 的 transition band。下一步仍是修
 TE/tip/transition 附近的近壁幾何/BL prism shape，而不是硬跑 coarse/medium/fine。
+`scripts/diagnose_wo006k_bl_hotspots.py` 可把 Gmsh BL element quality hotspots 映射回
+section table；目前 artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006k_bl_hotspot_diagnosis/`，
+status 是 `blocked`。
 
 ## 2026-05-14 WO-006J CD-Order Sanity Gate
 
