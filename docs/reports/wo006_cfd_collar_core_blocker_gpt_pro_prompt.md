@@ -128,22 +128,25 @@ worsened to max CV sub-volume ratio about `1.1247e16` and max hotspot incident
 edge ratio about `1.072e5`.  This suggests point-size hints are not enough; the
 route needs an explicit growth topology, not another Gmsh sizing hint.
 
-New topology evidence: a minimal structured transition patch unit now
-scale-passes but has sidewalls pending.  It uses `4` segmented collar bases,
-`4` pyramid collars, `40` transition prisms, and `24` tetra.  The collar side
-triangles feed two transition-prism rows (`0.03 m -> 0.09 m`, growth ratio
-`3.0`) before any tetra core, so larger core edges are not incident to the
-original BL/collar vertices.  The unit has no tet-to-prism-quad contact, no
-exposed pyramid faces, element-quality pass, SU2 boundary ownership pass, and
-dual proxy pass.  However, it still has `102` transition-prism sidewall quads
-pending, so the status is
-`structured_transition_patch_unit_scale_pass_sidewalls_pending`.  The next
-question is how to sew these sidewalls or convert them to triangular
-core-interface faces before applying the pattern to the real wing.
+New topology evidence after applying GPT Pro's sidewall warning: a minimal
+structured transition patch unit now passes.  It uses `4` segmented collar
+bases, `4` primary pyramid collars, `40` prisms, `106` pyramids, and `432`
+tetra.  The collar side triangles feed two transition-prism rows
+(`0.03 m -> 0.09 m`, growth ratio `3.0`) before any larger tetra core, and the
+previous `102` transition-prism sidewall quads are now converted into sidewall
+pyramid + tetra triangular interface.  The unit has no tet-to-prism-quad
+contact, no non-root exposed prism quads, no exposed pyramid faces,
+element-quality pass, SU2 boundary ownership pass, and dual proxy pass.  Status
+is now `structured_transition_patch_unit_pass`.
+
+This answers the previous sidewall question at artificial-unit scale only.  The
+remaining question is how conservatively to project this sidewall-closure /
+triangular-interface contract onto the real-wing pps42/l3 segmented collar
+without creating new TE/tip/cap force-surface pollution.
 
 ## Question To Answer
 
-Please propose the next concrete topology recipe, not solver numerics.
+Please review the real-wing projection strategy, not solver numerics.
 
 Which route should we implement next, and what are the exact construction rules?
 

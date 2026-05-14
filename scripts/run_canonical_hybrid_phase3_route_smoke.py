@@ -3495,6 +3495,139 @@ def _structured_transition_patch_unit_volume() -> dict[str, Any]:
             boundary_marker="farfield",
         )
 
+    def close_exposed_sidewall_quads() -> dict[str, int]:
+        face_owners = _volume_face_owner_map(elements)
+        exposed_prism_quads: list[dict[str, Any]] = []
+        for owners in face_owners.values():
+            if len(owners) != 1:
+                continue
+            owner = owners[0]
+            if int(owner["element_type"]) != SU2_PRISM:
+                continue
+            face_nodes = tuple(int(node) for node in owner["face_nodes"])
+            if len(face_nodes) != 4:
+                continue
+            if _face_average_y(nodes, face_nodes) <= 1.0e-9:
+                continue
+            exposed_prism_quads.append(owner)
+
+        def robust_face_normal(
+            face_nodes: Sequence[int],
+            outward_hint: tuple[float, float, float],
+        ) -> tuple[float, float, float]:
+            best_normal = (0.0, 0.0, 0.0)
+            best_norm = 0.0
+            for a, b, c in itertools.combinations(face_nodes, 3):
+                normal = _cross(
+                    _vector_between(nodes[int(a)], nodes[int(b)]),
+                    _vector_between(nodes[int(a)], nodes[int(c)]),
+                )
+                norm = _distance3(normal, (0.0, 0.0, 0.0))
+                if norm > best_norm:
+                    best_normal = normal
+                    best_norm = norm
+            if best_norm <= 1.0e-14:
+                hint_norm = _distance3(outward_hint, (0.0, 0.0, 0.0))
+                if hint_norm <= 1.0e-14:
+                    return (0.0, 1.0, 0.0)
+                return (
+                    outward_hint[0] / hint_norm,
+                    outward_hint[1] / hint_norm,
+                    outward_hint[2] / hint_norm,
+                )
+            unit_normal = (
+                best_normal[0] / best_norm,
+                best_normal[1] / best_norm,
+                best_normal[2] / best_norm,
+            )
+            if _dot(unit_normal, outward_hint) < 0.0:
+                return (-unit_normal[0], -unit_normal[1], -unit_normal[2])
+            return unit_normal
+
+        def ordered_quad_face_nodes(
+            face_nodes: Sequence[int],
+            unit_normal: tuple[float, float, float],
+        ) -> tuple[int, ...]:
+            if len(face_nodes) != 4:
+                return tuple(int(node) for node in face_nodes)
+            face = tuple(int(node) for node in face_nodes)
+            centroid = _centroid_tuple([nodes[node] for node in face])
+            reference = max(
+                (_vector_between(centroid, nodes[node]) for node in face),
+                key=lambda vector: _distance3(vector, (0.0, 0.0, 0.0)),
+            )
+            reference_norm = _distance3(reference, (0.0, 0.0, 0.0))
+            if reference_norm <= 1.0e-14:
+                return face
+            u_axis = (
+                reference[0] / reference_norm,
+                reference[1] / reference_norm,
+                reference[2] / reference_norm,
+            )
+            v_axis = _cross(unit_normal, u_axis)
+            v_norm = _distance3(v_axis, (0.0, 0.0, 0.0))
+            if v_norm <= 1.0e-14:
+                return face
+            v_axis = (v_axis[0] / v_norm, v_axis[1] / v_norm, v_axis[2] / v_norm)
+
+            def angle_for(node: int) -> float:
+                vector = _vector_between(centroid, nodes[int(node)])
+                return math.atan2(_dot(vector, v_axis), _dot(vector, u_axis))
+
+            ordered = tuple(sorted(face, key=angle_for))
+            area_vector = _face_area_vector(nodes, ordered)
+            if _dot(area_vector, unit_normal) < 0.0:
+                return tuple(reversed(ordered))
+            return ordered
+
+        closure_pyramids = 0
+        closure_tets = 0
+        for face_index, owner in enumerate(exposed_prism_quads):
+            raw_face_nodes = tuple(int(node) for node in owner["face_nodes"])
+            owner_nodes = tuple(int(node) for node in elements[int(owner["element_index"])][1])
+            owner_centroid = _centroid_tuple([nodes[node] for node in owner_nodes])
+            face_centroid = _centroid_tuple([nodes[node] for node in raw_face_nodes])
+            unit_direction = robust_face_normal(
+                raw_face_nodes,
+                _vector_between(owner_centroid, face_centroid),
+            )
+            face_nodes = ordered_quad_face_nodes(raw_face_nodes, unit_direction)
+            edge_lengths = [
+                length for length in _face_edge_lengths(nodes, face_nodes) if length > 0.0
+            ]
+            offset = max(min(edge_lengths) if edge_lengths else layer_height, layer_height)
+            apex = add_node(_offset_point(face_centroid, unit_direction, offset))
+            pyramid = _oriented_pyramid_positive(nodes, face_nodes, apex)
+            add_element(
+                SU2_PYRAMID,
+                pyramid,
+                role="structured_sidewall_closure_pyramid",
+                source="transition_sidewall_pyramid",
+            )
+            closure_pyramids += 1
+            for side_index, side_face in enumerate(
+                _volume_element_faces(SU2_PYRAMID, pyramid)[1:]
+            ):
+                extension = add_node(
+                    _tet_extension_point(
+                        nodes,
+                        side_face,
+                        magnitude=offset * (1.0 + 0.05 * (face_index + side_index)),
+                    )
+                )
+                add_element(
+                    SU2_TETRAHEDRON,
+                    _oriented_tetra_for_shared_face(nodes, side_face, extension),
+                    role="structured_sidewall_closure_tetra",
+                    source="tetra_core",
+                    boundary_marker="farfield",
+                )
+                closure_tets += 1
+        return {
+            "sidewall_closure_pyramid_count": closure_pyramids,
+            "sidewall_closure_tetra_count": closure_tets,
+        }
+
     for index in range(segment_count):
         b00 = grid_node(index, 0, 0)
         b10 = grid_node(index + 1, 0, 0)
@@ -3557,6 +3690,7 @@ def _structured_transition_patch_unit_volume() -> dict[str, Any]:
                 side_index=side_index,
             )
 
+    sidewall_closure = close_exposed_sidewall_quads()
     volume: dict[str, Any] = {
         "nodes": nodes,
         "elements": elements,
@@ -3572,6 +3706,7 @@ def _structured_transition_patch_unit_volume() -> dict[str, Any]:
             ),
             "core_extension_m": core_extension,
             "rim_quad_max_edge_ratio": max(rim_quad_edge_ratios),
+            **sidewall_closure,
         },
     }
     volume["marker_faces"] = _structured_transition_marker_faces(volume)

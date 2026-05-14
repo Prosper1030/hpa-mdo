@@ -216,18 +216,19 @@ screening evidence 讀，不是現行 release / procurement truth。
   工程判讀：單純在 collar/interface points 加小 size 不會建立漸進 transition，
   只會讓局部 core topology 更病態；下一步應改成明確 multi-row / structured
   transition patch，而不是 Gmsh point-size hack。
-- WO-006 Phase 3 structured transition patch 最小單元已新增：
+- WO-006 Phase 3 structured transition patch 最小單元已通過：
   `structured_transition_patch_unit/`。這個人工 unit 用 `4` 個 segmented collar bases、
-  `4` 個 pyramid collars、`40` 個 transition prisms 與 `24` 個 tets，把 collar
-  side triangles 先接到兩層 transition prism rows（`0.03 m -> 0.09 m`，growth
-  ratio `3.0`）再接 tetra core。結果：rim quad max edge ratio 約 `500`、
-  `tet_to_prism_quad_contact=0`、pyramid boundary face `0`、nonmanifold `0`、
-  boundary ownership pass、element-quality pass、dual proxy pass；但仍有 `102`
-  個 transition-prism sidewall quads pending，status 是
-  `structured_transition_patch_unit_scale_pass_sidewalls_pending`。工程判讀：它只證明
-  multi-row growth 可以解 vertex scale jump，還沒有證明 sidewall/core-interface
-  watertight topology；下一步要把 sidewall quads sew 起來或轉成可被 tetra core
-  吃下的 triangular interface。
+  `4` 個 primary pyramid collars、`40` 個 prisms、`106` 個 pyramids 與 `432`
+  個 tets，把 collar side triangles 先接到兩層 transition prism rows
+  （`0.03 m -> 0.09 m`，growth ratio `3.0`），再把 `102` 個 transition-prism
+  sidewall quads 轉成 sidewall pyramid + tetra triangular interface。結果：
+  `tet_to_prism_quad_contact=0`、`non_root_exposed_prism_quad_count=0`、pyramid
+  boundary face `0`、nonmanifold `0`、boundary ownership pass、element-quality pass、
+  dual proxy pass，status 是 `structured_transition_patch_unit_pass`。工程判讀：
+  最小單元已證明 partial-BL prism rim 不能直接交給 tetra core，但可以用
+  prism → pyramid → transition-prism rows → sidewall pyramid/tet closure 的明確
+  topology contract 關掉；下一步是把同一套 sidewall closure / triangular-interface
+  規則套回真翼 pps42/l3，再重新跑 dual gate，仍不可直接進 pressure/RANS。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
