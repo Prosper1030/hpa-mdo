@@ -125,6 +125,11 @@ screening evidence 讀，不是現行 release / procurement truth。
   cap faces 可被 Gmsh core fill 成 `9,088` tetra，forbidden core element counts
   `{}`。這是小尺度 tetra-core proof，不是 merged SU2 hybrid mesh；pps42/l24 scale-up、
   pre-solver dual-quality gate、pressure-only CD sanity 與 RANS route-smoke 都尚未完成。
+- WO-006 Phase 3 pps24/l4 collar-height scale probe 顯示 thick collar 會自交：
+  `collar_height=2.5e-4 m` 仍觸發 Gmsh `PLC Error: A segment and a facet intersect
+  at point`，但 `1.0e-4 m` thin collar 可生成 `12,028` tetra，forbidden core element
+  counts `{}`。下一步 scale-up 應採 thin collar policy，再測 layers `8 -> 16 -> 24`；
+  不要直接用厚 collar 衝 pps42/l24。
 - WO-006R8 新增 Basic airfoil BL sanity benchmark，專門回答「工具鏈在簡單 viscous case
   上是否先把 drag 量級算壞」：2D `NACA4412`、`Re≈5.03e5`、`alpha=4 deg`、
   Gmsh BL quads + SU2 `INC_RANS/SA` no-slip wall。最新 `solver_5000` case 在

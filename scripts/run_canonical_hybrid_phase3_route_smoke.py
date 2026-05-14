@@ -1261,7 +1261,7 @@ def write_phase3_partial_wing_transition_collar_handoff_su2(
     first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
     growth_ratio: float = DEFAULT_GROWTH_RATIO,
     bl_layers: int = 4,
-    collar_height_m: float = 5.0e-4,
+    collar_height_m: float = 1.0e-4,
 ) -> dict[str, Any]:
     """Convert partial-BL rim quads into pyramid transition-collar faces.
 
@@ -1384,7 +1384,7 @@ def run_phase3_partial_wing_transition_collar_core_probe(
     first_layer_height_m: float = DEFAULT_FIRST_LAYER_HEIGHT_M,
     growth_ratio: float = DEFAULT_GROWTH_RATIO,
     bl_layers: int = 4,
-    collar_height_m: float = 5.0e-4,
+    collar_height_m: float = 1.0e-4,
     core_mesh_size: float = 0.35,
     farfield_mesh_size: float = 8.0,
 ) -> dict[str, Any]:

@@ -125,6 +125,10 @@ original cap faces 交給 Gmsh core fill，產生 `9,088` tetra、forbidden core
 counts `{}`。這證明 collar+cap shell 在小尺度可被純 tetra core 吃下；但它仍不是
 merged SU2 hybrid mesh，也還沒有 pps42/l24 scale-up、pre-solver dual-quality gate、
 pressure-only CD sanity 或 RANS route-smoke。
+後續 pps24/l4 scale probe 顯示 collar height 不能太厚：`2.5e-4 m` 仍觸發 Gmsh
+`PLC Error: A segment and a facet intersect at point`，但 `1.0e-4 m` thin collar
+可生成 `12,028` tetra 且 forbidden core element counts `{}`。下一步 scale-up 應先用
+thin collar policy，再往 layers `8 -> 16 -> 24` 推，不要直接用厚 collar 衝 pps42/l24。
 
 ## 2026-05-14 WO-006R8 Basic Airfoil BL Sanity Benchmark
 

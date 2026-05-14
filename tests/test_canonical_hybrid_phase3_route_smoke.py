@@ -514,3 +514,27 @@ def test_partial_wing_transition_collar_core_probe_tet_fills_caps(
     assert report["core_report"]["volume_element_type_counts"] == {module.GMSH_TETRA: 9088}
     assert report["core_report"]["forbidden_element_type_counts"] == {}
     assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
+def test_partial_wing_transition_collar_core_probe_scales_to_pps24_with_thin_collar(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_partial_wing_transition_collar_core_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "partial_wing_transition_collar_core_probe_pps24",
+        points_per_side=24,
+        spanwise_subdivisions=4,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=4,
+        collar_height_m=1.0e-4,
+        core_mesh_size=0.35,
+        farfield_mesh_size=8.0,
+    )
+
+    assert report["status"] == "partial_wing_transition_collar_core_probe_meshed"
+    assert report["transition_collar"]["pyramid_signed_volume"]["non_positive_count"] == 0
+    assert report["core_report"]["volume_element_type_counts"] == {module.GMSH_TETRA: 12028}
+    assert report["core_report"]["forbidden_element_type_counts"] == {}
