@@ -308,8 +308,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   使用 `terminal_tip_closure_policy=receiver_shell`、`terminal_tip_band_m=0.05`，
   移除 terminal-tip tetra boundary faces 後把 core-shell `nonmanifold_edge_count`
   清到 `0`；但仍有 `624` 條 boundary edges，所以 gate 仍 blocked on
-  `terminal_tip_receiver_shell_boundary_edges_pending`。工程判讀：方向正確，但還不是 core
-  fill-ready；下一步要補 explicit receiver boundary closure。
+  `terminal_tip_receiver_shell_boundary_edges_pending`。新增 component 診斷顯示其中
+  `536` 條是 terminal receiver boundary，總共 `5` 個 boundary components，最大 component
+  有 `204` 條 edges 且含 degree-4/6 分岔。工程判讀：方向正確，但還不是 core fill-ready；
+  下一步要補 explicit receiver boundary closure。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

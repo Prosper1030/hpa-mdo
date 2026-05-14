@@ -3171,12 +3171,20 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
         },
     )
     inner_topology = _surface_edge_topology(inner_boundary)
+    terminal_boundary_y_threshold = terminal_tip_cut_y - float(terminal_tip_band_m)
+    boundary_components = _surface_boundary_component_report(
+        inner_boundary,
+        terminal_y_threshold=terminal_boundary_y_threshold,
+    )
     blockers: list[str] = []
     if handoff_gate["status"] != "pass":
         blockers.append("structured_transition_handoff_gate_not_pass")
     if int(inner_topology.get("nonmanifold_edge_count") or 0) > 0:
         blockers.append("core_inner_boundary_nonmanifold_edges")
-    if receiver_policy_applied and int(inner_topology.get("boundary_edge_count") or 0) > 0:
+    terminal_boundary_edges = int(
+        boundary_components.get("terminal_boundary_edge_count") or 0
+    )
+    if receiver_policy_applied and terminal_boundary_edges > 0:
         blockers.append("terminal_tip_receiver_shell_boundary_edges_pending")
     status = (
         "segmented_partial_wing_structured_transition_core_shell_ready"
@@ -3219,6 +3227,10 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
             "boundary_edges_pending_after_cut": int(
                 inner_topology.get("boundary_edge_count") or 0
             ),
+            "terminal_boundary_y_threshold_m": float(terminal_boundary_y_threshold),
+            "terminal_boundary_edges_pending_after_cut": terminal_boundary_edges,
+            "boundary_component_count": int(boundary_components["component_count"]),
+            "boundary_components": boundary_components["components"],
         },
         "inner_boundary": {
             "marker_counts": inner_boundary.marker_counts(),
@@ -5876,6 +5888,95 @@ def _surface_edge_topology(
         },
         "bad_edge_samples": samples,
         "bad_edge_samples_by_kind": samples_by_kind,
+    }
+
+
+def _surface_boundary_component_report(
+    surface: SurfaceMesh,
+    *,
+    terminal_y_threshold: float | None = None,
+    component_limit: int = 8,
+) -> dict[str, Any]:
+    edge_counts: dict[tuple[int, int], int] = {}
+    edge_markers: dict[tuple[int, int], list[str]] = {}
+    for face in surface.faces:
+        nodes = tuple(int(node) for node in face.nodes)
+        for start, end in zip(nodes, [*nodes[1:], nodes[0]]):
+            key = tuple(sorted((int(start), int(end))))
+            edge_counts[key] = edge_counts.get(key, 0) + 1
+            edge_markers.setdefault(key, []).append(face.marker)
+
+    boundary_edges = [
+        edge for edge, count in edge_counts.items() if int(count) == 1
+    ]
+    graph: dict[int, set[int]] = {}
+    for start, end in boundary_edges:
+        graph.setdefault(int(start), set()).add(int(end))
+        graph.setdefault(int(end), set()).add(int(start))
+
+    seen: set[int] = set()
+    components: list[dict[str, Any]] = []
+    terminal_boundary_edge_count = 0
+    for node in sorted(graph):
+        if node in seen:
+            continue
+        stack = [node]
+        seen.add(node)
+        component_nodes: list[int] = []
+        while stack:
+            current = stack.pop()
+            component_nodes.append(current)
+            for neighbor in sorted(graph[current]):
+                if neighbor not in seen:
+                    seen.add(neighbor)
+                    stack.append(neighbor)
+
+        node_set = set(component_nodes)
+        component_edges = [
+            edge for edge in boundary_edges if edge[0] in node_set and edge[1] in node_set
+        ]
+        midpoints: list[tuple[float, float, float]] = []
+        marker_combo_counts: dict[str, int] = {}
+        for edge in component_edges:
+            start, end = edge
+            start_point = tuple(float(value) for value in surface.vertices[int(start)])
+            end_point = tuple(float(value) for value in surface.vertices[int(end)])
+            midpoint = (
+                0.5 * (start_point[0] + end_point[0]),
+                0.5 * (start_point[1] + end_point[1]),
+                0.5 * (start_point[2] + end_point[2]),
+            )
+            midpoints.append(midpoint)
+            if (
+                terminal_y_threshold is not None
+                and midpoint[1] >= float(terminal_y_threshold)
+            ):
+                terminal_boundary_edge_count += 1
+            markers = sorted(set(edge_markers.get(edge, [])))
+            combo = "+".join(markers) if markers else "unknown"
+            marker_combo_counts[combo] = marker_combo_counts.get(combo, 0) + 1
+
+        degree_histogram: dict[str, int] = {}
+        for component_node in component_nodes:
+            degree_key = str(len(graph[component_node]))
+            degree_histogram[degree_key] = degree_histogram.get(degree_key, 0) + 1
+
+        components.append(
+            {
+                "node_count": len(component_nodes),
+                "edge_count": len(component_edges),
+                "degree_histogram": dict(sorted(degree_histogram.items())),
+                "midpoint_bounds": _bounds(midpoints) if midpoints else {},
+                "marker_combo_counts": dict(sorted(marker_combo_counts.items())),
+            }
+        )
+
+    components.sort(key=lambda component: int(component["edge_count"]), reverse=True)
+    return {
+        "boundary_edge_count": len(boundary_edges),
+        "component_count": len(components),
+        "terminal_boundary_edge_count": terminal_boundary_edge_count,
+        "components": components[: int(component_limit)],
     }
 
 

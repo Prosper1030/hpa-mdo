@@ -262,8 +262,10 @@ fan。
 把這個判斷套回真翼 pps42/l3 後，目前 receiver-shell preflight 可把 terminal-tip
 `nonmanifold_edge_count` 從 `195` 清到 `0`，但留下 `624` 條 boundary edges，artifact 在
 `segmented_partial_wing_receiver_shell_core_shell_probe_pps42_l3/structured_transition_core_shell_probe_report.json`。
-所以這一步只證明「terminal nonmanifold 的方向對了」；還不能呼叫 Gmsh core fill，
-更不能跑 pressure/RANS。下一步必須補 explicit receiver boundary closure。
+其中 `536` 條屬於 terminal receiver boundary，分成 `5` 個 boundary components；最大
+component 有 `204` 條 edges，且含 degree-4/6 分岔。這一步只證明「terminal
+nonmanifold 的方向對了」；還不能呼叫 Gmsh core fill，更不能跑 pressure/RANS。
+下一步必須補 explicit receiver boundary closure。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

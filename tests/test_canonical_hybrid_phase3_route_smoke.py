@@ -1119,6 +1119,9 @@ def test_segmented_partial_wing_receiver_shell_removes_pps42_terminal_nonmanifol
     receiver = report["terminal_tip_receiver_shell"]
     assert receiver["status"] == "receiver_shell_preflight_applied"
     assert receiver["removed_tetra_boundary_face_count"] > 0
+    assert receiver["boundary_component_count"] == 5
+    assert receiver["terminal_boundary_edges_pending_after_cut"] > 0
+    assert receiver["boundary_components"][0]["edge_count"] >= 190
     assert report["inner_boundary_topology"]["nonmanifold_edge_count"] == 0
     assert "core_inner_boundary_nonmanifold_edges" not in report["gate"]["blockers"]
     assert "terminal_tip_receiver_shell_boundary_edges_pending" in report["gate"]["blockers"]
