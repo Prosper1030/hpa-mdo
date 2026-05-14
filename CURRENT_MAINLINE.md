@@ -228,6 +228,17 @@ screening evidence 讀，不是現行 release / procurement truth。
   accounting contract，不是 handoff；blockers 仍是 receiver geometry 未 materialize、
   final merged mesh missing、merged mesh quality / SU2 marker readability / near-wall y+ /
   solver ladder 未跑。下一步是把 virtual receiver 實作成真幾何/mesh，不是直接跑 CFD。
+- WO-006AC 新增 receiver geometry materialization probe：
+  `scripts/probe_wo006ac_receiver_geometry_materialization.py` 將 WO-006AA virtual tip
+  receiver materialize 成明確座標與 positive-volume cells。Baseline A current geometry
+  artifact 在 `wo006ac_receiver_geometry_materialization_probe/`；實跑
+  `points_per_side=16`、`spanwise_subdivisions=2` 得到 status
+  `tip_receiver_geometry_materialized_quality_pass`、`1536` 個 receiver cells、`1650`
+  個 virtual nodes、receiver thickness `0.03617304985338918 m`、min receiver volume
+  `1.1070816511539737e-08 m^3`、non-positive volume `0`、`external_shape_changed=false`。
+  判讀：`receiver_geometry_not_materialized` blocker 已解成 geometry candidate，但仍未有
+  final merged mesh、mesh quality、SU2 marker/readability、near-wall/y+ 或 solver ladder；
+  因此仍不能跑 medium/fine SU2 或解讀 CL/CD/Cm。
 - WO-006 第一輪 current-pathfinder bounded smoke 已產出
   `output/baseline_A_team_release/wo006_su2_baseline_validation/`，verdict 是
   `su2_baseline_needs_fix`。Current pathfinder VSP3 provider materializes，但 default

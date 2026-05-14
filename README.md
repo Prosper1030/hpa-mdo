@@ -170,6 +170,24 @@ handoff。明確 blockers 是 receiver geometry 尚未 materialize、沒有 fina
 merged mesh quality gate、沒有 SU2 marker/readability gate、沒有 near-wall/y+ postprocess、也沒有
 solver ladder。因此下一步才是把 virtual receiver 實作成真幾何/mesh，不能直接跑 medium/fine CFD。
 
+## 2026-05-14 WO-006AC Receiver Geometry Materialization Probe
+
+WO-006AC 新增 `scripts/probe_wo006ac_receiver_geometry_materialization.py`，把 WO-006AA
+的 virtual tip receiver 轉成明確座標與 volume cells，並把 WO-006AB 的
+`receiver_geometry_not_materialized` blocker 改成可審核的 geometry/materialization status。
+
+Baseline A current geometry artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006ac_receiver_geometry_materialization_probe/`。
+實跑 `points_per_side=16`、`spanwise_subdivisions=2` 時，receiver geometry status 是
+`tip_receiver_geometry_materialized_quality_pass`：`1536` 個 receiver cells、`1650` 個
+virtual nodes、receiver thickness `0.03617304985338918 m`、min receiver volume
+`1.1070816511539737e-08 m^3`、non-positive volume `0`、`external_shape_changed=false`。
+
+工程判讀：virtual tip receiver 已 materialize 成正體積幾何，span-cap receiver geometry
+blocker 已解掉；但這仍不是 final BL/core handoff。剩餘 blockers 是 final merged mesh missing、
+merged mesh quality not run、SU2 marker/readability not run、near-wall/y+ not postprocessed、
+solver ladder not run；因此仍不能跑 medium/fine SU2 或解讀 CL/CD/Cm。
+
 ## 2026-05-14 WO-006R Local Transition Sleeve BL Probe
 
 WO-006R 新增 `scripts/probe_wo006r_local_transition_sleeve_bl_quality.py`，只在 DAE31 ↔
