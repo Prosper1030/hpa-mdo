@@ -488,6 +488,25 @@ facets。R12 的幾何 audit 進一步定位：R11 surface 有 `70` 組 exact du
 下一步要修 sharp-TE/tip/wake loop-cap 幾何重合與 non-manifold seam，讓 core/farfield mesh
 quality/marker gate 真正 pass，再談 merged BL/core handoff、y+ 與 solver ladder。
 
+## 2026-05-14 WO-006R13 Loop-Cap Geometric Seam Repair
+
+WO-006R13 新增 `scripts/probe_wo006r13_loop_cap_geometric_seam_repair.py`，把 R12 的
+tip/wake loop-cap seam blocker 變成最小幾何修復：exact duplicate coordinates weld，並移除
+weld 後同 marker / 同 node set 的重合 seam faces。Baseline A artifact 在
+`output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r13_loop_cap_geometric_seam_repair_probe/`。
+
+實跑結果：原 R11/R12 surface `28,877` vertices / `2,868` faces，含 `70` 組 exact duplicate
+coordinates；R13 修後是 `28,807` vertices / `2,860` faces，drop `8` 張 duplicate seam faces，
+post-repair duplicate groups `0`、welded bad edges `0`。Gmsh HXT core fill 成功，core mesh
+`29,993` nodes / `9,677` tetra cells，SU2 boundary ownership `pass`，non-positive
+SICN/SIGE/volume 都是 `0`。但 mesh quality 仍有 `very_low_min_gamma`、`very_low_min_sicn`、
+`low_p01_gamma` warnings。
+
+工程判讀：R13 把 core/farfield mesh probe 推過了，但仍不是 CFD。WO-006I preflight 現在會把
+最新 blocker 推到 `near_wall_merged_mesh_handoff_missing`，同時仍有 boundary-layer setup、
+conformal BL/core handoff、postprocessed y+、direct stageback topology 等 blockers。下一步是
+寫出 marker/quality-gated mixed BL+core SU2 handoff 和 y+ probe，不是跑 medium/fine solver。
+
 ## 2026-05-13 WO-006J Faceted BL Setup Probe
 
 WO-006J 針對 current-GO faceted Gmsh BL route 補上 `surface_triangulation_policy`，預設使用

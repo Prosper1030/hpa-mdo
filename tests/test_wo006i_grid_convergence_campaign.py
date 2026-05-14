@@ -540,6 +540,58 @@ def test_setup_gate_r12_blocker_supersedes_older_r10_wall_edge_blockers() -> Non
     assert result["core_closure_topology"]["blocker"] == "near_wall_core_mesh_geometry_blocked"
 
 
+def test_setup_gate_newest_core_mesh_artifact_wins_over_older_r12_blocker() -> None:
+    module = _load_module()
+    otherwise_ready_setup = {
+        "physics_setup_id": "baseline_a_current_go_wall_resolved_rans_sa_alpha5",
+        "solver": "INC_RANS",
+        "turbulence_model": "SA",
+        "wall_profile": "adiabatic_no_slip",
+        "wall_bc": "MARKER_HEATFLUX",
+        "farfield_bc": "MARKER_FAR",
+        "boundary_layer": "owned_conformal_bl_core_handoff",
+        "near_wall_yplus_status": "pass",
+        "conformal_bl_core_handoff_status": "pass",
+        "inc_nondim": "INITIAL_VALUES",
+    }
+
+    result = module.evaluate_cfd_setup_gate(
+        physics_setup=otherwise_ready_setup,
+        core_closure_artifacts=[
+            {
+                "schema_version": "wo006r13_loop_cap_geometric_seam_repair_probe.v1",
+                "verdict": "loop_cap_geometric_seam_repair_core_mesh_pass_not_handoff",
+                "loop_cap_core_mesh": {
+                    "status": "core_mesh_probe_pass_merged_handoff_pending",
+                    "hard_blockers": [],
+                    "volume_element_count": 9677,
+                    "blockers": ["merged_mixed_bl_core_su2_mesh_missing"],
+                },
+            },
+            {
+                "schema_version": "wo006r12_loop_cap_core_mesh_probe.v1",
+                "verdict": "loop_cap_core_mesh_probe_blocked",
+                "loop_cap_core_mesh": {
+                    "status": "core_mesh_probe_blocked",
+                    "hard_blockers": [
+                        "core_inner_surface_geometric_duplicate_nonmanifold"
+                    ],
+                    "volume_element_count": None,
+                    "blockers": [
+                        "core_inner_surface_geometric_duplicate_nonmanifold",
+                    ],
+                },
+            },
+        ],
+    )
+
+    assert result["status"] == "blocked"
+    assert "near_wall_merged_mesh_handoff_missing" in result["blockers"]
+    assert "near_wall_core_mesh_geometry_blocked" not in result["blockers"]
+    assert result["core_closure_topology"]["status"] == "core_mesh_ready_handoff_pending"
+    assert result["core_closure_topology"]["volume_element_count"] == 9677
+
+
 def test_history_stability_uses_100_iteration_force_window(tmp_path: Path) -> None:
     module = _load_module()
     history_path = tmp_path / "history.csv"

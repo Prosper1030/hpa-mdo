@@ -146,6 +146,19 @@ Current release package:
   wall-edge-dependency blocker.
   Next repair should remove this sharp-TE/tip/wake geometric self-intersection
   before any merged BL/core handoff, y+, or SU2 ladder attempt.
+- WO-006R13 loop-cap geometric seam repair is complete as core-mesh-probe
+  progress, not CFD evidence. Artifacts live in
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r13_loop_cap_geometric_seam_repair_probe/`.
+  It welds exact duplicate coordinates and removes `8` duplicate seam faces
+  that collapse to the same marker/node set after welding. The repaired surface
+  has `28,807` vertices / `2,860` faces, with zero duplicate-coordinate groups
+  and zero welded bad edges. Gmsh HXT then produces a marker-owned core mesh:
+  `29,993` nodes / `9,677` tetra cells, SU2 boundary ownership `pass`, and no
+  non-positive SICN/SIGE/volume. Quality still carries very-low-shape warnings,
+  and this is not a merged mixed BL+core SU2 handoff. WO-006I preflight now
+  advances to `setup_near_wall_merged_mesh_handoff_missing`; next repair should
+  write/quality-gate the mixed BL+core handoff and y+ probe before any solver
+  ladder.
 - WO-006F SU2 engineering-result recovery campaign is complete as a package with
   verdict `wo006f_campaign_incomplete`. Artifacts live in
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006f_su2_engineering_result/`.

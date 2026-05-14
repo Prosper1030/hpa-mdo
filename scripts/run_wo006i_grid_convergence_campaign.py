@@ -66,6 +66,7 @@ DIRECT_STAGEBACK_PROBE_PATHS = (
     WO006_ROOT / "wo006m_narrow_stageback_mesh_probe" / "summary.json",
 )
 CORE_CLOSURE_PROBE_PATHS = (
+    WO006_ROOT / "wo006r13_loop_cap_geometric_seam_repair_probe" / "summary.json",
     WO006_ROOT / "wo006r12_loop_cap_core_mesh_probe" / "summary.json",
     WO006_ROOT / "wo006r11_core_facing_loop_closure_probe" / "summary.json",
     WO006_ROOT / "wo006r10_near_wall_core_closure_probe" / "summary.json",
@@ -1147,6 +1148,7 @@ def _core_closure_topology_summary(
     r12_core_mesh_blocked = False
     r12_blocker = None
     r12_volume_element_count = None
+    core_mesh_artifact_seen = False
     r11_surface_ready = False
     r11_mesh_pending = False
     r10_blocked = False
@@ -1163,19 +1165,21 @@ def _core_closure_topology_summary(
         if loop_cap_core_mesh:
             mesh_status = str(loop_cap_core_mesh.get("status") or artifact.get("verdict") or "")
             hard_blockers = list(loop_cap_core_mesh.get("hard_blockers") or [])
-            r12_volume_element_count = loop_cap_core_mesh.get("volume_element_count")
-            r12_core_mesh_ready = (
-                mesh_status == "core_mesh_probe_pass_merged_handoff_pending"
-                and not hard_blockers
-            )
-            r12_core_mesh_blocked = not r12_core_mesh_ready
-            if r12_core_mesh_blocked:
-                r12_blocker = (
-                    "near_wall_core_mesh_geometry_blocked"
-                    if "core_inner_surface_geometric_duplicate_nonmanifold"
-                    in hard_blockers
-                    else "near_wall_core_mesh_probe_blocked"
+            if not core_mesh_artifact_seen:
+                core_mesh_artifact_seen = True
+                r12_volume_element_count = loop_cap_core_mesh.get("volume_element_count")
+                r12_core_mesh_ready = (
+                    mesh_status == "core_mesh_probe_pass_merged_handoff_pending"
+                    and not hard_blockers
                 )
+                r12_core_mesh_blocked = not r12_core_mesh_ready
+                if r12_core_mesh_blocked:
+                    r12_blocker = (
+                        "near_wall_core_mesh_geometry_blocked"
+                        if "core_inner_surface_geometric_duplicate_nonmanifold"
+                        in hard_blockers
+                        else "near_wall_core_mesh_probe_blocked"
+                    )
             records.append(
                 {
                     "path": artifact.get("path"),
