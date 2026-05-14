@@ -99,7 +99,9 @@ edge ratio about `1.64e4`; the current estimate to keep every segmented base
 below `1000` is `6,928` rim pieces total (`te_wall=4,376`, `tip_wall=1,944`,
 `closure_wall=608`).  The report now contains a per-quad
 `split_longest_prism_rim_edge_pair` plan; the predicted maximum post-split base
-edge ratio is about `997.8`.
+edge ratio is about `997.8`.  Collapsing the layer-expanded plan back to the
+source mesh gives `145` source rim edges and about `809` required source-edge
+segments (`te_wall=640`, `tip_wall=81`, `closure_wall=88`).
 
 ## Question To Answer
 

@@ -185,7 +185,10 @@ screening evidence 讀，不是現行 release / procurement truth。
   `6,928` 個 segmented rim pieces，其中 `te_wall=4,376`、`tip_wall=1,944`、
   `closure_wall=608`，最大單一 base edge ratio 約 `1.64e4`；per-quad
   `split_longest_prism_rim_edge_pair` plan 已寫入 artifact，預估最大切後 base
-  edge ratio 約 `997.8`。
+  edge ratio 約 `997.8`。同一 artifact 也把 layer-expanded plan 壓回 source-edge
+  plan：`145` 條 source rim edges 需要約 `809` 段（`te_wall=640`、
+  `tip_wall=81`、`closure_wall=88`），預估最大 source-edge 切後 base ratio 約
+  `982.0`。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個

@@ -2476,7 +2476,9 @@ def _partial_wing_transition_collar_volume(
     required_segment_counts: list[int] = []
     single_base_edge_ratios: list[float] = []
     segmentation_plan_records: list[dict[str, Any]] = []
+    source_edge_split_records: dict[tuple[str, tuple[int, int]], dict[str, Any]] = {}
     pyramid_signed_volumes: list[float] = []
+    base_vertex_count = int(prism_volume.get("base_vertex_count") or 0)
 
     for marker, faces in _mapping(prism_volume.get("marker_faces")).items():
         for element_type, face_nodes in faces:
@@ -2509,6 +2511,32 @@ def _partial_wing_transition_collar_volume(
                         "max_edge_length_m": max(edge_lengths),
                     }
                 )
+                source_edge = _source_edge_from_layered_quad(
+                    nodes_tuple,
+                    base_vertex_count=base_vertex_count,
+                )
+                if source_edge is not None:
+                    source_key = (str(marker), source_edge)
+                    source_record = source_edge_split_records.setdefault(
+                        source_key,
+                        {
+                            "marker": str(marker),
+                            "source_edge": [int(node) for node in source_edge],
+                            "required_segments": 0,
+                            "single_pyramid_base_edge_ratio": 0.0,
+                            "planned_segment_base_edge_ratio": 0.0,
+                            "min_edge_length_m": min(edge_lengths),
+                            "max_edge_length_m": max(edge_lengths),
+                        },
+                    )
+                    if edge_ratio > float(source_record["single_pyramid_base_edge_ratio"]):
+                        source_record["single_pyramid_base_edge_ratio"] = edge_ratio
+                        source_record["required_segments"] = required_segments
+                        source_record["planned_segment_base_edge_ratio"] = (
+                            planned_segment_base_edge_ratio
+                        )
+                        source_record["min_edge_length_m"] = min(edge_lengths)
+                        source_record["max_edge_length_m"] = max(edge_lengths)
                 owner = _single_face_owner(face_owners, nodes_tuple, SU2_PRISM)
                 apex = _collar_apex_for_prism_face(
                     nodes,
@@ -2534,6 +2562,15 @@ def _partial_wing_transition_collar_volume(
     finite_pyramid_volumes = [
         value for value in pyramid_signed_volumes if math.isfinite(value)
     ]
+    source_edge_records = list(source_edge_split_records.values())
+    source_required_segments_by_marker = {marker: 0 for marker in DIAGNOSTIC_FORCE_MARKERS}
+    for record in source_edge_records:
+        marker = str(record["marker"])
+        source_required_segments_by_marker[marker] = (
+            source_required_segments_by_marker.get(marker, 0)
+            + int(record["required_segments"])
+        )
+
     report = {
         "converted_prism_rim_quads_by_marker": converted_by_marker,
         "converted_prism_rim_quad_count": sum(converted_by_marker.values()),
@@ -2558,6 +2595,37 @@ def _partial_wing_transition_collar_volume(
             "plan_record_count": len(segmentation_plan_records),
             "plan_samples": segmentation_plan_records[:8],
             "split_policy": "split_longest_prism_rim_edge_pair",
+            "source_edge_split_requirement": {
+                "source_edge_count": len(source_edge_records),
+                "required_source_edge_segments_by_marker": (
+                    source_required_segments_by_marker
+                ),
+                "total_required_source_edge_segments": sum(
+                    int(record["required_segments"]) for record in source_edge_records
+                ),
+                "max_required_segments_per_source_edge": (
+                    max(int(record["required_segments"]) for record in source_edge_records)
+                    if source_edge_records
+                    else 0
+                ),
+                "max_single_source_edge_base_ratio": (
+                    max(
+                        float(record["single_pyramid_base_edge_ratio"])
+                        for record in source_edge_records
+                    )
+                    if source_edge_records
+                    else 0.0
+                ),
+                "max_planned_source_edge_base_ratio": (
+                    max(
+                        float(record["planned_segment_base_edge_ratio"])
+                        for record in source_edge_records
+                    )
+                    if source_edge_records
+                    else 0.0
+                ),
+                "plan_samples": source_edge_records[:8],
+            },
         },
         "interface_triangle_count": len(marker_faces.get("transition_collar_interface", [])),
         "force_wall_rim_marker_leak_count": force_wall_rim_marker_leak_count,
@@ -2593,6 +2661,19 @@ def _single_face_owner(
             f"expected one owner of type {element_type} for face {tuple(face_nodes)}, got {len(owners)}"
         )
     return owners[0]
+
+
+def _source_edge_from_layered_quad(
+    face_nodes: Sequence[int],
+    *,
+    base_vertex_count: int,
+) -> tuple[int, int] | None:
+    if base_vertex_count <= 0:
+        return None
+    source_nodes = sorted({int(node) % int(base_vertex_count) for node in face_nodes})
+    if len(source_nodes) != 2:
+        return None
+    return (source_nodes[0], source_nodes[1])
 
 
 def _collar_apex_for_prism_face(
@@ -4274,6 +4355,7 @@ def _direct_surface_prism_volume(
         "elements": elements,
         "element_metadata": element_metadata,
         "marker_faces": marker_faces,
+        "base_vertex_count": base_count,
     }
 
 

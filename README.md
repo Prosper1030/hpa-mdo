@@ -187,6 +187,8 @@ smoke threshold；pps42/l3 會同時被 dual ratio 與 hotspot edge-ratio blocke
 `3,480` 個單一 rim quads 要降到 edge-ratio threshold `1000`，約需 `6,928` 個
 segmented rim pieces（`te_wall=4,376`、`tip_wall=1,944`、`closure_wall=608`）；
 per-quad split plan 已寫入 artifact，預估最大切後 base edge ratio 約 `997.8`。
+同一 plan 壓回 source mesh 後是 `145` 條 source rim edges、約 `809` 段
+（`te_wall=640`、`tip_wall=81`、`closure_wall=88`），更接近下一步實作量級。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect
