@@ -246,6 +246,12 @@ marker ownership 為主（`transition_collar_outer_interface=475`、`bl_outer_in
 tip 端附近。這不是 Gmsh multi-loop 可以自動猜好的局部小洞。工程判讀：現在不能再讓
 Gmsh 直接 core-fill；下一步要修 tip-side cap-receiver / outer transition shell
 topology，再回到 TE/closure accounting。
+我也測過一個很直覺但錯的 shortcut：
+`segmented_partial_wing_structured_transition_core_shell_probe_shared_tip_apex_rejected/`
+把 terminal tip band 的 closure pyramids 共用單一 apex。結果 handoff gate 仍 blocked，
+而且 dual proxy 直接惡化到 `>1e16` 量級，表示「把 tip fan 捏到一個 apex」不是可接受的
+receiver；下一步必須是分段、保形的 tip receiver / terminal transition sheet，不是單點
+fan。
 
 closed-wall direct prism wrapper 也重新檢查過：pps12/l16 可把 dual proxy 清到
 `pass`（無 `>1e7` hotspot）且 prism non-positive count `0`，但 root sidewall aspect

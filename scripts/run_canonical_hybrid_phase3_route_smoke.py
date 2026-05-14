@@ -2439,6 +2439,8 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
     collar_height_m: float = 1.0e-4,
     transition_row_heights_m: Sequence[float] = (0.01, 0.03),
     sidewall_closure_policy: str = "per_triangle",
+    terminal_tip_closure_policy: str = "isolated",
+    terminal_tip_band_m: float = 0.0,
     max_projected_volume_elements: int | None = None,
 ) -> dict[str, Any]:
     """Estimate structured transition handoff cost before generating it."""
@@ -2524,6 +2526,10 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
         raise ValueError(
             "sidewall_closure_policy must be 'per_triangle' or 'stitched_sheet'"
         )
+    if terminal_tip_closure_policy not in {"isolated", "shared_apex"}:
+        raise ValueError(
+            "terminal_tip_closure_policy must be 'isolated' or 'shared_apex'"
+        )
     sidewall_closure_tetra_count = sidewall_closure_pyramid_count * 4
     base_type_counts: dict[str, int] = {}
     for element_type, _nodes in collar_volume["elements"]:
@@ -2578,6 +2584,8 @@ def plan_phase3_segmented_partial_wing_structured_transition_handoff(
             "transition_row_count": row_count,
             "transition_row_heights_m": list(row_heights),
             "sidewall_closure_policy": sidewall_closure_policy,
+            "terminal_tip_closure_policy": terminal_tip_closure_policy,
+            "terminal_tip_band_m": float(terminal_tip_band_m),
             "transition_prism_count": transition_prism_count,
             "sidewall_closure_pyramid_count": sidewall_closure_pyramid_count,
             "sidewall_closure_tetra_count": sidewall_closure_tetra_count,
@@ -2613,6 +2621,8 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
     collar_height_m: float = 1.0e-4,
     transition_row_heights_m: Sequence[float] = (0.01, 0.03),
     sidewall_closure_policy: str = "per_triangle",
+    terminal_tip_closure_policy: str = "isolated",
+    terminal_tip_band_m: float = 0.0,
     max_projected_volume_elements: int | None = None,
 ) -> dict[str, Any]:
     """Write segmented real-wing collar plus explicit structured transition rows."""
@@ -2628,6 +2638,8 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
             collar_height_m=collar_height_m,
             transition_row_heights_m=transition_row_heights_m,
             sidewall_closure_policy=sidewall_closure_policy,
+            terminal_tip_closure_policy=terminal_tip_closure_policy,
+            terminal_tip_band_m=terminal_tip_band_m,
             max_projected_volume_elements=max_projected_volume_elements,
         )
         if _mapping(projection_report.get("gate")).get("status") != "pass":
@@ -2700,6 +2712,8 @@ def write_phase3_segmented_partial_wing_structured_transition_handoff_su2(
         collar_volume,
         transition_row_heights_m=transition_row_heights_m,
         sidewall_closure_policy=sidewall_closure_policy,
+        terminal_tip_closure_policy=terminal_tip_closure_policy,
+        terminal_tip_band_m=terminal_tip_band_m,
     )
     output_path = Path(out_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2818,6 +2832,8 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
     collar_height_m: float = 1.0e-4,
     transition_row_heights_m: Sequence[float] = (0.01, 0.03),
     sidewall_closure_policy: str = "stitched_sheet",
+    terminal_tip_closure_policy: str = "isolated",
+    terminal_tip_band_m: float = 0.0,
     max_projected_volume_elements: int | None = None,
 ) -> dict[str, Any]:
     """Preflight the stitched transition core-facing shell before Gmsh core fill."""
@@ -2835,6 +2851,8 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
             collar_height_m=collar_height_m,
             transition_row_heights_m=transition_row_heights_m,
             sidewall_closure_policy=sidewall_closure_policy,
+            terminal_tip_closure_policy=terminal_tip_closure_policy,
+            terminal_tip_band_m=terminal_tip_band_m,
             max_projected_volume_elements=max_projected_volume_elements,
         )
         if _mapping(projection_report.get("gate")).get("status") != "pass":
@@ -2914,6 +2932,8 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
         collar_volume,
         transition_row_heights_m=transition_row_heights_m,
         sidewall_closure_policy=sidewall_closure_policy,
+        terminal_tip_closure_policy=terminal_tip_closure_policy,
+        terminal_tip_band_m=terminal_tip_band_m,
     )
     handoff_topology = _transition_topology_report(transition_volume)
     handoff_quality = _transition_element_quality(transition_volume)
@@ -3723,6 +3743,8 @@ def _partial_wing_structured_transition_volume(
     *,
     transition_row_heights_m: Sequence[float],
     sidewall_closure_policy: str = "per_triangle",
+    terminal_tip_closure_policy: str = "isolated",
+    terminal_tip_band_m: float = 0.0,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     row_heights = tuple(float(height) for height in transition_row_heights_m)
     if not row_heights or any(height <= 0.0 for height in row_heights):
@@ -3731,6 +3753,12 @@ def _partial_wing_structured_transition_volume(
         raise ValueError(
             "sidewall_closure_policy must be 'per_triangle' or 'stitched_sheet'"
         )
+    if terminal_tip_closure_policy not in {"isolated", "shared_apex"}:
+        raise ValueError(
+            "terminal_tip_closure_policy must be 'isolated' or 'shared_apex'"
+        )
+    if terminal_tip_band_m < 0.0:
+        raise ValueError("terminal_tip_band_m must be non-negative")
     nodes = [tuple(vertex) for vertex in collar_volume["nodes"]]
     elements = list(collar_volume["elements"])
     element_roles = [
@@ -3880,6 +3908,8 @@ def _partial_wing_structured_transition_volume(
     sidewall_closure = _close_non_root_exposed_prism_quads_with_pyramid_tets(
         volume,
         boundary_marker="transition_collar_outer_interface",
+        terminal_tip_closure_policy=terminal_tip_closure_policy,
+        terminal_tip_band_m=terminal_tip_band_m,
     )
     _add_role_boundary_marker_faces(volume)
     report = {
@@ -3888,6 +3918,8 @@ def _partial_wing_structured_transition_volume(
         "interface_boundary_edge_count": interface_boundary_edge_count,
         "interface_nonmanifold_edge_count": interface_nonmanifold_edge_count,
         "sidewall_closure_policy": sidewall_closure_policy,
+        "terminal_tip_closure_policy": terminal_tip_closure_policy,
+        "terminal_tip_band_m": float(terminal_tip_band_m),
         "row_count": len(row_heights),
         "row_heights_m": list(row_heights),
         "first_row_height_m": row_heights[0],
@@ -3981,7 +4013,13 @@ def _close_non_root_exposed_prism_quads_with_pyramid_tets(
     volume: MutableMapping[str, Any],
     *,
     boundary_marker: str,
+    terminal_tip_closure_policy: str = "isolated",
+    terminal_tip_band_m: float = 0.0,
 ) -> dict[str, int]:
+    if terminal_tip_closure_policy not in {"isolated", "shared_apex"}:
+        raise ValueError(
+            "terminal_tip_closure_policy must be 'isolated' or 'shared_apex'"
+        )
     nodes = volume["nodes"]
     elements = volume["elements"]
     element_roles = volume["element_roles"]
@@ -4012,9 +4050,59 @@ def _close_non_root_exposed_prism_quads_with_pyramid_tets(
             continue
         exposed_prism_quads.append(owner)
 
+    max_y = max((float(node[1]) for node in nodes), default=0.0)
+    terminal_tip_owners: list[dict[str, Any]] = []
+    isolated_owners: list[dict[str, Any]] = []
+    for owner in exposed_prism_quads:
+        face_nodes = tuple(int(node) for node in owner["face_nodes"])
+        face_max_y = max(float(nodes[node][1]) for node in face_nodes)
+        if (
+            terminal_tip_closure_policy == "shared_apex"
+            and terminal_tip_band_m > 0.0
+            and face_max_y >= max_y - float(terminal_tip_band_m)
+        ):
+            terminal_tip_owners.append(owner)
+        else:
+            isolated_owners.append(owner)
+
     closure_pyramids = 0
     closure_tets = 0
-    for face_index, owner in enumerate(exposed_prism_quads):
+
+    def add_boundary_tetra_for_pyramid_side_faces(
+        pyramid: Sequence[int],
+        *,
+        offset: float,
+        element_role: str = "sidewall_closure_tetra",
+    ) -> int:
+        added = 0
+        for side_index, side_face in enumerate(
+            _volume_element_faces(SU2_PYRAMID, pyramid)[1:]
+        ):
+            extension = len(nodes)
+            nodes.append(
+                _tet_extension_point(
+                    nodes,
+                    side_face,
+                    magnitude=offset * (1.0 + 0.05 * side_index),
+                )
+            )
+            elements.append(
+                (
+                    SU2_TETRAHEDRON,
+                    _oriented_tetra_for_shared_face(nodes, side_face, extension),
+                )
+            )
+            element_roles.append(
+                {
+                    "role": element_role,
+                    "source": "tetra_core",
+                    "boundary_marker": str(boundary_marker),
+                }
+            )
+            added += 1
+        return added
+
+    for face_index, owner in enumerate(isolated_owners):
         raw_face_nodes = tuple(int(node) for node in owner["face_nodes"])
         owner_nodes = tuple(int(node) for node in elements[int(owner["element_index"])][1])
         owner_centroid = _centroid_tuple([nodes[node] for node in owner_nodes])
@@ -4040,32 +4128,77 @@ def _close_non_root_exposed_prism_quads_with_pyramid_tets(
             }
         )
         closure_pyramids += 1
-        for side_index, side_face in enumerate(_volume_element_faces(SU2_PYRAMID, pyramid)[1:]):
-            extension = len(nodes)
-            nodes.append(
-                _tet_extension_point(
-                    nodes,
-                    side_face,
-                    magnitude=offset * (1.0 + 0.05 * side_index),
-                )
-            )
-            elements.append(
-                (
-                    SU2_TETRAHEDRON,
-                    _oriented_tetra_for_shared_face(nodes, side_face, extension),
-                )
-            )
+        closure_tets += add_boundary_tetra_for_pyramid_side_faces(
+            pyramid,
+            offset=offset,
+        )
+
+    terminal_tip_shared_apex_count = 0
+    terminal_tip_shared_pyramid_count = 0
+    terminal_tip_shared_tetra_count = 0
+    if terminal_tip_owners:
+        terminal_faces: list[tuple[int, ...]] = []
+        terminal_centroids: list[tuple[float, float, float]] = []
+        terminal_offsets: list[float] = []
+        for owner in terminal_tip_owners:
+            raw_face_nodes = tuple(int(node) for node in owner["face_nodes"])
+            face_nodes = _ordered_quad_face_nodes(nodes, raw_face_nodes, (0.0, 1.0, 0.0))
+            edge_lengths = [
+                length for length in _face_edge_lengths(nodes, face_nodes) if length > 0.0
+            ]
+            terminal_faces.append(face_nodes)
+            terminal_centroids.append(_centroid_tuple([nodes[node] for node in face_nodes]))
+            terminal_offsets.append(max(min(edge_lengths) if edge_lengths else 1.0e-4, 1.0e-4))
+        apex_offset = max(terminal_offsets) if terminal_offsets else 1.0e-4
+        apex = len(nodes)
+        centroid = _centroid_tuple(terminal_centroids)
+        nodes.append(_offset_point(centroid, (0.0, 1.0, 0.0), apex_offset))
+        terminal_tip_shared_apex_count = 1
+        terminal_pyramids: list[tuple[int, ...]] = []
+        for face_nodes in terminal_faces:
+            pyramid = _oriented_pyramid_positive(nodes, face_nodes, apex)
+            elements.append((SU2_PYRAMID, pyramid))
             element_roles.append(
                 {
-                    "role": "sidewall_closure_tetra",
-                    "source": "tetra_core",
-                    "boundary_marker": str(boundary_marker),
+                    "role": "terminal_tip_shared_sidewall_closure_pyramid",
+                    "source": "transition_sidewall_pyramid",
                 }
             )
-            closure_tets += 1
+            terminal_pyramids.append(pyramid)
+            closure_pyramids += 1
+            terminal_tip_shared_pyramid_count += 1
+
+        face_owners_after_pyramids = _volume_face_owner_map(elements)
+        for pyramid in terminal_pyramids:
+            for side_index, side_face in enumerate(
+                _volume_element_faces(SU2_PYRAMID, pyramid)[1:]
+            ):
+                if len(face_owners_after_pyramids.get(_face_key_nodes(side_face), [])) != 1:
+                    continue
+                offset = apex_offset * (1.0 + 0.05 * side_index)
+                extension = len(nodes)
+                nodes.append(_tet_extension_point(nodes, side_face, magnitude=offset))
+                elements.append(
+                    (
+                        SU2_TETRAHEDRON,
+                        _oriented_tetra_for_shared_face(nodes, side_face, extension),
+                    )
+                )
+                element_roles.append(
+                    {
+                        "role": "terminal_tip_shared_sidewall_closure_tetra",
+                        "source": "tetra_core",
+                        "boundary_marker": str(boundary_marker),
+                    }
+                )
+                closure_tets += 1
+                terminal_tip_shared_tetra_count += 1
     return {
         "sidewall_closure_pyramid_count": closure_pyramids,
         "sidewall_closure_tetra_count": closure_tets,
+        "terminal_tip_shared_apex_count": terminal_tip_shared_apex_count,
+        "terminal_tip_shared_pyramid_count": terminal_tip_shared_pyramid_count,
+        "terminal_tip_shared_tetra_count": terminal_tip_shared_tetra_count,
     }
 
 

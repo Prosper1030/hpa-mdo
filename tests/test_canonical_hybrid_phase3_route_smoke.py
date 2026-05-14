@@ -1043,6 +1043,40 @@ def test_segmented_partial_wing_stitched_core_shell_blocks_nonmanifold_inner_bou
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 
+def test_segmented_partial_wing_stitched_core_shell_rejects_shared_tip_apex_shortcut(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+
+    report = module.run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
+        module.DEFAULT_SECTION_TABLE_PATH,
+        tmp_path / "segmented_partial_wing_structured_transition_core_shell_probe",
+        points_per_side=4,
+        spanwise_subdivisions=1,
+        first_layer_height_m=5.0e-5,
+        growth_ratio=1.2,
+        bl_layers=2,
+        collar_height_m=5.0e-4,
+        transition_row_heights_m=(0.01, 0.03),
+        sidewall_closure_policy="stitched_sheet",
+        terminal_tip_closure_policy="shared_apex",
+        terminal_tip_band_m=0.05,
+        max_projected_volume_elements=150_000,
+    )
+
+    assert report["handoff_gate"]["status"] == "blocked"
+    assert "mixed_dual_subvolume_ratio_exceeds_route_gate" in report["handoff_gate"]["blockers"]
+    assert "structured_handoff_nonmanifold_face_count" in report["handoff_gate"]["blockers"]
+    assert report["structured_transition"]["terminal_tip_closure_policy"] == "shared_apex"
+    assert report["structured_transition"]["terminal_tip_shared_apex_count"] > 0
+    assert report["structured_transition"]["terminal_tip_shared_pyramid_count"] > 0
+    assert report["handoff_dual_subvolume_proxy"]["max_cv_sub_volume_ratio"] > 1.0e12
+    assert report["inner_boundary_topology"]["nonmanifold_edge_count"] > 0
+    assert "core_inner_boundary_nonmanifold_edges" in report["gate"]["blockers"]
+    assert "structured_transition_handoff_gate_not_pass" in report["gate"]["blockers"]
+    assert report["engineering_assessment"]["route_smoke_ready"] is False
+
+
 def test_core_boundary_point_size_targets_selected_interface_markers() -> None:
     module = _load_module()
     surface = module.SurfaceMesh(

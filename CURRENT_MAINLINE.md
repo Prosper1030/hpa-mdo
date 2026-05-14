@@ -287,6 +287,15 @@ screening evidence 讀，不是現行 release / procurement truth。
   inner-boundary shell / cap-receiver topology，不是 SU2 numerics；Gmsh core fill
   現在必須在這個 preflight 前被擋下，直到 outer transition sheet 和 TE/tip/closure
   caps 形成可交給 tetra core 的 2-manifold shell。
+- terminal tip shared-apex shortcut 已被明確拒絕：
+  `segmented_partial_wing_structured_transition_core_shell_probe_shared_tip_apex_rejected/`
+  使用 `points_per_side=4`、`spanwise_subdivisions=1`、`layers=2` 的 bounded probe，
+  將 terminal tip band 的 `158` 個 sidewall closure pyramids 共用 `1` 個 apex。結果
+  handoff gate 仍 blocked，blockers 包含 `structured_handoff_nonmanifold_face_count`、
+  `mixed_dual_subvolume_ratio_exceeds_route_gate` 與
+  `mixed_dual_hotspot_incident_edge_ratio_exceeds_route_gate`，max dual sub-volume
+  proxy 到 `>1e16` 量級。工程判讀：terminal tip 不能用單點 fan 捏合；下一步必須是
+  分段、保形的 tip receiver / terminal transition sheet。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
