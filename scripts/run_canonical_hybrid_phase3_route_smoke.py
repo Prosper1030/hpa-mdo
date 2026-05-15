@@ -3213,6 +3213,7 @@ def run_phase3_segmented_partial_wing_structured_transition_core_shell_probe(
         discrete_plc_core_shell = _discrete_plc_core_shell_report(
             inner_boundary,
             surface_bounds=_bounds(surface.vertices),
+            output_dir=output_path,
         )
     status = (
         "segmented_partial_wing_structured_transition_core_shell_ready"
@@ -6080,6 +6081,7 @@ def _discrete_plc_core_shell_report(
     inner_boundary: SurfaceMesh,
     *,
     surface_bounds: Mapping[str, float],
+    output_dir: Path | None = None,
 ) -> dict[str, Any]:
     loop_nodes, loop_report = _ordered_single_boundary_loop_nodes(inner_boundary)
     if loop_report["status"] != "pass":
@@ -6106,6 +6108,13 @@ def _discrete_plc_core_shell_report(
     for marker in ("root_symmetry", "farfield"):
         if int(marker_counts.get(marker) or 0) == 0:
             blockers.append(f"discrete_plc_shell_{marker}_missing")
+    poly_artifact: dict[str, Any] = {}
+    if output_dir is not None:
+        poly_artifact = _write_tetgen_poly_artifact(
+            shell,
+            output_dir=output_dir,
+            stem="discrete_plc_core_shell",
+        )
     return {
         "status": (
             "discrete_plc_core_shell_ready"
@@ -6126,6 +6135,7 @@ def _discrete_plc_core_shell_report(
         "node_count": len(shell.vertices),
         "face_count": len(shell.faces),
         "marker_counts": marker_counts,
+        **poly_artifact,
         "topology": topology,
         "root_boundary_loop": loop_report,
         "trust_boundary": (
@@ -6133,6 +6143,49 @@ def _discrete_plc_core_shell_report(
             "can close the receiver/cycle-cap inner boundary with root_symmetry "
             "and farfield markers; it is not a Gmsh tetra volume mesh."
         ),
+    }
+
+
+def _write_tetgen_poly_artifact(
+    shell: SurfaceMesh,
+    *,
+    output_dir: Path,
+    stem: str,
+) -> dict[str, Any]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    marker_names = sorted(shell.marker_counts())
+    marker_map = {marker: index + 1 for index, marker in enumerate(marker_names)}
+    poly_path = output_dir / f"{stem}.poly"
+    marker_map_path = output_dir / f"{stem}_marker_map.json"
+    lines: list[str] = [
+        f"{len(shell.vertices)} 3 0 0",
+    ]
+    for index, (x, y, z) in enumerate(shell.vertices, start=1):
+        lines.append(f"{index} {x:.17g} {y:.17g} {z:.17g}")
+    lines.append(f"{len(shell.faces)} 1")
+    for face in shell.faces:
+        node_ids = [int(node) + 1 for node in face.nodes]
+        polygon = " ".join(str(node_id) for node_id in node_ids)
+        lines.append(f"1 0 {marker_map[str(face.marker)]}")
+        lines.append(f"{len(node_ids)} {polygon}")
+    lines.append("0")
+    lines.append("0")
+    poly_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    marker_map_path.write_text(
+        json.dumps(marker_map, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "poly_path": str(poly_path),
+        "marker_map_path": str(marker_map_path),
+        "poly_marker_map": marker_map,
+        "poly_stats": {
+            "point_count": len(shell.vertices),
+            "facet_count": len(shell.faces),
+            "marker_count": len(marker_map),
+            "format": "tetgen_poly_v1",
+            "index_base": 1,
+        },
     }
 
 

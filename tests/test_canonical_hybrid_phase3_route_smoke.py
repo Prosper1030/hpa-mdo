@@ -1197,6 +1197,11 @@ def test_segmented_partial_wing_receiver_cycle_caps_build_closed_discrete_plc_sh
     assert plc_shell["topology"]["nonmanifold_edge_count"] == 0
     assert plc_shell["marker_counts"]["root_symmetry"] == plc_shell["root_symmetry_face_count"]
     assert plc_shell["marker_counts"]["farfield"] == plc_shell["farfield_face_count"]
+    assert Path(plc_shell["poly_path"]).exists()
+    assert Path(plc_shell["marker_map_path"]).exists()
+    assert plc_shell["poly_stats"]["point_count"] == plc_shell["node_count"]
+    assert plc_shell["poly_stats"]["facet_count"] == plc_shell["face_count"]
+    assert plc_shell["poly_marker_map"]["root_symmetry"] != plc_shell["poly_marker_map"]["farfield"]
     assert report["engineering_assessment"]["route_smoke_ready"] is False
 
 

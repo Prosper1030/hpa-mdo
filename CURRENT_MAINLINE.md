@@ -322,9 +322,11 @@ screening evidence 讀，不是現行 release / procurement truth。
   root boundary 是 `88` 個 node 的單一 loop，root_symmetry 面重用 inner root boundary
   nodes，farfield 以獨立 marker 補成封閉 shell；shell topology 是
   `bad_edge_count=0`、`boundary_edge_count=0`、`nonmanifold_edge_count=0`。工程判讀：
-  partial-BL / receiver / root/farfield closure 的 topology contract 已明確化，但它仍不是
-  tetra core，也不是 ROUTE_SMOKE_PASS；下一步要解的是可靠 core-fill handoff，而不是再讓
-  Gmsh 自動猜 multi-loop root hole。
+  partial-BL / receiver / root/farfield closure 的 topology contract 已明確化；同一 report
+  也會輸出 `discrete_plc_core_shell.poly` 與 marker map，供下一個 PLC mesher 直接讀。
+  但它仍不是 tetra core，也不是 ROUTE_SMOKE_PASS。Gmsh 和 MeshPy/TetGen 對這個大型 PLC
+  都還沒有給出可用 core fill，所以下一步要解的是可靠 core-fill handoff / watchdog，
+  不是再讓 Gmsh 自動猜 multi-loop root hole。
 - closed-wall direct prism wrapper 現在也有同一套 dual proxy：pps12/l16 可清掉
   `>1e7` dual hotspot，且 prism signed volume non-positive count `0`，但 root
   sidewall aspect 約 `3589`；pps42/l16 root aspect 約 `966`，但有 `245` 個
