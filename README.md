@@ -1,5 +1,30 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-15 WO-006 CFD Tool Route Decision
+
+WO-006 Phase 3 custom partial-BL SU2 hybrid core-fill route is stopped. Do not
+continue discrete PLC core-fill, receiver/cycle/cap patching, large discrete
+shell Gmsh reconstruction, meshpy/TetGen retries on the same `.poly`, SU2 hybrid
+writer repairs, or any new R-series / Phase-3 topology patch.
+
+New route-decision artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_tool_route_decision/`.
+Track A writes a full-wing OpenFOAM scaffold with split patches
+`wing_upper`, `wing_lower`, `tip_left`, `tip_right`, `te_wall`, and
+`closure_wall`, but local OpenFOAM executables are not installed, so
+`nSurfaceLayers=0` and `3` are not run and `8` is skipped by hard stop. There is
+no OpenFOAM `checkMesh`, yPlus, forceCoeffs, or CD evidence yet.
+
+Track B writes and runs a full-wing SU2 pressure-only/slip-wall sanity case. The
+mesh is readable, required markers pass audit, and the split marker convention is
+healthy, but the solve fails: `4043` tetra cells, max dual face-area aspect ratio
+`36586.8`, max dual sub-volume ratio `1453580`, divergence after `49` history
+rows, and no `forces_breakdown.dat`, so `CD_primary` is not available. Engineering
+read: this is a mesher/tool-route problem, not a reason to revive wall-resolved
+SU2 hybrid topology work. Current recommendation is **B: mature external mesher
+-> SU2**; OpenFOAM can become active only after a real OpenFOAM toolchain is
+installed and the 0/3/8 layer ladder actually runs.
+
 ## 2026-05-14 Canonical Hybrid Half-Wing CFD Route Reset
 
 WO-006 active CFD delivery route 已重設為 `canonical_hybrid_halfwing_v0`。唯一可讀的

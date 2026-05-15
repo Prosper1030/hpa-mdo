@@ -1,0 +1,56 @@
+{
+  "schema_version": "wo006_cfd_tool_route_decision.v1",
+  "created_at_utc": "2026-05-15T00:59:16Z",
+  "output_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_tool_route_decision",
+  "stopped_route": {
+    "name": "Phase 3 custom partial-BL SU2 hybrid core-fill",
+    "status": "stopped",
+    "do_not_continue": [
+      "discrete PLC core-fill",
+      "receiver/cycle/cap patching",
+      "Gmsh reconstruct of the large discrete shell",
+      "meshpy/TetGen retries on the same .poly",
+      "SU2 hybrid writer repairs",
+      "new R-series or Phase-3 topology patches"
+    ]
+  },
+  "track_a": {
+    "status": "blocked_tool_unavailable",
+    "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_tool_route_decision/track_a_openfoam_case",
+    "blockers": [
+      "openfoam_executables_missing"
+    ]
+  },
+  "track_b": {
+    "status": "fail",
+    "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_tool_route_decision/track_b_su2_fullwing_pressure",
+    "gate": {
+      "status": "fail",
+      "blockers": [
+        "track_b_dual_face_area_aspect_ratio_pathological",
+        "track_b_dual_sub_volume_ratio_pathological",
+        "track_b_forces_breakdown_missing",
+        "track_b_primary_cd_missing",
+        "track_b_solver_not_completed"
+      ],
+      "warnings": [],
+      "cd_primary": null,
+      "cl_primary": null,
+      "cd_diagnostic_total": null,
+      "cd_total": null,
+      "previous_halfwing_phase2_pressure_cd": 0.0177873
+    }
+  },
+  "decision": {
+    "schema_version": "wo006_tool_route_decision_verdict.v1",
+    "openfoam_fullwing_rescue_meshed_and_ran": false,
+    "openfoam_cd_primary_reasonable": null,
+    "openfoam_diagnostic_patches_contaminate_total_cd": null,
+    "su2_fullwing_pressure_sanity_pass": false,
+    "su2_cd_primary": null,
+    "su2_cd_total": null,
+    "recommendation": "B_mature_external_mesher_to_su2",
+    "engineering_read": "The custom partial-BL core-fill route is stopped. In this checkout, OpenFOAM cannot run because the executable toolchain is missing; SU2 full-wing pressure-only is the only live local route-decision run."
+  },
+  "elapsed_s": 2.5762952498625964
+}

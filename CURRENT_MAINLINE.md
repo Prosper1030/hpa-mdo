@@ -2,12 +2,27 @@
 
 ## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-14。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+**更新日期：2026-05-15。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
 SU2 aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
+
+**2026-05-15 CFD route update:** WO-006 Phase 3 custom partial-BL SU2 hybrid
+core-fill route is stopped. The current route-decision bundle is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_tool_route_decision/`.
+Do not continue discrete PLC core-fill, receiver/cycle/cap patching, large
+discrete-shell Gmsh reconstruction, meshpy/TetGen retries, SU2 hybrid writer
+repairs, or new R-series / Phase-3 topology patches. Track A OpenFOAM is locally
+blocked because `blockMesh`, `snappyHexMesh`, `checkMesh`, and `simpleFoam` are
+not installed, so no OpenFOAM CD/yPlus evidence exists. Track B full-wing SU2
+pressure-only has mesh/marker readability but fails the pressure sanity solve
+because dual quality remains too poor (`max_cv_face_area_aspect_ratio=36586.8`,
+`max_cv_sub_volume_ratio=1453580`) and the solver diverges before force
+breakdown. Current CFD-route recommendation is **B: mature external mesher ->
+SU2**; OpenFOAM becomes option A only after the toolchain is installed and its
+0/3/8 layer ladder runs.
 
 目前 authority 讀法：
 
