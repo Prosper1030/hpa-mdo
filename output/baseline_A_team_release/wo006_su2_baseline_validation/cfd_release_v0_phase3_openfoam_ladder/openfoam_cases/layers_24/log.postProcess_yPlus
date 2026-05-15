@@ -1,0 +1,82 @@
+$ openfoam -c 'cd /tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_24 && simpleFoam -postProcess -func yPlus -latestTime'
+returncode=0
+timed_out=False
+elapsed_s=1.339
+
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : simpleFoam -postProcess -func yPlus -latestTime
+Date   : May 15 2026
+Time   : 11:26:39
+Host   : linyuandeMac-mini.local
+PID    : 32219
+I/O    : uncollated
+Case   : /tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_24
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 120
+
+
+SIMPLE: convergence criteria
+    field p	 tolerance 1e-05
+    field U	 tolerance 1e-05
+    field nuTilda	 tolerance 1e-05
+
+Time = 120
+Reading field p
+
+Reading field U
+
+Reading/calculating face flux field phi
+
+Selecting incompressible transport model Newtonian
+Selecting turbulence model type RAS
+Selecting RAS turbulence model SpalartAllmaras
+Selecting patchDistMethod meshWave
+ft2 term: inactive
+RAS
+{
+    RASModel        SpalartAllmaras;
+    turbulence      on;
+    printCoeffs     on;
+    sigmaNut        0.66666;
+    kappa           0.41;
+    Cb1             0.1355;
+    Cb2             0.622;
+    Cw2             0.3;
+    Cw3             2;
+    Cv1             7.1;
+    Cs              0.3;
+    ck              0.07;
+    ft2             false;
+    Ct3             1.2;
+    Ct4             0.5;
+}
+
+No MRF models present
+
+No finite volume options present
+yPlus yPlus write:
+    writing field yPlus
+    patch wing_upper y+ : min = 4.71745, max = 1437.05, average = 209.501
+    patch wing_lower y+ : min = 7.12923, max = 1175.67, average = 193.359
+    patch tip_left y+ : min = 362.323, max = 445.328, average = 398.634
+    patch tip_right y+ : min = 360.789, max = 443.518, average = 397.515
+    patch te_wall y+ : min = 20.5473, max = 866.246, average = 266.623
+    patch closure_wall y+ : min = 352.17, max = 661.121, average = 558.138
+
+End

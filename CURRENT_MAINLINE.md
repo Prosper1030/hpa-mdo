@@ -30,6 +30,25 @@ real but high (`layers_8` mean about `183` upper / `165` lower, max above
 `1000`), so this is a route-smoke/grid-ladder starting point, not wall-resolved
 drag validation or final HPA performance truth.
 
+**2026-05-15 bounded OpenFOAM ladder update:** The next ladder bundle is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_phase3_openfoam_ladder/`.
+It reuses the full-wing OpenFOAM route and keeps the split force patches
+`wing_upper`, `wing_lower`, `tip_left`, `tip_right`, `te_wall`, and
+`closure_wall`. The committed `layers_8` route-smoke reproduces exactly:
+`CD_primary=0.08141586`, `CL_primary=0.8227612`, `CD_total=0.08147018`,
+diagnostic CD sum `5.43214891e-05`. Accepted ladder cases are `layers_0`,
+`layers_8`, `layers_16`, and `layers_24`; diagnostic patch CD remains negligible.
+However, the accepted cases are still high-yPlus sanity only. Best accepted case
+is `layers_8` with mean y+ about `183` upper / `165` lower and max above `1000`.
+`layers_16 -> layers_24` is locally stable in CD, but this is not full grid or
+layer convergence because `layers_12` is force-window rejected and the `8 -> 16`
+shift remains large. `layers_8_refined_surface_plus1` reaches wall-function-like
+mean y+ about `90` upper / `87` lower, but is rejected due to `8` custom
+checkMesh quality errors; the controlled low-yPlus thickness case diverged.
+This is not good enough to compare drag against SU2 / VSPAERO / AVL. Next single
+action is to repair `layers_8_refined_surface_plus1` mesh-quality errors while
+preserving its yPlus range, then rerun the same SA force window.
+
 目前 authority 讀法：
 
 - `98.5 kg` 是 current design gross mass authority，除非使用者明確改掉。

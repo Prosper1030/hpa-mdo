@@ -1,5 +1,32 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-15 WO-006 Phase 3 OpenFOAM Ladder Result
+
+New bounded ladder artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_phase3_openfoam_ladder/`.
+It reuses the accepted full-wing OpenFOAM route and keeps split patches
+`wing_upper`, `wing_lower`, `tip_left`, `tip_right`, `te_wall`, and
+`closure_wall`; do not switch back to the retired custom SU2 hybrid route.
+
+The committed `layers_8` route-smoke is exactly reproducible in this checkout:
+`CD_primary=0.08141586`, `CL_primary=0.8227612`, `CD_total=0.08147018`, and
+diagnostic CD sum `5.43214891e-05`. Accepted bounded ladder cases are
+`layers_0`, `layers_8`, `layers_16`, and `layers_24`; the adjacent `16 -> 24`
+pair is locally stable in CD, but the full ladder is not converged because the
+`8 -> 16` force shift is still large and yPlus remains high.
+
+Engineering verdict: this remains high-yPlus OpenFOAM route/ladder sanity, not
+wall-function CFD and not wall-resolved CFD. The best accepted case is still
+`layers_8` with mean y+ about `183` upper / `165` lower and max above `1000`.
+The `layers_8_refined_surface_plus1` case reduced mean y+ to about `90` upper /
+`87` lower, but is rejected because `checkMesh -meshQuality` reports `8`
+custom mesh-quality errors. The controlled low-yPlus thickness attempt
+`layers_12_low_yplus_factor_0p44` diverged and produced no yPlus report.
+Therefore this output is not good enough to compare drag against SU2, VSPAERO,
+or AVL. Next action: repair the `layers_8_refined_surface_plus1` mesh-quality
+errors while preserving its wall-function-range yPlus, then rerun the same
+SpalartAllmaras force window.
+
 ## 2026-05-15 WO-006 Phase 3 OpenFOAM Route-Smoke Pass
 
 WO-006 Phase 3 custom partial-BL SU2 hybrid core-fill route remains stopped. Do

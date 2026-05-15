@@ -1,0 +1,90 @@
+$ openfoam -c 'cd /tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44 && surfaceFeatureExtract'
+returncode=0
+timed_out=False
+elapsed_s=0.593
+
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : surfaceFeatureExtract
+Date   : May 15 2026
+Time   : 11:26:42
+Host   : linyuandeMac-mini.local
+PID    : 33154
+I/O    : uncollated
+Case   : /tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+
+Note: Feature line extraction only valid on closed manifold surfaces
+
+Reading surfaceFeatureExtractDict
+
+Surfaces     : wing_full.stl
+Output       : wing_full
+Load options : offset
+Write options: writeObj=yes writeVTK=off
+
+Statistics:
+Triangles    : 2860 in 6 region(s)
+Vertices     : 1432
+Bounding Box : (0.000360172 -17.1661 -0.0954805) (1.25192 17.1661 2.68724)
+
+Constructing feature set from included angle 150
+Selecting edges based purely on geometric tests: no
+
+Initial Feature set:
+    points : 14
+    edges  : 274
+    of which
+        region edges   : 240
+        external edges : 34
+        internal edges : 0
+
+Final Feature set:
+    points : 268
+    of which
+        convex             : 12
+        concave            : 0
+        mixed              : 2
+        non-feature        : 254
+    edges  : 274
+    of which
+        external edges     : 239
+        internal edges     : 35
+        flat edges         : 0
+        open edges         : 0
+        multiply connected : 0
+
+Writing extendedFeatureEdgeMesh to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full.extendedFeatureEdgeMesh"
+
+Writing extendedEdgeMesh components to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full"
+Writing 12 convex feature points to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_convexFeaturePts.obj"
+Writing 0 concave feature points to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_concaveFeaturePts.obj"
+Writing 2 mixed feature points to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_mixedFeaturePts.obj"
+Writing 2 mixed feature point structure to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_mixedFeaturePtsStructure.obj"
+Writing 239 external edges to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_externalEdges.obj"
+Writing 35 internal edges to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_internalEdges.obj"
+Writing 0 flat edges to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_flatEdges.obj"
+Writing 0 open edges to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_openEdges.obj"
+Writing 0 multiple edges to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_multipleEdges.obj"
+Writing 240 region edges to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_regionEdges.obj"
+Writing 274 edge directions to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/extendedFeatureEdgeMesh/wing_full_edgeDirections.obj"
+
+Writing featureEdgeMesh to "/tmp/hpa_mdo_openfoam_phase3/openfoam_cases_layers_12_low_yplus_factor_0p44/constant/triSurface/wing_full.eMesh"
+ExecutionTime = 0 s  ClockTime = 0 s
+
+End

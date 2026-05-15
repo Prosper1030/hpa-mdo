@@ -1,0 +1,86 @@
+$ openfoam -c 'cd /tmp/hpa_mdo_openfoam_ladder_solver_only/layers_8_kOmegaSST_same_mesh && simpleFoam -postProcess -func yPlus -latestTime'
+returncode=0
+timed_out=False
+elapsed_s=1.389
+
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : simpleFoam -postProcess -func yPlus -latestTime
+Date   : May 15 2026
+Time   : 11:32:16
+Host   : linyuandeMac-mini.local
+PID    : 38987
+I/O    : uncollated
+Case   : /tmp/hpa_mdo_openfoam_ladder_solver_only/layers_8_kOmegaSST_same_mesh
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 120
+
+
+SIMPLE: convergence criteria
+    field p	 tolerance 1e-05
+    field U	 tolerance 1e-05
+    field k	 tolerance 1e-05
+    field omega	 tolerance 1e-05
+
+Time = 120
+Reading field p
+
+Reading field U
+
+Reading/calculating face flux field phi
+
+Selecting incompressible transport model Newtonian
+Selecting turbulence model type RAS
+Selecting RAS turbulence model kOmegaSST
+Selecting patchDistMethod meshWave
+RAS
+{
+    RASModel        kOmegaSST;
+    turbulence      on;
+    printCoeffs     on;
+    alphaK1         0.85;
+    alphaK2         1;
+    alphaOmega1     0.5;
+    alphaOmega2     0.856;
+    gamma1          0.555556;
+    gamma2          0.44;
+    beta1           0.075;
+    beta2           0.0828;
+    betaStar        0.09;
+    a1              0.31;
+    b1              1;
+    c1              10;
+    F3              false;
+    decayControl    false;
+    kInf            0;
+    omegaInf        0;
+}
+
+No MRF models present
+
+No finite volume options present
+yPlus yPlus write:
+    writing field yPlus
+    patch wing_upper y+ : min = 3.61568, max = 266.273, average = 47.7129
+    patch wing_lower y+ : min = 4.52467, max = 357.645, average = 45.5817
+    patch tip_left y+ : min = 86.0756, max = 97.0032, average = 90.8053
+    patch tip_right y+ : min = 86.081, max = 96.8484, average = 90.747
+    patch te_wall y+ : min = 11.6172, max = 162.192, average = 55.7577
+    patch closure_wall y+ : min = 11.9143, max = 116.946, average = 81.8731
+
+End
