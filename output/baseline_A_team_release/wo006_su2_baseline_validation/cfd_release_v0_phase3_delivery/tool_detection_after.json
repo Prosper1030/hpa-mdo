@@ -1,0 +1,150 @@
+{
+  "schema_version": "wo006_phase3_tool_detection.v1",
+  "stage": "after_install",
+  "cwd": "/Volumes/Samsung SSD/hpa-mdo",
+  "platform": "macOS-26.4.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "macos": {
+    "returncode": 0,
+    "output_head": "ProductName:\t\tmacOS\nProductVersion:\t\t26.4.1\nBuildVersion:\t\t25E253"
+  },
+  "path": "/Users/linyuan/.codex/tmp/arg0/codex-arg0N5Ie68:/Users/linyuan/.antigravity/antigravity/bin:/Users/linyuan/.local/bin:/Users/linyuan/.local/bin:/Users/linyuan/.local/opt/su2/current/bin:/Library/Frameworks/Python.framework/Versions/3.11/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Library/Frameworks/Python.framework/Versions/3.13/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/Users/linyuan/.lmstudio/bin:/Applications/Codex.app/Contents/Resources",
+  "commands": {
+    "blockMesh": {
+      "available": false,
+      "path": null
+    },
+    "surfaceFeatureExtract": {
+      "available": false,
+      "path": null
+    },
+    "snappyHexMesh": {
+      "available": false,
+      "path": null
+    },
+    "checkMesh": {
+      "available": false,
+      "path": null
+    },
+    "simpleFoam": {
+      "available": false,
+      "path": null
+    },
+    "postProcess": {
+      "available": false,
+      "path": null
+    },
+    "foamDictionary": {
+      "available": false,
+      "path": null
+    },
+    "foamVersion": {
+      "available": false,
+      "path": null
+    },
+    "openfoam": {
+      "available": true,
+      "path": "/opt/homebrew/bin/openfoam",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "\nUsage: openfoam [OPTION] [[--] application ...]\n\noptions:\n  -c                Shell commands read from the first non-option argument\n  -Dkey[=value]     Define key/value to pass as a preference\n  -sp               Single precision\n  -dp               Double precision\n  -spdp             Mixed single/double precision\n  -int32            Label-size 32\n  -int64            Label-size 64\n  -etc=DIR          Additional project etc/ directory\n  -prefix=DIR       Alternative OpenFOAM project directory\n  -show-api         Print META-INFO api value and exit\n  -show-patch       Print META-INFO patch value and exit\n  -show-prefix      Print project directory and exit\n  -test-tutorial    Forward arguments to bin/foamTestTutorial\n  -init=FILE        Alternative initialization file (expert option)\n  -version          Same as -show-api\n  -verbose          Set FOAM_VERBOSE=true (interactive only)\n  --                The end of option processing.\n                    An argument of - or / is equivalent to --.\n  -help             Print the usage\n\nOpen an interactive bash session with an OpenFOAM environment,\nor run an OpenFOAM application (with arguments) after first sourcing\nthe OpenFOAM etc/bashrc file from the project directory:\n(/Volumes/OpenFOAM-v2512)\n\nFor a persistent OpenFOAM environment, the following can be added to your"
+      }
+    },
+    "openfoam2512": {
+      "available": true,
+      "path": "/opt/homebrew/bin/openfoam2512",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "\nUsage: openfoam [OPTION] [[--] application ...]\n\noptions:\n  -c                Shell commands read from the first non-option argument\n  -Dkey[=value]     Define key/value to pass as a preference\n  -sp               Single precision\n  -dp               Double precision\n  -spdp             Mixed single/double precision\n  -int32            Label-size 32\n  -int64            Label-size 64\n  -etc=DIR          Additional project etc/ directory\n  -prefix=DIR       Alternative OpenFOAM project directory\n  -show-api         Print META-INFO api value and exit\n  -show-patch       Print META-INFO patch value and exit\n  -show-prefix      Print project directory and exit\n  -test-tutorial    Forward arguments to bin/foamTestTutorial\n  -init=FILE        Alternative initialization file (expert option)\n  -version          Same as -show-api\n  -verbose          Set FOAM_VERBOSE=true (interactive only)\n  --                The end of option processing.\n                    An argument of - or / is equivalent to --.\n  -help             Print the usage\n\nOpen an interactive bash session with an OpenFOAM environment,\nor run an OpenFOAM application (with arguments) after first sourcing\nthe OpenFOAM etc/bashrc file from the project directory:\n(/Volumes/OpenFOAM-v2512)\n\nFor a persistent OpenFOAM environment, the following can be added to your"
+      }
+    },
+    "brew": {
+      "available": true,
+      "path": "/opt/homebrew/bin/brew",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "Homebrew 5.1.11"
+      }
+    },
+    "SU2_CFD": {
+      "available": true,
+      "path": "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "SU2 v8.4.0 \"Harrier\", The Open-Source CFD Code\nUsage: SU2_CFD [OPTIONS] [configfile]\n\nPositionals:\n  configfile TEXT:FILE        A config file.\n\nOptions:\n  -h,--help                   Print this help message and exit\n  -d,--dryrun                 Enable dry run mode.\n                              Only execute preprocessing steps using a dummy geometry.\n  -t,--threads INT            Number of OpenMP threads per MPI rank.\n  --thread_multiple           Request MPI_THREAD_MULTIPLE thread support."
+      }
+    },
+    "gmsh": {
+      "available": true,
+      "path": "/opt/homebrew/bin/gmsh",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "4.15.2-git"
+      }
+    },
+    "python3": {
+      "available": true,
+      "path": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "Python 3.11.0"
+      }
+    },
+    "pip3": {
+      "available": true,
+      "path": "/Library/Frameworks/Python.framework/Versions/3.11/bin/pip3"
+    },
+    "cmake": {
+      "available": true,
+      "path": "/opt/homebrew/bin/cmake",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "cmake version 4.3.2\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake)."
+      }
+    },
+    "make": {
+      "available": true,
+      "path": "/usr/bin/make"
+    },
+    "clang": {
+      "available": true,
+      "path": "/usr/bin/clang"
+    },
+    "mpirun": {
+      "available": true,
+      "path": "/opt/homebrew/bin/mpirun",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "mpirun (Open MPI) 5.0.9\n\nReport bugs to https://www.open-mpi.org/community/help/\n"
+      }
+    },
+    "cartesianMesh": {
+      "available": false,
+      "path": null
+    }
+  },
+  "openfoam_candidates": [
+    "/Applications/OpenFOAM-v2512.app",
+    "/Applications/OpenFOAM-v2512.app/Contents/Resources/OpenFOAM-v2512.dmg",
+    "/opt/homebrew/Caskroom/openfoam/2.1.3/OpenFOAM-v2512.app"
+  ],
+  "brew_cask_info": {
+    "returncode": 0,
+    "output_head": "==> openfoam (OpenFOAM): 2.1.3\nOpen-source toolbox for Computational Fluid Dynamics (CFD)\nhttps://github.com/gerlero/openfoam-app/\nInstalled (on request)\n/opt/homebrew/Caskroom/openfoam/2.1.3 (1.1GB)\n  Installed on 2026-05-15 at 10:07:40\nFrom: https://github.com/gerlero/homebrew-openfoam/blob/HEAD/Casks/openfoam.rb\n==> Requirements\nRequired: arm64 architecture, macOS >= 10.15\n==> Artifacts\nOpenFOAM-v2512.app (App)\n/Applications/OpenFOAM-v2512.app/Contents/Resources/etc/openfoam -> openfoam2512 (Binary)\n/Applications/OpenFOAM-v2512.app/Contents/Resources/etc/openfoam -> openfoam (Binary)"
+  },
+  "openfoam_wrapper_detection": {
+    "status": "pass",
+    "paths": {
+      "blockMesh": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/blockMesh",
+      "surfaceFeatureExtract": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/surfaceFeatureExtract",
+      "snappyHexMesh": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/snappyHexMesh",
+      "checkMesh": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/checkMesh",
+      "simpleFoam": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/simpleFoam",
+      "postProcess": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/postProcess",
+      "foamDictionary": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/foamDictionary"
+    },
+    "returncode": 0,
+    "stdout": "blockMesh=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/blockMesh\nsurfaceFeatureExtract=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/surfaceFeatureExtract\nsnappyHexMesh=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/snappyHexMesh\ncheckMesh=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/checkMesh\nsimpleFoam=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/simpleFoam\npostProcess=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/postProcess\nfoamDictionary=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/foamDictionary\n",
+    "stderr": ""
+  }
+}

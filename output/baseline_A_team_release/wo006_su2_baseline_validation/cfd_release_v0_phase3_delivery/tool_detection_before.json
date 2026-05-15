@@ -1,0 +1,115 @@
+{
+  "schema_version": "wo006_phase3_tool_detection.v1",
+  "stage": "before_install",
+  "cwd": "/Volumes/Samsung SSD/hpa-mdo",
+  "platform": "macOS-26.4.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "macos": {
+    "returncode": 0,
+    "output_head": "ProductName:\t\tmacOS\nProductVersion:\t\t26.4.1\nBuildVersion:\t\t25E253"
+  },
+  "path": "/Users/linyuan/.codex/tmp/arg0/codex-arg0N5Ie68:/Users/linyuan/.antigravity/antigravity/bin:/Users/linyuan/.local/bin:/Users/linyuan/.local/bin:/Users/linyuan/.local/opt/su2/current/bin:/Library/Frameworks/Python.framework/Versions/3.11/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Library/Frameworks/Python.framework/Versions/3.13/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pkg/env/active/bin:/opt/pmk/env/global/bin:/Library/Apple/usr/bin:/Users/linyuan/.lmstudio/bin:/Applications/Codex.app/Contents/Resources",
+  "commands": {
+    "blockMesh": {
+      "available": false,
+      "path": null
+    },
+    "surfaceFeatureExtract": {
+      "available": false,
+      "path": null
+    },
+    "snappyHexMesh": {
+      "available": false,
+      "path": null
+    },
+    "checkMesh": {
+      "available": false,
+      "path": null
+    },
+    "simpleFoam": {
+      "available": false,
+      "path": null
+    },
+    "postProcess": {
+      "available": false,
+      "path": null
+    },
+    "foamDictionary": {
+      "available": false,
+      "path": null
+    },
+    "foamVersion": {
+      "available": false,
+      "path": null
+    },
+    "openfoam": {
+      "available": false,
+      "path": null
+    },
+    "brew": {
+      "available": true,
+      "path": "/opt/homebrew/bin/brew",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "Homebrew 5.1.10"
+      }
+    },
+    "SU2_CFD": {
+      "available": true,
+      "path": "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "SU2 v8.4.0 \"Harrier\", The Open-Source CFD Code\nUsage: SU2_CFD [OPTIONS] [configfile]\n\nPositionals:\n  configfile TEXT:FILE        A config file.\n\nOptions:\n  -h,--help                   Print this help message and exit\n  -d,--dryrun                 Enable dry run mode.\n                              Only execute preprocessing steps using a dummy geometry.\n  -t,--threads INT            Number of OpenMP threads per MPI rank.\n  --thread_multiple           Request MPI_THREAD_MULTIPLE thread support."
+      }
+    },
+    "gmsh": {
+      "available": true,
+      "path": "/opt/homebrew/bin/gmsh",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "4.15.2-git"
+      }
+    },
+    "python3": {
+      "available": true,
+      "path": "/Library/Frameworks/Python.framework/Versions/3.11/bin/python3",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "Python 3.11.0"
+      }
+    },
+    "pip3": {
+      "available": true,
+      "path": "/Library/Frameworks/Python.framework/Versions/3.11/bin/pip3"
+    },
+    "cmake": {
+      "available": true,
+      "path": "/opt/homebrew/bin/cmake",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "cmake version 4.3.2\n\nCMake suite maintained and supported by Kitware (kitware.com/cmake)."
+      }
+    },
+    "make": {
+      "available": true,
+      "path": "/usr/bin/make"
+    },
+    "clang": {
+      "available": true,
+      "path": "/usr/bin/clang"
+    },
+    "mpirun": {
+      "available": true,
+      "path": "/opt/homebrew/bin/mpirun",
+      "version_probe": {
+        "returncode": 0,
+        "output_head": "mpirun (Open MPI) 5.0.9\n\nReport bugs to https://www.open-mpi.org/community/help/\n"
+      }
+    },
+    "cartesianMesh": {
+      "available": false,
+      "path": null
+    }
+  },
+  "openfoam_candidates": []
+}

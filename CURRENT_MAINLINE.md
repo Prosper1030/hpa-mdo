@@ -10,19 +10,25 @@ data-authority repair, not active current truth。`baseline_A_freeze_reasonable`
 screening evidence 讀，不是現行 release / procurement truth。
 
 **2026-05-15 CFD route update:** WO-006 Phase 3 custom partial-BL SU2 hybrid
-core-fill route is stopped. The current route-decision bundle is
-`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_tool_route_decision/`.
-Do not continue discrete PLC core-fill, receiver/cycle/cap patching, large
-discrete-shell Gmsh reconstruction, meshpy/TetGen retries, SU2 hybrid writer
-repairs, or new R-series / Phase-3 topology patches. Track A OpenFOAM is locally
-blocked because `blockMesh`, `snappyHexMesh`, `checkMesh`, and `simpleFoam` are
-not installed, so no OpenFOAM CD/yPlus evidence exists. Track B full-wing SU2
-pressure-only has mesh/marker readability but fails the pressure sanity solve
-because dual quality remains too poor (`max_cv_face_area_aspect_ratio=36586.8`,
-`max_cv_sub_volume_ratio=1453580`) and the solver diverges before force
-breakdown. Current CFD-route recommendation is **B: mature external mesher ->
-SU2**; OpenFOAM becomes option A only after the toolchain is installed and its
-0/3/8 layer ladder runs.
+core-fill route is stopped. Do not continue discrete PLC core-fill,
+receiver/cycle/cap patching, large discrete-shell Gmsh reconstruction,
+meshpy/TetGen retries, SU2 hybrid writer repairs, or new R-series / Phase-3
+topology patches. OpenFOAM.app v2512 is now installed locally through Homebrew
+without sudo and the active Phase 3 delivery bundle is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_phase3_delivery/`.
+The full-wing OpenFOAM route-smoke runs split patches `wing_upper`,
+`wing_lower`, `tip_left`, `tip_right`, `te_wall`, and `closure_wall` through
+`blockMesh`, `surfaceFeatureExtract`, `snappyHexMesh`, `checkMesh -meshQuality`,
+`simpleFoam`, and `simpleFoam -postProcess -func yPlus -latestTime`. Verdict is
+`route_smoke_pass` on the representative `layers_8` case: `238014` cells,
+`CD_primary=0.08141586`, `CL_primary=0.8227612`, `CD_total=0.08147018`,
+diagnostic tip/TE/closure CD sum `5.43214891e-05`, and no evidence that
+diagnostic patches contaminate total CD.
+Mesh quality is only smoke-acceptable: max skewness is `6.08499` with `2`
+default-skew warning faces and zero user-defined mesh-quality errors. yPlus is
+real but high (`layers_8` mean about `183` upper / `165` lower, max above
+`1000`), so this is a route-smoke/grid-ladder starting point, not wall-resolved
+drag validation or final HPA performance truth.
 
 目前 authority 讀法：
 
@@ -33,10 +39,12 @@ SU2**; OpenFOAM becomes option A only after the toolchain is installed and its
 - WO-005 carbon tube RFQ pack 是 draft/vendor-screening only；不得當 purchase-ready、drawing-control 或 vendor-selection package。
 - WO-006 只能作 bounded aero calibration；必須使用 `98.5 kg` 與 current pipeline span authority，除非明確做 sensitivity。
 - WO-006 output 不是 release truth、不是 RFQ/procurement truth、不是 final aircraft sign-off。
-- WO-006 active CFD route 已重設為 `canonical_hybrid_halfwing_v0`；唯一 active
-  route state 是
+- WO-006 earlier SU2 half-wing route state 是 `canonical_hybrid_halfwing_v0`；其
+  historical route state 是
   `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/manifest.yaml`。
-  `scripts/check_canonical_hybrid_cfd_release.py` 會檢查這個 manifest。WO-006R25 到
+  `scripts/check_canonical_hybrid_cfd_release.py` 會檢查這個 manifest。Current Phase 3
+  route-smoke starting point is now the full-wing OpenFOAM delivery bundle listed above.
+  WO-006R25 到
   WO-006R30 只保留為 forensic evidence：R27/R28/R29/R30 證明 custom all-tet /
   global-star / owner-pyramid mixed handoff 不能再作 active CFD delivery。後續不得再開
   R31/R32 類型的 diagnostic commit，除非 `canonical_hybrid_halfwing_v0` 在 named phase
