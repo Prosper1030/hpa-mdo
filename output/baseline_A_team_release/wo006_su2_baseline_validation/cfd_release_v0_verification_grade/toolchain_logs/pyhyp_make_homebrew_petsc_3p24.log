@@ -1,0 +1,54 @@
+mkdir -p obj
+mkdir -p mod
+ln -sf config/config.mk config.mk
+making hyp in src/modules
+
+make     src_1
+make[3]: Nothing to be done for `src_1'.
+make     src_2
+make[3]: Nothing to be done for `src_2'.
+cp -f *.mod ../../mod
+making hyp in src/3D
+
+make -j 4  src
+mpifort -I../../mod -I/opt/homebrew/opt/cgns/include -fPIC -std=f2008 -fdefault-real-8 -O2 -I/opt/homebrew/Cellar/petsc/3.24.6/include -I/opt/homebrew/opt/fftw/include -I/opt/homebrew/opt/hdf5-mpi/include -I/opt/homebrew/opt/metis/include -I/opt/homebrew/opt/petsc -c 3D_code.F90 -o ../../obj/3D_code.o
+mpifort -I../../mod -I/opt/homebrew/opt/cgns/include -fPIC -std=f2008 -fdefault-real-8 -O2 -I/opt/homebrew/Cellar/petsc/3.24.6/include -I/opt/homebrew/opt/fftw/include -I/opt/homebrew/opt/hdf5-mpi/include -I/opt/homebrew/opt/metis/include -I/opt/homebrew/opt/petsc -c 3D_elliptic.F90 -o ../../obj/3D_elliptic.o
+mpifort -I../../mod -I/opt/homebrew/opt/cgns/include -fPIC -std=f2008 -fdefault-real-8 -O2 -I/opt/homebrew/Cellar/petsc/3.24.6/include -I/opt/homebrew/opt/fftw/include -I/opt/homebrew/opt/hdf5-mpi/include -I/opt/homebrew/opt/metis/include -I/opt/homebrew/opt/petsc -c readPlot3d.F90 -o ../../obj/readPlot3d.o
+mpifort -I../../mod -I/opt/homebrew/opt/cgns/include -fPIC -std=f2008 -fdefault-real-8 -O2 -I/opt/homebrew/Cellar/petsc/3.24.6/include -I/opt/homebrew/opt/fftw/include -I/opt/homebrew/opt/hdf5-mpi/include -I/opt/homebrew/opt/metis/include -I/opt/homebrew/opt/petsc -c setPatches.F90 -o ../../obj/setPatches.o
+
+        --- Compiled readPlot3d.F90 successfully ---
+
+
+        --- Compiled setPatches.F90 successfully ---
+
+3D_code.F90:966:83:
+
+  966 |         call MatSetValuesBlocked(hypMat, 1, i - 1, 1, j - 1, blk, ADD_VALUES, ierr)
+      |                                                                                   1
+Error: There is no specific subroutine for the generic 'matsetvaluesblocked' at (1)
+3D_code.F90:1204:62:
+
+ 1204 |     call PCASMGetSubKSP(globalPC, nlocal, first, subksp, ierr)
+      |                                                              1
+Error: There is no specific subroutine for the generic 'pcasmgetsubksp' at (1)
+make[3]: *** [3D_code.o] Error 1
+make[3]: *** Waiting for unfinished jobs....
+3D_elliptic.F90:418:82:
+
+  418 |                             nPGlobal, nPGlobal, PETSC_NULL_SCALAR, ellipMat, ierr)
+      |                                                                                  1
+Error: There is no specific subroutine for the generic 'matcreatedense' at (1)
+3D_elliptic.F90:520:98:
+
+  520 |                 call MatSetValues(ellipMat, 1, j + iStart - 1, 1, i - 1, phi, INSERT_VALUES, ierr)
+      |                                                                                                  1
+Error: There is no specific subroutine for the generic 'matsetvalues' at (1)
+3D_elliptic.F90:532:100:
+
+  532 |                 call MatSetValues(ellipPCMat, 1, j + iStart - 1, 1, i - 1, phi, INSERT_VALUES, ierr)
+      |                                                                                                    1
+Error: There is no specific subroutine for the generic 'matsetvalues' at (1)
+make[3]: *** [3D_elliptic.o] Error 1
+make[2]: *** [all] Error 2
+make[1]: *** [hyp] Error 1
+make: *** [default] Error 2

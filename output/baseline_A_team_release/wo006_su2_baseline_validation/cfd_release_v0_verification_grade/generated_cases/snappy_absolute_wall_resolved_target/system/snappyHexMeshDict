@@ -1,0 +1,153 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      snappyHexMeshDict;
+}
+// Strict absolute-layer fallback: wall_resolved_target
+singleRegionName false;
+mergePatchFaces  false;
+keepPatches      true;
+castellatedMesh true;
+snap            true;
+addLayers       true;
+geometry
+{
+    wing_full.stl
+    {
+        type triSurfaceMesh;
+        name wing;
+        regions
+        {
+            wing_upper { name wing_upper; }
+            wing_lower { name wing_lower; }
+            tip_left { name tip_left; }
+            tip_right { name tip_right; }
+            te_wall { name te_wall; }
+            closure_wall { name closure_wall; }
+        }
+    }
+}
+castellatedMeshControls
+{
+    maxLocalCells       700000;
+    maxGlobalCells      4500000;
+    minRefinementCells  0;
+    maxLoadUnbalance    0.10;
+    nCellsBetweenLevels 3;
+    features
+    (
+        { file "wing_full.eMesh"; level 1; }
+    );
+    refinementSurfaces
+    {
+        wing
+        {
+            level (2 3);
+            patchInfo { type wall; }
+            regions
+            {
+        wing_upper
+        {
+            level (2 3);
+            patchInfo { type wall; }
+        }
+        wing_lower
+        {
+            level (2 3);
+            patchInfo { type wall; }
+        }
+        tip_left
+        {
+            level (4 4);
+            patchInfo { type wall; }
+        }
+        tip_right
+        {
+            level (4 4);
+            patchInfo { type wall; }
+        }
+        te_wall
+        {
+            level (3 4);
+            patchInfo { type wall; }
+        }
+        closure_wall
+        {
+            level (4 4);
+            patchInfo { type wall; }
+        }
+            }
+        }
+    }
+    resolveFeatureAngle 30;
+    refinementRegions {}
+    locationInMesh (0 0 5);
+    allowFreeStandingZoneFaces true;
+}
+snapControls
+{
+    nSmoothPatch        3;
+    tolerance           2.0;
+    nSolveIter          30;
+    nRelaxIter          5;
+    nFeatureSnapIter    10;
+    implicitFeatureSnap false;
+    explicitFeatureSnap true;
+    multiRegionFeatureSnap true;
+}
+addLayersControls
+{
+    relativeSizes false;
+    layers
+    {
+        wing_upper
+        {
+            nSurfaceLayers 30;
+        }
+        wing_lower
+        {
+            nSurfaceLayers 30;
+        }
+        tip_left
+        {
+            nSurfaceLayers 0;
+        }
+        tip_right
+        {
+            nSurfaceLayers 0;
+        }
+        te_wall
+        {
+            nSurfaceLayers 0;
+        }
+        closure_wall
+        {
+            nSurfaceLayers 0;
+        }
+    }
+    expansionRatio              1.15;
+    firstLayerThickness         0.0001;
+    minThickness                3e-05;
+    nGrow                       0;
+    featureAngle                60;
+    slipFeatureAngle            30;
+    nRelaxIter                  5;
+    nSmoothSurfaceNormals       1;
+    nSmoothNormals              3;
+    nSmoothThickness            10;
+    maxFaceThicknessRatio       0.5;
+    maxThicknessToMedialRatio   0.3;
+    minMedialAxisAngle          90;
+    nBufferCellsNoExtrude       0;
+    nLayerIter                  50;
+}
+meshQualityControls
+{
+    #include "meshQualityDict"
+    nSmoothScale 4;
+    errorReduction 0.75;
+}
+debug 0;
+mergeTolerance 1e-6;

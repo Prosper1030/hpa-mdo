@@ -9,6 +9,26 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
+**2026-05-15 verification-grade CFD route verdict:** The new bounded artifact is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/`.
+This supersedes the previous OpenFOAM-ladder next action to hand-repair
+`layers_8_refined_surface_plus1`. Mature open-source routes were attempted in
+the requested order: cfMesh/cartesianMesh/pMesh, pyHyp, Gmsh CAD-first /
+surface-based, then strict snappy absolute-layer fallback. None produced an
+accepted wall-function or wall-resolved CFD validation case. The closest
+strict-snappy fallback case ran finite SpalartAllmaras and returned rejected
+high-yPlus values `CD_primary=0.07326929`, `CL_primary=0.9215704`,
+`CD_total=0.07332259`; its yPlus is still outside acceptance
+(`wing_upper` mean/p95/max `192.6201 / 703.5011 / 1611.03`,
+`wing_lower` mean/p95/max `128.1307 / 411.7137 / 1175.49`). Engineering
+boundary: this remains high-yPlus sanity only and cannot support or contradict
+the existing XFOIL/spanwise-integrated `CD_total≈0.02602`. The blocker is
+near-wall boundary-layer meshing/layer coverage for the fixed full-wing
+split-patch geometry, not solver startup and not tip/TE/closure contamination.
+Next action should be a mature body-fitted/prismatic BL mesher route or a
+planned body-fitted open-source meshing environment build, not more
+one-parameter snappy tuning, checkMesh cell repair, or retired custom topology.
+
 **2026-05-15 CFD route update:** WO-006 Phase 3 custom partial-BL SU2 hybrid
 core-fill route is stopped. Do not continue discrete PLC core-fill,
 receiver/cycle/cap patching, large discrete-shell Gmsh reconstruction,

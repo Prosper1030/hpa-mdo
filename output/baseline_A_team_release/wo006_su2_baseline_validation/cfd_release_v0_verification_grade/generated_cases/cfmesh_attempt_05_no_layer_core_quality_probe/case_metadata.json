@@ -1,0 +1,36 @@
+{
+  "attempt": "cfmesh_attempt_05_no_layer_core_quality_probe",
+  "change_from_attempt_03": "same 3-layer wall-function sizing, add cfMesh optimiseLayer=1 with tutorial-style smoothing/normal recalculation controls",
+  "surface_marker_counts": {
+    "wing_upper": 704,
+    "wing_lower": 640,
+    "te_wall": 56,
+    "closure_wall": 8,
+    "tip_left": 22,
+    "tip_right": 22
+  },
+  "farfield": {
+    "x_min": -10.03685525798328,
+    "x_max": 21.32635554590357,
+    "y_min": -20.177307629,
+    "y_max": 20.177307629,
+    "z_min": -10.132695899101266,
+    "z_max": 12.72445359442543,
+    "upstream_clearance_chords": 10.0,
+    "downstream_clearance_chords": 20.0,
+    "vertical_clearance_chords": 10.0,
+    "spanwise_clearance_each_side_m": 3.0111646289999996,
+    "orientation": "outward_consistent"
+  },
+  "ref": {
+    "sref": 33.420059598,
+    "cref": 1.003721543,
+    "bref": 34.332286
+  },
+  "ref_origin": [
+    0.246276512,
+    0.0,
+    0.0
+  ],
+  "change_from_attempt_04": "remove boundaryLayers entirely to isolate cfMesh octree/core quality from layer-extrusion quality; not a verification CFD mesh because near-wall spacing is uncontrolled"
+}

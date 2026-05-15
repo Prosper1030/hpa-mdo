@@ -1,0 +1,746 @@
+{
+  "schema_version": "wo006_cfd_verification_grade.v0",
+  "created_at_utc": "2026-05-15T05:43:58Z",
+  "goal": "Verification-grade open-source 3D CFD CD validation route for Baseline A main wing",
+  "verdict": {
+    "verification_grade_3d_cfd_case_produced": false,
+    "accepted_case_id": null,
+    "successful_mature_mesh_route": null,
+    "status": "bounded_open_source_route_failed_on_near_wall_meshing",
+    "primary_blocker": "near-wall boundary-layer mesh generation/yPlus control for the fixed Baseline A full-wing split-patch geometry",
+    "engineering_summary": "Open-source tools could run or fail boundedly, but none produced a checkMesh-clean, yPlus-accepted wall-function or wall-resolved case. The closest OpenFOAM case is still high-yPlus sanity only."
+  },
+  "geometry_and_physics": {
+    "side": "full_wing",
+    "velocity_mps": 6.5,
+    "aoa_deg": 0.0,
+    "rho_kg_m3": 1.225,
+    "nu_m2_s": 1.4607e-05,
+    "ref_area_m2": 33.420059598,
+    "ref_length_m": 1.003721543,
+    "ref_span_m": 34.332286,
+    "ref_origin_m": [
+      0.246276512,
+      0.0,
+      0.0
+    ],
+    "force_primary_patches": [
+      "wing_upper",
+      "wing_lower"
+    ],
+    "force_diagnostic_patches": [
+      "tip_left",
+      "tip_right",
+      "te_wall",
+      "closure_wall"
+    ]
+  },
+  "xfoil_spanwise_integrated_reference": {
+    "profile_cd": 0.009368851143,
+    "cd0_total": 0.0132587305,
+    "cdi": 0.0127613,
+    "cd_total": 0.0260200305,
+    "cl": 1.16853,
+    "source_path": "output/baseline_A_team_release/wo006_su2_baseline_validation/aero_model_delta_table.csv"
+  },
+  "previous_high_yplus_openfoam_reference": {
+    "case": "OpenFOAM phase3 ladder layers_8",
+    "artifact": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_phase3_openfoam_ladder/",
+    "CD_primary": 0.08141586,
+    "CL_primary": 0.8227612,
+    "CD_total": 0.08147018,
+    "CD_diagnostic_sum": 5.43214891e-05,
+    "yplus": {
+      "wing_upper": {
+        "mean": 183.2386873603799,
+        "p95": 576.9515999999996,
+        "max": 1437.45
+      },
+      "wing_lower": {
+        "mean": 164.54271682929738,
+        "p95": 460.0907,
+        "max": 1191.1
+      }
+    },
+    "status": "high_yplus_sanity_only"
+  },
+  "toolchain": {
+    "openfoam": {
+      "version": "v2512",
+      "wm_options": "darwin64ClangDPInt32Opt",
+      "launcher": "/opt/homebrew/bin/openfoam"
+    },
+    "cfmesh": {
+      "status": "installed_inside_openfoam_env",
+      "source": "HISA cfMesh fork",
+      "commit": "53fb863",
+      "binaries": [
+        "cartesianMesh",
+        "pMesh",
+        "surfaceToFMS",
+        "tetMesh"
+      ]
+    },
+    "gmsh": {
+      "version": "4.15.2-git",
+      "path": "/opt/homebrew/bin/gmsh"
+    },
+    "su2": {
+      "version": "v8.4.0 Harrier",
+      "path": "/Users/linyuan/.local/opt/su2/current/bin/SU2_CFD"
+    },
+    "pyhyp": {
+      "status": "not_installed",
+      "attempted_version": "v2.6.3",
+      "blocker": "PETSc/MPI/Fortran build incompatibility on this Mac/Homebrew setup"
+    }
+  },
+  "route_attempts": [
+    {
+      "route": "cfMesh/cartesianMesh",
+      "attempt": 1,
+      "case": "cfmesh_attempt_01_wall_function_coarse",
+      "changed_parameters": "cartesianMesh coarse wall-function intent; regex patch selection failed; no usable intended BL",
+      "failure_mode": "checkMesh failed: 10,049,350 cells, failed 2 checks, 1329 meshQualityFaces; farfield/patch setup also not clean",
+      "failure_class": "mesh_quality"
+    },
+    {
+      "route": "cfMesh/cartesianMesh",
+      "attempt": 2,
+      "case": "cfmesh_attempt_02_exact_patch_wall_function",
+      "changed_parameters": "exact split patch names; 12 boundary layers; farfield corrected",
+      "failure_mode": "checkMesh failed 6 checks; 7,787,391 cells; zero/negative volume cells and extreme aspect ratio around layer stack",
+      "failure_class": "mesh_quality"
+    },
+    {
+      "route": "cfMesh/cartesianMesh",
+      "attempt": 3,
+      "case": "cfmesh_attempt_03_low_layer_wall_function",
+      "changed_parameters": "3 layers and coarser surface/core controls",
+      "failure_mode": "checkMesh failed 4 checks; 1,436,232 cells; wrong-oriented faces plus non-orthogonality/skewness/determinant errors",
+      "failure_class": "mesh_quality"
+    },
+    {
+      "route": "cfMesh/cartesianMesh",
+      "attempt": 4,
+      "case": "cfmesh_attempt_04_optimised_low_layer_wall_function",
+      "changed_parameters": "low-layer case plus cfMesh layer optimisation/smoothing controls",
+      "failure_mode": "checkMesh failed 3 checks; 1,282,289 cells; 5862 meshQualityFaces and one wrong-oriented face",
+      "failure_class": "mesh_quality"
+    },
+    {
+      "route": "cfMesh/cartesianMesh",
+      "attempt": 5,
+      "case": "cfmesh_attempt_05_no_layer_core_quality_probe",
+      "changed_parameters": "no boundary layers to isolate core/surface quality",
+      "failure_mode": "checkMesh failed 2 checks; 722,697 cells; 547 meshQualityFaces even without layers",
+      "failure_class": "mesh_quality"
+    },
+    {
+      "route": "cfMesh/pMesh",
+      "attempt": 6,
+      "case": "cfmesh_attempt_06_pmesh_optimised_low_layer_wall_function",
+      "changed_parameters": "pMesh instead of cartesianMesh with optimised low-layer setup",
+      "failure_mode": "pMesh fatal exit 134 after inverted boundary faces; table lookup fatal error during topological adjustment",
+      "failure_class": "mesh_tool_failure"
+    },
+    {
+      "route": "pyHyp/body-fitted hyperbolic",
+      "attempt": 1,
+      "case": "pyhyp_make_homebrew_petsc_3p24",
+      "changed_parameters": "local pyHyp v2.6.3 source build against Homebrew PETSc 3.24.6 and CGNS 4.5.2",
+      "failure_mode": "Fortran build fails in PETSc calls MatSetValuesBlocked, PCASMGetSubKSP, MatCreateDense, and MatSetValues; log saved in toolchain_logs",
+      "failure_class": "toolchain_install"
+    },
+    {
+      "route": "pyHyp/body-fitted hyperbolic",
+      "attempt": 2,
+      "case": "petsc_3p21_source_configure",
+      "changed_parameters": "source PETSc 3.21.6, matching MDO Lab tested/latest line, local prefix, no sudo",
+      "failure_mode": "PETSc configure cannot link Fortran libraries with C linker because Homebrew gcc libraries resolve through the external-drive path containing a space; log tail saved in toolchain_logs",
+      "failure_class": "toolchain_install"
+    },
+    {
+      "route": "Gmsh CAD-first",
+      "attempt": 1,
+      "case": "gmsh_attempt_01_step_surface_loop_volume",
+      "changed_parameters": "STEP import, surface loop, farfield volume, HXT 3D",
+      "failure_mode": "self-intersecting facets; constrained-line/triangle recovery failed; no volume elements",
+      "failure_class": "cad_surface_mesh"
+    },
+    {
+      "route": "Gmsh CAD-first",
+      "attempt": 2,
+      "case": "gmsh_attempt_02_step_surface_loop_delaunay",
+      "changed_parameters": "same STEP surface loop with Delaunay/Netgen-style 3D controls",
+      "failure_mode": "invalid boundary mesh with overlapping facets between surfaces 57 and 58; no volume elements",
+      "failure_class": "cad_surface_mesh"
+    },
+    {
+      "route": "Gmsh surface-based mature route",
+      "attempt": 3,
+      "case": "gmsh_attempt_03_surface_based_current_stl_core",
+      "changed_parameters": "current generated meter-scale split-patch STL; ClassifySurfaces/CreateGeometry; surface loop",
+      "failure_mode": "3D meshing failed from overlapping facets after classification; no usable core mesh",
+      "failure_class": "surface_mesh"
+    },
+    {
+      "route": "strict snappy absolute-layer fallback",
+      "attempt": 1,
+      "case": "snappy_absolute_wall_function_target",
+      "changed_parameters": "relativeSizes false; firstLayerThickness 0.0025 m; 6 layers; expansion 1.25",
+      "failure_mode": "solver ran, checkMesh acceptable as smoke, but yPlus mean/p95/max far above wall-function acceptance and layer coverage collapsed below target",
+      "failure_class": "near_wall_yplus"
+    },
+    {
+      "route": "strict snappy absolute-layer fallback",
+      "attempt": 2,
+      "case": "snappy_absolute_intermediate_target",
+      "changed_parameters": "relativeSizes false; firstLayerThickness 0.0005 m; 12 layers; expansion 1.20",
+      "failure_mode": "checkMesh rejected with custom mesh-quality error; yPlus still high; solver run is not acceptable CFD evidence",
+      "failure_class": "mesh_quality_and_yplus"
+    },
+    {
+      "route": "strict snappy absolute-layer fallback",
+      "attempt": 3,
+      "case": "snappy_absolute_wall_resolved_target",
+      "changed_parameters": "relativeSizes false; firstLayerThickness 0.0001 m; 30 layers; expansion 1.15",
+      "failure_mode": "force history finite and stable-ish, checkMesh smoke-clean, but actual layer coverage is under two layers average and yPlus remains high",
+      "failure_class": "near_wall_yplus"
+    }
+  ],
+  "strict_snappy_cases": {
+    "snappy_absolute_wall_function_target": {
+      "label": "wall_function_target",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_function_target",
+      "case_status": "route_smoke_case_completed",
+      "mesh": {
+        "status": "pass",
+        "quality_basis": "pass_with_smoke_skew_warning",
+        "log": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_function_target/log.checkMesh",
+        "counts": {
+          "points": 270440,
+          "faces": 731284,
+          "internal_faces": 696202,
+          "cells": 230740
+        },
+        "max_skewness": 6.08499,
+        "highly_skew_faces": 4,
+        "custom_mesh_quality_error_count": 0,
+        "custom_mesh_quality_errors": {
+          "non-orthogonality >  65 degrees": 0,
+          "faces with face pyramid volume < 1e-13": 0,
+          "faces with face-decomposition tet quality < 1e-15": 0,
+          "faces with concavity >  80 degrees": 0,
+          "faces with skewness >   7 (internal) or  20 (boundary)": 0,
+          "faces with interpolation weights (0..1)  <  0.02": 0,
+          "faces with volume ratio of neighbour cells <  0.01": 0,
+          "faces with face twist <  0.02": 0,
+          "faces on cells with determinant < 0.001": 0
+        },
+        "summary_lines": [
+          "Checking topology...",
+          "Checking geometry...",
+          "    Max aspect ratio = 46.2343 OK.",
+          "    Mesh non-orthogonality Max: 64.9807 average: 8.25219",
+          "    Non-orthogonality check OK.",
+          " ***Max skewness = 6.08499, 4 highly skew faces detected which may impair the quality of the results",
+          "Checking faces in error :",
+          "    non-orthogonality >  65 degrees                        : 0",
+          "    faces with skewness >   7 (internal) or  20 (boundary) : 0",
+          "Failed 1 mesh checks."
+        ],
+        "boundary_patches": {
+          "status": "available",
+          "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_function_target/constant/polyMesh/boundary",
+          "patches": {
+            "FoamFile": {
+              "type": null,
+              "nFaces": null,
+              "startFace": null
+            },
+            "farfield": {
+              "type": "patch",
+              "nFaces": 16896,
+              "startFace": 696202
+            },
+            "wing_upper": {
+              "type": "wall",
+              "nFaces": 9687,
+              "startFace": 713098
+            },
+            "wing_lower": {
+              "type": "wall",
+              "nFaces": 8383,
+              "startFace": 722785
+            },
+            "tip_left": {
+              "type": "wall",
+              "nFaces": 15,
+              "startFace": 731168
+            },
+            "tip_right": {
+              "type": "wall",
+              "nFaces": 15,
+              "startFace": 731183
+            },
+            "te_wall": {
+              "type": "wall",
+              "nFaces": 83,
+              "startFace": 731198
+            },
+            "closure_wall": {
+              "type": "wall",
+              "nFaces": 3,
+              "startFace": 731281
+            }
+          }
+        }
+      },
+      "force_summary": {
+        "CD_primary": 0.07596562,
+        "CL_primary": 0.8922962,
+        "CD_tip_left": 2.868623e-06,
+        "CD_tip_right": 2.927519e-06,
+        "CD_te_wall": 3.844337e-05,
+        "CD_closure_wall": 2.062119e-08,
+        "CD_total": 0.07600988,
+        "CL_total": 0.8924356,
+        "CD_diagnostic_sum": 4.4260133190000004e-05
+      },
+      "force_window_last_20": {
+        "status": "available",
+        "window_rows": 20,
+        "Cd_min": 0.07541773,
+        "Cd_max": 0.08736317,
+        "Cd_span": 0.011945440000000002,
+        "Cd_mean": 0.07921843600000002,
+        "Cl_min": 0.8922962,
+        "Cl_max": 0.9602337,
+        "Cl_span": 0.06793749999999998,
+        "Cl_mean": 0.9227365900000001
+      },
+      "yplus": {
+        "wing_upper": {
+          "count": 9687,
+          "min": 2.47417,
+          "mean": 242.88437278517603,
+          "p95": 894.0961999999993,
+          "max": 2229.37
+        },
+        "wing_lower": {
+          "count": 8383,
+          "min": 4.11124,
+          "mean": 129.46331533460574,
+          "p95": 658.6480999999999,
+          "max": 1190.69
+        },
+        "tip_left": {
+          "count": 15,
+          "min": 364.523,
+          "mean": 401.4712666666666,
+          "p95": 439.1347,
+          "max": 450.264
+        },
+        "tip_right": {
+          "count": 15,
+          "min": 368.649,
+          "mean": 404.5255333333334,
+          "p95": 439.95619999999997,
+          "max": 451.53
+        },
+        "te_wall": {
+          "count": 83,
+          "min": 12.5329,
+          "mean": 273.92762650602407,
+          "p95": 749.3922999999999,
+          "max": 880.853
+        },
+        "closure_wall": {
+          "count": 3,
+          "min": 92.7154,
+          "mean": 476.7364666666667,
+          "p95": 668.747,
+          "max": 668.747
+        }
+      },
+      "layer_addition": {
+        "wing_upper": {
+          "faces": 9687,
+          "target_layers": 6,
+          "avg_added_layers": 0.644,
+          "overall_thickness_m": 0.00426,
+          "overall_thickness_pct_of_target": 15.3
+        },
+        "wing_lower": {
+          "faces": 8383,
+          "target_layers": 6,
+          "avg_added_layers": 1.37,
+          "overall_thickness_m": 0.00986,
+          "overall_thickness_pct_of_target": 36.2
+        }
+      },
+      "pressure_viscous_split_available": false,
+      "cd_f_cd_r_note": "OpenFOAM forceCoeffs Cd(f)/Cd(r) are front/rear axle splits in forceCoeffs.H, not pressure/viscous splits."
+    },
+    "snappy_absolute_intermediate_target": {
+      "label": "intermediate_target",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_intermediate_target",
+      "case_status": "mesh_quality_failed",
+      "mesh": {
+        "status": "fail",
+        "quality_basis": "failed_checkmesh",
+        "log": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_intermediate_target/log.checkMesh",
+        "counts": {
+          "points": 266032,
+          "faces": 718629,
+          "internal_faces": 683547,
+          "cells": 226609
+        },
+        "max_skewness": 6.08499,
+        "highly_skew_faces": 4,
+        "custom_mesh_quality_error_count": 1,
+        "custom_mesh_quality_errors": {
+          "non-orthogonality >  65 degrees": 0,
+          "faces with face pyramid volume < 1e-13": 0,
+          "faces with face-decomposition tet quality < 1e-15": 0,
+          "faces with concavity >  80 degrees": 0,
+          "faces with skewness >   7 (internal) or  20 (boundary)": 0,
+          "faces with interpolation weights (0..1)  <  0.02": 1,
+          "faces with volume ratio of neighbour cells <  0.01": 0,
+          "faces with face twist <  0.02": 0,
+          "faces on cells with determinant < 0.001": 0
+        },
+        "summary_lines": [
+          "Checking topology...",
+          "Checking geometry...",
+          "    Max aspect ratio = 56.0854 OK.",
+          "    Mesh non-orthogonality Max: 64.9629 average: 8.20492",
+          "    Non-orthogonality check OK.",
+          " ***Max skewness = 6.08499, 4 highly skew faces detected which may impair the quality of the results",
+          "Checking faces in error :",
+          "    non-orthogonality >  65 degrees                        : 0",
+          "    faces with skewness >   7 (internal) or  20 (boundary) : 0",
+          "Failed 2 mesh checks."
+        ],
+        "boundary_patches": {
+          "status": "available",
+          "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_intermediate_target/constant/polyMesh/boundary",
+          "patches": {
+            "FoamFile": {
+              "type": null,
+              "nFaces": null,
+              "startFace": null
+            },
+            "farfield": {
+              "type": "patch",
+              "nFaces": 16896,
+              "startFace": 683547
+            },
+            "wing_upper": {
+              "type": "wall",
+              "nFaces": 9687,
+              "startFace": 700443
+            },
+            "wing_lower": {
+              "type": "wall",
+              "nFaces": 8383,
+              "startFace": 710130
+            },
+            "tip_left": {
+              "type": "wall",
+              "nFaces": 15,
+              "startFace": 718513
+            },
+            "tip_right": {
+              "type": "wall",
+              "nFaces": 15,
+              "startFace": 718528
+            },
+            "te_wall": {
+              "type": "wall",
+              "nFaces": 83,
+              "startFace": 718543
+            },
+            "closure_wall": {
+              "type": "wall",
+              "nFaces": 3,
+              "startFace": 718626
+            }
+          }
+        }
+      },
+      "force_summary": {
+        "CD_primary": 0.09213965,
+        "CL_primary": 0.6566135,
+        "CD_tip_left": 2.829552e-06,
+        "CD_tip_right": 2.830018e-06,
+        "CD_te_wall": 4.905628e-05,
+        "CD_closure_wall": -1.085765e-06,
+        "CD_total": 0.09219328,
+        "CL_total": 0.6567046,
+        "CD_diagnostic_sum": 5.3630085e-05
+      },
+      "force_window_last_20": {
+        "status": "available",
+        "window_rows": 20,
+        "Cd_min": 0.09213965,
+        "Cd_max": 0.09386465,
+        "Cd_span": 0.0017249999999999904,
+        "Cd_mean": 0.09284487400000002,
+        "Cl_min": 0.654725,
+        "Cl_max": 0.6647165,
+        "Cl_span": 0.009991500000000042,
+        "Cl_mean": 0.65729094
+      },
+      "yplus": {
+        "wing_upper": {
+          "count": 9687,
+          "min": 1.3874,
+          "mean": 250.9522339692371,
+          "p95": 930.3191999999999,
+          "max": 1415.15
+        },
+        "wing_lower": {
+          "count": 8383,
+          "min": 1.5544,
+          "mean": 184.1500685864249,
+          "p95": 783.9660999999998,
+          "max": 1172.64
+        },
+        "tip_left": {
+          "count": 15,
+          "min": 361.201,
+          "mean": 398.89253333333335,
+          "p95": 437.4015,
+          "max": 445.889
+        },
+        "tip_right": {
+          "count": 15,
+          "min": 361.456,
+          "mean": 398.7417333333333,
+          "p95": 437.11249999999995,
+          "max": 444.515
+        },
+        "te_wall": {
+          "count": 83,
+          "min": 19.3695,
+          "mean": 276.3786686746988,
+          "p95": 715.1669999999998,
+          "max": 813.931
+        },
+        "closure_wall": {
+          "count": 3,
+          "min": 88.5954,
+          "mean": 442.8984666666667,
+          "p95": 620.05,
+          "max": 620.05
+        }
+      },
+      "layer_addition": {
+        "wing_upper": {
+          "faces": 9687,
+          "target_layers": 12,
+          "avg_added_layers": 0.449,
+          "overall_thickness_m": 0.00207,
+          "overall_thickness_pct_of_target": 10.5
+        },
+        "wing_lower": {
+          "faces": 8383,
+          "target_layers": 12,
+          "avg_added_layers": 1.11,
+          "overall_thickness_m": 0.00564,
+          "overall_thickness_pct_of_target": 29.4
+        }
+      },
+      "pressure_viscous_split_available": false,
+      "cd_f_cd_r_note": "OpenFOAM forceCoeffs Cd(f)/Cd(r) are front/rear axle splits in forceCoeffs.H, not pressure/viscous splits."
+    },
+    "snappy_absolute_wall_resolved_target": {
+      "label": "wall_resolved_target",
+      "case_dir": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_resolved_target",
+      "case_status": "route_smoke_case_completed",
+      "mesh": {
+        "status": "pass",
+        "quality_basis": "pass_with_smoke_skew_warning",
+        "log": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_resolved_target/log.checkMesh",
+        "counts": {
+          "points": 273858,
+          "faces": 740991,
+          "internal_faces": 705909,
+          "cells": 233866
+        },
+        "max_skewness": 6.08499,
+        "highly_skew_faces": 4,
+        "custom_mesh_quality_error_count": 0,
+        "custom_mesh_quality_errors": {
+          "non-orthogonality >  65 degrees": 0,
+          "faces with face pyramid volume < 1e-13": 0,
+          "faces with face-decomposition tet quality < 1e-15": 0,
+          "faces with concavity >  80 degrees": 0,
+          "faces with skewness >   7 (internal) or  20 (boundary)": 0,
+          "faces with interpolation weights (0..1)  <  0.02": 0,
+          "faces with volume ratio of neighbour cells <  0.01": 0,
+          "faces with face twist <  0.02": 0,
+          "faces on cells with determinant < 0.001": 0
+        },
+        "summary_lines": [
+          "Checking topology...",
+          "Checking geometry...",
+          "    Max aspect ratio = 41.7694 OK.",
+          "    Mesh non-orthogonality Max: 64.9919 average: 8.38874",
+          "    Non-orthogonality check OK.",
+          " ***Max skewness = 6.08499, 4 highly skew faces detected which may impair the quality of the results",
+          "Checking faces in error :",
+          "    non-orthogonality >  65 degrees                        : 0",
+          "    faces with skewness >   7 (internal) or  20 (boundary) : 0",
+          "Failed 1 mesh checks."
+        ],
+        "boundary_patches": {
+          "status": "available",
+          "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_resolved_target/constant/polyMesh/boundary",
+          "patches": {
+            "FoamFile": {
+              "type": null,
+              "nFaces": null,
+              "startFace": null
+            },
+            "farfield": {
+              "type": "patch",
+              "nFaces": 16896,
+              "startFace": 705909
+            },
+            "wing_upper": {
+              "type": "wall",
+              "nFaces": 9687,
+              "startFace": 722805
+            },
+            "wing_lower": {
+              "type": "wall",
+              "nFaces": 8383,
+              "startFace": 732492
+            },
+            "tip_left": {
+              "type": "wall",
+              "nFaces": 15,
+              "startFace": 740875
+            },
+            "tip_right": {
+              "type": "wall",
+              "nFaces": 15,
+              "startFace": 740890
+            },
+            "te_wall": {
+              "type": "wall",
+              "nFaces": 83,
+              "startFace": 740905
+            },
+            "closure_wall": {
+              "type": "wall",
+              "nFaces": 3,
+              "startFace": 740988
+            }
+          }
+        }
+      },
+      "force_summary": {
+        "CD_primary": 0.07326929,
+        "CL_primary": 0.9215704,
+        "CD_tip_left": 2.864186e-06,
+        "CD_tip_right": 2.864069e-06,
+        "CD_te_wall": 4.685641e-05,
+        "CD_closure_wall": 7.155072e-07,
+        "CD_total": 0.07332259,
+        "CL_total": 0.9217259,
+        "CD_diagnostic_sum": 5.33001722e-05
+      },
+      "force_window_last_20": {
+        "status": "available",
+        "window_rows": 20,
+        "Cd_min": 0.07318079,
+        "Cd_max": 0.07346021,
+        "Cd_span": 0.00027942000000000244,
+        "Cd_mean": 0.07325227549999999,
+        "Cl_min": 0.9151069,
+        "Cl_max": 0.9215704,
+        "Cl_span": 0.006463500000000066,
+        "Cl_mean": 0.9176309699999999
+      },
+      "yplus": {
+        "wing_upper": {
+          "count": 9687,
+          "min": 2.84186,
+          "mean": 192.6201208908847,
+          "p95": 703.5010999999997,
+          "max": 1611.03
+        },
+        "wing_lower": {
+          "count": 8383,
+          "min": 5.83869,
+          "mean": 128.13073409399976,
+          "p95": 411.7137,
+          "max": 1175.49
+        },
+        "tip_left": {
+          "count": 15,
+          "min": 363.779,
+          "mean": 401.2856666666666,
+          "p95": 439.8227,
+          "max": 452.975
+        },
+        "tip_right": {
+          "count": 15,
+          "min": 364.114,
+          "mean": 401.07539999999995,
+          "p95": 439.53139999999996,
+          "max": 451.675
+        },
+        "te_wall": {
+          "count": 83,
+          "min": 17.9277,
+          "mean": 271.60307951807226,
+          "p95": 744.2839,
+          "max": 805.39
+        },
+        "closure_wall": {
+          "count": 3,
+          "min": 108.095,
+          "mean": 490.2176666666667,
+          "p95": 681.279,
+          "max": 681.279
+        }
+      },
+      "layer_addition": {
+        "wing_upper": {
+          "faces": 9687,
+          "target_layers": 30,
+          "avg_added_layers": 0.82,
+          "overall_thickness_m": 0.00815,
+          "overall_thickness_pct_of_target": 19.1
+        },
+        "wing_lower": {
+          "faces": 8383,
+          "target_layers": 30,
+          "avg_added_layers": 1.54,
+          "overall_thickness_m": 0.0174,
+          "overall_thickness_pct_of_target": 41.5
+        }
+      },
+      "pressure_viscous_split_available": false,
+      "cd_f_cd_r_note": "OpenFOAM forceCoeffs Cd(f)/Cd(r) are front/rear axle splits in forceCoeffs.H, not pressure/viscous splits."
+    }
+  },
+  "acceptance": {
+    "wall_function_target": {
+      "mean_yplus_preferred": "30-100",
+      "p95_yplus_preferred_lt": 300,
+      "mesh_quality_required": "no fatal or custom mesh-quality errors"
+    },
+    "wall_resolved_target": {
+      "mean_yplus_preferred_lt": 5,
+      "p95_yplus_preferred_lt": 20,
+      "max_yplus_preferred_lt_or_localized": 100,
+      "near_wall_layers": "about 30 or equivalent"
+    }
+  }
+}

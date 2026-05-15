@@ -1,0 +1,160 @@
+}
+
+Executing: /opt/homebrew/bin/mpicc  -o /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest -L/opt/homebrew/lib/gcc/current -Wl,-commons,use_dylibs -Wl,-search_paths_first -Wl,-no_compact_unwind -Wl,-no_warn_duplicate_libraries  -fPIC -Wall -Wwrite-strings -Wno-unknown-pragmas -fstack-protector -fno-stack-check -Qunused-arguments -fvisibility=hidden -g -O3 /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.o -Wl,-rpath,/opt/homebrew/lib/gcc/current -Wl,-rpath,/opt/homebrew/lib/gcc/current -L/opt/homebrew/lib/gcc/current -Wl,-rpath,/opt/homebrew/Cellar/open-mpi/5.0.9/lib -Wl,-rpath,/opt/homebrew/Cellar/open-mpi/5.0.9/lib -L/opt/homebrew/Cellar/open-mpi/5.0.9/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lgfortran -Wl,-rpath,/Volumes/Samsung -Wl,-rpath,/Volumes/Samsung -L/Volumes/Samsung -lemutls_w -lheapt_w -lgfortran -lquadmath -Wl,-rpath,/Volumes/Samsung
+stdout:
+ld: warning: duplicate -rpath '/opt/homebrew/lib/gcc/current' ignored
+ld: warning: duplicate -rpath '/opt/homebrew/Cellar/open-mpi/5.0.9/lib' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: search path '/Volumes/Samsung' not found
+ld: library 'emutls_w' not found
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+Possible ERROR while running linker: exit code 1
+stderr:
+ld: warning: duplicate -rpath '/opt/homebrew/lib/gcc/current' ignored
+ld: warning: duplicate -rpath '/opt/homebrew/Cellar/open-mpi/5.0.9/lib' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: search path '/Volumes/Samsung' not found
+ld: library 'emutls_w' not found
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+          compilers: Fortran libraries cannot directly be used with C as the linker, try without -lcrt2.o
+          compilers: Error message from compiling {
+If the above linker messages do not indicate failure of the compiler you can rerun with the option --ignoreLinkOutput=1}
+                Warning! getLibArgumentList(): could not locate dir /Volumes/Samsung
+Executing: /opt/homebrew/bin/mpicc -c -o /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.o -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.libraries -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilerFlags -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilers  -fPIC -Wall -Wwrite-strings -Wno-unknown-pragmas -fstack-protector -fno-stack-check -Qunused-arguments -fvisibility=hidden -g -O3  /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.c
+Successful compile:
+Source:
+#include "confdefs.h"
+#include "conffix.h"
+
+int main(void) {
+  return 0;
+}
+
+Executing: /opt/homebrew/bin/mpicc -c -o /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.o -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.libraries -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilerFlags -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilers  -fPIC -Wall -Wwrite-strings -Wno-unknown-pragmas -fstack-protector -fno-stack-check -Qunused-arguments -fvisibility=hidden -g -O3  /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.c
+Successful compile:
+Source:
+#include "confdefs.h"
+#include "conffix.h"
+
+int main(void) {
+  return 0;
+}
+
+Executing: /opt/homebrew/bin/mpicc  -o /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest -L/opt/homebrew/lib/gcc/current -Wl,-commons,use_dylibs -Wl,-search_paths_first -Wl,-no_compact_unwind -Wl,-no_warn_duplicate_libraries  -fPIC -Wall -Wwrite-strings -Wno-unknown-pragmas -fstack-protector -fno-stack-check -Qunused-arguments -fvisibility=hidden -g -O3 /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.o  -Wl,-rpath,/opt/homebrew/lib/gcc/current -Wl,-rpath,/opt/homebrew/lib/gcc/current -L/opt/homebrew/lib/gcc/current -Wl,-rpath,/opt/homebrew/Cellar/open-mpi/5.0.9/lib -Wl,-rpath,/opt/homebrew/Cellar/open-mpi/5.0.9/lib -L/opt/homebrew/Cellar/open-mpi/5.0.9/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lgfortran -Wl,-rpath,/Volumes/Samsung -Wl,-rpath,/Volumes/Samsung -L/Volumes/Samsung -lemutls_w -lheapt_w -lgfortran -lquadmath -Wl,-rpath,/Volumes/Samsung
+stdout:
+ld: warning: duplicate -rpath '/opt/homebrew/lib/gcc/current' ignored
+ld: warning: duplicate -rpath '/opt/homebrew/Cellar/open-mpi/5.0.9/lib' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: search path '/Volumes/Samsung' not found
+ld: library 'emutls_w' not found
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+Possible ERROR while running linker: exit code 1
+stderr:
+ld: warning: duplicate -rpath '/opt/homebrew/lib/gcc/current' ignored
+ld: warning: duplicate -rpath '/opt/homebrew/Cellar/open-mpi/5.0.9/lib' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: search path '/Volumes/Samsung' not found
+ld: library 'emutls_w' not found
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+          compilers: Fortran libraries still cannot directly be used with C as the linker, try without pgi.ld files
+          compilers: Error message from compiling {
+If the above linker messages do not indicate failure of the compiler you can rerun with the option --ignoreLinkOutput=1}
+                Warning! getLibArgumentList(): could not locate dir /Volumes/Samsung
+Executing: /opt/homebrew/bin/mpicc -c -o /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.o -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.libraries -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilerFlags -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilers  -fPIC -Wall -Wwrite-strings -Wno-unknown-pragmas -fstack-protector -fno-stack-check -Qunused-arguments -fvisibility=hidden -g -O3  /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.c
+Successful compile:
+Source:
+#include "confdefs.h"
+#include "conffix.h"
+
+int main(void) {
+  return 0;
+}
+
+Executing: /opt/homebrew/bin/mpicc -c -o /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.o -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.libraries -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilerFlags -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers -I/var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.compilers  -fPIC -Wall -Wwrite-strings -Wno-unknown-pragmas -fstack-protector -fno-stack-check -Qunused-arguments -fvisibility=hidden -g -O3  /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.c
+Successful compile:
+Source:
+#include "confdefs.h"
+#include "conffix.h"
+
+int main(void) {
+  return 0;
+}
+
+Executing: /opt/homebrew/bin/mpicc  -o /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest -L/opt/homebrew/lib/gcc/current -Wl,-commons,use_dylibs -Wl,-search_paths_first -Wl,-no_compact_unwind -Wl,-no_warn_duplicate_libraries  -fPIC -Wall -Wwrite-strings -Wno-unknown-pragmas -fstack-protector -fno-stack-check -Qunused-arguments -fvisibility=hidden -g -O3 /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/config.setCompilers/conftest.o  -Wl,-rpath,/opt/homebrew/lib/gcc/current -Wl,-rpath,/opt/homebrew/lib/gcc/current -L/opt/homebrew/lib/gcc/current -Wl,-rpath,/opt/homebrew/Cellar/open-mpi/5.0.9/lib -Wl,-rpath,/opt/homebrew/Cellar/open-mpi/5.0.9/lib -L/opt/homebrew/Cellar/open-mpi/5.0.9/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lgfortran -Wl,-rpath,/Volumes/Samsung -Wl,-rpath,/Volumes/Samsung -L/Volumes/Samsung -lemutls_w -lheapt_w -lgfortran -lquadmath -Wl,-rpath,/Volumes/Samsung
+stdout:
+ld: warning: duplicate -rpath '/opt/homebrew/lib/gcc/current' ignored
+ld: warning: duplicate -rpath '/opt/homebrew/Cellar/open-mpi/5.0.9/lib' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: search path '/Volumes/Samsung' not found
+ld: library 'emutls_w' not found
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+Possible ERROR while running linker: exit code 1
+stderr:
+ld: warning: duplicate -rpath '/opt/homebrew/lib/gcc/current' ignored
+ld: warning: duplicate -rpath '/opt/homebrew/Cellar/open-mpi/5.0.9/lib' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: duplicate -rpath '/Volumes/Samsung' ignored
+ld: warning: search path '/Volumes/Samsung' not found
+ld: library 'emutls_w' not found
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+          compilers:
+If the above linker messages do not indicate failure of the compiler you can rerun with the option --ignoreLinkOutput=1
+**** Configure header /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/confdefs.h ****
+#if !defined(INCLUDED_UNKNOWN)
+#define INCLUDED_UNKNOWN
+
+#define PETSC_CLANGUAGE_C 1
+#define PETSC_CXX_RESTRICT __restrict
+#define PETSC_DO_NOT_SWAP_CHILD_FOR_DEBUGGER 1
+#define PETSC_FORTRAN_CHARLEN_T size_t
+#define PETSC_HAVE_CXX_ATOMIC 1
+#define PETSC_HAVE_CXX_COMPLEX_FIX 1
+#define PETSC_HAVE_CXX_DIALECT_CXX11 1
+#define PETSC_HAVE_DLFCN_H 1
+#define PETSC_HAVE_FORTRAN_UNDERSCORE 1
+#define PETSC_HAVE_RTLD_GLOBAL 1
+#define PETSC_HAVE_RTLD_LAZY 1
+#define PETSC_HAVE_RTLD_LOCAL 1
+#define PETSC_HAVE_RTLD_NOW 1
+#define PETSC_HAVE_STDATOMIC_H 1
+#define PETSC_USE_DEBUGGER "lldb"
+#define PETSC_USING_DARWIN 1
+#endif
+**** C specific Configure header /var/folders/_b/l1svb9hs67gg5pp0vbjb82940000gn/T/petsc-xpz8thje/conffix.h ****
+#if !defined(INCLUDED_UNKNOWN)
+#define INCLUDED_UNKNOWN
+
+#if defined(__cplusplus)
+extern "C" {
+}
+#else
+#endif
+#endif
+*********************************************************************************************
+           UNABLE to CONFIGURE with GIVEN OPTIONS (see configure.log for details):
+---------------------------------------------------------------------------------------------
+                      Fortran libraries cannot be used with C as linker
+*********************************************************************************************
+  File "/Users/linyuan/.local/src/petsc-builds/petsc-3.21.6/config/configure.py", line 462, in petsc_configure
+    framework.configure(out = sys.stdout)
+  File "/Users/linyuan/.local/src/petsc-builds/petsc-3.21.6/config/BuildSystem/config/framework.py", line 1452, in configure
+    self.processChildren()
+  File "/Users/linyuan/.local/src/petsc-builds/petsc-3.21.6/config/BuildSystem/config/framework.py", line 1440, in processChildren
+    self.serialEvaluation(self.childGraph)
+  File "/Users/linyuan/.local/src/petsc-builds/petsc-3.21.6/config/BuildSystem/config/framework.py", line 1415, in serialEvaluation
+    child.configure()
+  File "/Users/linyuan/.local/src/petsc-builds/petsc-3.21.6/config/BuildSystem/config/compilers.py", line 1498, in configure
+    self.executeTest(self.checkFortranLibraries)
+  File "/Users/linyuan/.local/src/petsc-builds/petsc-3.21.6/config/BuildSystem/config/base.py", line 138, in executeTest
+    ret = test(*args,**kargs)
+          ^^^^^^^^^^^^^^^^^^^
+  File "/Users/linyuan/.local/src/petsc-builds/petsc-3.21.6/config/BuildSystem/config/compilers.py", line 1278, in checkFortranLibraries
+    raise RuntimeError('Fortran libraries cannot be used with C as linker')
+================================================================================
+Finishing configure run at Fri, 15 May 2026 13:30:52 +0800
+================================================================================

@@ -1,0 +1,134 @@
+{
+  "note": "Generated case directories are local evidence. Raw OpenFOAM meshes and time fields are intentionally large; reports and lightweight logs/configs are the durable commit target.",
+  "root": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases",
+  "cases": [
+    {
+      "case": "cfmesh_attempt_01_wall_function_coarse",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/cfmesh_attempt_01_wall_function_coarse",
+      "key_files": [
+        "case_metadata.json",
+        "log.checkMesh",
+        "log.cartesianMesh",
+        "system/controlDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "cfmesh_attempt_02_exact_patch_wall_function",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/cfmesh_attempt_02_exact_patch_wall_function",
+      "key_files": [
+        "case_metadata.json",
+        "log.checkMesh",
+        "log.cartesianMesh",
+        "system/controlDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "cfmesh_attempt_03_low_layer_wall_function",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/cfmesh_attempt_03_low_layer_wall_function",
+      "key_files": [
+        "case_metadata.json",
+        "log.checkMesh",
+        "log.cartesianMesh",
+        "system/controlDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "cfmesh_attempt_04_optimised_low_layer_wall_function",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/cfmesh_attempt_04_optimised_low_layer_wall_function",
+      "key_files": [
+        "case_metadata.json",
+        "log.checkMesh",
+        "log.cartesianMesh",
+        "system/controlDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "cfmesh_attempt_05_no_layer_core_quality_probe",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/cfmesh_attempt_05_no_layer_core_quality_probe",
+      "key_files": [
+        "case_metadata.json",
+        "log.checkMesh",
+        "log.cartesianMesh",
+        "system/controlDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "cfmesh_attempt_06_pmesh_optimised_low_layer_wall_function",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/cfmesh_attempt_06_pmesh_optimised_low_layer_wall_function",
+      "key_files": [
+        "case_metadata.json",
+        "log.pMesh",
+        "system/controlDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "gmsh_attempt_01_step_surface_loop_volume",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/gmsh_attempt_01_step_surface_loop_volume",
+      "key_files": [
+        "log.gmsh"
+      ]
+    },
+    {
+      "case": "gmsh_attempt_02_step_surface_loop_delaunay",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/gmsh_attempt_02_step_surface_loop_delaunay",
+      "key_files": [
+        "log.gmsh"
+      ]
+    },
+    {
+      "case": "gmsh_attempt_03_surface_based_current_stl_core",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/gmsh_attempt_03_surface_based_current_stl_core",
+      "key_files": [
+        "log.gmsh"
+      ]
+    },
+    {
+      "case": "snappy_absolute_intermediate_target",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_intermediate_target",
+      "key_files": [
+        "case_metadata.json",
+        "case_result_summary.json",
+        "log.checkMesh",
+        "log.simpleFoam",
+        "log.snappyHexMesh",
+        "system/controlDict",
+        "system/snappyHexMeshDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "snappy_absolute_wall_function_target",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_function_target",
+      "key_files": [
+        "case_metadata.json",
+        "case_result_summary.json",
+        "log.checkMesh",
+        "log.simpleFoam",
+        "log.snappyHexMesh",
+        "system/controlDict",
+        "system/snappyHexMeshDict",
+        "system/meshQualityDict"
+      ]
+    },
+    {
+      "case": "snappy_absolute_wall_resolved_target",
+      "path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/generated_cases/snappy_absolute_wall_resolved_target",
+      "key_files": [
+        "case_metadata.json",
+        "case_result_summary.json",
+        "log.checkMesh",
+        "log.simpleFoam",
+        "log.snappyHexMesh",
+        "system/controlDict",
+        "system/snappyHexMeshDict",
+        "system/meshQualityDict"
+      ]
+    }
+  ]
+}

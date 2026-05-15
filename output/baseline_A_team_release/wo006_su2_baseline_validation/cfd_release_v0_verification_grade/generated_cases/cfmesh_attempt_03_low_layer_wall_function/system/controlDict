@@ -1,0 +1,140 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+application     simpleFoam;
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         160;
+deltaT          1;
+writeControl    timeStep;
+writeInterval   20;
+purgeWrite      0;
+functions
+{
+    forceCoeffs_primary
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (wing_upper wing_lower);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (0 0 1);
+        dragDir         (1 0 0);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            33.420059598;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_total
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (wing_upper wing_lower tip_left tip_right te_wall closure_wall);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (0 0 1);
+        dragDir         (1 0 0);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            33.420059598;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_tip_left
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (tip_left);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (0 0 1);
+        dragDir         (1 0 0);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            33.420059598;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_tip_right
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (tip_right);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (0 0 1);
+        dragDir         (1 0 0);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            33.420059598;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_te_wall
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (te_wall);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (0 0 1);
+        dragDir         (1 0 0);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            33.420059598;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_closure_wall
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (closure_wall);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (0 0 1);
+        dragDir         (1 0 0);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            33.420059598;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    yPlus
+    {
+        type            yPlus;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    writeTime;
+        writeInterval   20;
+    }
+}

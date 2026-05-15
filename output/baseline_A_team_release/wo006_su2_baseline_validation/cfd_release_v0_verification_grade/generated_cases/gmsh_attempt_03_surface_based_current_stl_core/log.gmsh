@@ -1,0 +1,98 @@
+Info    : Running 'gmsh gmsh_surface_based_current_stl.geo -3 -format msh4 -o gmsh_surface_based_current_stl.msh -v 4' [Gmsh 4.15.2-git, 1 node, max. 1 thread]
+Info    : Started on Fri May 15 13:28:29 2026
+Info    : Reading 'gmsh_surface_based_current_stl.geo'...
+Info    : Reading 'baseline_A_fullwing_farfield_and_split_walls.stl'...
+Info    : 12 facets in solid 0 farfield
+Info    : 1408 facets in solid 1 wing_upper
+Info    : 1280 facets in solid 2 wing_lower
+Info    : 22 facets in solid 3 tip_left
+Info    : 22 facets in solid 4 tip_right
+Info    : 112 facets in solid 5 te_wall
+Info    : 16 facets in solid 6 closure_wall
+Info    : Done reading 'baseline_A_fullwing_farfield_and_split_walls.stl'
+Info    : Classifying surfaces (angle: 40)...
+Info    : Splitting triangulations to make them parametrizable:
+Info    :  - Level 0 partition with 12 triangles split in 2 parts because poincare characteristic 2 is not 0
+Info    :  - Level 0 partition with 112 triangles split in 2 parts because poincare characteristic 18446744073709551608 is not 0
+Info    :  - Level 0 partition with 16 triangles split in 2 parts because poincare characteristic 18446744073709551612 is not 0
+Info    : Found 12 model surfaces
+Info    : Found 19 model curves
+Info    : Done classifying surfaces (Wall 0.012941s, CPU 0.010357s)
+Info    : Creating geometry of discrete curves...
+Info    : Done creating geometry of discrete curves (Wall 8.70787e-06s, CPU 9e-06s)
+Info    : Creating geometry of discrete surfaces...
+Info    : [ 10%] Discrete surface 8 is planar, simplifying parametrization
+Info    : [ 10%] Discrete surface 9 is planar, simplifying parametrization
+Info    : [ 20%] Discrete surface 10 is planar, simplifying parametrization
+Info    : [ 30%] Discrete surface 11 is planar, simplifying parametrization
+Info    : [ 40%] Discrete surface 12 is planar, simplifying parametrization
+Info    : [ 50%] Discrete surface 13 is planar, simplifying parametrization
+Info    : [ 60%] Discrete surface 14 is planar, simplifying parametrization
+Info    : [ 60%] Discrete surface 15 is planar, simplifying parametrization
+Warning : Poor input mesh quality (min gamma = 2.28494e-05) for computing parametrization
+Info    : [ 90%] Discrete surface 18 is planar, simplifying parametrization
+Warning : Poor input mesh quality (min gamma = 2.28494e-05) for computing parametrization
+Info    : [100%] Discrete surface 19 is planar, simplifying parametrization
+Info    : Done creating geometry of discrete surfaces (Wall 0.00591962s, CPU 0.005673s)
+GMSH_ATTEMPT03 classified_surfaces=12
+Info    : Done reading 'gmsh_surface_based_current_stl.geo'
+Info    : Meshing 1D...
+Info    : [  0%] Meshing curve 21 (Discrete curve)
+Info    : [ 10%] Meshing curve 22 (Discrete curve)
+Info    : [ 20%] Meshing curve 23 (Discrete curve)
+Info    : [ 20%] Meshing curve 24 (Discrete curve)
+Info    : [ 30%] Meshing curve 25 (Discrete curve)
+Info    : [ 30%] Meshing curve 26 (Discrete curve)
+Info    : [ 40%] Meshing curve 27 (Discrete curve)
+Info    : [ 40%] Meshing curve 28 (Discrete curve)
+Info    : [ 50%] Meshing curve 29 (Discrete curve)
+Info    : [ 50%] Meshing curve 30 (Discrete curve)
+Info    : [ 60%] Meshing curve 31 (Discrete curve)
+Info    : [ 60%] Meshing curve 32 (Discrete curve)
+Info    : [ 70%] Meshing curve 33 (Discrete curve)
+Info    : [ 70%] Meshing curve 34 (Discrete curve)
+Info    : [ 80%] Meshing curve 35 (Discrete curve)
+Info    : [ 80%] Meshing curve 36 (Discrete curve)
+Info    : [ 90%] Meshing curve 37 (Discrete curve)
+Info    : [ 90%] Meshing curve 38 (Discrete curve)
+Info    : [100%] Meshing curve 39 (Discrete curve)
+Info    : [100%] Meshing curve 40 (Discrete curve)
+Info    : Done meshing 1D (Wall 0.000616958s, CPU 0.000558s)
+Info    : Meshing 2D...
+Info    : [  0%] Meshing surface 8 (Discrete surface, Frontal-Delaunay)
+Info    : [ 10%] Meshing surface 9 (Discrete surface, Frontal-Delaunay)
+Info    : [ 20%] Meshing surface 10 (Discrete surface, Frontal-Delaunay)
+Info    : [ 30%] Meshing surface 11 (Discrete surface, Frontal-Delaunay)
+Info    : [ 40%] Meshing surface 12 (Discrete surface, Frontal-Delaunay)
+Info    : [ 50%] Meshing surface 13 (Discrete surface, Frontal-Delaunay)
+Info    : [ 60%] Meshing surface 14 (Discrete surface, Frontal-Delaunay)
+Info    : [ 60%] Meshing surface 15 (Discrete surface, Frontal-Delaunay)
+Info    : [ 70%] Meshing surface 16 (Discrete surface, Frontal-Delaunay)
+Info    : [ 80%] Meshing surface 17 (Discrete surface, Frontal-Delaunay)
+Info    : [ 90%] Meshing surface 18 (Discrete surface, Frontal-Delaunay)
+Info    : [100%] Meshing surface 19 (Discrete surface, Frontal-Delaunay)
+Info    : Done meshing 2D (Wall 0.122661s, CPU 0.1139s)
+Info    : Meshing 3D...
+Info    : 3D Meshing 1 volume with 1 connected component
+Info    : Input mesh hash 2791c0088f8d3955
+Info    : Creating an empty mesh with 8732 vertices
+Info    : Initialization of tet. mesh
+Info    : Delaunay of       8728 points on   1 threads - mesh.nvert: 4
+Info    : Recovering 4 missing facet(s)
+Found two overlapping facets.
+  1st: [567, 566, 604] #16
+  2nd: [567, 566, 604] #17
+Info    : failed to recover constrained lines/triangles
+Error   : HXT 3D mesh failed
+Warning : No elements in volume 1
+Info    : Done meshing 3D (Wall 0.0315975s, CPU 0.028184s)
+Info    : 8732 nodes 18096 elements
+Error   : ------------------------------
+Error   : Mesh generation error summary
+Error   :     1 warning
+Error   :     1 error
+Error   : Check the full log for details
+Error   : ------------------------------
+Info    : Writing 'gmsh_surface_based_current_stl.msh'...
+Info    : Done writing 'gmsh_surface_based_current_stl.msh'
+Info    : Stopped on Fri May 15 13:28:30 2026 (From start: Wall 0.202921s, CPU 0.228941s)

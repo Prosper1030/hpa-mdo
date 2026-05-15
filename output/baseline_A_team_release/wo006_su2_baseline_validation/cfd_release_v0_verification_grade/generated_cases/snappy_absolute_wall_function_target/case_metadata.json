@@ -1,0 +1,27 @@
+{
+  "attempt": "snappy_absolute_wall_function_target",
+  "route": "strict snappyHexMesh absolute-layer fallback",
+  "description": "yPlus target about 30-100, first layer 2.5 mm",
+  "nSurfaceLayers_upper_lower": 6,
+  "firstLayerThickness_m": 0.0025,
+  "expansionRatio": 1.25,
+  "minThickness_m": 0.0008,
+  "ref": {
+    "sref": 33.420059598,
+    "cref": 1.003721543,
+    "bref": 34.332286
+  },
+  "ref_origin": [
+    0.246276512,
+    0.0,
+    0.0
+  ],
+  "surface_marker_counts": {
+    "wing_upper": 704,
+    "wing_lower": 640,
+    "te_wall": 56,
+    "closure_wall": 8,
+    "tip_left": 22,
+    "tip_right": 22
+  }
+}

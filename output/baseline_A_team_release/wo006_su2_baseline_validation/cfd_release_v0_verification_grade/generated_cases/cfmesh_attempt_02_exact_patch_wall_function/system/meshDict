@@ -1,0 +1,93 @@
+FoamFile
+{
+    version   2.0;
+    format    ascii;
+    class     dictionary;
+    location  "system";
+    object    meshDict;
+}
+
+surfaceFile "baseline_A_fullwing_farfield_and_split_walls.stl";
+
+maxCellSize 0.85;
+boundaryCellSize 0.50;
+minCellSize 0.025;
+
+localRefinement
+{
+    wing_upper
+    {
+        cellSize 0.050;
+        refinementThickness 0.18;
+    }
+    wing_lower
+    {
+        cellSize 0.050;
+        refinementThickness 0.18;
+    }
+    tip_left
+    {
+        cellSize 0.080;
+        refinementThickness 0.12;
+    }
+    tip_right
+    {
+        cellSize 0.080;
+        refinementThickness 0.12;
+    }
+    te_wall
+    {
+        cellSize 0.060;
+        refinementThickness 0.12;
+    }
+    closure_wall
+    {
+        cellSize 0.080;
+        refinementThickness 0.12;
+    }
+}
+
+boundaryLayers
+{
+    patchBoundaryLayers
+    {
+        wing_upper
+        {
+            nLayers 12;
+            thicknessRatio 1.18;
+            maxFirstLayerThickness 0.0025;
+            allowDiscontinuity 1;
+        }
+        wing_lower
+        {
+            nLayers 12;
+            thicknessRatio 1.18;
+            maxFirstLayerThickness 0.0025;
+            allowDiscontinuity 1;
+        }
+    }
+    optimiseLayer 1;
+    optimisationParameters
+    {
+        nSmoothNormals 3;
+        maxNumIterations 3;
+        featureSizeFactor 0.3;
+        reCalculateNormals 1;
+        relThicknessTol 0.2;
+    }
+}
+
+renameBoundary
+{
+    defaultType wall;
+    newPatchNames
+    {
+        farfield { newName farfield; type patch; }
+        wing_upper { newName wing_upper; type wall; }
+        wing_lower { newName wing_lower; type wall; }
+        tip_left { newName tip_left; type wall; }
+        tip_right { newName tip_right; type wall; }
+        te_wall { newName te_wall; type wall; }
+        closure_wall { newName closure_wall; type wall; }
+    }
+}

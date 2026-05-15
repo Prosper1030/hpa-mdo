@@ -1,5 +1,33 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-15 WO-006 Verification-Grade CFD Route Verdict
+
+New bounded verification artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/`.
+This supersedes the earlier “repair `layers_8_refined_surface_plus1` by hand”
+OpenFOAM-ladder next step.
+
+Result: no verification-grade 3D CFD CD validation case was produced with the
+mature open-source routes available on this Mac. cfMesh/cartesianMesh/pMesh,
+pyHyp, Gmsh CAD-first/surface-based, and strict snappy absolute-layer fallback
+were all bounded-attempted. The closest strict-snappy case ran finite
+SpalartAllmaras and produced `CD_primary=0.07326929`, `CL_primary=0.9215704`,
+`CD_total=0.07332259`, but it is rejected as CFD validation because yPlus is
+still high: `wing_upper` mean/p95/max `192.6201 / 703.5011 / 1611.03`,
+`wing_lower` mean/p95/max `128.1307 / 411.7137 / 1175.49`.
+
+Engineering verdict: OpenFOAM solver execution is not the primary blocker, and
+tip/TE/closure patch contamination is not the main drag source. The blocker is
+verification-grade near-wall meshing and layer coverage on the fixed Baseline A
+full-wing geometry while preserving split patches. The result is still
+high-yPlus sanity only, not wall-function verification and not wall-resolved
+verification. Do not use the rejected OpenFOAM CD range to support or contradict
+the existing XFOIL/spanwise-integrated `CD_total≈0.02602`; that comparison is
+inconclusive until a mature boundary-layer mesh is available. Next engineering
+step is a mature body-fitted/prismatic BL mesher route or a deeper planned
+body-fitted open-source meshing environment build, not another one-parameter
+snappy tweak or individual cell repair.
+
 ## 2026-05-15 WO-006 Phase 3 OpenFOAM Ladder Result
 
 New bounded ladder artifact:

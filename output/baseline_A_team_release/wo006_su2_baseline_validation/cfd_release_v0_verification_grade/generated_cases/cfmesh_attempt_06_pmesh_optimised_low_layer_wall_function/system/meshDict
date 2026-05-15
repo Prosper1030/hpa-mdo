@@ -1,0 +1,77 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| cfMesh pMesh bounded attempt 06: low layer with optimiseLayer.      |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version   2.0;
+    format    ascii;
+    class     dictionary;
+    location  "system";
+    object    meshDict;
+}
+
+surfaceFile "baseline_A_fullwing_farfield_and_split_walls.stl";
+maxCellSize 0.90;
+minCellSize 0.04;
+boundaryCellSize 0.50;
+
+localRefinement
+{
+    wing_upper { cellSize 0.08; }
+    wing_lower { cellSize 0.08; }
+    tip_left { cellSize 0.10; }
+    tip_right { cellSize 0.10; }
+    te_wall { cellSize 0.10; }
+    closure_wall { cellSize 0.12; }
+}
+
+boundaryLayers
+{
+    patchBoundaryLayers
+    {
+        wing_upper
+        {
+            nLayers 3;
+            thicknessRatio 1.2;
+            maxFirstLayerThickness 0.004;
+            allowDiscontinuity 0;
+        }
+        wing_lower
+        {
+            nLayers 3;
+            thicknessRatio 1.2;
+            maxFirstLayerThickness 0.004;
+            allowDiscontinuity 0;
+        }
+        tip_left { nLayers 0; }
+        tip_right { nLayers 0; }
+        te_wall { nLayers 0; }
+        closure_wall { nLayers 0; }
+        farfield { nLayers 0; }
+    }
+    optimiseLayer 1;
+    optimisationParameters
+    {
+        nSmoothNormals 5;
+        relThicknessTol 0.15;
+        featureSizeFactor 0.3;
+        reCalculateNormals 1;
+        maxNumIterations 5;
+    }
+}
+
+renameBoundary
+{
+    defaultName default_wall;
+    defaultType wall;
+    newPatchNames
+    {
+        farfield { newName farfield; type patch; }
+        wing_upper { newName wing_upper; type wall; }
+        wing_lower { newName wing_lower; type wall; }
+        tip_left { newName tip_left; type wall; }
+        tip_right { newName tip_right; type wall; }
+        te_wall { newName te_wall; type wall; }
+        closure_wall { newName closure_wall; type wall; }
+    }
+}

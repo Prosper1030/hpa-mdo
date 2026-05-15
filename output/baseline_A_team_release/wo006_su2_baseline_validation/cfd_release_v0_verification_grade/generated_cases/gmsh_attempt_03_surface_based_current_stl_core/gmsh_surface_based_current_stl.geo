@@ -1,0 +1,12 @@
+Mesh.Algorithm3D = 10;
+Mesh.CharacteristicLengthMin = 0.08;
+Mesh.CharacteristicLengthMax = 0.90;
+Merge "baseline_A_fullwing_farfield_and_split_walls.stl";
+ClassifySurfaces{40 * Pi/180, 1, 1, Pi};
+CreateGeometry;
+s() = Surface "*";
+Printf("GMSH_ATTEMPT03 classified_surfaces=%g", #s());
+Surface Loop(1) = {s()};
+Volume(1) = {1};
+Physical Volume("fluid") = {1};
+Physical Surface("boundary_unclassified") = {s()};
