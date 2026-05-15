@@ -9,6 +9,21 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
+**2026-05-15 structured-hexa CFD route verdict:** The new bounded artifact is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/`.
+`scripts/run_wo006_structured_hexa_verification.py` writes a full-wing,
+body-fitted, inflated all-hexa OpenFOAM `polyMesh` directly, without
+snappyHexMesh, cfMesh, Gmsh, TetGen, meshpy, or the retired partial-BL
+tetra/prism core-fill route. The artificial unit mesh passed. The best Baseline
+A debug attempt generated an all-hexa `168960`-cell mesh with zero custom
+non-positive volumes, but OpenFOAM `checkMesh` rejected it with `260`
+negative-volume cells, `2202` open cells, `14826` incorrectly oriented face
+pyramids, severe non-orthogonality, and max skewness `1094.86`; no usable
+solver force/yPlus evidence exists. Engineering boundary: this is a hard
+structured-route mesh-quality blocker, not verification-grade 3D CD evidence,
+and it cannot support or contradict XFOIL/spanwise-integrated
+`CD_total≈0.02602`.
+
 **2026-05-15 verification-grade CFD route verdict:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_verification_grade/`.
 This supersedes the previous OpenFOAM-ladder next action to hand-repair

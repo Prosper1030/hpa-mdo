@@ -1,5 +1,27 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-15 WO-006 Structured-Hexa CFD Route Verdict
+
+New bounded structured-hexa artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/`.
+The route uses `scripts/run_wo006_structured_hexa_verification.py` to write an
+OpenFOAM `polyMesh` directly from a full-wing, body-fitted, inflated all-hexa
+surface topology. It does not use snappyHexMesh, cfMesh, Gmsh, TetGen, meshpy,
+or the retired partial-BL tetra/prism core-fill route.
+
+Result: the artificial unit mesh passed, and the best Baseline A debug attempt
+generated an all-hexa mesh with `168960` cells and zero custom non-positive
+volumes. OpenFOAM still rejected it as CFD mesh quality: `checkMesh` reports
+`260` negative-volume cells, `2202` open cells, `14826` incorrectly oriented
+face pyramids, severe non-orthogonality, and max skewness `1094.86`. The solver
+therefore did not produce usable force/yPlus evidence.
+
+Engineering verdict: this structured-hexa route is a hard mesh-quality blocker,
+not verification-grade 3D CD evidence. It cannot support or contradict the
+XFOIL/spanwise-integrated `CD_total≈0.02602`, and it should not be handed to the
+team as CFD verification. Do not return to snappy yPlus tuning or the retired
+unstructured-core routes as a shortcut.
+
 ## 2026-05-15 WO-006 Verification-Grade CFD Route Verdict
 
 New bounded verification artifact:

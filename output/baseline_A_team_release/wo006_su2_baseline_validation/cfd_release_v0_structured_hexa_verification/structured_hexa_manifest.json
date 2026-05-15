@@ -1,0 +1,1275 @@
+{
+  "schema_version": "wo006_structured_hexa_verification.v1",
+  "created_at_utc": "2026-05-15T07:16:41Z",
+  "route": "Baseline A body-fitted structured hexa inflated-wing OpenFOAM route",
+  "output_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification",
+  "openfoam_command": "/opt/homebrew/bin/openfoam",
+  "tool_detection_inside_openfoam": {
+    "status": "pass",
+    "paths": {
+      "blockMesh": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/blockMesh",
+      "surfaceFeatureExtract": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/surfaceFeatureExtract",
+      "snappyHexMesh": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/snappyHexMesh",
+      "checkMesh": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/checkMesh",
+      "simpleFoam": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/simpleFoam",
+      "postProcess": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/postProcess",
+      "foamDictionary": "/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/foamDictionary"
+    },
+    "returncode": 0,
+    "stdout": "blockMesh=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/blockMesh\nsurfaceFeatureExtract=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/surfaceFeatureExtract\nsnappyHexMesh=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/snappyHexMesh\ncheckMesh=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/checkMesh\nsimpleFoam=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/simpleFoam\npostProcess=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/postProcess\nfoamDictionary=/Volumes/OpenFOAM-v2512/platforms/darwin64ClangDPInt32Opt/bin/foamDictionary\n",
+    "stderr": ""
+  },
+  "hard_prohibitions_observed": {
+    "snappyHexMesh": "not_used",
+    "cfMesh": "not_used",
+    "gmsh": "not_used",
+    "tetgen": "not_used",
+    "meshpy": "not_used",
+    "tetra_prism_core_fill": "not_used"
+  },
+  "artificial_unit": {
+    "config": {
+      "case_id": "artificial_unit",
+      "n_span": 4,
+      "n_perimeter": 16,
+      "radial_layers": 4,
+      "near_wall_layers": 2,
+      "first_layer_height_m": 5e-05,
+      "near_wall_growth": 1.12,
+      "farfield_chords": 3.0,
+      "normal_smoothing_iterations": 1,
+      "outer_mapping": "normal"
+    },
+    "mesh": {
+      "status": "pass",
+      "blockers": [],
+      "node_count": 490,
+      "cell_count": 384,
+      "face_count": 1248,
+      "internal_face_count": 1056,
+      "boundary_face_counts": {
+        "wing_upper": 32,
+        "wing_lower": 28,
+        "tip_left": 16,
+        "tip_right": 16,
+        "te_wall": 4,
+        "closure_wall": 0,
+        "farfield": 96
+      },
+      "first_layer_height_m": 5e-05,
+      "radial_layer_distribution_m": [
+        0.0,
+        5e-05,
+        0.000106,
+        0.006564484375000001,
+        0.7514219919128419
+      ],
+      "volume_percentiles": {
+        "min": 2.7359846836530737e-08,
+        "p05": 1.219871608361324e-07,
+        "p50": 5.361481851413799e-06,
+        "p95": 0.12877797129257595,
+        "max": 0.1615462727018948
+      },
+      "aspect_ratio_proxy_percentiles": {
+        "min": 3.8753368153451833,
+        "p05": 3.887016204199821,
+        "p50": 1065.356823422279,
+        "p95": 10004.772277930973,
+        "max": 10004.84868153934
+      },
+      "min_signed_volume": 2.7359846836530737e-08,
+      "max_signed_volume": 0.1615462727018948,
+      "non_positive_volume_count": 0,
+      "duplicate_point_count": 0,
+      "nonmanifold_face_count": 0,
+      "unmarked_boundary_face_count": 0,
+      "missing_boundary_patch_count": 0,
+      "surface_metadata": {
+        "route": "wo006_structured_hexa_body_surface",
+        "station_count": 5,
+        "n_span": 4,
+        "n_perimeter": 16,
+        "tip_cap_side_subdivisions": 4,
+        "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+        "closure_section_indices": [],
+        "source": {
+          "type": "artificial_rectangular_wing",
+          "purpose": "unit_topology_test_only"
+        },
+        "orientation": "outward_consistent",
+        "orientation_flip_count": 192
+      }
+    }
+  },
+  "debug_case": {
+    "case_id": "debug_attempt_06_section_scaled_far20",
+    "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_06_section_scaled_far20",
+    "case_status": "custom_mesh_quality_failed",
+    "config": {
+      "case_id": "debug_attempt_06_section_scaled_far20",
+      "n_span": 32,
+      "n_perimeter": 96,
+      "radial_layers": 40,
+      "near_wall_layers": 20,
+      "first_layer_height_m": 5e-05,
+      "near_wall_growth": 1.12,
+      "farfield_chords": 20.0,
+      "normal_smoothing_iterations": 4,
+      "outer_mapping": "section_scaled"
+    },
+    "mesh": {
+      "status": "fail",
+      "blockers": [
+        "non_positive_hex_volume"
+      ],
+      "node_count": 173266,
+      "cell_count": 168960,
+      "face_count": 511104,
+      "internal_face_count": 502656,
+      "boundary_face_counts": {
+        "wing_upper": 1536,
+        "wing_lower": 1504,
+        "tip_left": 576,
+        "tip_right": 576,
+        "te_wall": 28,
+        "closure_wall": 4,
+        "farfield": 4224
+      },
+      "first_layer_height_m": 5e-05,
+      "radial_layer_distribution_m": [
+        0.0,
+        5e-05,
+        0.000106,
+        0.00016872000000000002,
+        0.00023896640000000004,
+        0.0003176423680000001,
+        0.0004057594521600001,
+        0.0005044505864192001,
+        0.0006149846567895042,
+        0.0007387828156042448,
+        0.0008774367534767543,
+        0.0010327291638939648,
+        0.0012066566635612406,
+        0.0014014554631885897,
+        0.0016196301187712207,
+        0.0018639857330237674,
+        0.0021376640209866196,
+        0.002444183703505014,
+        0.002787485747925616,
+        0.0031719840376766904,
+        0.0036026221221978935,
+        0.004305605439118572,
+        0.005453171252806996,
+        0.0073264835563121595,
+        0.010384520790084818,
+        0.0153765297069334,
+        0.023525597596192587,
+        0.036828319720671,
+        0.05854398319603993,
+        0.09399312178307645,
+        0.15186109473210802,
+        0.24632607827488,
+        0.4005328469065696,
+        0.6522634522589796,
+        1.063194167125594,
+        1.734006729564657,
+        2.8290562784213926,
+        4.616639847356523,
+        7.534731562259294,
+        12.29829025935381,
+        20.074430860000035
+      ],
+      "volume_percentiles": {
+        "min": -1.4218089475855606,
+        "p05": 1.27923780329446e-09,
+        "p50": 2.4081556794444233e-06,
+        "p95": 0.4390735530246003,
+        "max": 23.459023087053062
+      },
+      "aspect_ratio_proxy_percentiles": {
+        "min": 1.1421544875002878,
+        "p05": 3.531017526254968,
+        "p50": 269.0295158681335,
+        "p95": 25162.794003012248,
+        "max": 206207.9302058359
+      },
+      "min_signed_volume": -1.4218089475855606,
+      "max_signed_volume": 23.459023087053062,
+      "non_positive_volume_count": 603,
+      "duplicate_point_count": 0,
+      "nonmanifold_face_count": 0,
+      "unmarked_boundary_face_count": 0,
+      "missing_boundary_patch_count": 0,
+      "surface_metadata": {
+        "route": "wo006_structured_hexa_body_surface",
+        "station_count": 33,
+        "n_span": 32,
+        "n_perimeter": 96,
+        "tip_cap_side_subdivisions": 24,
+        "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+        "closure_section_indices": [
+          6,
+          7,
+          24,
+          25
+        ],
+        "source": {
+          "type": "current_go_production_inspection_section_table",
+          "candidate_id": "current_avl_compromise_conservative_closed",
+          "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+          "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+          "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+          "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+          "moment_origin_m": [
+            0.246276512,
+            0.0,
+            0.0
+          ],
+          "design_gross_mass_kg": 98.5,
+          "base_half_station_count": 9,
+          "full_span_m": 34.332286,
+          "half_span_m": 17.166143,
+          "manifest_schema": "phase7_sidecar_vsp_geometry_manifest_v2",
+          "incidence_mode": "cruise_alpha_zero",
+          "incidence_offset_deg_added_to_all_sections": 0.18015
+        },
+        "orientation": "outward_consistent",
+        "orientation_flip_count": 94796
+      }
+    },
+    "commands": {}
+  },
+  "verification_case": {},
+  "debug_attempts": [
+    {
+      "case_id": "debug_attempt_01_normal_smooth4_far20",
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_01_normal_smooth4_far20",
+      "case_status": "custom_mesh_quality_failed",
+      "config": {
+        "case_id": "debug_attempt_01_normal_smooth4_far20",
+        "n_span": 32,
+        "n_perimeter": 96,
+        "radial_layers": 40,
+        "near_wall_layers": 20,
+        "first_layer_height_m": 5e-05,
+        "near_wall_growth": 1.12,
+        "farfield_chords": 20.0,
+        "normal_smoothing_iterations": 4,
+        "outer_mapping": "normal"
+      },
+      "mesh": {
+        "status": "fail",
+        "blockers": [
+          "non_positive_hex_volume"
+        ],
+        "node_count": 173266,
+        "cell_count": 168960,
+        "face_count": 511104,
+        "internal_face_count": 502656,
+        "boundary_face_counts": {
+          "wing_upper": 1536,
+          "wing_lower": 1504,
+          "tip_left": 576,
+          "tip_right": 576,
+          "te_wall": 28,
+          "closure_wall": 4,
+          "farfield": 4224
+        },
+        "first_layer_height_m": 5e-05,
+        "radial_layer_distribution_m": [
+          0.0,
+          5e-05,
+          0.000106,
+          0.00016872000000000002,
+          0.00023896640000000004,
+          0.0003176423680000001,
+          0.0004057594521600001,
+          0.0005044505864192001,
+          0.0006149846567895042,
+          0.0007387828156042448,
+          0.0008774367534767543,
+          0.0010327291638939648,
+          0.0012066566635612406,
+          0.0014014554631885897,
+          0.0016196301187712207,
+          0.0018639857330237674,
+          0.0021376640209866196,
+          0.002444183703505014,
+          0.002787485747925616,
+          0.0031719840376766904,
+          0.0036026221221978935,
+          0.004305605439118572,
+          0.005453171252806996,
+          0.0073264835563121595,
+          0.010384520790084818,
+          0.0153765297069334,
+          0.023525597596192587,
+          0.036828319720671,
+          0.05854398319603993,
+          0.09399312178307645,
+          0.15186109473210802,
+          0.24632607827488,
+          0.4005328469065696,
+          0.6522634522589796,
+          1.063194167125594,
+          1.734006729564657,
+          2.8290562784213926,
+          4.616639847356523,
+          7.534731562259294,
+          12.29829025935381,
+          20.074430860000035
+        ],
+        "volume_percentiles": {
+          "min": -0.6106452462768761,
+          "p05": 3.5040288532838057e-09,
+          "p50": 6.3544454560850695e-06,
+          "p95": 0.3861736675417847,
+          "max": 683.4212117276468
+        },
+        "aspect_ratio_proxy_percentiles": {
+          "min": 1.0250519998697807,
+          "p05": 4.377209544888006,
+          "p50": 230.74112697181846,
+          "p95": 17866.30384698851,
+          "max": 32709.42941705999
+        },
+        "min_signed_volume": -0.6106452462768761,
+        "max_signed_volume": 683.4212117276468,
+        "non_positive_volume_count": 496,
+        "duplicate_point_count": 0,
+        "nonmanifold_face_count": 0,
+        "unmarked_boundary_face_count": 0,
+        "missing_boundary_patch_count": 0,
+        "surface_metadata": {
+          "route": "wo006_structured_hexa_body_surface",
+          "station_count": 33,
+          "n_span": 32,
+          "n_perimeter": 96,
+          "tip_cap_side_subdivisions": 24,
+          "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+          "closure_section_indices": [
+            6,
+            7,
+            24,
+            25
+          ],
+          "source": {
+            "type": "current_go_production_inspection_section_table",
+            "candidate_id": "current_avl_compromise_conservative_closed",
+            "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+            "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+            "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+            "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+            "moment_origin_m": [
+              0.246276512,
+              0.0,
+              0.0
+            ],
+            "design_gross_mass_kg": 98.5,
+            "base_half_station_count": 9,
+            "full_span_m": 34.332286,
+            "half_span_m": 17.166143,
+            "manifest_schema": "phase7_sidecar_vsp_geometry_manifest_v2",
+            "incidence_mode": "cruise_alpha_zero",
+            "incidence_offset_deg_added_to_all_sections": 0.18015
+          },
+          "orientation": "outward_consistent",
+          "orientation_flip_count": 87339
+        }
+      },
+      "commands": {}
+    },
+    {
+      "case_id": "debug_attempt_02_normal_smooth0_far20",
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_02_normal_smooth0_far20",
+      "case_status": "custom_mesh_quality_failed",
+      "config": {
+        "case_id": "debug_attempt_02_normal_smooth0_far20",
+        "n_span": 32,
+        "n_perimeter": 96,
+        "radial_layers": 40,
+        "near_wall_layers": 20,
+        "first_layer_height_m": 5e-05,
+        "near_wall_growth": 1.12,
+        "farfield_chords": 20.0,
+        "normal_smoothing_iterations": 0,
+        "outer_mapping": "normal"
+      },
+      "mesh": {
+        "status": "fail",
+        "blockers": [
+          "non_positive_hex_volume"
+        ],
+        "node_count": 173266,
+        "cell_count": 168960,
+        "face_count": 511104,
+        "internal_face_count": 502656,
+        "boundary_face_counts": {
+          "wing_upper": 1536,
+          "wing_lower": 1504,
+          "tip_left": 576,
+          "tip_right": 576,
+          "te_wall": 28,
+          "closure_wall": 4,
+          "farfield": 4224
+        },
+        "first_layer_height_m": 5e-05,
+        "radial_layer_distribution_m": [
+          0.0,
+          5e-05,
+          0.000106,
+          0.00016872000000000002,
+          0.00023896640000000004,
+          0.0003176423680000001,
+          0.0004057594521600001,
+          0.0005044505864192001,
+          0.0006149846567895042,
+          0.0007387828156042448,
+          0.0008774367534767543,
+          0.0010327291638939648,
+          0.0012066566635612406,
+          0.0014014554631885897,
+          0.0016196301187712207,
+          0.0018639857330237674,
+          0.0021376640209866196,
+          0.002444183703505014,
+          0.002787485747925616,
+          0.0031719840376766904,
+          0.0036026221221978935,
+          0.004305605439118572,
+          0.005453171252806996,
+          0.0073264835563121595,
+          0.010384520790084818,
+          0.0153765297069334,
+          0.023525597596192587,
+          0.036828319720671,
+          0.05854398319603993,
+          0.09399312178307645,
+          0.15186109473210802,
+          0.24632607827488,
+          0.4005328469065696,
+          0.6522634522589796,
+          1.063194167125594,
+          1.734006729564657,
+          2.8290562784213926,
+          4.616639847356523,
+          7.534731562259294,
+          12.29829025935381,
+          20.074430860000035
+        ],
+        "volume_percentiles": {
+          "min": -0.8051629532479276,
+          "p05": 3.470792707600574e-09,
+          "p50": 5.763920091198578e-06,
+          "p95": 0.2462606603422143,
+          "max": 1894.167016261035
+        },
+        "aspect_ratio_proxy_percentiles": {
+          "min": 1.0096886344268654,
+          "p05": 5.58079569146411,
+          "p50": 248.28343286813845,
+          "p95": 18544.356910697006,
+          "max": 32709.426371707752
+        },
+        "min_signed_volume": -0.8051629532479276,
+        "max_signed_volume": 1894.167016261035,
+        "non_positive_volume_count": 458,
+        "duplicate_point_count": 0,
+        "nonmanifold_face_count": 0,
+        "unmarked_boundary_face_count": 0,
+        "missing_boundary_patch_count": 0,
+        "surface_metadata": {
+          "route": "wo006_structured_hexa_body_surface",
+          "station_count": 33,
+          "n_span": 32,
+          "n_perimeter": 96,
+          "tip_cap_side_subdivisions": 24,
+          "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+          "closure_section_indices": [
+            6,
+            7,
+            24,
+            25
+          ],
+          "source": {
+            "type": "current_go_production_inspection_section_table",
+            "candidate_id": "current_avl_compromise_conservative_closed",
+            "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+            "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+            "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+            "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+            "moment_origin_m": [
+              0.246276512,
+              0.0,
+              0.0
+            ],
+            "design_gross_mass_kg": 98.5,
+            "base_half_station_count": 9,
+            "full_span_m": 34.332286,
+            "half_span_m": 17.166143,
+            "manifest_schema": "phase7_sidecar_vsp_geometry_manifest_v2",
+            "incidence_mode": "cruise_alpha_zero",
+            "incidence_offset_deg_added_to_all_sections": 0.18015
+          },
+          "orientation": "outward_consistent",
+          "orientation_flip_count": 87395
+        }
+      },
+      "commands": {}
+    },
+    {
+      "case_id": "debug_attempt_03_normal_smooth8_far20",
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_03_normal_smooth8_far20",
+      "case_status": "custom_mesh_quality_failed",
+      "config": {
+        "case_id": "debug_attempt_03_normal_smooth8_far20",
+        "n_span": 32,
+        "n_perimeter": 96,
+        "radial_layers": 40,
+        "near_wall_layers": 20,
+        "first_layer_height_m": 5e-05,
+        "near_wall_growth": 1.12,
+        "farfield_chords": 20.0,
+        "normal_smoothing_iterations": 8,
+        "outer_mapping": "normal"
+      },
+      "mesh": {
+        "status": "fail",
+        "blockers": [
+          "non_positive_hex_volume"
+        ],
+        "node_count": 173266,
+        "cell_count": 168960,
+        "face_count": 511104,
+        "internal_face_count": 502656,
+        "boundary_face_counts": {
+          "wing_upper": 1536,
+          "wing_lower": 1504,
+          "tip_left": 576,
+          "tip_right": 576,
+          "te_wall": 28,
+          "closure_wall": 4,
+          "farfield": 4224
+        },
+        "first_layer_height_m": 5e-05,
+        "radial_layer_distribution_m": [
+          0.0,
+          5e-05,
+          0.000106,
+          0.00016872000000000002,
+          0.00023896640000000004,
+          0.0003176423680000001,
+          0.0004057594521600001,
+          0.0005044505864192001,
+          0.0006149846567895042,
+          0.0007387828156042448,
+          0.0008774367534767543,
+          0.0010327291638939648,
+          0.0012066566635612406,
+          0.0014014554631885897,
+          0.0016196301187712207,
+          0.0018639857330237674,
+          0.0021376640209866196,
+          0.002444183703505014,
+          0.002787485747925616,
+          0.0031719840376766904,
+          0.0036026221221978935,
+          0.004305605439118572,
+          0.005453171252806996,
+          0.0073264835563121595,
+          0.010384520790084818,
+          0.0153765297069334,
+          0.023525597596192587,
+          0.036828319720671,
+          0.05854398319603993,
+          0.09399312178307645,
+          0.15186109473210802,
+          0.24632607827488,
+          0.4005328469065696,
+          0.6522634522589796,
+          1.063194167125594,
+          1.734006729564657,
+          2.8290562784213926,
+          4.616639847356523,
+          7.534731562259294,
+          12.29829025935381,
+          20.074430860000035
+        ],
+        "volume_percentiles": {
+          "min": -0.5328655666666671,
+          "p05": 3.613730162462091e-09,
+          "p50": 6.516897093807788e-06,
+          "p95": 0.46095961547348435,
+          "max": 334.5078260733943
+        },
+        "aspect_ratio_proxy_percentiles": {
+          "min": 1.0248126084528077,
+          "p05": 4.038987092000869,
+          "p50": 215.48072238157044,
+          "p95": 17866.28415222075,
+          "max": 32709.43222839059
+        },
+        "min_signed_volume": -0.5328655666666671,
+        "max_signed_volume": 334.5078260733943,
+        "non_positive_volume_count": 551,
+        "duplicate_point_count": 0,
+        "nonmanifold_face_count": 0,
+        "unmarked_boundary_face_count": 0,
+        "missing_boundary_patch_count": 0,
+        "surface_metadata": {
+          "route": "wo006_structured_hexa_body_surface",
+          "station_count": 33,
+          "n_span": 32,
+          "n_perimeter": 96,
+          "tip_cap_side_subdivisions": 24,
+          "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+          "closure_section_indices": [
+            6,
+            7,
+            24,
+            25
+          ],
+          "source": {
+            "type": "current_go_production_inspection_section_table",
+            "candidate_id": "current_avl_compromise_conservative_closed",
+            "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+            "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+            "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+            "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+            "moment_origin_m": [
+              0.246276512,
+              0.0,
+              0.0
+            ],
+            "design_gross_mass_kg": 98.5,
+            "base_half_station_count": 9,
+            "full_span_m": 34.332286,
+            "half_span_m": 17.166143,
+            "manifest_schema": "phase7_sidecar_vsp_geometry_manifest_v2",
+            "incidence_mode": "cruise_alpha_zero",
+            "incidence_offset_deg_added_to_all_sections": 0.18015
+          },
+          "orientation": "outward_consistent",
+          "orientation_flip_count": 86866
+        }
+      },
+      "commands": {}
+    },
+    {
+      "case_id": "debug_attempt_04_generic_radial_smooth2_far20",
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_04_generic_radial_smooth2_far20",
+      "config": {
+        "case_id": "debug_attempt_04_generic_radial_smooth2_far20",
+        "n_span": 32,
+        "n_perimeter": 96,
+        "radial_layers": 40,
+        "near_wall_layers": 20,
+        "first_layer_height_m": 5e-05,
+        "near_wall_growth": 1.12,
+        "farfield_chords": 20.0,
+        "normal_smoothing_iterations": 2,
+        "outer_mapping": "generic_radial"
+      },
+      "mesh": {
+        "status": "pass",
+        "blockers": [],
+        "node_count": 173266,
+        "cell_count": 168960,
+        "face_count": 511104,
+        "internal_face_count": 502656,
+        "boundary_face_counts": {
+          "wing_upper": 1536,
+          "wing_lower": 1504,
+          "tip_left": 576,
+          "tip_right": 576,
+          "te_wall": 28,
+          "closure_wall": 4,
+          "farfield": 4224
+        },
+        "first_layer_height_m": 5e-05,
+        "radial_layer_distribution_m": [
+          0.0,
+          5e-05,
+          0.000106,
+          0.00016872000000000002,
+          0.00023896640000000004,
+          0.0003176423680000001,
+          0.0004057594521600001,
+          0.0005044505864192001,
+          0.0006149846567895042,
+          0.0007387828156042448,
+          0.0008774367534767543,
+          0.0010327291638939648,
+          0.0012066566635612406,
+          0.0014014554631885897,
+          0.0016196301187712207,
+          0.0018639857330237674,
+          0.0021376640209866196,
+          0.002444183703505014,
+          0.002787485747925616,
+          0.0031719840376766904,
+          0.0036026221221978935,
+          0.004305605439118572,
+          0.005453171252806996,
+          0.0073264835563121595,
+          0.010384520790084818,
+          0.0153765297069334,
+          0.023525597596192587,
+          0.036828319720671,
+          0.05854398319603993,
+          0.09399312178307645,
+          0.15186109473210802,
+          0.24632607827488,
+          0.4005328469065696,
+          0.6522634522589796,
+          1.063194167125594,
+          1.734006729564657,
+          2.8290562784213926,
+          4.616639847356523,
+          7.534731562259294,
+          12.29829025935381,
+          20.074430860000035
+        ],
+        "volume_percentiles": {
+          "min": 9.594080383788377e-13,
+          "p05": 2.8623705775825932e-09,
+          "p50": 1.8478978752189476e-06,
+          "p95": 0.008093724161661426,
+          "max": 37.36901500882996
+        },
+        "aspect_ratio_proxy_percentiles": {
+          "min": 1.0075083384598544,
+          "p05": 6.531206209952995,
+          "p50": 278.9117697370385,
+          "p95": 18547.446573400415,
+          "max": 95581.27766184352
+        },
+        "min_signed_volume": 9.594080383788377e-13,
+        "max_signed_volume": 37.36901500882996,
+        "non_positive_volume_count": 0,
+        "duplicate_point_count": 0,
+        "nonmanifold_face_count": 0,
+        "unmarked_boundary_face_count": 0,
+        "missing_boundary_patch_count": 0,
+        "surface_metadata": {
+          "route": "wo006_structured_hexa_body_surface",
+          "station_count": 33,
+          "n_span": 32,
+          "n_perimeter": 96,
+          "tip_cap_side_subdivisions": 24,
+          "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+          "closure_section_indices": [
+            6,
+            7,
+            24,
+            25
+          ],
+          "source": {
+            "type": "current_go_production_inspection_section_table",
+            "candidate_id": "current_avl_compromise_conservative_closed",
+            "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+            "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+            "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+            "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+            "moment_origin_m": [
+              0.246276512,
+              0.0,
+              0.0
+            ],
+            "design_gross_mass_kg": 98.5,
+            "base_half_station_count": 9,
+            "full_span_m": 34.332286,
+            "half_span_m": 17.166143,
+            "manifest_schema": "phase7_sidecar_vsp_geometry_manifest_v2",
+            "incidence_mode": "cruise_alpha_zero",
+            "incidence_offset_deg_added_to_all_sections": 0.18015
+          },
+          "orientation": "outward_consistent",
+          "orientation_flip_count": 84873
+        }
+      },
+      "execution_dir_without_spaces": "/tmp/hpa_mdo_structured_hexa_openfoam/debug_attempt_04_generic_radial_smooth2_far20",
+      "commands": {
+        "checkMesh": {
+          "command": "checkMesh -meshQuality",
+          "returncode": 0,
+          "timed_out": false,
+          "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_04_generic_radial_smooth2_far20/log.checkMesh",
+          "execution_log": "/tmp/hpa_mdo_structured_hexa_openfoam/debug_attempt_04_generic_radial_smooth2_far20/log.checkMesh"
+        }
+      },
+      "checkMesh": {
+        "status": "fail",
+        "quality_basis": "failed_checkmesh",
+        "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_04_generic_radial_smooth2_far20/log.checkMesh",
+        "counts": {
+          "points": 173266,
+          "faces": 511104,
+          "internal_faces": 502656,
+          "cells": 168960
+        },
+        "max_skewness": 1094.86,
+        "highly_skew_faces": 8732,
+        "custom_mesh_quality_error_count": 427185,
+        "custom_mesh_quality_errors": {
+          "non-orthogonality > 65  degrees": 292875,
+          "faces with face pyramid volume < 1e-13": 62,
+          "faces with face-decomposition tet quality < 1e-15": 78496,
+          "faces with concavity > 80  degrees": 0,
+          "faces with skewness > 7   (internal) or 20  (boundary)": 304,
+          "faces with interpolation weights (0..1)  < 0.02": 180,
+          "faces with volume ratio of neighbour cells < 0.01": 0,
+          "faces with face twist < 0.02": 80,
+          "faces on cells with determinant < 0.001": 55188
+        },
+        "summary_lines": [
+          "Checking topology...",
+          "Checking geometry...",
+          "  <<Writing 2674 cells with high aspect ratio to set highAspectRatioCells",
+          "    Mesh non-orthogonality Max: 169.933 average: 61.2204",
+          " ***Number of non-orthogonality errors: 10367.",
+          " ***Max skewness = 1094.86, 8732 highly skew faces detected which may impair the quality of the results",
+          "Checking faces in error :",
+          "    non-orthogonality > 65  degrees                        : 292875",
+          "    faces with skewness > 7   (internal) or 20  (boundary) : 304",
+          "Failed 8 mesh checks."
+        ],
+        "boundary_patches": {
+          "status": "available",
+          "path": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_04_generic_radial_smooth2_far20/constant/polyMesh/boundary",
+          "patches": {
+            "FoamFile": {
+              "type": null,
+              "nFaces": null,
+              "startFace": null
+            },
+            "wing_upper": {
+              "type": "wall",
+              "nFaces": 1536,
+              "startFace": 502656
+            },
+            "wing_lower": {
+              "type": "wall",
+              "nFaces": 1504,
+              "startFace": 504192
+            },
+            "tip_left": {
+              "type": "wall",
+              "nFaces": 576,
+              "startFace": 505696
+            },
+            "tip_right": {
+              "type": "wall",
+              "nFaces": 576,
+              "startFace": 506272
+            },
+            "te_wall": {
+              "type": "wall",
+              "nFaces": 28,
+              "startFace": 506848
+            },
+            "closure_wall": {
+              "type": "wall",
+              "nFaces": 4,
+              "startFace": 506876
+            },
+            "farfield": {
+              "type": "patch",
+              "nFaces": 4224,
+              "startFace": 506880
+            }
+          }
+        }
+      },
+      "forces": {
+        "functions": {
+          "primary": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "rows": []
+          },
+          "total": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "rows": []
+          },
+          "tip_left": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "rows": []
+          },
+          "tip_right": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "rows": []
+          },
+          "te_wall": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "rows": []
+          },
+          "closure_wall": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "rows": []
+          }
+        },
+        "summary": {
+          "CD_primary": null,
+          "CL_primary": null,
+          "CD_tip_left": null,
+          "CD_tip_right": null,
+          "CD_te_wall": null,
+          "CD_closure_wall": null,
+          "CD_total": null,
+          "CL_total": null,
+          "CD_diagnostic_sum": null
+        }
+      },
+      "pressure_viscous_split": {
+        "status": "missing",
+        "note": "OpenFOAM forces pressure/viscous columns, not forceCoeffs front/rear Cd(f)/Cd(r).",
+        "functions": {
+          "primary": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "split": null
+          },
+          "total": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "split": null
+          },
+          "tip_left": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "split": null
+          },
+          "tip_right": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "split": null
+          },
+          "te_wall": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "split": null
+          },
+          "closure_wall": {
+            "status": "missing",
+            "row_count": 0,
+            "last": null,
+            "split": null
+          }
+        },
+        "primary": null,
+        "total": null
+      },
+      "yPlus": {
+        "status": "missing",
+        "row_count": 0,
+        "patches": {}
+      },
+      "force_stability_final_window": {
+        "status": "missing_force_history"
+      },
+      "case_status": "checkmesh_failed"
+    },
+    {
+      "case_id": "debug_attempt_05_generic_radial_smooth4_far20",
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_05_generic_radial_smooth4_far20",
+      "case_status": "custom_mesh_quality_failed",
+      "config": {
+        "case_id": "debug_attempt_05_generic_radial_smooth4_far20",
+        "n_span": 32,
+        "n_perimeter": 96,
+        "radial_layers": 40,
+        "near_wall_layers": 20,
+        "first_layer_height_m": 5e-05,
+        "near_wall_growth": 1.12,
+        "farfield_chords": 20.0,
+        "normal_smoothing_iterations": 4,
+        "outer_mapping": "generic_radial"
+      },
+      "mesh": {
+        "status": "fail",
+        "blockers": [
+          "non_positive_hex_volume"
+        ],
+        "node_count": 173266,
+        "cell_count": 168960,
+        "face_count": 511104,
+        "internal_face_count": 502656,
+        "boundary_face_counts": {
+          "wing_upper": 1536,
+          "wing_lower": 1504,
+          "tip_left": 576,
+          "tip_right": 576,
+          "te_wall": 28,
+          "closure_wall": 4,
+          "farfield": 4224
+        },
+        "first_layer_height_m": 5e-05,
+        "radial_layer_distribution_m": [
+          0.0,
+          5e-05,
+          0.000106,
+          0.00016872000000000002,
+          0.00023896640000000004,
+          0.0003176423680000001,
+          0.0004057594521600001,
+          0.0005044505864192001,
+          0.0006149846567895042,
+          0.0007387828156042448,
+          0.0008774367534767543,
+          0.0010327291638939648,
+          0.0012066566635612406,
+          0.0014014554631885897,
+          0.0016196301187712207,
+          0.0018639857330237674,
+          0.0021376640209866196,
+          0.002444183703505014,
+          0.002787485747925616,
+          0.0031719840376766904,
+          0.0036026221221978935,
+          0.004305605439118572,
+          0.005453171252806996,
+          0.0073264835563121595,
+          0.010384520790084818,
+          0.0153765297069334,
+          0.023525597596192587,
+          0.036828319720671,
+          0.05854398319603993,
+          0.09399312178307645,
+          0.15186109473210802,
+          0.24632607827488,
+          0.4005328469065696,
+          0.6522634522589796,
+          1.063194167125594,
+          1.734006729564657,
+          2.8290562784213926,
+          4.616639847356523,
+          7.534731562259294,
+          12.29829025935381,
+          20.074430860000035
+        ],
+        "volume_percentiles": {
+          "min": -0.006130265399304599,
+          "p05": 2.927185116075091e-09,
+          "p50": 1.8503241300339554e-06,
+          "p95": 0.008252685511287688,
+          "max": 37.36901492771428
+        },
+        "aspect_ratio_proxy_percentiles": {
+          "min": 1.0055160400257088,
+          "p05": 6.538779670921607,
+          "p50": 279.8201952507374,
+          "p95": 18547.446442632983,
+          "max": 79504.06794821222
+        },
+        "min_signed_volume": -0.006130265399304599,
+        "max_signed_volume": 37.36901492771428,
+        "non_positive_volume_count": 3,
+        "duplicate_point_count": 0,
+        "nonmanifold_face_count": 0,
+        "unmarked_boundary_face_count": 0,
+        "missing_boundary_patch_count": 0,
+        "surface_metadata": {
+          "route": "wo006_structured_hexa_body_surface",
+          "station_count": 33,
+          "n_span": 32,
+          "n_perimeter": 96,
+          "tip_cap_side_subdivisions": 24,
+          "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+          "closure_section_indices": [
+            6,
+            7,
+            24,
+            25
+          ],
+          "source": {
+            "type": "current_go_production_inspection_section_table",
+            "candidate_id": "current_avl_compromise_conservative_closed",
+            "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+            "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+            "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+            "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+            "moment_origin_m": [
+              0.246276512,
+              0.0,
+              0.0
+            ],
+            "design_gross_mass_kg": 98.5,
+            "base_half_station_count": 9,
+            "full_span_m": 34.332286,
+            "half_span_m": 17.166143,
+            "manifest_schema": "phase7_sidecar_vsp_geometry_manifest_v2",
+            "incidence_mode": "cruise_alpha_zero",
+            "incidence_offset_deg_added_to_all_sections": 0.18015
+          },
+          "orientation": "outward_consistent",
+          "orientation_flip_count": 85045
+        }
+      },
+      "commands": {}
+    },
+    {
+      "case_id": "debug_attempt_06_section_scaled_far20",
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/openfoam_cases/debug_attempt_06_section_scaled_far20",
+      "case_status": "custom_mesh_quality_failed",
+      "config": {
+        "case_id": "debug_attempt_06_section_scaled_far20",
+        "n_span": 32,
+        "n_perimeter": 96,
+        "radial_layers": 40,
+        "near_wall_layers": 20,
+        "first_layer_height_m": 5e-05,
+        "near_wall_growth": 1.12,
+        "farfield_chords": 20.0,
+        "normal_smoothing_iterations": 4,
+        "outer_mapping": "section_scaled"
+      },
+      "mesh": {
+        "status": "fail",
+        "blockers": [
+          "non_positive_hex_volume"
+        ],
+        "node_count": 173266,
+        "cell_count": 168960,
+        "face_count": 511104,
+        "internal_face_count": 502656,
+        "boundary_face_counts": {
+          "wing_upper": 1536,
+          "wing_lower": 1504,
+          "tip_left": 576,
+          "tip_right": 576,
+          "te_wall": 28,
+          "closure_wall": 4,
+          "farfield": 4224
+        },
+        "first_layer_height_m": 5e-05,
+        "radial_layer_distribution_m": [
+          0.0,
+          5e-05,
+          0.000106,
+          0.00016872000000000002,
+          0.00023896640000000004,
+          0.0003176423680000001,
+          0.0004057594521600001,
+          0.0005044505864192001,
+          0.0006149846567895042,
+          0.0007387828156042448,
+          0.0008774367534767543,
+          0.0010327291638939648,
+          0.0012066566635612406,
+          0.0014014554631885897,
+          0.0016196301187712207,
+          0.0018639857330237674,
+          0.0021376640209866196,
+          0.002444183703505014,
+          0.002787485747925616,
+          0.0031719840376766904,
+          0.0036026221221978935,
+          0.004305605439118572,
+          0.005453171252806996,
+          0.0073264835563121595,
+          0.010384520790084818,
+          0.0153765297069334,
+          0.023525597596192587,
+          0.036828319720671,
+          0.05854398319603993,
+          0.09399312178307645,
+          0.15186109473210802,
+          0.24632607827488,
+          0.4005328469065696,
+          0.6522634522589796,
+          1.063194167125594,
+          1.734006729564657,
+          2.8290562784213926,
+          4.616639847356523,
+          7.534731562259294,
+          12.29829025935381,
+          20.074430860000035
+        ],
+        "volume_percentiles": {
+          "min": -1.4218089475855606,
+          "p05": 1.27923780329446e-09,
+          "p50": 2.4081556794444233e-06,
+          "p95": 0.4390735530246003,
+          "max": 23.459023087053062
+        },
+        "aspect_ratio_proxy_percentiles": {
+          "min": 1.1421544875002878,
+          "p05": 3.531017526254968,
+          "p50": 269.0295158681335,
+          "p95": 25162.794003012248,
+          "max": 206207.9302058359
+        },
+        "min_signed_volume": -1.4218089475855606,
+        "max_signed_volume": 23.459023087053062,
+        "non_positive_volume_count": 603,
+        "duplicate_point_count": 0,
+        "nonmanifold_face_count": 0,
+        "unmarked_boundary_face_count": 0,
+        "missing_boundary_patch_count": 0,
+        "surface_metadata": {
+          "route": "wo006_structured_hexa_body_surface",
+          "station_count": 33,
+          "n_span": 32,
+          "n_perimeter": 96,
+          "tip_cap_side_subdivisions": 24,
+          "tip_cap_topology": "coons_square_to_airfoil_quad_disk",
+          "closure_section_indices": [
+            6,
+            7,
+            24,
+            25
+          ],
+          "source": {
+            "type": "current_go_production_inspection_section_table",
+            "candidate_id": "current_avl_compromise_conservative_closed",
+            "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+            "geometry_manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+            "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+            "source_avl_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/current_avl_compromise_conservative_closed_tier2_airfoil/runs/conservative_best/conservative_best_loaded_shape_airfoils.avl",
+            "moment_origin_m": [
+              0.246276512,
+              0.0,
+              0.0
+            ],
+            "design_gross_mass_kg": 98.5,
+            "base_half_station_count": 9,
+            "full_span_m": 34.332286,
+            "half_span_m": 17.166143,
+            "manifest_schema": "phase7_sidecar_vsp_geometry_manifest_v2",
+            "incidence_mode": "cruise_alpha_zero",
+            "incidence_offset_deg_added_to_all_sections": 0.18015
+          },
+          "orientation": "outward_consistent",
+          "orientation_flip_count": 94796
+        }
+      },
+      "commands": {}
+    }
+  ],
+  "verdict": {
+    "status": "hard_blocked",
+    "reason": "debug_mesh_or_solver_gate_failed",
+    "valid_mesh_generated": false,
+    "checkMesh_passed": false,
+    "solver_ran": false,
+    "engineering_boundary": "This is a hard structured-route blocker, not CFD drag truth. The verdict does not authorize returning to snappy/cfMesh/Gmsh/TetGen/core-fill routes."
+  }
+}
