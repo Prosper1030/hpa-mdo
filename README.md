@@ -1,5 +1,31 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-17 WO-006 Swept Section O-Grid Structured-Hexa Blocker
+
+New bounded artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_swept_cgrid_structured_hexa/`.
+The new route uses `scripts/run_wo006_swept_cgrid_structured_hexa.py` and the
+`scripts/cfd_rescue/` helpers to build station-wise 2D O-grids from the true
+Baseline A `dae31` and `cst_tip` airfoils, then sweep matching section grids
+bay-by-bay. It explicitly avoids snappyHexMesh, cfMesh, Gmsh/TetGen/meshpy,
+NACA0012 placeholders, and the old single global inflated-body mapping.
+
+Result: adaptive full-span geometry needs `78` span cells under the current
+twist/chord/z/morph thresholds, so the previous `n_span≈5200` claim is not
+supported by this geometry-change analysis. However, the route hard-stops at the
+true-airfoil section checkMesh gate: the 192-perimeter / 64-radial root DAE31,
+cst-tip, and morph section extrusions have no custom negative volume, but
+OpenFOAM rejects them for sharp-TE / near-wall O-grid quality. Root DAE31
+reaches max skewness `19010.2` and max non-orthogonality `179.918 deg`; cst-tip
+still reaches max skewness `22.3157` and max non-orthogonality `154.64 deg`.
+
+Engineering verdict: the prior failure should not be explained by high
+span/chord aspect ratio alone, but this O-grid section topology is still not a
+checkMesh-clean Baseline A CFD route. Do not proceed to full wing, simpleFoam,
+or AoA/CD comparison from this bundle. The next single action is to replace the
+sharp-TE O-grid section treatment with a real TE/wake C-grid or equivalent
+multi-block TE collar before repeating bay and full-wing checks.
+
 ## 2026-05-15 WO-006 Structured-Hexa CFD Route Verdict
 
 New bounded structured-hexa artifact:

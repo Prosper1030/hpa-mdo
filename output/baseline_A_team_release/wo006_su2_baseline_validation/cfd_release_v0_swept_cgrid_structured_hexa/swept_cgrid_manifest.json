@@ -1,0 +1,1208 @@
+{
+  "adaptive_station_report": {
+    "adaptive_station_count_full": 79,
+    "adaptive_station_count_half": 40,
+    "authority_station_count_half": 9,
+    "bay_count": 78,
+    "max_abs_twist_delta_deg": 0.118164286,
+    "max_abs_z_delta_m": 0.07773282,
+    "max_airfoil_morph_step": 0.009541414,
+    "max_chord_ratio_delta": 0.024415393,
+    "max_section_surface_move_m": 0.916442976,
+    "rows": [
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 0,
+        "chord_ratio_delta": "0.018019786",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "0.019867000",
+        "y_left_m": "-17.166143000",
+        "y_right_m": "-16.951566250",
+        "z_delta_m": "-0.073302874"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 1,
+        "chord_ratio_delta": "0.017700821",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "0.019867000",
+        "y_left_m": "-16.951566250",
+        "y_right_m": "-16.736989500",
+        "z_delta_m": "-0.073302874"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 2,
+        "chord_ratio_delta": "0.017392951",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "0.019867000",
+        "y_left_m": "-16.736989500",
+        "y_right_m": "-16.522412750",
+        "z_delta_m": "-0.073302874"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 3,
+        "chord_ratio_delta": "0.017095608",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "0.019867000",
+        "y_left_m": "-16.522412750",
+        "y_right_m": "-16.307836000",
+        "z_delta_m": "-0.073302874"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 4,
+        "chord_ratio_delta": "0.013704733",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "0.049667000",
+        "y_left_m": "-16.307836000",
+        "y_right_m": "-16.093259250",
+        "z_delta_m": "-0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 5,
+        "chord_ratio_delta": "0.013519452",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "0.049667000",
+        "y_left_m": "-16.093259250",
+        "y_right_m": "-15.878682500",
+        "z_delta_m": "-0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 6,
+        "chord_ratio_delta": "0.013339115",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "0.049667000",
+        "y_left_m": "-15.878682500",
+        "y_right_m": "-15.664105750",
+        "z_delta_m": "-0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 7,
+        "chord_ratio_delta": "0.013163525",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "0.049667000",
+        "y_left_m": "-15.664105750",
+        "y_right_m": "-15.449529000",
+        "z_delta_m": "-0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 8,
+        "chord_ratio_delta": "0.015228584",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "0.063574000",
+        "y_left_m": "-15.449529000",
+        "y_right_m": "-15.174870600",
+        "z_delta_m": "-0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 9,
+        "chord_ratio_delta": "0.015000153",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "0.063574000",
+        "y_left_m": "-15.174870600",
+        "y_right_m": "-14.900212200",
+        "z_delta_m": "-0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 10,
+        "chord_ratio_delta": "0.014778474",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "0.063574000",
+        "y_left_m": "-14.900212200",
+        "y_right_m": "-14.625553800",
+        "z_delta_m": "-0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 11,
+        "chord_ratio_delta": "0.014563251",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "0.063574000",
+        "y_left_m": "-14.625553800",
+        "y_right_m": "-14.350895400",
+        "z_delta_m": "-0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 12,
+        "chord_ratio_delta": "0.014354207",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "0.063574000",
+        "y_left_m": "-14.350895400",
+        "y_right_m": "-14.076237000",
+        "z_delta_m": "-0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 13,
+        "chord_ratio_delta": "0.014054286",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302675000",
+        "twist_delta_deg": "0.085392857",
+        "y_left_m": "-14.076237000",
+        "y_right_m": "-13.781960286",
+        "z_delta_m": "-0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 14,
+        "chord_ratio_delta": "0.013859501",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302675621",
+        "twist_delta_deg": "0.085392857",
+        "y_left_m": "-13.781960286",
+        "y_right_m": "-13.487683571",
+        "z_delta_m": "-0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 15,
+        "chord_ratio_delta": "0.013670041",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302676241",
+        "twist_delta_deg": "0.085392857",
+        "y_left_m": "-13.487683571",
+        "y_right_m": "-13.193406857",
+        "z_delta_m": "-0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 16,
+        "chord_ratio_delta": "0.013485691",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302678581",
+        "twist_delta_deg": "0.085392857",
+        "y_left_m": "-13.193406857",
+        "y_right_m": "-12.899130143",
+        "z_delta_m": "-0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 17,
+        "chord_ratio_delta": "0.013306247",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302683969",
+        "twist_delta_deg": "0.085392857",
+        "y_left_m": "-12.899130143",
+        "y_right_m": "-12.604853429",
+        "z_delta_m": "-0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 18,
+        "chord_ratio_delta": "0.013131516",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302689358",
+        "twist_delta_deg": "0.085392857",
+        "y_left_m": "-12.604853429",
+        "y_right_m": "-12.310576714",
+        "z_delta_m": "-0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 19,
+        "chord_ratio_delta": "0.012961314",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302694749",
+        "twist_delta_deg": "0.085392857",
+        "y_left_m": "-12.310576714",
+        "y_right_m": "-12.016300000",
+        "z_delta_m": "-0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 20,
+        "chord_ratio_delta": "0.017929603",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "0.118164286",
+        "y_left_m": "-12.016300000",
+        "y_right_m": "-11.574884857",
+        "z_delta_m": "-0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 21,
+        "chord_ratio_delta": "0.017613795",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "0.118164286",
+        "y_left_m": "-11.574884857",
+        "y_right_m": "-11.133469714",
+        "z_delta_m": "-0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 22,
+        "chord_ratio_delta": "0.017308919",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "0.118164286",
+        "y_left_m": "-11.133469714",
+        "y_right_m": "-10.692054571",
+        "z_delta_m": "-0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 23,
+        "chord_ratio_delta": "0.017014418",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "0.118164286",
+        "y_left_m": "-10.692054571",
+        "y_right_m": "-10.250639429",
+        "z_delta_m": "-0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 24,
+        "chord_ratio_delta": "0.016729771",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "0.118164286",
+        "y_left_m": "-10.250639429",
+        "y_right_m": "-9.809224286",
+        "z_delta_m": "-0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 25,
+        "chord_ratio_delta": "0.016454491",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "0.118164286",
+        "y_left_m": "-9.809224286",
+        "y_right_m": "-9.367809143",
+        "z_delta_m": "-0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 26,
+        "chord_ratio_delta": "0.016188124",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "0.118164286",
+        "y_left_m": "-9.367809143",
+        "y_right_m": "-8.926394000",
+        "z_delta_m": "-0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 27,
+        "chord_ratio_delta": "0.019983330",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "0.078294000",
+        "y_left_m": "-8.926394000",
+        "y_right_m": "-8.342745200",
+        "z_delta_m": "-0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 28,
+        "chord_ratio_delta": "0.019591820",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "0.078294000",
+        "y_left_m": "-8.342745200",
+        "y_right_m": "-7.759096400",
+        "z_delta_m": "-0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 29,
+        "chord_ratio_delta": "0.019215356",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "0.078294000",
+        "y_left_m": "-7.759096400",
+        "y_right_m": "-7.175447600",
+        "z_delta_m": "-0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 30,
+        "chord_ratio_delta": "0.018853088",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "0.078294000",
+        "y_left_m": "-7.175447600",
+        "y_right_m": "-6.591798800",
+        "z_delta_m": "-0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 31,
+        "chord_ratio_delta": "0.018504226",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "0.078294000",
+        "y_left_m": "-6.591798800",
+        "y_right_m": "-6.008150000",
+        "z_delta_m": "-0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 32,
+        "chord_ratio_delta": "0.024415393",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "-0.025754250",
+        "y_left_m": "-6.008150000",
+        "y_right_m": "-5.192758250",
+        "z_delta_m": "-0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 33,
+        "chord_ratio_delta": "0.023833489",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "-0.025754250",
+        "y_left_m": "-5.192758250",
+        "y_right_m": "-4.377366500",
+        "z_delta_m": "-0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 34,
+        "chord_ratio_delta": "0.023278677",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "-0.025754250",
+        "y_left_m": "-4.377366500",
+        "y_right_m": "-3.561974750",
+        "z_delta_m": "-0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 35,
+        "chord_ratio_delta": "0.022749108",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "-0.025754250",
+        "y_left_m": "-3.561974750",
+        "y_right_m": "-2.746583000",
+        "z_delta_m": "-0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 36,
+        "chord_ratio_delta": "0.024243435",
+        "dy_m": "0.915527667",
+        "max_section_surface_move_m": "0.916442976",
+        "twist_delta_deg": "-0.108568667",
+        "y_left_m": "-2.746583000",
+        "y_right_m": "-1.831055333",
+        "z_delta_m": "-0.029497505"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 37,
+        "chord_ratio_delta": "0.023669602",
+        "dy_m": "0.915527667",
+        "max_section_surface_move_m": "0.916442976",
+        "twist_delta_deg": "-0.108568667",
+        "y_left_m": "-1.831055333",
+        "y_right_m": "-0.915527667",
+        "z_delta_m": "-0.029497505"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 38,
+        "chord_ratio_delta": "0.023122307",
+        "dy_m": "0.915527667",
+        "max_section_surface_move_m": "0.916442976",
+        "twist_delta_deg": "-0.108568667",
+        "y_left_m": "-0.915527667",
+        "y_right_m": "0.000000000",
+        "z_delta_m": "-0.029497505"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 39,
+        "chord_ratio_delta": "-0.022599748",
+        "dy_m": "0.915527667",
+        "max_section_surface_move_m": "0.916442976",
+        "twist_delta_deg": "0.108568667",
+        "y_left_m": "0.000000000",
+        "y_right_m": "0.915527667",
+        "z_delta_m": "0.029497505"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 40,
+        "chord_ratio_delta": "-0.023122307",
+        "dy_m": "0.915527667",
+        "max_section_surface_move_m": "0.916442976",
+        "twist_delta_deg": "0.108568667",
+        "y_left_m": "0.915527667",
+        "y_right_m": "1.831055333",
+        "z_delta_m": "0.029497505"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 41,
+        "chord_ratio_delta": "-0.023669602",
+        "dy_m": "0.915527667",
+        "max_section_surface_move_m": "0.916442976",
+        "twist_delta_deg": "0.108568667",
+        "y_left_m": "1.831055333",
+        "y_right_m": "2.746583000",
+        "z_delta_m": "0.029497505"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 42,
+        "chord_ratio_delta": "-0.022243098",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "0.025754250",
+        "y_left_m": "2.746583000",
+        "y_right_m": "3.561974750",
+        "z_delta_m": "0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 43,
+        "chord_ratio_delta": "-0.022749108",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "0.025754250",
+        "y_left_m": "3.561974750",
+        "y_right_m": "4.377366500",
+        "z_delta_m": "0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 44,
+        "chord_ratio_delta": "-0.023278677",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "0.025754250",
+        "y_left_m": "4.377366500",
+        "y_right_m": "5.192758250",
+        "z_delta_m": "0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 45,
+        "chord_ratio_delta": "-0.023833489",
+        "dy_m": "0.815391750",
+        "max_section_surface_move_m": "0.817619673",
+        "twist_delta_deg": "0.025754250",
+        "y_left_m": "5.192758250",
+        "y_right_m": "6.008150000",
+        "z_delta_m": "0.054397980"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 46,
+        "chord_ratio_delta": "-0.018168040",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "-0.078294000",
+        "y_left_m": "6.008150000",
+        "y_right_m": "6.591798800",
+        "z_delta_m": "0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 47,
+        "chord_ratio_delta": "-0.018504226",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "-0.078294000",
+        "y_left_m": "6.591798800",
+        "y_right_m": "7.175447600",
+        "z_delta_m": "0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 48,
+        "chord_ratio_delta": "-0.018853088",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "-0.078294000",
+        "y_left_m": "7.175447600",
+        "y_right_m": "7.759096400",
+        "z_delta_m": "0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 49,
+        "chord_ratio_delta": "-0.019215356",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "-0.078294000",
+        "y_left_m": "7.759096400",
+        "y_right_m": "8.342745200",
+        "z_delta_m": "0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 50,
+        "chord_ratio_delta": "-0.019591820",
+        "dy_m": "0.583648800",
+        "max_section_surface_move_m": "0.587848448",
+        "twist_delta_deg": "-0.078294000",
+        "y_left_m": "8.342745200",
+        "y_right_m": "8.926394000",
+        "z_delta_m": "0.067408127"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 51,
+        "chord_ratio_delta": "-0.015930243",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "-0.118164286",
+        "y_left_m": "8.926394000",
+        "y_right_m": "9.367809143",
+        "z_delta_m": "0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 52,
+        "chord_ratio_delta": "-0.016188124",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "-0.118164286",
+        "y_left_m": "9.367809143",
+        "y_right_m": "9.809224286",
+        "z_delta_m": "0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 53,
+        "chord_ratio_delta": "-0.016454491",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "-0.118164286",
+        "y_left_m": "9.809224286",
+        "y_right_m": "10.250639429",
+        "z_delta_m": "0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 54,
+        "chord_ratio_delta": "-0.016729771",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "-0.118164286",
+        "y_left_m": "10.250639429",
+        "y_right_m": "10.692054571",
+        "z_delta_m": "0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 55,
+        "chord_ratio_delta": "-0.017014418",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "-0.118164286",
+        "y_left_m": "10.692054571",
+        "y_right_m": "11.133469714",
+        "z_delta_m": "0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 56,
+        "chord_ratio_delta": "-0.017308919",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "-0.118164286",
+        "y_left_m": "11.133469714",
+        "y_right_m": "11.574884857",
+        "z_delta_m": "0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 57,
+        "chord_ratio_delta": "-0.017613795",
+        "dy_m": "0.441415143",
+        "max_section_surface_move_m": "0.448458584",
+        "twist_delta_deg": "-0.118164286",
+        "y_left_m": "11.574884857",
+        "y_right_m": "12.016300000",
+        "z_delta_m": "0.077645447"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 58,
+        "chord_ratio_delta": "-0.012795468",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302694749",
+        "twist_delta_deg": "-0.085392857",
+        "y_left_m": "12.016300000",
+        "y_right_m": "12.310576714",
+        "z_delta_m": "0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 59,
+        "chord_ratio_delta": "-0.012961314",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302689358",
+        "twist_delta_deg": "-0.085392857",
+        "y_left_m": "12.310576714",
+        "y_right_m": "12.604853429",
+        "z_delta_m": "0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 60,
+        "chord_ratio_delta": "-0.013131516",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302683969",
+        "twist_delta_deg": "-0.085392857",
+        "y_left_m": "12.604853429",
+        "y_right_m": "12.899130143",
+        "z_delta_m": "0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 61,
+        "chord_ratio_delta": "-0.013306247",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302678581",
+        "twist_delta_deg": "-0.085392857",
+        "y_left_m": "12.899130143",
+        "y_right_m": "13.193406857",
+        "z_delta_m": "0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 62,
+        "chord_ratio_delta": "-0.013485691",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302676241",
+        "twist_delta_deg": "-0.085392857",
+        "y_left_m": "13.193406857",
+        "y_right_m": "13.487683571",
+        "z_delta_m": "0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 63,
+        "chord_ratio_delta": "-0.013670041",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302675621",
+        "twist_delta_deg": "-0.085392857",
+        "y_left_m": "13.487683571",
+        "y_right_m": "13.781960286",
+        "z_delta_m": "0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.009541414",
+        "bay_index": 64,
+        "chord_ratio_delta": "-0.013859501",
+        "dy_m": "0.294276714",
+        "max_section_surface_move_m": "0.302675000",
+        "twist_delta_deg": "-0.085392857",
+        "y_left_m": "13.781960286",
+        "y_right_m": "14.076237000",
+        "z_delta_m": "0.069853040"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 65,
+        "chord_ratio_delta": "-0.014151079",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "-0.063574000",
+        "y_left_m": "14.076237000",
+        "y_right_m": "14.350895400",
+        "z_delta_m": "0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 66,
+        "chord_ratio_delta": "-0.014354207",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "-0.063574000",
+        "y_left_m": "14.350895400",
+        "y_right_m": "14.625553800",
+        "z_delta_m": "0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 67,
+        "chord_ratio_delta": "-0.014563251",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "-0.063574000",
+        "y_left_m": "14.625553800",
+        "y_right_m": "14.900212200",
+        "z_delta_m": "0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 68,
+        "chord_ratio_delta": "-0.014778474",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "-0.063574000",
+        "y_left_m": "14.900212200",
+        "y_right_m": "15.174870600",
+        "z_delta_m": "0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 69,
+        "chord_ratio_delta": "-0.015000153",
+        "dy_m": "0.274658400",
+        "max_section_surface_move_m": "0.285664850",
+        "twist_delta_deg": "-0.063574000",
+        "y_left_m": "15.174870600",
+        "y_right_m": "15.449529000",
+        "z_delta_m": "0.077732820"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 70,
+        "chord_ratio_delta": "-0.012992498",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "-0.049667000",
+        "y_left_m": "15.449529000",
+        "y_right_m": "15.664105750",
+        "z_delta_m": "0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 71,
+        "chord_ratio_delta": "-0.013163525",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "-0.049667000",
+        "y_left_m": "15.664105750",
+        "y_right_m": "15.878682500",
+        "z_delta_m": "0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 72,
+        "chord_ratio_delta": "-0.013339115",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "-0.049667000",
+        "y_left_m": "15.878682500",
+        "y_right_m": "16.093259250",
+        "z_delta_m": "0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 73,
+        "chord_ratio_delta": "-0.013519452",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.225225423",
+        "twist_delta_deg": "-0.049667000",
+        "y_left_m": "16.093259250",
+        "y_right_m": "16.307836000",
+        "z_delta_m": "0.067767700"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 74,
+        "chord_ratio_delta": "-0.016808261",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "-0.019867000",
+        "y_left_m": "16.307836000",
+        "y_right_m": "16.522412750",
+        "z_delta_m": "0.073302874"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 75,
+        "chord_ratio_delta": "-0.017095608",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "-0.019867000",
+        "y_left_m": "16.522412750",
+        "y_right_m": "16.736989500",
+        "z_delta_m": "0.073302874"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 76,
+        "chord_ratio_delta": "-0.017392951",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "-0.019867000",
+        "y_left_m": "16.736989500",
+        "y_right_m": "16.951566250",
+        "z_delta_m": "0.073302874"
+      },
+      {
+        "airfoil_morph_step": "0.000000000",
+        "bay_index": 77,
+        "chord_ratio_delta": "-0.017700821",
+        "dy_m": "0.214576750",
+        "max_section_surface_move_m": "0.227052756",
+        "twist_delta_deg": "-0.019867000",
+        "y_left_m": "16.951566250",
+        "y_right_m": "17.166143000",
+        "z_delta_m": "0.073302874"
+      }
+    ],
+    "span_cells_full": 78,
+    "thresholds": {
+      "chord_ratio_target": 0.03,
+      "morph_step_target": 0.08,
+      "twist_target_deg": 0.25,
+      "z_step_target_m": 0.08
+    }
+  },
+  "aoa_sweep": null,
+  "authority": {
+    "Bref": 34.332286,
+    "Cref": 1.003721543,
+    "Sref": 33.420059598,
+    "airfoil_ids": [
+      "cst_tip_nsga2_g05_child_0032_70ef8136",
+      "dae31"
+    ],
+    "geometry_dir": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed",
+    "half_station_count": 9,
+    "manifest_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/geometry_manifest.json",
+    "root_chord_m": 1.2567730960047345,
+    "section_table_path": "/Volumes/Samsung SSD/hpa-mdo/output/go_mode_main_wing_candidate/final_candidate_package/geometry_exports/production_inspection/current_avl_compromise_conservative_closed/section_table.csv",
+    "tip_chord_m": 0.6450040900024299,
+    "tip_z_m": 2.62856087
+  },
+  "bay_cases": [],
+  "config": {
+    "cl_design": 1.169,
+    "design_aoa_deg": 0.18015,
+    "farfield_chords": 12.0,
+    "first_layer_height_m": 5e-05,
+    "n_perim": 192,
+    "n_radial": 64,
+    "velocity_mps": 6.5,
+    "xfoil_cd_total": 0.02602
+  },
+  "created_at_utc": "2026-05-16T16:58:35Z",
+  "fullwing_attempts": [],
+  "hard_prohibitions_observed": {
+    "cfMesh": "not_used",
+    "gmsh": "not_used",
+    "meshpy": "not_used",
+    "naca0012_placeholder": "not_used",
+    "single_global_inflated_body_mapping": "not_used",
+    "snappyHexMesh": "not_used",
+    "tetgen": "not_used"
+  },
+  "openfoam_command": "/opt/homebrew/bin/openfoam",
+  "output_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_swept_cgrid_structured_hexa",
+  "route": "station-wise swept 2D O-grid multi-block structured hexa",
+  "route_smoke": null,
+  "schema_version": "wo006_swept_cgrid_structured_hexa.v1",
+  "section_cases": [
+    {
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_swept_cgrid_structured_hexa/openfoam_cases/root_dae31_section",
+      "case_id": "root_dae31_section",
+      "checkMesh": {
+        "commands": {
+          "checkMesh": {
+            "command": "checkMesh -meshQuality",
+            "parsed": {
+              "counts": {
+                "cells": 12288,
+                "faces": 49344,
+                "internal_faces": 24384,
+                "points": 24960
+              },
+              "custom_mesh_quality_error_count": 9951,
+              "custom_mesh_quality_errors": {
+                "faces on cells with determinant < 0.001": 8908,
+                "faces with concavity > 80  degrees": 0,
+                "faces with face pyramid volume < 1e-13": 24,
+                "faces with face twist < 0.02": 1,
+                "faces with face-decomposition tet quality < 1e-15": 306,
+                "faces with interpolation weights (0..1)  < 0.02": 39,
+                "faces with skewness > 7   (internal) or 20  (boundary)": 30,
+                "faces with volume ratio of neighbour cells < 0.01": 0,
+                "non-orthogonality > 65  degrees": 643
+              },
+              "highly_skew_faces": 285,
+              "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/root_dae31_section/log.checkMesh",
+              "max_skewness": 19010.2,
+              "quality_basis": "failed_checkmesh",
+              "status": "fail",
+              "summary_lines": [
+                "Checking topology...",
+                "Checking geometry...",
+                "  <<Writing 527 cells with high aspect ratio to set highAspectRatioCells",
+                "    Mesh non-orthogonality Max: 179.918 average: 16.6347",
+                " ***Number of non-orthogonality errors: 383.",
+                " ***Max skewness = 19010.2, 285 highly skew faces detected which may impair the quality of the results",
+                "Checking faces in error :",
+                "    non-orthogonality > 65  degrees                        : 643",
+                "    faces with skewness > 7   (internal) or 20  (boundary) : 30",
+                "Failed 7 mesh checks."
+              ]
+            },
+            "returncode": 0,
+            "timed_out": false
+          }
+        },
+        "status": "fail"
+      },
+      "custom_quality": {
+        "aspect_ratio_proxy": {
+          "max": 1923.133357342206,
+          "min": 1.239168709279505,
+          "p50": 48.05742218517545,
+          "p95": 894.5472291151401
+        },
+        "blockers": [],
+        "boundary_face_counts": {
+          "closure_wall": 0,
+          "farfield": 192,
+          "te_wall": 1,
+          "tip_left": 12288,
+          "tip_right": 12288,
+          "wing_lower": 95,
+          "wing_upper": 96
+        },
+        "cell_count": 12288,
+        "duplicate_point_count": 0,
+        "face_count": 49344,
+        "internal_face_count": 24384,
+        "max_signed_volume": 1.1105606544703195,
+        "min_signed_volume": 5.505416340368698e-13,
+        "node_count": 24960,
+        "non_positive_volume_count": 0,
+        "nonmanifold_face_count": 0,
+        "status": "pass",
+        "unmarked_boundary_face_count": 0,
+        "volume": {
+          "max": 1.1105606544703195,
+          "min": 5.505416340368698e-13,
+          "p50": 1.5973272088089412e-06,
+          "p95": 0.02122413858398703
+        }
+      },
+      "farfield_chords": 12.0,
+      "n_radial": 64,
+      "span_cells": 1,
+      "station_count": 2,
+      "status": "checkmesh_failed"
+    },
+    {
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_swept_cgrid_structured_hexa/openfoam_cases/cst_tip_section",
+      "case_id": "cst_tip_section",
+      "checkMesh": {
+        "commands": {
+          "checkMesh": {
+            "command": "checkMesh -meshQuality",
+            "parsed": {
+              "counts": {
+                "cells": 12288,
+                "faces": 49344,
+                "internal_faces": 24384,
+                "points": 24960
+              },
+              "custom_mesh_quality_error_count": 4717,
+              "custom_mesh_quality_errors": {
+                "faces on cells with determinant < 0.001": 4467,
+                "faces with concavity > 80  degrees": 0,
+                "faces with face pyramid volume < 1e-13": 1,
+                "faces with face twist < 0.02": 0,
+                "faces with face-decomposition tet quality < 1e-15": 40,
+                "faces with interpolation weights (0..1)  < 0.02": 40,
+                "faces with skewness > 7   (internal) or 20  (boundary)": 0,
+                "faces with volume ratio of neighbour cells < 0.01": 0,
+                "non-orthogonality > 65  degrees": 169
+              },
+              "highly_skew_faces": 5,
+              "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/cst_tip_section/log.checkMesh",
+              "max_skewness": 22.3157,
+              "quality_basis": "failed_checkmesh",
+              "status": "fail",
+              "summary_lines": [
+                "Checking topology...",
+                "Checking geometry...",
+                "  <<Writing 3 cells with high aspect ratio to set highAspectRatioCells",
+                "    Mesh non-orthogonality Max: 154.64 average: 9.61047",
+                " ***Number of non-orthogonality errors: 21.",
+                " ***Max skewness = 22.3157, 5 highly skew faces detected which may impair the quality of the results",
+                "Checking faces in error :",
+                "    non-orthogonality > 65  degrees                        : 169",
+                "    faces with skewness > 7   (internal) or 20  (boundary) : 0",
+                "Failed 7 mesh checks."
+              ]
+            },
+            "returncode": 0,
+            "timed_out": false
+          }
+        },
+        "status": "fail"
+      },
+      "custom_quality": {
+        "aspect_ratio_proxy": {
+          "max": 645.004090003309,
+          "min": 1.2171292124914803,
+          "p50": 33.87660073882663,
+          "p95": 459.1017854958283
+        },
+        "blockers": [],
+        "boundary_face_counts": {
+          "closure_wall": 0,
+          "farfield": 192,
+          "te_wall": 1,
+          "tip_left": 12288,
+          "tip_right": 12288,
+          "wing_lower": 95,
+          "wing_upper": 96
+        },
+        "cell_count": 12288,
+        "duplicate_point_count": 0,
+        "face_count": 49344,
+        "internal_face_count": 24384,
+        "max_signed_volume": 0.07773783336502016,
+        "min_signed_volume": 2.625679351174732e-10,
+        "node_count": 24960,
+        "non_positive_volume_count": 0,
+        "nonmanifold_face_count": 0,
+        "status": "pass",
+        "unmarked_boundary_face_count": 0,
+        "volume": {
+          "max": 0.07773783336502016,
+          "min": 2.625679351174732e-10,
+          "p50": 4.2359182084150546e-07,
+          "p95": 0.003164427501441539
+        }
+      },
+      "farfield_chords": 12.0,
+      "n_radial": 64,
+      "span_cells": 1,
+      "station_count": 2,
+      "status": "checkmesh_failed"
+    },
+    {
+      "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_swept_cgrid_structured_hexa/openfoam_cases/intermediate_morph_section",
+      "case_id": "intermediate_morph_section",
+      "checkMesh": {
+        "commands": {
+          "checkMesh": {
+            "command": "checkMesh -meshQuality",
+            "parsed": {
+              "counts": {
+                "cells": 12288,
+                "faces": 49344,
+                "internal_faces": 24384,
+                "points": 24960
+              },
+              "custom_mesh_quality_error_count": 7039,
+              "custom_mesh_quality_errors": {
+                "faces on cells with determinant < 0.001": 6080,
+                "faces with concavity > 80  degrees": 0,
+                "faces with face pyramid volume < 1e-13": 17,
+                "faces with face twist < 0.02": 1,
+                "faces with face-decomposition tet quality < 1e-15": 299,
+                "faces with interpolation weights (0..1)  < 0.02": 36,
+                "faces with skewness > 7   (internal) or 20  (boundary)": 40,
+                "faces with volume ratio of neighbour cells < 0.01": 0,
+                "non-orthogonality > 65  degrees": 566
+              },
+              "highly_skew_faces": 336,
+              "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/intermediate_morph_section/log.checkMesh",
+              "max_skewness": 8764.14,
+              "quality_basis": "failed_checkmesh",
+              "status": "fail",
+              "summary_lines": [
+                "Checking topology...",
+                "Checking geometry...",
+                "  <<Writing 123 cells with high aspect ratio to set highAspectRatioCells",
+                "    Mesh non-orthogonality Max: 179.847 average: 15.6619",
+                " ***Number of non-orthogonality errors: 349.",
+                " ***Max skewness = 8764.14, 336 highly skew faces detected which may impair the quality of the results",
+                "Checking faces in error :",
+                "    non-orthogonality > 65  degrees                        : 566",
+                "    faces with skewness > 7   (internal) or 20  (boundary) : 40",
+                "Failed 7 mesh checks."
+              ]
+            },
+            "returncode": 0,
+            "timed_out": false
+          }
+        },
+        "status": "fail"
+      },
+      "custom_quality": {
+        "aspect_ratio_proxy": {
+          "max": 823.5525710038177,
+          "min": 1.219005783188839,
+          "p50": 36.726420346454105,
+          "p95": 586.1891236952744
+        },
+        "blockers": [],
+        "boundary_face_counts": {
+          "closure_wall": 0,
+          "farfield": 192,
+          "te_wall": 1,
+          "tip_left": 12288,
+          "tip_right": 12288,
+          "wing_lower": 95,
+          "wing_upper": 96
+        },
+        "cell_count": 12288,
+        "duplicate_point_count": 0,
+        "face_count": 49344,
+        "internal_face_count": 24384,
+        "max_signed_volume": 0.30540219202224805,
+        "min_signed_volume": 1.902810342567824e-13,
+        "node_count": 24960,
+        "non_positive_volume_count": 0,
+        "nonmanifold_face_count": 0,
+        "status": "pass",
+        "unmarked_boundary_face_count": 0,
+        "volume": {
+          "max": 0.30540219202224805,
+          "min": 1.902810342567824e-13,
+          "p50": 6.925401278420714e-07,
+          "p95": 0.006368386933784779
+        }
+      },
+      "farfield_chords": 12.0,
+      "n_radial": 64,
+      "span_cells": 1,
+      "station_count": 2,
+      "status": "checkmesh_failed"
+    }
+  ],
+  "verdict": {
+    "bay_pass": false,
+    "fullwing_pass": false,
+    "next_action": "fix the true-airfoil 2D section grid before any bay or full-wing work.",
+    "reason": "section_cgrid_route_failed",
+    "section_pass": false,
+    "solver_ran": false,
+    "status": "hard_blocked"
+  }
+}
