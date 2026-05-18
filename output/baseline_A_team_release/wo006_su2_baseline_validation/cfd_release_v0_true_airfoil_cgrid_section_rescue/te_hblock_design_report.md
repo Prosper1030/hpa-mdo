@@ -13,6 +13,9 @@ airfoil TE gap.
 - The downstream boundary is `outlet`; the C-shaped outer boundary is
   `farfield`.
 
-Current blocker: the finite-TE H-block still creates bad cells at the TE/wake
-interface for dae31 and the morph section.  This is now a local TE H-block
-quality problem, not a span-count, solver, AoA, or placeholder-airfoil problem.
+Current best state: the TE H-block removes open cells, negative volumes, and
+wrong-oriented face pyramids in the primary section runs.  The remaining blocker
+is strict section quality: dae31 is smoke-only above the 75-degree debug target,
+and `-allGeometry` flags high-aspect underdetermined cells from the requested
+low first-layer height.  This is not a span-count, solver, AoA, or placeholder
+airfoil problem.

@@ -9,22 +9,25 @@ The route uses `scripts/run_wo006_true_airfoil_cgrid_section_rescue.py` plus
 replace the failed sharp-TE single-loop O-grid with an open-TE wake C-grid for
 the true Baseline A `dae31` and `cst_tip` airfoils.
 
-Result: the earlier open-cut C-grid reduced the sharp-TE O-grid failure enough
-to expose a smoke-level section result, but the stricter rescue now stops at the
-required local section gate. The internal wake H-block / finite-TE collar was
-attempted with true `dae31`, true `cst_tip`, first-layer height `5e-5 m`, no TE
-bluntness, and no placeholder airfoil. It does not pass the section gate:
-`dae31_root_section` fails with `maxNonOrtho=89.2708 deg` and `3` failed mesh
-checks, `cst_tip_section` is only smoke-level at `maxNonOrtho=79.14 deg` and
-fails `-allTopology -allGeometry`, and the morph section fails with
-`maxNonOrtho=84.2988 deg`.
+Result: the single-loop sharp-TE O-grid diagnosis remains valid, and the wake
+C-grid / TE H-block route is now materially cleaner, but it is still not a
+strict section-gate pass. The best bounded attempt uses true `dae31`, true
+`cst_tip`, first-layer height `5e-5 m`, wake length `8c`, an internal wake
+H-block, and a documented `dae31` zero-TE collar gap of `0.0005c` with no
+NACA0012 placeholder. Primary `checkMesh` is clean for all three 2D-extruded
+sections, but the strict gate remains blocked: `dae31_root_section` is
+smoke-only at `maxNonOrtho=80.1398 deg`, while `cst_tip_section`
+(`68.9769 deg`) and the morph section (`74.4618 deg`) pass the primary
+non-orthogonality target. `checkMesh -allGeometry` still fails on high-aspect
+underdetermined cells from the low first-layer stack: dae31 `1846`, cst_tip
+`814`, morph `1157`.
 
-Engineering verdict: the old single-loop O-grid diagnosis remains valid, but
-the blocker has moved to the local true-airfoil TE H-block / section-quality
-topology. Bay, full-wing, simpleFoam, and AoA/CD comparison must not resume from
-this bundle. The next single action is a local 2D TE H-block/LE-quality repair,
-not bay correspondence, full-wing assembly, solver tuning, or span-count
-escalation.
+Engineering verdict: the old TE wrapping failure has been removed from the best
+section attempt, but the route remains a local 2D section-quality blocker, not a
+bay, full-wing, solver, AoA, or span-count problem. Bay, full-wing, simpleFoam,
+and AoA/CD comparison must not resume from this bundle. The next action is a
+proper elliptic/orthogonalized C-grid or a more mature 2D block generator that
+can keep `5e-5 m` near-wall spacing without the allGeometry determinant failure.
 
 ## 2026-05-17 WO-006 Swept Section O-Grid Structured-Hexa Blocker
 

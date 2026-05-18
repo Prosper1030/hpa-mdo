@@ -56,7 +56,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--n-perim", type=int, default=192)
     parser.add_argument("--n-radial", type=int, default=80)
     parser.add_argument("--farfield-chords", type=float, default=10.0)
-    parser.add_argument("--wake-length-chords", type=float, default=10.0)
+    parser.add_argument("--wake-length-chords", type=float, default=8.0)
     parser.add_argument("--full-wing", action="store_true")
     args = parser.parse_args(argv)
     manifest = run_rescue(
@@ -89,7 +89,7 @@ def run_rescue(
         shutil.rmtree(output_dir)
     (output_dir / "openfoam_cases").mkdir(parents=True, exist_ok=True)
 
-    authority = load_baseline_authority(n_perim=n_perim)
+    authority = load_baseline_authority(n_perim=n_perim, airfoil_loop_mode="open_te_cgrid")
     manifest: dict[str, Any] = {
         "schema_version": "wo006_true_airfoil_cgrid_section_rescue.v1",
         "route": "true-airfoil wake C-grid open-TE section rescue",
@@ -102,6 +102,8 @@ def run_rescue(
             "farfield_chords": farfield_chords,
             "wake_length_chords": wake_length_chords,
             "wake_cross_cells": 8,
+            "airfoil_loop_mode": authority.airfoil_loop_mode,
+            "airfoil_geometry_reports": authority.airfoil_geometry_reports,
             "mesh_quality_dict": {
                 "maxNonOrtho": 85,
                 "minDeterminant": 1.0e-8,
@@ -121,9 +123,17 @@ def run_rescue(
         "bay_cases": [],
         "fullwing_case": None,
         "attempt_accounting": {
-            "cgrid_section_topology_attempts": 1,
-            "te_hblock_collar_topology_attempts": 1,
-            "section_smoothing_resampling_attempts": 0,
+            "cgrid_section_topology_attempts": 6,
+            "te_hblock_collar_topology_attempts": 5,
+            "section_smoothing_resampling_attempts": 4,
+            "attempt_history": [
+                "attempt_01_internal_hblock_false_lower_te_endpoint_failed_open_cells_wrong_pyramids",
+                "attempt_02_open_te_true_lower_endpoint_and_dae31_0p05pct_gap_failed_te_collar_orientation",
+                "attempt_03_downstream_te_wake_cut_normals_removed_open_cells_but_left_smoke_nonorthogonality",
+                "attempt_04_wake_length_8c_plus_near_wall_normal_stack_primary_checkmesh_clean_but_strict_gate_failed",
+                "attempt_05_high_perimeter_resampling_rejected_due_dae31_te_collar_topology_regression",
+                "attempt_06_laplacian_section_smoothing_rejected_due_inverted_high_nonorthogonality",
+            ],
             "bay_attempts": 0,
             "full_wing_attempts": 0,
             "bounded_attempt_limits": {
@@ -135,7 +145,7 @@ def run_rescue(
             },
         },
     }
-    _write_design_reports(output_dir)
+    _write_design_reports(output_dir, authority)
 
     root = authority.half_stations[0]
     tip = authority.half_stations[-1]
@@ -344,6 +354,9 @@ def _extract_checkmesh_metrics(log_path: Path) -> dict[str, Any]:
         "non_orthogonal_faces_over_threshold": _int_match(text, r"non-orthogonality >\s+85\s+degrees\s+:\s+([0-9]+)"),
         "tet_quality_faces_below_threshold": _int_match(text, r"faces with face-decomposition tet quality < [^:]+:\s+([0-9]+)"),
         "determinant_faces_below_threshold": _int_match(text, r"faces on cells with determinant < 1e-08\s+:\s+([0-9]+)"),
+        "short_edge_count": _int_match(text, r"number too small:\s+([0-9]+)"),
+        "min_cell_determinant": _float_match(text, r"Cell determinant \(wellposedness\) : minimum:\s+([0-9.eE+-]+)"),
+        "underdetermined_cell_count": _int_match(text, r"small determinant \(< 0\.001\) found, number of cells:\s+([0-9]+)"),
         "failed_check_count": _int_match(text, r"Failed ([0-9]+) mesh checks"),
     }
 
@@ -408,6 +421,9 @@ def _strict_checkmesh_log_status(
         "failed_check_count": failed_check_count,
         "max_non_orthogonality_deg": max_non_ortho,
         "max_skewness": max_skewness,
+        "short_edge_count": _int_match(text, r"number too small:\s+([0-9]+)"),
+        "min_cell_determinant": _float_match(text, r"Cell determinant \(wellposedness\) : minimum:\s+([0-9.eE+-]+)"),
+        "underdetermined_cell_count": _int_match(text, r"small determinant \(< 0\.001\) found, number of cells:\s+([0-9]+)"),
         "fatal_error": fatal,
     }
 
@@ -421,7 +437,7 @@ def _custom_metrics_only(quality: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _write_design_reports(output_dir: Path) -> None:
+def _write_design_reports(output_dir: Path, authority: Any) -> None:
     prior_root = WO006_ROOT / "cfd_release_v0_swept_cgrid_structured_hexa_smoke"
     (output_dir / "section_failure_diagnosis.md").write_text(
         f"""# Section Failure Diagnosis
@@ -449,6 +465,15 @@ orientation and non-orthogonality.  The rescue route therefore uses an open-TE
 wake C-grid with a downstream TE H-block: airfoil upper/lower walls remain
 separate, the finite TE strip is represented as `te_wall`, wake-block faces are
 internal fluid faces, and no cell wraps around the TE cusp.
+
+Current follow-up diagnosis:
+- The previous H-block attempt still used the legacy resampled airfoil loop,
+  which omitted the true lower TE endpoint.  That made dae31 close the H-block
+  against a near-duplicate upper-surface point instead of a proper lower TE
+  endpoint/collar node.
+- The current attempt uses `open_te_cgrid` airfoil-loop authority: finite TE
+  endpoints are retained, and mathematically zero-thickness TE sections receive
+  only the bounded collar gap reported in `geometry_perturbation_report.md`.
 """,
         encoding="utf-8",
     )
@@ -458,8 +483,8 @@ internal fluid faces, and no cell wraps around the TE cusp.
 - Inner path: true airfoil coordinates from TE_upper to LE to TE_lower.
 - The path is open at the TE; no single-loop O-grid closure is used.
 - Upper and lower TE nodes remain separate; no TE bluntness is introduced.
-- Radial construction: wall-normal first layer, then straight rays to a C-shaped
-  farfield boundary.
+- Radial construction: wall-normal near-wall stack, then straight rays to a
+  C-shaped farfield boundary.
 - Wake construction: a downstream H-block fills the open TE wake slot.  Its
   upper/lower interfaces are internal faces shared with the C-grid side faces,
   not wall or freestream patches.
@@ -470,6 +495,9 @@ internal fluid faces, and no cell wraps around the TE cusp.
 - Section meshQualityDict records the deliberate section-only tolerance:
   `maxNonOrtho=85`, `minDeterminant=1e-8`, because aligned BL cells are allowed
   but skew/orientation/open-cell failures are not.
+- Airfoil loop authority: `open_te_cgrid`, which retains true finite lower TE
+  endpoints and creates a bounded collar gap only for mathematically zero-TE
+  source sections.
 """,
         encoding="utf-8",
     )
@@ -489,12 +517,49 @@ airfoil TE gap.
 - The downstream boundary is `outlet`; the C-shaped outer boundary is
   `farfield`.
 
-Current blocker: the finite-TE H-block still creates bad cells at the TE/wake
-interface for dae31 and the morph section.  This is now a local TE H-block
-quality problem, not a span-count, solver, AoA, or placeholder-airfoil problem.
+Current best state: the TE H-block removes open cells, negative volumes, and
+wrong-oriented face pyramids in the primary section runs.  The remaining blocker
+is strict section quality: dae31 is smoke-only above the 75-degree debug target,
+and `-allGeometry` flags high-aspect underdetermined cells from the requested
+low first-layer height.  This is not a span-count, solver, AoA, or placeholder
+airfoil problem.
 """,
         encoding="utf-8",
     )
+    perturbations = [
+        report
+        for report in authority.airfoil_geometry_reports.values()
+        if report.get("te_perturbation", {}).get("introduced")
+    ]
+    geometry_report = output_dir / "geometry_perturbation_report.md"
+    if not perturbations:
+        if geometry_report.exists():
+            geometry_report.unlink()
+        return
+    lines = [
+        "# Geometry Perturbation Report",
+        "",
+        "A bounded TE collar gap was introduced only for mathematically zero-thickness source TE sections.",
+        "Finite source TE endpoints are preserved without bluntness.",
+        "",
+    ]
+    for report in perturbations:
+        perturb = report["te_perturbation"]
+        lines.extend(
+            [
+                f"## {report['airfoil_id']}",
+                f"- introduced: `{perturb['introduced']}`",
+                f"- reason: `{perturb['reason']}`",
+                f"- gap / chord: `{perturb['gap_over_chord']}`",
+                f"- maximum allowed gap / chord: `{perturb['max_allowed_gap_over_chord']}`",
+                f"- changed airfoil area / chord^2: `{report['area_delta_over_chord2']}`",
+                f"- changed chord from TE perturbation: `{report['te_perturbation_chord_delta']}`",
+                f"- Sref-equivalent planform impact: `{report['sref_planform_delta_over_chord2']}`",
+                f"- Sref note: `{report['sref_note']}`",
+                "",
+            ]
+        )
+    geometry_report.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _write_section_reports(output_dir: Path, cases: Sequence[dict[str, Any]]) -> None:
@@ -575,6 +640,7 @@ def _write_final_reports(output_dir: Path, manifest: dict[str, Any]) -> None:
     bays = manifest.get("bay_cases", [])
     te_hblock_needed = True
     te_hblock_blocker = _section_blocker_summary(sections)
+    te_perturbation_summary = _te_perturbation_summary(manifest)
     (output_dir / "phase3_true_airfoil_cgrid_section_verdict.md").write_text(
         f"""# Phase 3 True-Airfoil C-Grid Section Verdict
 
@@ -589,7 +655,7 @@ def _write_final_reports(output_dir: Path, manifest: dict[str, Any]) -> None:
 5. Was a TE H-block/collar needed?
    - `{te_hblock_needed}`; the internal wake H-block was attempted and is the current blocker.
 6. Was any TE geometry perturbation introduced? If yes, how large?
-   - `no`; true TE endpoints were preserved.
+   - `{te_perturbation_summary}`
 7. Did bay tests pass?
    - `{bool(bays) and all(case['status'] == 'pass' for case in bays)}`
 8. Did full-wing checkMesh pass?
@@ -611,7 +677,7 @@ def _write_final_reports(output_dir: Path, manifest: dict[str, Any]) -> None:
   --n-perim 192 \\
   --n-radial 80 \\
   --farfield-chords 10 \\
-  --wake-length-chords 10
+  --wake-length-chords 8
 ```
 """,
         encoding="utf-8",
@@ -657,15 +723,34 @@ def _section_blocker_summary(cases: Sequence[dict[str, Any]]) -> str:
         if case["status"] == "pass":
             continue
         metrics = case.get("metrics", {})
+        strict = case.get("strict_checkMesh", {})
+        all_geometry = strict.get("all_geometry") or {}
         blockers.append(
             f"{case['case_id']}: status={case['status']} "
             f"failedChecks={metrics.get('failed_check_count')} "
             f"maxNonOrtho={metrics.get('max_non_orthogonality_deg')} "
             f"maxSkew={metrics.get('max_skewness')} "
             f"nonOrthoFacesOver85={metrics.get('non_orthogonal_faces_over_threshold')} "
-            f"tetQualityFaces={metrics.get('tet_quality_faces_below_threshold')}"
+            f"tetQualityFaces={metrics.get('tet_quality_faces_below_threshold')} "
+            f"allGeometryUnderCells={all_geometry.get('underdetermined_cell_count')} "
+            f"allGeometryMinDet={all_geometry.get('min_cell_determinant')}"
         )
     return "; ".join(blockers) if blockers else "section gates passed"
+
+
+def _te_perturbation_summary(manifest: dict[str, Any]) -> str:
+    reports = manifest.get("config", {}).get("airfoil_geometry_reports", {})
+    perturbations = [
+        (airfoil_id, report.get("te_perturbation", {}))
+        for airfoil_id, report in reports.items()
+        if report.get("te_perturbation", {}).get("introduced")
+    ]
+    if not perturbations:
+        return "no; finite true TE endpoints were preserved."
+    return "; ".join(
+        f"yes: {airfoil_id} gap/chord={perturb.get('gap_over_chord')}"
+        for airfoil_id, perturb in perturbations
+    )
 
 
 def _case_pass(cases: Sequence[dict[str, Any]], case_id: str) -> bool:

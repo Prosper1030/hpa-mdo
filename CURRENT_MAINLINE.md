@@ -14,15 +14,20 @@ screening evidence 讀，不是現行 release / procurement truth。
 `scripts/run_wo006_true_airfoil_cgrid_section_rescue.py` replaces the failed
 sharp-TE single-loop O-grid section with an open-TE wake C-grid using the true
 Baseline A `dae31` and `cst_tip` airfoils. The old single-loop O-grid diagnosis
-is confirmed, but the stricter local section gate is still blocked after the
-internal wake H-block / finite-TE collar attempt: `dae31_root_section` fails with
-`maxNonOrtho=89.2708 deg` and `3` failed mesh checks, `cst_tip_section` is only
-smoke-level at `maxNonOrtho=79.14 deg` and fails `-allTopology -allGeometry`,
-and the morph section fails with `maxNonOrtho=84.2988 deg`. No TE bluntness,
-NACA0012 placeholder, snappyHexMesh, cfMesh, Gmsh/TetGen, meshpy, solver run,
-bay rebuild, full-wing mesh, or AoA sweep is accepted from this bundle. Next
-action: repair the local 2D TE H-block / leading-edge section-quality topology
-before any bay, full-wing, or solver work resumes.
+is confirmed, and the best bounded wake C-grid / TE H-block attempt removes the
+old open-cell / wrong-pyramid TE wrapping failure in the primary section runs.
+It is still not a strict section-gate pass. Current best evidence: true
+`dae31`, true `cst_tip`, first-layer height `5e-5 m`, wake length `8c`, internal
+wake H-block, and a documented `dae31` zero-TE collar gap of `0.0005c`.
+Primary `checkMesh` is clean for dae31/cst_tip/morph, but dae31 remains
+smoke-only at `maxNonOrtho=80.1398 deg`; cst_tip is `68.9769 deg`; morph is
+`74.4618 deg`. `checkMesh -allGeometry` still fails on high-aspect
+underdetermined cells: dae31 `1846`, cst_tip `814`, morph `1157`. No NACA0012
+placeholder, snappyHexMesh, cfMesh, Gmsh/TetGen, meshpy, solver run, bay rebuild,
+full-wing mesh, or AoA sweep is accepted from this bundle. Next action: replace
+the algebraic C-grid with an elliptic/orthogonalized 2D block generator or
+equivalent section-quality repair before any bay, full-wing, or solver work
+resumes.
 
 **2026-05-15 structured-hexa CFD route verdict:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/`.

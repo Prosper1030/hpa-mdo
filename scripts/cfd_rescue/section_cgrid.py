@@ -66,49 +66,40 @@ def build_section_cgrid(
             farfield_distance_m=farfield_distance_m,
         )
     )
+    normal_stack_layers = min(n_radial - 1, max(8, n_radial // 4))
+    normal_stack_distance = radial_dist[normal_stack_layers]
 
     levels: list[tuple[Point2, ...]] = []
-    first_layer_points = [
-        (
-            point[0] + normal[0] * first_layer_height_m,
-            point[1] + normal[1] * first_layer_height_m,
-        )
-        for point, normal in zip(wall, normals)
-    ]
-    tail_distances = [
-        radial_distances(
-            radial_layers=n_radial - 1,
-            near_wall_layers=max(
-                1,
-                (near_wall_layers if near_wall_layers is not None else max(1, min(n_radial // 2, 40))) - 1,
-            ),
-            first_layer_height_m=first_layer_height_m * near_wall_growth,
-            near_wall_growth=near_wall_growth,
-            farfield_distance_m=max(
-                math.hypot(outer_point[0] - first_point[0], outer_point[1] - first_point[1]),
-                first_layer_height_m * 2.0,
-            ),
-        )
-        for first_point, outer_point in zip(first_layer_points, outer)
-    ]
     for radial_index in range(n_radial + 1):
         if radial_index == 0:
             levels.append(tuple(wall))
             continue
-        if radial_index == 1:
-            levels.append(tuple(first_layer_points))
+        if radial_index <= normal_stack_layers:
+            levels.append(
+                tuple(
+                    (
+                        point[0] + normal[0] * radial_dist[radial_index],
+                        point[1] + normal[1] * radial_dist[radial_index],
+                    )
+                    for point, normal in zip(wall, normals)
+                )
+            )
             continue
         level: list[Point2] = []
-        for first_point, outer_point, distances in zip(first_layer_points, outer, tail_distances):
-            line_length = max(
-                math.hypot(outer_point[0] - first_point[0], outer_point[1] - first_point[1]),
-                first_layer_height_m,
+        q = (radial_dist[radial_index] - normal_stack_distance) / max(
+            radial_dist[-1] - normal_stack_distance,
+            first_layer_height_m,
+        )
+        q = min(max(q, 0.0), 1.0)
+        for point, normal, outer_point in zip(wall, normals, outer):
+            stack_point = (
+                point[0] + normal[0] * normal_stack_distance,
+                point[1] + normal[1] * normal_stack_distance,
             )
-            q = distances[radial_index - 1] / line_length
             level.append(
                 (
-                    first_point[0] + q * (outer_point[0] - first_point[0]),
-                    first_point[1] + q * (outer_point[1] - first_point[1]),
+                    stack_point[0] + q * (outer_point[0] - stack_point[0]),
+                    stack_point[1] + q * (outer_point[1] - stack_point[1]),
                 )
             )
         levels.append(tuple(level))
@@ -146,7 +137,8 @@ def build_section_cgrid(
             "farfield_chords": farfield_chords,
             "wake_length_chords": wake_length_chords,
             "near_wall_growth": near_wall_growth,
-            "radial_mapping": "wall_normal_first_layer_then_straight_c_farfield_rays",
+            "normal_stack_layers": normal_stack_layers,
+            "radial_mapping": "wall_normal_near_wall_stack_then_straight_c_farfield_rays",
         },
     )
 
@@ -229,7 +221,7 @@ def _open_wall_normals(points: Sequence[Point2], le_index: int, outer: Sequence[
         normal = _unit(tangent[1], -tangent[0])
         radial = _unit(outer[index][0] - point[0], outer[index][1] - point[1])
         if index in {0, len(points) - 1}:
-            normal = _unit(0.7 * normal[0] + 0.3 * radial[0], 0.7 * normal[1] + 0.3 * radial[1])
+            normal = radial
         if normal[0] * radial[0] + normal[1] * radial[1] < 0.0:
             normal = (-normal[0], -normal[1])
         if index == le_index and normal[0] > 0.0:

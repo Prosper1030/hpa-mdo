@@ -3,8 +3,8 @@
 - Inner path: true airfoil coordinates from TE_upper to LE to TE_lower.
 - The path is open at the TE; no single-loop O-grid closure is used.
 - Upper and lower TE nodes remain separate; no TE bluntness is introduced.
-- Radial construction: wall-normal first layer, then straight rays to a C-shaped
-  farfield boundary.
+- Radial construction: wall-normal near-wall stack, then straight rays to a
+  C-shaped farfield boundary.
 - Wake construction: a downstream H-block fills the open TE wake slot.  Its
   upper/lower interfaces are internal faces shared with the C-grid side faces,
   not wall or freestream patches.
@@ -15,3 +15,6 @@
 - Section meshQualityDict records the deliberate section-only tolerance:
   `maxNonOrtho=85`, `minDeterminant=1e-8`, because aligned BL cells are allowed
   but skew/orientation/open-cell failures are not.
+- Airfoil loop authority: `open_te_cgrid`, which retains true finite lower TE
+  endpoints and creates a bounded collar gap only for mathematically zero-TE
+  source sections.

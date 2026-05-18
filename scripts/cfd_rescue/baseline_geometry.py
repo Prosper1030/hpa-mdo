@@ -14,7 +14,13 @@ HPA_MESHING_SRC = REPO_ROOT / "hpa_meshing_package" / "src"
 if str(HPA_MESHING_SRC) not in sys.path:
     sys.path.insert(0, str(HPA_MESHING_SRC))
 
-from hpa_meshing.mesh_native.blackcat import _resample_airfoil_loop  # noqa: E402
+from hpa_meshing.mesh_native.blackcat import (  # noqa: E402
+    _cosine_space_te_to_le,
+    _distance_2d,
+    _interp_z,
+    _repair_lower_branch_above_upper,
+    _resample_airfoil_loop,
+)
 from hpa_meshing.mesh_native.wing_surface import Reference, Station  # noqa: E402
 
 
@@ -42,15 +48,20 @@ class BaselineAuthority:
     half_stations: tuple[Station, ...]
     reference: Reference
     n_perim: int
+    airfoil_loop_mode: str
+    airfoil_geometry_reports: dict[str, dict[str, Any]]
 
 
 def load_baseline_authority(
     *,
     n_perim: int,
     geometry_dir: Path | str = DEFAULT_GEOMETRY_DIR,
+    airfoil_loop_mode: str = "legacy_resampled_loop",
 ) -> BaselineAuthority:
     if n_perim < 16 or n_perim % 2:
         raise ValueError("n_perim must be an even integer >= 16")
+    if airfoil_loop_mode not in {"legacy_resampled_loop", "open_te_cgrid"}:
+        raise ValueError(f"unknown airfoil_loop_mode: {airfoil_loop_mode}")
 
     geometry_path = Path(geometry_dir)
     manifest_path = geometry_path / "geometry_manifest.json"
@@ -71,19 +82,44 @@ def load_baseline_authority(
 
     points_per_side = n_perim // 2 + 1
     airfoil_cache: dict[str, list[tuple[float, float]]] = {}
+    airfoil_geometry_reports: dict[str, dict[str, Any]] = {}
     stations: list[Station] = []
     for row in rows:
         dat_path = Path(row["airfoil_dat_path"])
         key = str(dat_path)
+        airfoil_id = row.get("airfoil_id") or dat_path.stem
         loop = airfoil_cache.get(key)
         if loop is None:
-            loop = _resample_airfoil_loop(
-                _read_airfoil_dat(dat_path),
-                points_per_side=points_per_side,
-            )
-            if len(loop) != n_perim:
+            raw_points = _read_airfoil_dat(dat_path)
+            if airfoil_loop_mode == "open_te_cgrid":
+                loop, report = _resample_airfoil_open_te_cgrid(
+                    raw_points,
+                    points_per_side=points_per_side,
+                    airfoil_id=airfoil_id,
+                )
+                expected_count = n_perim + 1
+            else:
+                loop = _resample_airfoil_loop(
+                    raw_points,
+                    points_per_side=points_per_side,
+                )
+                report = _airfoil_geometry_report(
+                    raw_points,
+                    loop,
+                    airfoil_id=airfoil_id,
+                    airfoil_loop_mode=airfoil_loop_mode,
+                    te_perturbation={
+                        "introduced": False,
+                        "reason": "legacy loop mode",
+                        "gap_over_chord": 0.0,
+                        "max_allowed_gap_over_chord": 0.0,
+                    },
+                )
+                expected_count = n_perim
+            if len(loop) != expected_count:
                 raise ValueError(f"airfoil resampling count mismatch for {dat_path}")
             airfoil_cache[key] = loop
+            airfoil_geometry_reports[airfoil_id] = report
         stations.append(
             Station(
                 y=_required_float(row, "y_m"),
@@ -104,6 +140,8 @@ def load_baseline_authority(
         half_stations=tuple(stations),
         reference=reference,
         n_perim=n_perim,
+        airfoil_loop_mode=airfoil_loop_mode,
+        airfoil_geometry_reports=airfoil_geometry_reports,
     )
 
 
@@ -331,6 +369,108 @@ def _read_airfoil_dat(path: Path) -> list[tuple[float, float]]:
     if len(points) < 6:
         raise ValueError(f"too few airfoil DAT points: {path}")
     return points
+
+
+def _resample_airfoil_open_te_cgrid(
+    raw_points: Sequence[tuple[float, float]],
+    *,
+    points_per_side: int,
+    airfoil_id: str,
+    default_blunt_gap_over_chord: float = 5.0e-4,
+    max_blunt_gap_over_chord: float = 1.0e-3,
+) -> tuple[list[tuple[float, float]], dict[str, Any]]:
+    if default_blunt_gap_over_chord > max_blunt_gap_over_chord:
+        raise ValueError("default TE blunt gap exceeds maximum")
+    points = [(float(x), float(z)) for x, z in raw_points]
+    leading_edge_index = min(range(len(points)), key=lambda idx: points[idx][0])
+    if leading_edge_index == 0 or leading_edge_index == len(points) - 1:
+        raise ValueError("Airfoil loop must run TE-upper -> LE -> TE-lower")
+
+    upper = points[: leading_edge_index + 1]
+    lower = points[leading_edge_index:]
+    upper_x = _cosine_space_te_to_le(points_per_side)
+    lower_x = list(reversed(upper_x))
+    upper_loop = [(x, _interp_z(upper, x)) for x in upper_x]
+    lower_loop = [(x, _interp_z(lower, x)) for x in lower_x[1:]]
+    lower_loop = _repair_lower_branch_above_upper(upper_loop, lower_loop)
+
+    raw_upper_te = points[0]
+    raw_lower_te = points[-1]
+    raw_te_gap = _distance_2d(raw_upper_te, raw_lower_te)
+    te_perturbation: dict[str, Any]
+    if raw_te_gap <= 1.0e-10:
+        gap = default_blunt_gap_over_chord
+        te_center_x = 0.5 * (raw_upper_te[0] + raw_lower_te[0])
+        te_center_z = 0.5 * (raw_upper_te[1] + raw_lower_te[1])
+        upper_loop[0] = (te_center_x, te_center_z + 0.5 * gap)
+        lower_loop[-1] = (te_center_x, te_center_z - 0.5 * gap)
+        te_perturbation = {
+            "introduced": True,
+            "reason": "mathematically zero-thickness TE needs bounded C-grid collar gap",
+            "gap_over_chord": gap,
+            "max_allowed_gap_over_chord": max_blunt_gap_over_chord,
+            "default_limit_over_chord": default_blunt_gap_over_chord,
+        }
+    else:
+        upper_loop[0] = raw_upper_te
+        lower_loop[-1] = raw_lower_te
+        te_perturbation = {
+            "introduced": False,
+            "reason": "finite source TE endpoints preserved",
+            "gap_over_chord": raw_te_gap,
+            "max_allowed_gap_over_chord": max_blunt_gap_over_chord,
+            "default_limit_over_chord": default_blunt_gap_over_chord,
+        }
+
+    loop = upper_loop + lower_loop
+    return (
+        loop,
+        _airfoil_geometry_report(
+            raw_points,
+            loop,
+            airfoil_id=airfoil_id,
+            airfoil_loop_mode="open_te_cgrid",
+            te_perturbation=te_perturbation,
+        ),
+    )
+
+
+def _airfoil_geometry_report(
+    raw_points: Sequence[tuple[float, float]],
+    resampled_loop: Sequence[tuple[float, float]],
+    *,
+    airfoil_id: str,
+    airfoil_loop_mode: str,
+    te_perturbation: dict[str, Any],
+) -> dict[str, Any]:
+    raw = [(float(x), float(z)) for x, z in raw_points]
+    raw_chord = max(x for x, _z in raw) - min(x for x, _z in raw)
+    new_chord = max(x for x, _z in resampled_loop) - min(x for x, _z in resampled_loop)
+    raw_area = abs(_polygon_area(raw))
+    new_area = abs(_polygon_area(resampled_loop))
+    return {
+        "airfoil_id": airfoil_id,
+        "airfoil_loop_mode": airfoil_loop_mode,
+        "raw_te_gap_over_chord": _distance_2d(raw[0], raw[-1]) / max(raw_chord, 1.0e-12),
+        "resampled_te_gap_over_chord": _distance_2d(resampled_loop[0], resampled_loop[-1]) / max(new_chord, 1.0e-12),
+        "raw_area_over_chord2": raw_area,
+        "resampled_area_over_chord2": new_area,
+        "area_delta_over_chord2": new_area - raw_area,
+        "raw_chord": raw_chord,
+        "resampled_chord": new_chord,
+        "chord_delta": new_chord - raw_chord,
+        "te_perturbation_chord_delta": 0.0,
+        "sref_planform_delta_over_chord2": 0.0,
+        "sref_note": "TE z-gap changes section thickness area only; x-chord endpoints are unchanged, so planform Sref is unchanged.",
+        "te_perturbation": te_perturbation,
+    }
+
+
+def _polygon_area(points: Sequence[tuple[float, float]]) -> float:
+    return 0.5 * sum(
+        a[0] * b[1] - b[0] * a[1]
+        for a, b in zip(points, [*points[1:], points[0]])
+    )
 
 
 def _read_csv_dicts(path: Path) -> list[dict[str, str]]:

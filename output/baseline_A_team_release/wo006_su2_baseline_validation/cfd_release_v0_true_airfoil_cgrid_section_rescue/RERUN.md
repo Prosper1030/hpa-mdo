@@ -7,5 +7,5 @@
   --n-perim 192 \
   --n-radial 80 \
   --farfield-chords 10 \
-  --wake-length-chords 10
+  --wake-length-chords 8
 ```

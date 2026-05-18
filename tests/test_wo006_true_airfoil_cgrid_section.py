@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -22,7 +24,7 @@ from run_wo006_true_airfoil_cgrid_section_rescue import (  # noqa: E402
 
 
 def test_true_airfoil_cgrid_keeps_te_open_and_adds_wake_patches() -> None:
-    authority = load_baseline_authority(n_perim=48)
+    authority = load_baseline_authority(n_perim=48, airfoil_loop_mode="open_te_cgrid")
     root = authority.half_stations[0]
 
     grid = build_section_cgrid(
@@ -60,8 +62,72 @@ def test_true_airfoil_cgrid_keeps_te_open_and_adds_wake_patches() -> None:
     assert mesh.metadata["boundary_patch_types"]["tip_right"] == "empty"
 
 
+def test_cgrid_authority_restores_lower_te_endpoint_and_reports_bounded_bluntness() -> None:
+    authority = load_baseline_authority(n_perim=48, airfoil_loop_mode="open_te_cgrid")
+    root = authority.half_stations[0]
+    tip = authority.half_stations[-1]
+
+    assert len(root.airfoil_xz) == 49
+    assert root.airfoil_xz[0][0] == pytest.approx(1.0)
+    assert root.airfoil_xz[-1][0] == pytest.approx(1.0)
+    root_gap = abs(root.airfoil_xz[0][1] - root.airfoil_xz[-1][1])
+    assert 0.0 < root_gap <= 5.0e-4
+    assert authority.airfoil_geometry_reports["dae31"]["te_perturbation"]["introduced"]
+    assert authority.airfoil_geometry_reports["dae31"]["te_perturbation"]["gap_over_chord"] == pytest.approx(root_gap)
+
+    assert tip.airfoil_xz[0][0] == pytest.approx(1.0)
+    assert tip.airfoil_xz[-1][0] == pytest.approx(1.0)
+    assert tip.airfoil_xz[0][1] > tip.airfoil_xz[-1][1]
+    tip_report = authority.airfoil_geometry_reports["cst_tip_nsga2_g05_child_0032_70ef8136"]
+    assert not tip_report["te_perturbation"]["introduced"]
+
+
+def test_cgrid_te_wake_cut_first_layer_points_downstream() -> None:
+    authority = load_baseline_authority(n_perim=192, airfoil_loop_mode="open_te_cgrid")
+    root = authority.half_stations[0]
+
+    grid = build_section_cgrid(
+        root,
+        first_layer_height_m=5.0e-5,
+        n_radial=12,
+        farfield_chords=8.0,
+        wake_length_chords=10.0,
+    )
+
+    assert grid.points[1][0][0] > grid.points[0][0][0]
+    assert grid.points[1][-1][0] > grid.points[0][-1][0]
+
+
+def test_cgrid_lower_le_shoulder_near_wall_stack_stays_wall_normal() -> None:
+    authority = load_baseline_authority(n_perim=192, airfoil_loop_mode="open_te_cgrid")
+    root = authority.half_stations[0]
+
+    grid = build_section_cgrid(
+        root,
+        first_layer_height_m=5.0e-5,
+        n_radial=12,
+        farfield_chords=8.0,
+        wake_length_chords=8.0,
+    )
+    assert grid.metadata["normal_stack_layers"] >= 8
+    le_index = grid.metadata["le_index"] + 11
+    first_vector = (
+        grid.points[1][le_index][0] - grid.points[0][le_index][0],
+        grid.points[1][le_index][1] - grid.points[0][le_index][1],
+    )
+    second_vector = (
+        grid.points[2][le_index][0] - grid.points[1][le_index][0],
+        grid.points[2][le_index][1] - grid.points[1][le_index][1],
+    )
+    dot = first_vector[0] * second_vector[0] + first_vector[1] * second_vector[1]
+    first_norm = (first_vector[0] ** 2 + first_vector[1] ** 2) ** 0.5
+    second_norm = (second_vector[0] ** 2 + second_vector[1] ** 2) ** 0.5
+
+    assert dot / (first_norm * second_norm) > 0.99
+
+
 def test_cgrid_section_meshes_have_positive_hexa_for_true_airfoils() -> None:
-    authority = load_baseline_authority(n_perim=48)
+    authority = load_baseline_authority(n_perim=48, airfoil_loop_mode="open_te_cgrid")
     stations = [
         authority.half_stations[0],
         authority.half_stations[-1],
@@ -86,7 +152,7 @@ def test_cgrid_section_meshes_have_positive_hexa_for_true_airfoils() -> None:
 
 
 def test_cgrid_root_bay_sweeps_to_positive_hexa() -> None:
-    authority = load_baseline_authority(n_perim=48)
+    authority = load_baseline_authority(n_perim=48, airfoil_loop_mode="open_te_cgrid")
     left = authority.half_stations[0]
     right = authority.half_stations[1]
     stations = [left] + [
@@ -129,3 +195,25 @@ Failed 1 mesh checks.
     assert status["status"] == "fail"
     assert status["mesh_ok"] is False
     assert status["failed_check_count"] == 1
+
+
+def test_strict_section_gate_reports_all_geometry_determinant_blocker(tmp_path: Path) -> None:
+    failed_log = tmp_path / "log.checkMesh_allGeometry"
+    failed_log.write_text(
+        """
+Mesh non-orthogonality Max: 68.0 average: 20.0
+Max skewness = 2.0 OK.
+*Edges too small, min/max edge length = 3.0e-05 3.0, number too small: 14
+Cell determinant (wellposedness) : minimum: 4.0e-05 average: 0.12
+***Cells with small determinant (< 0.001) found, number of cells: 1846
+Failed 1 mesh checks.
+""",
+        encoding="utf-8",
+    )
+
+    status = _strict_checkmesh_log_status(failed_log, max_non_ortho_target=75.0)
+
+    assert status["status"] == "fail"
+    assert status["short_edge_count"] == 14
+    assert status["min_cell_determinant"] == pytest.approx(4.0e-05)
+    assert status["underdetermined_cell_count"] == 1846

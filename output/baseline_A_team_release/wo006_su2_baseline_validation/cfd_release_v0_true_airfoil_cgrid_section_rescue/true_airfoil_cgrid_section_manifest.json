@@ -1,5 +1,13 @@
 {
   "attempt_accounting": {
+    "attempt_history": [
+      "attempt_01_internal_hblock_false_lower_te_endpoint_failed_open_cells_wrong_pyramids",
+      "attempt_02_open_te_true_lower_endpoint_and_dae31_0p05pct_gap_failed_te_collar_orientation",
+      "attempt_03_downstream_te_wake_cut_normals_removed_open_cells_but_left_smoke_nonorthogonality",
+      "attempt_04_wake_length_8c_plus_near_wall_normal_stack_primary_checkmesh_clean_but_strict_gate_failed",
+      "attempt_05_high_perimeter_resampling_rejected_due_dae31_te_collar_topology_regression",
+      "attempt_06_laplacian_section_smoothing_rejected_due_inverted_high_nonorthogonality"
+    ],
     "bay_attempts": 0,
     "bounded_attempt_limits": {
       "bay_tests": 6,
@@ -8,13 +16,60 @@
       "section_smoothing_resampling_adjustments": 4,
       "te_hblock_collar_topology": 6
     },
-    "cgrid_section_topology_attempts": 1,
+    "cgrid_section_topology_attempts": 6,
     "full_wing_attempts": 0,
-    "section_smoothing_resampling_attempts": 0,
-    "te_hblock_collar_topology_attempts": 1
+    "section_smoothing_resampling_attempts": 4,
+    "te_hblock_collar_topology_attempts": 5
   },
   "bay_cases": [],
   "config": {
+    "airfoil_geometry_reports": {
+      "cst_tip_nsga2_g05_child_0032_70ef8136": {
+        "airfoil_id": "cst_tip_nsga2_g05_child_0032_70ef8136",
+        "airfoil_loop_mode": "open_te_cgrid",
+        "area_delta_over_chord2": -1.0894285270804382e-05,
+        "chord_delta": 0.0,
+        "raw_area_over_chord2": 0.06356405006761413,
+        "raw_chord": 1.0,
+        "raw_te_gap_over_chord": 0.0017032,
+        "resampled_area_over_chord2": 0.06355315578234333,
+        "resampled_chord": 1.0,
+        "resampled_te_gap_over_chord": 0.0017032,
+        "sref_note": "TE z-gap changes section thickness area only; x-chord endpoints are unchanged, so planform Sref is unchanged.",
+        "sref_planform_delta_over_chord2": 0.0,
+        "te_perturbation": {
+          "default_limit_over_chord": 0.0005,
+          "gap_over_chord": 0.0017032,
+          "introduced": false,
+          "max_allowed_gap_over_chord": 0.001,
+          "reason": "finite source TE endpoints preserved"
+        },
+        "te_perturbation_chord_delta": 0.0
+      },
+      "dae31": {
+        "airfoil_id": "dae31",
+        "airfoil_loop_mode": "open_te_cgrid",
+        "area_delta_over_chord2": -1.07384884251438e-05,
+        "chord_delta": 2.5000000000052758e-05,
+        "raw_area_over_chord2": 0.0731598345115,
+        "raw_chord": 0.999975,
+        "raw_te_gap_over_chord": 0.0,
+        "resampled_area_over_chord2": 0.07314909602307486,
+        "resampled_chord": 1.0,
+        "resampled_te_gap_over_chord": 0.0005,
+        "sref_note": "TE z-gap changes section thickness area only; x-chord endpoints are unchanged, so planform Sref is unchanged.",
+        "sref_planform_delta_over_chord2": 0.0,
+        "te_perturbation": {
+          "default_limit_over_chord": 0.0005,
+          "gap_over_chord": 0.0005,
+          "introduced": true,
+          "max_allowed_gap_over_chord": 0.001,
+          "reason": "mathematically zero-thickness TE needs bounded C-grid collar gap"
+        },
+        "te_perturbation_chord_delta": 0.0
+      }
+    },
+    "airfoil_loop_mode": "open_te_cgrid",
     "farfield_chords": 10.0,
     "first_layer_height_m": 5e-05,
     "mesh_quality_dict": {
@@ -25,9 +80,9 @@
     "n_perim": 192,
     "n_radial": 80,
     "wake_cross_cells": 8,
-    "wake_length_chords": 10.0
+    "wake_length_chords": 8.0
   },
-  "created_at_utc": "2026-05-18T07:07:22Z",
+  "created_at_utc": "2026-05-18T10:23:34Z",
   "fullwing_case": null,
   "hard_prohibitions_observed": {
     "cfMesh": "not_used",
@@ -51,111 +106,163 @@
             "command": "checkMesh -meshQuality",
             "parsed": {
               "counts": {
-                "cells": 15920,
-                "faces": 63879,
-                "internal_faces": 31641,
-                "points": 32238
+                "cells": 16000,
+                "faces": 64200,
+                "internal_faces": 31800,
+                "points": 32400
               },
-              "custom_mesh_quality_error_count": 53,
+              "custom_mesh_quality_error_count": 0,
               "custom_mesh_quality_errors": {
                 "faces on cells with determinant < 1e-08": 0,
                 "faces with concavity > 80  degrees": 0,
-                "faces with face pyramid volume < 1e-13": 49,
+                "faces with face pyramid volume < 1e-13": 0,
                 "faces with face twist < 0.02": 0,
                 "faces with face-decomposition tet quality < 1e-15": 0,
                 "faces with interpolation weights (0..1)  < 0": 0,
                 "faces with skewness > 7   (internal) or 20  (boundary)": 0,
                 "faces with volume ratio of neighbour cells < 0.01": 0,
-                "non-orthogonality > 85  degrees": 4
+                "non-orthogonality > 85  degrees": 0
               },
               "highly_skew_faces": null,
               "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/dae31_root_section/log.checkMesh",
-              "max_skewness": 2.47626,
-              "quality_basis": "failed_checkmesh",
-              "status": "fail",
+              "max_skewness": 2.45064,
+              "quality_basis": "mesh_ok",
+              "status": "pass",
               "summary_lines": [
                 "Checking topology...",
                 "Checking geometry...",
-                "    Mesh non-orthogonality Max: 89.2708 average: 34.2376",
+                "    Max aspect ratio = 144.83 OK.",
+                "    Mesh non-orthogonality Max: 80.1398 average: 29.1572",
                 "    Non-orthogonality check OK.",
-                "    Max skewness = 2.47626 OK.",
+                "    Max skewness = 2.45064 OK.",
                 "Checking faces in error :",
-                "    non-orthogonality > 85  degrees                        : 4",
+                "    non-orthogonality > 85  degrees                        : 0",
                 "    faces with skewness > 7   (internal) or 20  (boundary) : 0",
-                "Failed 3 mesh checks."
+                "Mesh OK."
+              ]
+            },
+            "returncode": 0,
+            "timed_out": false
+          },
+          "checkMesh_allGeometry": {
+            "command": "checkMesh -allTopology -allGeometry -meshQuality",
+            "parsed": {
+              "counts": {
+                "cells": 16000,
+                "faces": 64200,
+                "internal_faces": 31800,
+                "points": 32400
+              },
+              "custom_mesh_quality_error_count": 0,
+              "custom_mesh_quality_errors": {
+                "faces on cells with determinant < 1e-08": 0,
+                "faces with concavity > 80  degrees": 0,
+                "faces with face pyramid volume < 1e-13": 0,
+                "faces with face twist < 0.02": 0,
+                "faces with face-decomposition tet quality < 1e-15": 0,
+                "faces with interpolation weights (0..1)  < 0": 0,
+                "faces with skewness > 7   (internal) or 20  (boundary)": 0,
+                "faces with volume ratio of neighbour cells < 0.01": 0,
+                "non-orthogonality > 85  degrees": 0
+              },
+              "highly_skew_faces": null,
+              "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/dae31_root_section/log.checkMesh_allGeometry",
+              "max_skewness": 2.45064,
+              "quality_basis": "pass_with_smoke_skew_warning",
+              "status": "pass",
+              "summary_lines": [
+                "Checking topology...",
+                "Checking geometry...",
+                "    Max aspect ratio = 144.83 OK.",
+                "    Mesh non-orthogonality Max: 80.1398 average: 29.1572",
+                "    Non-orthogonality check OK.",
+                "    Max skewness = 2.45064 OK.",
+                "Checking faces in error :",
+                "    non-orthogonality > 85  degrees                        : 0",
+                "    faces with skewness > 7   (internal) or 20  (boundary) : 0",
+                "Failed 1 mesh checks."
               ]
             },
             "returncode": 0,
             "timed_out": false
           }
         },
-        "status": "fail"
+        "status": "pass"
       },
       "custom_quality": {
         "aspect_ratio_proxy": {
-          "max": 3141.9327400118464,
-          "min": 1.1474805536262964,
-          "p50": 42.83896892773707,
-          "p95": 1016.1318403707355
+          "max": 3141.932740011839,
+          "min": 1.7513100154315164,
+          "p50": 43.31070011950345,
+          "p95": 1012.7110684670935
         },
         "blockers": [],
         "boundary_face_counts": {
-          "airfoil_lower": 95,
+          "airfoil_lower": 96,
           "airfoil_upper": 96,
-          "farfield": 191,
+          "farfield": 192,
           "outlet": 8,
           "te_wall": 8,
-          "tip_left": 15920,
-          "tip_right": 15920
+          "tip_left": 16000,
+          "tip_right": 16000
         },
-        "cell_count": 15920,
+        "cell_count": 16000,
         "duplicate_point_count": 0,
-        "face_count": 63879,
-        "internal_face_count": 31641,
-        "max_signed_volume": 0.005445154981691666,
-        "min_signed_volume": 7.292894394472002e-14,
-        "node_count": 32238,
+        "face_count": 64200,
+        "internal_face_count": 31800,
+        "max_signed_volume": 0.0041209464396547435,
+        "min_signed_volume": 2.6059145366323994e-12,
+        "node_count": 32400,
         "non_positive_volume_count": 0,
         "nonmanifold_face_count": 0,
         "status": "pass",
         "unmarked_boundary_face_count": 0,
         "volume": {
-          "max": 0.005445154981691666,
-          "min": 7.292894394472002e-14,
-          "p50": 4.5780582012692865e-08,
-          "p95": 0.00018622340919388408
+          "max": 0.0041209464396547435,
+          "min": 2.6059145366323994e-12,
+          "p50": 4.2873456073364736e-08,
+          "p95": 0.00017524438982737672
         }
       },
       "metrics": {
         "determinant_faces_below_threshold": 0,
-        "failed_check_count": 3,
+        "failed_check_count": null,
         "high_aspect_cell_count": null,
         "max_aspect_ratio": null,
-        "max_non_orthogonality_deg": 89.2708,
-        "max_skewness": 2.47626,
-        "mesh_ok": false,
-        "non_orthogonal_faces_over_threshold": 4,
-        "tet_quality_faces_below_threshold": 0
+        "max_non_orthogonality_deg": 80.1398,
+        "max_skewness": 2.45064,
+        "mesh_ok": true,
+        "min_cell_determinant": null,
+        "non_orthogonal_faces_over_threshold": 0,
+        "short_edge_count": null,
+        "tet_quality_faces_below_threshold": 0,
+        "underdetermined_cell_count": null
       },
       "status": "checkmesh_failed",
       "strict_checkMesh": {
         "all_geometry": {
-          "failed_check_count": null,
+          "failed_check_count": 1,
           "fatal_error": false,
           "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/dae31_root_section/log.checkMesh_allGeometry",
-          "max_non_orthogonality_deg": null,
-          "max_skewness": null,
+          "max_non_orthogonality_deg": 80.1398,
+          "max_skewness": 2.45064,
           "mesh_ok": false,
-          "status": "fail"
+          "min_cell_determinant": 5.81955e-05,
+          "short_edge_count": 14,
+          "status": "fail",
+          "underdetermined_cell_count": 1846
         },
         "primary": {
-          "failed_check_count": 3,
-          "fatal_error": true,
+          "failed_check_count": null,
+          "fatal_error": false,
           "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/dae31_root_section/log.checkMesh",
-          "max_non_orthogonality_deg": 89.2708,
-          "max_skewness": 2.47626,
-          "mesh_ok": false,
-          "status": "fail"
+          "max_non_orthogonality_deg": 80.1398,
+          "max_skewness": 2.45064,
+          "mesh_ok": true,
+          "min_cell_determinant": null,
+          "short_edge_count": null,
+          "status": "smoke_only",
+          "underdetermined_cell_count": null
         },
         "status": "checkmesh_failed"
       }
@@ -169,10 +276,10 @@
             "command": "checkMesh -meshQuality",
             "parsed": {
               "counts": {
-                "cells": 15920,
-                "faces": 63879,
-                "internal_faces": 31641,
-                "points": 32238
+                "cells": 16000,
+                "faces": 64200,
+                "internal_faces": 31800,
+                "points": 32400
               },
               "custom_mesh_quality_error_count": 0,
               "custom_mesh_quality_errors": {
@@ -188,16 +295,16 @@
               },
               "highly_skew_faces": null,
               "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/cst_tip_section/log.checkMesh",
-              "max_skewness": 2.76628,
+              "max_skewness": 2.27372,
               "quality_basis": "mesh_ok",
               "status": "pass",
               "summary_lines": [
                 "Checking topology...",
                 "Checking geometry...",
                 "    Max aspect ratio = 98.63 OK.",
-                "    Mesh non-orthogonality Max: 79.14 average: 32.6977",
+                "    Mesh non-orthogonality Max: 68.9769 average: 28.0314",
                 "    Non-orthogonality check OK.",
-                "    Max skewness = 2.76628 OK.",
+                "    Max skewness = 2.27372 OK.",
                 "Checking faces in error :",
                 "    non-orthogonality > 85  degrees                        : 0",
                 "    faces with skewness > 7   (internal) or 20  (boundary) : 0",
@@ -211,10 +318,10 @@
             "command": "checkMesh -allTopology -allGeometry -meshQuality",
             "parsed": {
               "counts": {
-                "cells": 15920,
-                "faces": 63879,
-                "internal_faces": 31641,
-                "points": 32238
+                "cells": 16000,
+                "faces": 64200,
+                "internal_faces": 31800,
+                "points": 32400
               },
               "custom_mesh_quality_error_count": 0,
               "custom_mesh_quality_errors": {
@@ -230,16 +337,16 @@
               },
               "highly_skew_faces": null,
               "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/cst_tip_section/log.checkMesh_allGeometry",
-              "max_skewness": 2.76628,
+              "max_skewness": 2.27372,
               "quality_basis": "pass_with_smoke_skew_warning",
               "status": "pass",
               "summary_lines": [
                 "Checking topology...",
                 "Checking geometry...",
                 "    Max aspect ratio = 98.63 OK.",
-                "    Mesh non-orthogonality Max: 79.14 average: 32.6977",
+                "    Mesh non-orthogonality Max: 68.9769 average: 28.0314",
                 "    Non-orthogonality check OK.",
-                "    Max skewness = 2.76628 OK.",
+                "    Max skewness = 2.27372 OK.",
                 "Checking faces in error :",
                 "    non-orthogonality > 85  degrees                        : 0",
                 "    faces with skewness > 7   (internal) or 20  (boundary) : 0",
@@ -254,37 +361,37 @@
       },
       "custom_quality": {
         "aspect_ratio_proxy": {
-          "max": 1612.5102250098396,
-          "min": 1.0504161884304841,
-          "p50": 25.836220610338472,
-          "p95": 490.2872544229465
+          "max": 1612.5102250098332,
+          "min": 1.0766160582025988,
+          "p50": 25.671107709854944,
+          "p95": 495.4244366724685
         },
         "blockers": [],
         "boundary_face_counts": {
-          "airfoil_lower": 95,
+          "airfoil_lower": 96,
           "airfoil_upper": 96,
-          "farfield": 191,
+          "farfield": 192,
           "outlet": 8,
           "te_wall": 8,
-          "tip_left": 15920,
-          "tip_right": 15920
+          "tip_left": 16000,
+          "tip_right": 16000
         },
-        "cell_count": 15920,
+        "cell_count": 16000,
         "duplicate_point_count": 0,
-        "face_count": 63879,
-        "internal_face_count": 31641,
-        "max_signed_volume": 0.0012828462523525577,
-        "min_signed_volume": 9.356799370316896e-13,
-        "node_count": 32238,
+        "face_count": 64200,
+        "internal_face_count": 31800,
+        "max_signed_volume": 0.0009602690387415351,
+        "min_signed_volume": 4.442481231692117e-12,
+        "node_count": 32400,
         "non_positive_volume_count": 0,
         "nonmanifold_face_count": 0,
         "status": "pass",
         "unmarked_boundary_face_count": 0,
         "volume": {
-          "max": 0.0012828462523525577,
-          "min": 9.356799370316896e-13,
-          "p50": 2.5280932841678288e-08,
-          "p95": 4.81983694563061e-05
+          "max": 0.0009602690387415351,
+          "min": 4.442481231692117e-12,
+          "p50": 2.378219341954731e-08,
+          "p95": 4.6849658757801345e-05
         }
       },
       "metrics": {
@@ -292,11 +399,14 @@
         "failed_check_count": null,
         "high_aspect_cell_count": null,
         "max_aspect_ratio": null,
-        "max_non_orthogonality_deg": 79.14,
-        "max_skewness": 2.76628,
+        "max_non_orthogonality_deg": 68.9769,
+        "max_skewness": 2.27372,
         "mesh_ok": true,
+        "min_cell_determinant": null,
         "non_orthogonal_faces_over_threshold": 0,
-        "tet_quality_faces_below_threshold": 0
+        "short_edge_count": null,
+        "tet_quality_faces_below_threshold": 0,
+        "underdetermined_cell_count": null
       },
       "status": "checkmesh_failed",
       "strict_checkMesh": {
@@ -304,19 +414,25 @@
           "failed_check_count": 1,
           "fatal_error": false,
           "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/cst_tip_section/log.checkMesh_allGeometry",
-          "max_non_orthogonality_deg": 79.14,
-          "max_skewness": 2.76628,
+          "max_non_orthogonality_deg": 68.9769,
+          "max_skewness": 2.27372,
           "mesh_ok": false,
-          "status": "fail"
+          "min_cell_determinant": 0.000209326,
+          "short_edge_count": null,
+          "status": "fail",
+          "underdetermined_cell_count": 814
         },
         "primary": {
           "failed_check_count": null,
           "fatal_error": false,
           "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/cst_tip_section/log.checkMesh",
-          "max_non_orthogonality_deg": 79.14,
-          "max_skewness": 2.76628,
+          "max_non_orthogonality_deg": 68.9769,
+          "max_skewness": 2.27372,
           "mesh_ok": true,
-          "status": "smoke_only"
+          "min_cell_determinant": null,
+          "short_edge_count": null,
+          "status": "pass",
+          "underdetermined_cell_count": null
         },
         "status": "checkmesh_failed"
       }
@@ -330,16 +446,16 @@
             "command": "checkMesh -meshQuality",
             "parsed": {
               "counts": {
-                "cells": 15920,
-                "faces": 63879,
-                "internal_faces": 31641,
-                "points": 32238
+                "cells": 16000,
+                "faces": 64200,
+                "internal_faces": 31800,
+                "points": 32400
               },
-              "custom_mesh_quality_error_count": 11,
+              "custom_mesh_quality_error_count": 0,
               "custom_mesh_quality_errors": {
                 "faces on cells with determinant < 1e-08": 0,
                 "faces with concavity > 80  degrees": 0,
-                "faces with face pyramid volume < 1e-13": 11,
+                "faces with face pyramid volume < 1e-13": 0,
                 "faces with face twist < 0.02": 0,
                 "faces with face-decomposition tet quality < 1e-15": 0,
                 "faces with interpolation weights (0..1)  < 0": 0,
@@ -349,16 +465,58 @@
               },
               "highly_skew_faces": null,
               "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/morph_dae31_to_cst_tip_section/log.checkMesh",
-              "max_skewness": 2.47632,
-              "quality_basis": "failed_checkmesh",
-              "status": "fail",
+              "max_skewness": 2.84184,
+              "quality_basis": "mesh_ok",
+              "status": "pass",
               "summary_lines": [
                 "Checking topology...",
                 "Checking geometry...",
-                "    Max aspect ratio = 113.25 OK.",
-                "    Mesh non-orthogonality Max: 84.2988 average: 33.1318",
+                "    Max aspect ratio = 98.326 OK.",
+                "    Mesh non-orthogonality Max: 74.4618 average: 28.3801",
                 "    Non-orthogonality check OK.",
-                "    Max skewness = 2.47632 OK.",
+                "    Max skewness = 2.84184 OK.",
+                "Checking faces in error :",
+                "    non-orthogonality > 85  degrees                        : 0",
+                "    faces with skewness > 7   (internal) or 20  (boundary) : 0",
+                "Mesh OK."
+              ]
+            },
+            "returncode": 0,
+            "timed_out": false
+          },
+          "checkMesh_allGeometry": {
+            "command": "checkMesh -allTopology -allGeometry -meshQuality",
+            "parsed": {
+              "counts": {
+                "cells": 16000,
+                "faces": 64200,
+                "internal_faces": 31800,
+                "points": 32400
+              },
+              "custom_mesh_quality_error_count": 0,
+              "custom_mesh_quality_errors": {
+                "faces on cells with determinant < 1e-08": 0,
+                "faces with concavity > 80  degrees": 0,
+                "faces with face pyramid volume < 1e-13": 0,
+                "faces with face twist < 0.02": 0,
+                "faces with face-decomposition tet quality < 1e-15": 0,
+                "faces with interpolation weights (0..1)  < 0": 0,
+                "faces with skewness > 7   (internal) or 20  (boundary)": 0,
+                "faces with volume ratio of neighbour cells < 0.01": 0,
+                "non-orthogonality > 85  degrees": 0
+              },
+              "highly_skew_faces": null,
+              "log": "/tmp/hpa_mdo_swept_cgrid_openfoam/morph_dae31_to_cst_tip_section/log.checkMesh_allGeometry",
+              "max_skewness": 2.84184,
+              "quality_basis": "pass_with_smoke_skew_warning",
+              "status": "pass",
+              "summary_lines": [
+                "Checking topology...",
+                "Checking geometry...",
+                "    Max aspect ratio = 98.326 OK.",
+                "    Mesh non-orthogonality Max: 74.4618 average: 28.3801",
+                "    Non-orthogonality check OK.",
+                "    Max skewness = 2.84184 OK.",
                 "Checking faces in error :",
                 "    non-orthogonality > 85  degrees                        : 0",
                 "    faces with skewness > 7   (internal) or 20  (boundary) : 0",
@@ -369,73 +527,82 @@
             "timed_out": false
           }
         },
-        "status": "fail"
+        "status": "pass"
       },
       "custom_quality": {
         "aspect_ratio_proxy": {
-          "max": 2058.8814275052487,
-          "min": 1.225222989427777,
-          "p50": 31.022392301252495,
-          "p95": 644.0466531419537
+          "max": 2058.881427505241,
+          "min": 1.2223471823699084,
+          "p50": 30.966000747126696,
+          "p95": 644.6078865470934
         },
         "blockers": [],
         "boundary_face_counts": {
-          "airfoil_lower": 95,
+          "airfoil_lower": 96,
           "airfoil_upper": 96,
-          "farfield": 191,
+          "farfield": 192,
           "outlet": 8,
           "te_wall": 8,
-          "tip_left": 15920,
-          "tip_right": 15920
+          "tip_left": 16000,
+          "tip_right": 16000
         },
-        "cell_count": 15920,
+        "cell_count": 16000,
         "duplicate_point_count": 0,
-        "face_count": 63879,
-        "internal_face_count": 31641,
-        "max_signed_volume": 0.002183607514634539,
-        "min_signed_volume": 2.4227232091243174e-13,
-        "node_count": 32238,
+        "face_count": 64200,
+        "internal_face_count": 31800,
+        "max_signed_volume": 0.0016418184613095587,
+        "min_signed_volume": 3.694890928237353e-12,
+        "node_count": 32400,
         "non_positive_volume_count": 0,
         "nonmanifold_face_count": 0,
         "status": "pass",
         "unmarked_boundary_face_count": 0,
         "volume": {
-          "max": 0.002183607514634539,
-          "min": 2.4227232091243174e-13,
-          "p50": 3.132291243202785e-08,
-          "p95": 7.9339134540269e-05
+          "max": 0.0016418184613095587,
+          "min": 3.694890928237353e-12,
+          "p50": 2.943295018085379e-08,
+          "p95": 7.714709418535042e-05
         }
       },
       "metrics": {
         "determinant_faces_below_threshold": 0,
-        "failed_check_count": 1,
+        "failed_check_count": null,
         "high_aspect_cell_count": null,
         "max_aspect_ratio": null,
-        "max_non_orthogonality_deg": 84.2988,
-        "max_skewness": 2.47632,
-        "mesh_ok": false,
+        "max_non_orthogonality_deg": 74.4618,
+        "max_skewness": 2.84184,
+        "mesh_ok": true,
+        "min_cell_determinant": null,
         "non_orthogonal_faces_over_threshold": 0,
-        "tet_quality_faces_below_threshold": 0
+        "short_edge_count": null,
+        "tet_quality_faces_below_threshold": 0,
+        "underdetermined_cell_count": null
       },
       "status": "checkmesh_failed",
       "strict_checkMesh": {
         "all_geometry": {
-          "failed_check_count": null,
-          "fatal_error": false,
-          "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/morph_dae31_to_cst_tip_section/log.checkMesh_allGeometry",
-          "max_non_orthogonality_deg": null,
-          "max_skewness": null,
-          "mesh_ok": false,
-          "status": "fail"
-        },
-        "primary": {
           "failed_check_count": 1,
           "fatal_error": false,
-          "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/morph_dae31_to_cst_tip_section/log.checkMesh",
-          "max_non_orthogonality_deg": 84.2988,
-          "max_skewness": 2.47632,
+          "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/morph_dae31_to_cst_tip_section/log.checkMesh_allGeometry",
+          "max_non_orthogonality_deg": 74.4618,
+          "max_skewness": 2.84184,
           "mesh_ok": false,
-          "status": "fail"
+          "min_cell_determinant": 0.000132426,
+          "short_edge_count": null,
+          "status": "fail",
+          "underdetermined_cell_count": 1157
+        },
+        "primary": {
+          "failed_check_count": null,
+          "fatal_error": false,
+          "log": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/openfoam_cases/morph_dae31_to_cst_tip_section/log.checkMesh",
+          "max_non_orthogonality_deg": 74.4618,
+          "max_skewness": 2.84184,
+          "mesh_ok": true,
+          "min_cell_determinant": null,
+          "short_edge_count": null,
+          "status": "pass",
+          "underdetermined_cell_count": null
         },
         "status": "checkmesh_failed"
       }

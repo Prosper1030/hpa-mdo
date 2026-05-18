@@ -23,3 +23,12 @@ orientation and non-orthogonality.  The rescue route therefore uses an open-TE
 wake C-grid with a downstream TE H-block: airfoil upper/lower walls remain
 separate, the finite TE strip is represented as `te_wall`, wake-block faces are
 internal fluid faces, and no cell wraps around the TE cusp.
+
+Current follow-up diagnosis:
+- The previous H-block attempt still used the legacy resampled airfoil loop,
+  which omitted the true lower TE endpoint.  That made dae31 close the H-block
+  against a near-duplicate upper-surface point instead of a proper lower TE
+  endpoint/collar node.
+- The current attempt uses `open_te_cgrid` airfoil-loop authority: finite TE
+  endpoints are retained, and mathematically zero-thickness TE sections receive
+  only the bounded collar gap reported in `geometry_perturbation_report.md`.
