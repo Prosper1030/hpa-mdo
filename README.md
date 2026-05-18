@@ -1,5 +1,34 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-18 WO-006 True Baseline OpenFOAM Route-Smoke
+
+New bounded artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_openfoam_route_smoke/`.
+The route uses `scripts/run_wo006_true_baseline_openfoam_route_smoke.py` to wrap
+the accepted true-airfoil swept C-grid OpenFOAM `polyMesh` without changing mesh
+topology, section/bay generators, TE gap, geometry, or station count. It writes
+explicit OpenFOAM v2512 `simpleFoam` boundary conditions for every patch,
+preserves split force reporting, and runs Spalart-Allmaras at `V=6.5 m/s` and
+`AoA=0.18 deg`.
+
+Result: BC reconciliation completed and the case ran through a 500-iteration
+route-smoke. The accepted mesh remains `998400` hexa cells with maxNonOrtho
+`89.193`, maxSkew `3.45663`, no negative volumes, no open cells, and no
+oriented-pyramid errors. Final force reads are `CD_primary=0.01837651`,
+`CL_primary=0.5654834`, and `CD_total=0.06993191`. Main wall yPlus is low
+(`mean=0.588`, `p95=1.170`, `max=2.814`), but the diagnostic tip patches are
+not benign: `CD_tip_left=0.03937806`, `CD_tip_right=0.01216353`, and diagnostic
+CD is about `73.7%` of total CD.
+
+Engineering verdict: this is a successful OpenFOAM BC/solver route-smoke, not a
+release-grade drag validation. The patch geometry audit reports the domain y
+extent as `0.0..17.166143 m`, with `tip_left` exactly on the `y=0` plane and
+`tip_right` on `y=17.166143 m`; that looks like a half-span/root-symmetry domain
+being run under the requested full-wing wall-tip convention. Do not compare
+`CD_total` to XFOIL `CD≈0.02602` and do not start an AoA sweep until the
+root/tip patch role, full-wing versus half-wing convention, and reference-area
+scaling are resolved.
+
 ## 2026-05-18 WO-006 True-Airfoil TE-Regularized C-Grid Matrix
 
 New bounded artifact:

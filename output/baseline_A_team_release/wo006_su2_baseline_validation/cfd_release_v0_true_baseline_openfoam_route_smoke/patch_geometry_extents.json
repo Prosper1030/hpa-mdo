@@ -1,0 +1,131 @@
+{
+  "case_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_openfoam_route_smoke/openfoam_cases/true_baseline_swept_cgrid",
+  "current_pipeline_full_span_m": 34.332286,
+  "current_pipeline_half_span_m": 17.166143,
+  "domain_y_extent_m": [
+    0.0,
+    17.166143
+  ],
+  "engineering_note": "tip_left is exactly y=0 plane while tip_right is y=17.166143 plane; this looks like a half-span/root-symmetry domain, not a +/- full-span wing.",
+  "patch_extents": {
+    "airfoil_lower": {
+      "face_count": 7488,
+      "nFaces": 7488,
+      "type": "wall",
+      "x": [
+        0.00036017201672,
+        1.25191195517
+      ],
+      "y": [
+        0.0,
+        17.166143
+      ],
+      "z": [
+        -0.0956054999562,
+        2.63933242922
+      ]
+    },
+    "airfoil_upper": {
+      "face_count": 7488,
+      "nFaces": 7488,
+      "type": "wall",
+      "x": [
+        0.00036017201672,
+        1.25193741663
+      ],
+      "y": [
+        0.0,
+        17.166143
+      ],
+      "z": [
+        -0.0953710003071,
+        2.68911623532
+      ]
+    },
+    "farfield": {
+      "face_count": 14976,
+      "nFaces": 14976,
+      "type": "patch",
+      "x": [
+        -12.5353211061,
+        12.5274660009
+      ],
+      "y": [
+        0.0,
+        17.166143
+      ],
+      "z": [
+        -13.6170242982,
+        11.6207953958
+      ]
+    },
+    "outlet": {
+      "face_count": 624,
+      "nFaces": 624,
+      "type": "patch",
+      "x": [
+        5.36156842058,
+        12.5274660009
+      ],
+      "y": [
+        0.0,
+        17.166143
+      ],
+      "z": [
+        -13.6170242982,
+        11.3891466859
+      ]
+    },
+    "te_wall": {
+      "face_count": 624,
+      "nFaces": 624,
+      "type": "wall",
+      "x": [
+        0.643886881713,
+        1.25193741663
+      ],
+      "y": [
+        0.0,
+        17.166143
+      ],
+      "z": [
+        -0.0956054999562,
+        2.59679425093
+      ]
+    },
+    "tip_left": {
+      "face_count": 12800,
+      "nFaces": 12800,
+      "type": "wall",
+      "x": [
+        -12.5353211061,
+        12.5274660009
+      ],
+      "y": [
+        0.0,
+        0.0
+      ],
+      "z": [
+        -13.6170242982,
+        11.6207953958
+      ]
+    },
+    "tip_right": {
+      "face_count": 12800,
+      "nFaces": 12800,
+      "type": "wall",
+      "x": [
+        -6.44282440267,
+        6.2232931583
+      ],
+      "y": [
+        17.166143,
+        17.166143
+      ],
+      "z": [
+        -4.18407772211,
+        8.73898634174
+      ]
+    }
+  }
+}

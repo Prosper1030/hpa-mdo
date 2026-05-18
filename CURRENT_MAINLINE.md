@@ -2,12 +2,36 @@
 
 ## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-15。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+**更新日期：2026-05-18。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
 SU2 aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
+
+**2026-05-18 true Baseline OpenFOAM route-smoke:** The new bounded artifact is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_openfoam_route_smoke/`.
+`scripts/run_wo006_true_baseline_openfoam_route_smoke.py` wraps the accepted
+true-airfoil swept C-grid OpenFOAM `polyMesh` without changing topology,
+section/bay generation, TE gap, geometry, or station count. It writes explicit
+OpenFOAM v2512 `simpleFoam` boundary conditions for every patch and runs
+Spalart-Allmaras at `V=6.5 m/s`, `AoA=0.18 deg`. BC reconciliation completed,
+the case ran to 500 iterations, and the accepted mesh still has `998400` hexa
+cells, maxNonOrtho `89.193`, maxSkew `3.45663`, no negative volumes, no open
+cells, and no oriented-pyramid errors. Final route-smoke values are
+`CD_primary=0.01837651`, `CL_primary=0.5654834`, `CD_total=0.06993191`, with
+main-wall yPlus `mean=0.588`, `p95=1.170`, `max=2.814`.
+
+Engineering boundary: this is a solver/BC route-smoke pass, not release-grade
+drag validation. The diagnostic patches dominate total drag
+(`CD_tip_left=0.03937806`, `CD_tip_right=0.01216353`, diagnostic CD about
+`73.7%` of total CD), and the patch-geometry audit shows the domain y extent is
+`0.0..17.166143 m`: `tip_left` is exactly the `y=0` plane while `tip_right` is
+the `y=17.166143 m` plane. That is consistent with a half-span/root-symmetry
+domain being run under the requested full-wing wall-tip convention. Do not use
+`CD_total` for XFOIL `CD≈0.02602` comparison and do not start AoA sweep until
+the root/tip patch role, full-wing versus half-wing convention, and reference
+area scaling are resolved.
 
 **2026-05-18 true-airfoil TE-regularized C-grid matrix:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_te_regularized_cgrid/`.

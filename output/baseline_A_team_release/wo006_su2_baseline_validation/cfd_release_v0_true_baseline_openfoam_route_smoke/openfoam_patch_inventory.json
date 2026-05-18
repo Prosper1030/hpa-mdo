@@ -1,0 +1,68 @@
+{
+  "diagnostic_only": [
+    "tip_left",
+    "tip_right",
+    "te_wall"
+  ],
+  "exact_farfield_names": [
+    "farfield"
+  ],
+  "exact_inlet_names": [],
+  "exact_outlet_names": [
+    "outlet"
+  ],
+  "farfield_exists": true,
+  "flow_boundaries": [
+    "outlet",
+    "farfield"
+  ],
+  "inlet_exists": false,
+  "outlet_exists": true,
+  "patches": {
+    "airfoil_lower": {
+      "nFaces": 7488,
+      "startFace": 2974288,
+      "type": "wall"
+    },
+    "airfoil_upper": {
+      "nFaces": 7488,
+      "startFace": 2966800,
+      "type": "wall"
+    },
+    "farfield": {
+      "nFaces": 14976,
+      "startFace": 2983024,
+      "type": "patch"
+    },
+    "outlet": {
+      "nFaces": 624,
+      "startFace": 2982400,
+      "type": "patch"
+    },
+    "te_wall": {
+      "nFaces": 624,
+      "startFace": 2981776,
+      "type": "wall"
+    },
+    "tip_left": {
+      "nFaces": 12800,
+      "startFace": 2998000,
+      "type": "patch"
+    },
+    "tip_right": {
+      "nFaces": 12800,
+      "startFace": 3010800,
+      "type": "patch"
+    }
+  },
+  "primary_patch_naming": "airfoil_upper/airfoil_lower",
+  "solid_walls": [
+    "airfoil_upper",
+    "airfoil_lower",
+    "te_wall",
+    "tip_left",
+    "tip_right"
+  ],
+  "source_case": "/Volumes/Samsung SSD/hpa-mdo/.claude/worktrees/vibrant-meninsky-c9e255/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_bay_gate/openfoam_cases/fullwing_debug/swept_cgrid",
+  "source_commit": "35dfadb0"
+}
