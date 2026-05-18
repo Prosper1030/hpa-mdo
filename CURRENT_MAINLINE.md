@@ -9,25 +9,28 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
-**2026-05-18 true-airfoil wake C-grid section rescue:** The new bounded artifact is
-`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/`.
-`scripts/run_wo006_true_airfoil_cgrid_section_rescue.py` replaces the failed
-sharp-TE single-loop O-grid section with an open-TE wake C-grid using the true
-Baseline A `dae31` and `cst_tip` airfoils. The old single-loop O-grid diagnosis
-is confirmed, and the best bounded wake C-grid / TE H-block attempt removes the
-old open-cell / wrong-pyramid TE wrapping failure in the primary section runs.
-It is still not a strict section-gate pass. Current best evidence: true
-`dae31`, true `cst_tip`, first-layer height `5e-5 m`, wake length `8c`, internal
-wake H-block, and a documented `dae31` zero-TE collar gap of `0.0005c`.
-Primary `checkMesh` is clean for dae31/cst_tip/morph, but dae31 remains
-smoke-only at `maxNonOrtho=80.1398 deg`; cst_tip is `68.9769 deg`; morph is
-`74.4618 deg`. `checkMesh -allGeometry` still fails on high-aspect
-underdetermined cells: dae31 `1846`, cst_tip `814`, morph `1157`. No NACA0012
-placeholder, snappyHexMesh, cfMesh, Gmsh/TetGen, meshpy, solver run, bay rebuild,
-full-wing mesh, or AoA sweep is accepted from this bundle. Next action: replace
-the algebraic C-grid with an elliptic/orthogonalized 2D block generator or
-equivalent section-quality repair before any bay, full-wing, or solver work
-resumes.
+**2026-05-18 true-airfoil TE-regularized C-grid matrix:** The new bounded artifact is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_te_regularized_cgrid/`.
+`scripts/run_wo006_true_airfoil_te_regularized_cgrid.py` runs the required
+dae31/cst_tip/morph section matrix for `gap_0p00`, `gap_0p02`, `gap_0p05`, and
+`gap_0p10`. No canonical passing section topology is selected. The best failed
+variant is `gap_0p02`: it removes the explicit zero-TE duplicate/collar
+low-quality face family without open cells or pyramid errors, but strict
+`checkMesh -allTopology -allGeometry -meshQuality` still fails on small cell
+determinant: dae31 `2049`, cst_tip `814`, morph `1166`. MaxNonOrtho is
+`80.1567 / 68.9838 / 74.4841 deg`; maxSkew is
+`1.97896 / 2.27372 / 2.16351`. `gap_0p00` is the exact no-gap baseline and has
+duplicate TE/collar points plus zero/low-quality TE faces. `gap_0p10`
+over-regularizes DAE31 and reintroduces TE-cusp failures (`10` open cells,
+`5` oriented-pyramid errors, maxNonOrtho `99.8153`, maxSkew `29.4905`).
+Engineering boundary: bounded TE regularization fixed the local zero-TE collar
+pathology at `0.02-0.05% chord`, but the route remains a local radial
+first-layer / morph-correspondence allGeometry determinant blocker under the
+required `5e-5 m` first layer. No NACA0012 placeholder, snappyHexMesh, cfMesh,
+Gmsh/TetGen, meshpy, solver run, bay rebuild, full-wing mesh, or AoA sweep is
+accepted from this bundle. Next action: replace the algebraic C-grid with an
+elliptic/orthogonalized 2D block generator or equivalent section-quality repair
+before any bay, full-wing, or solver work resumes.
 
 **2026-05-15 structured-hexa CFD route verdict:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_structured_hexa_verification/`.

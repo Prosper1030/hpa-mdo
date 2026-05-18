@@ -12,7 +12,7 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from cfd_rescue.swept_hexa import SweptHexaMesh, write_openfoam_poly_mesh
+from cfd_rescue.swept_hexa import SweptHexaMesh, write_openfoam_poly_mesh  # noqa: E402
 from run_wo006_phase3_openfoam_route_smoke import (  # noqa: E402
     AIR_DENSITY,
     KINEMATIC_VISCOSITY,
@@ -110,6 +110,7 @@ def run_checkmesh(
     openfoam_command: str,
     timeout_seconds: float = 300.0,
     full_geometry: bool = False,
+    stop_on_failure: bool = True,
 ) -> dict[str, Any]:
     run_dir = _prepare_safe_run_dir(case_dir)
     commands = [("checkMesh", "checkMesh -meshQuality")]
@@ -136,7 +137,7 @@ def run_checkmesh(
             "timed_out": completed.timed_out,
             "parsed": parsed,
         }
-        if completed.returncode != 0 or parsed.get("status") != "pass":
+        if stop_on_failure and (completed.returncode != 0 or parsed.get("status") != "pass"):
             break
     _copy_run_dir_back(run_dir, case_dir)
     return {

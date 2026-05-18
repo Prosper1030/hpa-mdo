@@ -82,6 +82,30 @@ def test_cgrid_authority_restores_lower_te_endpoint_and_reports_bounded_bluntnes
     assert not tip_report["te_perturbation"]["introduced"]
 
 
+def test_cgrid_authority_supports_bounded_zero_te_gap_variants() -> None:
+    sharp = load_baseline_authority(
+        n_perim=48,
+        airfoil_loop_mode="open_te_cgrid",
+        target_zero_te_gap_over_chord=0.0,
+    )
+    small_gap = load_baseline_authority(
+        n_perim=48,
+        airfoil_loop_mode="open_te_cgrid",
+        target_zero_te_gap_over_chord=2.0e-4,
+    )
+
+    sharp_root = sharp.half_stations[0]
+    small_root = small_gap.half_stations[0]
+    sharp_gap = abs(sharp_root.airfoil_xz[0][1] - sharp_root.airfoil_xz[-1][1])
+    small_actual_gap = abs(small_root.airfoil_xz[0][1] - small_root.airfoil_xz[-1][1])
+
+    assert sharp_gap == pytest.approx(0.0)
+    assert not sharp.airfoil_geometry_reports["dae31"]["te_perturbation"]["introduced"]
+    assert small_actual_gap == pytest.approx(2.0e-4)
+    assert small_gap.airfoil_geometry_reports["dae31"]["te_perturbation"]["introduced"]
+    assert small_gap.airfoil_geometry_reports["dae31"]["max_te_regularization_displacement_over_chord"] == pytest.approx(1.0e-4)
+
+
 def test_cgrid_te_wake_cut_first_layer_points_downstream() -> None:
     authority = load_baseline_authority(n_perim=192, airfoil_loop_mode="open_te_cgrid")
     root = authority.half_stations[0]

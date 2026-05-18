@@ -57,6 +57,7 @@ def load_baseline_authority(
     n_perim: int,
     geometry_dir: Path | str = DEFAULT_GEOMETRY_DIR,
     airfoil_loop_mode: str = "legacy_resampled_loop",
+    target_zero_te_gap_over_chord: float | None = None,
 ) -> BaselineAuthority:
     if n_perim < 16 or n_perim % 2:
         raise ValueError("n_perim must be an even integer >= 16")
@@ -96,6 +97,7 @@ def load_baseline_authority(
                     raw_points,
                     points_per_side=points_per_side,
                     airfoil_id=airfoil_id,
+                    target_zero_te_gap_over_chord=target_zero_te_gap_over_chord,
                 )
                 expected_count = n_perim + 1
             else:
@@ -378,7 +380,12 @@ def _resample_airfoil_open_te_cgrid(
     airfoil_id: str,
     default_blunt_gap_over_chord: float = 5.0e-4,
     max_blunt_gap_over_chord: float = 1.0e-3,
+    target_zero_te_gap_over_chord: float | None = None,
 ) -> tuple[list[tuple[float, float]], dict[str, Any]]:
+    if target_zero_te_gap_over_chord is not None and target_zero_te_gap_over_chord < 0.0:
+        raise ValueError("target zero-TE gap must be non-negative")
+    if target_zero_te_gap_over_chord is not None and target_zero_te_gap_over_chord > max_blunt_gap_over_chord:
+        raise ValueError("target zero-TE gap exceeds maximum")
     if default_blunt_gap_over_chord > max_blunt_gap_over_chord:
         raise ValueError("default TE blunt gap exceeds maximum")
     points = [(float(x), float(z)) for x, z in raw_points]
@@ -399,18 +406,29 @@ def _resample_airfoil_open_te_cgrid(
     raw_te_gap = _distance_2d(raw_upper_te, raw_lower_te)
     te_perturbation: dict[str, Any]
     if raw_te_gap <= 1.0e-10:
-        gap = default_blunt_gap_over_chord
-        te_center_x = 0.5 * (raw_upper_te[0] + raw_lower_te[0])
-        te_center_z = 0.5 * (raw_upper_te[1] + raw_lower_te[1])
-        upper_loop[0] = (te_center_x, te_center_z + 0.5 * gap)
-        lower_loop[-1] = (te_center_x, te_center_z - 0.5 * gap)
-        te_perturbation = {
-            "introduced": True,
-            "reason": "mathematically zero-thickness TE needs bounded C-grid collar gap",
-            "gap_over_chord": gap,
-            "max_allowed_gap_over_chord": max_blunt_gap_over_chord,
-            "default_limit_over_chord": default_blunt_gap_over_chord,
-        }
+        gap = default_blunt_gap_over_chord if target_zero_te_gap_over_chord is None else target_zero_te_gap_over_chord
+        if gap > 0.0:
+            te_center_x = 0.5 * (raw_upper_te[0] + raw_lower_te[0])
+            te_center_z = 0.5 * (raw_upper_te[1] + raw_lower_te[1])
+            upper_loop[0] = (te_center_x, te_center_z + 0.5 * gap)
+            lower_loop[-1] = (te_center_x, te_center_z - 0.5 * gap)
+            te_perturbation = {
+                "introduced": True,
+                "reason": "mathematically zero-thickness TE needs bounded C-grid collar gap",
+                "gap_over_chord": gap,
+                "max_allowed_gap_over_chord": max_blunt_gap_over_chord,
+                "default_limit_over_chord": default_blunt_gap_over_chord,
+            }
+        else:
+            upper_loop[0] = raw_upper_te
+            lower_loop[-1] = raw_lower_te
+            te_perturbation = {
+                "introduced": False,
+                "reason": "gap_0p00 baseline: mathematically sharp TE preserved without collar opening",
+                "gap_over_chord": 0.0,
+                "max_allowed_gap_over_chord": max_blunt_gap_over_chord,
+                "default_limit_over_chord": default_blunt_gap_over_chord,
+            }
     else:
         upper_loop[0] = raw_upper_te
         lower_loop[-1] = raw_lower_te
@@ -448,6 +466,18 @@ def _airfoil_geometry_report(
     new_chord = max(x for x, _z in resampled_loop) - min(x for x, _z in resampled_loop)
     raw_area = abs(_polygon_area(raw))
     new_area = abs(_polygon_area(resampled_loop))
+    regularization_area_delta = 0.0
+    max_regularization_displacement = 0.0
+    if te_perturbation.get("introduced"):
+        unregularized = list(resampled_loop)
+        te_midpoint = (
+            0.5 * (resampled_loop[0][0] + resampled_loop[-1][0]),
+            0.5 * (resampled_loop[0][1] + resampled_loop[-1][1]),
+        )
+        unregularized[0] = te_midpoint
+        unregularized[-1] = te_midpoint
+        regularization_area_delta = new_area - abs(_polygon_area(unregularized))
+        max_regularization_displacement = 0.5 * float(te_perturbation["gap_over_chord"])
     return {
         "airfoil_id": airfoil_id,
         "airfoil_loop_mode": airfoil_loop_mode,
@@ -456,6 +486,8 @@ def _airfoil_geometry_report(
         "raw_area_over_chord2": raw_area,
         "resampled_area_over_chord2": new_area,
         "area_delta_over_chord2": new_area - raw_area,
+        "te_regularization_area_delta_over_chord2": regularization_area_delta,
+        "max_te_regularization_displacement_over_chord": max_regularization_displacement,
         "raw_chord": raw_chord,
         "resampled_chord": new_chord,
         "chord_delta": new_chord - raw_chord,

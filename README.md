@@ -1,33 +1,36 @@
 # HPA-MDO：人力飛機新概念設計管線
 
-## 2026-05-18 WO-006 True-Airfoil Wake C-Grid Section Rescue
+## 2026-05-18 WO-006 True-Airfoil TE-Regularized C-Grid Matrix
 
 New bounded artifact:
-`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/`.
-The route uses `scripts/run_wo006_true_airfoil_cgrid_section_rescue.py` plus
-`scripts/cfd_rescue/section_cgrid.py` / `scripts/cfd_rescue/swept_cgrid.py` to
-replace the failed sharp-TE single-loop O-grid with an open-TE wake C-grid for
-the true Baseline A `dae31` and `cst_tip` airfoils.
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_te_regularized_cgrid/`.
+The route uses `scripts/run_wo006_true_airfoil_te_regularized_cgrid.py` plus
+the `scripts/cfd_rescue/section_cgrid.py` / `scripts/cfd_rescue/swept_cgrid.py`
+helpers to run the required true-airfoil section matrix for `dae31`, `cst_tip`,
+and the dae31-to-cst_tip morph section. It attempts `gap_0p00`, `gap_0p02`,
+`gap_0p05`, and `gap_0p10` for mathematically sharp DAE31 TE regularization
+while preserving the finite source `cst_tip` TE gap.
 
-Result: the single-loop sharp-TE O-grid diagnosis remains valid, and the wake
-C-grid / TE H-block route is now materially cleaner, but it is still not a
-strict section-gate pass. The best bounded attempt uses true `dae31`, true
-`cst_tip`, first-layer height `5e-5 m`, wake length `8c`, an internal wake
-H-block, and a documented `dae31` zero-TE collar gap of `0.0005c` with no
-NACA0012 placeholder. Primary `checkMesh` is clean for all three 2D-extruded
-sections, but the strict gate remains blocked: `dae31_root_section` is
-smoke-only at `maxNonOrtho=80.1398 deg`, while `cst_tip_section`
-(`68.9769 deg`) and the morph section (`74.4618 deg`) pass the primary
-non-orthogonality target. `checkMesh -allGeometry` still fails on high-aspect
-underdetermined cells from the low first-layer stack: dae31 `1846`, cst_tip
-`814`, morph `1157`.
+Result: no canonical passing section topology is selected. The best failed
+variant is `gap_0p02`: it removes the explicit zero-TE duplicate/collar
+low-quality face family without introducing open cells or pyramid errors, but
+strict `checkMesh -allTopology -allGeometry -meshQuality` still fails on small
+cell determinant. Counts are dae31 `2049`, cst_tip `814`, and morph `1166`;
+maxNonOrtho is `80.1567 / 68.9838 / 74.4841 deg`, and maxSkew is
+`1.97896 / 2.27372 / 2.16351`. `gap_0p00` keeps the exact no-gap baseline and
+creates duplicate TE/collar points plus zero/low-quality TE faces. `gap_0p10`
+over-regularizes DAE31 and reintroduces TE-cusp problems (`10` open cells,
+`5` oriented-pyramid errors, maxNonOrtho `99.8153`, maxSkew `29.4905`).
 
-Engineering verdict: the old TE wrapping failure has been removed from the best
-section attempt, but the route remains a local 2D section-quality blocker, not a
-bay, full-wing, solver, AoA, or span-count problem. Bay, full-wing, simpleFoam,
-and AoA/CD comparison must not resume from this bundle. The next action is a
-proper elliptic/orthogonalized C-grid or a more mature 2D block generator that
-can keep `5e-5 m` near-wall spacing without the allGeometry determinant failure.
+Engineering verdict: bounded TE regularization fixes the local zero-TE collar
+pathology for DAE31 at `0.02-0.05% chord`, but it does not make the section gate
+pass. The remaining blocker is a local radial first-layer / morph-correspondence
+small-determinant quality problem under the required `5e-5 m` first layer, not a
+bay, full-wing, solver, AoA, span-count, or larger-TE-gap problem. Bay,
+full-wing, simpleFoam, and AoA/CD comparison must not resume from this bundle.
+The next action is an elliptic/orthogonalized C-grid or mature 2D block
+generator that can keep the true airfoils and first-layer target without the
+strict allGeometry determinant failure.
 
 ## 2026-05-17 WO-006 Swept Section O-Grid Structured-Hexa Blocker
 
