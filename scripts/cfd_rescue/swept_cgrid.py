@@ -20,8 +20,7 @@ from cfd_rescue.swept_hexa import (
 CGRID_PATCH_ORDER = (
     "airfoil_upper",
     "airfoil_lower",
-    "wake_upper",
-    "wake_lower",
+    "te_wall",
     "outlet",
     "farfield",
     "tip_left",
@@ -30,12 +29,16 @@ CGRID_PATCH_ORDER = (
 CGRID_PATCH_TYPES = {
     "airfoil_upper": "wall",
     "airfoil_lower": "wall",
-    "wake_upper": "patch",
-    "wake_lower": "patch",
+    "te_wall": "wall",
     "outlet": "patch",
     "farfield": "patch",
     "tip_left": "patch",
     "tip_right": "patch",
+}
+SECTION_CGRID_PATCH_TYPES = {
+    **CGRID_PATCH_TYPES,
+    "tip_left": "empty",
+    "tip_right": "empty",
 }
 
 
@@ -48,7 +51,10 @@ def build_extruded_section_cgrid_mesh(
     wake_length_chords: float,
     case_id: str,
     near_wall_growth: float = 1.12,
+    wake_cross_cells: int = 8,
 ) -> SweptHexaMesh:
+    if wake_cross_cells < 1:
+        raise ValueError("wake_cross_cells must be at least 1")
     grid = build_section_cgrid(
         station,
         first_layer_height_m=first_layer_height_m,
@@ -63,13 +69,43 @@ def build_extruded_section_cgrid_mesh(
         replace(station, y=station.y + 0.5 * dy),
     ]
     points: list[Point3] = []
+    cgrid_point_count = (grid.n_radial + 1) * grid.n_path
+    wake_interior_count = (grid.n_radial + 1) * (wake_cross_cells - 1)
+    section_stride = cgrid_point_count + wake_interior_count
     for span_station in span_stations:
         for radial in range(grid.n_radial + 1):
             for index in range(grid.n_path):
                 points.append(transform_section_point(span_station, grid.points[radial][index]))
+        for radial in range(grid.n_radial + 1):
+            upper = grid.points[radial][0]
+            lower = grid.points[radial][-1]
+            for cross in range(1, wake_cross_cells):
+                t = cross / wake_cross_cells
+                points.append(
+                    transform_section_point(
+                        span_station,
+                        (
+                            upper[0] + t * (lower[0] - upper[0]),
+                            upper[1] + t * (lower[1] - upper[1]),
+                        ),
+                    )
+                )
 
     def node(span: int, radial: int, index: int) -> int:
-        return span * (grid.n_radial + 1) * grid.n_path + radial * grid.n_path + index
+        return span * section_stride + radial * grid.n_path + index
+
+    def wake_node(span: int, radial: int, cross: int) -> int:
+        if cross == 0:
+            return node(span, radial, 0)
+        if cross == wake_cross_cells:
+            return node(span, radial, grid.n_path - 1)
+        return (
+            span * section_stride
+            + cgrid_point_count
+            + radial * (wake_cross_cells - 1)
+            + cross
+            - 1
+        )
 
     cells: list[tuple[int, int, int, int, int, int, int, int]] = []
     patch_by_key: dict[tuple[int, ...], str] = {}
@@ -93,14 +129,75 @@ def build_extruded_section_cgrid_mesh(
                 patch_by_key[tuple(sorted((node(0, 0, index), node(1, 0, index), node(1, 0, index + 1), node(0, 0, index + 1))))] = grid.segment_markers[index]
             if radial == grid.n_radial - 1:
                 patch_by_key[tuple(sorted((node(0, radial + 1, index), node(1, radial + 1, index), node(1, radial + 1, index + 1), node(0, radial + 1, index + 1))))] = "farfield"
-            if index == 0:
-                side_patch = "wake_upper" if radial < grid.n_radial // 2 else "outlet"
-                patch_by_key[tuple(sorted((node(0, radial, index), node(0, radial + 1, index), node(1, radial + 1, index), node(1, radial, index))))] = side_patch
-            if index == grid.n_path - 2:
-                side_patch = "wake_lower" if radial < grid.n_radial // 2 else "outlet"
-                patch_by_key[tuple(sorted((node(0, radial, index + 1), node(0, radial + 1, index + 1), node(1, radial + 1, index + 1), node(1, radial, index + 1))))] = side_patch
             patch_by_key[tuple(sorted((node(0, radial, index), node(0, radial, index + 1), node(0, radial + 1, index + 1), node(0, radial + 1, index))))] = "tip_left"
             patch_by_key[tuple(sorted((node(1, radial, index), node(1, radial, index + 1), node(1, radial + 1, index + 1), node(1, radial + 1, index))))] = "tip_right"
+
+    for radial in range(grid.n_radial):
+        for cross in range(wake_cross_cells):
+            lower = (
+                wake_node(0, radial, cross),
+                wake_node(0, radial + 1, cross),
+                wake_node(0, radial + 1, cross + 1),
+                wake_node(0, radial, cross + 1),
+            )
+            upper = (
+                wake_node(1, radial, cross),
+                wake_node(1, radial + 1, cross),
+                wake_node(1, radial + 1, cross + 1),
+                wake_node(1, radial, cross + 1),
+            )
+            cell = _best_positive_cgrid_hex_orientation(points, lower, upper)
+            cells.append(cell)
+            if radial == 0:
+                patch_by_key[
+                    tuple(
+                        sorted(
+                            (
+                                wake_node(0, 0, cross),
+                                wake_node(1, 0, cross),
+                                wake_node(1, 0, cross + 1),
+                                wake_node(0, 0, cross + 1),
+                            )
+                        )
+                    )
+                ] = "te_wall"
+            if radial == grid.n_radial - 1:
+                patch_by_key[
+                    tuple(
+                        sorted(
+                            (
+                                wake_node(0, grid.n_radial, cross),
+                                wake_node(1, grid.n_radial, cross),
+                                wake_node(1, grid.n_radial, cross + 1),
+                                wake_node(0, grid.n_radial, cross + 1),
+                            )
+                        )
+                    )
+                ] = "outlet"
+            patch_by_key[
+                tuple(
+                    sorted(
+                        (
+                            wake_node(0, radial, cross),
+                            wake_node(0, radial + 1, cross),
+                            wake_node(0, radial + 1, cross + 1),
+                            wake_node(0, radial, cross + 1),
+                        )
+                    )
+                )
+            ] = "tip_left"
+            patch_by_key[
+                tuple(
+                    sorted(
+                        (
+                            wake_node(1, radial, cross),
+                            wake_node(1, radial + 1, cross),
+                            wake_node(1, radial + 1, cross + 1),
+                            wake_node(1, radial, cross + 1),
+                        )
+                    )
+                )
+            ] = "tip_right"
 
     metadata = {
         "schema_version": "wo006_true_airfoil_extruded_section_cgrid.v1",
@@ -109,15 +206,22 @@ def build_extruded_section_cgrid_mesh(
         "span_cells": 1,
         "n_path": grid.n_path,
         "n_radial": grid.n_radial,
+        "wake_cross_cells": wake_cross_cells,
         "first_layer_height_m": first_layer_height_m,
         "farfield_chords": farfield_chords,
         "wake_length_chords": wake_length_chords,
         "near_wall_growth": near_wall_growth,
         "station_wise_grid": "2d_wake_cgrid_open_te_thin_extrusion",
+        "wake_block": {
+            "status": "internal_fluid_block",
+            "streamwise_cells": grid.n_radial,
+            "cross_wake_cells": wake_cross_cells,
+            "te_wall_from_true_finite_te_gap": grid.metadata["te_gap_m"] > 1.0e-10,
+        },
         "section_cgrid": grid.metadata,
         "section_quality": section_cgrid_quality(grid),
         "boundary_patch_order": list(CGRID_PATCH_ORDER),
-        "boundary_patch_types": CGRID_PATCH_TYPES,
+        "boundary_patch_types": SECTION_CGRID_PATCH_TYPES,
     }
     return _assemble_hexa_mesh(
         points=points,
@@ -137,9 +241,12 @@ def build_swept_cgrid_mesh(
     wake_length_chords: float,
     case_id: str,
     near_wall_growth: float = 1.12,
+    wake_cross_cells: int = 8,
 ) -> SweptHexaMesh:
     if len(stations) < 2:
         raise ValueError("at least two stations are required")
+    if wake_cross_cells < 1:
+        raise ValueError("wake_cross_cells must be at least 1")
     grids = [
         build_section_cgrid(
             station,
@@ -156,13 +263,43 @@ def build_swept_cgrid_mesh(
         raise ValueError("all swept C-grid stations must share n_path")
 
     points: list[Point3] = []
+    cgrid_point_count = (n_radial + 1) * n_path
+    wake_interior_count = (n_radial + 1) * (wake_cross_cells - 1)
+    section_stride = cgrid_point_count + wake_interior_count
     for station, grid in zip(stations, grids):
         for radial in range(n_radial + 1):
             for index in range(n_path):
                 points.append(transform_section_point(station, grid.points[radial][index]))
+        for radial in range(n_radial + 1):
+            upper = grid.points[radial][0]
+            lower = grid.points[radial][-1]
+            for cross in range(1, wake_cross_cells):
+                t = cross / wake_cross_cells
+                points.append(
+                    transform_section_point(
+                        station,
+                        (
+                            upper[0] + t * (lower[0] - upper[0]),
+                            upper[1] + t * (lower[1] - upper[1]),
+                        ),
+                    )
+                )
 
     def node(section: int, radial: int, index: int) -> int:
-        return section * (n_radial + 1) * n_path + radial * n_path + index
+        return section * section_stride + radial * n_path + index
+
+    def wake_node(section: int, radial: int, cross: int) -> int:
+        if cross == 0:
+            return node(section, radial, 0)
+        if cross == wake_cross_cells:
+            return node(section, radial, n_path - 1)
+        return (
+            section * section_stride
+            + cgrid_point_count
+            + radial * (wake_cross_cells - 1)
+            + cross
+            - 1
+        )
 
     cells: list[tuple[int, int, int, int, int, int, int, int]] = []
     patch_by_key: dict[tuple[int, ...], str] = {}
@@ -209,34 +346,6 @@ def build_swept_cgrid_mesh(
                             )
                         )
                     ] = "farfield"
-                if index == 0:
-                    side_patch = "wake_upper" if radial < n_radial // 2 else "outlet"
-                    patch_by_key[
-                        tuple(
-                            sorted(
-                                (
-                                    node(section, radial, index),
-                                    node(section, radial + 1, index),
-                                    node(section + 1, radial + 1, index),
-                                    node(section + 1, radial, index),
-                                )
-                            )
-                        )
-                    ] = side_patch
-                if index == n_path - 2:
-                    side_patch = "wake_lower" if radial < n_radial // 2 else "outlet"
-                    patch_by_key[
-                        tuple(
-                            sorted(
-                                (
-                                    node(section, radial, index + 1),
-                                    node(section, radial + 1, index + 1),
-                                    node(section + 1, radial + 1, index + 1),
-                                    node(section + 1, radial, index + 1),
-                                )
-                            )
-                        )
-                    ] = side_patch
                 if section == 0:
                     patch_by_key[
                         tuple(
@@ -264,6 +373,75 @@ def build_swept_cgrid_mesh(
                             )
                         )
                     ] = "tip_right"
+        for radial in range(n_radial):
+            for cross in range(wake_cross_cells):
+                lower = (
+                    wake_node(section, radial, cross),
+                    wake_node(section, radial + 1, cross),
+                    wake_node(section, radial + 1, cross + 1),
+                    wake_node(section, radial, cross + 1),
+                )
+                upper = (
+                    wake_node(section + 1, radial, cross),
+                    wake_node(section + 1, radial + 1, cross),
+                    wake_node(section + 1, radial + 1, cross + 1),
+                    wake_node(section + 1, radial, cross + 1),
+                )
+                cell = _best_positive_cgrid_hex_orientation(points, lower, upper)
+                cells.append(cell)
+                if radial == 0:
+                    patch_by_key[
+                        tuple(
+                            sorted(
+                                (
+                                    wake_node(section, 0, cross),
+                                    wake_node(section + 1, 0, cross),
+                                    wake_node(section + 1, 0, cross + 1),
+                                    wake_node(section, 0, cross + 1),
+                                )
+                            )
+                        )
+                    ] = "te_wall"
+                if radial == n_radial - 1:
+                    patch_by_key[
+                        tuple(
+                            sorted(
+                                (
+                                    wake_node(section, n_radial, cross),
+                                    wake_node(section + 1, n_radial, cross),
+                                    wake_node(section + 1, n_radial, cross + 1),
+                                    wake_node(section, n_radial, cross + 1),
+                                )
+                            )
+                        )
+                    ] = "outlet"
+                if section == 0:
+                    patch_by_key[
+                        tuple(
+                            sorted(
+                                (
+                                    wake_node(0, radial, cross),
+                                    wake_node(0, radial + 1, cross),
+                                    wake_node(0, radial + 1, cross + 1),
+                                    wake_node(0, radial, cross + 1),
+                                )
+                            )
+                        )
+                    ] = "tip_left"
+                if section == len(stations) - 2:
+                    last = len(stations) - 1
+                    patch_by_key[
+                        tuple(
+                            sorted(
+                                (
+                                    wake_node(last, radial, cross),
+                                    wake_node(last, radial + 1, cross),
+                                    wake_node(last, radial + 1, cross + 1),
+                                    wake_node(last, radial, cross + 1),
+                                )
+                            )
+                        )
+                    ] = "tip_right"
 
     metadata = {
         "schema_version": "wo006_true_airfoil_swept_section_cgrid.v1",
@@ -272,11 +450,18 @@ def build_swept_cgrid_mesh(
         "span_cells": len(stations) - 1,
         "n_path": n_path,
         "n_radial": n_radial,
+        "wake_cross_cells": wake_cross_cells,
         "first_layer_height_m": first_layer_height_m,
         "farfield_chords": farfield_chords,
         "wake_length_chords": wake_length_chords,
         "near_wall_growth": near_wall_growth,
         "station_wise_grid": "2d_wake_cgrid_swept_bay_by_bay",
+        "wake_block": {
+            "status": "internal_fluid_block",
+            "streamwise_cells": n_radial,
+            "cross_wake_cells": wake_cross_cells,
+            "te_wall_from_true_finite_te_gap": grids[0].metadata["te_gap_m"] > 1.0e-10,
+        },
         "section_cgrid": grids[0].metadata,
         "boundary_patch_order": list(CGRID_PATCH_ORDER),
         "boundary_patch_types": CGRID_PATCH_TYPES,

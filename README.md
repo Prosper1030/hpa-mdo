@@ -9,20 +9,22 @@ The route uses `scripts/run_wo006_true_airfoil_cgrid_section_rescue.py` plus
 replace the failed sharp-TE single-loop O-grid with an open-TE wake C-grid for
 the true Baseline A `dae31` and `cst_tip` airfoils.
 
-Result: the dae31 root, cst-tip, and dae31-to-cst morph 2D-extruded section
-meshes pass OpenFOAM `checkMesh` / `checkMesh -allTopology -allGeometry
--meshQuality` under the documented section-only meshQuality gate
-(`maxNonOrtho=85`, `minDeterminant=1e-8`). No TE bluntness, NACA0012 placeholder,
-snappyHexMesh, cfMesh, Gmsh/TetGen, meshpy, or solver run was used. Root section
-is still smoke-only quality (`maxNonOrtho≈80.09 deg`, `maxSkew≈3.93`), while
-cst-tip is cleaner (`maxNonOrtho≈68.90 deg`, `maxSkew≈2.57`).
+Result: the earlier open-cut C-grid reduced the sharp-TE O-grid failure enough
+to expose a smoke-level section result, but the stricter rescue now stops at the
+required local section gate. The internal wake H-block / finite-TE collar was
+attempted with true `dae31`, true `cst_tip`, first-layer height `5e-5 m`, no TE
+bluntness, and no placeholder airfoil. It does not pass the section gate:
+`dae31_root_section` fails with `maxNonOrtho=89.2708 deg` and `3` failed mesh
+checks, `cst_tip_section` is only smoke-level at `maxNonOrtho=79.14 deg` and
+fails `-allTopology -allGeometry`, and the morph section fails with
+`maxNonOrtho=84.2988 deg`.
 
-Engineering verdict: the true-airfoil section blocker is fixed enough to move
-to bay testing, but the swept bay route is not accepted. Root/mid/near-tip bays
-still fail mesh-quality checks, and the dae31-to-cst-tip morph bay has custom
-non-positive hexa volumes. Do not proceed to full wing, simpleFoam, or AoA/CD
-comparison from this bundle. The next single action is a bay-local C-grid
-correspondence / morph-sweep repair, not span-count escalation.
+Engineering verdict: the old single-loop O-grid diagnosis remains valid, but
+the blocker has moved to the local true-airfoil TE H-block / section-quality
+topology. Bay, full-wing, simpleFoam, and AoA/CD comparison must not resume from
+this bundle. The next single action is a local 2D TE H-block/LE-quality repair,
+not bay correspondence, full-wing assembly, solver tuning, or span-count
+escalation.
 
 ## 2026-05-17 WO-006 Swept Section O-Grid Structured-Hexa Blocker
 

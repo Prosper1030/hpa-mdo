@@ -43,6 +43,9 @@ DEFAULT_OUTPUT_DIR = WO006_ROOT / "cfd_release_v0_true_airfoil_cgrid_section_res
 OPENFOAM_WRAPPER = "/opt/homebrew/bin/openfoam"
 DESIGN_AOA_DEG = 0.18015
 FIRST_LAYER_HEIGHT_M = 5.0e-5
+SECTION_MAX_SKEW_TARGET = 10.0
+SECTION_MAX_NON_ORTHO_TARGET_DEG = 75.0
+SECTION_MAX_NON_ORTHO_SMOKE_LIMIT_DEG = 90.0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -52,8 +55,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--clean", action="store_true")
     parser.add_argument("--n-perim", type=int, default=192)
     parser.add_argument("--n-radial", type=int, default=80)
-    parser.add_argument("--farfield-chords", type=float, default=6.0)
-    parser.add_argument("--wake-length-chords", type=float, default=6.0)
+    parser.add_argument("--farfield-chords", type=float, default=10.0)
+    parser.add_argument("--wake-length-chords", type=float, default=10.0)
     parser.add_argument("--full-wing", action="store_true")
     args = parser.parse_args(argv)
     manifest = run_rescue(
@@ -98,6 +101,7 @@ def run_rescue(
             "first_layer_height_m": FIRST_LAYER_HEIGHT_M,
             "farfield_chords": farfield_chords,
             "wake_length_chords": wake_length_chords,
+            "wake_cross_cells": 8,
             "mesh_quality_dict": {
                 "maxNonOrtho": 85,
                 "minDeterminant": 1.0e-8,
@@ -116,6 +120,20 @@ def run_rescue(
         "section_cases": [],
         "bay_cases": [],
         "fullwing_case": None,
+        "attempt_accounting": {
+            "cgrid_section_topology_attempts": 1,
+            "te_hblock_collar_topology_attempts": 1,
+            "section_smoothing_resampling_attempts": 0,
+            "bay_attempts": 0,
+            "full_wing_attempts": 0,
+            "bounded_attempt_limits": {
+                "cgrid_section_topology": 6,
+                "te_hblock_collar_topology": 6,
+                "section_smoothing_resampling_adjustments": 4,
+                "bay_tests": 6,
+                "full_wing_attempts": 6,
+            },
+        },
     }
     _write_design_reports(output_dir)
 
@@ -162,6 +180,7 @@ def run_rescue(
         openfoam_command=openfoam_command,
     )
     manifest["bay_cases"] = bay_cases
+    manifest["attempt_accounting"]["bay_attempts"] = len(bay_cases)
     _write_bay_report(output_dir, bay_cases)
     bay_pass = all(item["status"] == "pass" for item in bay_cases)
     if not bay_pass:
@@ -188,6 +207,7 @@ def run_rescue(
             openfoam_command=openfoam_command,
             full_geometry=True,
         )
+        manifest["attempt_accounting"]["full_wing_attempts"] = 1
         _write_fullwing_report(output_dir, manifest["fullwing_case"])
     else:
         _write_fullwing_report(output_dir, None)
@@ -284,8 +304,12 @@ def _run_case(
         full_geometry=full_geometry,
     )
     result["checkMesh"] = check
-    result["status"] = "pass" if check["status"] == "pass" else "checkmesh_failed"
     result["metrics"] = _extract_checkmesh_metrics(case_dir / "log.checkMesh")
+    result["strict_checkMesh"] = _strict_case_checkmesh_status(
+        case_dir,
+        full_geometry=full_geometry,
+    )
+    result["status"] = result["strict_checkMesh"]["status"]
     return result
 
 
@@ -324,6 +348,70 @@ def _extract_checkmesh_metrics(log_path: Path) -> dict[str, Any]:
     }
 
 
+def _strict_case_checkmesh_status(case_dir: Path, *, full_geometry: bool) -> dict[str, Any]:
+    primary = _strict_checkmesh_log_status(
+        case_dir / "log.checkMesh",
+        max_non_ortho_target=SECTION_MAX_NON_ORTHO_TARGET_DEG,
+    )
+    all_geometry = (
+        _strict_checkmesh_log_status(
+            case_dir / "log.checkMesh_allGeometry",
+            max_non_ortho_target=SECTION_MAX_NON_ORTHO_TARGET_DEG,
+        )
+        if full_geometry
+        else None
+    )
+    logs = [primary, *([] if all_geometry is None else [all_geometry])]
+    if all(item["status"] == "pass" for item in logs):
+        status = "pass"
+    elif all(item["status"] in {"pass", "smoke_only"} for item in logs):
+        status = "smoke_only"
+    else:
+        status = "checkmesh_failed"
+    return {
+        "status": status,
+        "primary": primary,
+        "all_geometry": all_geometry,
+    }
+
+
+def _strict_checkmesh_log_status(
+    log_path: Path,
+    *,
+    max_non_ortho_target: float,
+) -> dict[str, Any]:
+    text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.exists() else ""
+    failed_check_count = _int_match(text, r"Failed ([0-9]+) mesh checks")
+    fatal = bool(re.search(r"FOAM FATAL|\*\*?Error", text, re.IGNORECASE))
+    mesh_ok = "Mesh OK." in text and failed_check_count is None and not fatal
+    max_non_ortho = _float_match(text, r"Mesh non-orthogonality Max: ([0-9.eE+-]+)")
+    max_skewness = _float_match(text, r"Max skewness = ([0-9.eE+-]+)")
+    if (
+        mesh_ok
+        and (max_skewness is None or max_skewness < SECTION_MAX_SKEW_TARGET)
+        and (max_non_ortho is None or max_non_ortho < max_non_ortho_target)
+    ):
+        status = "pass"
+    elif (
+        mesh_ok
+        and (max_skewness is None or max_skewness < SECTION_MAX_SKEW_TARGET)
+        and max_non_ortho is not None
+        and max_non_ortho < SECTION_MAX_NON_ORTHO_SMOKE_LIMIT_DEG
+    ):
+        status = "smoke_only"
+    else:
+        status = "fail"
+    return {
+        "status": status,
+        "log": str(log_path),
+        "mesh_ok": mesh_ok,
+        "failed_check_count": failed_check_count,
+        "max_non_orthogonality_deg": max_non_ortho,
+        "max_skewness": max_skewness,
+        "fatal_error": fatal,
+    }
+
+
 def _custom_metrics_only(quality: dict[str, Any]) -> dict[str, Any]:
     return {
         "mesh_ok": False,
@@ -334,7 +422,7 @@ def _custom_metrics_only(quality: dict[str, Any]) -> dict[str, Any]:
 
 
 def _write_design_reports(output_dir: Path) -> None:
-    prior_root = WO006_ROOT / "cfd_release_v0_swept_cgrid_structured_hexa"
+    prior_root = WO006_ROOT / "cfd_release_v0_swept_cgrid_structured_hexa_smoke"
     (output_dir / "section_failure_diagnosis.md").write_text(
         f"""# Section Failure Diagnosis
 
@@ -346,19 +434,21 @@ the upper/lower TE cusp.  That is not a valid local topology for these sections:
 the wake should leave the TE downstream, not turn through the cusp.
 
 Observed old O-grid evidence:
-- dae31 root: `max_skew=19010.2`, `max_non_orth=179.918 deg`, open/oriented-face
-  failures.  The copied OpenFOAM sets localized non-closed cells mostly to high
-  radial layers near perimeter indices `7-9` and `186-188`, i.e. the two sides of
-  the TE/wake seam after the closed-loop wrap.
-- cst_tip: `max_skew=22.3157`, `max_non_orth=154.64 deg`, localized mostly around
-  high radial layers and upper-side indices `30-37`, with the finite CST trailing
-  edge still interacting with the closed O-grid transition.
+- dae31 root: severe closed-loop seam failure with non-orthogonality near `180 deg`,
+  open cells, wrong-oriented face pyramids, and extreme skewness.  The live copied
+  OpenFOAM sets localize the closed-loop failure to TE-seam cells near perimeter
+  indices `0/47`, lower-aft cusp cells near `38-40`, and high radial-layer outer
+  transition cells.
+- cst_tip: lower absolute skew than dae31, but still failed the closed-loop gate
+  with non-orthogonality above the section target and high-aspect / skewed faces
+  at the finite CST trailing-edge transition.
 
 LE curvature was not the dominant blocker: the most severe old dae31 skew was at
 the TE seam/wake-side transition, while cst_tip had lower skew but still failed
 orientation and non-orthogonality.  The rescue route therefore uses an open-TE
-wake C-grid: airfoil upper/lower walls remain separate, the wake cut is a fluid
-patch/outlet, and no cell wraps around the TE cusp.
+wake C-grid with a downstream TE H-block: airfoil upper/lower walls remain
+separate, the finite TE strip is represented as `te_wall`, wake-block faces are
+internal fluid faces, and no cell wraps around the TE cusp.
 """,
         encoding="utf-8",
     )
@@ -369,12 +459,39 @@ patch/outlet, and no cell wraps around the TE cusp.
 - The path is open at the TE; no single-loop O-grid closure is used.
 - Upper and lower TE nodes remain separate; no TE bluntness is introduced.
 - Radial construction: wall-normal first layer, then straight rays to a C-shaped
-  farfield/outlet boundary.
-- Patches: `airfoil_upper`, `airfoil_lower`, `wake_upper`, `wake_lower`,
-  `outlet`, `farfield`, `tip_left`, `tip_right`.
+  farfield boundary.
+- Wake construction: a downstream H-block fills the open TE wake slot.  Its
+  upper/lower interfaces are internal faces shared with the C-grid side faces,
+  not wall or freestream patches.
+- Patches: `airfoil_upper`, `airfoil_lower`, `te_wall`, `outlet`, `farfield`,
+  `tip_left`, `tip_right`.
+- Section side planes are written as OpenFOAM `empty` patches for the 2D
+  extruded section gate.
 - Section meshQualityDict records the deliberate section-only tolerance:
   `maxNonOrtho=85`, `minDeterminant=1e-8`, because aligned BL cells are allowed
   but skew/orientation/open-cell failures are not.
+""",
+        encoding="utf-8",
+    )
+    (output_dir / "te_hblock_design_report.md").write_text(
+        """# TE H-Block / Collar Design Report
+
+The rescue implementation uses a finite-TE H-block downstream of the true
+airfoil TE gap.
+
+- The dae31 and cst_tip TE endpoints are preserved from the true Baseline A
+  coordinate authority.
+- No NACA0012 or smoothed replacement airfoil is used.
+- No TE bluntness, bevel, or coordinate perturbation is introduced.
+- The wake H-block shares its upper/lower side faces with the C-grid side faces,
+  making those faces internal fluid faces.
+- The physical wall patches are `airfoil_upper`, `airfoil_lower`, and `te_wall`.
+- The downstream boundary is `outlet`; the C-shaped outer boundary is
+  `farfield`.
+
+Current blocker: the finite-TE H-block still creates bad cells at the TE/wake
+interface for dae31 and the morph section.  This is now a local TE H-block
+quality problem, not a span-count, solver, AoA, or placeholder-airfoil problem.
 """,
         encoding="utf-8",
     )
@@ -388,12 +505,14 @@ def _write_section_reports(output_dir: Path, cases: Sequence[dict[str, Any]]) ->
     }
     for case in cases:
         metrics = case.get("metrics", {})
+        strict = case.get("strict_checkMesh", {})
         (output_dir / filenames[case["case_id"]]).write_text(
             f"""# {case['case_id']} C-Grid CheckMesh Report
 
 - status: `{case['status']}`
 - case dir: `{case['case_dir']}`
 - custom quality: `{case['custom_quality']['status']}`
+- custom blockers: `{case['custom_quality'].get('blockers', [])}`
 - boundary faces: `{case['custom_quality'].get('boundary_face_counts')}`
 - first layer height m: `{FIRST_LAYER_HEIGHT_M}`
 - max skewness: `{metrics.get('max_skewness')}`
@@ -402,6 +521,8 @@ def _write_section_reports(output_dir: Path, cases: Sequence[dict[str, Any]]) ->
 - high aspect cells: `{metrics.get('high_aspect_cell_count')}`
 - determinant faces below section threshold: `{metrics.get('determinant_faces_below_threshold')}`
 - failed check count: `{metrics.get('failed_check_count')}`
+- strict primary gate: `{strict.get('primary')}`
+- strict allTopology/allGeometry gate: `{strict.get('all_geometry')}`
 - section gate note: `maxNonOrtho=85 section-only tolerance; no solver is allowed from this section case.`
 """,
             encoding="utf-8",
@@ -452,7 +573,8 @@ def _write_final_reports(output_dir: Path, manifest: dict[str, Any]) -> None:
     )
     sections = manifest.get("section_cases", [])
     bays = manifest.get("bay_cases", [])
-    te_hblock_needed = any(case["status"] != "pass" for case in sections)
+    te_hblock_needed = True
+    te_hblock_blocker = _section_blocker_summary(sections)
     (output_dir / "phase3_true_airfoil_cgrid_section_verdict.md").write_text(
         f"""# Phase 3 True-Airfoil C-Grid Section Verdict
 
@@ -465,7 +587,7 @@ def _write_final_reports(output_dir: Path, manifest: dict[str, Any]) -> None:
 4. Did the morph section pass?
    - `{_case_pass(sections, 'morph_dae31_to_cst_tip_section')}`
 5. Was a TE H-block/collar needed?
-   - `{te_hblock_needed}`; no TE bluntness was introduced in this C-grid attempt.
+   - `{te_hblock_needed}`; the internal wake H-block was attempted and is the current blocker.
 6. Was any TE geometry perturbation introduced? If yes, how large?
    - `no`; true TE endpoints were preserved.
 7. Did bay tests pass?
@@ -473,9 +595,9 @@ def _write_final_reports(output_dir: Path, manifest: dict[str, Any]) -> None:
 8. Did full-wing checkMesh pass?
    - `{manifest.get('fullwing_case', {}).get('status') == 'pass' if manifest.get('fullwing_case') else False}`
 9. If not, what exact blocker remains?
-   - `{verdict['reason']}`
+   - `{verdict['reason']}`; `{te_hblock_blocker}`
 10. Is the station-wise swept C-grid route still worth continuing?
-   - `yes for section topology; bay/full-wing continuation depends on the reported bay blocker.`
+   - `yes, but only after the local TE H-block / leading-edge section-quality blocker is fixed.  Do not resume bay, full-wing, solver, or AoA work from this state.`
 """,
         encoding="utf-8",
     )
@@ -488,8 +610,8 @@ def _write_final_reports(output_dir: Path, manifest: dict[str, Any]) -> None:
   --output-dir output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue \\
   --n-perim 192 \\
   --n-radial 80 \\
-  --farfield-chords 6 \\
-  --wake-length-chords 6
+  --farfield-chords 10 \\
+  --wake-length-chords 10
 ```
 """,
         encoding="utf-8",
@@ -527,6 +649,23 @@ def _bay_blocker_summary(cases: Sequence[dict[str, Any]]) -> str:
             f"tetQualityFaces={metrics.get('tet_quality_faces_below_threshold')}"
         )
     return "; ".join(blockers) if blockers else "bay_cgrid_checkmesh_or_custom_quality_failed"
+
+
+def _section_blocker_summary(cases: Sequence[dict[str, Any]]) -> str:
+    blockers = []
+    for case in cases:
+        if case["status"] == "pass":
+            continue
+        metrics = case.get("metrics", {})
+        blockers.append(
+            f"{case['case_id']}: status={case['status']} "
+            f"failedChecks={metrics.get('failed_check_count')} "
+            f"maxNonOrtho={metrics.get('max_non_orthogonality_deg')} "
+            f"maxSkew={metrics.get('max_skewness')} "
+            f"nonOrthoFacesOver85={metrics.get('non_orthogonal_faces_over_threshold')} "
+            f"tetQualityFaces={metrics.get('tet_quality_faces_below_threshold')}"
+        )
+    return "; ".join(blockers) if blockers else "section gates passed"
 
 
 def _case_pass(cases: Sequence[dict[str, Any]], case_id: str) -> bool:

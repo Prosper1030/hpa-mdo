@@ -6,6 +6,6 @@
   --output-dir output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue \
   --n-perim 192 \
   --n-radial 80 \
-  --farfield-chords 6 \
-  --wake-length-chords 6
+  --farfield-chords 10 \
+  --wake-length-chords 10
 ```

@@ -16,6 +16,9 @@ from cfd_rescue.swept_cgrid import (  # noqa: E402
     build_swept_cgrid_mesh,
 )
 from cfd_rescue.swept_hexa import mesh_quality_summary  # noqa: E402
+from run_wo006_true_airfoil_cgrid_section_rescue import (  # noqa: E402
+    _strict_checkmesh_log_status,
+)
 
 
 def test_true_airfoil_cgrid_keeps_te_open_and_adds_wake_patches() -> None:
@@ -45,12 +48,16 @@ def test_true_airfoil_cgrid_keeps_te_open_and_adds_wake_patches() -> None:
     assert abs(grid.first_layer_stats["min_m"] - 5.0e-5) < 1.0e-9
     assert mesh.boundary_face_counts["airfoil_upper"] > 0
     assert mesh.boundary_face_counts["airfoil_lower"] > 0
-    assert mesh.boundary_face_counts["wake_upper"] > 0
-    assert mesh.boundary_face_counts["wake_lower"] > 0
+    assert "wake_upper" not in mesh.boundary_face_counts
+    assert "wake_lower" not in mesh.boundary_face_counts
+    assert mesh.boundary_face_counts["te_wall"] > 0
     assert mesh.boundary_face_counts["farfield"] > 0
     assert mesh.boundary_face_counts["outlet"] > 0
     assert mesh.boundary_face_counts["tip_left"] > 0
     assert mesh.boundary_face_counts["tip_right"] > 0
+    assert mesh.metadata["wake_block"]["status"] == "internal_fluid_block"
+    assert mesh.metadata["boundary_patch_types"]["tip_left"] == "empty"
+    assert mesh.metadata["boundary_patch_types"]["tip_right"] == "empty"
 
 
 def test_cgrid_section_meshes_have_positive_hexa_for_true_airfoils() -> None:
@@ -102,4 +109,23 @@ def test_cgrid_root_bay_sweeps_to_positive_hexa() -> None:
     assert quality["unmarked_boundary_face_count"] == 0
     assert mesh.boundary_face_counts["airfoil_upper"] > 0
     assert mesh.boundary_face_counts["airfoil_lower"] > 0
+    assert mesh.boundary_face_counts["te_wall"] > 0
     assert mesh.boundary_face_counts["farfield"] > 0
+
+
+def test_strict_section_gate_rejects_failed_all_geometry_log(tmp_path: Path) -> None:
+    failed_log = tmp_path / "log.checkMesh_allGeometry"
+    failed_log.write_text(
+        """
+Mesh non-orthogonality Max: 74.0 average: 20.0
+Max skewness = 3.0 OK.
+Failed 1 mesh checks.
+""",
+        encoding="utf-8",
+    )
+
+    status = _strict_checkmesh_log_status(failed_log, max_non_ortho_target=75.0)
+
+    assert status["status"] == "fail"
+    assert status["mesh_ok"] is False
+    assert status["failed_check_count"] == 1
