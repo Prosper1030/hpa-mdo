@@ -1,5 +1,29 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-18 WO-006 True-Airfoil Wake C-Grid Section Rescue
+
+New bounded artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_cgrid_section_rescue/`.
+The route uses `scripts/run_wo006_true_airfoil_cgrid_section_rescue.py` plus
+`scripts/cfd_rescue/section_cgrid.py` / `scripts/cfd_rescue/swept_cgrid.py` to
+replace the failed sharp-TE single-loop O-grid with an open-TE wake C-grid for
+the true Baseline A `dae31` and `cst_tip` airfoils.
+
+Result: the dae31 root, cst-tip, and dae31-to-cst morph 2D-extruded section
+meshes pass OpenFOAM `checkMesh` / `checkMesh -allTopology -allGeometry
+-meshQuality` under the documented section-only meshQuality gate
+(`maxNonOrtho=85`, `minDeterminant=1e-8`). No TE bluntness, NACA0012 placeholder,
+snappyHexMesh, cfMesh, Gmsh/TetGen, meshpy, or solver run was used. Root section
+is still smoke-only quality (`maxNonOrtho≈80.09 deg`, `maxSkew≈3.93`), while
+cst-tip is cleaner (`maxNonOrtho≈68.90 deg`, `maxSkew≈2.57`).
+
+Engineering verdict: the true-airfoil section blocker is fixed enough to move
+to bay testing, but the swept bay route is not accepted. Root/mid/near-tip bays
+still fail mesh-quality checks, and the dae31-to-cst-tip morph bay has custom
+non-positive hexa volumes. Do not proceed to full wing, simpleFoam, or AoA/CD
+comparison from this bundle. The next single action is a bay-local C-grid
+correspondence / morph-sweep repair, not span-count escalation.
+
 ## 2026-05-17 WO-006 Swept Section O-Grid Structured-Hexa Blocker
 
 New bounded artifact:

@@ -283,7 +283,12 @@ def write_openfoam_poly_mesh(poly_mesh_dir: Path, mesh: SweptHexaMesh) -> None:
     _write_openfoam_faces(poly_mesh_dir / "faces", mesh.faces)
     _write_openfoam_label_list(poly_mesh_dir / "owner", "owner", mesh.owner)
     _write_openfoam_label_list(poly_mesh_dir / "neighbour", "neighbour", mesh.neighbour)
-    _write_openfoam_boundary(poly_mesh_dir / "boundary", mesh.boundary_ranges)
+    _write_openfoam_boundary(
+        poly_mesh_dir / "boundary",
+        mesh.boundary_ranges,
+        patch_order=mesh.metadata.get("boundary_patch_order"),
+        patch_types=mesh.metadata.get("boundary_patch_types"),
+    )
 
 
 def _write_openfoam_points(path: Path, points: Sequence[Point3]) -> None:
@@ -311,11 +316,19 @@ def _write_openfoam_label_list(path: Path, object_name: str, values: Sequence[in
 def _write_openfoam_boundary(
     path: Path,
     boundary_ranges: Mapping[str, Mapping[str, int]],
+    *,
+    patch_order: Sequence[str] | None = None,
+    patch_types: Mapping[str, str] | None = None,
 ) -> None:
-    lines = [_foam_header("polyBoundaryMesh", "boundary"), str(len(BOUNDARY_PATCH_ORDER)), "("]
-    for patch in BOUNDARY_PATCH_ORDER:
+    order = tuple(patch_order) if patch_order is not None else BOUNDARY_PATCH_ORDER
+    type_by_patch = dict(patch_types or {})
+    lines = [_foam_header("polyBoundaryMesh", "boundary"), str(len(order)), "("]
+    for patch in order:
         payload = boundary_ranges[patch]
-        patch_type = "patch" if patch == "farfield" else "wall"
+        patch_type = type_by_patch.get(
+            patch,
+            "patch" if patch in {"farfield", "outlet", "wake_upper", "wake_lower"} else "wall",
+        )
         lines.extend(
             [
                 f"    {patch}",
