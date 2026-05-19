@@ -2,12 +2,39 @@
 
 ## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-18。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+**更新日期：2026-05-19。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
 SU2 aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
+
+**2026-05-19 true Baseline solver-stability route:** The new bounded artifact is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_solver_stability/`.
+The corrected `root_symmetry` patch is geometrically valid (`tip_left` was the
+original patch, `12800` faces, all vertices at `y=0`, normal `-y`, corrected
+OpenFOAM patch type `symmetryPlane`, and excluded from all force objects), but
+the corrected half-wing route still did not produce an accepted 500-iteration
+stable route-smoke. The bounded decision gate therefore used OpenFOAM
+`mirrorMesh` to create a full-wing mirror route without `root_symmetry`.
+
+The mirrored route ran `simpleFoam` to 500 iterations at the same operating
+point (`V=6.5 m/s`, `AoA=0.18 deg`) with full-wing
+`Sref=33.420059598 m^2`. Accepted route-smoke values are
+`CD_primary=0.03276165`, `CL_primary=1.133291`, `CD_total=0.05708291`; main
+airfoil-wall yPlus is `mean=0.5679`, `p95=1.0904`, `max=2.6570`; and the final
+50-iteration primary/total force windows are stable. This resolves the
+root-symmetry force-runaway failure as a route-smoke stability issue.
+
+Engineering boundary: this is still not AoA/CL sweep ready and not release-grade
+drag truth. Diagnostic CD remains large at `0.02432127` (`42.6%` of total),
+almost entirely from the mirrored `physical_tip_left/right` side patches, while
+`te_wall` is only `1.52565e-05`. Treat this as a side/tip patch-role or finite
+domain trust-boundary blocker before any sweep. The mirror checkMesh command
+returns `0` and has no negative volumes, open cells, or oriented-pyramid errors,
+but strict `checkMesh -meshQuality` still reports the inherited face-twist /
+low-determinant flags (`2` failed checks), so do not oversell this as a clean
+validation mesh.
 
 **2026-05-19 true Baseline domain-convention fix:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_domain_convention_fix/`.
@@ -19,18 +46,11 @@ case maps `tip_left -> root_symmetry` with OpenFOAM `symmetryPlane`, maps
 `forces`, and uses half-wing `Sref=16.710029799 m^2` so raw half-domain
 coefficients equal full-wing-equivalent coefficients under mirror symmetry.
 
-Engineering boundary: the patch-role / BC convention bug is fixed, but the
-corrected simpleFoam route-smoke is blocked. `checkMesh -meshQuality` and
-`simpleFoam -dry-run` pass with corrected metadata and BCs, proving this is not
-a missing-BC or incompatible-root-patch setup failure. Three bounded solver
-profiles were attempted and all showed numerical force runaway before a valid
-500-iteration force window; the final bounded-upwind attempt was stopped at
-iteration `37`, and its last values (`CD_primary=1.889339`,
-`CL_primary=6.774819`, `CD_total=1.921214`) are diagnostic only, not accepted
-aero coefficients. Do not run AoA sweep or XFOIL comparison from this route.
-Next action is a solver-stability/root-plane numerical study on the corrected
-case, or a cleaner finite-wing/open-boundary structured domain; do not treat the
-old full-wing-wall-tip route as valid.
+Engineering boundary: the patch-role / BC convention bug is fixed, and this
+domain-convention bundle is now superseded by the solver-stability bundle
+above. Its corrected half-wing force-runaway values remain diagnostic-only
+evidence for why the mirror route was used; do not use them as aerodynamic
+coefficients or as an AoA-sweep starting point.
 
 **2026-05-18 true Baseline OpenFOAM route-smoke:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_openfoam_route_smoke/`.

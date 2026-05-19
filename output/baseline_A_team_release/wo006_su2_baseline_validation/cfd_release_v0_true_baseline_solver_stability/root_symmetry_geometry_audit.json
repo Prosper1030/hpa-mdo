@@ -1,0 +1,103 @@
+{
+  "all_faces_lie_on_single_y0_plane": true,
+  "corrected_case": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_domain_convention_fix/openfoam_cases/true_baseline_swept_cgrid_halfwing_convention",
+  "corrected_patch_name": "root_symmetry",
+  "exact_original_patch_name": "tip_left",
+  "field_bc_types": {
+    "U": "symmetryPlane",
+    "nuTilda": "symmetryPlane",
+    "nut": "symmetryPlane",
+    "p": "symmetryPlane"
+  },
+  "force_functionObject_membership": {
+    "included_anywhere": false,
+    "memberships": []
+  },
+  "max_abs_y_deviation_from_zero_m": 0.0,
+  "max_face_plane_deviation_m": 0.0,
+  "normal_direction_statistics": {
+    "abs_y": {
+      "max": 1.0,
+      "mean": 1.0,
+      "min": 1.0
+    },
+    "count": 12800,
+    "dominant_direction": "-y",
+    "x": {
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0
+    },
+    "y": {
+      "max": -1.0,
+      "mean": -1.0,
+      "min": -1.0
+    },
+    "z": {
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0
+    }
+  },
+  "original_polyMesh_boundary_type": "patch",
+  "patch_center_extent": {
+    "x": {
+      "max": 11.230298833885,
+      "min": -11.250910630685
+    },
+    "y": {
+      "max": 0.0,
+      "min": 0.0
+    },
+    "z": {
+      "max": 10.422630428140002,
+      "min": -12.2142682294
+    }
+  },
+  "patch_vertex_extent": {
+    "x": {
+      "max": 12.5274660009,
+      "min": -12.5353211061
+    },
+    "y": {
+      "max": 0.0,
+      "min": 0.0
+    },
+    "z": {
+      "max": 11.6207953958,
+      "min": -13.6170242982
+    }
+  },
+  "polyMesh_boundary_patch_type": "symmetryPlane",
+  "polyMesh_patch_type_compatibility": {
+    "result": "not_required_corrected_polyMesh_patch_type_is_symmetryPlane",
+    "test_required": false
+  },
+  "role_contamination_audit": {
+    "ambiguous_geometry": false,
+    "center_extent": {
+      "x": {
+        "max": 11.230298833885,
+        "min": -11.250910630685
+      },
+      "y": {
+        "max": 0.0,
+        "min": 0.0
+      },
+      "z": {
+        "max": 10.422630428140002,
+        "min": -12.2142682294
+      }
+    },
+    "farfield_faces_detected_as_mislabeled_patch": false,
+    "interpretation": "root patch is a planar y=0 domain cut through the C-grid volume, which is geometrically consistent with a symmetryPlane; no non-planar wall/farfield/TE patch mixture was detected by coordinate and normal checks",
+    "solid_root_cap_faces_detected": false,
+    "te_or_collar_faces_detected_as_mislabeled_patch": false
+  },
+  "root_symmetry_excluded_from_force_functionObjects": true,
+  "root_symmetry_face_count": 12800,
+  "root_symmetry_vertex_count": 13000,
+  "root_symmetry_vertex_y_max_m": 0.0,
+  "root_symmetry_vertex_y_min_m": 0.0,
+  "source_case": "/Volumes/Samsung SSD/hpa-mdo/.claude/worktrees/vibrant-meninsky-c9e255/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_airfoil_bay_gate/openfoam_cases/fullwing_debug/swept_cgrid"
+}

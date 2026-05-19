@@ -1,5 +1,35 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-19 WO-006 True Baseline Solver Stability
+
+New bounded artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_solver_stability/`.
+The root audit confirms the corrected `root_symmetry` patch is geometrically a
+valid planar `y=0` symmetry plane: original patch name `tip_left`, corrected
+OpenFOAM patch type `symmetryPlane`, `12800` faces, all vertices at `y=0`, and
+no root patch is present in any force group. Corrected half-wing attempts still
+did not produce an accepted 500-iteration route-smoke, so the bounded decision
+gate switched to a mirrored full-wing mesh.
+
+Result: the full-wing mirror route removed `root_symmetry`, kept the physical
+tip side patches separate, passed the solver-smoke mesh gate with no negative
+volumes, no open cells, and no oriented-pyramid errors, then ran `simpleFoam` to
+500 iterations at `V=6.5 m/s`, `AoA=0.18 deg`, using full-wing
+`Sref=33.420059598 m^2`. The final stable route-smoke coefficients are
+`CD_primary=0.03276165`, `CL_primary=1.133291`, `CD_total=0.05708291`.
+Main airfoil-wall yPlus is valid and low: `mean=0.5679`, `p95=1.0904`,
+`max=2.6570`. The final 50-iteration force window is stable.
+
+Engineering verdict: force runaway is resolved for this mirrored route-smoke,
+but the route is **not ready for AoA / CL sweep**. Diagnostic drag is still
+large: `CD_diagnostic_sum=0.02432127`, about `42.6%` of total, almost entirely
+from the mirrored `physical_tip_left/right` side patches; `te_wall` is tiny
+(`CD_te_wall=1.52565e-05`). This is a side/tip patch-role and finite-domain
+trust-boundary blocker, not a license to treat `CD_total` as release-grade drag
+truth. Also note `checkMesh -meshQuality` still reports the inherited strict
+quality flags (`2` failed checks: face twist / low determinant), although the
+hard topology blockers requested for this smoke gate are absent.
+
 ## 2026-05-19 WO-006 True Baseline Domain Convention Fix
 
 New bounded artifact:
@@ -22,12 +52,10 @@ iteration `37`; its last coefficient values are explicitly diagnostic only
 be used as aerodynamic coefficients.
 
 Engineering verdict: root-plane drag contamination is resolved as a setup
-error, but the corrected half-wing OpenFOAM route is now blocked by numerical
-stability on this high-nonorthogonal structured mesh. Do not run AoA sweep or
-XFOIL comparison from this route. Next action is not turbulence-model shopping;
-it is either a solver-stability/root-plane numerical study on the same corrected
-case or a cleaner finite-wing/open-boundary structured domain that does not turn
-the outboard C-grid side plane into a large diagnostic wall.
+error, and this domain-convention bundle is now superseded by the solver
+stability bundle above. Its force-runaway values remain diagnostic-only evidence
+for why the half-wing route was abandoned; do not use them as aerodynamic
+coefficients or as an AoA-sweep starting point.
 
 ## 2026-05-18 WO-006 True Baseline OpenFOAM Route-Smoke
 
