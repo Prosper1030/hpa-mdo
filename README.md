@@ -1,5 +1,36 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-19 WO-006 True Baseline OpenFOAM Grid Convergence
+
+New bounded artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.
+This study keeps the same true Baseline A geometry, `AoA=0.18 deg`, force
+definitions, and artificial closure treatment (`physical_tip_left/right`
+rewritten to `symmetryPlane` after `mirrorMesh`), and applies a systematic
+structured-hexa refinement ladder rather than ad hoc tuning.
+
+Result: the coarse / medium / fine ladder is `144x48x61`, `192x64x78`, and
+`240x80x95` on the half-wing seed, corresponding to mirrored full-wing meshes of
+`890112`, `1996800`, and `3769600` cells. The coarse and medium rungs both hit
+the live force-runaway guard almost immediately (`runaway_time=1`) before any
+usable yPlus or stable force window formed. Their last diagnostic coefficients
+are already nonphysical: coarse `CD_primary=2.285793`, `CL_primary=5.124994`,
+`CD_total_physical=2.29102`; medium `CD_primary=3.445598`,
+`CL_primary=6.395284`, `CD_total_physical=3.448734`. The fine rung does not
+even reach solver-smoke acceptance: `checkMesh -meshQuality` reports `5` failed
+checks including `10392` open cells, `maxNonOrtho=151.469`, and
+`maxSkew=35.282`.
+
+Engineering verdict: this line is **not grid-independent**. The only available
+coarse→medium delta is already far beyond any acceptable convergence band:
+`dCD_primary=+50.74%` and `dCD_total_physical=+50.53%`. That is not a subtle
+mesh-sensitivity issue; it means the current OpenFOAM setup is not numerically
+robust under systematic refinement of the same structured-hexa route. Do not
+trust `CD=0.031823`, do not use the mirrored-route `CD_primary≈0.03276` as
+design-power truth, and do not update the Baseline A design-power estimate from
+this CFD line until a solver-complete, force-stable, mesh-independent ladder is
+demonstrated.
+
 ## 2026-05-19 WO-006 True Baseline Solver Stability
 
 New bounded artifact:

@@ -9,6 +9,33 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
+**2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
+at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.
+The study keeps the same geometry authority, `AoA=0.18 deg`, force definitions,
+and artificial closure treatment (`physical_tip_left/right -> symmetryPlane`
+after `mirrorMesh`) while applying a systematic structured-hexa ladder:
+coarse `144x48x61`, medium `192x64x78`, fine `240x80x95` on the half-wing seed,
+which mirror to `890112`, `1996800`, and `3769600` full-wing cells.
+
+Outcome: grid independence is **not demonstrated**. Coarse and medium both trip
+the live force-runaway guard at `runaway_time=1`, so they never produce a
+solver-complete or yPlus-valid force window. Their last diagnostic values are
+already nonphysical: coarse `CD_primary=2.285793`, `CL_primary=5.124994`,
+`CD_total_physical=2.29102`; medium `CD_primary=3.445598`,
+`CL_primary=6.395284`, `CD_total_physical=3.448734`. The fine rung is blocked
+even earlier by mesh quality: `checkMesh -meshQuality` reports `10392` open
+cells, `maxNonOrtho=151.469`, `maxSkew=35.282`, and `5` failed checks, so it is
+not solver-smoke acceptable. The only computed mesh delta,
+`coarse -> medium`, gives `dCD_primary=+50.74%` and
+`dCD_total_physical=+50.53%`, far above the `5-10%` acceptance band.
+
+Engineering boundary: do not trust `CD=0.031823`, do not promote the earlier
+mirrored-route `CD_primary=0.03276165` into design-power truth, and do not
+update Baseline A design power from this OpenFOAM line. The current issue is not
+just “needs one more mesh”: the same structured-hexa route is not numerically
+robust under systematic refinement, and the fine rung no longer preserves basic
+mesh validity.
+
 **2026-05-19 Baseline A drag/power definition audit:** New artifact at
 `output/baseline_A_team_release/wo006_su2_baseline_validation/drag_power_audit/`
 traces the old `174.600 W` screening number to
