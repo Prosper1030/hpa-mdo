@@ -30,6 +30,25 @@ truth. Also note `checkMesh -meshQuality` still reports the inherited strict
 quality flags (`2` failed checks: face twist / low determinant), although the
 hard topology blockers requested for this smoke gate are absent.
 
+## 2026-05-19 Baseline A Drag/Power Definition Audit
+
+New audit artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/drag_power_audit/`.
+The original `174.600 W` screening number is now explicitly traced to
+`scripts/tier2_loaded_shape_airfoil_mvp.py` and the selected
+`conservative_best` row. Its `CD_total=0.02602003` is
+`AVL CDi + Tier2/XFOIL profile CD + CDA_nonwing/S`, then converted to crank
+power with `eta_prop=0.88` and `eta_trans=0.96`; it is a pre-tail main-wing
+screening closure, not CFD-calibrated aircraft drag truth.
+
+Engineering boundary: do not add AVL induced drag to OpenFOAM `CD_primary` or
+other physical wing CFD CD values, because induced drag is already inside the 3D
+CFD coefficient. On the original closure basis (`rho=1.18 kg/m^3`,
+`V=6.6 m/s`, `Sref=33.420059598 m^2`, same efficiencies), `CD=0.031823`
+implies `213.54 W`; adding the original non-wing reserve to that wing CD gives
+`239.64 W`. Treat `174 W` as old screening evidence only, not the current
+design-power estimate.
+
 ## 2026-05-19 WO-006 True Baseline Domain Convention Fix
 
 New bounded artifact:

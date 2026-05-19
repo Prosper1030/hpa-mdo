@@ -1,0 +1,9 @@
+case,source_cd_label,cd_value,cl_reference,rho_kgpm3,velocity_mps,sref_m2,eta_prop,eta_trans,eta_total,power_w,notes
+original_nominal,CD_total,0.026020030502038057,1.16853,1.18,6.6,33.420059598,0.88,0.96,0.8448,174.60027944116567,Exact original screening closure row from tier2_loaded_shape_selected_avl_recheck.csv
+original_wing_only,CDi_plus_profile_only,0.022130151143241825,1.16853,1.18,6.6,33.420059598,0.88,0.96,0.8448,148.4983106911657,Original wing induced plus profile drag without non-wing reserve
+openfoam_user_physical_only,CD_physical_user_supplied,0.031823,1.13,1.18,6.6,33.420059598,0.88,0.96,0.8448,213.53951496025377,User-supplied OpenFOAM-like physical wing CD mapped onto original power basis
+openfoam_user_plus_original_nonwing,CD_physical_user_plus_CDA_nonwing_over_S,0.035712879358796225,1.13,1.18,6.6,33.420059598,0.88,0.96,0.8448,239.64148371025377,Apples-to-apples normalization if original non-wing reserve is retained
+openfoam_repo_primary,CD_primary_repo_stable_route,0.03276165,1.133291,1.18,6.6,33.420059598,0.88,0.96,0.8448,219.8380683875687,Accepted repo mirror-route physical wing CD mapped onto original power basis
+openfoam_repo_primary_plus_original_nonwing,CD_primary_repo_plus_CDA_nonwing_over_S,0.03665152935879623,1.133291,1.18,6.6,33.420059598,0.88,0.96,0.8448,245.94003713756874,Accepted repo mirror-route wing CD plus original non-wing reserve
+openfoam_repo_total_diagnostic,CD_total_repo_stable_route,0.05708291,1.133303,1.18,6.6,33.420059598,0.88,0.96,0.8448,383.0392142136135,Not suitable for design power because diagnostic tip-side surfaces are still included
+original_plus_tail_placeholder,CD_total_plus_tail_delta_only,0.028372030502038056,1.16853,1.18,6.6,33.420059598,0.88,0.96,0.8448,190.38273047301425,Old nominal closure with later separate tail placeholder added but without any CFD recalibration

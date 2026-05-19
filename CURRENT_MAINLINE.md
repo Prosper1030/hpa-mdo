@@ -9,6 +9,17 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
+**2026-05-19 Baseline A drag/power definition audit:** New artifact at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/drag_power_audit/`
+traces the old `174.600 W` screening number to
+`scripts/tier2_loaded_shape_airfoil_mvp.py` and the selected
+`conservative_best` row. That old `CD_total=0.02602003` is
+`AVL CDi 0.0127613 + Tier2/XFOIL profile_cd 0.00936885 + CDA_nonwing/S 0.00388988`,
+with `eta_prop=0.88` and `eta_trans=0.96` applied after drag, not inside the
+CD. Do not add AVL CDi to OpenFOAM `CD_primary` or any physical wing CFD CD,
+because that would double-count induced drag. Treat `174 W` only as old
+pre-tail screening closure, not current calibrated design power.
+
 **2026-05-19 true Baseline solver-stability route:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_solver_stability/`.
 The corrected `root_symmetry` patch is geometrically valid (`tip_left` was the
