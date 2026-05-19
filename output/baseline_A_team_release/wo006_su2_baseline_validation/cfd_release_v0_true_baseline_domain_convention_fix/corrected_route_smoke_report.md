@@ -1,0 +1,24 @@
+# Corrected Route-Smoke Report
+
+- status: `blocked`
+- mesh identity: `half-wing`
+- simpleFoam ran: `False`
+- dry-run passed: `True`
+- yPlus postprocess passed: `False`
+- coefficient status: `not_valid_route_smoke_values; last unstable values are listed for diagnosis only`
+- CD_primary_raw_half_sref: `1.889339`
+- CL_primary_raw_half_sref: `6.774819`
+- CD_primary_fullwing_equivalent: `1.889339`
+- CL_primary_fullwing_equivalent: `6.774819`
+- CD_total_raw_half_sref: `1.921214`
+- CD_total_fullwing_equivalent: `1.921214`
+- CD_diagnostic_sum_excluding_root: `0.031875359`
+- CD_physical_tip: `0.02855625`
+- CD_te_wall: `0.003319109`
+- checkMesh: rc `0`, elapsed_s `3.756854332983494`
+- simpleFoam_500: rc `-15`, elapsed_s `229.8066960000433`
+- simpleFoam_dry_run: rc `0`, elapsed_s `1.013341374695301`
+- failure class: `numerical_divergence_force_runaway`
+- failure log: `/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_domain_convention_fix/openfoam_cases/true_baseline_swept_cgrid_halfwing_convention/log.simpleFoam_500`
+- failure evidence: `{'Cd': {'last': 1.889339, 'max': 7.607739, 'mean': 1.4846381749999997, 'min': -4.867188, 'relative_span': 8.402671580232, 'span': 12.474927}, 'Cl': {'last': 6.774819, 'max': 19.85612, 'mean': 3.5841806388888884, 'min': -12.81229, 'relative_span': 9.11461036465153, 'span': 32.66841}, 'CmPitch': {'last': -2.126203, 'max': 4.132168, 'mean': -0.7984858647222223, 'min': -5.282935, 'relative_span': 11.791195581496401, 'span': 9.415103}, 'Cs': {'last': -0.8233582, 'max': 1.519998, 'mean': -0.4214734861111113, 'min': -2.351286, 'relative_span': 9.185118702768007, 'span': 3.871284}, 'route_smoke_stable': False, 'status': 'available', 'window': 36}`
+- failure note: Corrected half-wing BCs pass checkMesh and dry-run, but the primary force window runs away/oscillates before a 500-iteration smoke can complete.

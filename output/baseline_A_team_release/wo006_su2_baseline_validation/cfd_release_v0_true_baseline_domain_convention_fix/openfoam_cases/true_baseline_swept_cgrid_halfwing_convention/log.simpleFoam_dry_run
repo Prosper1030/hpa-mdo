@@ -1,0 +1,330 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : simpleFoam -dry-run
+Date   : May 19 2026
+Time   : 10:26:38
+Host   : linyuandeMac-mini.local
+PID    : 39489
+I/O    : uncollated
+Case   : /tmp/hpa_mdo_true_baseline_openfoam/true_baseline_swept_cgrid_halfwing_convention
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Operating in 'dry-run' mode: case will run for 1 time step.  All checks assumed OK on a clean exit
+Selecting simplified mesh model staticFvMesh
+Creating simplified mesh using "/tmp/hpa_mdo_true_baseline_openfoam/true_baseline_swept_cgrid_halfwing_convention/constant/polyMesh"
+Mesh bounds: (-12.5353 0 -13.617) (12.5275 17.1661 11.6208)
+
+SIMPLE: convergence criteria
+    field p	 tolerance 1e-05
+    field U	 tolerance 1e-05
+    field nuTilda	 tolerance 1e-05
+
+Reading field p
+
+Reading field U
+
+Reading/calculating face flux field phi
+
+Selecting incompressible transport model Newtonian
+Selecting turbulence model type RAS
+Selecting RAS turbulence model SpalartAllmaras
+Selecting patchDistMethod meshWave
+ft2 term: inactive
+RAS
+{
+    RASModel        SpalartAllmaras;
+    turbulence      on;
+    printCoeffs     on;
+    sigmaNut        0.66666;
+    kappa           0.41;
+    Cb1             0.1355;
+    Cb2             0.622;
+    Cw2             0.3;
+    Cw3             2;
+    Cv1             7.1;
+    Cs              0.3;
+    ck              0.07;
+    ft2             false;
+    Ct3             1.2;
+    Ct4             0.5;
+}
+
+No MRF models present
+
+No finite volume options present
+
+Starting time loop
+
+forceCoeffs forceCoeffs_primary:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+    magUInf: 6.5
+    lRef   : 1.00372
+    Aref   : 16.71
+    rhoInf : 1.225
+    Selecting all coefficients
+    - Drag force: Cd
+    - Drag force front: Cd(f)
+    - Drag force rear: Cd(r)
+    - Lift force: Cl
+    - Lift force front: Cl(f)
+    - Lift force rear: Cl(r)
+    - Pitch moment: CmPitch
+    - Roll moment: CmRoll
+    - Yaw moment: CmYaw
+    - Side force: Cs
+    - Side force front: Cs(f)
+    - Side force rear: Cs(r)
+
+
+forces forces_primary:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+
+forceCoeffs forceCoeffs_total:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+    magUInf: 6.5
+    lRef   : 1.00372
+    Aref   : 16.71
+    rhoInf : 1.225
+    Selecting all coefficients
+    - Drag force: Cd
+    - Drag force front: Cd(f)
+    - Drag force rear: Cd(r)
+    - Lift force: Cl
+    - Lift force front: Cl(f)
+    - Lift force rear: Cl(r)
+    - Pitch moment: CmPitch
+    - Roll moment: CmRoll
+    - Yaw moment: CmYaw
+    - Side force: Cs
+    - Side force front: Cs(f)
+    - Side force rear: Cs(r)
+
+
+forces forces_total:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+
+forceCoeffs forceCoeffs_physical_tip:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+    magUInf: 6.5
+    lRef   : 1.00372
+    Aref   : 16.71
+    rhoInf : 1.225
+    Selecting all coefficients
+    - Drag force: Cd
+    - Drag force front: Cd(f)
+    - Drag force rear: Cd(r)
+    - Lift force: Cl
+    - Lift force front: Cl(f)
+    - Lift force rear: Cl(r)
+    - Pitch moment: CmPitch
+    - Roll moment: CmRoll
+    - Yaw moment: CmYaw
+    - Side force: Cs
+    - Side force front: Cs(f)
+    - Side force rear: Cs(r)
+
+
+forces forces_physical_tip:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+
+forceCoeffs forceCoeffs_te_wall:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+    magUInf: 6.5
+    lRef   : 1.00372
+    Aref   : 16.71
+    rhoInf : 1.225
+    Selecting all coefficients
+    - Drag force: Cd
+    - Drag force front: Cd(f)
+    - Drag force rear: Cd(r)
+    - Lift force: Cl
+    - Lift force front: Cl(f)
+    - Lift force rear: Cl(r)
+    - Pitch moment: CmPitch
+    - Roll moment: CmRoll
+    - Yaw moment: CmYaw
+    - Side force: Cs
+    - Side force front: Cs(f)
+    - Side force rear: Cs(r)
+
+
+forces forces_te_wall:
+    rho: rhoInf
+    Freestream density (rhoInf) set to 1.225
+    Not including porosity effects
+
+Time = 1
+
+smoothSolver:  Solving for Uy, Initial residual = 0, Final residual = 0, No Iterations 0
+smoothSolver:  Solving for Uz, Initial residual = 1, Final residual = 1.32452e-05, No Iterations 2
+GAMG:  Solving for p, Initial residual = 1, Final residual = 2.67094e-11, No Iterations 1
+GAMG:  Solving for p, Initial residual = 1.0016e-11, Final residual = 1.0016e-11, No Iterations 0
+GAMG:  Solving for p, Initial residual = 1.0016e-11, Final residual = 1.0016e-11, No Iterations 0
+GAMG:  Solving for p, Initial residual = 1.0016e-11, Final residual = 1.0016e-11, No Iterations 0
+GAMG:  Solving for p, Initial residual = 1.0016e-11, Final residual = 1.0016e-11, No Iterations 0
+time step continuity errors : sum local = 2.04524e-20, global = 2.04484e-20, cumulative = 2.04484e-20
+smoothSolver:  Solving for nuTilda, Initial residual = 1, Final residual = 8.48933e-05, No Iterations 2
+ExecutionTime = 0.29 s  ClockTime = 0 s
+
+forceCoeffs forceCoeffs_primary write:
+    Coefficient	Total	Pressure	Viscous	Internal
+    Cd:	5.45594e-10	0	5.45594e-10	0
+    Cd(f):	1.48534e-06	-1.91591e-28	1.48534e-06	0
+    Cd(r):	-1.4848e-06	1.91591e-28	-1.4848e-06	0
+    Cl:	1.73667e-07	0	1.73667e-07	0
+    Cl(f):	1.5107e-06	6.09856e-26	1.5107e-06	0
+    Cl(r):	-1.33703e-06	-6.09856e-26	-1.33703e-06	0
+    CmPitch:	1.42387e-06	6.09856e-26	1.42387e-06	0
+    CmRoll:	1.48507e-06	-1.91591e-28	1.48507e-06	0
+    CmYaw:	-4.66551e-09	-6.09853e-26	-4.66551e-09	0
+    Cs:	0	0	0	0
+    Cs(f):	-4.66551e-09	-6.09853e-26	-4.66551e-09	0
+    Cs(r):	4.66551e-09	6.09853e-26	4.66551e-09	0
+
+    writing force and moment coefficient files.
+
+forces forces_primary write:
+    Sum of forces
+        Total    : (0 0 7.50983e-05)
+        Pressure : (0 0 0)
+        Viscous  : (0 0 7.50983e-05)
+    Sum of moments
+        Total    : (0.000644574 0.000618006 -2.64698e-23)
+        Pressure : (0 2.64698e-23 -2.64698e-23)
+        Viscous  : (0.000644574 0.000618006 0)
+    writing force and moment files.
+
+forceCoeffs forceCoeffs_total write:
+    Coefficient	Total	Pressure	Viscous	Internal
+    Cd:	1.09826e-09	0	1.09826e-09	0
+    Cd(f):	2.98993e-06	-5.74774e-28	2.98993e-06	0
+    Cd(r):	-2.98883e-06	5.74774e-28	-2.98883e-06	0
+    Cl:	3.49584e-07	0	3.49584e-07	0
+    Cl(f):	9.09725e-07	4.57392e-26	9.09725e-07	0
+    Cl(r):	-5.6014e-07	-4.57392e-26	-5.6014e-07	0
+    CmPitch:	7.34932e-07	4.57392e-26	7.34932e-07	0
+    CmRoll:	2.98938e-06	-5.74774e-28	2.98938e-06	0
+    CmYaw:	-9.39146e-09	-1.82956e-25	-9.39146e-09	0
+    Cs:	0	0	0	0
+    Cs(f):	-9.39146e-09	-1.82956e-25	-9.39146e-09	0
+    Cs(r):	9.39146e-09	1.82956e-25	9.39146e-09	0
+
+    writing force and moment coefficient files.
+
+forces forces_total write:
+    Sum of forces
+        Total    : (0 0 0.00015117)
+        Pressure : (0 0 0)
+        Viscous  : (0 0 0.00015117)
+    Sum of moments
+        Total    : (0.0012975 0.000318985 -7.94093e-23)
+        Pressure : (0 1.98523e-23 -7.94093e-23)
+        Viscous  : (0.0012975 0.000318985 0)
+    writing force and moment files.
+
+forceCoeffs forceCoeffs_physical_tip write:
+    Coefficient	Total	Pressure	Viscous	Internal
+    Cd:	2.76363e-10	0	2.76363e-10	0
+    Cd(f):	7.52382e-07	-3.83183e-28	7.52382e-07	0
+    Cd(r):	-7.52106e-07	3.83183e-28	-7.52106e-07	0
+    Cl:	8.79689e-08	0	8.79689e-08	0
+    Cl(f):	-8.49329e-07	0	-8.49329e-07	0
+    Cl(r):	9.37298e-07	0	9.37298e-07	0
+    CmPitch:	-8.93314e-07	0	-8.93314e-07	0
+    CmRoll:	7.52244e-07	-3.83183e-28	7.52244e-07	0
+    CmYaw:	-2.36325e-09	-1.21971e-25	-2.36325e-09	0
+    Cs:	0	0	0	0
+    Cs(f):	-2.36325e-09	-1.21971e-25	-2.36325e-09	0
+    Cs(r):	2.36325e-09	1.21971e-25	2.36325e-09	0
+
+    writing force and moment coefficient files.
+
+forces forces_physical_tip write:
+    Sum of forces
+        Total    : (0 0 3.80401e-05)
+        Pressure : (0 0 0)
+        Viscous  : (0 0 3.80401e-05)
+    Sum of moments
+        Total    : (0.000326501 -0.000387728 -5.29396e-23)
+        Pressure : (0 0 -5.29396e-23)
+        Viscous  : (0.000326501 -0.000387728 0)
+    writing force and moment files.
+
+forceCoeffs forceCoeffs_te_wall write:
+    Coefficient	Total	Pressure	Viscous	Internal
+    Cd:	2.76299e-10	0	2.76299e-10	0
+    Cd(f):	7.52206e-07	0	7.52206e-07	0
+    Cd(r):	-7.5193e-07	0	-7.5193e-07	0
+    Cl:	8.79483e-08	0	8.79483e-08	0
+    Cl(f):	2.48353e-07	-1.52464e-26	2.48353e-07	0
+    Cl(r):	-1.60405e-07	1.52464e-26	-1.60405e-07	0
+    CmPitch:	2.04379e-07	-1.52464e-26	2.04379e-07	0
+    CmRoll:	7.52068e-07	0	7.52068e-07	0
+    CmYaw:	-2.3627e-09	0	-2.3627e-09	0
+    Cs:	0	0	0	0
+    Cs(f):	-2.3627e-09	0	-2.3627e-09	0
+    Cs(r):	2.3627e-09	0	2.3627e-09	0
+
+    writing force and moment coefficient files.
+
+forces forces_te_wall write:
+    Sum of forces
+        Total    : (0 0 3.80312e-05)
+        Pressure : (0 0 0)
+        Viscous  : (0 0 3.80312e-05)
+    Sum of moments
+        Total    : (0.000326424 8.87073e-05 0)
+        Pressure : (0 -6.61744e-24 0)
+        Viscous  : (0.000326424 8.87073e-05 0)
+    writing force and moment files.
+
+End
+
+        0.89 real         0.46 user         0.05 sys
+           116817920  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               12420  page reclaims
+                   3  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                   0  voluntary context switches
+                 473  involuntary context switches
+         10082942814  instructions retired
+          1981085662  cycles elapsed
+            37913296  peak memory footprint

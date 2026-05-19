@@ -1,0 +1,54 @@
+{
+  "aliases": {
+    "airfoil_lower": {
+      "boundary_class": "wall",
+      "corrected_patch": "airfoil_lower",
+      "force_inclusion": "primary_and_total",
+      "rename_required": false,
+      "role": "main_lifting_wall_lower"
+    },
+    "airfoil_upper": {
+      "boundary_class": "wall",
+      "corrected_patch": "airfoil_upper",
+      "force_inclusion": "primary_and_total",
+      "rename_required": false,
+      "role": "main_lifting_wall_upper"
+    },
+    "farfield": {
+      "boundary_class": "patch",
+      "corrected_patch": "farfield",
+      "force_inclusion": "excluded",
+      "rename_required": false,
+      "role": "farfield_or_inlet_outlet"
+    },
+    "outlet": {
+      "boundary_class": "patch",
+      "corrected_patch": "outlet",
+      "force_inclusion": "excluded",
+      "rename_required": false,
+      "role": "farfield_or_inlet_outlet"
+    },
+    "te_wall": {
+      "boundary_class": "wall",
+      "corrected_patch": "te_wall",
+      "force_inclusion": "diagnostic_and_total",
+      "rename_required": false,
+      "role": "trailing_edge_wall"
+    },
+    "tip_left": {
+      "boundary_class": "symmetryPlane",
+      "corrected_patch": "root_symmetry",
+      "force_inclusion": "excluded",
+      "rename_required": true,
+      "role": "root_symmetry"
+    },
+    "tip_right": {
+      "boundary_class": "wall",
+      "corrected_patch": "physical_tip",
+      "force_inclusion": "diagnostic_and_total",
+      "rename_required": true,
+      "role": "physical_tip_wall"
+    }
+  },
+  "policy": "boundary metadata/patch labels only; no points/faces/owner/neighbour topology edits"
+}

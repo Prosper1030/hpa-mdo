@@ -1,0 +1,53 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       polyBoundaryMesh;
+    location    "constant/polyMesh";
+    object      boundary;
+}
+7
+(
+    airfoil_upper
+    {
+        type            wall;
+        nFaces          7488;
+        startFace       2966800;
+    }
+    airfoil_lower
+    {
+        type            wall;
+        nFaces          7488;
+        startFace       2974288;
+    }
+    te_wall
+    {
+        type            wall;
+        nFaces          624;
+        startFace       2981776;
+    }
+    outlet
+    {
+        type            patch;
+        nFaces          624;
+        startFace       2982400;
+    }
+    farfield
+    {
+        type            patch;
+        nFaces          14976;
+        startFace       2983024;
+    }
+    root_symmetry
+    {
+        type            symmetryPlane;
+        nFaces          12800;
+        startFace       2998000;
+    }
+    physical_tip
+    {
+        type            wall;
+        nFaces          12800;
+        startFace       3010800;
+    }
+)

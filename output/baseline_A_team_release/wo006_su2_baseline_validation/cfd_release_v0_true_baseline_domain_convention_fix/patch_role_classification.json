@@ -1,0 +1,156 @@
+{
+  "mesh_identity": "half-wing",
+  "physical_tip_original_patches": [
+    "tip_right"
+  ],
+  "roles": {
+    "airfoil_lower": {
+      "corrected_patch": "airfoil_lower",
+      "extent": {
+        "x": {
+          "max": 1.25191195517,
+          "min": 0.00036017201672
+        },
+        "y": {
+          "max": 17.166143,
+          "min": 0.0
+        },
+        "z": {
+          "max": 2.63933242922,
+          "min": -0.0956054999562
+        }
+      },
+      "nFaces": 7488,
+      "original_patch": "airfoil_lower",
+      "original_type": "wall",
+      "role": "main_lifting_wall_lower"
+    },
+    "airfoil_upper": {
+      "corrected_patch": "airfoil_upper",
+      "extent": {
+        "x": {
+          "max": 1.25193741663,
+          "min": 0.00036017201672
+        },
+        "y": {
+          "max": 17.166143,
+          "min": 0.0
+        },
+        "z": {
+          "max": 2.68911623532,
+          "min": -0.0953710003071
+        }
+      },
+      "nFaces": 7488,
+      "original_patch": "airfoil_upper",
+      "original_type": "wall",
+      "role": "main_lifting_wall_upper"
+    },
+    "farfield": {
+      "corrected_patch": "farfield",
+      "extent": {
+        "x": {
+          "max": 12.5274660009,
+          "min": -12.5353211061
+        },
+        "y": {
+          "max": 17.166143,
+          "min": 0.0
+        },
+        "z": {
+          "max": 11.6207953958,
+          "min": -13.6170242982
+        }
+      },
+      "nFaces": 14976,
+      "original_patch": "farfield",
+      "original_type": "patch",
+      "role": "farfield_or_inlet_outlet"
+    },
+    "outlet": {
+      "corrected_patch": "outlet",
+      "extent": {
+        "x": {
+          "max": 12.5274660009,
+          "min": 5.36156842058
+        },
+        "y": {
+          "max": 17.166143,
+          "min": 0.0
+        },
+        "z": {
+          "max": 11.3891466859,
+          "min": -13.6170242982
+        }
+      },
+      "nFaces": 624,
+      "original_patch": "outlet",
+      "original_type": "patch",
+      "role": "farfield_or_inlet_outlet"
+    },
+    "te_wall": {
+      "corrected_patch": "te_wall",
+      "extent": {
+        "x": {
+          "max": 1.25193741663,
+          "min": 0.643886881713
+        },
+        "y": {
+          "max": 17.166143,
+          "min": 0.0
+        },
+        "z": {
+          "max": 2.59679425093,
+          "min": -0.0956054999562
+        }
+      },
+      "nFaces": 624,
+      "original_patch": "te_wall",
+      "original_type": "wall",
+      "role": "trailing_edge_wall"
+    },
+    "tip_left": {
+      "corrected_patch": "root_symmetry",
+      "extent": {
+        "x": {
+          "max": 12.5274660009,
+          "min": -12.5353211061
+        },
+        "y": {
+          "max": 0.0,
+          "min": 0.0
+        },
+        "z": {
+          "max": 11.6207953958,
+          "min": -13.6170242982
+        }
+      },
+      "nFaces": 12800,
+      "original_patch": "tip_left",
+      "original_type": "patch",
+      "role": "root_symmetry"
+    },
+    "tip_right": {
+      "corrected_patch": "physical_tip",
+      "extent": {
+        "x": {
+          "max": 6.2232931583,
+          "min": -6.44282440267
+        },
+        "y": {
+          "max": 17.166143,
+          "min": 17.166143
+        },
+        "z": {
+          "max": 8.73898634174,
+          "min": -4.18407772211
+        }
+      },
+      "nFaces": 12800,
+      "original_patch": "tip_right",
+      "original_type": "patch",
+      "role": "physical_tip_wall"
+    }
+  },
+  "root_symmetry_original_patch": "tip_left"
+}

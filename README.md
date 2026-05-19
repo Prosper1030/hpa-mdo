@@ -1,5 +1,34 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-19 WO-006 True Baseline Domain Convention Fix
+
+New bounded artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_domain_convention_fix/`.
+The domain audit proves the accepted true Baseline swept C-grid mesh is
+half-wing, not full-wing: domain span is `y=0.0..17.166143 m`, original
+`tip_left` is the root plane, and original `tip_right` is the outboard span-end.
+The corrected case maps `tip_left -> root_symmetry` with OpenFOAM
+`symmetryPlane`, maps `tip_right -> physical_tip`, excludes root symmetry from
+all force objects, and uses half-wing `Sref=16.710029799 m^2` so raw half-domain
+coefficients are also full-wing-equivalent under mirror symmetry.
+
+Result: the patch-role / BC convention bug is fixed, but a corrected
+500-iteration route-smoke did not complete. `checkMesh -meshQuality` and
+`simpleFoam -dry-run` both pass with the corrected metadata/BCs, but all three
+bounded solver profiles run into numerical force instability before a valid
+500-iteration force window. The final bounded-upwind attempt was stopped at
+iteration `37`; its last coefficient values are explicitly diagnostic only
+(`CD_primary=1.889339`, `CL_primary=6.774819`, `CD_total=1.921214`) and must not
+be used as aerodynamic coefficients.
+
+Engineering verdict: root-plane drag contamination is resolved as a setup
+error, but the corrected half-wing OpenFOAM route is now blocked by numerical
+stability on this high-nonorthogonal structured mesh. Do not run AoA sweep or
+XFOIL comparison from this route. Next action is not turbulence-model shopping;
+it is either a solver-stability/root-plane numerical study on the same corrected
+case or a cleaner finite-wing/open-boundary structured domain that does not turn
+the outboard C-grid side plane into a large diagnostic wall.
+
 ## 2026-05-18 WO-006 True Baseline OpenFOAM Route-Smoke
 
 New bounded artifact:

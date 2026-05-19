@@ -1,0 +1,43 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      p;
+}
+dimensions      [0 2 -2 0 0 0 0];
+internalField   uniform 0;
+boundaryField
+{
+    outlet
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    farfield
+    {
+        type            freestreamPressure;
+        freestreamValue uniform 0;
+        value           uniform 0;
+    }
+    root_symmetry
+    {
+        type            symmetryPlane;
+    }
+    airfoil_upper
+    {
+        type            zeroGradient;
+    }
+    airfoil_lower
+    {
+        type            zeroGradient;
+    }
+    physical_tip
+    {
+        type            zeroGradient;
+    }
+    te_wall
+    {
+        type            zeroGradient;
+    }
+}

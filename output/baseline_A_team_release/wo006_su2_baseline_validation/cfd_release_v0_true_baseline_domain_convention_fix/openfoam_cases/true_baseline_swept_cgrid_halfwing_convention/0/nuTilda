@@ -1,0 +1,48 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    object      nuTilda;
+}
+dimensions      [0 2 -1 0 0 0 0];
+internalField   uniform 4.0e-5;
+boundaryField
+{
+    outlet
+    {
+        type            inletOutlet;
+        inletValue      uniform 4.0e-5;
+        value           uniform 4.0e-5;
+    }
+    farfield
+    {
+        type            freestream;
+        freestreamValue uniform 4.0e-5;
+        value           uniform 4.0e-5;
+    }
+    root_symmetry
+    {
+        type            symmetryPlane;
+    }
+    airfoil_upper
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    airfoil_lower
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    physical_tip
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    te_wall
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+}

@@ -1,0 +1,130 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : checkMesh -meshQuality
+Date   : May 19 2026
+Time   : 10:26:34
+Host   : linyuandeMac-mini.local
+PID    : 38975
+I/O    : uncollated
+Case   : /tmp/hpa_mdo_true_baseline_openfoam/true_baseline_swept_cgrid_halfwing_convention
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Check mesh...
+    Enabling user-defined geometry checks.
+
+Time = 0
+
+Mesh stats
+    points:           1027000
+    faces:            3023600
+    internal faces:   2966800
+    cells:            998400
+    faces per cell:   6
+    boundary patches: 7
+    point zones:      0
+    face zones:       0
+    cell zones:       0
+
+Overall number of cells of each type:
+    hexahedra:     998400
+    prisms:        0
+    wedges:        0
+    pyramids:      0
+    tet wedges:    0
+    tetrahedra:    0
+    polyhedra:     0
+
+Checking topology...
+    Boundary definition OK.
+    Cell to face addressing OK.
+    Point usage OK.
+    Upper triangular ordering OK.
+    Face vertices OK.
+    Number of regions: 1 (OK).
+
+Checking patch topology for multiply connected surfaces...
+    Patch               Faces    Points     Surface topology
+    airfoil_upper       7488     7663     ok (non-closed singly connected)
+    airfoil_lower       7488     7663     ok (non-closed singly connected)
+    te_wall             624      711      ok (non-closed singly connected)
+    outlet              624      711      ok (non-closed singly connected)
+    farfield            14976    15247    ok (non-closed singly connected)
+    root_symmetry       12800    13000    ok (non-closed singly connected)
+    physical_tip        12800    13000    ok (non-closed singly connected)
+    ".*"                56800    56800    ok (closed singly connected)
+
+
+Checking faceZone topology for multiply connected surfaces...
+    No faceZones found.
+
+Checking basic cellZone addressing...
+    No cellZones found.
+
+Checking basic pointZone addressing...
+    No pointZones found.
+
+Checking geometry...
+    Overall domain bounding box (-12.5353 0 -13.617) (12.5275 17.1661 11.6208)
+    Mesh has 3 geometric (non-empty/wedge) directions (1 1 1)
+    Mesh has 3 solution (non-empty) directions (1 1 1)
+    Boundary openness (-2.24814e-16 -4.28164e-16 2.7064e-17) OK.
+ ***High aspect ratio cells found, Max aspect ratio: 1431.97, number of cells 34
+  <<Writing 34 cells with high aspect ratio to set highAspectRatioCells
+    Minimum face area = 8.2568e-10. Maximum face area = 5.80578.  Face area magnitudes OK.
+    Min volume = 1.77218e-10. Max volume = 1.61593.  Total volume = 5004.26.  Cell volumes OK.
+    Mesh non-orthogonality Max: 89.193 average: 26.517
+   *Number of severely non-orthogonal (> 70 degrees) faces: 41989.
+    Non-orthogonality check OK.
+  <<Writing 41989 non-orthogonal faces to set nonOrthoFaces
+    Face pyramids OK.
+    Max skewness = 3.45663 OK.
+    Coupled point location match (average 0) OK.
+Checking faces in error :
+    non-orthogonality > 90  degrees                        : 0
+    faces with face pyramid volume < 1e-18                 : 0
+    faces with concavity > 80  degrees                     : 0
+    faces with skewness > 4   (internal) or 20  (boundary) : 0
+    faces with interpolation weights (0..1)  < 0.02        : 0
+    faces with volume ratio of neighbour cells < 0.01      : 0
+    faces with face twist < 0.02                           : 10
+    faces on cells with determinant < 0.001                : 933018
+  <<Writing 933028 faces in error to set meshQualityFaces
+
+Failed 2 mesh checks.
+
+End
+
+        3.62 real         2.99 user         0.18 sys
+           799637504  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+               58470  page reclaims
+                  99  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  17  voluntary context switches
+                2903  involuntary context switches
+         64558772077  instructions retired
+         11848837516  cycles elapsed
+           733201560  peak memory footprint

@@ -1,0 +1,154 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+application     simpleFoam;
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         500;
+deltaT          1;
+writeControl    timeStep;
+writeInterval   100;
+purgeWrite      2;
+functions
+{
+    forceCoeffs_primary
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (airfoil_upper airfoil_lower);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (-0.00314158749 0 0.999995065);
+        dragDir         (0.999995065 0 0.00314158749);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            16.710029799;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forces_primary
+    {
+        type            forces;
+        libs            ("libforces.so");
+        patches         (airfoil_upper airfoil_lower);
+        rho             rhoInf;
+        rhoInf          1.225;
+        CofR            (0.246276512 0.000000000 0.000000000);
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_total
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (airfoil_upper airfoil_lower physical_tip te_wall);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (-0.00314158749 0 0.999995065);
+        dragDir         (0.999995065 0 0.00314158749);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            16.710029799;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forces_total
+    {
+        type            forces;
+        libs            ("libforces.so");
+        patches         (airfoil_upper airfoil_lower physical_tip te_wall);
+        rho             rhoInf;
+        rhoInf          1.225;
+        CofR            (0.246276512 0.000000000 0.000000000);
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_physical_tip
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (physical_tip);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (-0.00314158749 0 0.999995065);
+        dragDir         (0.999995065 0 0.00314158749);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            16.710029799;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forces_physical_tip
+    {
+        type            forces;
+        libs            ("libforces.so");
+        patches         (physical_tip);
+        rho             rhoInf;
+        rhoInf          1.225;
+        CofR            (0.246276512 0.000000000 0.000000000);
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forceCoeffs_te_wall
+    {
+        type            forceCoeffs;
+        libs            ("libforces.so");
+        patches         (te_wall);
+        rho             rhoInf;
+        rhoInf          1.225;
+        liftDir         (-0.00314158749 0 0.999995065);
+        dragDir         (0.999995065 0 0.00314158749);
+        CofR            (0.246276512 0.000000000 0.000000000);
+        pitchAxis       (0 1 0);
+        magUInf         6.5;
+        lRef            1.003721543;
+        Aref            16.710029799;
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    forces_te_wall
+    {
+        type            forces;
+        libs            ("libforces.so");
+        patches         (te_wall);
+        rho             rhoInf;
+        rhoInf          1.225;
+        CofR            (0.246276512 0.000000000 0.000000000);
+        writeControl    timeStep;
+        writeInterval   1;
+        log             true;
+    }
+
+    yPlus
+    {
+        type            yPlus;
+        libs            ("libfieldFunctionObjects.so");
+        writeControl    writeTime;
+        writeInterval   100;
+    }
+}

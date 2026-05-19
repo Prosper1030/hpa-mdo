@@ -1,0 +1,172 @@
+{
+  "domain_identity": {
+    "authority_full_span_m": 34.332286,
+    "authority_half_span_m": 17.166143,
+    "coefficient_correction": "previous half-domain forces used full-wing Sref, so same-force coefficients were about half of the corrected half-Sref convention",
+    "corrected_forceCoeffs_sref_m2": 16.710029799,
+    "mesh_identity": "half-wing",
+    "mesh_y_max_m": 17.166143,
+    "mesh_y_min_m": 0.0,
+    "mesh_y_span_m": 17.166143,
+    "outboard_span_patch_original": "tip_right",
+    "previous_forceCoeffs_sref_m2": 33.420059598,
+    "reference_area_convention": "half-wing raw forces normalized by half-wing Sref; coefficients are also full-wing-equivalent under mirror symmetry",
+    "root_plane_patch_original": "tip_left"
+  },
+  "patch_geometry": {
+    "authority_full_span_m": 34.332286,
+    "authority_half_span_m": 17.166143,
+    "domain_extent": {
+      "x": {
+        "max": 12.5274660009,
+        "min": -12.5353211061
+      },
+      "y": {
+        "max": 17.166143,
+        "min": 0.0
+      },
+      "z": {
+        "max": 11.6207953958,
+        "min": -13.6170242982
+      }
+    },
+    "domain_y_span_m": 17.166143,
+    "engineering_note": "tip_left is exactly y=0 plane while tip_right is y=17.166143 plane; this looks like a half-span/root-symmetry domain, not a +/- full-span wing.",
+    "patches": {
+      "airfoil_lower": {
+        "extent": {
+          "x": {
+            "max": 1.25191195517,
+            "min": 0.00036017201672
+          },
+          "y": {
+            "max": 17.166143,
+            "min": 0.0
+          },
+          "z": {
+            "max": 2.63933242922,
+            "min": -0.0956054999562
+          }
+        },
+        "nFaces": 7488,
+        "startFace": 2974288,
+        "type": "wall"
+      },
+      "airfoil_upper": {
+        "extent": {
+          "x": {
+            "max": 1.25193741663,
+            "min": 0.00036017201672
+          },
+          "y": {
+            "max": 17.166143,
+            "min": 0.0
+          },
+          "z": {
+            "max": 2.68911623532,
+            "min": -0.0953710003071
+          }
+        },
+        "nFaces": 7488,
+        "startFace": 2966800,
+        "type": "wall"
+      },
+      "farfield": {
+        "extent": {
+          "x": {
+            "max": 12.5274660009,
+            "min": -12.5353211061
+          },
+          "y": {
+            "max": 17.166143,
+            "min": 0.0
+          },
+          "z": {
+            "max": 11.6207953958,
+            "min": -13.6170242982
+          }
+        },
+        "nFaces": 14976,
+        "startFace": 2983024,
+        "type": "patch"
+      },
+      "outlet": {
+        "extent": {
+          "x": {
+            "max": 12.5274660009,
+            "min": 5.36156842058
+          },
+          "y": {
+            "max": 17.166143,
+            "min": 0.0
+          },
+          "z": {
+            "max": 11.3891466859,
+            "min": -13.6170242982
+          }
+        },
+        "nFaces": 624,
+        "startFace": 2982400,
+        "type": "patch"
+      },
+      "te_wall": {
+        "extent": {
+          "x": {
+            "max": 1.25193741663,
+            "min": 0.643886881713
+          },
+          "y": {
+            "max": 17.166143,
+            "min": 0.0
+          },
+          "z": {
+            "max": 2.59679425093,
+            "min": -0.0956054999562
+          }
+        },
+        "nFaces": 624,
+        "startFace": 2981776,
+        "type": "wall"
+      },
+      "tip_left": {
+        "extent": {
+          "x": {
+            "max": 12.5274660009,
+            "min": -12.5353211061
+          },
+          "y": {
+            "max": 0.0,
+            "min": 0.0
+          },
+          "z": {
+            "max": 11.6207953958,
+            "min": -13.6170242982
+          }
+        },
+        "nFaces": 12800,
+        "startFace": 2998000,
+        "type": "patch"
+      },
+      "tip_right": {
+        "extent": {
+          "x": {
+            "max": 6.2232931583,
+            "min": -6.44282440267
+          },
+          "y": {
+            "max": 17.166143,
+            "min": 17.166143
+          },
+          "z": {
+            "max": 8.73898634174,
+            "min": -4.18407772211
+          }
+        },
+        "nFaces": 12800,
+        "startFace": 3010800,
+        "type": "patch"
+      }
+    },
+    "status": "available"
+  }
+}

@@ -9,6 +9,29 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
+**2026-05-19 true Baseline domain-convention fix:** The new bounded artifact is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_domain_convention_fix/`.
+The accepted true Baseline swept C-grid mesh is now classified as a half-wing
+domain, not full-wing: y extent is `0.0..17.166143 m`, original `tip_left` is
+the root plane, and original `tip_right` is the outboard span-end. The corrected
+case maps `tip_left -> root_symmetry` with OpenFOAM `symmetryPlane`, maps
+`tip_right -> physical_tip`, excludes root symmetry from `forceCoeffs` /
+`forces`, and uses half-wing `Sref=16.710029799 m^2` so raw half-domain
+coefficients equal full-wing-equivalent coefficients under mirror symmetry.
+
+Engineering boundary: the patch-role / BC convention bug is fixed, but the
+corrected simpleFoam route-smoke is blocked. `checkMesh -meshQuality` and
+`simpleFoam -dry-run` pass with corrected metadata and BCs, proving this is not
+a missing-BC or incompatible-root-patch setup failure. Three bounded solver
+profiles were attempted and all showed numerical force runaway before a valid
+500-iteration force window; the final bounded-upwind attempt was stopped at
+iteration `37`, and its last values (`CD_primary=1.889339`,
+`CL_primary=6.774819`, `CD_total=1.921214`) are diagnostic only, not accepted
+aero coefficients. Do not run AoA sweep or XFOIL comparison from this route.
+Next action is a solver-stability/root-plane numerical study on the corrected
+case, or a cleaner finite-wing/open-boundary structured domain; do not treat the
+old full-wing-wall-tip route as valid.
+
 **2026-05-18 true Baseline OpenFOAM route-smoke:** The new bounded artifact is
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_openfoam_route_smoke/`.
 `scripts/run_wo006_true_baseline_openfoam_route_smoke.py` wraps the accepted
