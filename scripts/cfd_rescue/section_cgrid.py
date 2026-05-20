@@ -42,6 +42,12 @@ def build_section_cgrid(
     near_wall_growth: float = 1.12,
     near_wall_layers: int | None = None,
     te_normal_blend_points: int | None = None,
+    te_corner_first_layer_growth: float = 2.0,
+    te_corner_radial_blend_layers: int = 6,
+    te_corner_perim_blend_cells: int = 3,
+    lower_te_radial_chord_shift_factor: float = 0.4,
+    lower_te_radial_chord_shift_layers: int = 4,
+    lower_te_radial_chord_shift_plateau_layers: int = 2,
 ) -> SectionCGrid:
     if n_radial < 2:
         raise ValueError("n_radial must be at least 2")
@@ -51,6 +57,16 @@ def build_section_cgrid(
         raise ValueError("farfield and wake length must be positive")
     if len(station.airfoil_xz) < 16:
         raise ValueError("station airfoil loop is too coarse")
+    if te_corner_first_layer_growth < 1.0:
+        raise ValueError("te_corner_first_layer_growth must be >= 1.0")
+    if te_corner_radial_blend_layers < 0 or te_corner_perim_blend_cells < 0:
+        raise ValueError("te_corner_blend_layers and te_corner_perim_blend_cells must be >= 0")
+    if lower_te_radial_chord_shift_factor < 0.0:
+        raise ValueError("lower_te_radial_chord_shift_factor must be >= 0.0")
+    if lower_te_radial_chord_shift_layers < 0:
+        raise ValueError("lower_te_radial_chord_shift_layers must be >= 0")
+    if lower_te_radial_chord_shift_plateau_layers < 0:
+        raise ValueError("lower_te_radial_chord_shift_plateau_layers must be >= 0")
 
     wall = tuple((x * station.chord, z * station.chord) for x, z in station.airfoil_xz)
     le_index = min(range(len(wall)), key=lambda idx: wall[idx][0])
@@ -75,21 +91,73 @@ def build_section_cgrid(
     normal_stack_layers = min(n_radial - 1, max(8, n_radial // 4))
     normal_stack_distance = radial_dist[normal_stack_layers]
 
+    # WO-006 TE-corner rebalance: at the TE wrap ends the first
+    # body/wake interface layer can collapse into a non-planar sliver
+    # and fail OpenFOAM's face-pyramid orientation check. Keep the wall
+    # coordinates fixed, but widen/blend the first few radial layers at
+    # the TE corners so the adjacent owner/neighbour centroids remain
+    # on opposite sides of the shared face plane.
+    perim_count = len(wall)
+
+    def _te_corner_factor(perim_index: int, radial_index: int) -> float:
+        if te_corner_first_layer_growth <= 1.0 + 1e-12:
+            return 1.0
+        if radial_index <= 0 or radial_index > te_corner_radial_blend_layers:
+            return 1.0
+        te_distance = min(perim_index, perim_count - 1 - perim_index)
+        if te_distance > te_corner_perim_blend_cells:
+            return 1.0
+        perim_w = (
+            (te_corner_perim_blend_cells + 1 - te_distance)
+            / (te_corner_perim_blend_cells + 1)
+        )
+        radial_w = max(
+            0.0,
+            1.0 - (radial_index - 1) / max(te_corner_radial_blend_layers, 1),
+        )
+        return 1.0 + perim_w * radial_w * (te_corner_first_layer_growth - 1.0)
+
+    def _lower_te_chord_shift(radial_index: int) -> float:
+        if (
+            lower_te_radial_chord_shift_factor <= 0.0
+            or lower_te_radial_chord_shift_layers <= 0
+            or radial_index <= 0
+            or radial_index > lower_te_radial_chord_shift_layers
+        ):
+            return 0.0
+        plateau = min(
+            max(lower_te_radial_chord_shift_plateau_layers, 0),
+            lower_te_radial_chord_shift_layers,
+        )
+        if radial_index <= plateau:
+            radial_w = 1.0
+        else:
+            radial_w = 0.5 ** (radial_index - plateau)
+        return first_layer_height_m * lower_te_radial_chord_shift_factor * max(0.0, radial_w)
+
     levels: list[tuple[Point2, ...]] = []
     for radial_index in range(n_radial + 1):
         if radial_index == 0:
             levels.append(tuple(wall))
             continue
         if radial_index <= normal_stack_layers:
-            levels.append(
-                tuple(
-                    (
-                        point[0] + normal[0] * radial_dist[radial_index],
-                        point[1] + normal[1] * radial_dist[radial_index],
-                    )
-                    for point, normal in zip(wall, normals)
-                )
-            )
+            level_points: list[Point2] = []
+            base_dist = radial_dist[radial_index]
+            for perim_idx, (point, normal) in enumerate(zip(wall, normals)):
+                factor = _te_corner_factor(perim_idx, radial_index)
+                d = base_dist * factor
+                x = point[0] + normal[0] * d
+                z = point[1] + normal[1] * d
+                # WO-006 lower-TE strict-checkMesh fix: the failing
+                # face is the first radial column at the lower TE path
+                # end. A tiny upstream shift of only O(first layer
+                # height) moves the airfoil-perim owner centroid back
+                # to the opposite side of the body/wake interface face
+                # without changing the wall point or flow definition.
+                if perim_idx == perim_count - 1:
+                    x -= _lower_te_chord_shift(radial_index)
+                level_points.append((x, z))
+            levels.append(tuple(level_points))
             continue
         level: list[Point2] = []
         q = (radial_dist[radial_index] - normal_stack_distance) / max(
@@ -110,10 +178,18 @@ def build_section_cgrid(
             )
         levels.append(tuple(level))
 
+    # `first_layer_stats` reports the FIRST-CELL wall-layer thickness per
+    # perimeter index. With the TE-corner rebalance active, the first-layer
+    # at the TE wrap ends (`index ∈ {0, n_path-1}`) is wider than the
+    # base `first_layer_height_m`. Both base and TE-corner values are
+    # reported so callers can audit the local widening.
     first_layer = [
         math.hypot(levels[1][idx][0] - levels[0][idx][0], levels[1][idx][1] - levels[0][idx][1])
         for idx in range(len(wall))
     ]
+    te_corner_first_layer_max = max(
+        first_layer[0], first_layer[-1]
+    )
     te_gap = math.hypot(wall[0][0] - wall[-1][0], wall[0][1] - wall[-1][1])
     markers = tuple("airfoil_upper" if index < le_index else "airfoil_lower" for index in range(len(wall) - 1))
     return SectionCGrid(
@@ -127,10 +203,12 @@ def build_section_cgrid(
             "min_m": min(first_layer),
             "max_m": max(first_layer),
             "mean_m": sum(first_layer) / len(first_layer),
+            "te_corner_max_m": te_corner_first_layer_max,
+            "base_first_layer_height_m": first_layer_height_m,
         },
         metadata={
-            "schema_version": "wo006_true_airfoil_section_cgrid.v1",
-            "topology": "wake_cgrid_open_te",
+            "schema_version": "wo006_true_airfoil_section_cgrid.v2",
+            "topology": "wake_cgrid_open_te_with_te_corner_rebalance",
             "source_airfoil": "true_baseline_authority",
             "closed_single_loop_ogrid": False,
             "n_path": len(wall),
@@ -145,6 +223,12 @@ def build_section_cgrid(
             "near_wall_growth": near_wall_growth,
             "normal_stack_layers": normal_stack_layers,
             "te_normal_blend_points": te_blend_points,
+            "te_corner_first_layer_growth": te_corner_first_layer_growth,
+            "te_corner_radial_blend_layers": te_corner_radial_blend_layers,
+            "te_corner_perim_blend_cells": te_corner_perim_blend_cells,
+            "lower_te_radial_chord_shift_factor": lower_te_radial_chord_shift_factor,
+            "lower_te_radial_chord_shift_layers": lower_te_radial_chord_shift_layers,
+            "lower_te_radial_chord_shift_plateau_layers": lower_te_radial_chord_shift_plateau_layers,
             "radial_mapping": "wall_normal_near_wall_stack_then_straight_c_farfield_rays",
         },
     )

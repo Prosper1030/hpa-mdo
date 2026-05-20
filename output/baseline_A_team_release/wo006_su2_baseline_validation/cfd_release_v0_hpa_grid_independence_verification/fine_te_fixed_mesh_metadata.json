@@ -1,0 +1,83 @@
+{
+  "schema_version": "wo006_fine_te_radial_chord_shift_fix.v1",
+  "case_id": "fine_te_radial_chord_shift_run",
+  "artifact_dir": "output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/fine_te_radial_chord_shift_run",
+  "generator_fix": {
+    "type": "lower_te_radial_chord_shift",
+    "polyMesh_surgery_used": false,
+    "section_cgrid_parameters": {
+      "te_corner_first_layer_growth": 2.0,
+      "te_corner_radial_blend_layers": 6,
+      "te_corner_perim_blend_cells": 3,
+      "lower_te_radial_chord_shift_factor": 0.4,
+      "lower_te_radial_chord_shift_layers": 4,
+      "lower_te_radial_chord_shift_plateau_layers": 2
+    },
+    "swept_cgrid_parameters": {
+      "wake_cross_cells": 4,
+      "te_sleeve_downstream_factor": 0.0,
+      "te_sleeve_radial_layers": 0
+    }
+  },
+  "mesh_spec": {
+    "scale": 1.25,
+    "n_perim": 240,
+    "n_radial": 80,
+    "halfwing_span_cells": 95,
+    "station_count": 96,
+    "station_plan": [12, 12, 12, 12, 15, 12, 10, 10],
+    "first_layer_height_m": 5e-05,
+    "farfield_chords": 10.0,
+    "wake_length_chords": 8.0
+  },
+  "halfwing_seed": {
+    "points": 1897344,
+    "faces": 5605900,
+    "internal_faces": 5520500,
+    "cells": 1854400,
+    "open_cells": 0,
+    "non_positive_volume_cells": 0,
+    "min_signed_volume_m3": 7.775136821782226e-10,
+    "max_signed_volume_m3": 1.9080664532644689,
+    "max_cell_openness": 7.490294431077453e-13,
+    "boundary_face_counts": {
+      "airfoil_upper": 11400,
+      "airfoil_lower": 11400,
+      "te_wall": 380,
+      "outlet": 380,
+      "farfield": 22800,
+      "tip_left": 19520,
+      "tip_right": 19520
+    }
+  },
+  "fullwing_checkMesh": {
+    "command": "checkMesh -meshQuality",
+    "returncode": 0,
+    "points": 3774924,
+    "faces": 11192280,
+    "internal_faces": 11060520,
+    "cells": 3708800,
+    "max_cell_openness": 4.98214e-14,
+    "min_volume_m3": 7.77078e-10,
+    "max_volume_m3": 1.90828,
+    "max_non_orthogonality_deg": 87.516,
+    "average_non_orthogonality_deg": 25.5065,
+    "max_skewness": 3.46221,
+    "wrong_oriented_face_pyramids": 0,
+    "faces_with_face_pyramid_volume_lt_1e_minus_18": 0,
+    "faces_with_face_twist_lt_0p02": 10,
+    "faces_on_cells_with_determinant_lt_0p001": 2266249,
+    "failed_mesh_checks": 1,
+    "strict_checkMesh_clean": false,
+    "acceptance_note": "lower-TE wrong-oriented face-pyramid blocker removed; inherited low-determinant/twist meshQuality warning remains"
+  },
+  "patch_roles": {
+    "airfoil_upper": "wall",
+    "airfoil_lower": "wall",
+    "te_wall": "wall",
+    "outlet": "flow_patch",
+    "farfield": "flow_patch",
+    "physical_tip_right": "artificial_tip_symmetry_policy",
+    "physical_tip_left": "artificial_tip_symmetry_policy"
+  }
+}

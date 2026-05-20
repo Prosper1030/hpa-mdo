@@ -42,6 +42,18 @@ strict meshQuality still fails `2` checks. Next mesh work should build a proper
 finite-TE H-block/sleeve/interface topology; do not send agents back to the old
 open-cell root cause, and do not run the final C/M/F solver family yet.
 
+**2026-05-21 Fine lower-TE generator repair status:** The lower-TE
+body/wake wrong-oriented face-pyramid blocker is now repaired at generator
+level by a local lower-TE radial chord rebalance in `section_cgrid.py` /
+`swept_cgrid.py`; no polyMesh surgery was used. The regenerated Fine full-wing
+mesh has open cells `0`, negative volumes `0`, wrong-oriented face pyramids
+`0`, `maxNonOrtho=87.516`, and `maxSkew=3.46221`; `checkMesh -meshQuality`
+returns `0` but still reports inherited determinant/twist meshQuality flags.
+The Fine solver then trips the force-runaway guard at pseudo-time `1`
+(`CD_primary=3.950888`, `CL_primary=7.796553` invalid first row), so
+Medium→Fine convergence remains blocked. Do not update design power and do not
+claim `CD≈0.0315` as grid-independent.
+
 **2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
 at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.
 The study keeps the same geometry authority, `AoA=0.18 deg`, force definitions,

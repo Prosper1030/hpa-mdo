@@ -1,0 +1,3 @@
+case,group,time,Cd,Cl,CmPitch,Cs,status
+fine_te_radial_chord_shift_run,primary,1,3.950888,7.796553,-2.030124,0.0001489503,runaway_guard_triggered_invalid
+fine_te_radial_chord_shift_run,total_physical,1,3.954488,7.796247,-2.025690,0.0001489632,runaway_guard_triggered_invalid

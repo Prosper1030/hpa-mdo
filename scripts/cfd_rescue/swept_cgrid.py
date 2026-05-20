@@ -55,6 +55,11 @@ def build_extruded_section_cgrid_mesh(
     te_normal_blend_points: int | None = None,
     wake_te_splay_factor: float = 0.0,
     wake_te_splay_layers: int = 4,
+    te_sleeve_radial_layers: int = 0,
+    te_sleeve_downstream_factor: float = 0.0,
+    lower_te_radial_chord_shift_factor: float = 0.4,
+    lower_te_radial_chord_shift_layers: int = 4,
+    lower_te_radial_chord_shift_plateau_layers: int = 2,
 ) -> SweptHexaMesh:
     if wake_cross_cells < 1:
         raise ValueError("wake_cross_cells must be at least 1")
@@ -66,6 +71,9 @@ def build_extruded_section_cgrid_mesh(
         wake_length_chords=wake_length_chords,
         near_wall_growth=near_wall_growth,
         te_normal_blend_points=te_normal_blend_points,
+        lower_te_radial_chord_shift_factor=lower_te_radial_chord_shift_factor,
+        lower_te_radial_chord_shift_layers=lower_te_radial_chord_shift_layers,
+        lower_te_radial_chord_shift_plateau_layers=lower_te_radial_chord_shift_plateau_layers,
     )
     dy = max(20.0 * first_layer_height_m, 1.0e-3)
     span_stations = [
@@ -90,6 +98,8 @@ def build_extruded_section_cgrid_mesh(
                     first_layer_height_m=first_layer_height_m,
                     wake_te_splay_factor=wake_te_splay_factor,
                     wake_te_splay_layers=wake_te_splay_layers,
+                    te_sleeve_radial_layers=te_sleeve_radial_layers,
+                    te_sleeve_downstream_factor=te_sleeve_downstream_factor,
                 )
                 points.append(
                     transform_section_point(
@@ -226,6 +236,11 @@ def build_extruded_section_cgrid_mesh(
             "te_wall_from_true_finite_te_gap": grid.metadata["te_gap_m"] > 1.0e-10,
             "near_te_downstream_splay_factor": wake_te_splay_factor,
             "near_te_downstream_splay_layers": wake_te_splay_layers,
+            "te_sleeve_radial_layers": te_sleeve_radial_layers,
+            "te_sleeve_downstream_factor": te_sleeve_downstream_factor,
+            "lower_te_radial_chord_shift_factor": lower_te_radial_chord_shift_factor,
+            "lower_te_radial_chord_shift_layers": lower_te_radial_chord_shift_layers,
+            "lower_te_radial_chord_shift_plateau_layers": lower_te_radial_chord_shift_plateau_layers,
         },
         "section_cgrid": grid.metadata,
         "section_quality": section_cgrid_quality(grid),
@@ -254,6 +269,11 @@ def build_swept_cgrid_mesh(
     te_normal_blend_points: int | None = None,
     wake_te_splay_factor: float = 0.0,
     wake_te_splay_layers: int = 4,
+    te_sleeve_radial_layers: int = 0,
+    te_sleeve_downstream_factor: float = 0.0,
+    lower_te_radial_chord_shift_factor: float = 0.4,
+    lower_te_radial_chord_shift_layers: int = 4,
+    lower_te_radial_chord_shift_plateau_layers: int = 2,
 ) -> SweptHexaMesh:
     if len(stations) < 2:
         raise ValueError("at least two stations are required")
@@ -268,6 +288,9 @@ def build_swept_cgrid_mesh(
             wake_length_chords=wake_length_chords,
             near_wall_growth=near_wall_growth,
             te_normal_blend_points=te_normal_blend_points,
+            lower_te_radial_chord_shift_factor=lower_te_radial_chord_shift_factor,
+            lower_te_radial_chord_shift_layers=lower_te_radial_chord_shift_layers,
+            lower_te_radial_chord_shift_plateau_layers=lower_te_radial_chord_shift_plateau_layers,
         )
         for station in stations
     ]
@@ -293,6 +316,8 @@ def build_swept_cgrid_mesh(
                     first_layer_height_m=first_layer_height_m,
                     wake_te_splay_factor=wake_te_splay_factor,
                     wake_te_splay_layers=wake_te_splay_layers,
+                    te_sleeve_radial_layers=te_sleeve_radial_layers,
+                    te_sleeve_downstream_factor=te_sleeve_downstream_factor,
                 )
                 points.append(
                     transform_section_point(
@@ -479,6 +504,11 @@ def build_swept_cgrid_mesh(
             "te_wall_from_true_finite_te_gap": grids[0].metadata["te_gap_m"] > 1.0e-10,
             "near_te_downstream_splay_factor": wake_te_splay_factor,
             "near_te_downstream_splay_layers": wake_te_splay_layers,
+            "te_sleeve_radial_layers": te_sleeve_radial_layers,
+            "te_sleeve_downstream_factor": te_sleeve_downstream_factor,
+            "lower_te_radial_chord_shift_factor": lower_te_radial_chord_shift_factor,
+            "lower_te_radial_chord_shift_layers": lower_te_radial_chord_shift_layers,
+            "lower_te_radial_chord_shift_plateau_layers": lower_te_radial_chord_shift_plateau_layers,
         },
         "section_cgrid": grids[0].metadata,
         "boundary_patch_order": list(CGRID_PATCH_ORDER),
@@ -502,12 +532,59 @@ def _wake_interior_point(
     first_layer_height_m: float,
     wake_te_splay_factor: float,
     wake_te_splay_layers: int,
+    te_sleeve_radial_layers: int = 0,
+    te_sleeve_downstream_factor: float = 0.0,
 ) -> tuple[float, float]:
+    """Interpolate a wake-extension interior point at the requested
+    `(radial, cross)` index.
+
+    By default this is the chord-parallel linear interpolation between
+    the airfoil's upper-TE column (`grid.points[radial][0]`) and lower-TE
+    column (`grid.points[radial][n_path-1]`). At low radials this
+    interpolation collapses to a thin transverse line at the airfoil's
+    TE base (`x = chord`, `z ∈ [z_lower_TE, z_upper_TE]`), which makes
+    the wake's first / last cross cells (`cross = 1` and
+    `cross = wake_cross_cells - 1`) slivers in the chord direction.
+    Their shared face with the airfoil's last perim cell at the wall
+    layer can then fail `checkMesh -meshQuality`'s face-pyramid-orientation
+    test (the body-wake interface sliver; see
+    `te_generator_fix_context.md` of the WO-006 grid-convergence
+    verification campaign).
+
+    Optional experimental hook: push the wake-interior points
+    downstream at low radials. This is disabled by default because the
+    accepted WO-006 fix is the section-level lower-TE radial chord
+    rebalance; the downstream wake push is retained only as an explicit
+    parameterized study path.
+    """
     upper = grid.points[radial][0]
     lower = grid.points[radial][-1]
     t = cross / wake_cross_cells
     x = upper[0] + t * (lower[0] - upper[0])
     z = upper[1] + t * (lower[1] - upper[1])
+    # Downstream sleeve push: applied only to interior crosses and only
+    # at low radials.
+    if (
+        cross > 0
+        and cross < wake_cross_cells
+        and te_sleeve_radial_layers > 0
+        and te_sleeve_downstream_factor > 0.0
+        and radial < te_sleeve_radial_layers
+    ):
+        radial_w = 1.0 - radial / te_sleeve_radial_layers
+        # Push amplitude is largest at the end cross indices (cross=1
+        # and cross=wake_cross_cells-1) and zero at the middle cross.
+        # cross_w = sin(pi * (t-0.5) * 2)^2 ... but simpler form:
+        # cross_w = max(end_cross_weight)
+        endpoint_proximity = max(
+            0.0,
+            1.0 - 2.0 * abs(t - 0.5),   # 0 at t=0.5, +1 near endpoints
+        )
+        # Push direction: along the LOCAL wake outward direction, which
+        # at the TE base is mainly +x. For symmetry between upper and
+        # lower TE we use a pure +x push at the TE base.
+        push = te_sleeve_downstream_factor * first_layer_height_m * radial_w * endpoint_proximity
+        x += push
     if radial > 0 and wake_te_splay_factor > 0.0 and wake_te_splay_layers > 0:
         radial_weight = max(0.0, 1.0 - (radial - 1) / wake_te_splay_layers)
         cross_weight = math.sin(math.pi * t)
