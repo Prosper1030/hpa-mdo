@@ -1,5 +1,19 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-20 WO-006 HPA Operating-Condition Lock
+
+New hard-stop artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/hpa_operating_condition_lock.md`.
+The requested HPA-specific grid-independence rebuild stops at Phase 0 because
+the current OpenFOAM basis (`rho=1.225 kg/m^3`, `V=6.5 m/s`,
+`mu≈1.78936e-5 Pa*s`) is not the same as the original design estimate basis
+(`rho=1.18 kg/m^3`, `V=6.6 m/s`, `mu=1.7228e-5 Pa*s`). Also, the current
+fully turbulent SA / artificial-tip diagnostic route is not yet sufficient for
+the requested low-Re HPA Cp/Cf/wake/tip-vortex verification workflow. Do not
+proceed to Phase 1, claim grid independence, trust `CD≈0.0315`, run an AoA
+sweep, or update design power until one CFD operating basis is explicitly
+chosen.
+
 ## 2026-05-19 WO-006 True Baseline OpenFOAM Grid Convergence
 
 New bounded artifact:

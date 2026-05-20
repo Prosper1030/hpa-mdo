@@ -9,6 +9,18 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
+**2026-05-20 HPA operating-condition lock for the requested OpenFOAM grid-independence rebuild:**
+New hard-stop artifact at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/hpa_operating_condition_lock.md`.
+The rebuild stops at Phase 0 because the current OpenFOAM basis
+(`rho=1.225 kg/m^3`, `V=6.5 m/s`, `mu≈1.78936e-5 Pa*s`) differs from the
+original design estimate basis (`rho=1.18 kg/m^3`, `V=6.6 m/s`,
+`mu=1.7228e-5 Pa*s`). The existing fully turbulent SA / artificial-tip
+diagnostic route also does not yet satisfy the requested HPA low-Re Cp/Cf/wake
+/ tip-vortex verification contract. Do not proceed to mesh audit/grid-family
+generation, claim grid independence, trust `CD≈0.0315`, run an AoA sweep, or
+update design power until one CFD operating basis is explicitly selected.
+
 **2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
 at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.
 The study keeps the same geometry authority, `AoA=0.18 deg`, force definitions,
