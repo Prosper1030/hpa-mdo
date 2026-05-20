@@ -2,24 +2,34 @@
 
 ## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-19。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
-SU2 aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
+**更新日期：2026-05-20。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+SU2/OpenFOAM aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
-**2026-05-20 HPA operating-condition lock for the requested OpenFOAM grid-independence rebuild:**
-New hard-stop artifact at
-`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/hpa_operating_condition_lock.md`.
-The rebuild stops at Phase 0 because the current OpenFOAM basis
-(`rho=1.225 kg/m^3`, `V=6.5 m/s`, `mu≈1.78936e-5 Pa*s`) differs from the
-original design estimate basis (`rho=1.18 kg/m^3`, `V=6.6 m/s`,
-`mu=1.7228e-5 Pa*s`). The existing fully turbulent SA / artificial-tip
-diagnostic route also does not yet satisfy the requested HPA low-Re Cp/Cf/wake
-/ tip-vortex verification contract. Do not proceed to mesh audit/grid-family
-generation, claim grid independence, trust `CD≈0.0315`, run an AoA sweep, or
-update design power until one CFD operating basis is explicitly selected.
+**2026-05-20 HPA CFD verification basis for the requested OpenFOAM grid-independence rebuild:**
+New scaffold artifact at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/`.
+For OpenFOAM verification, the current basis is the recent successful full-wing
+mirror route from `fe73939a`, not the older AVL/Tier2 screening estimate:
+`rho=1.225 kg/m^3`, `V=6.5 m/s`, `nu=1.4607e-5 m^2/s`,
+`mu≈1.78936e-5 Pa*s`, `AoA=0.18 deg`, `Sref=33.420059598 m^2`,
+`Cref=1.003721543 m`, `CL_design=1.16853`, and spanwise
+`Re≈2.87e5..5.59e5`. The old `rho=1.18/V=6.6` / `174.600 W` basis is retained
+only as historical comparison evidence. Do not let future WO-006 agents restart
+by hard-stopping on that old basis unless the user explicitly asks for a new
+sensitivity study.
+
+Engineering boundary: the full-wing mirror route-smoke is a valid starting
+point and has acceptable y+ on the upper/lower airfoil walls (`mean=0.568`,
+`p95=1.09`, `max=2.66`), but it is **not** grid-independent and not a final
+tip-vortex/transition truth. Next OpenFOAM work must build one HPA-specific
+same-family Coarse/Medium/Fine mesh strategy with documented LE, BL, TE, wake,
+tip-vortex, possible low-Re separation, and farfield refinement. Do not claim
+`CD≈0.0315`, run AoA/CL sweeps, or update design power until all grids pass
+checkMesh, force stability, y+, Cp, Cf, wake, and tip-vortex comparisons.
 
 **2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
 at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.

@@ -1,0 +1,146 @@
+{
+  "current_openfoam_basis": {
+    "aoa_deg": 0.18,
+    "basis_id": "recent_successful_openfoam_fullwing_mirror",
+    "chord_max_m": 1.2567730960047345,
+    "chord_min_m": 0.6450040900024299,
+    "cl_design_target": 1.16853,
+    "cref_m": 1.003721543,
+    "do_not_revert_to_original_screening_basis": true,
+    "dynamic_viscosity_pa_s": 1.7893575e-05,
+    "force_definition": "primary = airfoil_upper + airfoil_lower; total includes physical_tip_left/right and te_wall",
+    "full_or_half_wing": "full-wing mirror route",
+    "full_span_m": 34.332286,
+    "half_span_m": 17.166143,
+    "kinematic_viscosity_m2_s": 1.4607e-05,
+    "reynolds_max": 559254.1332259037,
+    "reynolds_min": 287021.7419741079,
+    "rho_kg_m3": 1.225,
+    "role": "current_cfd_verification_basis",
+    "route_artifact": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_solver_stability",
+    "source_commit": "fe73939a",
+    "sref_m2": 33.420059598,
+    "transition_model": "none",
+    "turbulence_model": "SpalartAllmaras",
+    "velocity_mps": 6.5
+  },
+  "grid_gate": {
+    "blocking_items": [
+      "coarse:solver_not_completed",
+      "medium:solver_not_completed",
+      "fine:checkMesh_not_solver_smoke_acceptable",
+      "fine:solver_not_completed"
+    ],
+    "cd_change_threshold_policy": {
+      "clearly_not_independent_if_any_change_percent_gt": 10.0,
+      "demonstrated_if_max_change_percent_lte": 5.0
+    },
+    "do_not_update_design_power": true,
+    "engineering_conclusion": "Current CFD is not grid-independent; do not update design power from this OpenFOAM line yet.",
+    "max_abs_cd_percent_change": 50.73972140084425,
+    "rung_cell_counts": {
+      "coarse": 890112,
+      "fine": 3769600,
+      "medium": 1996800
+    },
+    "study_status": "grid_independence_not_demonstrated"
+  },
+  "historical_screening_comparison": {
+    "aoa_deg": 0.18015,
+    "basis_id": "historical_avl_tier2_screening_comparison",
+    "cd_total_screening": 0.026020030502038057,
+    "cl_design": 1.16853,
+    "dynamic_viscosity_pa_s": 1.7228e-05,
+    "must_not_block_recent_openfoam_route": true,
+    "power_screening_w": 174.60027944116567,
+    "rho_kg_m3": 1.18,
+    "role": "comparison_only_not_cfd_verification_basis",
+    "source": "tier2_loaded_shape_selected_avl_recheck.csv conservative_best row",
+    "velocity_mps": 6.6
+  },
+  "outputs": [
+    "hpa_operating_condition_lock.md",
+    "current_mesh_quality_audit.md",
+    "current_mesh_quality_table.csv",
+    "hpa_mesh_strategy.md",
+    "local_refinement_zone_table.csv",
+    "mesh_generator_fix_report.md",
+    "final_hpa_grid_independence_verdict.md"
+  ],
+  "schema_version": "wo006_hpa_cfd_verification_scaffold.v1",
+  "stable_route": {
+    "CD_primary": 0.03276165,
+    "CD_total": 0.05708291,
+    "CL_primary": 1.133291,
+    "CmPitch": null,
+    "accepted_stable_route_smoke": true,
+    "cell_count": 1996800,
+    "failed_checks": 2,
+    "force_window_stable": true,
+    "max_non_ortho": 89.193,
+    "max_skew": 3.45663,
+    "pressure_viscous_available": true,
+    "wall_yplus_by_patch": {
+      "airfoil_lower": {
+        "count": 14976,
+        "max": 2.25937,
+        "mean": 0.5443797898504277,
+        "p90": 0.673433,
+        "p95": 0.7880510000000001,
+        "p99": 1.90195
+      },
+      "airfoil_upper": {
+        "count": 14976,
+        "max": 2.65697,
+        "mean": 0.5913392806089747,
+        "p90": 0.9731635000000001,
+        "p95": 1.1975625,
+        "p99": 1.7804425
+      },
+      "physical_tip_left": {
+        "count": 12800,
+        "max": 1171.39,
+        "mean": 777.5974387960143,
+        "p90": 983.7674000000001,
+        "p95": 1038.171,
+        "p99": 1132.8603
+      },
+      "physical_tip_right": {
+        "count": 12800,
+        "max": 1171.42,
+        "mean": 777.5937198194541,
+        "p90": 983.7365000000001,
+        "p95": 1038.17,
+        "p99": 1132.8704
+      },
+      "te_wall": {
+        "count": 1248,
+        "max": 1.01272,
+        "mean": 0.3359898429487178,
+        "p90": 0.5653715,
+        "p95": 0.75162945,
+        "p99": 0.8055654800000001
+      }
+    },
+    "yplus_max": 2.65697,
+    "yplus_mean": 0.5678595352296987,
+    "yplus_p90": 0.8781874000000001,
+    "yplus_p95": 1.0904245,
+    "yplus_p99": 1.8354890999999969
+  },
+  "verdict": {
+    "can_trust_cd_approx_0p0315": false,
+    "can_update_design_power_from_174w": false,
+    "cd_medium_to_fine_rule": "CD Medium->Fine must be <=3%; >5% means drag is not reliable.",
+    "engineering_read": "The latest route-smoke is successful, but grid independence is not demonstrated.",
+    "exact_blockers": [
+      "coarse:solver_not_completed",
+      "medium:solver_not_completed",
+      "fine:checkMesh_not_solver_smoke_acceptable",
+      "fine:solver_not_completed"
+    ],
+    "grid_independence_demonstrated": false,
+    "latest_route_smoke_success": true,
+    "max_abs_cd_percent_change": 50.73972140084425
+  }
+}

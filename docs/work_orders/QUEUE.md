@@ -20,6 +20,16 @@ Current authority summary:
 - P1/C04 remains coupon/local FEM readiness only.
 - WO-006 must use `98.5 kg` and current pipeline span authority unless explicitly
   studying sensitivity.
+- Current OpenFOAM grid-independence work must start from
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/`
+  and the recent successful full-wing mirror route (`fe73939a`), with the failed
+  same-route grid gate (`72a0ec46`) treated as blocker evidence. The old
+  `rho=1.18/V=6.6` / `174.600 W` screening basis is comparison-only; do not
+  hard-stop or restart WO-006 from that old estimate unless the user explicitly
+  asks for a sensitivity study.
+- Do not claim `CD≈0.0315`, run AoA sweeps, or update design power until the
+  OpenFOAM line has a same-family Coarse/Medium/Fine ladder with checkMesh,
+  force histories, y+, Cp, Cf, wake, and tip-vortex comparisons.
 
 Current release package:
 

@@ -1,18 +1,24 @@
 # HPA-MDO：人力飛機新概念設計管線
 
-## 2026-05-20 WO-006 HPA Operating-Condition Lock
+## 2026-05-20 WO-006 HPA CFD Verification Basis
 
-New hard-stop artifact:
-`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/hpa_operating_condition_lock.md`.
-The requested HPA-specific grid-independence rebuild stops at Phase 0 because
-the current OpenFOAM basis (`rho=1.225 kg/m^3`, `V=6.5 m/s`,
-`mu≈1.78936e-5 Pa*s`) is not the same as the original design estimate basis
-(`rho=1.18 kg/m^3`, `V=6.6 m/s`, `mu=1.7228e-5 Pa*s`). Also, the current
-fully turbulent SA / artificial-tip diagnostic route is not yet sufficient for
-the requested low-Re HPA Cp/Cf/wake/tip-vortex verification workflow. Do not
-proceed to Phase 1, claim grid independence, trust `CD≈0.0315`, run an AoA
-sweep, or update design power until one CFD operating basis is explicitly
-chosen.
+New HPA-specific verification scaffold:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/`.
+For the OpenFOAM grid-independence rebuild, start from the recent successful
+full-wing mirror route (`fe73939a`) and its current CFD operating basis:
+`rho=1.225 kg/m^3`, `V=6.5 m/s`, `nu=1.4607e-5 m^2/s`, `AoA=0.18 deg`,
+`Sref=33.420059598 m^2`, `Cref=1.003721543 m`, `CL_design=1.16853`, and
+spanwise `Re≈2.87e5..5.59e5`. The older `rho=1.18/V=6.6` and `174.600 W`
+screening basis is now comparison-only; do not return to it as a Phase-0 hard
+stop unless the user explicitly asks for a new sensitivity study.
+
+Engineering verdict: the latest OpenFOAM route-smoke is useful and wall-resolved
+on the upper/lower airfoil walls (`y+ mean=0.568`, `p95=1.09`, `max=2.66`), but
+grid independence is **not demonstrated**. The previous same-route ladder still
+has solver-runaway coarse/medium rungs and a fine-rung checkMesh/open-cell
+blocker. Do not trust `CD≈0.0315`, do not run an AoA sweep, and do not update
+design power until a same-family Coarse/Medium/Fine mesh passes checkMesh,
+stable forces, y+, Cp, Cf, wake, and tip-vortex comparisons.
 
 ## 2026-05-19 WO-006 True Baseline OpenFOAM Grid Convergence
 

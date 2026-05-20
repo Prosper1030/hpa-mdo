@@ -6,7 +6,8 @@ team release plus AI work-order queue. It applies to Codex threads working in
 
 ## Current Bounded WO-006 Gate
 
-Baseline A data-authority is restored only for bounded WO-006 SU2 aero calibration.
+Baseline A data-authority is restored only for bounded WO-006 SU2/OpenFOAM aero
+calibration.
 Before any worker starts WO-006, WO-007 QPROP/XROTOR, RFQ procurement, vendor
 selection, or release claims, run:
 
@@ -25,6 +26,16 @@ Current authority:
   RFQ/procurement truth, and not final aircraft sign-off.
 - WO-006 must use `98.5 kg` and current pipeline span authority unless explicitly
   studying sensitivity.
+- For the current OpenFOAM grid-independence line, start from
+  `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/`
+  plus the recent successful full-wing mirror route (`fe73939a`) and the failed
+  same-route grid gate (`72a0ec46`). The old `rho=1.18/V=6.6` / `174.600 W`
+  screening basis is comparison-only and must not be used as a Phase-0 hard
+  stop unless the user asks for a new sensitivity study.
+- Do not claim OpenFOAM grid independence, run an AoA sweep, trust
+  `CD≈0.0315`, or update design power until a same-family
+  Coarse/Medium/Fine ladder passes checkMesh, force stability, y+, Cp, Cf,
+  wake, and tip-vortex comparisons.
 - WO-006R1 current GO mesh-native bridge is smoke-ready only:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/`.
   It proves a repeatable coarse mesh/SU2 readability route, not usable CL/CD,
