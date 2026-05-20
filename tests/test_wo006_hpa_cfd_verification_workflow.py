@@ -161,8 +161,9 @@ def test_workflow_writes_phase_reports_without_returning_to_old_basis(tmp_path: 
     assert "`airfoil_lower` y+ mean" in audit
 
     generator_report = (tmp_path / "mesh_generator_fix_report.md").read_text(encoding="utf-8")
-    assert "Verdict: `generator_fix_not_yet_implemented`" in generator_report
-    assert "TE stencil open-cell regression" in generator_report
+    assert "Verdict: `open_cell_blocker_repaired_but_fine_checkmesh_still_blocked`" in generator_report
+    assert "wrong-oriented face pyramids: `100`" in generator_report
+    assert "proper finite-TE H-block or sleeve" in generator_report
 
     final = (tmp_path / "final_hpa_grid_independence_verdict.md").read_text(encoding="utf-8")
     assert "latest route-smoke is successful" in final

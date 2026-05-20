@@ -51,7 +51,10 @@ def build_extruded_section_cgrid_mesh(
     wake_length_chords: float,
     case_id: str,
     near_wall_growth: float = 1.12,
-    wake_cross_cells: int = 8,
+    wake_cross_cells: int = 4,
+    te_normal_blend_points: int | None = None,
+    wake_te_splay_factor: float = 0.0,
+    wake_te_splay_layers: int = 4,
 ) -> SweptHexaMesh:
     if wake_cross_cells < 1:
         raise ValueError("wake_cross_cells must be at least 1")
@@ -62,6 +65,7 @@ def build_extruded_section_cgrid_mesh(
         farfield_chords=farfield_chords,
         wake_length_chords=wake_length_chords,
         near_wall_growth=near_wall_growth,
+        te_normal_blend_points=te_normal_blend_points,
     )
     dy = max(20.0 * first_layer_height_m, 1.0e-3)
     span_stations = [
@@ -77,17 +81,20 @@ def build_extruded_section_cgrid_mesh(
             for index in range(grid.n_path):
                 points.append(transform_section_point(span_station, grid.points[radial][index]))
         for radial in range(grid.n_radial + 1):
-            upper = grid.points[radial][0]
-            lower = grid.points[radial][-1]
             for cross in range(1, wake_cross_cells):
-                t = cross / wake_cross_cells
+                point = _wake_interior_point(
+                    grid,
+                    radial=radial,
+                    cross=cross,
+                    wake_cross_cells=wake_cross_cells,
+                    first_layer_height_m=first_layer_height_m,
+                    wake_te_splay_factor=wake_te_splay_factor,
+                    wake_te_splay_layers=wake_te_splay_layers,
+                )
                 points.append(
                     transform_section_point(
                         span_station,
-                        (
-                            upper[0] + t * (lower[0] - upper[0]),
-                            upper[1] + t * (lower[1] - upper[1]),
-                        ),
+                        point,
                     )
                 )
 
@@ -217,6 +224,8 @@ def build_extruded_section_cgrid_mesh(
             "streamwise_cells": grid.n_radial,
             "cross_wake_cells": wake_cross_cells,
             "te_wall_from_true_finite_te_gap": grid.metadata["te_gap_m"] > 1.0e-10,
+            "near_te_downstream_splay_factor": wake_te_splay_factor,
+            "near_te_downstream_splay_layers": wake_te_splay_layers,
         },
         "section_cgrid": grid.metadata,
         "section_quality": section_cgrid_quality(grid),
@@ -241,7 +250,10 @@ def build_swept_cgrid_mesh(
     wake_length_chords: float,
     case_id: str,
     near_wall_growth: float = 1.12,
-    wake_cross_cells: int = 8,
+    wake_cross_cells: int = 4,
+    te_normal_blend_points: int | None = None,
+    wake_te_splay_factor: float = 0.0,
+    wake_te_splay_layers: int = 4,
 ) -> SweptHexaMesh:
     if len(stations) < 2:
         raise ValueError("at least two stations are required")
@@ -255,6 +267,7 @@ def build_swept_cgrid_mesh(
             farfield_chords=farfield_chords,
             wake_length_chords=wake_length_chords,
             near_wall_growth=near_wall_growth,
+            te_normal_blend_points=te_normal_blend_points,
         )
         for station in stations
     ]
@@ -271,17 +284,20 @@ def build_swept_cgrid_mesh(
             for index in range(n_path):
                 points.append(transform_section_point(station, grid.points[radial][index]))
         for radial in range(n_radial + 1):
-            upper = grid.points[radial][0]
-            lower = grid.points[radial][-1]
             for cross in range(1, wake_cross_cells):
-                t = cross / wake_cross_cells
+                point = _wake_interior_point(
+                    grid,
+                    radial=radial,
+                    cross=cross,
+                    wake_cross_cells=wake_cross_cells,
+                    first_layer_height_m=first_layer_height_m,
+                    wake_te_splay_factor=wake_te_splay_factor,
+                    wake_te_splay_layers=wake_te_splay_layers,
+                )
                 points.append(
                     transform_section_point(
                         station,
-                        (
-                            upper[0] + t * (lower[0] - upper[0]),
-                            upper[1] + t * (lower[1] - upper[1]),
-                        ),
+                        point,
                     )
                 )
 
@@ -461,6 +477,8 @@ def build_swept_cgrid_mesh(
             "streamwise_cells": n_radial,
             "cross_wake_cells": wake_cross_cells,
             "te_wall_from_true_finite_te_gap": grids[0].metadata["te_gap_m"] > 1.0e-10,
+            "near_te_downstream_splay_factor": wake_te_splay_factor,
+            "near_te_downstream_splay_layers": wake_te_splay_layers,
         },
         "section_cgrid": grids[0].metadata,
         "boundary_patch_order": list(CGRID_PATCH_ORDER),
@@ -473,6 +491,28 @@ def build_swept_cgrid_mesh(
         boundary_patch_order=CGRID_PATCH_ORDER,
         metadata=metadata,
     )
+
+
+def _wake_interior_point(
+    grid: Any,
+    *,
+    radial: int,
+    cross: int,
+    wake_cross_cells: int,
+    first_layer_height_m: float,
+    wake_te_splay_factor: float,
+    wake_te_splay_layers: int,
+) -> tuple[float, float]:
+    upper = grid.points[radial][0]
+    lower = grid.points[radial][-1]
+    t = cross / wake_cross_cells
+    x = upper[0] + t * (lower[0] - upper[0])
+    z = upper[1] + t * (lower[1] - upper[1])
+    if radial > 0 and wake_te_splay_factor > 0.0 and wake_te_splay_layers > 0:
+        radial_weight = max(0.0, 1.0 - (radial - 1) / wake_te_splay_layers)
+        cross_weight = math.sin(math.pi * t)
+        x += wake_te_splay_factor * first_layer_height_m * radial_weight * cross_weight
+    return (x, z)
 
 
 def _assemble_hexa_mesh(
@@ -488,7 +528,6 @@ def _assemble_hexa_mesh(
     for cell_index, cell in enumerate(cells):
         for order in HEX_FACE_NODE_ORDERS:
             face_nodes = tuple(cell[idx] for idx in order)
-            face_nodes = _orient_face_outward(points, cell, face_nodes)
             key = tuple(sorted(face_nodes))
             patch = patch_by_key.get(key)
             existing = face_map.get(key)

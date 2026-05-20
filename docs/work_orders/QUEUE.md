@@ -30,6 +30,13 @@ Current authority summary:
 - Do not claim `CD≈0.0315`, run AoA sweeps, or update design power until the
   OpenFOAM line has a same-family Coarse/Medium/Fine ladder with checkMesh,
   force histories, y+, Cp, Cf, wake, and tip-vortex comparisons.
+- Latest Fine generator smoke `fine_te_fix_blend1_wake4_smoke` has repaired
+  the previous open-cell blocker (`open cells=0`, `negative volumes=0`, max
+  cell openness `4.98214e-14`) but still fails strict checkMesh with `100`
+  lower-TE body/wake wrong-oriented face pyramids and `2` failed checks. With
+  the data-authority checker prerequisite preserved, the next WO-006 OpenFOAM
+  mesh task is finite-TE H-block/sleeve/interface topology, not restarting the
+  old 3.77M open-cell diagnosis.
 
 Current release package:
 

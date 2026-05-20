@@ -32,6 +32,26 @@ STABLE_ROUTE_DIR = WO006_ROOT / "cfd_release_v0_true_baseline_solver_stability"
 GRID_GATE_DIR = WO006_ROOT / "cfd_release_v0_true_baseline_grid_convergence"
 BASE_N_PERIM = 192
 CL_DESIGN_TARGET = 1.16853
+LATEST_FINE_GENERATOR_SMOKE = {
+    "case_id": "fine_te_fix_blend1_wake4_smoke",
+    "cell_count": 3708800,
+    "halfwing_seed_cells": 1854400,
+    "n_perim": 240,
+    "n_radial": 80,
+    "span_cells": 95,
+    "wake_cross_cells": 4,
+    "te_normal_blend_points": 1,
+    "first_layer_height_m": 5.0e-5,
+    "open_cells": 0,
+    "negative_volume_cells": 0,
+    "max_cell_openness": 4.98214e-14,
+    "min_volume_m3": 4.18548e-10,
+    "max_non_ortho_deg": 88.4382,
+    "max_skew": 3.46221,
+    "wrong_oriented_faces": 100,
+    "failed_checks": 2,
+    "remaining_blocker": "lower_te_body_wake_interface_face_pyramids_and_meshQuality_determinant",
+}
 
 
 def main() -> None:
@@ -120,7 +140,7 @@ def local_refinement_zone_rows() -> list[dict[str, str]]:
             "growth_rate_target": "<=1.20",
             "coarse_to_medium_ratio": "4/3 linear",
             "medium_to_fine_ratio": "5/4 linear",
-            "scaling_rule": "scale n_perim and wake-cross cells from one topology family",
+            "scaling_rule": "scale n_perim; keep TE gap cross-wake cells bounded at 4 until the lower-TE H-block is repaired",
             "why_hpa_specific": "Low-Re pressure recovery and wake drag are sensitive to TE stencil quality.",
         },
         {
@@ -129,7 +149,7 @@ def local_refinement_zone_rows() -> list[dict[str, str]]:
             "growth_rate_target": "<=1.20",
             "coarse_to_medium_ratio": "4/3 linear",
             "medium_to_fine_ratio": "5/4 linear",
-            "scaling_rule": "scale wake_cross_cells and radial wake streamwise cells with grid level",
+            "scaling_rule": "scale radial wake streamwise cells with grid level; do not over-split the finite TE gap cross-wake direction",
             "why_hpa_specific": "Wake momentum thickness is part of drag sanity, not just forceCoeffs output.",
         },
         {
@@ -468,6 +488,7 @@ def write_mesh_strategy(path: Path, basis: Mapping[str, Any], zones: Sequence[Ma
             "",
             "- Keep the successful full-wing mirror route as the starting point.",
             "- Fix high-resolution TE stencil/open-cell regression before running Fine.",
+            "- Keep TE gap cross-wake cells bounded until a proper lower-TE H-block/sleeve removes face-pyramid errors.",
             "- Replace artificial tip-only convergence claims with physical tip-vortex diagnostics.",
             "- Add explicit BL layer count and total-thickness metadata.",
             "- Export Cp/Cf/wake/tip-vortex comparison surfaces for every grid.",
@@ -481,16 +502,43 @@ def write_zone_table(path: Path, zones: Sequence[Mapping[str, str]]) -> None:
 
 
 def write_mesh_generator_fix_report(path: Path, grid_gate: Mapping[str, Any]) -> None:
+    smoke = LATEST_FINE_GENERATOR_SMOKE
     lines = [
         "# Mesh Generator Fix Report",
         "",
-        "Verdict: `generator_fix_not_yet_implemented`",
+        "Verdict: `open_cell_blocker_repaired_but_fine_checkmesh_still_blocked`",
         "",
-        "This report intentionally does not claim the swept C-grid generator has been",
-        "fixed. It records the exact generator work that must happen before another",
-        "Coarse/Medium/Fine OpenFOAM grid study can be considered physically valid.",
+        "The high-resolution TE/open-cell failure is no longer the active blocker.",
+        "The swept C-grid generator now exports an OpenFOAM-style cell-openness gate",
+        "and uses the repaired high-resolution TE stencil before writing polyMesh.",
+        "This still is not a completed grid-family generator because Fine does not",
+        "pass strict `checkMesh -meshQuality` yet.",
         "",
-        "## Current Blocker Evidence",
+        "## Latest Fine Generator Smoke",
+        "",
+        f"- smoke case: `{smoke['case_id']}`",
+        f"- full-wing cells: `{smoke['cell_count']}`",
+        f"- half-wing seed cells: `{smoke['halfwing_seed_cells']}`",
+        f"- n_perim / n_radial / span cells: `{smoke['n_perim']}` / `{smoke['n_radial']}` / `{smoke['span_cells']}`",
+        f"- wake_cross_cells: `{smoke['wake_cross_cells']}`",
+        f"- TE normal blend points: `{smoke['te_normal_blend_points']}`",
+        f"- first layer height: `{smoke['first_layer_height_m']} m`",
+        f"- open cells: `{smoke['open_cells']}`",
+        f"- negative volume cells: `{smoke['negative_volume_cells']}`",
+        f"- max cell openness: `{smoke['max_cell_openness']}`",
+        f"- min volume: `{smoke['min_volume_m3']} m^3`",
+        f"- max non-orthogonality: `{smoke['max_non_ortho_deg']} deg`",
+        f"- max skew: `{smoke['max_skew']}`",
+        f"- wrong-oriented face pyramids: `{smoke['wrong_oriented_faces']}`",
+        f"- failed checks: `{smoke['failed_checks']}`",
+        f"- remaining blocker: `{smoke['remaining_blocker']}`",
+        "",
+        "Engineering read: the previous 3.77M open-cell/stencil failure has been",
+        "materially reduced to a localized lower-TE finite-gap interface problem.",
+        "Do not send future agents back to the old open-cell root cause as if it were",
+        "unfixed; the next mesh task is a TE H-block/sleeve/interface topology fix.",
+        "",
+        "## Previous Grid Gate Evidence",
         "",
         f"- grid-gate status: `{grid_gate.get('study_status')}`",
         f"- blocking items: `{grid_gate.get('blocking_items')}`",
@@ -499,7 +547,7 @@ def write_mesh_generator_fix_report(path: Path, grid_gate: Mapping[str, Any]) ->
         "",
         "## Required Generator Fixes",
         "",
-        "- Fix the high-resolution `n_perim` TE stencil open-cell regression before Fine.",
+        "- Replace the lower-TE body/wake interface with a proper finite-TE H-block or sleeve so Fine has zero wrong-oriented face pyramids.",
         "- Preserve one topology family across Coarse/Medium/Fine; do not use 2.00M and 2.22M as the final family.",
         "- Export explicit LE spacing, TE spacing, BL layer count, BL total thickness, and wall-normal growth metadata.",
         "- Add wake refinement controls for near wake and downstream wake sampling planes.",
@@ -517,6 +565,7 @@ def write_mesh_generator_fix_report(path: Path, grid_gate: Mapping[str, Any]) ->
 
 
 def write_final_verdict(path: Path, basis: Mapping[str, Any], stable_route: Mapping[str, Any], verdict: Mapping[str, Any]) -> None:
+    smoke = LATEST_FINE_GENERATOR_SMOKE
     lines = [
         "# Final HPA Grid-Independence Verdict",
         "",
@@ -529,16 +578,16 @@ def write_final_verdict(path: Path, basis: Mapping[str, Any], stable_route: Mapp
         f"1. Operating conditions: current CFD basis is `{basis['basis_id']}` with `rho={basis['rho_kg_m3']}`, `V={basis['velocity_mps']}`.",
         f"2. y+ acceptable on latest successful route: yes on upper/lower real airfoil walls (`mean={stable_route.get('yplus_mean')}`, `p95={stable_route.get('yplus_p95')}`, `max={stable_route.get('yplus_max')}`), but not a final all-wall/tip-vortex sign-off.",
         "3. BL layer count/growth: growth is acceptable by generator default, but explicit layer count and total thickness must be documented before final sign-off.",
-        "4. LE / TE / wake / tip refinement: strategy is now defined, but not yet proven across a passing C/M/F family.",
+        f"4. LE / TE / wake / tip refinement: TE open-cell blocker is repaired in `{smoke['case_id']}`, but Fine still has `{smoke['wrong_oriented_faces']}` wrong-oriented lower-TE/wake face pyramids.",
         "5. Same mesh strategy: not yet, because the previous ladder broke under refinement.",
-        "6. checkMesh: latest route-smoke passes solver-smoke gate, but Fine in the previous ladder fails hard mesh quality.",
+        f"6. checkMesh: latest route-smoke passes solver-smoke gate; repaired Fine has no open/negative cells but still fails `{smoke['failed_checks']}` strict meshQuality checks.",
         "7. force histories: latest route-smoke stable; previous coarse/medium grid gate hit solver runaway.",
         "8. CL/CD/Cm grid independence: not demonstrated.",
         "9. Cp/Cf stability: not yet compared.",
         "10. Wake/tip vortex stability: not yet compared.",
         "11. Can CD around 0.0315 be trusted: no, not for design power.",
         "12. Can design power be updated from 174W: no. Do not update design power.",
-        f"13. Exact blocker: `{verdict.get('exact_blockers')}`.",
+        f"13. Exact blocker: `{smoke['remaining_blocker']}` plus missing stable C/M/F force histories and Cp/Cf/wake/tip comparisons.",
     ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

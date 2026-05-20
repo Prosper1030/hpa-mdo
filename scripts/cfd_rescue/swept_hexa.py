@@ -247,9 +247,12 @@ def mesh_quality_summary(mesh: SweptHexaMesh) -> dict[str, Any]:
             non_positive += 1
         aspect_ratios.append(_hex_aspect_ratio_proxy(mesh.points, cell))
     duplicate_points = _duplicate_point_count(mesh.points)
+    cell_openness = _cell_openness_summary(mesh)
     blockers = []
     if non_positive:
         blockers.append("non_positive_hex_volume")
+    if cell_openness["open_cell_count"]:
+        blockers.append("open_cells")
     if duplicate_points:
         blockers.append("duplicate_points")
     if mesh.nonmanifold_face_count:
@@ -267,6 +270,7 @@ def mesh_quality_summary(mesh: SweptHexaMesh) -> dict[str, Any]:
         "internal_face_count": mesh.internal_face_count,
         "boundary_face_counts": mesh.boundary_face_counts,
         "non_positive_volume_count": non_positive,
+        "cell_openness": cell_openness,
         "duplicate_point_count": duplicate_points,
         "nonmanifold_face_count": mesh.nonmanifold_face_count,
         "unmarked_boundary_face_count": mesh.unmarked_boundary_face_count,
@@ -417,6 +421,51 @@ def _hex_aspect_ratio_proxy(points: Sequence[Point3], cell: Sequence[int]) -> fl
     shortest = min(lengths)
     longest = max(lengths)
     return math.inf if shortest <= 0.0 else longest / shortest
+
+
+def _cell_openness_summary(
+    mesh: SweptHexaMesh,
+    *,
+    threshold: float = 1.0e-8,
+) -> dict[str, Any]:
+    area_vectors = [[0.0, 0.0, 0.0] for _ in mesh.cells]
+    area_sums = [0.0 for _ in mesh.cells]
+    for face_index, face in enumerate(mesh.faces):
+        vector = _face_area_vector([mesh.points[node] for node in face])
+        magnitude = _vector_norm(vector)
+        owner = mesh.owner[face_index]
+        area_vectors[owner][0] += vector[0]
+        area_vectors[owner][1] += vector[1]
+        area_vectors[owner][2] += vector[2]
+        area_sums[owner] += magnitude
+        if face_index < len(mesh.neighbour):
+            neighbour = mesh.neighbour[face_index]
+            area_vectors[neighbour][0] -= vector[0]
+            area_vectors[neighbour][1] -= vector[1]
+            area_vectors[neighbour][2] -= vector[2]
+            area_sums[neighbour] += magnitude
+    values = [
+        _vector_norm(vector) / max(area_sum, 1.0e-300)
+        for vector, area_sum in zip(area_vectors, area_sums)
+    ]
+    return {
+        **_percentiles(values),
+        "threshold": threshold,
+        "open_cell_count": sum(1 for value in values if value > threshold),
+    }
+
+
+def _face_area_vector(points: Sequence[Point3]) -> Point3:
+    x = y = z = 0.0
+    for left, right in zip(points, [*points[1:], points[0]]):
+        x += (left[1] - right[1]) * (left[2] + right[2])
+        y += (left[2] - right[2]) * (left[0] + right[0])
+        z += (left[0] - right[0]) * (left[1] + right[1])
+    return (x, y, z)
+
+
+def _vector_norm(vector: Sequence[float]) -> float:
+    return math.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
 
 
 def _duplicate_point_count(points: Sequence[Point3], precision: int = 12) -> int:

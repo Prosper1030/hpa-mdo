@@ -36,6 +36,13 @@ Current authority:
   `CD≈0.0315`, or update design power until a same-family
   Coarse/Medium/Fine ladder passes checkMesh, force stability, y+, Cp, Cf,
   wake, and tip-vortex comparisons.
+- Latest Fine OpenFOAM generator smoke `fine_te_fix_blend1_wake4_smoke`
+  repaired the previous open-cell blocker (`open cells=0`, `negative
+  volumes=0`, max cell openness `4.98214e-14`) but still fails checkMesh with
+  `100` wrong-oriented lower-TE body/wake face pyramids and `2` failed
+  meshQuality checks. Continue from this finite-TE interface blocker; do not
+  send workers back to the old 3.77M open-cell root cause as if it were still
+  unfixed.
 - WO-006R1 current GO mesh-native bridge is smoke-ready only:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/wo006r1_go_cfd_bridge/`.
   It proves a repeatable coarse mesh/SU2 readability route, not usable CL/CD,

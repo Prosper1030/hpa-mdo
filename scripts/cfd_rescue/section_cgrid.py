@@ -41,6 +41,7 @@ def build_section_cgrid(
     wake_length_chords: float = 10.0,
     near_wall_growth: float = 1.12,
     near_wall_layers: int | None = None,
+    te_normal_blend_points: int | None = None,
 ) -> SectionCGrid:
     if n_radial < 2:
         raise ValueError("n_radial must be at least 2")
@@ -56,7 +57,12 @@ def build_section_cgrid(
     farfield_distance_m = farfield_chords * station.chord
     wake_length_m = wake_length_chords * station.chord
     outer = tuple(_c_outer_point(index, len(wall), le_index, station.chord, farfield_distance_m, wake_length_m) for index in range(len(wall)))
-    normals = tuple(_open_wall_normals(wall, le_index, outer))
+    te_blend_points = (
+        te_normal_blend_points
+        if te_normal_blend_points is not None
+        else 1
+    )
+    normals = tuple(_open_wall_normals(wall, le_index, outer, te_blend_points=te_blend_points))
     radial_dist = tuple(
         radial_distances(
             radial_layers=n_radial,
@@ -138,6 +144,7 @@ def build_section_cgrid(
             "wake_length_chords": wake_length_chords,
             "near_wall_growth": near_wall_growth,
             "normal_stack_layers": normal_stack_layers,
+            "te_normal_blend_points": te_blend_points,
             "radial_mapping": "wall_normal_near_wall_stack_then_straight_c_farfield_rays",
         },
     )
@@ -209,7 +216,13 @@ def _c_outer_point(
     )
 
 
-def _open_wall_normals(points: Sequence[Point2], le_index: int, outer: Sequence[Point2]) -> list[Point2]:
+def _open_wall_normals(
+    points: Sequence[Point2],
+    le_index: int,
+    outer: Sequence[Point2],
+    *,
+    te_blend_points: int = 0,
+) -> list[Point2]:
     normals: list[Point2] = []
     for index, point in enumerate(points):
         if index == 0:
@@ -222,6 +235,17 @@ def _open_wall_normals(points: Sequence[Point2], le_index: int, outer: Sequence[
         radial = _unit(outer[index][0] - point[0], outer[index][1] - point[1])
         if index in {0, len(points) - 1}:
             normal = radial
+        else:
+            te_distance = min(index, len(points) - 1 - index)
+            if te_distance <= te_blend_points:
+                radial_weight = (te_blend_points + 1 - te_distance) / max(
+                    te_blend_points + 1,
+                    1,
+                )
+                normal = _unit(
+                    radial_weight * radial[0] + (1.0 - radial_weight) * normal[0],
+                    radial_weight * radial[1] + (1.0 - radial_weight) * normal[1],
+                )
         if normal[0] * radial[0] + normal[1] * radial[1] < 0.0:
             normal = (-normal[0], -normal[1])
         if index == le_index and normal[0] > 0.0:

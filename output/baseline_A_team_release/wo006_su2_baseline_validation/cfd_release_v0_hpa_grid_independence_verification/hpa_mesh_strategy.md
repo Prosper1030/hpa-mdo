@@ -25,6 +25,7 @@ scale local HPA physics zones. Uniformly increasing cells is not accepted.
 
 - Keep the successful full-wing mirror route as the starting point.
 - Fix high-resolution TE stencil/open-cell regression before running Fine.
+- Keep TE gap cross-wake cells bounded until a proper lower-TE H-block/sleeve removes face-pyramid errors.
 - Replace artificial tip-only convergence claims with physical tip-vortex diagnostics.
 - Add explicit BL layer count and total-thickness metadata.
 - Export Cp/Cf/wake/tip-vortex comparison surfaces for every grid.

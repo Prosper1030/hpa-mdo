@@ -119,7 +119,10 @@ def test_cgrid_te_wake_cut_first_layer_points_downstream() -> None:
     )
 
     assert grid.points[1][0][0] > grid.points[0][0][0]
+    assert grid.points[1][1][0] > grid.points[0][1][0]
     assert grid.points[1][-1][0] > grid.points[0][-1][0]
+    assert grid.points[1][-2][0] > grid.points[0][-2][0]
+    assert grid.metadata["te_normal_blend_points"] == 1
 
 
 def test_cgrid_lower_le_shoulder_near_wall_stack_stays_wall_normal() -> None:
@@ -201,6 +204,32 @@ def test_cgrid_root_bay_sweeps_to_positive_hexa() -> None:
     assert mesh.boundary_face_counts["airfoil_lower"] > 0
     assert mesh.boundary_face_counts["te_wall"] > 0
     assert mesh.boundary_face_counts["farfield"] > 0
+
+
+def test_high_resolution_cgrid_te_bay_reports_no_open_cells() -> None:
+    authority = load_baseline_authority(n_perim=240, airfoil_loop_mode="open_te_cgrid")
+    left = authority.half_stations[3]
+    right = authority.half_stations[4]
+    span_subdivisions = 8
+    stations = [left] + [
+        interpolate_station(left, right, step / span_subdivisions)
+        for step in range(1, span_subdivisions)
+    ] + [right]
+
+    mesh = build_swept_cgrid_mesh(
+        stations,
+        n_radial=80,
+        first_layer_height_m=5.0e-5,
+        farfield_chords=10.0,
+        wake_length_chords=8.0,
+        wake_cross_cells=8,
+        case_id="unit_high_resolution_te_bay",
+    )
+    quality = mesh_quality_summary(mesh)
+
+    assert quality["status"] == "pass"
+    assert quality["cell_openness"]["open_cell_count"] == 0
+    assert quality["cell_openness"]["max"] < 1.0e-8
 
 
 def test_strict_section_gate_rejects_failed_all_geometry_log(tmp_path: Path) -> None:

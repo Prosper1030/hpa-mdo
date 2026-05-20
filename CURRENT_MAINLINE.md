@@ -31,6 +31,17 @@ tip-vortex, possible low-Re separation, and farfield refinement. Do not claim
 `CD≈0.0315`, run AoA/CL sweeps, or update design power until all grids pass
 checkMesh, force stability, y+, Cp, Cf, wake, and tip-vortex comparisons.
 
+**2026-05-20 Fine TE/open-cell repair status:** The active artifact remains
+`cfd_release_v0_hpa_grid_independence_verification/`. The latest Fine smoke
+`fine_te_fix_blend1_wake4_smoke` confirms the old 3.77M open-cell failure is no
+longer the active blocker: full-wing `3,708,800` cells, max cell openness
+`4.98214e-14`, open cells `0`, negative volumes `0`, maxNonOrtho `88.4382`,
+and maxSkew `3.46221`. Fine still **does not pass checkMesh** because `100`
+wrong-oriented face pyramids remain at the lower-TE body/wake interface and
+strict meshQuality still fails `2` checks. Next mesh work should build a proper
+finite-TE H-block/sleeve/interface topology; do not send agents back to the old
+open-cell root cause, and do not run the final C/M/F solver family yet.
+
 **2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
 at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.
 The study keeps the same geometry authority, `AoA=0.18 deg`, force definitions,

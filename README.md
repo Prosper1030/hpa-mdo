@@ -20,6 +20,15 @@ blocker. Do not trust `CD≈0.0315`, do not run an AoA sweep, and do not update
 design power until a same-family Coarse/Medium/Fine mesh passes checkMesh,
 stable forces, y+, Cp, Cf, wake, and tip-vortex comparisons.
 
+Update: the latest Fine generator smoke
+`fine_te_fix_blend1_wake4_smoke` repairs the old open-cell failure
+(`3,708,800` full-wing cells, max cell openness `4.98214e-14`, open cells `0`,
+negative volumes `0`, maxNonOrtho `88.4382`, maxSkew `3.46221`). It is still
+blocked by `100` wrong-oriented face pyramids at the lower-TE body/wake
+interface and `2` failed strict meshQuality checks. Next action is a finite-TE
+H-block/sleeve topology fix, not another restart from the old 3.77M open-cell
+diagnosis and not a power update.
+
 ## 2026-05-19 WO-006 True Baseline OpenFOAM Grid Convergence
 
 New bounded artifact:
