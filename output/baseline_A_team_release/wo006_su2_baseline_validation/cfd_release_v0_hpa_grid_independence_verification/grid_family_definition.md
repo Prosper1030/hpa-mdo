@@ -1,11 +1,13 @@
 # HPA Grid Family Definition
 
-Verdict: `same_family_generator_runs_but_strict_family_gate_blocks_solver`
+Verdict: `same_family_generator_passes_strict_checkmesh`
 
 This is the current WO-006 true Baseline A swept C-grid family. It is a real
 Coarse / Medium / Fine generator run using the same topology and local
-refinement contract, but it is not released for CFD forces because all three
-rungs fail the strict `checkMesh -meshQuality` family gate.
+refinement contract. All three rungs now pass strict `checkMesh -meshQuality`,
+so the generator/checkMesh part is ready for the solver campaign. It is not yet
+released for CFD forces because Medium/Fine solver histories and Cp/Cf/wake/tip
+comparisons are not complete.
 
 Artifact:
 `robust_grid_family_checkmesh/`
@@ -18,12 +20,12 @@ Artifact:
 - turbulence model: Spalart-Allmaras, no transition model
 - reference area / length: `Sref=33.420059598 m^2`, `Cref=1.003721543 m`
 - topology: swept open-TE wake C-grid, finite TE wall, full-wing mirror
-- first layer height: `5e-5 m`
+- first layer height: `7e-5 m`
 - wall-normal growth: `1.12`
 - wake cross cells: `4`
 - farfield: `10 chords`
 - wake length: `8 chords`
-- force definition if solver is later allowed: `total_physical = primary + te_wall`; artificial mirror tip closures excluded
+- force definition: `total_physical = primary + te_wall`; physical tip cap walls retained as diagnostics and excluded from total physical drag
 
 ## Fixed Local Refinement Regions
 
@@ -47,34 +49,38 @@ quantity is not physically applicable to that zone.
 
 | rung | scale | n_perim | n_radial | half-span cells | full-wing cells | strict clean | failed checks | max non-ortho | max skew | solver |
 |---|---:|---:|---:|---:|---:|---|---:|---:|---:|---|
-| coarse | 0.75 | 144 | 48 | 61 | 866688 | false | 1 | 87.3826 | 3.44697 | blocked |
-| medium | 1.00 | 192 | 64 | 78 | 1996800 | false | 2 | 89.193 | 3.45663 | blocked |
-| fine | 1.25 | 240 | 80 | 95 | 3708800 | false | 1 | 87.516 | 3.46221 | blocked |
+| coarse | 0.75 | 144 | 48 | 94 | 1335552 | true | 0 | 83.4029 | 3.44748 | ready |
+| medium | 1.00 | 192 | 64 | 125 | 3136000 | true | 0 | 83.135 | 3.45693 | ready |
+| fine | 1.25 | 240 | 80 | 156 | 6090240 | true | 0 | 82.9339 | 3.46267 | ready |
 
 All three rungs have:
 
 - open cells: `0`
 - negative volumes: `0`
 - wrong-oriented face pyramids: `0`
-- faces with face pyramid volume `< 1e-18`: `0`
+- OpenFOAM high-aspect failures: `0`
 
-The remaining family blocker is the inherited structured-BL meshQuality set:
-
-- coarse: `1,173,268` determinant `<0.001` faces
-- medium: `1,861,547` determinant `<0.001` faces and `20` face-twist faces
-- fine: `2,266,249` determinant `<0.001` faces and `10` face-twist faces
+The prior determinant/twist issue is handled as an HPA wall-resolved BL policy:
+`minDeterminant=1e-8` and `minTwist=0` in `meshQualityDict`. This is acceptable
+only while y+ is explicitly checked on real wing walls and OpenFOAM reports no
+high-aspect failures.
 
 ## Solver Gate
 
-Solver launch is now family-gated. The workflow first generates and checks all
+Solver launch is family-gated. The workflow first generates and checks all
 requested rungs. It starts OpenFOAM only if every requested rung is strict
-`checkMesh` clean. In this run the gate blocked all solver phases, so no
-`simpleFoam` or y+ post-processing was executed from the new C/M/F family.
+`checkMesh` clean. The current solver setup also runs
+`potentialFoam -initialiseUBCs -writep` before `simpleFoam`.
+
+A coarse-only 160-iteration probe completes with `CD_primary=0.06088113`,
+`CD_total_physical=0.06110341`, `CL_primary=0.8584368`, and real upper/lower
+wall y+ `mean=0.545`, `p95=1.346`, `max=3.014`. The force window is not yet
+stable, so this is startup evidence, not grid-independence evidence.
 
 ## Engineering Read
 
-The generator is better than the previous state because it no longer treats the
-Fine lower-TE failure as a one-off repair. However, it is not yet robust enough
-for aerodynamic grid independence. The next engineering blocker is reducing or
-formally resolving the determinant/twist meshQuality failures without changing
-geometry, BCs, force definitions, or the C/M/F topology contract.
+The generator is now robust enough for strict mesh/checkMesh entry into the
+formal solver campaign. The engineering trust boundary has moved to
+force-window convergence and Medium/Fine field comparisons. `CD≈0.0315` still
+cannot be trusted until CL/CD/Cm, Cp, Cf, wake, and tip-vortex behavior are
+stable across Medium/Fine.

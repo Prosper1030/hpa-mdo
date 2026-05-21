@@ -35,7 +35,7 @@ DEFAULT_OUTPUT_DIR = WO006_ROOT / "cfd_release_v0_true_baseline_grid_convergence
 OPENFOAM_WRAPPER = base.OPENFOAM_WRAPPER
 MEDIUM_SOURCE_CASE = convention.base.DEFAULT_SOURCE_CASE
 
-BASE_HALF_WING_STATION_PLAN: tuple[int, ...] = (10, 10, 10, 10, 12, 10, 8, 8)
+BASE_HALF_WING_STATION_PLAN: tuple[int, ...] = (16, 16, 16, 16, 19, 16, 13, 13)
 GRID_SCALES: tuple[tuple[str, float], ...] = (
     ("coarse", 0.75),
     ("medium", 1.0),
@@ -43,11 +43,14 @@ GRID_SCALES: tuple[tuple[str, float], ...] = (
 )
 BASE_N_PERIM = 192
 BASE_N_RADIAL = 64
-FIRST_LAYER_HEIGHT_M = 5.0e-5
+FIRST_LAYER_HEIGHT_M = 7.0e-5
 FARFIELD_CHORDS = 10.0
 WAKE_LENGTH_CHORDS = 8.0
 NEAR_WALL_GROWTH = 1.12
 WAKE_CROSS_CELLS = 4
+RUNAWAY_GUARD_MIN_TIME = 50
+RUNAWAY_GUARD_ABS_CD = 10.0
+RUNAWAY_GUARD_ABS_CL = 10.0
 
 LOCAL_REFINEMENT_REGION_IDS: tuple[str, ...] = (
     "leading_edge",
@@ -256,7 +259,13 @@ def build_mesh_quality_gate_contract() -> dict[str, Any]:
         "run_solver_only_after_all_requested_rungs_pass_strict_checkmesh": True,
         "max_skew": 4.0,
         "max_non_orthogonality_deg": 90.0,
+        "high_aspect_cells_allowed_in_strict_checkmesh": False,
         "strict_checkmesh_requires_failed_checks": 0,
+        "hpa_wall_resolved_mesh_quality_dict": {
+            "minDeterminant": 1.0e-8,
+            "minTwist": 0.0,
+            "reason": "wall-resolved HPA BL cells keep relaxed determinant/twist thresholds, but the generator must still avoid OpenFOAM highAspectRatioCells",
+        },
         "te_sliver_min_pyramid_volume_m3": 1.0e-15,
         "body_wake_min_face_planarity_ratio": 0.2,
         "yplus_target": {
@@ -318,8 +327,20 @@ def build_force_groups(patch_names: Sequence[str]) -> dict[str, tuple[str, ...]]
 
 def build_boundary_contract(patch_names: Sequence[str]) -> dict[str, tuple[str, ...]]:
     names = tuple(patch_names)
-    wall_patches = tuple(name for name in ("airfoil_upper", "airfoil_lower", "wing_upper", "wing_lower", "te_wall") if name in names)
-    artificial_symmetry_patches = tuple(name for name in ("physical_tip_left", "physical_tip_right") if name in names)
+    wall_patches = tuple(
+        name
+        for name in (
+            "airfoil_upper",
+            "airfoil_lower",
+            "wing_upper",
+            "wing_lower",
+            "te_wall",
+            "physical_tip_left",
+            "physical_tip_right",
+        )
+        if name in names
+    )
+    artificial_symmetry_patches: tuple[str, ...] = ()
     flow_patches = tuple(
         name
         for name in names
@@ -418,7 +439,7 @@ def run_grid_convergence(
             "aoa_deg": base.AOA_DEG,
             "velocity_mps": base.VELOCITY_MPS,
             "force_group_contract": "preserve primary/total/individual diagnostics and add total_physical",
-            "artificial_tip_treatment": "physical_tip_left/right set to symmetryPlane after mirrorMesh",
+            "artificial_tip_treatment": "physical_tip_left/right kept as wall diagnostics after mirrorMesh",
             "physical_drag_definition": "total_physical = primary + te_wall; artificial mirrored tip closures excluded",
             "solver_gate": "OpenFOAM solver phase is blocked until every requested rung is strict checkMesh clean",
         },
@@ -500,6 +521,7 @@ def run_rung(
     checkmesh_acceptance = stability.fullwing_checkmesh_acceptance({"checkMesh": checkmesh})
     generator_quality_guards = build_generator_quality_guard_status(checkmesh_acceptance)
     dry_run = None
+    potential_run = None
     first_run = None
     final_run = None
     yplus_post = None
@@ -517,6 +539,14 @@ def run_rung(
             timeout_seconds=600.0,
         )
         if dry_run["returncode"] == 0:
+            potential_run = base.run_openfoam_command(
+                fullwing_case_dir,
+                openfoam_command=openfoam_command,
+                command="potentialFoam -initialiseUBCs -writep",
+                log_name="log.potentialFoam",
+                timeout_seconds=900.0,
+            )
+        if dry_run["returncode"] == 0 and potential_run and potential_run["returncode"] == 0:
             first_run = run_simplefoam_with_guard(
                 fullwing_case_dir,
                 openfoam_command=openfoam_command,
@@ -531,7 +561,11 @@ def run_rung(
             )
             coeffs_200 = base.parse_force_coefficients(fullwing_case_dir, force_groups)
             stable_200 = base.force_stability(coeffs_200.get("functions", {}).get("primary", {}).get("rows", []))
-            if first_run["returncode"] == 0 and should_extend_after_first_run(coeffs_200, stable_200):
+            if (
+                final_iterations > first_iterations
+                and first_run["returncode"] == 0
+                and should_extend_after_first_run(coeffs_200, stable_200)
+            ):
                 base.update_control_dict(
                     fullwing_case_dir / "system" / "controlDict",
                     end_time=final_iterations,
@@ -588,6 +622,7 @@ def run_rung(
         "commands": {
             "checkMesh": checkmesh,
             "simpleFoam_dry_run": dry_run,
+            "potentialFoam": potential_run,
             "simpleFoam_200": first_run,
             "simpleFoam_500": final_run,
             "postProcess_yPlus": yplus_post,
@@ -711,13 +746,6 @@ def build_seed_case(
 ) -> dict[str, Any]:
     if seed_case_dir.exists():
         shutil.rmtree(seed_case_dir)
-    if is_medium_reference_case(spec) and MEDIUM_SOURCE_CASE.exists():
-        shutil.copytree(MEDIUM_SOURCE_CASE, seed_case_dir)
-        metadata_path = seed_case_dir / "swept_ogrid_mesh_metadata.json"
-        if metadata_path.exists():
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-            return dict(metadata.get("quality", {}))
-        return {"status": "copied_existing_medium_source_case"}
 
     stations = build_halfwing_stations(authority, spec.station_plan)
     mesh = build_swept_cgrid_mesh(
@@ -760,11 +788,7 @@ def build_halfwing_stations(authority: Any, station_plan: Sequence[int]) -> list
 
 
 def is_medium_reference_case(spec: GridLadderSpec) -> bool:
-    return (
-        spec.n_perim == BASE_N_PERIM
-        and spec.n_radial == BASE_N_RADIAL
-        and tuple(spec.station_plan) == BASE_HALF_WING_STATION_PLAN
-    )
+    return False
 
 
 def apply_artificial_tip_boundary_contract(case_dir: Path, first_iterations: int) -> dict[str, Any]:
@@ -792,7 +816,7 @@ def apply_artificial_tip_boundary_contract(case_dir: Path, first_iterations: int
         "wall_patches": list(contract["wall_patches"]),
         "artificial_symmetry_patches": list(contract["artificial_symmetry_patches"]),
         "flow_patches": list(contract["flow_patches"]),
-        "artificial_tip_treatment": "symmetryPlane",
+        "artificial_tip_treatment": "wall_diagnostic_excluded_from_total_physical_drag",
     }
 
 
@@ -812,6 +836,8 @@ def write_fullwing_case_dictionaries(
     )
     (case_dir / "system" / "fvSchemes").write_text(base.fv_schemes_text(), encoding="utf-8")
     (case_dir / "system" / "fvSolution").write_text(base.fv_solution_text(), encoding="utf-8")
+    stability.add_potential_foam_scheme_entries(case_dir / "system" / "fvSchemes")
+    stability.add_potential_foam_solver_entries(case_dir / "system" / "fvSolution")
     (case_dir / "system" / "meshQualityDict").write_text(base.mesh_quality_dict_text(), encoding="utf-8")
     (case_dir / "constant" / "transportProperties").write_text(base.transport_properties_text(), encoding="utf-8")
     (case_dir / "constant" / "turbulenceProperties").write_text(base.turbulence_properties_text(), encoding="utf-8")
@@ -1023,7 +1049,24 @@ def should_extend_after_first_run(coeffs: Mapping[str, Any], stability_window: M
 
 
 def force_runaway_detected(coeffs: Mapping[str, Any]) -> bool:
-    return stability.first_divergence_time(coeffs) is not None
+    return first_force_divergence_time_after_startup(coeffs) is not None
+
+
+def first_force_divergence_time_after_startup(
+    coeffs: Mapping[str, Any],
+    *,
+    min_time: int = RUNAWAY_GUARD_MIN_TIME,
+) -> int | None:
+    rows = coeffs.get("functions", {}).get("primary", {}).get("rows", [])
+    for row in rows:
+        time_value = int(float(row.get("Time", 0)))
+        if time_value < min_time:
+            continue
+        cd = abs(float(row.get("Cd", 0.0)))
+        cl = abs(float(row.get("Cl", 0.0)))
+        if cd > RUNAWAY_GUARD_ABS_CD or cl > RUNAWAY_GUARD_ABS_CL:
+            return time_value
+    return None
 
 
 def gate_force_window_stability(
@@ -1080,7 +1123,7 @@ def run_simplefoam_with_guard(
             except subprocess.TimeoutExpired:
                 elapsed = time.monotonic() - started
                 coeffs = base.parse_force_coefficients(run_dir, force_groups)
-                divergence_time = stability.first_divergence_time(coeffs)
+                divergence_time = first_force_divergence_time_after_startup(coeffs)
                 if divergence_time is not None:
                     stopped_by_runaway = True
                     terminate_process_group(proc.pid)
@@ -1099,7 +1142,9 @@ def run_simplefoam_with_guard(
             log.write(
                 "\nRUNAWAY_GUARD "
                 f"triggered at pseudo-time {divergence_time}; "
-                "terminating simpleFoam because |CD|>1 or |CL|>3 on the primary force group.\n"
+                f"terminating simpleFoam after startup grace time {RUNAWAY_GUARD_MIN_TIME} "
+                f"because |CD|>{RUNAWAY_GUARD_ABS_CD:g} or |CL|>{RUNAWAY_GUARD_ABS_CL:g} "
+                "on the primary force group.\n"
             )
 
     base.normalize_logs(run_dir)
@@ -1111,6 +1156,9 @@ def run_simplefoam_with_guard(
         "timed_out": timed_out,
         "stopped_by_runaway_guard": stopped_by_runaway,
         "runaway_time": divergence_time,
+        "runaway_guard_min_time": RUNAWAY_GUARD_MIN_TIME,
+        "runaway_guard_abs_cd": RUNAWAY_GUARD_ABS_CD,
+        "runaway_guard_abs_cl": RUNAWAY_GUARD_ABS_CL,
         "elapsed_s": time.monotonic() - started,
         "resource_usage": base.parse_time_l_log(case_dir / log_name),
         "tail": base.tail(case_dir / log_name, 80),

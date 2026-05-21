@@ -20,8 +20,16 @@ def test_build_grid_ladder_specs_scales_structured_resolution_systematically() -
     assert [spec.scale for spec in specs] == [0.75, 1.0, 1.25]
     assert [spec.n_perim for spec in specs] == [144, 192, 240]
     assert [spec.n_radial for spec in specs] == [48, 64, 80]
-    assert [spec.span_cells for spec in specs] == [61, 78, 95]
-    assert [sum(spec.station_plan) for spec in specs] == [61, 78, 95]
+    assert [spec.span_cells for spec in specs] == [94, 125, 156]
+    assert [sum(spec.station_plan) for spec in specs] == [94, 125, 156]
+
+
+def test_medium_grid_family_rung_is_generated_not_copied_from_legacy_reference_case() -> None:
+    specs = module.build_grid_ladder_specs()
+    medium = specs[1]
+
+    assert medium.case_id == "medium"
+    assert module.is_medium_reference_case(medium) is False
 
 
 def test_grid_ladder_specs_define_same_hpa_local_refinement_regions() -> None:
@@ -78,8 +86,36 @@ def test_quality_gate_contract_includes_hpa_strict_mesh_guards() -> None:
     }
     assert contract["max_skew"] <= 4.0
     assert contract["max_non_orthogonality_deg"] <= 90.0
+    assert contract["high_aspect_cells_allowed_in_strict_checkmesh"] is False
     assert contract["yplus_target"]["mean_preferred_max"] < 1.0
     assert contract["yplus_target"]["p95_preferred_max"] <= 2.0
+
+
+def test_grid_family_first_layer_height_is_hpa_wall_resolved_but_not_overcompressed() -> None:
+    assert module.FIRST_LAYER_HEIGHT_M == 7.0e-5
+    assert module.NEAR_WALL_GROWTH <= 1.12
+
+    boundary_layer_rules = {
+        spec.case_id: next(
+            region["spacing_rules"]
+            for region in spec.local_refinement_regions
+            if region["region_id"] == "boundary_layer"
+        )
+        for spec in module.build_grid_ladder_specs()
+    }
+
+    assert {rules["first_layer_height_m"] for rules in boundary_layer_rules.values()} == {7.0e-5}
+    assert {rules["bl_growth_rate"] for rules in boundary_layer_rules.values()} == {1.12}
+
+
+def test_openfoam_mesh_quality_dict_uses_wall_resolved_hpa_bl_thresholds() -> None:
+    text = module.base.mesh_quality_dict_text()
+
+    assert "minDeterminant  1e-08;" in text
+    assert "minTwist        0;" in text
+    assert "maxNonOrtho     90;" in text
+    assert "maxInternalSkewness 4;" in text
+    assert "minFaceWeight   0.02;" in text
 
 
 def test_solver_phase_is_blocked_until_all_requested_rungs_are_strict_checkmesh_clean() -> None:
@@ -132,7 +168,7 @@ def test_build_force_groups_keeps_existing_diagnostics_and_adds_total_physical()
     assert groups["te_wall"] == ("te_wall",)
 
 
-def test_build_boundary_contract_marks_artificial_tip_closures_as_symmetry_planes() -> None:
+def test_build_boundary_contract_keeps_tip_closures_as_wall_diagnostics() -> None:
     contract = module.build_boundary_contract(
         (
             "airfoil_upper",
@@ -145,12 +181,45 @@ def test_build_boundary_contract_marks_artificial_tip_closures_as_symmetry_plane
         )
     )
 
-    assert contract["wall_patches"] == ("airfoil_upper", "airfoil_lower", "te_wall")
-    assert contract["artificial_symmetry_patches"] == (
+    assert contract["wall_patches"] == (
+        "airfoil_upper",
+        "airfoil_lower",
+        "te_wall",
         "physical_tip_left",
         "physical_tip_right",
     )
+    assert contract["artificial_symmetry_patches"] == ()
     assert contract["flow_patches"] == ("farfield", "outlet")
+
+
+def test_grid_family_solver_profile_uses_potential_initialized_linearupwind(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    (case_dir / "system").mkdir(parents=True)
+    (case_dir / "constant").mkdir()
+    (case_dir / "0").mkdir()
+
+    module.write_fullwing_case_dictionaries(
+        case_dir,
+        force_groups={
+            "primary": ("airfoil_upper", "airfoil_lower"),
+            "total_physical": ("airfoil_upper", "airfoil_lower", "te_wall"),
+        },
+        wall_patches=("airfoil_upper", "airfoil_lower", "te_wall", "physical_tip_left"),
+        artificial_symmetry_patches=(),
+        flow_patches=("farfield", "outlet"),
+        max_iterations=80,
+    )
+
+    fv_schemes = (case_dir / "system" / "fvSchemes").read_text()
+    assert "div(phi,U)                      bounded Gauss linearUpwind grad(U);" in fv_schemes
+    assert "div(div(phi,U))                Gauss linear;" in fv_schemes
+    fv_solution = (case_dir / "system" / "fvSolution").read_text()
+    assert "Phi" in fv_solution
+    assert "potentialFlow" in fv_solution
+    assert "p               0.25;" in fv_solution
+    assert "U               0.55;" in fv_solution
+    assert "nuTilda         0.55;" in fv_solution
+    assert "type            noSlip;" in (case_dir / "0" / "U").read_text()
 
 
 def test_should_extend_after_first_run_only_when_window_is_not_yet_stable() -> None:
@@ -186,12 +255,12 @@ def test_should_extend_after_first_run_rejects_missing_or_non_finite_force_rows(
         {
             "functions": {
                 "primary": {
-                    "rows": [
-                        {"Time": 10, "Cd": 0.03, "Cl": 1.1},
-                        {"Time": 11, "Cd": 1.2, "Cl": 1.5},
-                    ]
+                        "rows": [
+                            {"Time": 10, "Cd": 0.03, "Cl": 1.1},
+                            {"Time": 60, "Cd": 10.2, "Cl": 1.5},
+                        ]
+                    }
                 }
-            }
         },
         stable,
     ) is False
@@ -219,7 +288,7 @@ def test_force_runaway_detected_uses_solver_stability_thresholds() -> None:
                 "primary": {
                     "rows": [
                         {"Time": 10, "Cd": 0.03, "Cl": 1.2},
-                        {"Time": 11, "Cd": 1.01, "Cl": 1.5},
+                        {"Time": 60, "Cd": 10.1, "Cl": 1.5},
                     ]
                 }
             }
@@ -231,7 +300,22 @@ def test_force_runaway_detected_uses_solver_stability_thresholds() -> None:
                 "primary": {
                     "rows": [
                         {"Time": 10, "Cd": 0.03, "Cl": 1.2},
-                        {"Time": 11, "Cd": 0.2, "Cl": 2.5},
+                        {"Time": 60, "Cd": 0.2, "Cl": 2.5},
+                    ]
+                }
+            }
+        }
+    ) is False
+
+
+def test_force_runaway_detected_ignores_initial_cold_start_force_spike() -> None:
+    assert module.force_runaway_detected(
+        {
+            "functions": {
+                "primary": {
+                    "rows": [
+                        {"Time": 1, "Cd": 2.65, "Cl": 4.83},
+                        {"Time": 21, "Cd": -1.98, "Cl": 1.98},
                     ]
                 }
             }

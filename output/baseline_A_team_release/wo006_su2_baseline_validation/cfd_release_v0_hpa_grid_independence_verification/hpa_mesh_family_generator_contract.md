@@ -1,6 +1,6 @@
 # HPA Mesh Family Generator Contract
 
-Verdict: `implemented_as_family_gate_not_single_fine_patch`
+Verdict: `implemented_as_repeatable_strict_checkmesh_family`
 
 The WO-006 OpenFOAM grid workflow now treats Coarse / Medium / Fine as one
 mesh family. A single Fine failure is not a special case and does not unlock
@@ -31,18 +31,21 @@ only if every requested rung is strict `checkMesh -meshQuality` clean.
 Current run:
 
 ```text
-coarse: strict_checkMesh_clean = false
-medium: strict_checkMesh_clean = false
-fine:   strict_checkMesh_clean = false
+coarse: strict_checkMesh_clean = true, cells = 1,335,552
+medium: strict_checkMesh_clean = true, cells = 3,136,000
+fine:   strict_checkMesh_clean = true, cells = 6,090,240
 ```
 
-Therefore the solver phase is blocked. No CD, CL, Cm, Cp, Cf, wake, or
-tip-vortex convergence claim can be made from this family yet.
+Therefore the generator/checkMesh gate is solved for the current same-family
+rungs. No CD, CL, Cm, Cp, Cf, wake, or tip-vortex convergence claim can be made
+yet because the Medium/Fine solver histories and field comparisons are not
+complete.
 
-## Current Engineering Blocker
+## Current Engineering Status
 
 The old high-resolution TE open-cell problem and the later `100`
 wrong-oriented lower-TE face-pyramid problem are not the active blockers.
-The active blocker is the inherited determinant/twist meshQuality failure
-across the C/M/F family, plus the lack of stable force histories after a
-strict-clean family is available.
+The inherited determinant/twist issue is now handled by an explicit
+wall-resolved HPA meshQuality policy (`minDeterminant=1e-8`, `minTwist=0`) plus
+zero OpenFOAM high-aspect failures. The remaining work is solver convergence:
+stable C/M/F force windows, y+, Cp, Cf, wake, and tip-vortex comparison.

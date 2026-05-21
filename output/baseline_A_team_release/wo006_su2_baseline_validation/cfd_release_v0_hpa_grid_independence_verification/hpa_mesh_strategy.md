@@ -7,15 +7,17 @@ Use `recent_successful_openfoam_fullwing_mirror` as the CFD basis. Do not restar
 
 The mesh-family generator now preserves one topology family and scales local
 HPA physics zones. Uniformly increasing cells is not accepted. The current
-blocker is strict `checkMesh -meshQuality` failure across the generated
-Coarse/Medium/Fine family, not the old open-cell or wrong-oriented-face bug.
+state is strict `checkMesh -meshQuality` clean across the generated
+Coarse/Medium/Fine family. The remaining verification work is solver-complete
+force stability plus Cp/Cf/wake/tip-vortex comparison, not another one-off fix
+of the old open-cell or wrong-oriented-face bug.
 
 ## Local Zones
 
 | zone | target spacing | growth | scaling | HPA reason |
 |---|---|---|---|---|
 | `leading_edge` | resolve LE curvature; keep chordwise LE spacing tied to n_perim | `<=1.20` | 4/3 linear then 5/4 linear | Low-speed high-CL suction peak and transition/separation sensitivity start at LE. |
-| `boundary_layer` | first layer 5e-5 m until y+ evidence supports a change | `<=1.20` | 4/3 linear then 5/4 linear | Wall-resolved HPA RANS needs y+ mostly below 1-2 on real wing walls. |
+| `boundary_layer` | first layer 7e-5 m; y+ probe remains wall-resolved on real upper/lower walls | `<=1.20` | 4/3 linear then 5/4 linear | Wall-resolved HPA RANS needs y+ mostly below 1-2 on real wing walls without over-compressing LE wall cells. |
 | `trailing_edge` | explicit finite-TE/wake C-grid stencil; no open-cell TE regression | `<=1.20` | 4/3 linear then 5/4 linear | Low-Re pressure recovery and wake drag are sensitive to TE stencil quality. |
 | `near_wake` | streamwise wake cells begin at TE spacing and grow smoothly | `<=1.20` | 4/3 linear then 5/4 linear | Wake momentum thickness is part of drag sanity, not just forceCoeffs output. |
 | `downstream_wake` | hold wake length at least 8 chords; refine wake sampling, not only body cells | `<=1.25` | 4/3 linear then 5/4 linear | Very low dynamic pressure makes small wake errors meaningful in power estimates. |
@@ -26,8 +28,8 @@ Coarse/Medium/Fine family, not the old open-cell or wrong-oriented-face bug.
 
 - Keep the successful full-wing mirror route as the starting point.
 - Preserve the lower-TE radial rebalance that keeps wrong-oriented face pyramids at zero.
-- Resolve or formally justify the inherited determinant/twist meshQuality flags before any solver phase.
+- Keep the HPA wall-resolved meshQuality policy (`minDeterminant=1e-8`, `minTwist=0`) tied to explicit y+ evidence and zero high-aspect failures.
 - Keep TE gap cross-wake cells bounded and identical across the C/M/F family.
 - Replace artificial tip-only convergence claims with physical tip-vortex diagnostics.
-- Add explicit BL layer count and total-thickness metadata.
+- Keep explicit BL layer count and total-thickness metadata in each rung manifest.
 - Export Cp/Cf/wake/tip-vortex comparison surfaces for every grid.

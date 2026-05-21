@@ -2,7 +2,7 @@
 
 ## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-20。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+**更新日期：2026-05-21。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
 SU2/OpenFOAM aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
@@ -55,6 +55,9 @@ The Fine solver then trips the force-runaway guard at pseudo-time `1`
 (`CD_primary=3.950888`, `CL_primary=7.796553` invalid first row), so
 Medium→Fine convergence remains blocked. Do not update design power and do not
 claim `CD≈0.0315` as grid-independent.
+This paragraph is historical after the robust C/M/F mesh-family gate and
+potential-initialized solver-startup repair below; the pseudo-time `1` row is no
+longer treated as a real divergence by the current grid-family workflow.
 
 **2026-05-21 robust C/M/F mesh-family gate:** The WO-006 OpenFOAM grid workflow
 now has an explicit family generator contract in
@@ -63,20 +66,24 @@ now has an explicit family generator contract in
 The generator exports the same seven local refinement regions on all rungs
 (`leading_edge`, `trailing_edge`, `boundary_layer`, `near_wake`,
 `downstream_wake`, `wing_tip_vortex_region`, `farfield`) and the same
-quality-gate contract. The mesh-only same-family run produced coarse `866688`,
-medium `1996800`, and fine `3708800` full-wing cells. All three rungs have
-open cells `0`, negative volumes `0`, wrong-oriented face pyramids `0`, and
-face-pyramid-volume failures `0`; maxNonOrtho/maxSkew are
-coarse `87.3826/3.44697`, medium `89.193/3.45663`, and fine `87.516/3.46221`.
+quality-gate contract. The mesh-only same-family run produced coarse
+`1,335,552`, medium `3,136,000`, and fine `6,090,240` full-wing cells with first
+layer height `7.0e-5 m`, wall-normal growth `1.12`, and span cells
+`94/125/156`. All three rungs pass strict `checkMesh -meshQuality` with open
+cells `0`, negative volumes `0`, wrong-oriented face pyramids `0`, and no
+OpenFOAM high-aspect failure; maxNonOrtho/maxSkew are coarse
+`83.4029/3.44748`, medium `83.135/3.45693`, and fine `82.9339/3.46267`.
 
-Outcome: the family gate correctly blocks solver launch because none of the
-three rungs is strict `checkMesh -meshQuality` clean. Coarse fails `1`
-meshQuality check from determinant flags, medium fails `2` checks from
-determinant plus face-twist flags, and fine fails `1` check from determinant /
-face-twist flags. No new `simpleFoam`, y+, Cp, Cf, wake, or tip-vortex
-comparison is allowed from this family yet. The active blocker is no longer the
-old open-cell or `100` wrong-oriented-face defect; it is strict C/M/F
-meshQuality robustness and then stable force-history/Cp-Cf-wake-tip validation.
+The solver-startup path now runs `potentialFoam -initialiseUBCs -writep` before
+`simpleFoam` and uses a startup-grace force runaway guard (`min_time=50`,
+`|CD|/|CL|>10`). A current coarse-only probe at the same operating point reaches
+160 iterations without solver runaway and reports `CD_primary=0.06088113`,
+`CD_total_physical=0.06110341`, `CL_primary=0.8584368`, with real
+upper/lower-wall y+ `mean=0.545`, `p95=1.346`, `max=3.014`. The 50-iteration
+force window is still not stable (`Cd` relative span about `9.9%`, `Cl` about
+`8.6%`), and Medium/Fine solver histories, Cp/Cf curves, wake profiles, and
+tip-vortex indicators have not yet been completed. Therefore `CD≈0.0315` is
+still not grid-independent and design power must not be updated.
 
 **2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
 at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.

@@ -1,9 +1,11 @@
 # Current Mesh Quality Audit
 
-Verdict: `route_smoke_mesh_accepted_but_grid_family_not_validated`
+Verdict: `route_smoke_accepted_and_grid_family_strict_checkmesh_clean`
 
 The latest successful full-wing mirror route is the current audit baseline.
-It is not a final grid-independent family.
+It is not a final grid-independent family. The current generated
+Coarse/Medium/Fine family now passes strict checkMesh, and the coarse
+potential-initialized solver probe gives the first same-family y+ evidence.
 
 ## Accepted Route-Smoke Mesh
 
@@ -21,6 +23,9 @@ It is not a final grid-independent family.
 - max skew: `3.45663`
 - strict checkMesh failed checks: `2`
 
+This accepted route-smoke mesh is retained as operating-condition and y+
+context only. It is not the formal final C/M/F family.
+
 ## Real-Wall y+ Split
 
 - `airfoil_upper` y+ mean / p90 / p95 / p99 / max: `0.5913392806089747` / `0.9731635000000001` / `1.1975625` / `1.7804425` / `2.65697`
@@ -31,9 +36,14 @@ It is not a final grid-independent family.
 ## Grid-Family Gate
 
 - current grid-gate status: `grid_independence_not_demonstrated`
-- blockers: `['coarse:strict_checkMesh_not_clean', 'coarse:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'coarse:solver_not_completed', 'medium:strict_checkMesh_not_clean', 'medium:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'medium:solver_not_completed', 'fine:strict_checkMesh_not_clean', 'fine:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'fine:solver_not_completed', 'coarse:family_solver_gate_blocked', 'medium:family_solver_gate_blocked', 'fine:family_solver_gate_blocked']`
+- mesh family: coarse `1,335,552`, medium `3,136,000`, fine `6,090,240` full-wing cells
+- checkMesh: all three current rungs pass strict `checkMesh -meshQuality` with open cells `0`, negative volumes `0`, wrong-oriented face pyramids `0`, and failed checks `0`
+- first layer height: `7e-5 m`
+- wall-normal growth rate: `1.12`
+- coarse same-family y+ on real upper/lower walls: mean `0.545112`, p95 `1.34603`, max `3.01407`
+- force history status: coarse 160-iteration probe completes but is not stable over the final 50 iterations; Medium/Fine histories are not complete
 - max CD change seen so far: `None%`
 
-The new mesh-only systematic ladder is useful because it proves the hard
-topology blockers are gone across Coarse/Medium/Fine, while also proving the
-family is not strict-clean. It cannot be treated as a passed grid study.
+The new systematic ladder proves the generator/checkMesh part is no longer the
+limiting issue. It cannot be treated as a passed grid study until Medium/Fine
+solver histories, y+, Cp, Cf, wake, and tip-vortex comparisons are complete.

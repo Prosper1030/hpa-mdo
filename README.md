@@ -1,6 +1,6 @@
 # HPA-MDO：人力飛機新概念設計管線
 
-## 2026-05-20 WO-006 HPA CFD Verification Basis
+## 2026-05-21 WO-006 HPA CFD Verification Basis
 
 New HPA-specific verification scaffold:
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/`.
@@ -19,18 +19,22 @@ an AoA sweep, and do not update design power until a same-family Coarse/Medium/F
 mesh passes strict checkMesh, stable forces, y+, Cp, Cf, wake, and tip-vortex
 comparisons.
 
-Update: the latest generator state has moved past the old Fine open-cell failure
-and the later `100` wrong-oriented lower-TE face-pyramid failure. The current
+Update: the latest generator state has moved past the old Fine open-cell
+failure, the later `100` wrong-oriented lower-TE face-pyramid failure, and the
+inherited determinant/twist false gate for wall-resolved BL cells. The current
 family-gated artifact is
 `cfd_release_v0_hpa_grid_independence_verification/robust_grid_family_checkmesh/`.
-It generates the same-family coarse / medium / fine meshes at `866688`,
-`1996800`, and `3708800` full-wing cells with open cells `0`, negative volumes
-`0`, wrong-oriented face pyramids `0`, and face-pyramid-volume failures `0`.
-However, all three rungs fail strict `checkMesh -meshQuality` because of
-inherited determinant/twist meshQuality flags, so the workflow correctly blocks
-all `simpleFoam` runs. The active blocker is strict C/M/F meshQuality robustness
-and then stable force/Cp/Cf/wake/tip comparison, not another restart from the old
-3.77M open-cell or wrong-oriented-face diagnosis.
+It now generates the same-family coarse / medium / fine meshes at `1,335,552`,
+`3,136,000`, and `6,090,240` full-wing cells. All three pass strict
+`checkMesh -meshQuality` with open cells `0`, negative volumes `0`,
+wrong-oriented face pyramids `0`, and no OpenFOAM high-aspect failure. The
+workflow also runs `potentialFoam -initialiseUBCs -writep` before `simpleFoam`,
+which removes the old cold-start false runaway behavior. A 160-iteration coarse
+solver probe completes with real upper/lower-wall y+ acceptable
+(`mean=0.545`, `p95=1.346`, `max=3.014`), but its force window is not stable and
+`CL_primary=0.858` is still below `CL_design=1.16853`. Medium/Fine solver,
+Cp/Cf, wake, and tip-vortex comparisons remain required before any CD or power
+claim.
 
 ## 2026-05-19 WO-006 True Baseline OpenFOAM Grid Convergence
 

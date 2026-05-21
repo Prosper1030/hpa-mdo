@@ -8,7 +8,7 @@
     "cref_m": 1.003721543,
     "do_not_revert_to_original_screening_basis": true,
     "dynamic_viscosity_pa_s": 1.7893575e-05,
-    "force_definition": "primary = airfoil_upper + airfoil_lower; total includes physical_tip_left/right and te_wall",
+    "force_definition": "primary = airfoil_upper + airfoil_lower; total_physical = primary + te_wall; physical_tip_left/right are diagnostics",
     "full_or_half_wing": "full-wing mirror route",
     "full_span_m": 34.332286,
     "half_span_m": 17.166143,
@@ -26,18 +26,10 @@
   },
   "grid_gate": {
     "blocking_items": [
-      "coarse:strict_checkMesh_not_clean",
-      "coarse:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean",
-      "coarse:solver_not_completed",
-      "medium:strict_checkMesh_not_clean",
-      "medium:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean",
+      "coarse:force_window_not_stable",
       "medium:solver_not_completed",
-      "fine:strict_checkMesh_not_clean",
-      "fine:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean",
       "fine:solver_not_completed",
-      "coarse:family_solver_gate_blocked",
-      "medium:family_solver_gate_blocked",
-      "fine:family_solver_gate_blocked"
+      "medium_fine:cp_cf_wake_tip_not_compared"
     ],
     "cd_change_threshold_policy": {
       "clearly_not_independent_if_any_change_percent_gt": 10.0,
@@ -47,34 +39,55 @@
     "engineering_conclusion": "Current CFD is not grid-independent; do not update design power from this OpenFOAM line yet.",
     "max_abs_cd_percent_change": null,
     "mesh_family_solver_gate": {
-      "blocked_rungs": [
-        "coarse",
-        "medium",
-        "fine"
-      ],
-      "blocking_reasons": {
-        "coarse": [
-          "strict_checkMesh_clean",
-          "strict_meshquality_clean=fail"
-        ],
-        "fine": [
-          "strict_checkMesh_clean",
-          "strict_meshquality_clean=fail"
-        ],
-        "medium": [
-          "strict_checkMesh_clean",
-          "strict_meshquality_clean=fail"
-        ]
-      },
+      "blocked_rungs": [],
+      "blocking_reasons": {},
       "policy": "solver is allowed only after every requested rung is strict checkMesh clean",
-      "ready_for_solver": false
+      "ready_for_solver": true
     },
     "rung_cell_counts": {
-      "coarse": 866688,
-      "fine": 3708800,
-      "medium": 1996800
+      "coarse": 1335552,
+      "fine": 6090240,
+      "medium": 3136000
     },
     "study_status": "grid_independence_not_demonstrated"
+  },
+  "current_mesh_family": {
+    "artifact": "robust_grid_family_checkmesh",
+    "first_layer_height_m": 7e-05,
+    "wall_normal_growth_rate": 1.12,
+    "rungs": {
+      "coarse": {
+        "cells": 1335552,
+        "strict_checkmesh_clean": true,
+        "max_aspect_ratio": 514.148,
+        "max_non_ortho": 83.4029,
+        "max_skew": 3.44748
+      },
+      "medium": {
+        "cells": 3136000,
+        "strict_checkmesh_clean": true,
+        "max_aspect_ratio": 885.648,
+        "max_non_ortho": 83.135,
+        "max_skew": 3.45693
+      },
+      "fine": {
+        "cells": 6090240,
+        "strict_checkmesh_clean": true,
+        "max_aspect_ratio": 529.781,
+        "max_non_ortho": 82.9339,
+        "max_skew": 3.46267
+      }
+    },
+    "coarse_solver_probe": {
+      "iterations": 160,
+      "force_window_stable": false,
+      "CD_primary": 0.06088113,
+      "CD_total_physical": 0.06110341,
+      "CL_primary": 0.8584368,
+      "real_wall_yplus_mean": 0.5451120590130027,
+      "real_wall_yplus_p95": 1.3460304999999968,
+      "real_wall_yplus_max": 3.01407
+    }
   },
   "historical_screening_comparison": {
     "aoa_deg": 0.18015,
@@ -89,12 +102,15 @@
     "source": "tier2_loaded_shape_selected_avl_recheck.csv conservative_best row",
     "velocity_mps": 6.6
   },
-  "outputs": [
+    "outputs": [
     "hpa_operating_condition_lock.md",
     "current_mesh_quality_audit.md",
     "current_mesh_quality_table.csv",
     "hpa_mesh_strategy.md",
     "local_refinement_zone_table.csv",
+    "hpa_mesh_family_generator_contract.md",
+    "grid_family_definition.md",
+    "grid_family_metadata.csv",
     "mesh_generator_fix_report.md",
     "final_hpa_grid_independence_verdict.md"
   ],
@@ -163,20 +179,12 @@
     "can_trust_cd_approx_0p0315": false,
     "can_update_design_power_from_174w": false,
     "cd_medium_to_fine_rule": "CD Medium->Fine must be <=3%; >5% means drag is not reliable.",
-    "engineering_read": "The latest route-smoke is successful, but grid independence is not demonstrated.",
+    "engineering_read": "The same-family generator and strict checkMesh gate are now solved for the current rungs, but grid independence is not demonstrated because solver-complete Medium/Fine force and field comparisons are not done.",
     "exact_blockers": [
-      "coarse:strict_checkMesh_not_clean",
-      "coarse:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean",
-      "coarse:solver_not_completed",
-      "medium:strict_checkMesh_not_clean",
-      "medium:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean",
+      "coarse:force_window_not_stable",
       "medium:solver_not_completed",
-      "fine:strict_checkMesh_not_clean",
-      "fine:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean",
       "fine:solver_not_completed",
-      "coarse:family_solver_gate_blocked",
-      "medium:family_solver_gate_blocked",
-      "fine:family_solver_gate_blocked"
+      "medium_fine:cp_cf_wake_tip_not_compared"
     ],
     "grid_independence_demonstrated": false,
     "latest_route_smoke_success": true,

@@ -9,9 +9,9 @@ Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
 Arch   : "LSB;label=32;scalar=64"
 Exec   : checkMesh -meshQuality
 Date   : May 21 2026
-Time   : 10:40:24
+Time   : 13:13:38
 Host   : linyuandeMac-mini.local
-PID    : 96090
+PID    : 54728
 I/O    : uncollated
 Case   : /tmp/hpa_mdo_true_baseline_openfoam/fullwing_artificial_tip_symmetry
 nProcs : 1
@@ -31,10 +31,10 @@ Check mesh...
 Time = 0
 
 Mesh stats
-    points:           3774924
-    faces:            11192280
-    internal faces:   11060520
-    cells:            3708800
+    points:           6186132
+    faces:            18366368
+    internal faces:   18175072
+    cells:            6090240
     faces per cell:   6
     boundary patches: 7
     point zones:      0
@@ -42,7 +42,7 @@ Mesh stats
     cell zones:       0
 
 Overall number of cells of each type:
-    hexahedra:     3708800
+    hexahedra:     6090240
     prisms:        0
     wedges:        0
     pyramids:      0
@@ -60,14 +60,14 @@ Checking topology...
 
 Checking patch topology for multiply connected surfaces...
     Patch               Faces    Points     Surface topology
-    airfoil_upper       22800    23111    ok (non-closed singly connected)
-    airfoil_lower       22800    23111    ok (non-closed singly connected)
-    te_wall             760      955      ok (non-closed singly connected)
-    outlet              760      955      ok (non-closed singly connected)
-    farfield            45600    46031    ok (non-closed singly connected)
+    airfoil_upper       37440    37873    ok (non-closed singly connected)
+    airfoil_lower       37440    37873    ok (non-closed singly connected)
+    te_wall             1248     1565     ok (non-closed singly connected)
+    outlet              1248     1565     ok (non-closed singly connected)
+    farfield            74880    75433    ok (non-closed singly connected)
     physical_tip_right  19520    19764    ok (non-closed singly connected)
     physical_tip_left   19520    19764    ok (non-closed singly connected)
-    ".*"                131760   131760   ok (closed singly connected)
+    ".*"                191296   191296   ok (closed singly connected)
 
 
 Checking faceZone topology for multiply connected surfaces...
@@ -83,17 +83,17 @@ Checking geometry...
     Overall domain bounding box (-12.5355 -17.1661 -13.617) (12.5275 17.1661 11.6208)
     Mesh has 3 geometric (non-empty/wedge) directions (1 1 1)
     Mesh has 3 solution (non-empty) directions (1 1 1)
-    Boundary openness (-3.37483e-16 -1.34379e-16 9.36994e-17) OK.
-    Max cell openness = 4.98214e-14 OK.
-    Max aspect ratio = 740.878 OK.
-    Minimum face area = 5.79581e-09. Maximum face area = 8.24189.  Face area magnitudes OK.
-    Min volume = 7.77078e-10. Max volume = 1.90828.  Total volume = 10008.7.  Cell volumes OK.
-    Mesh non-orthogonality Max: 87.516 average: 25.5065
-   *Number of severely non-orthogonal (> 70 degrees) faces: 120076.
+    Boundary openness (-3.83425e-15 2.41532e-16 1.82713e-17) OK.
+    Max cell openness = 3.00159e-14 OK.
+    Max aspect ratio = 529.781 OK.
+    Minimum face area = 8.79271e-09. Maximum face area = 7.77024.  Face area magnitudes OK.
+    Min volume = 7.36991e-10. Max volume = 1.08166.  Total volume = 10008.7.  Cell volumes OK.
+    Mesh non-orthogonality Max: 82.9339 average: 25.0863
+   *Number of severely non-orthogonal (> 70 degrees) faces: 176640.
     Non-orthogonality check OK.
-  <<Writing 120076 non-orthogonal faces to set nonOrthoFaces
+  <<Writing 176640 non-orthogonal faces to set nonOrthoFaces
     Face pyramids OK.
-    Max skewness = 3.46221 OK.
+    Max skewness = 3.46267 OK.
     Coupled point location match (average 0) OK.
 Checking faces in error :
     non-orthogonality > 90  degrees                        : 0
@@ -102,29 +102,28 @@ Checking faces in error :
     faces with skewness > 4   (internal) or 20  (boundary) : 0
     faces with interpolation weights (0..1)  < 0.02        : 0
     faces with volume ratio of neighbour cells < 0.01      : 0
-    faces with face twist < 0.02                           : 10
-    faces on cells with determinant < 0.001                : 2266249
-  <<Writing 2266259 faces in error to set meshQualityFaces
+    faces with face twist < 0                              : 0
+    faces on cells with determinant < 1e-08                : 0
 
-Failed 1 mesh checks.
+Mesh OK.
 
 End
 
-       12.14 real        10.61 user         0.75 sys
-          2674720768  maximum resident set size
+       19.17 real        16.78 user         1.61 sys
+          4190142464  maximum resident set size
                    0  average shared memory size
                    0  average unshared data size
                    0  average unshared stack size
-              222203  page reclaims
-                1792  page faults
+              437444  page reclaims
+                1795  page faults
                    0  swaps
                    0  block input operations
                    0  block output operations
                    0  messages sent
                    0  messages received
                    0  signals received
-                  13  voluntary context switches
-                4405  involuntary context switches
-        232146187252  instructions retired
-         42804796156  cycles elapsed
-          2653997624  peak memory footprint
+                  12  voluntary context switches
+                8879  involuntary context switches
+        374866010697  instructions retired
+         70504236074  cycles elapsed
+          4368404248  peak memory footprint
