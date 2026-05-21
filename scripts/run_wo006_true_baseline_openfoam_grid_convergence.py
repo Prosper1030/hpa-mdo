@@ -1045,7 +1045,38 @@ def should_extend_after_first_run(coeffs: Mapping[str, Any], stability_window: M
         return False
     if force_runaway_detected(coeffs):
         return False
-    return stability_window.get("route_smoke_stable") is not True
+    return requested_primary_window_stable(rows) is not True
+
+
+def requested_primary_window_stable(
+    rows: Sequence[Mapping[str, float]],
+    *,
+    min_iterations: int = 500,
+    window: int = 100,
+) -> bool:
+    if len(rows) < min_iterations or len(rows) < window:
+        return False
+    tail = list(rows[-window:])
+
+    def rel_span(key: str) -> float | None:
+        values = [float(row[key]) for row in tail if key in row]
+        if not values:
+            return None
+        mean = sum(values) / len(values)
+        if not mean:
+            return None
+        return (max(values) - min(values)) / abs(mean)
+
+    cd_rel = rel_span("Cd")
+    cl_rel = rel_span("Cl")
+    cm_rel = rel_span("CmPitch")
+    return (
+        cd_rel is not None
+        and cl_rel is not None
+        and cd_rel < 0.01
+        and cl_rel < 0.005
+        and (cm_rel is None or cm_rel < 0.01)
+    )
 
 
 def force_runaway_detected(coeffs: Mapping[str, Any]) -> bool:

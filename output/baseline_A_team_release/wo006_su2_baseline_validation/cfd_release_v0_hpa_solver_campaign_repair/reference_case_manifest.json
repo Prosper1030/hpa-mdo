@@ -1,0 +1,235 @@
+{
+  "boundary_patches": [
+    {
+      "area_m2": 35.40458661450818,
+      "nFaces": 14976,
+      "name": "airfoil_upper",
+      "startFace": 5946400,
+      "type": "wall"
+    },
+    {
+      "area_m2": 34.15232769345717,
+      "nFaces": 14976,
+      "name": "airfoil_lower",
+      "startFace": 5961376,
+      "type": "wall"
+    },
+    {
+      "area_m2": 0.01590426456517972,
+      "nFaces": 1248,
+      "name": "te_wall",
+      "startFace": 5976352,
+      "type": "wall"
+    },
+    {
+      "area_m2": 703.6576786172784,
+      "nFaces": 1248,
+      "name": "outlet",
+      "startFace": 5977600,
+      "type": "patch"
+    },
+    {
+      "area_m2": 1645.4189616027772,
+      "nFaces": 29952,
+      "name": "farfield",
+      "startFace": 5978848,
+      "type": "patch"
+    },
+    {
+      "area_m2": 124.13279721269896,
+      "nFaces": 12800,
+      "name": "physical_tip_right",
+      "startFace": 6008800,
+      "type": "wall"
+    },
+    {
+      "area_m2": 124.13279721269896,
+      "nFaces": 12800,
+      "name": "physical_tip_left",
+      "startFace": 6021600,
+      "type": "wall"
+    }
+  ],
+  "case_path": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_solver_stability/openfoam_cases/fullwing_mirror",
+  "dictionaries": {
+    "RASModel": "SpalartAllmaras",
+    "U_freestreamValue": "uniform (6.49996792 0 0.0204203187)",
+    "U_inletValue": "uniform (6.49996792 0 0.0204203187)",
+    "U_internalField": "uniform (6.49996792 0 0.0204203187)",
+    "endTime": "500",
+    "nu": "1.4607e-05",
+    "simulationType": "RAS",
+    "startFrom": "latestTime",
+    "turbulence_model": "RAS/SpalartAllmaras",
+    "writeInterval": "100"
+  },
+  "dictionary_hashes": {
+    "U": "57e05db2100f48a8",
+    "boundary": "0b1146e031a59f24",
+    "controlDict": "9f49280a65d37693",
+    "fvSchemes": "6022819ae776e286",
+    "fvSolution": "ee30236d999cdf9b",
+    "nuTilda": "d037d2b1990c4ca1",
+    "p": "f59fc5bd972d6182"
+  },
+  "force_summary": {
+    "primary": {
+      "Aref": "3.342006e+01",
+      "dragDir": "(9.999951e-01 0.000000e+00 3.141587e-03)",
+      "final100": {
+        "Cd": {
+          "last": 0.03276165,
+          "max": 0.03279515,
+          "mean": 0.03276562060000001,
+          "min": 0.03275756,
+          "relative_span": 0.0011472390667919775,
+          "span": 3.759000000000401e-05
+        },
+        "Cl": {
+          "last": 1.133291,
+          "max": 1.141377,
+          "mean": 1.1368473100000005,
+          "min": 1.133291,
+          "relative_span": 0.007112652621749207,
+          "span": 0.008086000000000038
+        },
+        "CmPitch": {
+          "last": -0.1239779,
+          "max": -0.1239779,
+          "mean": -0.12463242500000002,
+          "min": -0.1254713,
+          "relative_span": 0.01198243554997831,
+          "span": 0.0014934000000000058
+        },
+        "rows": 100,
+        "status": "available",
+        "window": 100
+      },
+      "first_Time": 1.0,
+      "lRef": "1.003722e+00",
+      "last_Cd": 0.03276165,
+      "last_Cl": 1.133291,
+      "last_CmPitch": -0.1239779,
+      "last_Time": 500.0,
+      "liftDir": "(-3.141587e-03 0.000000e+00 9.999951e-01)",
+      "magUInf": "6.500000e+00",
+      "patches": "airfoil_upper airfoil_lower",
+      "rho": "rhoInf",
+      "rhoInf": "1.225",
+      "rows": 500
+    },
+    "te_wall": {
+      "Aref": "3.342006e+01",
+      "dragDir": "(9.999951e-01 0.000000e+00 3.141587e-03)",
+      "final100": {
+        "Cd": {
+          "last": 1.52565e-05,
+          "max": 1.52565e-05,
+          "mean": 1.3806665599999993e-05,
+          "min": 1.200839e-05,
+          "relative_span": 0.23525665747999303,
+          "span": 3.248110000000001e-06
+        },
+        "Cl": {
+          "last": -1.760856e-06,
+          "max": -1.493868e-06,
+          "mean": -1.6425552500000007e-06,
+          "min": -1.760856e-06,
+          "relative_span": 0.16254430406526654,
+          "span": 2.6698800000000003e-07
+        },
+        "CmPitch": {
+          "last": 3.440576e-05,
+          "max": 3.440576e-05,
+          "mean": 3.179094290000001e-05,
+          "min": 2.865217e-05,
+          "relative_span": 0.18098204945031676,
+          "span": 5.753589999999998e-06
+        },
+        "rows": 100,
+        "status": "available",
+        "window": 100
+      },
+      "first_Time": 1.0,
+      "lRef": "1.003722e+00",
+      "last_Cd": 1.52565e-05,
+      "last_Cl": -1.760856e-06,
+      "last_CmPitch": 3.440576e-05,
+      "last_Time": 500.0,
+      "liftDir": "(-3.141587e-03 0.000000e+00 9.999951e-01)",
+      "magUInf": "6.500000e+00",
+      "patches": "te_wall",
+      "rho": "rhoInf",
+      "rhoInf": "1.225",
+      "rows": 500
+    },
+    "total": {
+      "Aref": "3.342006e+01",
+      "dragDir": "(9.999951e-01 0.000000e+00 3.141587e-03)",
+      "final100": {
+        "Cd": {
+          "last": 0.05708291,
+          "max": 0.05712414,
+          "mean": 0.0570922026,
+          "min": 0.05708285,
+          "relative_span": 0.0007232160981646797,
+          "span": 4.128999999999938e-05
+        },
+        "Cl": {
+          "last": 1.133303,
+          "max": 1.141389,
+          "mean": 1.1368592599999998,
+          "min": 1.133303,
+          "relative_span": 0.007112577857702491,
+          "span": 0.008086000000000038
+        },
+        "CmPitch": {
+          "last": -0.0621964,
+          "max": -0.0621964,
+          "mean": -0.06281930110000004,
+          "min": -0.06365723,
+          "relative_span": 0.023254477118020582,
+          "span": 0.0014608299999999963
+        },
+        "rows": 100,
+        "status": "available",
+        "window": 100
+      },
+      "first_Time": 1.0,
+      "lRef": "1.003722e+00",
+      "last_Cd": 0.05708291,
+      "last_Cl": 1.133303,
+      "last_CmPitch": -0.0621964,
+      "last_Time": 500.0,
+      "liftDir": "(-3.141587e-03 0.000000e+00 9.999951e-01)",
+      "magUInf": "6.500000e+00",
+      "patches": "airfoil_upper airfoil_lower physical_tip_left physical_tip_right te_wall",
+      "rho": "rhoInf",
+      "rhoInf": "1.225",
+      "rows": 500
+    }
+  },
+  "geometry": {
+    "bbox_max": [
+      12.527466,
+      17.166143,
+      11.6207954
+    ],
+    "bbox_min": [
+      -12.53532111,
+      -17.166143,
+      -13.6170243
+    ],
+    "point_count": 2041000
+  },
+  "mesh": {
+    "cells": 1996800,
+    "faces": 6034400,
+    "failedChecks": 2,
+    "maxNonOrtho": 89.193,
+    "maxSkew": 3.45663,
+    "mesh_ok": false,
+    "points": 2041000
+  },
+  "role": "successful_reference_repo_artifact"
+}

@@ -222,21 +222,34 @@ def test_grid_family_solver_profile_uses_potential_initialized_linearupwind(tmp_
     assert "type            noSlip;" in (case_dir / "0" / "U").read_text()
 
 
-def test_should_extend_after_first_run_only_when_window_is_not_yet_stable() -> None:
-    stable = {"route_smoke_stable": True}
-    unstable = {"route_smoke_stable": False}
-    finite_coeffs = {
-        "functions": {
-            "primary": {
-                "rows": [
-                    {"Cd": 0.031, "Cl": 1.11},
-                ]
-            }
+def test_should_extend_after_first_run_uses_hpa_final100_gate() -> None:
+    legacy_unstable = {"route_smoke_stable": False}
+    stable_rows = [
+        {"Time": i + 1, "Cd": 0.031, "Cl": 1.11, "CmPitch": -0.12}
+        for i in range(500)
+    ]
+    drifting_rows = [
+        {
+            "Time": i + 1,
+            "Cd": 0.031 + (i * 1.0e-6),
+            "Cl": 1.11 + (i * 1.0e-4),
+            "CmPitch": -0.12 - (i * 1.0e-5),
         }
-    }
+        for i in range(500)
+    ]
 
-    assert module.should_extend_after_first_run(finite_coeffs, stable) is False
-    assert module.should_extend_after_first_run(finite_coeffs, unstable) is True
+    assert module.should_extend_after_first_run(
+        {"functions": {"primary": {"rows": stable_rows}}},
+        legacy_unstable,
+    ) is False
+    assert module.should_extend_after_first_run(
+        {"functions": {"primary": {"rows": stable_rows[:499]}}},
+        legacy_unstable,
+    ) is True
+    assert module.should_extend_after_first_run(
+        {"functions": {"primary": {"rows": drifting_rows}}},
+        legacy_unstable,
+    ) is True
 
 
 def test_should_extend_after_first_run_rejects_missing_or_non_finite_force_rows() -> None:

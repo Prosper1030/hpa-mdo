@@ -29,12 +29,16 @@ It now generates the same-family coarse / medium / fine meshes at `1,335,552`,
 `checkMesh -meshQuality` with open cells `0`, negative volumes `0`,
 wrong-oriented face pyramids `0`, and no OpenFOAM high-aspect failure. The
 workflow also runs `potentialFoam -initialiseUBCs -writep` before `simpleFoam`,
-which removes the old cold-start false runaway behavior. A 160-iteration coarse
-solver probe completes with real upper/lower-wall y+ acceptable
-(`mean=0.545`, `p95=1.346`, `max=3.014`), but its force window is not stable and
-`CL_primary=0.858` is still below `CL_design=1.16853`. Medium/Fine solver,
-Cp/Cf, wake, and tip-vortex comparisons remain required before any CD or power
-claim.
+which removes the old cold-start false runaway behavior. The 160-iteration
+coarse probe was confirmed to be an under-converged smoke value, not a usable
+aerodynamic result: continuing the same Coarse setup raised `CL_primary` from
+`0.8584368` at 160 to `0.9571043` at 500 and `1.074658` at 1000. Coarse still
+fails the requested final-100 stability gate at 1000 (`CD_total_physical`
+drift `4.05%`, `CD_primary` drift `4.03%`, `CL_primary` drift `1.66%`,
+`CmPitch` drift `1.33%`) and does not reproduce the known reference force level.
+Real upper/lower/TE wall y+ remains acceptable (`mean=0.748`, `p95=1.485`,
+`max=3.173`). Medium/Fine solver, Cp/Cf, wake, and tip-vortex comparisons remain
+gated; do not trust CD or update power from this line.
 
 ## 2026-05-19 WO-006 True Baseline OpenFOAM Grid Convergence
 

@@ -76,14 +76,18 @@ OpenFOAM high-aspect failure; maxNonOrtho/maxSkew are coarse
 
 The solver-startup path now runs `potentialFoam -initialiseUBCs -writep` before
 `simpleFoam` and uses a startup-grace force runaway guard (`min_time=50`,
-`|CD|/|CL|>10`). A current coarse-only probe at the same operating point reaches
-160 iterations without solver runaway and reports `CD_primary=0.06088113`,
-`CD_total_physical=0.06110341`, `CL_primary=0.8584368`, with real
-upper/lower-wall y+ `mean=0.545`, `p95=1.346`, `max=3.014`. The 50-iteration
-force window is still not stable (`Cd` relative span about `9.9%`, `Cl` about
-`8.6%`), and Medium/Fine solver histories, Cp/Cf curves, wake profiles, and
-tip-vortex indicators have not yet been completed. Therefore `CD≈0.0315` is
-still not grid-independent and design power must not be updated.
+`|CD|/|CL|>10`). The 160-iteration coarse probe was diagnosed as an
+under-converged smoke value, not a usable aerodynamic result. Continuing the
+same locked Coarse setup to 500 and then 1000 iterations raised `CL_primary`
+from `0.8584368` to `0.9571043` and then `1.074658`, but the 1000-iteration
+final-100 window still fails the requested HPA gate (`CD_total_physical`
+drift `4.05%`, `CD_primary` drift `4.03%`, `CL_primary` drift `1.66%`,
+`CmPitch` drift `1.33%`). Coarse also remains outside the reference force band:
+`CL_primary` is `-4.96%` versus the user target and `CD_total_physical` is
+`+31.68%`. Real upper/lower/TE wall y+ is acceptable (`mean=0.748`,
+`p95=1.485`, `max=3.173`), but Medium/Fine solver histories, Cp/Cf curves,
+wake profiles, and tip-vortex indicators remain gated. Therefore `CD≈0.0315`
+is still not grid-independent and design power must not be updated.
 
 **2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
 at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.

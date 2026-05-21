@@ -1,0 +1,88 @@
+# Coarse vs Reference Diff
+
+Verdict: `coarse_setup_not_equivalent_to_reference_until_force_reproduction_passes`
+
+- reference case: `/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_solver_stability/openfoam_cases/fullwing_mirror`
+- coarse probe case: `/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/coarse_solver_probe/openfoam_cases/coarse/fullwing_artificial_tip_symmetry`
+
+Important setup values match: `Sref/Aref`, `Cref/lRef`, `magUInf`,
+`dragDir`, `liftDir`, `rhoInf`, inlet/farfield velocity, and primary force patches.
+Important differences remain: the mesh is a newly generated coarse family
+mesh, the reference has 1.9968M cells while Coarse has 1.335552M cells,
+patch face counts differ, Coarse has `total_physical` functionObjects,
+Coarse used potentialFoam initialization, and the Coarse probe only ran 160
+iterations.
+
+| category | item | reference | coarse | match |
+|---|---|---|---|---|
+| mesh | `cells` | `1996800` | `1335552` | `False` |
+| mesh | `maxNonOrtho` | `89.193` | `83.4029` | `False` |
+| mesh | `maxSkew` | `3.45663` | `3.44748` | `False` |
+| mesh | `failedChecks` | `2` | `0` | `False` |
+| geometry | `bbox_min` | `[-12.53532111, -17.166143, -13.6170243]` | `[-12.5343897, -17.166143, -13.6170243]` | `False` |
+| geometry | `bbox_max` | `[12.527466, 17.166143, 11.6207954]` | `[12.527466, 17.166143, 11.6207954]` | `True` |
+| patch | `airfoil_lower.type` | `wall` | `wall` | `True` |
+| patch | `airfoil_lower.nFaces` | `14976` | `13536` | `False` |
+| patch | `airfoil_lower.area_m2` | `34.15232769345717` | `34.15176921487254` | `True` |
+| patch | `airfoil_upper.type` | `wall` | `wall` | `True` |
+| patch | `airfoil_upper.nFaces` | `14976` | `13536` | `False` |
+| patch | `airfoil_upper.area_m2` | `35.40458661450818` | `35.40426447558215` | `True` |
+| patch | `farfield.type` | `patch` | `patch` | `True` |
+| patch | `farfield.nFaces` | `29952` | `27072` | `False` |
+| patch | `farfield.area_m2` | `1645.4189616027772` | `1645.3989501007127` | `True` |
+| patch | `outlet.type` | `patch` | `patch` | `True` |
+| patch | `outlet.nFaces` | `1248` | `752` | `False` |
+| patch | `outlet.area_m2` | `703.6576786172784` | `703.664837629974` | `True` |
+| patch | `physical_tip_left.type` | `wall` | `wall` | `True` |
+| patch | `physical_tip_left.nFaces` | `12800` | `7104` | `False` |
+| patch | `physical_tip_left.area_m2` | `124.13279721269896` | `124.12849176641718` | `True` |
+| patch | `physical_tip_right.type` | `wall` | `wall` | `True` |
+| patch | `physical_tip_right.nFaces` | `12800` | `7104` | `False` |
+| patch | `physical_tip_right.area_m2` | `124.13279721269896` | `124.12849176641718` | `True` |
+| patch | `te_wall.type` | `wall` | `wall` | `True` |
+| patch | `te_wall.nFaces` | `1248` | `752` | `False` |
+| patch | `te_wall.area_m2` | `0.01590426456517972` | `0.024103430735054925` | `False` |
+| dictionary | `nu` | `1.4607e-05` | `1.4607e-05` | `True` |
+| dictionary | `simulationType` | `RAS` | `RAS` | `True` |
+| dictionary | `RASModel` | `SpalartAllmaras` | `SpalartAllmaras` | `True` |
+| dictionary | `U_freestreamValue` | `uniform (6.49996792 0 0.0204203187)` | `uniform (6.49997 0 0.0204203)` | `True` |
+| dictionary | `U_inletValue` | `uniform (6.49996792 0 0.0204203187)` | `uniform (6.49997 0 0.0204203)` | `True` |
+| dictionary | `startFrom` | `latestTime` | `startTime` | `False` |
+| dictionary | `endTime` | `500` | `160` | `False` |
+| dictionary | `writeInterval` | `100` | `100` | `True` |
+| force | `primary.patches` | `airfoil_upper airfoil_lower` | `airfoil_upper airfoil_lower` | `True` |
+| force | `primary.rhoInf` | `1.225` | `1.225` | `True` |
+| force | `primary.Aref` | `3.342006e+01` | `3.342006e+01` | `True` |
+| force | `primary.lRef` | `1.003722e+00` | `1.003722e+00` | `True` |
+| force | `primary.magUInf` | `6.500000e+00` | `6.500000e+00` | `True` |
+| force | `primary.dragDir` | `(9.999951e-01 0.000000e+00 3.141587e-03)` | `(9.999951e-01 0.000000e+00 3.141587e-03)` | `True` |
+| force | `primary.liftDir` | `(-3.141587e-03 0.000000e+00 9.999951e-01)` | `(-3.141587e-03 0.000000e+00 9.999951e-01)` | `True` |
+| force | `primary.last_Cd` | `0.03276165` | `0.06088113` | `False` |
+| force | `primary.last_Cl` | `1.133291` | `0.8584368` | `False` |
+| force | `total.patches` | `airfoil_upper airfoil_lower physical_tip_left physical_tip_right te_wall` | `airfoil_upper airfoil_lower physical_tip_left physical_tip_right te_wall` | `True` |
+| force | `total.rhoInf` | `1.225` | `1.225` | `True` |
+| force | `total.Aref` | `3.342006e+01` | `3.342006e+01` | `True` |
+| force | `total.lRef` | `1.003722e+00` | `1.003722e+00` | `True` |
+| force | `total.magUInf` | `6.500000e+00` | `6.500000e+00` | `True` |
+| force | `total.dragDir` | `(9.999951e-01 0.000000e+00 3.141587e-03)` | `(9.999951e-01 0.000000e+00 3.141587e-03)` | `True` |
+| force | `total.liftDir` | `(-3.141587e-03 0.000000e+00 9.999951e-01)` | `(-3.141587e-03 0.000000e+00 9.999951e-01)` | `True` |
+| force | `total.last_Cd` | `0.05708291` | `0.0857322` | `False` |
+| force | `total.last_Cl` | `1.133303` | `0.858418` | `False` |
+| force | `total_physical.patches` | `None` | `airfoil_upper airfoil_lower te_wall` | `False` |
+| force | `total_physical.rhoInf` | `None` | `1.225` | `False` |
+| force | `total_physical.Aref` | `None` | `3.342006e+01` | `False` |
+| force | `total_physical.lRef` | `None` | `1.003722e+00` | `False` |
+| force | `total_physical.magUInf` | `None` | `6.500000e+00` | `False` |
+| force | `total_physical.dragDir` | `None` | `(9.999951e-01 0.000000e+00 3.141587e-03)` | `False` |
+| force | `total_physical.liftDir` | `None` | `(-3.141587e-03 0.000000e+00 9.999951e-01)` | `False` |
+| force | `total_physical.last_Cd` | `None` | `0.06110341` | `False` |
+| force | `total_physical.last_Cl` | `None` | `0.858412` | `False` |
+| force | `te_wall.patches` | `te_wall` | `te_wall` | `True` |
+| force | `te_wall.rhoInf` | `1.225` | `1.225` | `True` |
+| force | `te_wall.Aref` | `3.342006e+01` | `3.342006e+01` | `True` |
+| force | `te_wall.lRef` | `1.003722e+00` | `1.003722e+00` | `True` |
+| force | `te_wall.magUInf` | `6.500000e+00` | `6.500000e+00` | `True` |
+| force | `te_wall.dragDir` | `(9.999951e-01 0.000000e+00 3.141587e-03)` | `(9.999951e-01 0.000000e+00 3.141587e-03)` | `True` |
+| force | `te_wall.liftDir` | `(-3.141587e-03 0.000000e+00 9.999951e-01)` | `(-3.141587e-03 0.000000e+00 9.999951e-01)` | `True` |
+| force | `te_wall.last_Cd` | `1.52565e-05` | `0.0002222788` | `False` |
+| force | `te_wall.last_Cl` | `-1.760856e-06` | `-2.478703e-05` | `True` |
