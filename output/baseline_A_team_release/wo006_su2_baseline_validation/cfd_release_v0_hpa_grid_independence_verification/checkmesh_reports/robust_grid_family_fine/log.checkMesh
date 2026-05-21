@@ -1,0 +1,130 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : checkMesh -meshQuality
+Date   : May 21 2026
+Time   : 10:40:24
+Host   : linyuandeMac-mini.local
+PID    : 96090
+I/O    : uncollated
+Case   : /tmp/hpa_mdo_true_baseline_openfoam/fullwing_artificial_tip_symmetry
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Check mesh...
+    Enabling user-defined geometry checks.
+
+Time = 0
+
+Mesh stats
+    points:           3774924
+    faces:            11192280
+    internal faces:   11060520
+    cells:            3708800
+    faces per cell:   6
+    boundary patches: 7
+    point zones:      0
+    face zones:       0
+    cell zones:       0
+
+Overall number of cells of each type:
+    hexahedra:     3708800
+    prisms:        0
+    wedges:        0
+    pyramids:      0
+    tet wedges:    0
+    tetrahedra:    0
+    polyhedra:     0
+
+Checking topology...
+    Boundary definition OK.
+    Cell to face addressing OK.
+    Point usage OK.
+    Upper triangular ordering OK.
+    Face vertices OK.
+    Number of regions: 1 (OK).
+
+Checking patch topology for multiply connected surfaces...
+    Patch               Faces    Points     Surface topology
+    airfoil_upper       22800    23111    ok (non-closed singly connected)
+    airfoil_lower       22800    23111    ok (non-closed singly connected)
+    te_wall             760      955      ok (non-closed singly connected)
+    outlet              760      955      ok (non-closed singly connected)
+    farfield            45600    46031    ok (non-closed singly connected)
+    physical_tip_right  19520    19764    ok (non-closed singly connected)
+    physical_tip_left   19520    19764    ok (non-closed singly connected)
+    ".*"                131760   131760   ok (closed singly connected)
+
+
+Checking faceZone topology for multiply connected surfaces...
+    No faceZones found.
+
+Checking basic cellZone addressing...
+    No cellZones found.
+
+Checking basic pointZone addressing...
+    No pointZones found.
+
+Checking geometry...
+    Overall domain bounding box (-12.5355 -17.1661 -13.617) (12.5275 17.1661 11.6208)
+    Mesh has 3 geometric (non-empty/wedge) directions (1 1 1)
+    Mesh has 3 solution (non-empty) directions (1 1 1)
+    Boundary openness (-3.37483e-16 -1.34379e-16 9.36994e-17) OK.
+    Max cell openness = 4.98214e-14 OK.
+    Max aspect ratio = 740.878 OK.
+    Minimum face area = 5.79581e-09. Maximum face area = 8.24189.  Face area magnitudes OK.
+    Min volume = 7.77078e-10. Max volume = 1.90828.  Total volume = 10008.7.  Cell volumes OK.
+    Mesh non-orthogonality Max: 87.516 average: 25.5065
+   *Number of severely non-orthogonal (> 70 degrees) faces: 120076.
+    Non-orthogonality check OK.
+  <<Writing 120076 non-orthogonal faces to set nonOrthoFaces
+    Face pyramids OK.
+    Max skewness = 3.46221 OK.
+    Coupled point location match (average 0) OK.
+Checking faces in error :
+    non-orthogonality > 90  degrees                        : 0
+    faces with face pyramid volume < 1e-18                 : 0
+    faces with concavity > 80  degrees                     : 0
+    faces with skewness > 4   (internal) or 20  (boundary) : 0
+    faces with interpolation weights (0..1)  < 0.02        : 0
+    faces with volume ratio of neighbour cells < 0.01      : 0
+    faces with face twist < 0.02                           : 10
+    faces on cells with determinant < 0.001                : 2266249
+  <<Writing 2266259 faces in error to set meshQualityFaces
+
+Failed 1 mesh checks.
+
+End
+
+       12.14 real        10.61 user         0.75 sys
+          2674720768  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              222203  page reclaims
+                1792  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  13  voluntary context switches
+                4405  involuntary context switches
+        232146187252  instructions retired
+         42804796156  cycles elapsed
+          2653997624  peak memory footprint

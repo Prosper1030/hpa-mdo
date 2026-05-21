@@ -49,12 +49,11 @@ def test_refinement_zone_table_covers_hpa_specific_physics() -> None:
 
     assert zone_ids == [
         "leading_edge",
-        "upper_lower_wall_bl",
+        "boundary_layer",
         "trailing_edge",
         "near_wake",
         "downstream_wake",
-        "wing_tip_tip_vortex",
-        "possible_low_re_separation_region",
+        "wing_tip_vortex_region",
         "farfield",
     ]
     assert rows[1]["growth_rate_target"] == "<=1.20"
@@ -161,9 +160,10 @@ def test_workflow_writes_phase_reports_without_returning_to_old_basis(tmp_path: 
     assert "`airfoil_lower` y+ mean" in audit
 
     generator_report = (tmp_path / "mesh_generator_fix_report.md").read_text(encoding="utf-8")
-    assert "Verdict: `open_cell_blocker_repaired_but_fine_checkmesh_still_blocked`" in generator_report
-    assert "wrong-oriented face pyramids: `100`" in generator_report
-    assert "proper finite-TE H-block or sleeve" in generator_report
+    assert "Verdict: `lower_te_blocker_removed_but_family_gate_not_passed`" in generator_report
+    assert "wrong-oriented face pyramids: `0`" in generator_report
+    assert "strict checkMesh clean: `False`" in generator_report
+    assert "family-level checkMesh gating" in generator_report
 
     final = (tmp_path / "final_hpa_grid_independence_verdict.md").read_text(encoding="utf-8")
     assert "latest route-smoke is successful" in final

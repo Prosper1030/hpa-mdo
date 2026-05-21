@@ -26,8 +26,8 @@ Engineering boundary: the full-wing mirror route-smoke is a valid starting
 point and has acceptable y+ on the upper/lower airfoil walls (`mean=0.568`,
 `p95=1.09`, `max=2.66`), but it is **not** grid-independent and not a final
 tip-vortex/transition truth. Next OpenFOAM work must build one HPA-specific
-same-family Coarse/Medium/Fine mesh strategy with documented LE, BL, TE, wake,
-tip-vortex, possible low-Re separation, and farfield refinement. Do not claim
+same-family Coarse/Medium/Fine mesh strategy with documented LE, TE, BL,
+near-wake, downstream-wake, tip-vortex, and farfield refinement. Do not claim
 `CD≈0.0315`, run AoA/CL sweeps, or update design power until all grids pass
 checkMesh, force stability, y+, Cp, Cf, wake, and tip-vortex comparisons.
 
@@ -41,6 +41,8 @@ wrong-oriented face pyramids remain at the lower-TE body/wake interface and
 strict meshQuality still fails `2` checks. Next mesh work should build a proper
 finite-TE H-block/sleeve/interface topology; do not send agents back to the old
 open-cell root cause, and do not run the final C/M/F solver family yet.
+This paragraph is historical after the 2026-05-21 lower-TE generator repair
+below; the `100` wrong-oriented-face count is no longer the active blocker.
 
 **2026-05-21 Fine lower-TE generator repair status:** The lower-TE
 body/wake wrong-oriented face-pyramid blocker is now repaired at generator
@@ -53,6 +55,28 @@ The Fine solver then trips the force-runaway guard at pseudo-time `1`
 (`CD_primary=3.950888`, `CL_primary=7.796553` invalid first row), so
 Medium→Fine convergence remains blocked. Do not update design power and do not
 claim `CD≈0.0315` as grid-independent.
+
+**2026-05-21 robust C/M/F mesh-family gate:** The WO-006 OpenFOAM grid workflow
+now has an explicit family generator contract in
+`scripts/run_wo006_true_baseline_openfoam_grid_convergence.py` and evidence at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/robust_grid_family_checkmesh/`.
+The generator exports the same seven local refinement regions on all rungs
+(`leading_edge`, `trailing_edge`, `boundary_layer`, `near_wake`,
+`downstream_wake`, `wing_tip_vortex_region`, `farfield`) and the same
+quality-gate contract. The mesh-only same-family run produced coarse `866688`,
+medium `1996800`, and fine `3708800` full-wing cells. All three rungs have
+open cells `0`, negative volumes `0`, wrong-oriented face pyramids `0`, and
+face-pyramid-volume failures `0`; maxNonOrtho/maxSkew are
+coarse `87.3826/3.44697`, medium `89.193/3.45663`, and fine `87.516/3.46221`.
+
+Outcome: the family gate correctly blocks solver launch because none of the
+three rungs is strict `checkMesh -meshQuality` clean. Coarse fails `1`
+meshQuality check from determinant flags, medium fails `2` checks from
+determinant plus face-twist flags, and fine fails `1` check from determinant /
+face-twist flags. No new `simpleFoam`, y+, Cp, Cf, wake, or tip-vortex
+comparison is allowed from this family yet. The active blocker is no longer the
+old open-cell or `100` wrong-oriented-face defect; it is strict C/M/F
+meshQuality robustness and then stable force-history/Cp-Cf-wake-tip validation.
 
 **2026-05-19 true Baseline OpenFOAM grid-convergence study:** New bounded artifact
 at `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_true_baseline_grid_convergence/`.

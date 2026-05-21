@@ -1,16 +1,19 @@
 # Mesh Generator Fix Report
 
-Verdict: `open_cell_blocker_repaired_but_fine_checkmesh_still_blocked`
+Verdict: `lower_te_blocker_removed_but_family_gate_not_passed`
 
-The high-resolution TE/open-cell failure is no longer the active blocker.
-The swept C-grid generator now exports an OpenFOAM-style cell-openness gate
-and uses the repaired high-resolution TE stencil before writing polyMesh.
-This still is not a completed grid-family generator because Fine does not
-pass strict `checkMesh -meshQuality` yet.
+The high-resolution TE/open-cell failure and the later lower-TE wrong-oriented
+face-pyramid blocker are no longer the active blockers. The current swept
+C-grid generator fixes the lower-TE body/wake sliver at source by a local
+radial wall-layer rebalance; no polyMesh surgery is used.
+
+This still is not a completed grid-family generator. The Fine mesh is not
+strict-clean because inherited determinant/twist `meshQuality` warnings remain,
+and its solver smoke tripped the force-runaway guard at pseudo-time 1.
 
 ## Latest Fine Generator Smoke
 
-- smoke case: `fine_te_fix_blend1_wake4_smoke`
+- smoke case: `fine_te_radial_chord_shift_run`
 - full-wing cells: `3708800`
 - half-wing seed cells: `1854400`
 - n_perim / n_radial / span cells: `240` / `80` / `95`
@@ -20,28 +23,30 @@ pass strict `checkMesh -meshQuality` yet.
 - open cells: `0`
 - negative volume cells: `0`
 - max cell openness: `4.98214e-14`
-- min volume: `4.18548e-10 m^3`
-- max non-orthogonality: `88.4382 deg`
+- min volume: `7.77078e-10 m^3`
+- max non-orthogonality: `87.516 deg`
 - max skew: `3.46221`
-- wrong-oriented face pyramids: `100`
-- failed checks: `2`
-- remaining blocker: `lower_te_body_wake_interface_face_pyramids_and_meshQuality_determinant`
+- wrong-oriented face pyramids: `0`
+- failed checks: `1`
+- strict checkMesh clean: `False`
+- solver status: `runaway_guard_triggered_at_pseudo_time_1`
+- remaining blocker: `strict C/M/F family gate not passed; Fine has inherited determinant/twist warning and no stable force window`
 
-Engineering read: the previous 3.77M open-cell/stencil failure has been
-materially reduced to a localized lower-TE finite-gap interface problem.
-Do not send future agents back to the old open-cell root cause as if it were
-unfixed; the next mesh task is a TE H-block/sleeve/interface topology fix.
+Engineering read: do not send future agents back to the old open-cell or
+100 wrong-oriented-face diagnosis as if it were still current. The active
+task is a robust same-family Coarse/Medium/Fine generator with strict
+family-level checkMesh gating before solver launch.
 
 ## Previous Grid Gate Evidence
 
 - grid-gate status: `grid_independence_not_demonstrated`
-- blocking items: `['coarse:solver_not_completed', 'medium:solver_not_completed', 'fine:checkMesh_not_solver_smoke_acceptable', 'fine:solver_not_completed']`
-- rung cell counts: `{'coarse': 890112, 'medium': 1996800, 'fine': 3769600}`
-- max CD change observed before failure: `50.73972140084425%`
+- blocking items: `['coarse:strict_checkMesh_not_clean', 'coarse:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'coarse:solver_not_completed', 'medium:strict_checkMesh_not_clean', 'medium:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'medium:solver_not_completed', 'fine:strict_checkMesh_not_clean', 'fine:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'fine:solver_not_completed', 'coarse:family_solver_gate_blocked', 'medium:family_solver_gate_blocked', 'fine:family_solver_gate_blocked']`
+- rung cell counts: `{'coarse': 866688, 'medium': 1996800, 'fine': 3708800}`
+- max CD change observed before failure: `None%`
 
 ## Required Generator Fixes
 
-- Replace the lower-TE body/wake interface with a proper finite-TE H-block or sleeve so Fine has zero wrong-oriented face pyramids.
+- Preserve the lower-TE generator-level rebalance and keep wrong-oriented face pyramids at zero across Coarse/Medium/Fine.
 - Preserve one topology family across Coarse/Medium/Fine; do not use 2.00M and 2.22M as the final family.
 - Export explicit LE spacing, TE spacing, BL layer count, BL total thickness, and wall-normal growth metadata.
 - Add wake refinement controls for near wake and downstream wake sampling planes.
@@ -51,6 +56,7 @@ unfixed; the next mesh task is a TE H-block/sleeve/interface topology fix.
 
 ## Stop Rule
 
-If Fine still fails checkMesh, produces open cells, or cannot run to a stable
-force window, grid independence remains not demonstrated and design power
-must not be updated.
+If any rung is not strict `checkMesh -meshQuality` clean, produces open cells,
+negative volumes, or wrong-oriented face pyramids, the solver phase must not
+start. If any solver run cannot reach a stable force window, grid independence
+remains not demonstrated and design power must not be updated.

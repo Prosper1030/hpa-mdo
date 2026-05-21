@@ -24,6 +24,87 @@ def test_build_grid_ladder_specs_scales_structured_resolution_systematically() -
     assert [sum(spec.station_plan) for spec in specs] == [61, 78, 95]
 
 
+def test_grid_ladder_specs_define_same_hpa_local_refinement_regions() -> None:
+    specs = module.build_grid_ladder_specs()
+
+    region_ids_by_rung = [
+        tuple(region["region_id"] for region in spec.local_refinement_regions)
+        for spec in specs
+    ]
+
+    assert region_ids_by_rung[0] == region_ids_by_rung[1] == region_ids_by_rung[2]
+    assert set(region_ids_by_rung[0]) == {
+        "leading_edge",
+        "trailing_edge",
+        "boundary_layer",
+        "near_wake",
+        "downstream_wake",
+        "wing_tip_vortex_region",
+        "farfield",
+    }
+
+
+def test_local_refinement_regions_have_required_spacing_rules() -> None:
+    required_spacing_keys = {
+        "surface_spacing_m",
+        "first_layer_height_m",
+        "bl_growth_rate",
+        "bl_layer_count",
+        "wake_streamwise_spacing_m",
+        "tip_refinement_radius_m",
+        "farfield_distance_chords",
+    }
+
+    for spec in module.build_grid_ladder_specs():
+        for region in spec.local_refinement_regions:
+            assert required_spacing_keys <= set(region["spacing_rules"])
+            assert region["refinement_scale"] == spec.scale
+            assert region["scales_with"]
+
+
+def test_quality_gate_contract_includes_hpa_strict_mesh_guards() -> None:
+    contract = module.build_mesh_quality_gate_contract()
+
+    assert contract["run_solver_only_after_all_requested_rungs_pass_strict_checkmesh"] is True
+    assert set(contract["required_guards"]) >= {
+        "no_open_cells",
+        "no_negative_volumes",
+        "no_wrong_oriented_face_pyramids",
+        "no_te_sliver_faces",
+        "no_body_wake_nonplanar_sliver_interface",
+        "max_skew_threshold",
+        "max_non_orthogonality_threshold",
+        "yplus_target_support",
+    }
+    assert contract["max_skew"] <= 4.0
+    assert contract["max_non_orthogonality_deg"] <= 90.0
+    assert contract["yplus_target"]["mean_preferred_max"] < 1.0
+    assert contract["yplus_target"]["p95_preferred_max"] <= 2.0
+
+
+def test_solver_phase_is_blocked_until_all_requested_rungs_are_strict_checkmesh_clean() -> None:
+    gate = module.mesh_family_ready_for_solver(
+        [
+            {
+                "spec": {"case_id": "coarse"},
+                "checkMesh_acceptance": {"strict_checkMesh_clean": True},
+            },
+            {
+                "spec": {"case_id": "medium"},
+                "checkMesh_acceptance": {"strict_checkMesh_clean": True},
+            },
+            {
+                "spec": {"case_id": "fine"},
+                "checkMesh_acceptance": {"strict_checkMesh_clean": False},
+            },
+        ]
+    )
+
+    assert gate["ready_for_solver"] is False
+    assert gate["blocked_rungs"] == ["fine"]
+    assert "strict_checkMesh_clean" in gate["blocking_reasons"]["fine"]
+
+
 def test_build_force_groups_keeps_existing_diagnostics_and_adds_total_physical() -> None:
     groups = module.build_force_groups(
         (

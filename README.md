@@ -14,20 +14,23 @@ stop unless the user explicitly asks for a new sensitivity study.
 
 Engineering verdict: the latest OpenFOAM route-smoke is useful and wall-resolved
 on the upper/lower airfoil walls (`y+ mean=0.568`, `p95=1.09`, `max=2.66`), but
-grid independence is **not demonstrated**. The previous same-route ladder still
-has solver-runaway coarse/medium rungs and a fine-rung checkMesh/open-cell
-blocker. Do not trust `CD≈0.0315`, do not run an AoA sweep, and do not update
-design power until a same-family Coarse/Medium/Fine mesh passes checkMesh,
-stable forces, y+, Cp, Cf, wake, and tip-vortex comparisons.
+grid independence is **not demonstrated**. Do not trust `CD≈0.0315`, do not run
+an AoA sweep, and do not update design power until a same-family Coarse/Medium/Fine
+mesh passes strict checkMesh, stable forces, y+, Cp, Cf, wake, and tip-vortex
+comparisons.
 
-Update: the latest Fine generator smoke
-`fine_te_fix_blend1_wake4_smoke` repairs the old open-cell failure
-(`3,708,800` full-wing cells, max cell openness `4.98214e-14`, open cells `0`,
-negative volumes `0`, maxNonOrtho `88.4382`, maxSkew `3.46221`). It is still
-blocked by `100` wrong-oriented face pyramids at the lower-TE body/wake
-interface and `2` failed strict meshQuality checks. Next action is a finite-TE
-H-block/sleeve topology fix, not another restart from the old 3.77M open-cell
-diagnosis and not a power update.
+Update: the latest generator state has moved past the old Fine open-cell failure
+and the later `100` wrong-oriented lower-TE face-pyramid failure. The current
+family-gated artifact is
+`cfd_release_v0_hpa_grid_independence_verification/robust_grid_family_checkmesh/`.
+It generates the same-family coarse / medium / fine meshes at `866688`,
+`1996800`, and `3708800` full-wing cells with open cells `0`, negative volumes
+`0`, wrong-oriented face pyramids `0`, and face-pyramid-volume failures `0`.
+However, all three rungs fail strict `checkMesh -meshQuality` because of
+inherited determinant/twist meshQuality flags, so the workflow correctly blocks
+all `simpleFoam` runs. The active blocker is strict C/M/F meshQuality robustness
+and then stable force/Cp/Cf/wake/tip comparison, not another restart from the old
+3.77M open-cell or wrong-oriented-face diagnosis.
 
 ## 2026-05-19 WO-006 True Baseline OpenFOAM Grid Convergence
 

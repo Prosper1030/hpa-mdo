@@ -31,8 +31,9 @@ It is not a final grid-independent family.
 ## Grid-Family Gate
 
 - current grid-gate status: `grid_independence_not_demonstrated`
-- blockers: `['coarse:solver_not_completed', 'medium:solver_not_completed', 'fine:checkMesh_not_solver_smoke_acceptable', 'fine:solver_not_completed']`
-- max CD change seen so far: `50.73972140084425%`
+- blockers: `['coarse:strict_checkMesh_not_clean', 'coarse:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'coarse:solver_not_completed', 'medium:strict_checkMesh_not_clean', 'medium:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'medium:solver_not_completed', 'fine:strict_checkMesh_not_clean', 'fine:solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean', 'fine:solver_not_completed', 'coarse:family_solver_gate_blocked', 'medium:family_solver_gate_blocked', 'fine:family_solver_gate_blocked']`
+- max CD change seen so far: `None%`
 
-The previous systematic ladder is useful because it proved the route still
-breaks under refinement. It cannot be treated as a passed grid study.
+The new mesh-only systematic ladder is useful because it proves the hard
+topology blockers are gone across Coarse/Medium/Fine, while also proving the
+family is not strict-clean. It cannot be treated as a passed grid study.

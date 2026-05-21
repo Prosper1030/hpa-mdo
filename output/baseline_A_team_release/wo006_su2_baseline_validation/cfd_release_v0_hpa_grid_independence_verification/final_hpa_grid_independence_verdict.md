@@ -1,69 +1,21 @@
 # Final HPA Grid-Independence Verdict
 
-Verdict: `lower_te_generator_blocker_fixed_but_grid_independence_not_demonstrated`
+Verdict: `grid_independence_not_demonstrated_yet`
 
-The lower-TE sliver was fixed at the generator level well enough to remove the
-Fine mesh's wrong-oriented face-pyramid blocker. The Fine solver still did not
-complete a stable force window, so CD is not grid-independent and design power
-must not be updated.
+The latest route-smoke is successful, but grid independence is not demonstrated.
 
 ## Required Answers
 
-1. Was the lower-TE sliver fixed at generator level?
-
-   Yes for the localized wrong-oriented face-pyramid blocker. The fix lives in
-   `section_cgrid.py` / `swept_cgrid.py`; no polyMesh surgery was used.
-   Regression evidence: `4 passed in 411.49s` for
-   `tests/test_wo006_lower_te_sliver_regression.py`.
-
-2. Did Fine strict checkMesh pass?
-
-   The hard lower-TE blockers passed: open cells `0`, negative volumes `0`,
-   wrong-oriented face pyramids `0`, and OpenFOAM reported `Face pyramids OK`.
-   `checkMesh -meshQuality` returned `0`, but still wrote `Failed 1 mesh checks`
-   for inherited determinant/twist `meshQualityFaces` (`10` twist faces,
-   `2,266,249` low-determinant faces). Treat this as solver-smoke acceptable,
-   not a clean final validation mesh.
-
-3. Did Fine solver run?
-
-   It was attempted after the checkMesh gate, but it did not complete. The cold
-   `simpleFoam` run tripped the existing force-runaway guard at pseudo-time `1`.
-
-4. What are Medium and Fine CD/CL?
-
-   Medium/reference route-smoke: `CD_primary=0.03276165`,
-   `CL_primary=1.133291`, `CD_total=0.05708291`.
-
-   Fine has no qualified stable CD/CL. Its invalid first row was
-   `CD_primary=3.950888`, `CL_primary=7.796553`,
-   `CD_total_physical=3.954488`, `CL_total_physical=7.796247`.
-
-5. Is CD grid-independent?
-
-   No. Medium->Fine convergence cannot be evaluated because the Fine solver did
-   not produce a stable force window.
-
-6. Can `CD~0.0315` be trusted?
-
-   No, not as design-power truth. It remains route-smoke-scale evidence only
-   until a same-family solver-complete Coarse/Medium/Fine ladder meets the CD,
-   CL, y+, Cp/Cf, wake, and tip-vortex checks.
-
-7. Can design power be updated, or is CFD still not qualified?
-
-   Do not update design power. CFD is still not qualified.
-
-## Current Blocker
-
-The active blocker has moved:
-
-```text
-old blocker: Fine lower-TE body/wake wrong-oriented face pyramids
-new blocker: Fine solver stability / initialization / numerical robustness after TE-fixed mesh generation
-```
-
-The engineering interpretation is important: passing the TE face-pyramid gate
-only proves the generator no longer emits that localized invalid interface. It
-does not prove aerodynamic convergence, physical pressure recovery, or
-manufacturing/design readiness.
+1. Operating conditions: current CFD basis is `recent_successful_openfoam_fullwing_mirror` with `rho=1.225`, `V=6.5`.
+2. y+ acceptable on latest successful route: yes on upper/lower real airfoil walls (`mean=0.5678595352296987`, `p95=1.0904245`, `max=2.65697`), but not a final all-wall/tip-vortex sign-off.
+3. BL layer count/growth: growth is acceptable by generator default, but explicit layer count and total thickness must be documented before final sign-off.
+4. LE / TE / wake / tip refinement: TE open-cell and wrong-oriented-face blockers are repaired in `fine_te_radial_chord_shift_run`, but wake/tip diagnostics are not yet compared across a passed C/M/F family.
+5. Same mesh strategy: not yet proven by a strict-clean Coarse/Medium/Fine run.
+6. checkMesh: latest route-smoke passes solver-smoke gate; repaired Fine has no open/negative/wrong-oriented cells but still fails `1` strict meshQuality check.
+7. force histories: latest route-smoke stable; repaired Fine solver status is `runaway_guard_triggered_at_pseudo_time_1`.
+8. CL/CD/Cm grid independence: not demonstrated.
+9. Cp/Cf stability: not yet compared.
+10. Wake/tip vortex stability: not yet compared.
+11. Can CD around 0.0315 be trusted: no, not for design power.
+12. Can design power be updated from 174W: no. Do not update design power.
+13. Exact blocker: `strict C/M/F family gate not passed; Fine has inherited determinant/twist warning and no stable force window`; the new C/M/F checkMesh reports show strict-clean failure on all three rungs, so stable force histories and Cp/Cf/wake/tip comparisons are intentionally not run yet.

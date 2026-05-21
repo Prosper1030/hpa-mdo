@@ -46,6 +46,27 @@ BASE_N_RADIAL = 64
 FIRST_LAYER_HEIGHT_M = 5.0e-5
 FARFIELD_CHORDS = 10.0
 WAKE_LENGTH_CHORDS = 8.0
+NEAR_WALL_GROWTH = 1.12
+WAKE_CROSS_CELLS = 4
+
+LOCAL_REFINEMENT_REGION_IDS: tuple[str, ...] = (
+    "leading_edge",
+    "trailing_edge",
+    "boundary_layer",
+    "near_wake",
+    "downstream_wake",
+    "wing_tip_vortex_region",
+    "farfield",
+)
+LOCAL_REFINEMENT_SPACING_KEYS: tuple[str, ...] = (
+    "surface_spacing_m",
+    "first_layer_height_m",
+    "bl_growth_rate",
+    "bl_layer_count",
+    "wake_streamwise_spacing_m",
+    "tip_refinement_radius_m",
+    "farfield_distance_chords",
+)
 
 
 @dataclass(frozen=True)
@@ -55,6 +76,8 @@ class GridLadderSpec:
     n_perim: int
     n_radial: int
     station_plan: tuple[int, ...]
+    local_refinement_regions: tuple[dict[str, Any], ...]
+    quality_gate_contract: dict[str, Any]
 
     @property
     def span_cells(self) -> int:
@@ -75,6 +98,11 @@ def main() -> None:
     parser.add_argument("--timeout-seconds", type=float, default=5400.0)
     parser.add_argument("--first-iterations", type=int, default=200)
     parser.add_argument("--final-iterations", type=int, default=500)
+    parser.add_argument(
+        "--mesh-only",
+        action="store_true",
+        help="Generate/check all requested rungs and stop before solver even if the family gate passes.",
+    )
     args = parser.parse_args()
 
     manifest = run_grid_convergence(
@@ -86,23 +114,186 @@ def main() -> None:
         timeout_seconds=args.timeout_seconds,
         first_iterations=args.first_iterations,
         final_iterations=args.final_iterations,
+        mesh_only=args.mesh_only,
     )
     print(json.dumps(manifest["verdict"], indent=2, sort_keys=True))
 
 
 def build_grid_ladder_specs() -> tuple[GridLadderSpec, ...]:
     specs: list[GridLadderSpec] = []
+    quality_gate_contract = build_mesh_quality_gate_contract()
     for case_id, scale in GRID_SCALES:
+        n_perim = _even_round(BASE_N_PERIM * scale)
+        n_radial = max(8, int(round(BASE_N_RADIAL * scale)))
+        station_plan = scale_station_plan(BASE_HALF_WING_STATION_PLAN, scale)
         specs.append(
             GridLadderSpec(
                 case_id=case_id,
                 scale=scale,
-                n_perim=_even_round(BASE_N_PERIM * scale),
-                n_radial=max(8, int(round(BASE_N_RADIAL * scale))),
-                station_plan=scale_station_plan(BASE_HALF_WING_STATION_PLAN, scale),
+                n_perim=n_perim,
+                n_radial=n_radial,
+                station_plan=station_plan,
+                local_refinement_regions=build_local_refinement_regions(
+                    scale=scale,
+                    n_perim=n_perim,
+                    n_radial=n_radial,
+                    span_cells=sum(station_plan),
+                ),
+                quality_gate_contract=quality_gate_contract,
             )
         )
     return tuple(specs)
+
+
+def build_local_refinement_regions(
+    *,
+    scale: float,
+    n_perim: int,
+    n_radial: int,
+    span_cells: int,
+) -> tuple[dict[str, Any], ...]:
+    chord = base.REF_LENGTH_M
+    surface_spacing = chord / n_perim
+    wake_spacing = WAKE_LENGTH_CHORDS * chord / n_radial
+    span_spacing = base.AUTHORITY_HALF_SPAN_M / max(span_cells, 1)
+    bl_layer_count = max(1, min(n_radial // 2, 40))
+    first_layer = FIRST_LAYER_HEIGHT_M
+
+    def rules(
+        *,
+        local_surface_factor: float | None = None,
+        first_layer_height_m: float | None = None,
+        bl_growth_rate: float | None = None,
+        bl_layers: int | None = None,
+        wake_factor: float | None = None,
+        tip_radius_factor: float | None = None,
+        farfield_chords: float | None = None,
+    ) -> dict[str, float | int | None]:
+        payload: dict[str, float | int | None] = {
+            "surface_spacing_m": None if local_surface_factor is None else surface_spacing * local_surface_factor,
+            "first_layer_height_m": first_layer_height_m,
+            "bl_growth_rate": bl_growth_rate,
+            "bl_layer_count": bl_layers,
+            "wake_streamwise_spacing_m": None if wake_factor is None else wake_spacing * wake_factor,
+            "tip_refinement_radius_m": None if tip_radius_factor is None else chord * tip_radius_factor,
+            "farfield_distance_chords": farfield_chords,
+        }
+        return {key: payload[key] for key in LOCAL_REFINEMENT_SPACING_KEYS}
+
+    region_payloads = {
+        "leading_edge": {
+            "spacing_rules": rules(local_surface_factor=0.5),
+            "scales_with": "airfoil cosine-resampled perimeter count; finer rungs reduce LE spacing with n_perim",
+            "implementation": "open-TE C-grid perimeter distribution",
+        },
+        "trailing_edge": {
+            "spacing_rules": rules(
+                local_surface_factor=0.5,
+                first_layer_height_m=first_layer,
+                bl_growth_rate=NEAR_WALL_GROWTH,
+                bl_layers=min(6, bl_layer_count),
+                wake_factor=0.25,
+            ),
+            "scales_with": "same finite-TE C-grid stencil and wake-cross topology on every rung",
+            "implementation": "generator-level TE wall plus lower-TE radial rebalance guard",
+        },
+        "boundary_layer": {
+            "spacing_rules": rules(
+                local_surface_factor=1.0,
+                first_layer_height_m=first_layer,
+                bl_growth_rate=NEAR_WALL_GROWTH,
+                bl_layers=bl_layer_count,
+            ),
+            "scales_with": "same first-cell height; radial layer count scales with n_radial",
+            "implementation": "wall-normal near-wall stack in section_cgrid",
+        },
+        "near_wake": {
+            "spacing_rules": rules(wake_factor=0.5, first_layer_height_m=first_layer),
+            "scales_with": "wake streamwise spacing scales with n_radial; wake cross cells remain fixed",
+            "implementation": "internal C-grid wake block adjacent to finite TE",
+        },
+        "downstream_wake": {
+            "spacing_rules": rules(wake_factor=1.0),
+            "scales_with": "wake length remains 8 chords; downstream streamwise cells scale with n_radial",
+            "implementation": "same downstream C-grid wake extension on every rung",
+        },
+        "wing_tip_vortex_region": {
+            "spacing_rules": rules(local_surface_factor=1.0, tip_radius_factor=max(0.10, 1.5 * span_spacing / chord)),
+            "scales_with": "spanwise station plan scales from the same bay subdivision logic",
+            "implementation": "same swept-station tip cap topology; physical vortex refinement remains a required diagnostic zone",
+        },
+        "farfield": {
+            "spacing_rules": rules(farfield_chords=FARFIELD_CHORDS),
+            "scales_with": "farfield distance stays fixed at 10 chords so grid effects are not hidden by domain changes",
+            "implementation": "outer C-grid boundary",
+        },
+    }
+    return tuple(
+        {
+            "region_id": region_id,
+            "refinement_scale": scale,
+            "spacing_rules": region_payloads[region_id]["spacing_rules"],
+            "scales_with": region_payloads[region_id]["scales_with"],
+            "implementation": region_payloads[region_id]["implementation"],
+        }
+        for region_id in LOCAL_REFINEMENT_REGION_IDS
+    )
+
+
+def build_mesh_quality_gate_contract() -> dict[str, Any]:
+    return {
+        "schema_version": "wo006_hpa_mesh_quality_gate_contract.v1",
+        "required_guards": [
+            "no_open_cells",
+            "no_negative_volumes",
+            "no_wrong_oriented_face_pyramids",
+            "no_te_sliver_faces",
+            "no_body_wake_nonplanar_sliver_interface",
+            "max_skew_threshold",
+            "max_non_orthogonality_threshold",
+            "yplus_target_support",
+        ],
+        "run_solver_only_after_all_requested_rungs_pass_strict_checkmesh": True,
+        "max_skew": 4.0,
+        "max_non_orthogonality_deg": 90.0,
+        "strict_checkmesh_requires_failed_checks": 0,
+        "te_sliver_min_pyramid_volume_m3": 1.0e-15,
+        "body_wake_min_face_planarity_ratio": 0.2,
+        "yplus_target": {
+            "mean_preferred_max": 0.99,
+            "p95_preferred_max": 2.0,
+            "max_should_not_widely_exceed": 5.0,
+            "wall_scope": ["airfoil_upper", "airfoil_lower", "te_wall"],
+        },
+    }
+
+
+def mesh_family_ready_for_solver(rungs: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    blocked: list[str] = []
+    reasons: dict[str, list[str]] = {}
+    for rung in rungs:
+        case_id = str(rung.get("spec", {}).get("case_id", "unknown"))
+        rung_reasons: list[str] = []
+        acceptance = rung.get("checkMesh_acceptance", {})
+        if acceptance.get("strict_checkMesh_clean") is not True:
+            rung_reasons.append("strict_checkMesh_clean")
+        commands = rung.get("commands", {})
+        checkmesh = commands.get("checkMesh") if isinstance(commands, Mapping) else None
+        if checkmesh is not None and checkmesh.get("returncode") != 0:
+            rung_reasons.append("checkMesh_returncode_nonzero_or_missing")
+        guard_status = rung.get("generator_quality_guards", {})
+        for guard, payload in guard_status.items() if isinstance(guard_status, Mapping) else []:
+            if isinstance(payload, Mapping) and payload.get("status") == "fail":
+                rung_reasons.append(f"{guard}=fail")
+        if rung_reasons:
+            blocked.append(case_id)
+            reasons[case_id] = rung_reasons
+    return {
+        "ready_for_solver": not blocked,
+        "blocked_rungs": blocked,
+        "blocking_reasons": reasons,
+        "policy": "solver is allowed only after every requested rung is strict checkMesh clean",
+    }
 
 
 def scale_station_plan(plan: Sequence[int], scale: float) -> tuple[int, ...]:
@@ -151,6 +342,7 @@ def run_grid_convergence(
     timeout_seconds: float,
     first_iterations: int,
     final_iterations: int,
+    mesh_only: bool = False,
 ) -> dict[str, Any]:
     start = time.monotonic()
     output_dir = output_dir.resolve()
@@ -163,7 +355,7 @@ def run_grid_convergence(
     if not specs:
         raise RuntimeError(f"no valid ladder levels requested: {requested_levels}")
 
-    rung_results = [
+    mesh_phase_results = [
         run_or_reuse_rung(
             output_dir=output_dir,
             spec=spec,
@@ -172,11 +364,46 @@ def run_grid_convergence(
             timeout_seconds=timeout_seconds,
             first_iterations=first_iterations,
             final_iterations=final_iterations,
+            allow_solver=False,
         )
         for spec in specs
     ]
+    family_gate = mesh_family_ready_for_solver(mesh_phase_results)
+    solver_phase = {
+        "attempted": False,
+        "reason": (
+            "blocked_by_family_strict_checkmesh_gate"
+            if not family_gate["ready_for_solver"]
+            else "mesh_only_requested"
+            if mesh_only
+            else "pending_solver_phase"
+        ),
+        "family_gate": family_gate,
+    }
+    rung_results = mesh_phase_results
+    if family_gate["ready_for_solver"] and not mesh_only:
+        solver_phase = {
+            "attempted": True,
+            "reason": "all_requested_rungs_strict_checkmesh_clean",
+            "family_gate": family_gate,
+        }
+        rung_results = [
+            run_or_reuse_rung(
+                output_dir=output_dir,
+                spec=spec,
+                openfoam_command=openfoam_command,
+                reuse_existing_rungs=reuse_existing_rungs,
+                timeout_seconds=timeout_seconds,
+                first_iterations=first_iterations,
+                final_iterations=final_iterations,
+                allow_solver=True,
+            )
+            for spec in specs
+        ]
+        family_gate = mesh_family_ready_for_solver(rung_results)
+        solver_phase["post_solver_family_gate"] = family_gate
     comparisons = build_pairwise_comparisons(rung_results)
-    verdict = build_verdict(rung_results, comparisons)
+    verdict = build_verdict(rung_results, comparisons, family_gate=family_gate)
 
     manifest = {
         "schema_version": "wo006_true_baseline_openfoam_grid_convergence.v1",
@@ -193,8 +420,13 @@ def run_grid_convergence(
             "force_group_contract": "preserve primary/total/individual diagnostics and add total_physical",
             "artificial_tip_treatment": "physical_tip_left/right set to symmetryPlane after mirrorMesh",
             "physical_drag_definition": "total_physical = primary + te_wall; artificial mirrored tip closures excluded",
+            "solver_gate": "OpenFOAM solver phase is blocked until every requested rung is strict checkMesh clean",
         },
         "ladder_specs": [serialize_spec(spec) for spec in specs],
+        "mesh_quality_gate_contract": build_mesh_quality_gate_contract(),
+        "mesh_phase_rungs": mesh_phase_results,
+        "mesh_family_solver_gate": family_gate,
+        "solver_phase": solver_phase,
         "rungs": rung_results,
         "pairwise_comparisons": comparisons,
         "verdict": verdict,
@@ -214,6 +446,7 @@ def run_rung(
     timeout_seconds: float,
     first_iterations: int,
     final_iterations: int,
+    allow_solver: bool,
 ) -> dict[str, Any]:
     rung_dir = output_dir / "openfoam_cases" / spec.case_id
     seed_case_dir = rung_dir / "halfwing_seed"
@@ -265,11 +498,17 @@ def run_rung(
         timeout_seconds=min(timeout_seconds, 1800.0),
     )
     checkmesh_acceptance = stability.fullwing_checkmesh_acceptance({"checkMesh": checkmesh})
+    generator_quality_guards = build_generator_quality_guard_status(checkmesh_acceptance)
     dry_run = None
     first_run = None
     final_run = None
     yplus_post = None
-    if checkmesh_acceptance["accepted_for_solver_smoke"]:
+    solver_block_reason = None
+    if not allow_solver:
+        solver_block_reason = "solver_deferred_until_all_requested_rungs_are_strict_checkmesh_clean"
+    elif not checkmesh_acceptance.get("strict_checkMesh_clean"):
+        solver_block_reason = "strict_checkMesh_clean_required_before_solver"
+    if allow_solver and checkmesh_acceptance.get("strict_checkMesh_clean"):
         dry_run = base.run_openfoam_command(
             fullwing_case_dir,
             openfoam_command=openfoam_command,
@@ -354,6 +593,12 @@ def run_rung(
             "postProcess_yPlus": yplus_post,
         },
         "checkMesh_acceptance": checkmesh_acceptance,
+        "generator_quality_guards": generator_quality_guards,
+        "solver_phase_policy": {
+            "allow_solver": allow_solver,
+            "solver_block_reason": solver_block_reason,
+            "strict_checkMesh_required": True,
+        },
         "coefficients": coefficients,
         "summary": summary,
         "pressure_viscous_split": force_split,
@@ -377,10 +622,11 @@ def run_or_reuse_rung(
     timeout_seconds: float,
     first_iterations: int,
     final_iterations: int,
+    allow_solver: bool,
 ) -> dict[str, Any]:
     if reuse_existing_rungs:
         existing = load_existing_rung_result(output_dir, spec.case_id)
-        if existing is not None:
+        if existing is not None and existing_rung_matches_solver_policy(existing, allow_solver=allow_solver):
             return existing
     return run_rung(
         output_dir=output_dir,
@@ -389,7 +635,72 @@ def run_or_reuse_rung(
         timeout_seconds=timeout_seconds,
         first_iterations=first_iterations,
         final_iterations=final_iterations,
+        allow_solver=allow_solver,
     )
+
+
+def existing_rung_matches_solver_policy(existing: Mapping[str, Any], *, allow_solver: bool) -> bool:
+    policy = existing.get("solver_phase_policy", {})
+    if isinstance(policy, Mapping) and policy.get("allow_solver") is allow_solver:
+        return True
+    commands = existing.get("commands", {})
+    if not isinstance(commands, Mapping):
+        return not allow_solver
+    has_solver_artifact = any(
+        commands.get(key)
+        for key in ("simpleFoam_dry_run", "simpleFoam_200", "simpleFoam_500", "postProcess_yPlus")
+    )
+    return has_solver_artifact if allow_solver else not has_solver_artifact
+
+
+def build_generator_quality_guard_status(checkmesh_acceptance: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    metrics = checkmesh_acceptance.get("metrics", {})
+    contract = build_mesh_quality_gate_contract()
+
+    def threshold_status(value: Any, threshold: float, *, higher_is_bad: bool = True) -> dict[str, Any]:
+        if value is None:
+            return {"status": "unknown", "value": None, "threshold": threshold}
+        numeric = float(value)
+        passed = numeric <= threshold if higher_is_bad else numeric >= threshold
+        return {"status": "pass" if passed else "fail", "value": numeric, "threshold": threshold}
+
+    strict_clean = checkmesh_acceptance.get("strict_checkMesh_clean") is True
+    accepted_for_smoke = checkmesh_acceptance.get("accepted_for_solver_smoke") is True
+    return {
+        "strict_meshquality_clean": {
+            "status": "pass" if strict_clean else "fail",
+            "source": "full checkMesh -meshQuality failed-check count",
+        },
+        "no_open_cells": {
+            "status": "pass" if accepted_for_smoke else "unknown",
+            "source": "OpenFOAM checkMesh text gate",
+        },
+        "no_negative_volumes": {
+            "status": "pass" if accepted_for_smoke else "unknown",
+            "source": "OpenFOAM checkMesh text gate",
+        },
+        "no_wrong_oriented_face_pyramids": {
+            "status": "pass" if accepted_for_smoke else "unknown",
+            "source": "Face pyramids OK text gate",
+        },
+        "no_te_sliver_faces": {
+            "status": "pass" if accepted_for_smoke else "unknown",
+            "source": "lower-TE regression contract plus Face pyramids OK text gate",
+        },
+        "no_body_wake_nonplanar_sliver_interface": {
+            "status": "pass" if accepted_for_smoke else "unknown",
+            "source": "body/wake TE sliver regression contract plus Face pyramids OK text gate",
+        },
+        "max_skew_threshold": threshold_status(metrics.get("maxSkew"), float(contract["max_skew"])),
+        "max_non_orthogonality_threshold": threshold_status(
+            metrics.get("maxNonOrtho"),
+            float(contract["max_non_orthogonality_deg"]),
+        ),
+        "yplus_target_support": {
+            "status": "not_evaluated_pre_solver",
+            "target": contract["yplus_target"],
+        },
+    }
 
 
 def build_seed_case(
@@ -416,6 +727,8 @@ def build_seed_case(
         farfield_chords=FARFIELD_CHORDS,
         wake_length_chords=WAKE_LENGTH_CHORDS,
         case_id=f"{spec.case_id}_halfwing_seed",
+        near_wall_growth=NEAR_WALL_GROWTH,
+        wake_cross_cells=WAKE_CROSS_CELLS,
     )
     quality = mesh_quality_summary(mesh)
     write_openfoam_case(
@@ -811,14 +1124,28 @@ def terminate_process_group(pid: int) -> None:
         return
 
 
-def build_verdict(rungs: Sequence[Mapping[str, Any]], comparisons: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def build_verdict(
+    rungs: Sequence[Mapping[str, Any]],
+    comparisons: Sequence[Mapping[str, Any]],
+    *,
+    family_gate: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     blocking = []
     for rung in rungs:
+        if not rung.get("checkMesh_acceptance", {}).get("strict_checkMesh_clean"):
+            blocking.append(f"{rung['spec']['case_id']}:strict_checkMesh_not_clean")
         if not rung.get("checkMesh_acceptance", {}).get("accepted_for_solver_smoke"):
             blocking.append(f"{rung['spec']['case_id']}:checkMesh_not_solver_smoke_acceptable")
+        if rung.get("solver_phase_policy", {}).get("solver_block_reason"):
+            blocking.append(
+                f"{rung['spec']['case_id']}:{rung['solver_phase_policy']['solver_block_reason']}"
+            )
         active_run = rung.get("commands", {}).get("simpleFoam_500") or rung.get("commands", {}).get("simpleFoam_200")
         if not active_run or active_run.get("returncode") != 0:
             blocking.append(f"{rung['spec']['case_id']}:solver_not_completed")
+    if family_gate and family_gate.get("ready_for_solver") is not True:
+        for rung_id in family_gate.get("blocked_rungs", []):
+            blocking.append(f"{rung_id}:family_solver_gate_blocked")
     cd_changes = [
         abs(float(change))
         for comparison in comparisons
@@ -830,6 +1157,7 @@ def build_verdict(rungs: Sequence[Mapping[str, Any]], comparisons: Sequence[Mapp
     return {
         "study_status": "grid_independent_demonstrated" if demonstrated else "grid_independence_not_demonstrated",
         "blocking_items": blocking,
+        "mesh_family_solver_gate": dict(family_gate or {}),
         "max_abs_cd_percent_change": max_cd_change,
         "cd_change_threshold_policy": {
             "demonstrated_if_max_change_percent_lte": 5.0,
@@ -945,6 +1273,10 @@ def serialize_spec(spec: GridLadderSpec) -> dict[str, Any]:
         "station_plan": list(spec.station_plan),
         "span_cells": spec.span_cells,
         "station_count": spec.station_count,
+        "wake_cross_cells": WAKE_CROSS_CELLS,
+        "near_wall_growth": NEAR_WALL_GROWTH,
+        "local_refinement_regions": list(spec.local_refinement_regions),
+        "quality_gate_contract": spec.quality_gate_contract,
     }
 
 
