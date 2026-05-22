@@ -9,7 +9,35 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
+**2026-05-22 WO-006 HPA OpenFOAM grid-family solver result:** The active
+solver-campaign artifact is now
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_solver_campaign_repair/`.
+Using the locked geometry, AoA, density, velocity, Spalart-Allmaras model,
+boundary conditions, artificial closure treatment, force definitions,
+fvSchemes/fvSolution, and potentialFoam/startup workflow, Coarse, Medium, and
+Fine all reached 2000 iterations and passed the requested final-100 force-window
+gate with valid yPlus. Final primary/physical coefficients are Coarse
+`CL=1.159865`, `CD_primary=0.03565319`, `CD_total_physical=0.03571427`; Medium
+`CL=1.158639`, `CD_primary=0.03369494`, `CD_total_physical=0.03375281`; Fine
+`CL=1.160934`, `CD_primary=0.03320877`, `CD_total_physical=0.03326556`.
+Medium→Fine changes are `+0.198%` in `CL_primary`, `-1.443%` in `CD_primary`,
+`-1.444%` in `CD_total_physical`, and `0.682%` in `CmPitch`, so the accepted
+Medium/Fine adjacent pair demonstrates grid-stable locked-setup wing drag under
+the requested rule. Coarse remains outside the drag-asymptotic band
+(`CD_total_physical` changes `-5.492%` from Coarse→Medium), so do not average it
+into the drag estimate.
+
+Engineering boundary: the grid-stable value is near Fine
+`CD_total_physical=0.03326556`, not `CD≈0.0315`; `0.0315` is about `5.3%` below
+Fine. Do not update design power from this verdict alone. Any power revision
+must be a separate same-basis calculation that avoids double-counting AVL
+induced drag and does not mix this physical-wing CFD coefficient with the old
+screening CD composition.
+
 **2026-05-20 HPA CFD verification basis for the requested OpenFOAM grid-independence rebuild:**
+This section is historical background after the 2026-05-22 solver-campaign
+result above.
+
 New scaffold artifact at
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/`.
 For OpenFOAM verification, the current basis is the recent successful full-wing

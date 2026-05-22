@@ -1,6 +1,31 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-05-22 WO-006 HPA OpenFOAM Grid-Family Result
+
+Active solver-campaign artifact:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_solver_campaign_repair/`.
+The locked Coarse/Medium/Fine OpenFOAM family now has 2000-iteration,
+force-window-stable results with valid yPlus on all three rungs:
+
+| grid | cells | CL_primary | CD_primary | CD_total_physical |
+|---|---:|---:|---:|---:|
+| Coarse | 1,335,552 | 1.159865 | 0.03565319 | 0.03571427 |
+| Medium | 3,136,000 | 1.158639 | 0.03369494 | 0.03375281 |
+| Fine | 6,090,240 | 1.160934 | 0.03320877 | 0.03326556 |
+
+Engineering verdict: Medium→Fine changes are `+0.198%` in `CL_primary`,
+`-1.443%` in `CD_primary`, and `-1.444%` in `CD_total_physical`, so the
+accepted Medium/Fine adjacent pair is grid-stable under the requested rule.
+Coarse→Medium drag still shifts by about `-5.49%`, so Coarse is a sanity rung,
+not part of a drag average or extrapolation. Do not trust `CD≈0.0315` for this
+locked setup; the current grid-stable Fine physical-wing drag is
+`CD_total_physical=0.03326556`. Design power remains locked until a separate
+same-basis power update is explicitly run.
+
 ## 2026-05-21 WO-006 HPA CFD Verification Basis
+
+This section is historical background after the 2026-05-22 solver-campaign
+result above.
 
 New HPA-specific verification scaffold:
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_grid_independence_verification/`.

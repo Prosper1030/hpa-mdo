@@ -1,61 +1,36 @@
 # Final HPA Grid-Independence Verdict
 
-Verdict: `grid_independence_not_demonstrated`
+Verdict: `medium_fine_grid_independence_demonstrated_for_locked_OpenFOAM_wing_drag`
 
 Operating-condition lock:
 
-The Coarse/reference diff confirms the comparison basis is physically locked:
-`rhoInf=1.225`, `nu=1.4607e-05`, `V=6.5 m/s`, `AoA=0.18 deg` by inlet vector,
-`Sref=33.420059598 m^2`, `Cref=1.003721543 m`, `RAS/SpalartAllmaras`,
-matching `dragDir` / `liftDir`, and matching primary force patches
-`airfoil_upper airfoil_lower`.
+The Coarse, Medium, and Fine rungs preserved `rhoInf=1.225`, `nu=1.4607e-05`, `V=6.5 m/s`, `AoA=0.18 deg`, `Sref=33.420059598 m^2`, `Cref=1.003721543 m`, `RAS/SpalartAllmaras`, matching drag/lift directions, artificial closure treatment, and the same `primary` / `total_physical` force definitions. No design power value was changed.
 
-1. Why did Coarse stop at 160 iterations?
-   It was launched as a smoke/probe with `endTime 160`
-   (`--first-iterations 160 --final-iterations 160`). It was not stopped by
-   timeout, force guard, or OpenFOAM failure.
+1. Did Medium pass force-window stability?
+   Yes. Medium passed at 2000 iterations: CD_total drift `0.583%`, CD_primary drift `0.575%`, CL_primary drift `0.398%`, CmPitch drift `0.475%`.
 
-2. Was `CL_primary≈0.858` under-converged or real?
-   Under-converged. The same Coarse setup continued to `CL_primary=0.9571043`
-   at 500 and `CL_primary=1.074658` at 1000.
+2. Did Fine pass force-window stability?
+   Yes. Fine passed at 2000 iterations: CD_total drift `0.524%`, CD_primary drift `0.518%`, CL_primary drift `0.326%`, CmPitch drift `0.409%`.
 
-3. Was the successful reference reproduced?
-   No. At 1000, Coarse is still `-4.96%` low in CL versus the user-supplied
-   `CL_primary=1.130726` target and `+31.68%` high in `CD_total_physical`
-   versus `0.031823`.
+3. What are Coarse/Medium/Fine CL and CD?
 
-4. If not, what exact mismatch remains?
-   No proven AoA/Re/BC/Sref/Cref/force-definition mismatch was found. The exact
-   blocker is that the new Coarse grid-family baseline has not reached a stable
-   force window or reference-equivalent force level by 1000 iterations.
+   | grid | CL_primary | CD_primary | CD_total_physical |
+   |---|---:|---:|---:|
+   | Coarse | 1.159865 | 0.03565319 | 0.03571427 |
+   | Medium | 1.158639 | 0.03369494 | 0.03375281 |
+   | Fine | 1.160934 | 0.03320877 | 0.03326556 |
 
-5. Did Coarse, Medium, and Fine all run to stable force windows?
-   No. Coarse failed the required final-100 gate, so Medium and Fine were not
-   run.
+4. Is CD grid-independent?
+   Yes for the accepted Medium -> Fine adjacent pair under the requested rule: CD_total changes by `-1.444%` and CD_primary by `-1.443%`. Coarse is not in the same asymptotic drag band because Coarse -> Medium CD_total changes by `-5.492%`.
 
-6. Are CL, CD, and Cm grid-independent?
-   No. The prerequisite stable Coarse baseline is not established.
+5. Can `CD≈0.0315` be trusted?
+   No. The accepted Medium/Fine family supports Fine `CD_total_physical=0.03326556` and Medium `0.03375281`; `0.0315` is `-5.307%` versus Fine and `-6.674%` versus Medium, so it is too low for this locked setup.
 
-7. Are yPlus, Cp, Cf, wake, and tip-vortex behavior acceptable?
-   Real upper/lower/TE wall yPlus is acceptable on Coarse
-   (`mean=0.748`, `p95=1.485`, `max=3.173`). Cp, Cf, wake, and tip-vortex
-   grid-family comparisons were not allowed because Medium/Fine remain gated.
+6. Can design power be updated?
+   No design power update is made or authorized by this verdict. The CFD drag is now grid-stable on the Medium/Fine pair, but any design-power revision must be a separate same-basis power calculation that does not double-count AVL induced drag or mix this physical-wing CFD coefficient with the old screening CD composition.
 
-8. Can `CD≈0.0315` be trusted?
-   No.
+Engineering boundary:
 
-9. Can design power be updated from 174 W?
-   No.
-
-10. If not, what exact blocker remains?
-    Coarse final-100 stability at 1000 fails:
-    `CD_total_physical drift=4.05%`, `CD_primary drift=4.03%`,
-    `CL_primary drift=1.66%`, and `CmPitch drift=1.33%`. The accepted gate is
-    `<1%`, `<1%`, `<0.5%`, and `<1%`, respectively.
-
-Engineering decision:
-
-Do not run Medium/Fine from this state. Do not claim grid independence. Do not
-update design power. The next work item must remain a Coarse-only convergence
-or mesh-baseline repair until the Coarse force window is stable and reproduces
-the reference force level.
+- The result is a locked-setup OpenFOAM wing-drag grid-stability verdict, not final aircraft sign-off, RFQ/procurement truth, transition validation, or an AoA/CL sweep.
+- yPlus is valid and low on the primary airfoil walls; artificial side/tip closure patches remain diagnostic and are excluded from `total_physical`.
+- Use Fine as the best current grid-stable coefficient for this family; do not average in Coarse for drag.
