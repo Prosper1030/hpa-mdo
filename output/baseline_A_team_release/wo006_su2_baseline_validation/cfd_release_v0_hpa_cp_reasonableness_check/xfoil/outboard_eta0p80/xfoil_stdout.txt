@@ -1,0 +1,182 @@
+
+ ===================================================
+  XFOIL Version 6.99
+  Copyright (C) 2000   Mark Drela, Harold Youngren
+
+  This software comes with ABSOLUTELY NO WARRANTY,
+    subject to the GNU General Public License.
+
+  Caveat computor
+ ===================================================
+
+ File  xfoil.def  not found
+
+   QUIT    Exit program
+
+  .OPER    Direct operating point(s)
+  .MDES    Complex mapping design routine
+  .QDES    Surface speed design routine
+  .GDES    Geometry design routine
+
+   SAVE f  Write airfoil to labeled coordinate file
+   PSAV f  Write airfoil to plain coordinate file
+   ISAV f  Write airfoil to ISES coordinate file
+   MSAV f  Write airfoil to MSES coordinate file
+   REVE    Reverse written-airfoil node ordering
+   DELI i  Change written-airfoil file delimiters
+
+   LOAD f  Read buffer airfoil from coordinate file
+   NACA i  Set NACA 4,5-digit airfoil and buffer airfoil
+   INTE    Set buffer airfoil by interpolating two airfoils
+   NORM    Buffer airfoil normalization toggle
+   HALF    Halve the number of points in buffer airfoil
+   XYCM rr Change CM reference location, currently  0.25000 0.00000
+
+   BEND    Display structural properties of current airfoil
+
+   PCOP    Set current-airfoil panel nodes directly from buffer airfoil points
+   PANE    Set current-airfoil panel nodes ( 160 ) based on curvature
+  .PPAR    Show/change paneling
+
+  .PLOP    Plotting options
+
+   WDEF f  Write  current-settings file
+   RDEF f  Reread current-settings file
+   NAME s  Specify new airfoil name
+   NINC    Increment name version number
+
+   Z       Zoom    | (available in all menus)
+   U       Unzoom  |
+
+ XFOIL   c>   ...............................................
+
+  G raphics-enable flag:        T
+  S ize of plot object          10.00"
+  A spect ratio of plot object   0.5500
+  P age dimensions              11.00 x  8.50"
+  M argins from page edges       0.00",  0.00"
+  F ont size (relative)          0.0150
+  W indow/screen size fraction   0.8000
+  B lowup input method:        Cursor
+  O rientation of plot:        Landscape
+  C olor PostScript output?     T
+  L ine colors for top,bottom    8  3
+
+      Option, Value   (or <Return>)    c>   ...............................................
+
+  G raphics-enable flag:        F
+  S ize of plot object          10.00"
+  A spect ratio of plot object   0.5500
+  P age dimensions              11.00 x  8.50"
+  M argins from page edges       0.00",  0.00"
+  F ont size (relative)          0.0150
+  W indow/screen size fraction   0.8000
+  B lowup input method:        Cursor
+  O rientation of plot:        Landscape
+  C olor PostScript output?     T
+  L ine colors for top,bottom    8  3
+
+      Option, Value   (or <Return>)    c>
+ XFOIL   c>
+ Labeled airfoil file.  Name:  outboard_eta0p80
+
+ Number of input coordinate points: 241
+ Counterclockwise ordering
+ Max thickness =     0.118263  at x =   0.273
+ Max camber    =     0.038607  at x =   0.297
+
+  LE  x,y  =  -0.00001   0.00014  |   Chord =   1.00001
+  TE  x,y  =   1.00000   0.00000  |
+
+ Current airfoil nodes set from buffer airfoil nodes ( 241 )
+
+ XFOIL   c>
+ Blunt trailing edge.  Gap =  0.00150
+
+ Paneling parameters used...
+   Number of panel nodes       160
+   Panel bunching parameter    1.000
+   TE/LE panel density ratio   0.150
+   Refined-area/LE panel density ratio    0.200
+   Top    side refined area x/c limits  1.000 1.000
+   Bottom side refined area x/c limits  1.000 1.000
+
+ XFOIL   c>
+.OPERi   c>
+ M  =    0.0000
+ Re =  0.3550E+06
+
+.OPERv   c>
+.OPERv   c>
+.OPERv   c>   Calculating unit vorticity distributions ...
+ Calculating wake trajectory ...
+ Calculating source influence matrix ...
+
+ Solving BL system ...
+
+ Initializing BL ...
+    side            1  ...
+ MRCHUE: Inverse mode at   6     Hk =   3.800
+ MRCHUE: Inverse mode at  34     Hk =   3.800
+ MRCHUE: Inverse mode at  36     Hk =   4.047
+ MRCHUE: Inverse mode at  37     Hk =   4.785
+ MRCHUE: Inverse mode at  38     Hk =   5.496
+ MRCHUE: Inverse mode at  39     Hk =   6.187
+ MRCHUE: Inverse mode at  40     Hk =   6.877
+ MRCHUE: Inverse mode at  41     Hk =   7.544
+ MRCHUE: Inverse mode at  42     Hk =   8.210
+ MRCHUE: Inverse mode at  43     Hk =   8.870
+ MRCHUE: Inverse mode at  44     Hk =   6.253
+ MRCHUE: Inverse mode at  45     Hk =   4.294
+ MRCHUE: Inverse mode at  46     Hk =   2.988
+    side            2  ...
+
+ Side 1  free  transition at x/c =  0.4152   44
+ Side 2 forced transition at x/c =  1.0000   76
+
+   1   rms: 0.7966E-01   max: -.6036E+00   C at   76  2   RLX: 0.828
+       a =  4.768      CL =  0.8132
+      Cm = -0.0293     CD =  0.01201   =>   CDf =  0.00633    CDp =  0.00569
+
+ Side 1  free  transition at x/c =  0.4140   44
+ Side 2 forced transition at x/c =  1.0000   76
+
+   2   rms: 0.4695E-01   max: -.3024E+00   D at   46  1
+       a =  4.832      CL =  0.8097
+      Cm = -0.0276     CD =  0.01154   =>   CDf =  0.00643    CDp =  0.00511
+
+ Side 1  free  transition at x/c =  0.4130   44
+ Side 2 forced transition at x/c =  1.0000   76
+
+   3   rms: 0.3909E-02   max: -.6685E-01   D at   46  1
+       a =  4.837      CL =  0.8097
+      Cm = -0.0276     CD =  0.01171   =>   CDf =  0.00651    CDp =  0.00519
+
+ Side 1  free  transition at x/c =  0.4125   43
+ Side 2 forced transition at x/c =  1.0000   76
+
+   4   rms: 0.1867E-02   max: 0.3017E-01   D at   44  1
+       a =  4.836      CL =  0.8097
+      Cm = -0.0276     CD =  0.01168   =>   CDf =  0.00653    CDp =  0.00515
+
+ Side 1  free  transition at x/c =  0.4124   43
+ Side 2 forced transition at x/c =  1.0000   76
+
+   5   rms: 0.1571E-03   max: 0.1537E-02   D at   44  1
+       a =  4.836      CL =  0.8097
+      Cm = -0.0276     CD =  0.01168   =>   CDf =  0.00651    CDp =  0.00516
+
+ Side 1  free  transition at x/c =  0.4124   43
+ Side 2 forced transition at x/c =  1.0000   76
+
+   6   rms: 0.1423E-05   max: 0.5459E-05   D at   67  1
+       a =  4.836      CL =  0.8097
+      Cm = -0.0276     CD =  0.01168   =>   CDf =  0.00651    CDp =  0.00516
+      9.000    8.0400   0.011677   0.002491   0.004215   0.001724    0.4124     #
+
+.OPERv   c>
+ Enter filename:  outboard_eta0p80.cp
+
+.OPERv   c>
+ XFOIL   c>
+Note: The following floating-point exceptions are signalling: IEEE_DIVIDE_BY_ZERO

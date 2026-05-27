@@ -1,0 +1,14 @@
+PLOP
+G F
+
+LOAD outboard_eta0p80.dat
+PANE
+OPER
+VISC 355019.93
+MACH 0
+ITER 180
+CL 0.80973339
+CPWR
+cp.dat
+
+QUIT

@@ -46,6 +46,11 @@ reconstructs Fine pressure drag from wall faces and matches OpenFOAM's
 on the primary airfoil surfaces, dominated by gross lower-surface positive
 pressure drag partly cancelled by upper-surface suction. The only valid patch
 exclusion tested, removing `te_wall`, changes total CD by only `-5.68e-5`.
+The follow-on Cp check at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_cp_reasonableness_check/`
+found root/mid/outboard OpenFOAM Cp shapes close to matched-CL XFOIL Cp; the
+largest net pressure-drag load is the broad mid/aft chord region over
+`eta=0.00..0.65`, not an isolated suction-peak or TE Cp spike.
 
 ## 2026-05-21 WO-006 HPA CFD Verification Basis
 

@@ -65,6 +65,13 @@ airfoil-surface pressure, with lower-surface gross `CDp=0.03692` partly
 cancelled by upper-surface `CDp=-0.01402`; the valid no-TE force check changes
 total CD only from `0.03326556` to `0.03320877`.
 
+**2026-05-27 Cp reasonableness check:** The Cp follow-up at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_cp_reasonableness_check/`
+compares root/mid/outboard OpenFOAM Cp strips with local matched-CL XFOIL Cp.
+Suction peaks and aft recovery are broadly consistent; the excess pressure drag
+is concentrated as a broad net mid/aft primary-surface load over `eta=0.00..0.65`,
+not as an isolated Cp spike or TE patch artifact.
+
 **2026-05-20 HPA CFD verification basis for the requested OpenFOAM grid-independence rebuild:**
 This section is historical background after the 2026-05-22 solver-campaign
 result above.
