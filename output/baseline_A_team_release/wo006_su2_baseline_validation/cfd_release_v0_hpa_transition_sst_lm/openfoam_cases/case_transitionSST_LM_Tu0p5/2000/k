@@ -1,0 +1,50 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volScalarField;
+    location    "2000";
+    object      k;
+}
+dimensions      [0 2 -2 0 0 0 0];
+internalField   uniform 0.001584375;
+boundaryField
+{
+    airfoil_upper
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    airfoil_lower
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    te_wall
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    outlet
+    {
+        type            inletOutlet;
+        inletValue      uniform 0.001584375;
+        value           uniform 0.001584375;
+    }
+    farfield
+    {
+        type            freestream;
+        freestreamValue uniform 0.001584375;
+        value           uniform 0.001584375;
+    }
+    physical_tip_right
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+    physical_tip_left
+    {
+        type            fixedValue;
+        value           uniform 0;
+    }
+}

@@ -1,0 +1,89 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : simpleFoam -case /tmp/hpa_transition_case -postProcess -func wallShearStress -latestTime
+Date   : May 27 2026
+Time   : 12:09:45
+Host   : linyuandeMac-mini.local
+PID    : 68130
+I/O    : uncollated
+Case   : /tmp/hpa_transition_case
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 2000
+
+
+SIMPLE: convergence criteria
+    field p	 tolerance 1e-05
+    field U	 tolerance 1e-05
+    field "(k|omega|gammaInt|ReThetat)"	 tolerance 0.0001
+
+wallShearStress wallShearStress:
+    processing all (5) wall patches
+
+Time = 2000
+Reading field p
+
+Reading field U
+
+Reading/calculating face flux field phi
+
+Selecting incompressible transport model Newtonian
+Selecting turbulence model type RAS
+Selecting RAS turbulence model kOmegaSSTLM
+Selecting patchDistMethod meshWave
+bounding k, min: 0 max: 0.00158438 average: 0.00158438
+RAS
+{
+    RASModel        kOmegaSSTLM;
+    turbulence      on;
+    printCoeffs     on;
+    alphaK1         0.85;
+    alphaK2         1;
+    alphaOmega1     0.5;
+    alphaOmega2     0.856;
+    gamma1          0.555556;
+    gamma2          0.44;
+    beta1           0.075;
+    beta2           0.0828;
+    betaStar        0.09;
+    a1              0.31;
+    b1              1;
+    c1              10;
+    F3              false;
+    decayControl    false;
+    kInf            0;
+    omegaInf        0;
+    ca1             2;
+    ca2             0.06;
+    ce1             1;
+    ce2             50;
+    cThetat         0.03;
+    sigmaThetat     2;
+}
+
+No MRF models present
+
+No finite volume options present
+wallShearStress wallShearStress write:
+    writing field wallShearStress
+    min/max(airfoil_upper) = (-1.41153 -0.321024 -1.52615), (0.0730918 0.32102 0.243541)
+    min/max(airfoil_lower) = (-0.75625 -0.30576 -1.2016), (0.415904 0.305758 0.192987)
+    min/max(te_wall) = (-0.74903 -0.0945854 -0.189258), (0.28564 0.0945835 0.387136)
+    min/max(physical_tip_right) = (-0.0349279 -0.0400856 -0.0815577), (0.147672 0.0477728 0.0172512)
+    min/max(physical_tip_left) = (-0.0349273 -0.0477754 -0.0815579), (0.147674 0.0400864 0.0172521)
+
+End

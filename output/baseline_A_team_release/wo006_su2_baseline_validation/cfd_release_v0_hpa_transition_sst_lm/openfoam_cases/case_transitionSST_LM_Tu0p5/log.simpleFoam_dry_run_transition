@@ -1,0 +1,103 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2512                                  |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _87ed40d256-20251219 OPENFOAM=2512 version=v2512
+Arch   : "LSB;label=32;scalar=64"
+Exec   : simpleFoam -case /tmp/hpa_transition_case -dry-run -noFunctionObjects
+Date   : May 27 2026
+Time   : 11:34:01
+Host   : linyuandeMac-mini.local
+PID    : 61880
+I/O    : uncollated
+Case   : /tmp/hpa_transition_case
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+memory pool : not available
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 2000
+
+Operating in 'dry-run' mode: case will run for 1 time step.  All checks assumed OK on a clean exit
+Selecting simplified mesh model staticFvMesh
+Creating simplified mesh using "/tmp/hpa_transition_case/constant/polyMesh"
+Mesh bounds: (-12.5355 -17.1661 -13.617) (12.5275 17.1661 11.6208)
+
+SIMPLE: convergence criteria
+    field p	 tolerance 1e-05
+    field U	 tolerance 1e-05
+    field "(k|omega|gammaInt|ReThetat)"	 tolerance 0.0001
+
+Reading field p
+
+Reading field U
+
+Reading/calculating face flux field phi
+
+Selecting incompressible transport model Newtonian
+Selecting turbulence model type RAS
+Selecting RAS turbulence model kOmegaSSTLM
+Selecting patchDistMethod meshWave
+bounding k, min: 0 max: 0.00158438 average: 0.00158438
+RAS
+{
+    RASModel        kOmegaSSTLM;
+    turbulence      on;
+    printCoeffs     on;
+    alphaK1         0.85;
+    alphaK2         1;
+    alphaOmega1     0.5;
+    alphaOmega2     0.856;
+    gamma1          0.555556;
+    gamma2          0.44;
+    beta1           0.075;
+    beta2           0.0828;
+    betaStar        0.09;
+    a1              0.31;
+    b1              1;
+    c1              10;
+    F3              false;
+    decayControl    false;
+    kInf            0;
+    omegaInf        0;
+    ca1             2;
+    ca2             0.06;
+    ce1             1;
+    ce2             50;
+    cThetat         0.03;
+    sigmaThetat     2;
+}
+
+No MRF models present
+
+No finite volume options present
+
+Starting time loop
+
+Time = 2001
+
+smoothSolver:  Solving for Uy, Initial residual = 0.951772, Final residual = 0.0103752, No Iterations 4
+smoothSolver:  Solving for Uz, Initial residual = 0.889108, Final residual = 0.00858664, No Iterations 4
+GAMG:  Solving for p, Initial residual = 0.945488, Final residual = 0.0551106, No Iterations 1
+GAMG:  Solving for p, Initial residual = 0.762404, Final residual = 0.0524908, No Iterations 2
+GAMG:  Solving for p, Initial residual = 0.794983, Final residual = 0.0556514, No Iterations 2
+time step continuity errors : sum local = 0.00859073, global = 0.000436399, cumulative = 0.000436399
+smoothSolver:  Solving for omega, Initial residual = 0.240801, Final residual = 7.35796e-12, No Iterations 2
+smoothSolver:  Solving for k, Initial residual = 1, Final residual = 2.69123e-07, No Iterations 2
+bounding k, min: 0 max: 0.00192911 average: 0.0013766
+--> FOAM Warning :
+    From tmp<volScalarField::Internal> Foam::RASModels::kOmegaSSTLM<Foam::IncompressibleTurbulenceModel<Foam::transportModel>>::ReThetat0(const volScalarField::Internal &, const volScalarField::Internal &, const volScalarField::Internal &) const [BasicTurbulenceModel = Foam::IncompressibleTurbulenceModel<Foam::transportModel>]
+    in file ../turbulenceModels/lnInclude/kOmegaSSTLM.C at line 305
+    Number of lambda iterations exceeds maxLambdaIter(10)
+smoothSolver:  Solving for ReThetat, Initial residual = 1, Final residual = 3.46329e-16, No Iterations 2
+smoothSolver:  Solving for gammaInt, Initial residual = 1, Final residual = 4.34202e-12, No Iterations 2
+ExecutionTime = 4.5 s  ClockTime = 4 s
+
+End

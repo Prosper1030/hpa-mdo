@@ -1,0 +1,4 @@
+field,count,min,mean,max,representation
+gammaInt,1,1.0,1.0,1.0,uniform
+ReThetat,1,879.6744,879.6744,879.6744,uniform
+nut,1,0.0,0.0,0.0,uniform

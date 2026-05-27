@@ -22,6 +22,14 @@ locked setup; the current grid-stable Fine physical-wing drag is
 `CD_total_physical=0.03326556`. Design power remains locked until a separate
 same-basis power update is explicitly run.
 
+2026-05-27 transition-SST note: a Fine-case copy using OpenFOAM `kOmegaSSTLM`
+Langtry-Menter transition SST at `Tu=0.5%` exists under
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_transition_sst_lm/`.
+It confirmed the model is installed and the primary airfoil/TE y+ is reasonable,
+but the continuation developed repeated extreme `omega` bounding and force drift
+before any evolved gamma/ReTheta/nut field was written. This is diagnostic-only
+and does not supersede the SA/Fine grid-family result above.
+
 ## 2026-05-21 WO-006 HPA CFD Verification Basis
 
 This section is historical background after the 2026-05-22 solver-campaign

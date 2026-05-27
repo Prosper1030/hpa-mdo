@@ -1,0 +1,7 @@
+# y+ ()
+# Time        	patch         	min           	max           	average
+2000          	airfoil_upper	5.581722e-02	3.114435e+00	8.337118e-01
+2000          	airfoil_lower	1.024719e-01	2.795424e+00	7.558232e-01
+2000          	te_wall	3.207891e-01	1.721233e+00	1.265413e+00
+2000          	physical_tip_right	1.231206e-02	4.236295e+01	4.034291e+01
+2000          	physical_tip_left	1.230598e-02	4.236295e+01	4.034291e+01

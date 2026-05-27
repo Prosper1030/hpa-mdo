@@ -34,6 +34,16 @@ must be a separate same-basis calculation that avoids double-counting AVL
 induced drag and does not mix this physical-wing CFD coefficient with the old
 screening CD composition.
 
+**2026-05-27 transition-SST diagnostic:** A Fine-case copy using OpenFOAM
+`kOmegaSSTLM` Langtry-Menter transition SST at `Tu=0.5%` was created at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_transition_sst_lm/`.
+The native model exists in OpenFOAM-v2512 and the primary airfoil/TE y+ gate is
+reasonable, but the continuation showed repeated extreme `omega` bounding and
+monotone force drift before any evolved gamma/ReTheta/nut field was written.
+Treat this as an instability/BC diagnostic only; it does **not** supersede the
+2026-05-22 SA/Fine grid-family result and does not justify a drag or power
+update.
+
 **2026-05-20 HPA CFD verification basis for the requested OpenFOAM grid-independence rebuild:**
 This section is historical background after the 2026-05-22 solver-campaign
 result above.
