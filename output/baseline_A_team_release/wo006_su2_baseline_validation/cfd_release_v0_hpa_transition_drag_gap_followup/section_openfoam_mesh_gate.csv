@@ -1,0 +1,4 @@
+case,checkMesh_result,key_failure
+root_dae31_section,failed 7 checks,"26 non-closed cells, max nonorthogonality 179.903, 43 wrong-oriented faces, max skewness 72029.3"
+intermediate_morph_section,failed 7 checks,"22 non-closed cells, max nonorthogonality 179.954, 56 wrong-oriented faces, max skewness 27064.9"
+cst_tip_section,failed 4 checks,"max nonorthogonality 75.108, max skewness 11.376, 1003 determinant<0.001 cell faces"

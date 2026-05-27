@@ -44,6 +44,16 @@ Treat this as an instability/BC diagnostic only; it does **not** supersede the
 2026-05-22 SA/Fine grid-family result and does not justify a drag or power
 update.
 
+**2026-05-27 transition drag-gap follow-up:** Bounded 3D probes and section
+sanity evidence are recorded at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_transition_drag_gap_followup/`.
+Reducing the LM inlet length scale from `0.07c` to `0.001c` removed the
+catastrophic `omega` bounding through time 2020, but ReTheta correlation
+warnings remain, so no LM CD is promoted. The current engineering ranking is:
+old clean XFOIL profile optimism first, 3D pressure/wake/form residual second,
+SA fully-turbulent overprediction third, transition setup immaturity fourth.
+Design power remains unchanged.
+
 **2026-05-20 HPA CFD verification basis for the requested OpenFOAM grid-independence rebuild:**
 This section is historical background after the 2026-05-22 solver-campaign
 result above.

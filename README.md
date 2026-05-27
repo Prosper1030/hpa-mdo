@@ -30,6 +30,15 @@ but the continuation developed repeated extreme `omega` bounding and force drift
 before any evolved gamma/ReTheta/nut field was written. This is diagnostic-only
 and does not supersede the SA/Fine grid-family result above.
 
+Follow-up bounded probes under
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_transition_drag_gap_followup/`
+show the failed LM run was primarily a turbulence-scale / transition-correlation
+setup failure: reducing the LM inlet length scale from `0.07c` to `0.001c`
+removed catastrophic `omega` bounding through time 2020, but still left
+ReTheta correlation warnings, so it is not a final transition-SST drag. The
+drag-gap suspicion is now narrowed toward clean XFOIL profile optimism first
+and 3D pressure/wake/form residual second; design power remains locked.
+
 ## 2026-05-21 WO-006 HPA CFD Verification Basis
 
 This section is historical background after the 2026-05-22 solver-campaign
