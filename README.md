@@ -2194,7 +2194,7 @@ cp configs/local_paths.example.yaml configs/local_paths.yaml
 | Manufacturable geometry / discretization | WO-004 判定 smooth pathfinder 可供 release engineering 使用，但連續尺寸仍不是 shop drawing；WO-005 已補 RFQ screening station/span/splice manifest，尚未變成 drawing release |
 | FEM/APDL / shell / load-factor | candidate spot-check，不是 final sign-off |
 | Rib / root / wire hardware / composite detail | 開放 validation blockers，需要後續實體化與 detail evidence |
-| SU2 / mesh-native CFD | WO-006 current-GO no-BL completion case 已有 finite 159-iteration SU2 force history，可作 route-level force evidence；WO-006H reopened campaign 仍標示 BL/core 與 finer no-BL hard limits。下一步是 BL/core conformal topology、near-wall/y+、force ownership 與 grid V&V；目前仍不是 drag/power performance truth |
+| SU2 / mesh-native CFD | WO-006 current-GO no-BL completion case 已有 finite 159-iteration SU2 force history，可作 route-level force evidence；WO-006H reopened campaign 仍標示 BL/core 與 finer no-BL hard limits。OpenFOAM accepted Fine same-mesh architecture sensitivity says outlet BC is not the CD=0.0333 root cause; SST/LM remain unsteady diagnostics around CD≈0.030-0.031, not drag/power truth。下一步是 BL/core conformal topology、near-wall/y+、force ownership 與 grid V&V；目前仍不是 drag/power performance truth |
 
 ---
 

@@ -2083,3 +2083,9 @@ hpa_meshing_package/docs/reports/mesh_native_cfd_line_freeze/mesh_native_cfd_lin
 ```
 
 不要從舊 STEP/BREP repair 報告或單次 SU2 smoke 直接開始改。
+
+2026-05-27 OpenFOAM accepted Fine same-mesh architecture sensitivity added a
+diagnostic boundary: outlet pressure BC is not the CD=0.0333 root cause, while
+SST/LM brackets lower CD only to roughly 0.030-0.031 and remain force-window
+unstable; physical same-mesh `pimpleFoam` is CFL-impractical on the Fine BL mesh.
+This line remains a high-drag warning, not a design-power update.
