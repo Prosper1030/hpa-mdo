@@ -36,8 +36,16 @@ show the failed LM run was primarily a turbulence-scale / transition-correlation
 setup failure: reducing the LM inlet length scale from `0.07c` to `0.001c`
 removed catastrophic `omega` bounding through time 2020, but still left
 ReTheta correlation warnings, so it is not a final transition-SST drag. The
-drag-gap suspicion is now narrowed toward clean XFOIL profile optimism first
-and 3D pressure/wake/form residual second; design power remains locked.
+next pressure-residual pass is the relevant follow-up for drag-source work.
+
+2026-05-27 pressure-residual follow-up:
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_pressure_residual_fix/`
+reconstructs Fine pressure drag from wall faces and matches OpenFOAM's
+`CD_pressure_total_physical=0.02295001`. The high pressure term is not from
+`te_wall`, physical tips, or artificial closure contamination; it is distributed
+on the primary airfoil surfaces, dominated by gross lower-surface positive
+pressure drag partly cancelled by upper-surface suction. The only valid patch
+exclusion tested, removing `te_wall`, changes total CD by only `-5.68e-5`.
 
 ## 2026-05-21 WO-006 HPA CFD Verification Basis
 

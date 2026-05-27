@@ -49,10 +49,21 @@ sanity evidence are recorded at
 `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_transition_drag_gap_followup/`.
 Reducing the LM inlet length scale from `0.07c` to `0.001c` removed the
 catastrophic `omega` bounding through time 2020, but ReTheta correlation
-warnings remain, so no LM CD is promoted. The current engineering ranking is:
-old clean XFOIL profile optimism first, 3D pressure/wake/form residual second,
-SA fully-turbulent overprediction third, transition setup immaturity fourth.
-Design power remains unchanged.
+warnings remain, so no LM CD is promoted. Treat this as transition-model setup
+evidence only; the pressure-residual localization below is the active drag-source
+diagnostic.
+
+**2026-05-27 pressure-residual localization:** The pressure-only follow-up at
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_pressure_residual_fix/`
+reconstructs the accepted Fine face-level pressure force and matches
+OpenFOAM's `CD_pressure_total_physical=0.02295001`. The CD ~= 0.010 pressure
+residual is not a force patch, TE, physical-tip, or artificial-closure artifact:
+`te_wall` contributes only `CDp=0.000052`, physical-tip pressure contributes
+zero drag, and excluding the physical root 10% is an invalid force definition
+but only removes `CDp=0.00349`. The dominant source is distributed primary
+airfoil-surface pressure, with lower-surface gross `CDp=0.03692` partly
+cancelled by upper-surface `CDp=-0.01402`; the valid no-TE force check changes
+total CD only from `0.03326556` to `0.03320877`.
 
 **2026-05-20 HPA CFD verification basis for the requested OpenFOAM grid-independence rebuild:**
 This section is historical background after the 2026-05-22 solver-campaign

@@ -1,0 +1,8 @@
+case,valid_force_definition,patches,CD_pressure,CD_viscous,CD_total,CL,delta_CD_total_vs_baseline,force_stability,note
+baseline_total_physical,yes,airfoil_upper airfoil_lower te_wall,0.02295001410767383,0.010315548220166119,0.03326556,1.160934,0,final100 CD_total_physical drift 0.5241%,accepted Fine force definition
+valid_no_te_primary,yes,airfoil_upper airfoil_lower,0.02289776540555616,0.010311002938930494,0.03320877,1.160934,-5.6790000000001006e-05,final100 CD_primary drift 0.5183%,removes TE wall; effect is only 5.68e-5 CD
+invalid_pressure_exclusion,no,exclude abs(y)/semiSpan < 0.1,0.01945991014582092,not recomputed,not valid,not valid,not valid,not applicable,localization only; not a physically valid repaired force definition
+invalid_pressure_exclusion,no,exclude abs(y)/semiSpan > 0.9,0.022755761601669894,not recomputed,not valid,not valid,not valid,not applicable,localization only; not a physically valid repaired force definition
+invalid_pressure_exclusion,no,exclude te_wall,0.02289776629274801,not recomputed,not valid,not valid,not valid,not applicable,localization only; not a physically valid repaired force definition
+invalid_pressure_exclusion,no,exclude airfoil_upper,0.03697263933443493,not recomputed,not valid,not valid,not valid,not applicable,localization only; not a physically valid repaired force definition
+invalid_pressure_exclusion,no,exclude airfoil_lower,-0.01397038196754429,not recomputed,not valid,not valid,not valid,not applicable,localization only; not a physically valid repaired force definition
