@@ -1,0 +1,7 @@
+attempt_id,lane,start_time,target_end_time,solver_launched,dry_run_returncode,solve_returncode,elapsed_s,peak_rss_bytes,unique_force_rows,formal_force_gate_pass,outcome,decision
+1,LM,2000,2050,False,1,,2.643307924,,,False,preflight_only_no_time_advance,move external-SSD backing into no-space APFS mount
+2,LM,2000,2050,True,0,0,1092.8151739,8245035008,50,False,advanced finite but insufficient window,continue one bounded chunk
+3,LM,2050,2100,True,0,0,1443.5352358818054,7042842624,100,False,force components and turbulence fields diverged,stop LM
+4,SST,2000,2050,True,0,0,1207.280771,7874445312,50,False,advanced finite but turbulence growth visible,continue one bounded chunk
+5,SST,2050,2100,False,-6,,9.731117248535156,,,False,preflight_only_no_time_advance,remove duplicate yPlus function object
+6,SST,2050,2100,True,0,0,1216.5930738449097,7989526528,100,False,force and fully turbulent fields diverged,stop SST and reject LM warm start

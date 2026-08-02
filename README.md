@@ -1,20 +1,32 @@
 # HPA-MDO：人力飛機新概念設計管線
 
-## 2026-08-02 WO-006 CFD Recovery Front Door
+## 2026-08-02 WO-006 OpenFOAM Transition Recovery Result
 
-The current executable CFD lane is the accepted Fine full-wing OpenFOAM mesh.
-Its SA result (`CL=1.160934`, `CD_total_physical=0.03326556`) is numerically
-grid-stable but remains a high-drag warning, not final low-Re HPA drag truth.
-The old SST/LM probes have only 50 force rows, and the old `pimpleFoam` case did
-not advance to a usable force history.
+Verdict: `transition_route_not_established`.
 
-Use `scripts/run_wo006_hpa_model_architecture_sensitivity.py` for the next
-bounded run. It now requires a 100-row force window, writes resumable 25-step
-steady checkpoints, rejects empty force histories, defaults to serial, stops on
-process-tree RSS excess, and uses Samsung-SSD scratch instead of the nearly full
-system `/tmp`. The next work order is
-`docs/work_orders/WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`. Historical
-SU2 custom mixed-handoff artifacts remain forensic evidence only.
+The accepted Fine full-wing mesh was continued serially for two 50-iteration
+LM chunks and two 50-iteration fully turbulent SST chunks. Both lanes now have
+100 finite, contiguous force rows and finite 6,090,240-cell checkpoints, but
+neither qualifies. LM final-100 CD/CL relative spans are `10.70%/1.47%` and
+CmPitch absolute span is `0.01239`; SST is `15.71%/2.38%/0.01544`, versus
+required `<1%/<1%/<0.005`. Turbulence fields continue to grow, including LM
+`k` mean `+52%` and SST `+63%` from checkpoint 2075 to 2100. SST is therefore
+not a stable upper bracket and is not eligible as an LM warm start.
+
+Primary upper/lower yPlus remains wall-resolved (`mean=0.63-0.68`, all faces
+below 5), so the rejection is not a first-layer failure. All actual solves used
+`--np 1`, stayed below the 10-GB process-tree guard (campaign peak
+`8,245,035,008` bytes), and used a no-space APFS mount physically backed on the
+Samsung SSD; system `/tmp` was not used. The compact evidence package is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_openfoam_transition_baseline_recovery/`.
+
+Do not select the transient LM/SST values near `CD=0.030-0.035`, extend the same
+Fine cases by brute force, or update design power. Accepted SA/Fine
+`CL=1.160934`, `CD_total_physical=0.03326556` remains only a grid-stable
+high-drag warning. The locked `rho=1.225/nu=1.4607e-5` diagnostic is not the
+Phase J `33 C / 80%RH` environment; defer that same-model sensitivity until a
+stable method is independently validated. Historical SU2 custom mixed-handoff
+artifacts remain forensic evidence only.
 
 ## 2026-05-22 WO-006 HPA OpenFOAM Grid-Family Result
 

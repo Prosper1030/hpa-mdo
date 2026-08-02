@@ -4,14 +4,21 @@ Queue owner: 代理總工程師 / AI 工作總控.
 
 ## Current Bounded WO-006 Gate
 
-**2026-08-02 highest-priority ready work order:**
-`WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`. Run it serially on the
-accepted Fine full-wing OpenFOAM mesh using the qualified resumable runner.
-Success means one stable SST/LM same-mesh engineering diagnostic with a
-100-row force/CmPitch window and complete transition/yPlus/force evidence. The
-historical SU2 custom mixed-handoff route is not the active local execution
-route. Do not start another mesh ladder, physical-time Fine URANS, or design
-power work first.
+**2026-08-02 work-order completion:**
+`WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md` is complete with verdict
+`transition_route_not_established`. LM and fully turbulent SST each reached a
+finite, contiguous 100-row window on the accepted Fine mesh, but both failed
+CD/CL/CmPitch stability and showed continuing turbulence-field growth. SST is
+not a stable upper bracket and cannot warm-start LM. Do not rerun a third
+identical Fine chunk, select a transient low-CD row, start same-mesh physical
+URANS, revive SU2 archaeology, or update design power.
+
+The next aero priority needs a new approved work order: independently bound
+free-flight turbulence/roughness and validate the low-Re model plus
+tip/outer-wing boundary behavior against simpler or measured evidence before
+authorizing another 3D solver route. The Phase J `33 C / 80%RH` sensitivity is
+deferred until that method is stable. This current gate supersedes conflicting
+historical queue bullets below; those remain provenance only.
 
 Baseline A data-authority is restored for bounded WO-006 aero calibration only.
 Do not treat this as release truth, RFQ/procurement truth, or final aircraft

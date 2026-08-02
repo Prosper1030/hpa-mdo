@@ -1,0 +1,17 @@
+{
+  "case": "lm_Tu0p5_L0p001c_r2",
+  "latest_time": 2100.0,
+  "formal_force_gate_pass": false,
+  "solver_logs_finite_and_normally_terminated": true,
+  "all_required_fields_finite_and_sized": true,
+  "primary_yplus_available": true,
+  "primary_yplus_wall_resolved_acceptable": true,
+  "latest_attempt_rss_guard_pass": true,
+  "latest_attempt_scratch_gate_pass": true,
+  "warning_counts": {
+    "k_bounding": 102,
+    "omega_bounding": 0,
+    "maxLambdaIter": 100
+  },
+  "note": "Force pass is necessary but not sufficient; component cancellation and transition-field evolution require engineering review."
+}

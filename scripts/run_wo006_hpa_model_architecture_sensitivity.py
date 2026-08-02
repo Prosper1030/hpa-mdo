@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import fcntl
+import filecmp
 import json
 import math
 import os
@@ -38,7 +40,8 @@ OUT_ROOT = (
     / "cfd_release_v0_hpa_model_architecture_sensitivity"
 )
 OPENFOAM = Path("/opt/homebrew/bin/openfoam")
-TMP_ROOT = ROOT.parent / "hpa-cfd-tmp/architecture_sensitivity"
+SCRATCH_BACKING_ROOT = ROOT.parent / "hpa-cfd-tmp/architecture_sensitivity"
+TMP_ROOT = Path("/Volumes/hpa-cfd-tmp/architecture_sensitivity")
 
 RHO = 1.225
 U_INF = 6.5
@@ -75,6 +78,7 @@ class CaseSpec:
     turbulence_model: str = "SpalartAllmaras"
     add_pref: bool = False
     relaxation: str = "baseline"
+    warm_start_source: str | None = None
     attempt_note: str = ""
 
 
@@ -118,6 +122,14 @@ CASE_SPECS = {
         turbulence_model="kOmegaSSTLM",
         relaxation="lm_very_conservative",
         attempt_note="LM attempt 2 with lower relaxation and first-order turbulence convection",
+    ),
+    "lm_warm_from_sst_Tu0p5_L0p001c": CaseSpec(
+        name="lm_warm_from_sst_Tu0p5_L0p001c",
+        outlet_pressure="fixedValue",
+        turbulence_model="kOmegaSSTLM",
+        relaxation="lm_very_conservative",
+        warm_start_source="sst_Tu0p5_L0p001c",
+        attempt_note="LM warm start preserving the qualified same-mesh SST U/p/phi/k/omega/nut fields",
     ),
     "pimple_sst_Tu0p5_L0p001c": CaseSpec(
         name="pimple_sst_Tu0p5_L0p001c",
@@ -245,7 +257,43 @@ def run_monitored(
 
 
 def replace_scalar(text: str, key: str, value: str) -> str:
-    return re.sub(rf"(^\s*{re.escape(key)}\s+)([^;]+)(;)", rf"\g<1>{value}\3", text, flags=re.M)
+    # controlDict top-level entries precede the functions dictionary.  Replacing
+    # only the first match prevents checkpoint settings from silently changing
+    # identically named function-object entries.
+    return re.sub(
+        rf"(^\s*{re.escape(key)}\s+)([^;]+)(;)",
+        rf"\g<1>{value}\3",
+        text,
+        count=1,
+        flags=re.M,
+    )
+
+
+def normalize_function_object_write_intervals(text: str) -> str:
+    """Keep diagnostic objects at per-event cadence without touching checkpoints."""
+    match = re.search(r"^\s*functions\s*\{", text, flags=re.M)
+    if not match:
+        return text
+    prefix = text[: match.start()]
+    functions = text[match.start() :]
+    functions = re.sub(
+        r"(^\s*writeInterval\s+)([^;]+)(;)",
+        r"\g<1>1\3",
+        functions,
+        flags=re.M,
+    )
+    return prefix + functions
+
+
+def remove_duplicate_shear_yplus_function(text: str) -> str:
+    """Remove a second yPlus object; v2512 gives both objects the same registry name."""
+    return re.sub(
+        r"\n\s*yPlusShear\s*\{.*?\n\s*\}\s*(?=\n)",
+        "",
+        text,
+        count=1,
+        flags=re.S,
+    )
 
 
 def replace_patch_block(field_text: str, patch: str, block_body: str) -> str:
@@ -288,7 +336,12 @@ def latest_time_name(case_dir: Path) -> str:
     return time_dirs[-1].name
 
 
-def copy_lean_case(source: Path, dst: Path, include_post_processing: bool = False) -> None:
+def copy_lean_case(
+    source: Path,
+    dst: Path,
+    include_post_processing: bool = False,
+    include_logs: bool = True,
+) -> None:
     if dst.exists():
         shutil.rmtree(dst)
     dst.mkdir(parents=True)
@@ -297,9 +350,85 @@ def copy_lean_case(source: Path, dst: Path, include_post_processing: bool = Fals
         shutil.copytree(source / child, dst / child, symlinks=False)
     if include_post_processing and (source / "postProcessing").exists():
         shutil.copytree(source / "postProcessing", dst / "postProcessing", symlinks=False)
-    for log_path in source.glob("log.*"):
-        if log_path.is_file():
-            shutil.copy2(log_path, dst / log_path.name)
+    if include_logs:
+        for log_path in source.glob("log.*"):
+            if log_path.is_file():
+                shutil.copy2(log_path, dst / log_path.name)
+
+
+def validate_sst_warm_start(case_dir: Path, time_name: str) -> None:
+    expected = {
+        "U": ("volVectorField", "[0 1 -1 0 0 0 0]"),
+        "p": ("volScalarField", "[0 2 -2 0 0 0 0]"),
+        "phi": ("surfaceScalarField", "[0 3 -1 0 0 0 0]"),
+        "k": ("volScalarField", "[0 2 -2 0 0 0 0]"),
+        "omega": ("volScalarField", "[0 0 -1 0 0 0 0]"),
+        "nut": ("volScalarField", "[0 2 -1 0 0 0 0]"),
+    }
+    missing = [name for name in expected if not (case_dir / time_name / name).exists()]
+    if missing:
+        raise RuntimeError(f"SST warm start is missing required fields at {time_name}: {missing}")
+    nonfinite = re.compile(rb"(?i)(?<![A-Za-z])[-+]?(?:nan|inf(?:inity)?)(?![A-Za-z])")
+    for name, (field_class, dimensions) in expected.items():
+        path = case_dir / time_name / name
+        header = bytearray()
+        with path.open("rb") as stream:
+            for raw in stream:
+                if len(header) < 8192:
+                    header.extend(raw)
+                if nonfinite.search(raw):
+                    raise RuntimeError(f"SST warm-start field contains non-finite data: {path}")
+        header_text = header.decode(errors="replace")
+        if not re.search(rf"\bclass\s+{re.escape(field_class)}\s*;", header_text):
+            raise RuntimeError(f"Unexpected OpenFOAM class for SST warm-start field: {path}")
+        if not re.search(rf"\bdimensions\s+{re.escape(dimensions)}\s*;", header_text):
+            raise RuntimeError(f"Unexpected dimensions for SST warm-start field: {path}")
+
+
+def remove_derived_restart_fields(case_dir: Path, time_name: str) -> None:
+    """Drop regenerable function-object fields from the scratch restart only."""
+    time_dir = case_dir / time_name
+    for path in time_dir.iterdir():
+        if path.is_file() and (path.name == "yPlus" or path.name.endswith(":yPlus")):
+            path.unlink()
+
+
+def require_qualified_sst_summary(summary: dict[str, object], source_spec: CaseSpec) -> None:
+    """Reject warm starts from unevolved or force-unqualified SST checkpoints."""
+    qualified = bool(
+        source_spec.turbulence_model == "kOmegaSST"
+        and summary.get("ok")
+        and summary.get("stable_force_window")
+        and summary.get("finite_force_history")
+        and summary.get("contiguous_final_window")
+        and summary.get("force_reaches_latest_checkpoint")
+        and int(summary.get("n_force_rows", 0)) >= MIN_FORCE_WINDOW_ROWS
+        and float(summary.get("latest_checkpoint", -math.inf)) > float(LATEST_TIME)
+    )
+    if not qualified:
+        raise RuntimeError("SST-to-LM warm start requires a qualified, evolved SST final-100 checkpoint")
+
+
+def validate_warm_start_source_qualification(source: Path, source_spec: CaseSpec) -> None:
+    status_path = source / "architecture_sensitivity_status.json"
+    if not status_path.exists():
+        raise RuntimeError(f"SST warm-start source has no controller status: {source}")
+    status = json.loads(status_path.read_text())
+    require_qualified_sst_summary(summarize_case(source, source_spec, status), source_spec)
+    manifest_path = source / "architecture_sensitivity_manifest.json"
+    manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
+    model_text = (source / "constant/turbulenceProperties").read_text()
+    if manifest.get("turbulence_model") != "kOmegaSST" or not re.search(
+        r"\bRASModel\s+kOmegaSST\s*;", model_text
+    ):
+        raise RuntimeError("Warm-start source manifest/dictionary is not kOmegaSST")
+    for name in ("boundary", "points", "faces", "owner", "neighbour"):
+        if not filecmp.cmp(
+            source / "constant/polyMesh" / name,
+            SOURCE_CASE / "constant/polyMesh" / name,
+            shallow=False,
+        ):
+            raise RuntimeError(f"Warm-start source mesh differs from accepted Fine mesh: {name}")
 
 
 def checkpoint_interval(start_time: float, end_time: float, maximum: int = MAX_STEADY_CHECKPOINT_INTERVAL) -> int:
@@ -321,6 +450,8 @@ def update_control_dict(case_dir: Path, start_time: float, end_time: float, solv
     write_interval = 10 if solver == "pimpleFoam" else checkpoint_interval(start_time, end_time)
     text = replace_scalar(text, "writeInterval", f"{write_interval:g}")
     text = replace_scalar(text, "purgeWrite", "2")
+    text = remove_duplicate_shear_yplus_function(text)
+    text = normalize_function_object_write_intervals(text)
     if solver == "pimpleFoam":
         text = replace_scalar(text, "deltaT", "0.02")
         additions = {
@@ -460,6 +591,11 @@ def write_sst_fields(case_dir: Path, time_name: str) -> None:
 
 def write_lm_fields(case_dir: Path, time_name: str) -> None:
     write_sst_fields(case_dir, time_name)
+    write_lm_transition_fields(case_dir, time_name)
+
+
+def write_lm_transition_fields(case_dir: Path, time_name: str) -> None:
+    """Add only LM-specific scalars, preserving an SST warm-start state."""
     time_dir = case_dir / time_name
     gamma = f"{GAMMA_INF:g}"
     retheta = f"{RE_THETA_T_INF:g}"
@@ -754,9 +890,11 @@ def configure_case(
     end_time: float,
     np: int,
     initialize_turbulence_fields: bool,
+    initialize_lm_transition_fields_only: bool,
     source_case: Path,
 ) -> None:
     start_time = float(start_time_name)
+    remove_derived_restart_fields(case_dir, start_time_name)
     update_control_dict(case_dir, start_time, end_time, spec.solver)
     update_outlet_pressure(case_dir, start_time_name, spec.outlet_pressure)
     if spec.add_pref:
@@ -774,6 +912,9 @@ def configure_case(
         elif spec.turbulence_model == "kOmegaSSTLM":
             if initialize_turbulence_fields:
                 write_lm_fields(case_dir, start_time_name)
+            elif initialize_lm_transition_fields_only:
+                validate_sst_warm_start(case_dir, start_time_name)
+                write_lm_transition_fields(case_dir, start_time_name)
             write_lm_schemes(
                 case_dir,
                 first_order_turbulence=first_order_turb,
@@ -795,6 +936,8 @@ def configure_case(
         "start_time": start_time,
         "end_time": end_time,
         "initialized_turbulence_fields": initialize_turbulence_fields,
+        "initialized_lm_transition_fields_only": initialize_lm_transition_fields_only,
+        "warm_start_source": spec.warm_start_source,
         "solver": spec.solver,
         "outlet_pressure": spec.outlet_pressure,
         "turbulence_model": spec.turbulence_model,
@@ -826,6 +969,34 @@ def openfoam_cmd(shell_cmd: str) -> list[str]:
 
 def case_shell_command(case_dir: Path, command: str) -> str:
     return f"cd {shlex.quote(str(case_dir))} && {command}"
+
+
+def validate_openfoam_scratch_path(tmp_root: Path) -> None:
+    """Reject paths that OpenFOAM's fileName validator cannot accept.
+
+    Shell quoting is not sufficient here: OpenFOAM v2512 treats whitespace in
+    the process working directory as an invalid ``fileName`` and aborts before
+    the solver dry-run.  A no-whitespace mount point may still be backed by the
+    required external SSD storage.
+    """
+    if any(character.isspace() for character in str(tmp_root)):
+        raise ValueError(
+            "OpenFOAM scratch paths must not contain whitespace; use a "
+            f"no-whitespace mount point backed by the external SSD: {tmp_root}"
+        )
+
+
+def acquire_solver_lock(tmp_root: Path):
+    """Prevent two WO-006 runner invocations from launching concurrent solvers."""
+    lock_path = tmp_root / ".wo006_solver.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        raise RuntimeError(f"Another WO-006 solver runner holds {lock_path}") from None
+    return handle
 
 
 def run_openfoam_case(
@@ -981,8 +1152,10 @@ def parse_force_coeffs_log(path: Path) -> list[dict[str, float]]:
     in_block = False
     pending: dict[str, float] = {}
     time_re = re.compile(r"^Time =\s+([-+0-9.eE]+)")
+    number = r"[-+]?(?:nan|inf(?:inity)?|(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)"
     coeff_re = re.compile(
-        r"^\s*(Cd|Cl|CmPitch):\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)"
+        rf"^\s*(Cd|Cl|CmPitch):\s+({number})\s+({number})\s+({number})\s+({number})",
+        flags=re.I,
     )
     for line in path.read_text(errors="ignore").splitlines():
         time_match = time_re.match(line)
@@ -1037,6 +1210,24 @@ def merge_force_rows(row_groups: Iterable[Iterable[dict[str, float]]]) -> list[d
     return [by_time[key] for key in sorted(by_time)]
 
 
+def collect_force_rows(case_dir: Path, spec: CaseSpec) -> tuple[list[dict[str, float]], list[str]]:
+    """Collect restart-safe force rows, preferring newer logs at duplicate times."""
+    row_groups: list[list[dict[str, float]]] = []
+    force_sources: list[str] = []
+    force_files = sorted((case_dir / "postProcessing" / FORCE_OBJECT).glob("*/force.dat"))
+    for force_file in force_files:
+        row_groups.append(parse_force_file(force_file))
+        force_sources.append(str(force_file))
+    log_files = sorted(
+        case_dir.glob(f"log.{spec.solver}_{spec.name}*.txt"),
+        key=lambda path: path.stat().st_mtime,
+    )
+    for log_file in log_files:
+        row_groups.append(parse_force_coeffs_log(log_file))
+        force_sources.append(str(log_file))
+    return merge_force_rows(row_groups), force_sources
+
+
 def summarize_force_rows(rows: list[dict[str, float]]) -> dict[str, object]:
     if not rows:
         return {"stable_force_window": False, "force_window_status": "missing"}
@@ -1045,6 +1236,13 @@ def summarize_force_rows(rows: list[dict[str, float]]) -> dict[str, object]:
         "final_time": rows[-1]["time"],
         "stable_force_window": False,
     }
+    required_keys = ("time", "CD_total", "CD_pressure", "CD_viscous", "CL", "CmPitch")
+    result["finite_force_history"] = all(
+        key in row and math.isfinite(float(row[key])) for row in rows for key in required_keys
+    )
+    if not result["finite_force_history"]:
+        result["force_window_status"] = "nonfinite"
+        return result
     window = rows[-MIN_FORCE_WINDOW_ROWS:]
     for key in ("CD_total", "CD_pressure", "CD_viscous", "CL", "CmPitch"):
         if not all(key in row for row in window):
@@ -1060,9 +1258,17 @@ def summarize_force_rows(rows: list[dict[str, float]]) -> dict[str, object]:
     if len(rows) < MIN_FORCE_WINDOW_ROWS:
         result["force_window_status"] = "insufficient_rows"
         return result
+    window_times = [float(row["time"]) for row in window]
+    result["final_window_start_time"] = window_times[0]
+    result["final_window_end_time"] = window_times[-1]
+    result["contiguous_final_window"] = all(
+        math.isclose(current - previous, 1.0, abs_tol=1.0e-9)
+        for previous, current in zip(window_times, window_times[1:])
+    )
     result["force_window_status"] = "available"
     result["stable_force_window"] = bool(
-        float(result.get("CD_total_relative_span_final_window", math.inf)) < MAX_FORCE_RELATIVE_SPAN
+        result["contiguous_final_window"]
+        and float(result.get("CD_total_relative_span_final_window", math.inf)) < MAX_FORCE_RELATIVE_SPAN
         and float(result.get("CL_relative_span_final_window", math.inf)) < MAX_FORCE_RELATIVE_SPAN
         and float(result.get("CmPitch_range_final_window", math.inf)) < MAX_CM_PITCH_ABSOLUTE_SPAN
     )
@@ -1082,18 +1288,7 @@ def summarize_case(case_dir: Path, spec: CaseSpec, status: dict[str, object]) ->
         "elapsed_s": status.get("elapsed_s", ""),
         "peak_rss_bytes": status.get("solve_peak_rss_bytes", ""),
     }
-    force_files = sorted((case_dir / "postProcessing" / FORCE_OBJECT).glob("*/force.dat"))
-    row_groups: list[list[dict[str, float]]] = []
-    force_sources: list[str] = []
-    if force_files:
-        for force_file in force_files:
-            row_groups.append(parse_force_file(force_file))
-            force_sources.append(str(force_file))
-    log_files = sorted(case_dir.glob(f"log.{spec.solver}_{spec.name}*.txt"), key=lambda path: path.stat().st_mtime)
-    for log_file in log_files:
-        row_groups.append(parse_force_coeffs_log(log_file))
-        force_sources.append(str(log_file))
-    rows = merge_force_rows(row_groups)
+    rows, force_sources = collect_force_rows(case_dir, spec)
     summary["force_file"] = ";".join(force_sources)
     if not rows:
         if summary["process_ok"] and not summary["failure_stage"]:
@@ -1101,10 +1296,19 @@ def summarize_case(case_dir: Path, spec: CaseSpec, status: dict[str, object]) ->
         summary.update(summarize_force_rows(rows))
         return summary
     summary.update(summarize_force_rows(rows))
+    latest_checkpoint = float(latest_time_name(case_dir))
+    summary["latest_checkpoint"] = latest_checkpoint
+    summary["force_reaches_latest_checkpoint"] = math.isclose(
+        float(summary["final_time"]), latest_checkpoint, abs_tol=1.0e-9
+    )
     start_time = float(status.get("start_time", -math.inf))
     summary["advanced_past_start"] = float(summary["final_time"]) > start_time
     if summary["process_ok"] and not summary["advanced_past_start"]:
         summary["failure_stage"] = "time-not-advanced"
+    elif summary["process_ok"] and not summary["force_reaches_latest_checkpoint"]:
+        summary["failure_stage"] = "force-history-does-not-reach-checkpoint"
+    elif summary["process_ok"] and summary["force_window_status"] == "nonfinite":
+        summary["failure_stage"] = "force-history-nonfinite"
     elif summary["process_ok"] and summary["force_window_status"] == "insufficient_rows":
         summary["failure_stage"] = "force-window-insufficient"
     elif summary["process_ok"] and not summary["stable_force_window"]:
@@ -1112,6 +1316,7 @@ def summarize_case(case_dir: Path, spec: CaseSpec, status: dict[str, object]) ->
     summary["ok"] = bool(
         summary["process_ok"]
         and summary["advanced_past_start"]
+        and summary["force_reaches_latest_checkpoint"]
         and summary["stable_force_window"]
     )
     return summary
@@ -1129,9 +1334,13 @@ def write_summary(rows: list[dict[str, object]]) -> None:
         "ok",
         "failure_stage",
         "stable_force_window",
+        "finite_force_history",
         "force_window_status",
+        "contiguous_final_window",
         "advanced_past_start",
         "final_time",
+        "latest_checkpoint",
+        "force_reaches_latest_checkpoint",
         "CD_pressure_last",
         "CD_pressure_mean_final_window",
         "CD_pressure_range_final_window",
@@ -1186,11 +1395,43 @@ def resummarize_existing(case_names: list[str]) -> int:
     return 0
 
 
+def discover_existing_case_names() -> list[str]:
+    """Include existing non-default recovery lanes in an unfiltered summary."""
+    case_root = OUT_ROOT / "openfoam_cases"
+    return [name for name in CASE_SPECS if (case_root / name).is_dir()]
+
+
 def copy_back(run_case: Path, dest_case: Path) -> None:
     dest_case.parent.mkdir(parents=True, exist_ok=True)
     if dest_case.exists():
         shutil.rmtree(dest_case)
     shutil.copytree(run_case, dest_case)
+
+
+def operational_exit_code(statuses: list[dict[str, object]]) -> int:
+    """Return non-zero when any requested case failed before solver completion."""
+    return int(any(not bool(status.get("process_ok", False)) for status in statuses))
+
+
+def append_attempt_record(path: Path, record: dict[str, object]) -> dict[str, object]:
+    """Append one controller attempt without overwriting earlier resource evidence."""
+    existing = path.read_text().splitlines() if path.exists() else []
+    payload = {"attempt_id": len(existing) + 1, **record}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as stream:
+        stream.write(json.dumps(payload, sort_keys=True) + "\n")
+    return payload
+
+
+def solver_log_diagnostics(path: Path) -> dict[str, int]:
+    if not path.is_file():
+        return {"k_bounding_count": 0, "omega_bounding_count": 0, "lambda_warning_count": 0}
+    text = path.read_text(errors="ignore")
+    return {
+        "k_bounding_count": text.count("bounding k"),
+        "omega_bounding_count": text.count("bounding omega"),
+        "lambda_warning_count": text.count("maxLambdaIter"),
+    }
 
 
 def run_cases(
@@ -1203,16 +1444,13 @@ def run_cases(
     max_rss_gb: float,
     tmp_root: Path,
     min_scratch_free_gb: float,
+    controller_command: str,
 ) -> int:
     if not SOURCE_CASE.exists():
         raise FileNotFoundError(SOURCE_CASE)
+    validate_openfoam_scratch_path(tmp_root)
     tmp_root.mkdir(parents=True, exist_ok=True)
-    scratch_free_gb = shutil.disk_usage(tmp_root).free / 1.0e9
-    if scratch_free_gb < min_scratch_free_gb:
-        raise RuntimeError(
-            f"Scratch free space {scratch_free_gb:.2f} GB is below the "
-            f"{min_scratch_free_gb:.2f} GB safety gate: {tmp_root}"
-        )
+    solver_lock = acquire_solver_lock(tmp_root)
     (OUT_ROOT / "openfoam_cases").mkdir(parents=True, exist_ok=True)
     summaries: list[dict[str, object]] = []
     if (OUT_ROOT / "model_architecture_sensitivity_summary.json").exists():
@@ -1221,8 +1459,16 @@ def run_cases(
         except json.JSONDecodeError:
             summaries = []
     by_case = {str(item.get("case")): item for item in summaries}
+    run_statuses: list[dict[str, object]] = []
 
     for name in case_names:
+        scratch_free_before_bytes = shutil.disk_usage(tmp_root).free
+        scratch_free_gb = scratch_free_before_bytes / 1.0e9
+        if scratch_free_gb < min_scratch_free_gb:
+            raise RuntimeError(
+                f"Scratch free space {scratch_free_gb:.2f} GB is below the "
+                f"{min_scratch_free_gb:.2f} GB safety gate: {tmp_root}"
+            )
         spec = CASE_SPECS[name]
         run_case = tmp_root / name
         dest_case = OUT_ROOT / "openfoam_cases" / name
@@ -1230,9 +1476,19 @@ def run_cases(
             if not dest_case.exists():
                 raise FileNotFoundError(f"Cannot resume missing case: {dest_case}")
             source = dest_case
+        elif spec.warm_start_source:
+            source = OUT_ROOT / "openfoam_cases" / spec.warm_start_source
+            if not source.exists():
+                raise FileNotFoundError(f"Cannot warm start from missing SST case: {source}")
+            validate_warm_start_source_qualification(source, CASE_SPECS[spec.warm_start_source])
         else:
             source = SOURCE_CASE
-        copy_lean_case(source, run_case, include_post_processing=resume)
+        copy_lean_case(
+            source,
+            run_case,
+            include_post_processing=resume,
+            include_logs=resume,
+        )
         start_time_name = latest_time_name(run_case)
         start_time = float(start_time_name)
         target_end_time = start_time + iterations if iterations is not None else end_time
@@ -1240,7 +1496,12 @@ def run_cases(
             raise ValueError(
                 f"Target end time {target_end_time} must be greater than case start time {start_time}"
             )
-        initialize_turbulence_fields = not resume and spec.turbulence_model != "SpalartAllmaras"
+        initialize_lm_transition_fields_only = bool(not resume and spec.warm_start_source)
+        initialize_turbulence_fields = bool(
+            not resume
+            and not initialize_lm_transition_fields_only
+            and spec.turbulence_model != "SpalartAllmaras"
+        )
         configure_case(
             run_case,
             spec,
@@ -1248,6 +1509,7 @@ def run_cases(
             target_end_time,
             np,
             initialize_turbulence_fields=initialize_turbulence_fields,
+            initialize_lm_transition_fields_only=initialize_lm_transition_fields_only,
             source_case=source,
         )
         status = run_openfoam_case(
@@ -1258,14 +1520,50 @@ def run_cases(
             target_end_time,
             max_rss_bytes=int(max_rss_gb * 1.0e9),
         )
+        status["scratch_root"] = str(tmp_root)
+        status["scratch_backing_root"] = str(SCRATCH_BACKING_ROOT)
+        status["scratch_free_before_bytes"] = scratch_free_before_bytes
+        status["scratch_free_after_bytes"] = shutil.disk_usage(tmp_root).free
+        run_statuses.append(status)
         (run_case / "architecture_sensitivity_status.json").write_text(json.dumps(status, indent=2) + "\n")
         copy_back(run_case, dest_case)
         summary = summarize_case(dest_case, spec, status)
         by_case[name] = summary
         write_summary([by_case[k] for k in sorted(by_case)])
+        solve_log = dest_case / Path(str(status.get("solve_log", ""))).name
+        append_attempt_record(
+            OUT_ROOT / "recovery_attempt_ledger.jsonl",
+            {
+                "controller_command": controller_command,
+                "case": name,
+                "start_time": status.get("start_time"),
+                "target_end_time": status.get("target_end_time"),
+                "process_ok": status.get("process_ok", False),
+                "failure_stage": status.get("failure_stage", summary.get("failure_stage", "")),
+                "dry_run_returncode": status.get("dry_run_returncode"),
+                "solve_returncode": status.get("solve_returncode"),
+                "elapsed_s": status.get("elapsed_s"),
+                "peak_rss_bytes": status.get("solve_peak_rss_bytes"),
+                "max_rss_bytes": status.get("solve_max_rss_bytes"),
+                "stopped_by_memory_guard": status.get("solve_stopped_by_memory_guard", False),
+                "scratch_root": status.get("scratch_root", str(tmp_root)),
+                "scratch_backing_root": status.get("scratch_backing_root", str(SCRATCH_BACKING_ROOT)),
+                "scratch_free_before_bytes": status.get("scratch_free_before_bytes"),
+                "scratch_free_after_bytes": status.get("scratch_free_after_bytes"),
+                "latest_checkpoint": summary.get("latest_checkpoint"),
+                "unique_force_rows": summary.get("n_force_rows", 0),
+                "force_final_time": summary.get("final_time"),
+                "formal_force_window_stable": summary.get("stable_force_window", False),
+                "solve_log": solve_log.name if solve_log.name else "",
+                **solver_log_diagnostics(solve_log),
+            },
+        )
         if not keep_tmp and run_case.exists():
             shutil.rmtree(run_case)
-    return 0
+    result = operational_exit_code(run_statuses)
+    fcntl.flock(solver_lock.fileno(), fcntl.LOCK_UN)
+    solver_lock.close()
+    return result
 
 
 def main(argv: list[str]) -> int:
@@ -1295,7 +1593,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--keep-tmp", action="store_true")
     args = parser.parse_args(argv)
     if args.summarize_only:
-        return resummarize_existing(args.cases)
+        case_names = args.cases if "--cases" in argv else discover_existing_case_names()
+        return resummarize_existing(case_names)
     if args.np > 1 and not args.allow_parallel:
         parser.error("--np > 1 requires --allow-parallel; serial is the RAM-safe default")
     if args.max_rss_gb <= 0:
@@ -1316,6 +1615,7 @@ def main(argv: list[str]) -> int:
         max_rss_gb=args.max_rss_gb,
         tmp_root=args.tmp_root,
         min_scratch_free_gb=args.min_scratch_free_gb,
+        controller_command=shlex.join([sys.executable, str(Path(__file__).resolve()), *argv]),
     )
 
 

@@ -1,0 +1,96 @@
+{
+  "case": "lm_Tu0p5_L0p001c_r2",
+  "solver": "simpleFoam",
+  "turbulence_model": "kOmegaSSTLM",
+  "openfoam_release": "OpenCFD-v2512",
+  "accepted_fine_cells": 6090240,
+  "same_mesh": true,
+  "retained_times": [
+    2050.0,
+    2075.0,
+    2100.0
+  ],
+  "reference": {
+    "rho_kg_m3": 1.225,
+    "velocity_m_s": 6.5,
+    "nu_m2_s": 1.4607e-05,
+    "aoa_deg": 0.18,
+    "Sref_m2": 33.420059598,
+    "Cref_m": 1.003721543,
+    "drag_direction": [
+      0.999995065,
+      0.0,
+      0.00314158749
+    ],
+    "lift_direction": [
+      -0.00314158749,
+      0.0,
+      0.999995065
+    ]
+  },
+  "force_basis": {
+    "name": "total_physical",
+    "patches": [
+      "airfoil_upper",
+      "airfoil_lower",
+      "te_wall"
+    ],
+    "excluded_direct_force_patches": [
+      "physical_tip_left",
+      "physical_tip_right"
+    ]
+  },
+  "freestream_turbulence_inputs": {
+    "Tu": 0.005,
+    "k": 0.0015843750000000003,
+    "L_for_LM": 0.001003721543,
+    "omega_for_LM": 72.40275928673893
+  },
+  "lm_transition_inputs": {
+    "gammaInt": 1.0,
+    "ReThetat": 879.6744
+  },
+  "transition_input_classification": {
+    "Tu_0p5pct": "assumed physical/model input; not measured HPA atmosphere",
+    "L_0p001c": "numerical freestream-decay stabilization input; not atmosphere truth",
+    "gammaInt_1": "model-recommended freestream inlet convention",
+    "ReThetat_879p6744": "LM correlation-derived inlet value; not measured momentum thickness"
+  },
+  "scratch": {
+    "solver_visible_root": "/Volumes/hpa-cfd-tmp/architecture_sensitivity",
+    "external_ssd_backing_root": "/Volumes/Samsung SSD/hpa-cfd-tmp/architecture_sensitivity",
+    "free_before_bytes": 68388786176,
+    "free_after_bytes": 64943419392
+  },
+  "case_mesh_sha256": {
+    "boundary": "79e2eea2cbc323be0f0f709608b34245faffe1755e7d12e8243516e5946d383a",
+    "points": "ef6c59fe43fe5442397a72ad9c4724df94ee00b30900134bd8b1e805ef9415b5",
+    "faces": "a7173a883b10da64b332f6d934e66a0d8290f5924f37a695b7cb88e624458d9d",
+    "owner": "c249b098470de6b5e987f4d66aca75409dbedda8def9f856c4a53f669b83d8fb",
+    "neighbour": "0d509f2e51d218a2cf355ffeb48990e5c75807b91f30fe506a06a49f8e95e1b0"
+  },
+  "accepted_fine_mesh_sha256": {
+    "boundary": "79e2eea2cbc323be0f0f709608b34245faffe1755e7d12e8243516e5946d383a",
+    "points": "ef6c59fe43fe5442397a72ad9c4724df94ee00b30900134bd8b1e805ef9415b5",
+    "faces": "a7173a883b10da64b332f6d934e66a0d8290f5924f37a695b7cb88e624458d9d",
+    "owner": "c249b098470de6b5e987f4d66aca75409dbedda8def9f856c4a53f669b83d8fb",
+    "neighbour": "0d509f2e51d218a2cf355ffeb48990e5c75807b91f30fe506a06a49f8e95e1b0"
+  },
+  "accepted_sa_provenance": {
+    "force_history": "/Volumes/Samsung SSD/hpa-mdo/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_solver_campaign_repair/fine_force_history.csv",
+    "force_history_sha256": "64e46e96c540dc0e7e5cae5a332e946e8c291fdbf98e653a493cd50e5124c052",
+    "total_physical": {
+      "CD_pressure": 0.0229500141077,
+      "CD_viscous": 0.0103155482202,
+      "CD_total": 0.03326556,
+      "CL": 1.160927,
+      "CmPitch": -0.1322138
+    }
+  },
+  "dictionary_sha256": {
+    "system/controlDict": "5c69ee5416e982128415cee1b7d658bf872a329ad55fdcfdb2e1dfc0891f8ea8",
+    "system/fvSchemes": "67e1d65193f783493d0ac9b4c9f8ee9ea121d05d4fa144e784c162ded9fd808b",
+    "system/fvSolution": "bd9c19dadc087d84e256b47221e09a12e4b6129d320e761e9322493052a04c30",
+    "constant/turbulenceProperties": "a512fd717a2188f9395229c6c2bf76ca888be788a38d5348ef2880f1fc8edbb6"
+  }
+}

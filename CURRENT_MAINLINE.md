@@ -9,23 +9,36 @@ not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
 
-**2026-08-02 WO-006 recovery gate:** Current local execution route is the
-accepted Fine full-wing OpenFOAM mesh and its same-mesh SST/LM bracket, not the
-historical SU2 custom mixed-handoff route. The accepted SA/Fine result remains
-`CL=1.160934`, `CD_total_physical=0.03326556`; it is a grid-stable high-drag
-warning, not a low-Re HPA drag baseline. Existing SST/LM rows contain only `50`
-iterations and the old `pimpleFoam` probe produced no force history, so none is
-promoted.
+**2026-08-02 WO-006 transition-recovery result:**
+`transition_route_not_established`. The accepted Fine full-wing OpenFOAM mesh
+was held fixed while `kOmegaSSTLM` and fully turbulent `kOmegaSST` each ran two
+serial 50-iteration chunks. Both now have 100 finite contiguous force rows,
+finite retained fields and acceptable primary-wall yPlus, but both fail the
+formal force gate. LM CD/CL spans and CmPitch range are
+`10.699%/1.467%/0.012387`; SST is `15.705%/2.382%/0.015438`, versus
+`<1%/<1%/<0.005`. Between 2075 and 2100, LM `k` mean grows `52.4%` and SST
+`63.4%`; LM also emits 100 correlation warnings, while SST accumulates 81
+`omega` bounding messages. Finite residuals and wall-resolved upper/lower
+yPlus do not make these evolving nonlinear states qualified.
 
-`scripts/run_wo006_hpa_model_architecture_sensitivity.py` now requires at least
-`100` force rows, includes CmPitch in the gate, rejects missing/no-advance force
-histories, writes steady checkpoints no more than `25` iterations apart,
-supports `--resume`, defaults to serial, enforces a process-tree RSS guard, and
-uses Samsung-SSD scratch with a free-space gate. This is runner qualification,
-not a new CFD coefficient. The next single CFD action is the bounded serial
-Fine `kOmegaSSTLM` r2 continuation defined in
-`docs/work_orders/WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`; do not run
-same-mesh physical-time URANS or restart SU2 mesh archaeology first.
+No LM/SST endpoint or window mean is promoted. SST is neither a stable
+fully-turbulent upper bracket nor a valid LM warm start. The turbulence-model
+change does not explain away the accepted SA pressure term: both candidates'
+last-25 pressure means rise above SA while viscous drag falls, so the early
+total-CD reduction is cancellation. Accepted SA/Fine remains
+`CL=1.160934`, `CD_total_physical=0.03326556`, a grid-stable high-drag warning
+rather than low-Re HPA truth.
+
+Execution stayed within the 16-GB Mac boundaries: serial only, peak
+process-tree RSS `8,245,035,008` bytes below the 10-GB guard, external
+Samsung-SSD-backed scratch, and no system `/tmp`. The compact authority is
+`output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_openfoam_transition_baseline_recovery/`.
+Do not run a third identical Fine chunk, same-mesh physical-time URANS, SU2
+archaeology, design power, or a new grid/design update from this result. First
+bound the real free-flight turbulence/roughness environment and independently
+validate the low-Re model and tip/outer-wing behavior. The locked
+`rho=1.225/nu=1.4607e-5` diagnostic still requires a later same-model Phase J
+`33 C / 80%RH` sensitivity after a stable method exists.
 
 **2026-05-22 WO-006 HPA OpenFOAM grid-family solver result:** The active
 solver-campaign artifact is now

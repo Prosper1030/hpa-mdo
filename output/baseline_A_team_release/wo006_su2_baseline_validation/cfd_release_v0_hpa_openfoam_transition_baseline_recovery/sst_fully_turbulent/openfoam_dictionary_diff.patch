@@ -1,0 +1,93 @@
+--- accepted_sa/system/controlDict
++++ sst_Tu0p5_L0p001c/system/controlDict
+@@ -9,10 +9,10 @@
+ startFrom       latestTime;
+ startTime       0;
+ stopAt          endTime;
+-endTime         2000;
++endTime         2100;
+ deltaT          1;
+ writeControl    timeStep;
+-writeInterval   100;
++writeInterval   25;
+ purgeWrite      2;
+ functions
+ {
+@@ -213,6 +213,6 @@
+         type            yPlus;
+         libs            ("libfieldFunctionObjects.so");
+         writeControl    writeTime;
+-        writeInterval   100;
++        writeInterval   1;
+     }
+ }
+--- accepted_sa/system/fvSchemes
++++ sst_Tu0p5_L0p001c/system/fvSchemes
+@@ -17,8 +17,10 @@
+ {
+     default                         none;
+     div(phi,U)                      bounded Gauss linearUpwind grad(U);
+-    div(div(phi,U))                Gauss linear;
+-    div(phi,nuTilda)                bounded Gauss linearUpwind grad(nuTilda);
++    div(div(phi,U))                 Gauss linear;
++    turbulence                      bounded Gauss linearUpwind grad;
++    div(phi,k)                      $turbulence;
++    div(phi,omega)                  $turbulence;
+     div((nuEff*dev2(T(grad(U)))))   Gauss linear;
+ }
+ laplacianSchemes
+--- accepted_sa/system/fvSolution
++++ sst_Tu0p5_L0p001c/system/fvSolution
+@@ -30,13 +30,14 @@
+         tolerance       1e-08;
+         relTol          0.1;
+     }
+-    nuTilda
++    "(k|omega)"
+     {
+         solver          smoothSolver;
+-        smoother        GaussSeidel;
++        smoother        symGaussSeidel;
+         nSweeps         2;
+         tolerance       1e-08;
+         relTol          0.1;
++        maxIter         20;
+     }
+ }
+ SIMPLE
+@@ -46,19 +47,20 @@
+     {
+         p               1e-5;
+         U               1e-5;
+-        nuTilda         1e-5;
++        "(k|omega)"     1e-4;
+     }
+ }
+ relaxationFactors
+ {
+     fields
+     {
+-        p               0.25;
++        p               0.2;
+     }
+     equations
+     {
+-        U               0.55;
+-        nuTilda         0.55;
++        U               0.45;
++        k               0.3;
++        omega           0.3;
+     }
+ }
+
+--- accepted_sa/constant/turbulenceProperties
++++ sst_Tu0p5_L0p001c/constant/turbulenceProperties
+@@ -8,7 +8,7 @@
+ simulationType          RAS;
+ RAS
+ {
+-    RASModel            SpalartAllmaras;
++    RASModel            kOmegaSST;
+     turbulence          on;
+     printCoeffs         on;
+ }
