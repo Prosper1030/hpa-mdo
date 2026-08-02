@@ -9,10 +9,17 @@ evidence; it is a handoff/debug map for the next worker.
 - Current geometry authority: Baseline A current GO geometry loaded through
   `load_campaign_geometry`, with full span `34.332286 m` / half span
   `17.166143 m`; mass authority remains `98.5 kg`.
-- Active CFD delivery route: `canonical_hybrid_halfwing_v0`.
-- Active route state:
+- Historical SU2 route: `canonical_hybrid_halfwing_v0`.
+- Historical route state:
   `output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0/manifest.yaml`.
 - Route-policy checker: `scripts/check_canonical_hybrid_cfd_release.py`.
+- Active local execution route: accepted Fine full-wing OpenFOAM same-mesh
+  architecture sensitivity. The SA result is a grid-stable high-drag warning;
+  SST/LM remain unqualified until they pass the new 100-row force/CmPitch gate.
+- Active runner:
+  `scripts/run_wo006_hpa_model_architecture_sensitivity.py`.
+- Active work order:
+  `docs/work_orders/WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`.
 - External rescue reference:
   `docs/reports/wo006_cfd_external_rescue_reference.md`.
 - Current collar/core blocker question packet:
@@ -21,14 +28,16 @@ evidence; it is a handoff/debug map for the next worker.
   WO-006R29, WO-006R30.
 - Latest solver-facing forensic probe: WO-006R28.
 - Latest mesh-source forensic diagnostic: WO-006R30.
-- Current CFD status: `pressure_sanity_passed_route_smoke_pending`.
-- Passed release gates: `TOOLCHAIN_PASS`, `PRESSURE_SANITY_PASS`.
-- Next required release gate: `ROUTE_SMOKE_PASS` for canonical half-wing
-  hybrid BL viscous route-smoke.
+- Current CFD status: `openfoam_fine_sa_high_drag_warning_transition_bracket_pending`.
+- Current OpenFOAM evidence: same-family Medium/Fine grid stability, primary-wall
+  yPlus, force decomposition, Cp reasonableness, and outlet sensitivity.
+- Next required gate: stable Fine `kOmegaSSTLM` or SST same-mesh force window
+  with at least 100 rows, CmPitch, saved evolved turbulence/transition fields,
+  yPlus, pressure/viscous split, and RAM-safe execution evidence.
 - Phase 3 route-smoke gate exists, but `ROUTE_SMOKE_PASS` has not passed. The
-  current Gmsh topological BL extrusion attempt is rejected evidence, not an
-  active success path.
-- R-series forensic blockers that retired the old route:
+  Gmsh topological BL extrusion attempt is rejected historical evidence, not
+  the active local route.
+- R-series forensic blockers that retired that old route:
   - `su2_dual_orthogonality_angle_extreme`
   - `su2_dual_cv_face_area_aspect_ratio_extreme`
   - `su2_dual_cv_sub_volume_ratio_extreme`

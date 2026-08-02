@@ -14,6 +14,8 @@ import json
 import math
 import os
 import re
+import shlex
+import signal
 import shutil
 import subprocess
 import sys
@@ -36,7 +38,7 @@ OUT_ROOT = (
     / "cfd_release_v0_hpa_model_architecture_sensitivity"
 )
 OPENFOAM = Path("/opt/homebrew/bin/openfoam")
-TMP_ROOT = Path("/tmp/hpa_mdo_arch_openfoam")
+TMP_ROOT = ROOT.parent / "hpa-cfd-tmp/architecture_sensitivity"
 
 RHO = 1.225
 U_INF = 6.5
@@ -55,8 +57,14 @@ RE_THETA_T_INF = 879.6744
 GAMMA_INF = 1.0
 
 LATEST_TIME = "2000"
-DEFAULT_END_TIME = 2200
 FORCE_OBJECT = "forces_total_physical"
+MIN_FORCE_WINDOW_ROWS = 100
+MAX_STEADY_CHECKPOINT_INTERVAL = 25
+DEFAULT_MEMORY_FRACTION = 0.65
+DEFAULT_MAX_RSS_GB = 12.0
+DEFAULT_MIN_SCRATCH_FREE_GB = 20.0
+MAX_FORCE_RELATIVE_SPAN = 0.01
+MAX_CM_PITCH_ABSOLUTE_SPAN = 0.005
 
 
 @dataclass(frozen=True)
@@ -142,6 +150,100 @@ def run(cmd: list[str], cwd: Path, log_path: Path | None = None) -> int:
     return proc.returncode
 
 
+def physical_memory_bytes() -> int | None:
+    try:
+        pages = int(os.sysconf("SC_PHYS_PAGES"))
+        page_size = int(os.sysconf("SC_PAGE_SIZE"))
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+    total = pages * page_size
+    return total if total > 0 else None
+
+
+def default_max_rss_gb() -> float:
+    total = physical_memory_bytes()
+    if total is None:
+        return DEFAULT_MAX_RSS_GB
+    return min(DEFAULT_MAX_RSS_GB, total * DEFAULT_MEMORY_FRACTION / 1.0e9)
+
+
+def process_tree_rss_bytes(root_pid: int) -> int:
+    result = subprocess.run(
+        ["ps", "-axo", "pid=,ppid=,rss="],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return 0
+    rows: dict[int, tuple[int, int]] = {}
+    for line in result.stdout.splitlines():
+        parts = line.split()
+        if len(parts) != 3:
+            continue
+        try:
+            pid, ppid, rss_kib = map(int, parts)
+        except ValueError:
+            continue
+        rows[pid] = (ppid, rss_kib)
+    descendants = {root_pid}
+    changed = True
+    while changed:
+        changed = False
+        for pid, (ppid, _) in rows.items():
+            if ppid in descendants and pid not in descendants:
+                descendants.add(pid)
+                changed = True
+    return 1024 * sum(rows.get(pid, (0, 0))[1] for pid in descendants)
+
+
+def run_monitored(
+    cmd: list[str],
+    cwd: Path,
+    log_path: Path,
+    max_rss_bytes: int,
+    poll_interval_s: float = 2.0,
+) -> dict[str, object]:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    peak_rss = 0
+    stopped_by_memory_guard = False
+    with log_path.open("w") as log:
+        log.write("$ " + " ".join(cmd) + "\n")
+        log.write(f"# max process-tree RSS: {max_rss_bytes / 1.0e9:.3f} GB\n")
+        log.flush()
+        proc = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        while proc.poll() is None:
+            rss = process_tree_rss_bytes(proc.pid)
+            peak_rss = max(peak_rss, rss)
+            if max_rss_bytes > 0 and rss > max_rss_bytes:
+                stopped_by_memory_guard = True
+                log.write(
+                    f"\n# memory guard: RSS {rss / 1.0e9:.3f} GB exceeded "
+                    f"{max_rss_bytes / 1.0e9:.3f} GB\n"
+                )
+                log.flush()
+                os.killpg(proc.pid, signal.SIGTERM)
+                try:
+                    proc.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                break
+            time.sleep(poll_interval_s)
+        returncode = proc.wait()
+    return {
+        "returncode": returncode,
+        "peak_rss_bytes": peak_rss,
+        "max_rss_bytes": max_rss_bytes,
+        "stopped_by_memory_guard": stopped_by_memory_guard,
+    }
+
+
 def replace_scalar(text: str, key: str, value: str) -> str:
     return re.sub(rf"(^\s*{re.escape(key)}\s+)([^;]+)(;)", rf"\g<1>{value}\3", text, flags=re.M)
 
@@ -166,23 +268,58 @@ def add_pref_to_simple(fv_solution: Path) -> None:
     fv_solution.write_text(text)
 
 
-def copy_lean_source(dst: Path) -> None:
+def numeric_time_dirs(case_dir: Path) -> list[Path]:
+    candidates: list[tuple[float, Path]] = []
+    for child in case_dir.iterdir():
+        if not child.is_dir():
+            continue
+        try:
+            value = float(child.name)
+        except ValueError:
+            continue
+        candidates.append((value, child))
+    return [path for _, path in sorted(candidates)]
+
+
+def latest_time_name(case_dir: Path) -> str:
+    time_dirs = numeric_time_dirs(case_dir)
+    if not time_dirs:
+        raise RuntimeError(f"No numeric time directory in {case_dir}")
+    return time_dirs[-1].name
+
+
+def copy_lean_case(source: Path, dst: Path, include_post_processing: bool = False) -> None:
     if dst.exists():
         shutil.rmtree(dst)
     dst.mkdir(parents=True)
-    for child in ("constant", "system", LATEST_TIME):
-        shutil.copytree(SOURCE_CASE / child, dst / child, symlinks=False)
-    post = dst / "postProcessing"
-    if post.exists():
-        shutil.rmtree(post)
+    start_time = latest_time_name(source)
+    for child in ("constant", "system", start_time):
+        shutil.copytree(source / child, dst / child, symlinks=False)
+    if include_post_processing and (source / "postProcessing").exists():
+        shutil.copytree(source / "postProcessing", dst / "postProcessing", symlinks=False)
+    for log_path in source.glob("log.*"):
+        if log_path.is_file():
+            shutil.copy2(log_path, dst / log_path.name)
 
 
-def update_control_dict(case_dir: Path, end_time: float, solver: str) -> None:
+def checkpoint_interval(start_time: float, end_time: float, maximum: int = MAX_STEADY_CHECKPOINT_INTERVAL) -> int:
+    duration = end_time - start_time
+    rounded = int(round(duration))
+    if duration <= 0 or not math.isclose(duration, rounded, abs_tol=1.0e-9):
+        raise ValueError("Steady continuation duration must be a positive whole number of iterations")
+    for interval in range(min(maximum, rounded), 0, -1):
+        if rounded % interval == 0:
+            return interval
+    return 1
+
+
+def update_control_dict(case_dir: Path, start_time: float, end_time: float, solver: str) -> None:
     path = case_dir / "system/controlDict"
     text = path.read_text()
     text = replace_scalar(text, "application", solver)
     text = replace_scalar(text, "endTime", f"{end_time:g}")
-    text = replace_scalar(text, "writeInterval", "10" if solver == "pimpleFoam" else "100")
+    write_interval = 10 if solver == "pimpleFoam" else checkpoint_interval(start_time, end_time)
+    text = replace_scalar(text, "writeInterval", f"{write_interval:g}")
     text = replace_scalar(text, "purgeWrite", "2")
     if solver == "pimpleFoam":
         text = replace_scalar(text, "deltaT", "0.02")
@@ -197,8 +334,8 @@ def update_control_dict(case_dir: Path, end_time: float, solver: str) -> None:
     path.write_text(text)
 
 
-def update_outlet_pressure(case_dir: Path, outlet_pressure: str) -> None:
-    path = case_dir / LATEST_TIME / "p"
+def update_outlet_pressure(case_dir: Path, time_name: str, outlet_pressure: str) -> None:
+    path = case_dir / time_name / "p"
     text = path.read_text()
     if outlet_pressure == "fixedValue":
         body = "        type            fixedValue;\n        value           uniform 0;"
@@ -236,7 +373,13 @@ RAS
     )
 
 
-def scalar_field_text(name: str, dimensions: str, internal: str, boundaries: dict[str, str]) -> str:
+def scalar_field_text(
+    name: str,
+    dimensions: str,
+    internal: str,
+    boundaries: dict[str, str],
+    time_name: str,
+) -> str:
     patch_order = [
         "airfoil_upper",
         "airfoil_lower",
@@ -252,7 +395,7 @@ def scalar_field_text(name: str, dimensions: str, internal: str, boundaries: dic
         "    version     2.0;",
         "    format      ascii;",
         "    class       volScalarField;",
-        f'    location    "{LATEST_TIME}";',
+        f'    location    "{time_name}";',
         f"    object      {name};",
         "}",
         f"dimensions      {dimensions};",
@@ -269,8 +412,8 @@ def scalar_field_text(name: str, dimensions: str, internal: str, boundaries: dic
     return "\n".join(lines) + "\n"
 
 
-def write_sst_fields(case_dir: Path) -> None:
-    time_dir = case_dir / LATEST_TIME
+def write_sst_fields(case_dir: Path, time_name: str) -> None:
+    time_dir = case_dir / time_name
     k = f"{K_INF:.9g}"
     omega = f"{OMEGA_INF_LM:.12g}"
     walls = {
@@ -304,18 +447,20 @@ def write_sst_fields(case_dir: Path) -> None:
             k_boundaries[patch] = f"        type            freestream;\n        freestreamValue uniform {k};\n        value           uniform {k};"
             omega_boundaries[patch] = f"        type            freestream;\n        freestreamValue uniform {omega};\n        value           uniform {omega};"
             nut_boundaries[patch] = "        type            calculated;\n        value           uniform 0;"
-    (time_dir / "k").write_text(scalar_field_text("k", "[0 2 -2 0 0 0 0]", f"uniform {k}", k_boundaries))
+    (time_dir / "k").write_text(
+        scalar_field_text("k", "[0 2 -2 0 0 0 0]", f"uniform {k}", k_boundaries, time_name)
+    )
     (time_dir / "omega").write_text(
-        scalar_field_text("omega", "[0 0 -1 0 0 0 0]", f"uniform {omega}", omega_boundaries)
+        scalar_field_text("omega", "[0 0 -1 0 0 0 0]", f"uniform {omega}", omega_boundaries, time_name)
     )
     (time_dir / "nut").write_text(
-        scalar_field_text("nut", "[0 2 -1 0 0 0 0]", "uniform 0", nut_boundaries)
+        scalar_field_text("nut", "[0 2 -1 0 0 0 0]", "uniform 0", nut_boundaries, time_name)
     )
 
 
-def write_lm_fields(case_dir: Path) -> None:
-    write_sst_fields(case_dir)
-    time_dir = case_dir / LATEST_TIME
+def write_lm_fields(case_dir: Path, time_name: str) -> None:
+    write_sst_fields(case_dir, time_name)
+    time_dir = case_dir / time_name
     gamma = f"{GAMMA_INF:g}"
     retheta = f"{RE_THETA_T_INF:g}"
     walls = {
@@ -346,10 +491,14 @@ def write_lm_fields(case_dir: Path) -> None:
             gamma_boundaries[patch] = f"        type            freestream;\n        freestreamValue uniform {gamma};\n        value           uniform {gamma};"
             retheta_boundaries[patch] = f"        type            freestream;\n        freestreamValue uniform {retheta};\n        value           uniform {retheta};"
     (time_dir / "gammaInt").write_text(
-        scalar_field_text("gammaInt", "[0 0 0 0 0 0 0]", f"uniform {gamma}", gamma_boundaries)
+        scalar_field_text(
+            "gammaInt", "[0 0 0 0 0 0 0]", f"uniform {gamma}", gamma_boundaries, time_name
+        )
     )
     (time_dir / "ReThetat").write_text(
-        scalar_field_text("ReThetat", "[0 0 0 0 0 0 0]", f"uniform {retheta}", retheta_boundaries)
+        scalar_field_text(
+            "ReThetat", "[0 0 0 0 0 0 0]", f"uniform {retheta}", retheta_boundaries, time_name
+        )
     )
 
 
@@ -598,22 +747,33 @@ method          scotch;
     )
 
 
-def configure_case(case_dir: Path, spec: CaseSpec, end_time: float, np: int) -> None:
-    update_control_dict(case_dir, end_time, spec.solver)
-    update_outlet_pressure(case_dir, spec.outlet_pressure)
+def configure_case(
+    case_dir: Path,
+    spec: CaseSpec,
+    start_time_name: str,
+    end_time: float,
+    np: int,
+    initialize_turbulence_fields: bool,
+    source_case: Path,
+) -> None:
+    start_time = float(start_time_name)
+    update_control_dict(case_dir, start_time, end_time, spec.solver)
+    update_outlet_pressure(case_dir, start_time_name, spec.outlet_pressure)
     if spec.add_pref:
         add_pref_to_simple(case_dir / "system/fvSolution")
     if spec.turbulence_model != "SpalartAllmaras":
         write_turbulence_properties(case_dir, spec.turbulence_model)
         first_order_turb = spec.relaxation == "lm_very_conservative"
         if spec.turbulence_model == "kOmegaSST":
-            write_sst_fields(case_dir)
+            if initialize_turbulence_fields:
+                write_sst_fields(case_dir, start_time_name)
             write_sst_schemes(case_dir, first_order_turbulence=False, transient=spec.solver == "pimpleFoam")
             write_sst_solution(case_dir, u_relax=0.45, turb_relax=0.3, p_relax=0.2)
             if spec.solver == "pimpleFoam":
                 convert_solution_to_pimple(case_dir)
         elif spec.turbulence_model == "kOmegaSSTLM":
-            write_lm_fields(case_dir)
+            if initialize_turbulence_fields:
+                write_lm_fields(case_dir, start_time_name)
             write_lm_schemes(
                 case_dir,
                 first_order_turbulence=first_order_turb,
@@ -630,10 +790,11 @@ def configure_case(case_dir: Path, spec: CaseSpec, end_time: float, np: int) -> 
     write_decompose_dict(case_dir, np)
     manifest = {
         "case": spec.name,
-        "source_case": str(SOURCE_CASE),
+        "source_case": str(source_case),
         "same_mesh": True,
-        "start_time": LATEST_TIME,
+        "start_time": start_time,
         "end_time": end_time,
+        "initialized_turbulence_fields": initialize_turbulence_fields,
         "solver": spec.solver,
         "outlet_pressure": spec.outlet_pressure,
         "turbulence_model": spec.turbulence_model,
@@ -663,11 +824,31 @@ def openfoam_cmd(shell_cmd: str) -> list[str]:
     return [str(OPENFOAM), "-c", shell_cmd]
 
 
-def run_openfoam_case(case_dir: Path, spec: CaseSpec, np: int) -> dict[str, object]:
-    status: dict[str, object] = {"case": spec.name, "ok": False}
+def case_shell_command(case_dir: Path, command: str) -> str:
+    return f"cd {shlex.quote(str(case_dir))} && {command}"
+
+
+def run_openfoam_case(
+    case_dir: Path,
+    spec: CaseSpec,
+    np: int,
+    start_time: float,
+    end_time: float,
+    max_rss_bytes: int,
+) -> dict[str, object]:
+    status: dict[str, object] = {
+        "case": spec.name,
+        "ok": False,
+        "start_time": start_time,
+        "target_end_time": end_time,
+    }
     t0 = time.time()
     dry_log = case_dir / f"log.dry_run_{spec.name}.txt"
-    rc = run(openfoam_cmd(f"cd {case_dir} && {spec.solver} -dry-run"), cwd=Path("/tmp"), log_path=dry_log)
+    rc = run(
+        openfoam_cmd(case_shell_command(case_dir, f"{spec.solver} -dry-run")),
+        cwd=case_dir.parent,
+        log_path=dry_log,
+    )
     status["dry_run_returncode"] = rc
     if rc != 0:
         status["failure_stage"] = "dry-run"
@@ -675,39 +856,63 @@ def run_openfoam_case(case_dir: Path, spec: CaseSpec, np: int) -> dict[str, obje
         return status
 
     if np <= 1:
-        solve_log = case_dir / f"log.{spec.solver}_{spec.name}.txt"
-        rc = run(openfoam_cmd(f"cd {case_dir} && {spec.solver}"), cwd=Path("/tmp"), log_path=solve_log)
-        status["solve_returncode"] = rc
-        if rc != 0:
+        solve_log = case_dir / f"log.{spec.solver}_{spec.name}_{start_time:g}_to_{end_time:g}.txt"
+        monitored = run_monitored(
+            openfoam_cmd(case_shell_command(case_dir, spec.solver)),
+            cwd=case_dir.parent,
+            log_path=solve_log,
+            max_rss_bytes=max_rss_bytes,
+        )
+        status.update({f"solve_{key}": value for key, value in monitored.items()})
+        status["solve_log"] = str(solve_log)
+        if monitored["stopped_by_memory_guard"]:
+            status["failure_stage"] = "memory-guard"
+            status["elapsed_s"] = time.time() - t0
+            return status
+        if monitored["returncode"] != 0:
             status["failure_stage"] = spec.solver
             status["elapsed_s"] = time.time() - t0
             return status
-        status["ok"] = True
+        status["process_ok"] = True
         status["elapsed_s"] = time.time() - t0
         return status
 
     decomp_log = case_dir / f"log.decomposePar_{spec.name}.txt"
-    rc = run(openfoam_cmd(f"cd {case_dir} && decomposePar -force -latestTime"), cwd=Path("/tmp"), log_path=decomp_log)
+    rc = run(
+        openfoam_cmd(case_shell_command(case_dir, "decomposePar -force -latestTime")),
+        cwd=case_dir.parent,
+        log_path=decomp_log,
+    )
     status["decompose_returncode"] = rc
     if rc != 0:
         status["failure_stage"] = "decomposePar"
         status["elapsed_s"] = time.time() - t0
         return status
 
-    solve_log = case_dir / f"log.{spec.solver}_{spec.name}.txt"
-    rc = run(
-        openfoam_cmd(f"cd {case_dir} && mpirun -np {np} {spec.solver} -parallel"),
-        cwd=Path("/tmp"),
+    solve_log = case_dir / f"log.{spec.solver}_{spec.name}_{start_time:g}_to_{end_time:g}.txt"
+    monitored = run_monitored(
+        openfoam_cmd(case_shell_command(case_dir, f"mpirun -np {np} {spec.solver} -parallel")),
+        cwd=case_dir.parent,
         log_path=solve_log,
+        max_rss_bytes=max_rss_bytes,
     )
-    status["solve_returncode"] = rc
-    if rc != 0:
+    status.update({f"solve_{key}": value for key, value in monitored.items()})
+    status["solve_log"] = str(solve_log)
+    if monitored["stopped_by_memory_guard"]:
+        status["failure_stage"] = "memory-guard"
+        status["elapsed_s"] = time.time() - t0
+        return status
+    if monitored["returncode"] != 0:
         status["failure_stage"] = spec.solver
         status["elapsed_s"] = time.time() - t0
         return status
 
     recon_log = case_dir / f"log.reconstructPar_{spec.name}.txt"
-    rc = run(openfoam_cmd(f"cd {case_dir} && reconstructPar -latestTime"), cwd=Path("/tmp"), log_path=recon_log)
+    rc = run(
+        openfoam_cmd(case_shell_command(case_dir, "reconstructPar -latestTime")),
+        cwd=case_dir.parent,
+        log_path=recon_log,
+    )
     status["reconstruct_returncode"] = rc
     if rc != 0:
         status["failure_stage"] = "reconstructPar"
@@ -718,7 +923,7 @@ def run_openfoam_case(case_dir: Path, spec: CaseSpec, np: int) -> dict[str, obje
     for processor_dir in case_dir.glob("processor*"):
         if processor_dir.is_dir():
             shutil.rmtree(processor_dir)
-    status["ok"] = True
+    status["process_ok"] = True
     status["elapsed_s"] = time.time() - t0
     return status
 
@@ -776,7 +981,9 @@ def parse_force_coeffs_log(path: Path) -> list[dict[str, float]]:
     in_block = False
     pending: dict[str, float] = {}
     time_re = re.compile(r"^Time =\s+([-+0-9.eE]+)")
-    coeff_re = re.compile(r"^\s*(Cd|Cl):\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)")
+    coeff_re = re.compile(
+        r"^\s*(Cd|Cl|CmPitch):\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)"
+    )
     for line in path.read_text(errors="ignore").splitlines():
         time_match = time_re.match(line)
         if time_match:
@@ -800,7 +1007,9 @@ def parse_force_coeffs_log(path: Path) -> list[dict[str, float]]:
                 pending["CD_viscous"] = viscous
             elif name == "Cl":
                 pending["CL"] = total
-        if {"CD_total", "CD_pressure", "CD_viscous", "CL"}.issubset(pending) and current_time is not None:
+            elif name == "CmPitch":
+                pending["CmPitch"] = total
+        if {"CD_total", "CD_pressure", "CD_viscous", "CL", "CmPitch"}.issubset(pending) and current_time is not None:
             rows.append(
                 {
                     "time": current_time,
@@ -808,6 +1017,7 @@ def parse_force_coeffs_log(path: Path) -> list[dict[str, float]]:
                     "CD_pressure": pending["CD_pressure"],
                     "CD_viscous": pending["CD_viscous"],
                     "CL": pending["CL"],
+                    "CmPitch": pending["CmPitch"],
                 }
             )
             in_block = False
@@ -819,6 +1029,46 @@ def dot(a: Iterable[float], b: Iterable[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
+def merge_force_rows(row_groups: Iterable[Iterable[dict[str, float]]]) -> list[dict[str, float]]:
+    by_time: dict[float, dict[str, float]] = {}
+    for rows in row_groups:
+        for row in rows:
+            by_time[float(row["time"])] = row
+    return [by_time[key] for key in sorted(by_time)]
+
+
+def summarize_force_rows(rows: list[dict[str, float]]) -> dict[str, object]:
+    if not rows:
+        return {"stable_force_window": False, "force_window_status": "missing"}
+    result: dict[str, object] = {
+        "n_force_rows": len(rows),
+        "final_time": rows[-1]["time"],
+        "stable_force_window": False,
+    }
+    window = rows[-MIN_FORCE_WINDOW_ROWS:]
+    for key in ("CD_total", "CD_pressure", "CD_viscous", "CL", "CmPitch"):
+        if not all(key in row for row in window):
+            continue
+        vals = [float(row[key]) for row in window]
+        result[f"{key}_last"] = rows[-1][key]
+        result[f"{key}_mean_final_window"] = sum(vals) / len(vals)
+        result[f"{key}_range_final_window"] = max(vals) - min(vals)
+        result[f"{key}_relative_span_final_window"] = (
+            math.inf if abs(result[f"{key}_mean_final_window"]) < 1.0e-16
+            else result[f"{key}_range_final_window"] / abs(result[f"{key}_mean_final_window"])
+        )
+    if len(rows) < MIN_FORCE_WINDOW_ROWS:
+        result["force_window_status"] = "insufficient_rows"
+        return result
+    result["force_window_status"] = "available"
+    result["stable_force_window"] = bool(
+        float(result.get("CD_total_relative_span_final_window", math.inf)) < MAX_FORCE_RELATIVE_SPAN
+        and float(result.get("CL_relative_span_final_window", math.inf)) < MAX_FORCE_RELATIVE_SPAN
+        and float(result.get("CmPitch_range_final_window", math.inf)) < MAX_CM_PITCH_ABSOLUTE_SPAN
+    )
+    return result
+
+
 def summarize_case(case_dir: Path, spec: CaseSpec, status: dict[str, object]) -> dict[str, object]:
     summary: dict[str, object] = {
         "case": spec.name,
@@ -826,37 +1076,43 @@ def summarize_case(case_dir: Path, spec: CaseSpec, status: dict[str, object]) ->
         "outlet_pressure": spec.outlet_pressure,
         "turbulence_model": spec.turbulence_model,
         "note": spec.attempt_note,
-        "ok": bool(status.get("ok")),
+        "process_ok": bool(status.get("process_ok", status.get("ok"))),
+        "ok": False,
         "failure_stage": status.get("failure_stage", ""),
         "elapsed_s": status.get("elapsed_s", ""),
+        "peak_rss_bytes": status.get("solve_peak_rss_bytes", ""),
     }
     force_files = sorted((case_dir / "postProcessing" / FORCE_OBJECT).glob("*/force.dat"))
-    rows: list[dict[str, float]] = []
+    row_groups: list[list[dict[str, float]]] = []
+    force_sources: list[str] = []
     if force_files:
-        force_file = force_files[-1]
-        rows = parse_force_file(force_file)
-        summary["force_file"] = str(force_file)
-    else:
-        log_file = case_dir / f"log.{spec.solver}_{spec.name}.txt"
-        if log_file.exists():
-            rows = parse_force_coeffs_log(log_file)
-            summary["force_file"] = str(log_file)
-            summary["force_source"] = "solver_log_forceCoeffs_total_physical"
+        for force_file in force_files:
+            row_groups.append(parse_force_file(force_file))
+            force_sources.append(str(force_file))
+    log_files = sorted(case_dir.glob(f"log.{spec.solver}_{spec.name}*.txt"), key=lambda path: path.stat().st_mtime)
+    for log_file in log_files:
+        row_groups.append(parse_force_coeffs_log(log_file))
+        force_sources.append(str(log_file))
+    rows = merge_force_rows(row_groups)
+    summary["force_file"] = ";".join(force_sources)
     if not rows:
-        summary["force_file"] = summary.get("force_file", "")
+        if summary["process_ok"] and not summary["failure_stage"]:
+            summary["failure_stage"] = "force-history-missing"
+        summary.update(summarize_force_rows(rows))
         return summary
-    summary["n_force_rows"] = len(rows)
-    last = rows[-1]
-    window = rows[-100:] if len(rows) >= 100 else rows
-    for key in ("CD_total", "CD_pressure", "CD_viscous", "CL"):
-        vals = [float(r[key]) for r in window]
-        summary[f"{key}_last"] = last[key]
-        summary[f"{key}_mean_final_window"] = sum(vals) / len(vals)
-        summary[f"{key}_range_final_window"] = max(vals) - min(vals)
-    summary["final_time"] = last["time"]
-    summary["stable_force_window"] = (
-        float(summary.get("CD_total_range_final_window", 1.0)) < 5e-4
-        and float(summary.get("CL_range_final_window", 1.0)) < 8e-3
+    summary.update(summarize_force_rows(rows))
+    start_time = float(status.get("start_time", -math.inf))
+    summary["advanced_past_start"] = float(summary["final_time"]) > start_time
+    if summary["process_ok"] and not summary["advanced_past_start"]:
+        summary["failure_stage"] = "time-not-advanced"
+    elif summary["process_ok"] and summary["force_window_status"] == "insufficient_rows":
+        summary["failure_stage"] = "force-window-insufficient"
+    elif summary["process_ok"] and not summary["stable_force_window"]:
+        summary["failure_stage"] = "force-window-unstable"
+    summary["ok"] = bool(
+        summary["process_ok"]
+        and summary["advanced_past_start"]
+        and summary["stable_force_window"]
     )
     return summary
 
@@ -869,9 +1125,12 @@ def write_summary(rows: list[dict[str, object]]) -> None:
         "solver",
         "outlet_pressure",
         "turbulence_model",
+        "process_ok",
         "ok",
         "failure_stage",
         "stable_force_window",
+        "force_window_status",
+        "advanced_past_start",
         "final_time",
         "CD_pressure_last",
         "CD_pressure_mean_final_window",
@@ -885,17 +1144,46 @@ def write_summary(rows: list[dict[str, object]]) -> None:
         "CL_last",
         "CL_mean_final_window",
         "CL_range_final_window",
+        "CL_relative_span_final_window",
+        "CmPitch_last",
+        "CmPitch_mean_final_window",
+        "CmPitch_range_final_window",
+        "CmPitch_relative_span_final_window",
+        "CD_total_relative_span_final_window",
         "elapsed_s",
+        "peak_rss_bytes",
         "n_force_rows",
         "force_file",
         "note",
     ]
     with csv_path.open("w", newline="") as fh:
-        writer = csv.DictWriter(fh, fieldnames=keys)
+        writer = csv.DictWriter(fh, fieldnames=keys, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({k: row.get(k, "") for k in keys})
     (OUT_ROOT / "model_architecture_sensitivity_summary.json").write_text(json.dumps(rows, indent=2) + "\n")
+
+
+def resummarize_existing(case_names: list[str]) -> int:
+    rows: list[dict[str, object]] = []
+    for name in case_names:
+        spec = CASE_SPECS[name]
+        case_dir = OUT_ROOT / "openfoam_cases" / name
+        if not case_dir.exists():
+            continue
+        status_path = case_dir / "architecture_sensitivity_status.json"
+        status: dict[str, object] = {}
+        if status_path.exists():
+            status = json.loads(status_path.read_text())
+        manifest_path = case_dir / "architecture_sensitivity_manifest.json"
+        if manifest_path.exists():
+            manifest = json.loads(manifest_path.read_text())
+            status.setdefault("start_time", manifest.get("start_time", LATEST_TIME))
+        else:
+            status.setdefault("start_time", LATEST_TIME)
+        rows.append(summarize_case(case_dir, spec, status))
+    write_summary(sorted(rows, key=lambda row: str(row["case"])))
+    return 0
 
 
 def copy_back(run_case: Path, dest_case: Path) -> None:
@@ -905,10 +1193,26 @@ def copy_back(run_case: Path, dest_case: Path) -> None:
     shutil.copytree(run_case, dest_case)
 
 
-def run_cases(case_names: list[str], end_time: float, np: int, keep_tmp: bool) -> int:
+def run_cases(
+    case_names: list[str],
+    end_time: float | None,
+    iterations: int | None,
+    np: int,
+    keep_tmp: bool,
+    resume: bool,
+    max_rss_gb: float,
+    tmp_root: Path,
+    min_scratch_free_gb: float,
+) -> int:
     if not SOURCE_CASE.exists():
         raise FileNotFoundError(SOURCE_CASE)
-    TMP_ROOT.mkdir(parents=True, exist_ok=True)
+    tmp_root.mkdir(parents=True, exist_ok=True)
+    scratch_free_gb = shutil.disk_usage(tmp_root).free / 1.0e9
+    if scratch_free_gb < min_scratch_free_gb:
+        raise RuntimeError(
+            f"Scratch free space {scratch_free_gb:.2f} GB is below the "
+            f"{min_scratch_free_gb:.2f} GB safety gate: {tmp_root}"
+        )
     (OUT_ROOT / "openfoam_cases").mkdir(parents=True, exist_ok=True)
     summaries: list[dict[str, object]] = []
     if (OUT_ROOT / "model_architecture_sensitivity_summary.json").exists():
@@ -920,11 +1224,40 @@ def run_cases(case_names: list[str], end_time: float, np: int, keep_tmp: bool) -
 
     for name in case_names:
         spec = CASE_SPECS[name]
-        run_case = TMP_ROOT / name
+        run_case = tmp_root / name
         dest_case = OUT_ROOT / "openfoam_cases" / name
-        copy_lean_source(run_case)
-        configure_case(run_case, spec, end_time, np)
-        status = run_openfoam_case(run_case, spec, np)
+        if resume:
+            if not dest_case.exists():
+                raise FileNotFoundError(f"Cannot resume missing case: {dest_case}")
+            source = dest_case
+        else:
+            source = SOURCE_CASE
+        copy_lean_case(source, run_case, include_post_processing=resume)
+        start_time_name = latest_time_name(run_case)
+        start_time = float(start_time_name)
+        target_end_time = start_time + iterations if iterations is not None else end_time
+        if target_end_time is None or target_end_time <= start_time:
+            raise ValueError(
+                f"Target end time {target_end_time} must be greater than case start time {start_time}"
+            )
+        initialize_turbulence_fields = not resume and spec.turbulence_model != "SpalartAllmaras"
+        configure_case(
+            run_case,
+            spec,
+            start_time_name,
+            target_end_time,
+            np,
+            initialize_turbulence_fields=initialize_turbulence_fields,
+            source_case=source,
+        )
+        status = run_openfoam_case(
+            run_case,
+            spec,
+            np,
+            start_time,
+            target_end_time,
+            max_rss_bytes=int(max_rss_gb * 1.0e9),
+        )
         (run_case / "architecture_sensitivity_status.json").write_text(json.dumps(status, indent=2) + "\n")
         copy_back(run_case, dest_case)
         summary = summarize_case(dest_case, spec, status)
@@ -949,11 +1282,41 @@ def main(argv: list[str]) -> int:
         ],
         choices=sorted(CASE_SPECS),
     )
-    parser.add_argument("--end-time", type=float, default=DEFAULT_END_TIME)
+    end_group = parser.add_mutually_exclusive_group()
+    end_group.add_argument("--end-time", type=float)
+    end_group.add_argument("--iterations", type=int)
     parser.add_argument("--np", type=int, default=1)
+    parser.add_argument("--allow-parallel", action="store_true")
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--summarize-only", action="store_true")
+    parser.add_argument("--max-rss-gb", type=float, default=default_max_rss_gb())
+    parser.add_argument("--tmp-root", type=Path, default=TMP_ROOT)
+    parser.add_argument("--min-scratch-free-gb", type=float, default=DEFAULT_MIN_SCRATCH_FREE_GB)
     parser.add_argument("--keep-tmp", action="store_true")
     args = parser.parse_args(argv)
-    return run_cases(args.cases, args.end_time, args.np, args.keep_tmp)
+    if args.summarize_only:
+        return resummarize_existing(args.cases)
+    if args.np > 1 and not args.allow_parallel:
+        parser.error("--np > 1 requires --allow-parallel; serial is the RAM-safe default")
+    if args.max_rss_gb <= 0:
+        parser.error("--max-rss-gb must be positive")
+    if args.min_scratch_free_gb <= 0:
+        parser.error("--min-scratch-free-gb must be positive")
+    end_time = args.end_time
+    iterations = args.iterations
+    if end_time is None and iterations is None:
+        iterations = 50
+    return run_cases(
+        args.cases,
+        end_time=end_time,
+        iterations=iterations,
+        np=args.np,
+        keep_tmp=args.keep_tmp,
+        resume=args.resume,
+        max_rss_gb=args.max_rss_gb,
+        tmp_root=args.tmp_root,
+        min_scratch_free_gb=args.min_scratch_free_gb,
+    )
 
 
 if __name__ == "__main__":

@@ -2,12 +2,30 @@
 
 ## 0. Current Gate: Bounded WO-006 Data-Authority Restored
 
-**更新日期：2026-05-21。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
+**更新日期：2026-08-02。** Baseline A data-authority 已恢復到足以讓 WO-006 進行 bounded
 SU2/OpenFOAM aero calibration；這不是 release truth、RFQ/procurement truth 或 final aircraft sign-off。
 舊的 `baseline_A_release_system_ready` 是 historical/generated evidence under data-authority repair,
 not active current truth；舊的 `carbon_tube_rfq_pack_ready` 也是 historical/generated evidence under
 data-authority repair, not active current truth。`baseline_A_freeze_reasonable` 只能當舊 generated
 screening evidence 讀，不是現行 release / procurement truth。
+
+**2026-08-02 WO-006 recovery gate:** Current local execution route is the
+accepted Fine full-wing OpenFOAM mesh and its same-mesh SST/LM bracket, not the
+historical SU2 custom mixed-handoff route. The accepted SA/Fine result remains
+`CL=1.160934`, `CD_total_physical=0.03326556`; it is a grid-stable high-drag
+warning, not a low-Re HPA drag baseline. Existing SST/LM rows contain only `50`
+iterations and the old `pimpleFoam` probe produced no force history, so none is
+promoted.
+
+`scripts/run_wo006_hpa_model_architecture_sensitivity.py` now requires at least
+`100` force rows, includes CmPitch in the gate, rejects missing/no-advance force
+histories, writes steady checkpoints no more than `25` iterations apart,
+supports `--resume`, defaults to serial, enforces a process-tree RSS guard, and
+uses Samsung-SSD scratch with a free-space gate. This is runner qualification,
+not a new CFD coefficient. The next single CFD action is the bounded serial
+Fine `kOmegaSSTLM` r2 continuation defined in
+`docs/work_orders/WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`; do not run
+same-mesh physical-time URANS or restart SU2 mesh archaeology first.
 
 **2026-05-22 WO-006 HPA OpenFOAM grid-family solver result:** The active
 solver-campaign artifact is now

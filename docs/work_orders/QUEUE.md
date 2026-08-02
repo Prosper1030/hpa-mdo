@@ -4,6 +4,15 @@ Queue owner: 代理總工程師 / AI 工作總控.
 
 ## Current Bounded WO-006 Gate
 
+**2026-08-02 highest-priority ready work order:**
+`WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`. Run it serially on the
+accepted Fine full-wing OpenFOAM mesh using the qualified resumable runner.
+Success means one stable SST/LM same-mesh engineering diagnostic with a
+100-row force/CmPitch window and complete transition/yPlus/force evidence. The
+historical SU2 custom mixed-handoff route is not the active local execution
+route. Do not start another mesh ladder, physical-time Fine URANS, or design
+power work first.
+
 Baseline A data-authority is restored for bounded WO-006 aero calibration only.
 Do not treat this as release truth, RFQ/procurement truth, or final aircraft
 sign-off. Do not start WO-007 QPROP/XROTOR, procurement/RFQ actions, vendor

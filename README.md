@@ -1,5 +1,21 @@
 # HPA-MDO：人力飛機新概念設計管線
 
+## 2026-08-02 WO-006 CFD Recovery Front Door
+
+The current executable CFD lane is the accepted Fine full-wing OpenFOAM mesh.
+Its SA result (`CL=1.160934`, `CD_total_physical=0.03326556`) is numerically
+grid-stable but remains a high-drag warning, not final low-Re HPA drag truth.
+The old SST/LM probes have only 50 force rows, and the old `pimpleFoam` case did
+not advance to a usable force history.
+
+Use `scripts/run_wo006_hpa_model_architecture_sensitivity.py` for the next
+bounded run. It now requires a 100-row force window, writes resumable 25-step
+steady checkpoints, rejects empty force histories, defaults to serial, stops on
+process-tree RSS excess, and uses Samsung-SSD scratch instead of the nearly full
+system `/tmp`. The next work order is
+`docs/work_orders/WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`. Historical
+SU2 custom mixed-handoff artifacts remain forensic evidence only.
+
 ## 2026-05-22 WO-006 HPA OpenFOAM Grid-Family Result
 
 Active solver-campaign artifact:

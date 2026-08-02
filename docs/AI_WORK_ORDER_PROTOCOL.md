@@ -6,6 +6,16 @@ team release plus AI work-order queue. It applies to Codex threads working in
 
 ## Current Bounded WO-006 Gate
 
+**2026-08-02 superseding execution note:** The active local CFD execution lane
+is the accepted Fine full-wing OpenFOAM same-mesh SST/LM recovery, not the
+historical SU2 custom mixed-handoff route described later in this document.
+Start from `CURRENT_MAINLINE.md` and
+`docs/work_orders/WO-006_OPENFOAM_TRANSITION_BASELINE_RECOVERY.md`. Keep the SA
+Fine `CD=0.03326556` as a high-drag warning only. A valid replacement requires
+at least 100 force rows, CmPitch stability, evolved transition fields, yPlus,
+force split, and RAM/scratch safety evidence. Do not run parallel Fine cases,
+same-mesh physical-time URANS, a new mesh ladder, or design-power updates.
+
 Baseline A data-authority is restored only for bounded WO-006 SU2/OpenFOAM aero
 calibration.
 Before any worker starts WO-006, WO-007 QPROP/XROTOR, RFQ procurement, vendor
