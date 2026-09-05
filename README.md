@@ -1,4 +1,99 @@
-# HPA-MDO：人力飛機新概念設計管線
+# WO-006 — OpenFOAM Aerodynamic Verification Campaign
+
+> **Research branch of [`hpa-mdo`](https://github.com/Prosper1030/hpa-mdo). Evidence, not a
+> starting point.**
+>
+> 88 commits, 2026-05-14 → 2026-08-02: a full-wing RANS verification study on the Black Cat 004
+> human-powered aircraft — grid-convergence ladder, provenance locks, cross-model reconciliation,
+> and a transition-model campaign that was tested against a force credibility gate and **failed
+> it**.
+>
+> **The transition campaign was not promoted to a design-authoritative result, because the force
+> credibility gate was not satisfied.** That is the outcome of this campaign. It is a
+> verification result, not a successful-final-CFD claim, and it should not be read as one.
+>
+> For the project as a whole, start at
+> **[hpa-mdo-framework](https://github.com/Prosper1030/hpa-mdo-framework)**.
+
+## Start here — five entry points
+
+You do not need to read the 988 output files, or the log below.
+
+| # | Document | What it shows |
+|---|---|---|
+| 1 | [`final_hpa_grid_independence_verdict.md`](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_solver_campaign_repair/final_hpa_grid_independence_verdict.md) | **Read first.** Six numbered questions answered directly: the operating-condition lock, the Coarse/Medium/Fine table, why Coarse is excluded rather than averaged in, why `CD ≈ 0.0315` cannot be trusted, and — question 6 — that no design-power update is authorized. |
+| 2 | [`recovery_report.md`](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_openfoam_transition_baseline_recovery/recovery_report.md) | The rejected transition campaign. Locked basis: OpenFOAM v2512 `simpleFoam`, serial, 6,090,240-cell Fine mesh, with SHA-256 sets of the mesh `boundary`/`points`/`faces`/`owner`/`neighbour` files matching the accepted case exactly. Force tables are labelled *"reported to diagnose drift, not promoted as coefficients."* |
+| 3 | [`run_wo006_true_baseline_openfoam_grid_convergence.py`](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/scripts/run_wo006_true_baseline_openfoam_grid_convergence.py) · [its test](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/tests/test_wo006_true_baseline_openfoam_grid_convergence.py) | The ladder as an executable procedure with a regression test, not a campaign written up afterwards. |
+| 4 | Chordwise `Cp`: [root η=0.10](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_cp_reasonableness_check/cp_root_eta0p10.png) · [mid η=0.50](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_cp_reasonableness_check/cp_mid_eta0p50.png) · [outboard η=0.80](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_cp_reasonableness_check/cp_outboard_eta0p80.png) | Pressure distributions — the reasonableness check on the accepted solution. |
+| 5 | [`gog_drag_gap_audit/`](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/output/baseline_A_team_release/wo006_su2_baseline_validation/cfd_release_v0_hpa_solver_campaign_repair/gog_drag_gap_audit) | Six documents reconciling the CFD drag against the older XFOIL/AVL screening build-up, including `induced_drag_consistency_check.md` and `turbulence_transition_risk_report.md`. |
+
+## Result summary
+
+Accepted, grid-stable, Spalart–Allmaras, locked setup:
+
+| Grid | `CL_primary` | `CD_primary` | `CD_total_physical` |
+|---|---:|---:|---:|
+| Coarse | 1.159865 | 0.03565319 | 0.03571427 |
+| Medium | 1.158639 | 0.03369494 | 0.03375281 |
+| **Fine** | **1.160934** | **0.03320877** | **0.03326556** |
+
+Medium → Fine: `CL` +0.198 %, `CD` −1.443 %, `CmPitch` 0.682 %. Coarse → Medium moves
+`CD_total_physical` by −5.492 %, so Coarse is **outside the drag-asymptotic band and is
+excluded, not averaged in.**
+
+Rejected — both run on the identical accepted Fine mesh:
+
+| Model | `CD` span | `CL` span | `CmPitch` range |
+|---|---:|---:|---:|
+| Requirement | < 1 % | < 1 % | < 0.005 |
+| `kOmegaSSTLM` (Langtry–Menter, Tu = 0.5 %) | **10.699 %** | 1.467 % | **0.012387** |
+| `kOmegaSST` (fully turbulent) | **15.705 %** | 2.382 % | **0.015438** |
+
+Both produced finite residuals and acceptable wall `y+`, and both failed the gate; mean
+turbulent kinetic energy was still growing 52.4 % / 63.4 % over the sampled window. Both also
+showed a *lower* total `CD` than the accepted baseline — which decomposition showed to be
+cancellation between a rising pressure term and a falling viscous term, not a physical
+improvement.
+
+**Neither was promoted.** `CD_total_physical = 0.03326556` is a grid-stable high-drag warning,
+not low-Reynolds aerodynamic truth for this aircraft, and design power has not been revised
+from it.
+
+## What this campaign is, as a method
+
+```text
+campaign
+   ↓  numerical / grid verification        Coarse/Medium/Fine, asymptotic band checked
+   ↓  provenance / consistency checks      mesh SHA-256 lock, identical force basis
+   ↓  cross-model reconciliation           CFD vs XFOIL/AVL, induced-drag double-count check
+   ↓  credibility gate                     force-window spans, turbulence-state drift
+   ↓  REJECT PROMOTION when the gate fails no LM/SST result promoted
+```
+
+The last step is the content. Rejecting a favourable-looking result because the gate failed is
+what the campaign demonstrates.
+
+## Notes on this branch
+
+- **The 88 campaign commits are unmodified and keep their original SHAs.** Only two commits sit
+  on top: one removing third-party documents from the current tree, and this one adding the
+  orientation layer above.
+- **Removing those documents from the current tree does not remove them from history.** They
+  remain reachable from the `main`-line commits this branch descends from, and from this
+  branch's own commits. See [`docs/references.md`](https://github.com/Prosper1030/hpa-mdo/blob/research/wo006-openfoam-campaign/docs/references.md) for the citations
+  and the reasoning.
+- **Failed and rejected work is kept deliberately.** The log below records routes that did not
+  work, and that is the point of preserving it.
+- `main` of this repository is the legacy development record and carries its own banner.
+
+---
+
+# 以下為原有的 WO-006 開發紀錄，完整保留
+
+下面是 campaign 期間的逐次工程紀錄，逆時序，未經裁剪。它是**過程紀錄**，不是結論；
+結論見上方的 five entry points。
+
+## HPA-MDO：人力飛機新概念設計管線（原 README 標題）
 
 ## 2026-08-02 WO-006 OpenFOAM Transition Recovery Result
 
