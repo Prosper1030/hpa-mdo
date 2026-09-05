@@ -13,8 +13,12 @@
 > |---|---|
 > | **[hpa-mdo-framework](https://github.com/Prosper1030/hpa-mdo-framework)** | **Start here** — project overview, architecture, verification status |
 > | [hpa-core](https://github.com/Prosper1030/hpa-core) | Trusted dual-beam structural analysis kernel |
-> | [hpa-meshing](https://github.com/Prosper1030/hpa-meshing) | Geometry / meshing / CFD research line |
+> | `hpa-meshing` | Paused meshing / CFD productization line — publication pending |
 > | `hpa-next` | Active application and orchestration workspace (private) |
+>
+> The **WO-006 OpenFOAM verification campaign** — the grid-convergence ladder and the
+> transition study that failed its credibility gate — is published as a branch of this
+> repository: [`research/wo006-openfoam-campaign`](https://github.com/Prosper1030/hpa-mdo/tree/research/wo006-openfoam-campaign).
 >
 > **What this repository still is:** 1,318 commits of development history from
 > 2026-04 to 2026-05, plus the shared git object store for the repositories
